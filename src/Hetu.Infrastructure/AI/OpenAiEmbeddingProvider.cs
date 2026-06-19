@@ -44,7 +44,12 @@ public class OpenAiEmbeddingProvider : IEmbeddingProvider
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
         var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException(
+                $"Embedding 请求失败 ({(int)response.StatusCode} {response.StatusCode}): {errorBody}");
+        }
 
         var result = await response.Content.ReadFromJsonAsync<OpenAiEmbeddingResponse>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("Embedding response was null");

@@ -30,7 +30,15 @@ public class SemanticSearchService : ISemanticSearchService
         if (provider == null)
             return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail("未配置 Embedding 模型");
 
-        var queryEmbedding = await provider.EmbedAsync(query.Trim(), cancellationToken);
+        float[] queryEmbedding;
+        try
+        {
+            queryEmbedding = await provider.EmbedAsync(query.Trim(), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail($"生成查询向量失败：{ex.Message}");
+        }
         var results = await _searchStrategy.SearchAsync(queryEmbedding, topK, cancellationToken);
 
         // 图谱增强：从搜索结果中扩展相关笔记
