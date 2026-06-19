@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 原型设计总览</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-6xl mx-auto px-8 py-12">
+        <!-- 标题 -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">Hetu 原型设计总览</h1>
+            <p class="text-lg text-gray-600">AI 增强的个人知识管理工具 - 所有功能页面与交互设计</p>
+        </div>
+
+        <!-- 主要页面 -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-desktop text-blue-500 mr-3"></i>
+                主要页面
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 笔记页 -->
+                <a href="index.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-blue-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-book-open text-blue-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">P0</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">笔记页</h3>
+                    <p class="text-sm text-gray-600 mb-4">笔记本树 + 笔记列表 + Markdown 双栏编辑器</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>笔记本无限层级嵌套</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>标签系统</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>Markdown 实时预览</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>AI 助手弹窗（续写/润色/翻译）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>历史版本入口</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>导出/分享入口</div>
+                    </div>
+                </a>
+
+                <!-- 对话页 -->
+                <a href="chat.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-green-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-comments text-green-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">P0</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">对话页</h3>
+                    <p class="text-sm text-gray-600 mb-4">会话组 + 话题列表 + 消息区</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>多会话组管理</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>话题切换与模型选择</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>流式对话展示</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>消息操作（复制/重新生成/保存）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>整理为笔记弹窗（风格选择/目标笔记本）</div>
+                    </div>
+                </a>
+
+                <!-- 知识图谱 -->
+                <a href="graph.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-purple-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-project-diagram text-purple-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">P2</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">知识图谱</h3>
+                    <p class="text-sm text-gray-600 mb-4">实体列表 + 图谱可视化 + 关系详情</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>实体搜索与筛选</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>交互式节点-边图</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>关系类型展示</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>来源笔记追溯</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>实体编辑与删除</div>
+                    </div>
+                </a>
+
+                <!-- 搜索页 -->
+                <a href="search.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-yellow-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-search text-yellow-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">P0</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">搜索页</h3>
+                    <p class="text-sm text-gray-600 mb-4">全文搜索 + 语义搜索 + 结果高亮</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>关键词搜索</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>语义相似度搜索</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>结果分类（笔记/对话）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>关键词高亮</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>高级筛选</div>
+                    </div>
+                </a>
+
+                <!-- 设置页 -->
+                <a href="settings.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-gray-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-cog text-gray-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">P0</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">设置页</h3>
+                    <p class="text-sm text-gray-600 mb-4">7 个设置选项卡，完整配置管理</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>应用设置（显示名称/主题）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>AI 模型（多供应商/默认模型）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>MCP Server 管理</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>Skill 技能管理</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>提示词库</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>数据库（SQLite/PostgreSQL）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>回收站</div>
+                    </div>
+                </a>
+
+                <!-- 历史版本 -->
+                <a href="history.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-indigo-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-history text-indigo-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">P1</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">历史版本</h3>
+                    <p class="text-sm text-gray-600 mb-4">版本列表 + 对比视图 + 回滚</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>版本历史列表（保留 20 个）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>并排对比视图</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>新增/删除内容高亮</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>版本回滚</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>导出特定版本</div>
+                    </div>
+                </a>
+
+                <!-- 导出与分享 -->
+                <a href="export.html" class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-all hover:border-pink-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-share-alt text-pink-600 text-xl"></i>
+                        </div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">P2</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">导出与分享</h3>
+                    <p class="text-sm text-gray-600 mb-4">多格式导出 + 批量导出 + 分享链接</p>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>单篇导出（Markdown/PDF/Word）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>批量导出（按笔记本）</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>导出选项配置</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>生成只读分享链接</div>
+                        <div><i class="fas fa-check text-green-500 mr-2"></i>链接有效期与密码设置</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- 共享资源 -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-folder-open text-orange-500 mr-3"></i>
+                共享资源
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-palette text-orange-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">styles.css</h3>
+                            <p class="text-sm text-gray-500">全局样式文件</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-600 space-y-1">
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>Markdown 预览样式</div>
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>滚动区域控制</div>
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>代码高亮样式</div>
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>响应式布局</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-bolt text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">app.js</h3>
+                            <p class="text-sm text-gray-500">交互逻辑文件</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-600 space-y-1">
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>设置页面切换逻辑</div>
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>弹窗控制函数</div>
+                        <div><i class="fas fa-code text-gray-400 mr-2"></i>页面初始化逻辑</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能覆盖统计 -->
+        <div class="bg-white rounded-lg border border-gray-200 p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <i class="fas fa-chart-pie text-green-500 mr-3"></i>
+                功能覆盖统计
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-green-600 mb-2">7</div>
+                    <div class="text-sm text-gray-600">主要页面</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-blue-600 mb-2">45+</div>
+                    <div class="text-sm text-gray-600">功能点</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-purple-600 mb-2">90%</div>
+                    <div class="text-sm text-gray-600">PRD 覆盖率</div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">已覆盖的核心功能</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>笔记本管理</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>笔记 CRUD</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>标签系统</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>全文搜索</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>语义搜索</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>对话模块</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>整理为笔记</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>AI 多模型</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>MCP Server</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Skill 技能</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>提示词库</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>知识图谱</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>历史版本</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>导出分享</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>数据库切换</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>回收站</div>
+                    <div class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>AI 助手</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="text-center mt-12 text-sm text-gray-500">
+            <p>Hetu 原型设计 · 基于 PRD v1.0</p>
+            <p class="mt-2">所有页面均为静态 HTML 原型，可直接在浏览器中打开查看</p>
+        </div>
+    </div>
+</body>
+</html>

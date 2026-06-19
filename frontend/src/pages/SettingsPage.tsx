@@ -1,0 +1,185 @@
+import { useEffect, useState } from 'react'
+import { Bot, Database, Puzzle, Settings, Sliders, Trash2, Wrench } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import AppLayout from '../components/AppLayout'
+import AiSettings from '../components/AiSettings'
+import PromptPresetManager from '../components/PromptPresetManager'
+import SkillManager from '../components/SkillManager'
+import ExportBackupPanel from '../components/ExportBackupPanel'
+import DatabaseSettings from '../components/DatabaseSettings'
+import McpServerManager from '../components/McpServerManager'
+import { useUIStore } from '../stores/uiStore'
+import { settingService } from '../services/settingService'
+
+type Theme = 'light' | 'dark' | 'system'
+type SettingsSection = 'app' | 'ai' | 'mcp' | 'skills' | 'prompts' | 'database' | 'trash'
+
+const settingsSections = [
+  { key: 'app', label: '应用设置', icon: Settings },
+  { key: 'ai', label: 'AI 模型', icon: Bot },
+  { key: 'mcp', label: 'MCP Server', icon: Wrench },
+  { key: 'skills', label: 'Skill 技能', icon: Puzzle },
+  { key: 'prompts', label: '提示词', icon: Sliders },
+  { key: 'database', label: '数据库', icon: Database },
+  { key: 'trash', label: '回收站', icon: Trash2 },
+] satisfies { key: SettingsSection; label: string; icon: typeof Settings }[]
+
+export default function SettingsPage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [activeSection, setActiveSection] = useState<SettingsSection>('app')
+  const appName = useUIStore((state) => state.appName)
+  const theme = useUIStore((state) => state.theme)
+  const setAppName = useUIStore((state) => state.setAppName)
+  const setTheme = useUIStore((state) => state.setTheme)
+
+  const { data: snapshot } = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingService.getSnapshot,
+  })
+
+  const setSetting = useMutation({
+    mutationFn: settingService.set,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    },
+  })
+
+  useEffect(() => {
+    if (snapshot && !setSetting.isPending) {
+      setAppName(snapshot.appName)
+      setTheme(snapshot.theme as Theme)
+    }
+  }, [snapshot, setAppName, setSetting.isPending, setTheme])
+
+  const handleAppNameChange = (value: string) => {
+    setAppName(value)
+    setSetting.mutate({ key: 'AppName', value })
+  }
+
+  const handleThemeChange = (value: Theme) => {
+    setTheme(value)
+    setSetting.mutate({ key: 'Theme', value })
+  }
+
+  const handleDataDirectoryChange = (value: string) => {
+    setSetting.mutate({ key: 'DataDirectory', value })
+  }
+
+  return (
+    <AppLayout
+      showSidebar={false}
+      mainContent={
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-5xl px-8 py-8">
+            <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-gray-100">设置</h1>
+            <div className="flex gap-8">
+              <aside className="w-56 shrink-0">
+                <nav className="space-y-1">
+                  {settingsSections.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setActiveSection(item.key)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
+                          activeSection === item.key
+                            ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-200'
+                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <Icon size={16} />
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </nav>
+              </aside>
+
+              <div className="min-w-0 flex-1 rounded-lg bg-white p-6 dark:bg-gray-900">
+                {activeSection === 'app' && <section className="space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">应用设置</h2>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      显示名称
+                    </label>
+                    <input
+                      type="text"
+                      value={appName}
+                      onChange={(e) => handleAppNameChange(e.target.value)}
+                      className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">应用顶部栏显示的标题</p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      主题模式
+                    </label>
+                    <div className="flex gap-3">
+                      {(['system', 'light', 'dark'] as Theme[]).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => handleThemeChange(t)}
+                          className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                            theme === t
+                              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200'
+                              : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          {t === 'light' && '亮色'}
+                          {t === 'dark' && '暗色'}
+                          {t === 'system' && '跟随系统'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      数据目录
+                    </label>
+                    <input
+                      type="text"
+                      defaultValue={snapshot?.dataDirectory || ''}
+                      onBlur={(e) => handleDataDirectoryChange(e.target.value)}
+                      placeholder="默认使用应用目录"
+                      className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">数据库文件和附件的存储位置，修改后需重启应用</p>
+                  </div>
+                  <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
+                    <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">数据备份</h3>
+                    <ExportBackupPanel />
+                  </div>
+                </section>}
+
+                {activeSection === 'database' && <DatabaseSettings />}
+                {activeSection === 'ai' && <AiSettings />}
+                {activeSection === 'prompts' && <PromptPresetManager />}
+                {activeSection === 'skills' && <SkillManager />}
+                {activeSection === 'trash' && (
+                  <section className="space-y-4">
+                    <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">回收站</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      回收站中保存了被删除的笔记。您可以在回收站中恢复或彻底删除笔记。
+                    </p>
+                    <button
+                      onClick={() => navigate('/trash')}
+                      className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+                    >
+                      打开回收站
+                    </button>
+                  </section>
+                )}
+                {activeSection === 'mcp' && <McpServerManager />}
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      {null}
+    </AppLayout>
+  )
+}

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/Hetu.Api/Hetu.Api.csproj" />
+  <Project Path="src/Hetu.Core/Hetu.Core.csproj" />
+  <Project Path="src/Hetu.Infrastructure/Hetu.Infrastructure.csproj" />
+  <Project Path="src/Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
+  <Project Path="src/Hetu.Shared/Hetu.Shared.csproj" />
+</Solution>

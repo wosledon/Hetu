@@ -1,0 +1,121 @@
+/* 字体导入 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* 全局样式 */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* 滚动区域控制 */
+.notebook-tree {
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.tag-list {
+    max-height: 20vh;
+    overflow-y: auto;
+}
+
+.note-list {
+    overflow-y: auto;
+}
+
+.editor-area {
+    overflow-y: auto;
+}
+
+.chat-sidebar {
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+.topic-list {
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+.message-area {
+    overflow-y: auto;
+}
+
+/* Markdown 预览样式 */
+.markdown-preview {
+    line-height: 1.75;
+}
+
+.markdown-preview h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 0.67em 0;
+}
+
+.markdown-preview h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0.75em 0;
+}
+
+.markdown-preview h3 {
+    font-size: 1.25em;
+    font-weight: bold;
+    margin: 0.83em 0;
+}
+
+.markdown-preview p {
+    margin: 1em 0;
+}
+
+.markdown-preview code {
+    background: #f3f4f6;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.markdown-preview pre {
+    background: #1f2937;
+    color: #f9fafb;
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.markdown-preview pre code {
+    background: transparent;
+    color: inherit;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+.markdown-preview li {
+    margin: 0.5em 0;
+}
+
+.markdown-preview blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1em;
+    color: #6b7280;
+    margin: 1em 0;
+}
+
+.markdown-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+    border: 1px solid #d1d5db;
+    padding: 0.5em;
+}
+
+.markdown-preview th {
+    background: #f9fafb;
+    font-weight: 600;
+}

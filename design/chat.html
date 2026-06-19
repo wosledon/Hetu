@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 对话</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-gray-800">Hetu</h1>
+            <div class="flex space-x-1">
+                <a href="index.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-book-open mr-2"></i>笔记
+                </a>
+                <a href="chat.html" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600">
+                    <i class="fas fa-comments mr-2"></i>对话
+                </a>
+                <a href="graph.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-2"></i>知识图谱
+                </a>
+                <a href="search.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-search mr-2"></i>搜索
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="settings.html" class="p-2 rounded-lg hover:bg-gray-100">
+                <i class="fas fa-cog text-gray-600"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div class="flex" style="height: calc(100vh - 4rem);">
+        <!-- 会话组列表 -->
+        <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">会话组</h2>
+                    <button class="p-1 rounded hover:bg-gray-100">
+                        <i class="fas fa-plus text-gray-500 text-sm"></i>
+                    </button>
+                </div>
+                <div class="relative">
+                    <input type="text" placeholder="搜索..." class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                </div>
+            </div>
+
+            <div class="chat-sidebar flex-1">
+                <div class="p-3 border-b border-gray-100 bg-blue-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-code text-white text-sm"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800">编程学习</span>
+                        </div>
+                        <span class="text-xs text-gray-400">5</span>
+                    </div>
+                </div>
+
+                <div class="p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-book text-white text-sm"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800">论文阅读</span>
+                        </div>
+                        <span class="text-xs text-gray-400">3</span>
+                    </div>
+                </div>
+
+                <div class="p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-lightbulb text-white text-sm"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800">头脑风暴</span>
+                        </div>
+                        <span class="text-xs text-gray-400">8</span>
+                    </div>
+                </div>
+
+                <div class="p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-pen text-white text-sm"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800">写作助手</span>
+                        </div>
+                        <span class="text-xs text-gray-400">12</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 话题列表 -->
+        <div class="w-72 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">话题</h2>
+                    <button class="p-1 rounded hover:bg-gray-100">
+                        <i class="fas fa-plus text-gray-500 text-sm"></i>
+                    </button>
+                </div>
+                <select class="w-full text-xs border border-gray-300 rounded px-2 py-1.5">
+                    <option>最新更新</option>
+                    <option>创建时间</option>
+                </select>
+            </div>
+
+            <div class="topic-list flex-1">
+                <div class="p-3 border-b border-gray-100 bg-blue-50 cursor-pointer">
+                    <h3 class="text-sm font-medium text-gray-800 mb-1">React Hooks 最佳实践</h3>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">讨论 React Hooks 的使用技巧和常见陷阱...</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400">12 条消息</span>
+                        <span class="text-xs text-gray-400">2 小时前</span>
+                    </div>
+                </div>
+
+                <div class="p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <h3 class="text-sm font-medium text-gray-800 mb-1">TypeScript 类型体操</h3>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">学习 TypeScript 高级类型系统...</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400">8 条消息</span>
+                        <span class="text-xs text-gray-400">昨天</span>
+                    </div>
+                </div>
+
+                <div class="p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <h3 class="text-sm font-medium text-gray-800 mb-1">Docker 容器化部署</h3>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">如何将应用打包为 Docker 镜像...</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400">15 条消息</span>
+                        <span class="text-xs text-gray-400">3 天前</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息区域 -->
+        <div class="flex-1 flex flex-col bg-white">
+            <!-- 话题信息栏 -->
+            <div class="h-14 border-b border-gray-200 flex items-center px-6 justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-800">React Hooks 最佳实践</h3>
+                    <p class="text-xs text-gray-500">编程学习 · 12 条消息</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <select class="text-xs border border-gray-300 rounded px-2 py-1">
+                        <option>GPT-4o</option>
+                        <option>Claude 3.5</option>
+                    </select>
+                    <button onclick="openTopicSettings()" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        <i class="fas fa-cog mr-1"></i>设置
+                    </button>
+                    <button class="px-3 py-1.5 text-sm text-white bg-green-500 hover:bg-green-600 rounded">
+                        <i class="fas fa-file-alt mr-1"></i>整理为笔记
+                    </button>
+                </div>
+            </div>
+
+            <!-- 消息列表 -->
+            <div class="message-area flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                <!-- 用户消息 -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">U</div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-800">你</span>
+                            <span class="text-xs text-gray-400">14:20</span>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-3 text-sm text-gray-800">
+                            <p>请解释一下 React useEffect 的依赖数组有哪些常见陷阱？</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI 消息 -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-800">AI 助手</span>
+                            <span class="text-xs text-gray-400">GPT-4o</span>
+                            <span class="text-xs text-gray-400">· 14:21</span>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-3 text-sm text-gray-800">
+                            <p class="mb-2">React useEffect 的依赖数组有几个常见陷阱：</p>
+                            <ol class="list-decimal list-inside space-y-2 ml-2">
+                                <li>
+                                    <strong>对象/数组引用变化</strong>
+                                    <p class="text-gray-600 ml-5 mt-1">每次渲染都会创建新的对象引用，导致 useEffect 重复执行</p>
+                                    <pre class="bg-gray-800 text-gray-100 p-2 rounded mt-1 text-xs"><code>// 错误示例
+useEffect(() => {
+  console.log(user);
+}, [user]); // user 每次都是新引用</code></pre>
+                                </li>
+                                <li>
+                                    <strong>函数引用问题</strong>
+                                    <p class="text-gray-600 ml-5 mt-1">内联函数每次渲染都会重新创建</p>
+                                </li>
+                                <li>
+                                    <strong>循环依赖</strong>
+                                    <p class="text-gray-600 ml-5 mt-1">依赖数组中的值在 useEffect 内部被修改</p>
+                                </li>
+                            </ol>
+                            <p class="mt-3 text-gray-600">解决方案：使用 <code>useMemo</code> 缓存对象，使用 <code>useCallback</code> 缓存函数。</p>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-2">
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-copy mr-1"></i>复制</button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-redo mr-1"></i>重新生成</button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-save mr-1"></i>保存片段</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户消息 -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">U</div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-800">你</span>
+                            <span class="text-xs text-gray-400">14:23</span>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-3 text-sm text-gray-800">
+                            <p>能给一个完整的示例代码吗？</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI 消息 -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-800">AI 助手</span>
+                            <span class="text-xs text-gray-400">GPT-4o</span>
+                            <span class="text-xs text-gray-400">· 14:23</span>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-3 text-sm text-gray-800">
+                            <p class="mb-2">当然，这是一个完整的示例：</p>
+                            <pre class="bg-gray-800 text-gray-100 p-3 rounded mt-2 text-xs"><code>import { useState, useEffect, useMemo } from 'react';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // ✅ 使用 useMemo 缓存配置对象
+  const fetchConfig = useMemo(() => ({
+    headers: { 'Authorization': 'Bearer token' },
+    timeout: 5000
+  }), []);
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/users/${userId}`, fetchConfig);
+        const data = await response.json();
+        setUser(data);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUser();
+  }, [userId, fetchConfig]);
+
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <div>No user found</div>;
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  );
+}</code></pre>
+                            <p class="mt-3">关键点：</p>
+                            <ul class="list-disc list-inside space-y-1 ml-2 mt-2">
+                                <li>使用 <code>useMemo</code> 缓存 <code>fetchConfig</code></li>
+                                <li>将异步函数定义在 useEffect 内部</li>
+                                <li>依赖数组明确列出所有外部依赖</li>
+                            </ul>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-2">
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-copy mr-1"></i>复制</button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-redo mr-1"></i>重新生成</button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-save mr-1"></i>保存片段</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="border-t border-gray-200 p-4">
+                <div class="flex items-start space-x-3">
+                    <div class="flex-1">
+                        <textarea placeholder="输入消息... (Shift+Enter 换行)" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm" rows="3"></textarea>
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center space-x-2">
+                                <button class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><i class="fas fa-paperclip"></i></button>
+                                <button class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><i class="fas fa-image"></i></button>
+                                <button class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"><i class="fas fa-code"></i></button>
+                            </div>
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium">
+                                <i class="fas fa-paper-plane mr-2"></i>发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 整理为笔记弹窗 -->
+    <div id="organize-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
+            <!-- 弹窗头部 -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">整理对话为笔记</h3>
+                <button onclick="closeOrganizeModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 弹窗内容 -->
+            <div class="px-6 py-4">
+                <!-- 整理范围 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">整理范围</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="organize-scope" class="w-4 h-4 text-blue-600 border-gray-300" checked>
+                            <span class="ml-2 text-sm text-gray-700">整个话题（12 条消息）</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="organize-scope" class="w-4 h-4 text-blue-600 border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700">仅选中的消息</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="organize-scope" class="w-4 h-4 text-blue-600 border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700">自定义范围</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 整理风格 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">整理风格</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50">
+                            <div class="flex items-center">
+                                <input type="radio" name="organize-style" class="w-4 h-4 text-blue-600 border-gray-300" checked>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-800">摘要式</div>
+                                    <div class="text-xs text-gray-500 mt-1">提炼要点，精简到 500 字以内</div>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50">
+                            <div class="flex items-center">
+                                <input type="radio" name="organize-style" class="w-4 h-4 text-blue-600 border-gray-300">
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-800">详细式</div>
+                                    <div class="text-xs text-gray-500 mt-1">保留完整信息，分章节组织</div>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50">
+                            <div class="flex items-center">
+                                <input type="radio" name="organize-style" class="w-4 h-4 text-blue-600 border-gray-300">
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-800">Q&A 式</div>
+                                    <div class="text-xs text-gray-500 mt-1">改写为问答形式</div>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50">
+                            <div class="flex items-center">
+                                <input type="radio" name="organize-style" class="w-4 h-4 text-blue-600 border-gray-300">
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-800">自定义 Prompt</div>
+                                    <div class="text-xs text-gray-500 mt-1">自己写整理指令</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 目标笔记本 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">目标笔记本</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>工作笔记 / 项目文档</option>
+                        <option>学习笔记</option>
+                        <option>个人日记</option>
+                        <option>+ 新建笔记本</option>
+                    </select>
+                </div>
+
+                <!-- 其他选项 -->
+                <div class="space-y-3">
+                    <label class="flex items-center">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded" checked>
+                        <span class="ml-2 text-sm text-gray-700">自动生成标题</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                        <span class="ml-2 text-sm text-gray-700">自动推荐标签</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                        <span class="ml-2 text-sm text-gray-700">保留原始对话作为引用</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 弹窗底部 -->
+            <div class="flex items-center justify-end px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <button onclick="closeOrganizeModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg mr-3">
+                    取消
+                </button>
+                <button class="px-6 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg">
+                    <i class="fas fa-magic mr-2"></i>开始整理
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 话题设置弹窗 -->
+    <div id="topic-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <!-- 弹窗头部 -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-800">话题设置</h3>
+                <button onclick="closeTopicSettings()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 弹窗内容 -->
+            <div class="p-6 space-y-6">
+                <!-- 话题标题 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">话题标题</label>
+                    <input type="text" value="React Hooks 最佳实践" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">为话题设置一个清晰的标题</p>
+                </div>
+
+                <!-- 模型选择 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">使用的模型</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">跟随会话组默认</option>
+                                <option value="gpt-4o" selected>gpt-4o (OpenAI)</option>
+                                <option value="gpt-4o-mini">gpt-4o-mini (OpenAI)</option>
+                                <option value="claude-3-5-sonnet">claude-3-5-sonnet (Anthropic)</option>
+                                <option value="claude-3-5-haiku">claude-3-5-haiku (Anthropic)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">为此话题选择特定的 AI 模型</p>
+                </div>
+
+                <!-- 系统提示词 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">系统提示词</label>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <input type="radio" name="prompt-type" id="preset-prompt" class="w-4 h-4 text-blue-600" checked>
+                            <label for="preset-prompt" class="text-sm text-gray-700">使用预设提示词</label>
+                        </div>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option>通用助手</option>
+                            <option>代码专家</option>
+                            <option>写作助手</option>
+                            <option>学习笔记整理</option>
+                        </select>
+
+                        <div class="flex items-center space-x-2">
+                            <input type="radio" name="prompt-type" id="custom-prompt" class="w-4 h-4 text-blue-600">
+                            <label for="custom-prompt" class="text-sm text-gray-700">自定义提示词</label>
+                        </div>
+                        <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows="4" placeholder="输入自定义的系统提示词..."></textarea>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">设置 AI 的角色和行为方式</p>
+                </div>
+
+                <!-- 上下文窗口 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">上下文窗口</label>
+                    <div class="flex items-center space-x-3">
+                        <input type="range" min="1" max="20" value="10" class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" id="context-range">
+                        <div class="flex items-center space-x-2">
+                            <input type="number" min="1" max="20" value="10" class="w-16 px-2 py-1 border border-gray-300 rounded text-center" id="context-value">
+                            <span class="text-sm text-gray-600">条消息</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">每次对话时携带的历史消息数量</p>
+                </div>
+
+                <!-- 自动整理设置 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">自动整理为笔记</label>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                            <div>
+                                <div class="text-sm text-gray-800">启用自动整理</div>
+                                <div class="text-xs text-gray-500">话题结束时自动整理为笔记</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <div class="pl-4 space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">目标笔记本</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    <option>工作笔记 / 项目文档</option>
+                                    <option>学习笔记</option>
+                                    <option>个人日记</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">整理风格</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    <option>摘要式</option>
+                                    <option>详细式</option>
+                                    <option>Q&A 式</option>
+                                    <option>自定义 Prompt</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 归档选项 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">归档</label>
+                    <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                        <div>
+                            <div class="text-sm text-gray-800">归档此话题</div>
+                            <div class="text-xs text-gray-500">归档后话题将隐藏在主列表中</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 危险操作 -->
+                <div class="pt-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-red-600">删除话题</div>
+                            <div class="text-xs text-gray-500">删除后话题将进入回收站，30 天后自动清理</div>
+                        </div>
+                        <button class="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg">
+                            <i class="fas fa-trash mr-1"></i>删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗底部 -->
+            <div class="flex items-center justify-end p-6 border-t border-gray-200 bg-gray-50">
+                <button onclick="closeTopicSettings()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg mr-3">
+                    取消
+                </button>
+                <button onclick="closeTopicSettings()" class="px-6 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg">
+                    保存设置
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function openTopicSettings() {
+            document.getElementById('topic-settings-modal').classList.remove('hidden');
+        }
+
+        function closeTopicSettings() {
+            document.getElementById('topic-settings-modal').classList.add('hidden');
+        }
+
+        // 同步滑块和输入框
+        const contextRange = document.getElementById('context-range');
+        const contextValue = document.getElementById('context-value');
+        
+        if (contextRange && contextValue) {
+            contextRange.addEventListener('input', function() {
+                contextValue.value = this.value;
+            });
+            
+            contextValue.addEventListener('input', function() {
+                contextRange.value = this.value;
+            });
+        }
+    </script>
+</body>
+</html>

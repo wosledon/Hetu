@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 历史版本</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-gray-800">Hetu</h1>
+            <div class="flex space-x-1">
+                <a href="index.html" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600">
+                    <i class="fas fa-book-open mr-2"></i>笔记
+                </a>
+                <a href="chat.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-comments mr-2"></i>对话
+                </a>
+                <a href="graph.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-2"></i>知识图谱
+                </a>
+                <a href="search.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-search mr-2"></i>搜索
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="settings.html" class="p-2 rounded-lg hover:bg-gray-100">
+                <i class="fas fa-cog text-gray-600"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 面包屑导航 -->
+    <div class="bg-white border-b border-gray-200 px-6 py-3">
+        <div class="flex items-center text-sm text-gray-600">
+            <a href="index.html" class="hover:text-blue-600">笔记</a>
+            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+            <span class="text-gray-800 font-medium">Hetu 产品需求文档</span>
+            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+            <span class="text-blue-600">历史版本</span>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="flex" style="height: calc(100vh - 8.5rem);">
+        <!-- 左侧 - 版本列表 -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-sm font-semibold text-gray-700">版本历史</h2>
+                    <span class="text-xs text-gray-500">共 12 个版本</span>
+                </div>
+                <p class="text-xs text-gray-500">保留最近 20 个版本</p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto">
+                <!-- 当前版本 -->
+                <div class="p-4 border-b border-gray-100 bg-blue-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xs"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800">当前版本</span>
+                        </div>
+                        <span class="text-xs text-blue-600 font-medium">v12</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">更新了 AI 功能章节</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-19 14:32</span>
+                        <span>+245 -32 字符</span>
+                    </div>
+                </div>
+
+                <!-- 历史版本 -->
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v11</span>
+                        <span class="text-xs text-gray-500">3 小时前</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">添加了知识图谱设计</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-19 11:20</span>
+                        <span>+128 -15 字符</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v10</span>
+                        <span class="text-xs text-gray-500">昨天</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">修正了数据库设计部分</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-18 16:45</span>
+                        <span>+56 -89 字符</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v9</span>
+                        <span class="text-xs text-gray-500">2 天前</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">添加了 MCP 和 Skill 功能</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-17 20:10</span>
+                        <span>+320 -45 字符</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v8</span>
+                        <span class="text-xs text-gray-500">3 天前</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">重构了 AI 模型配置部分</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-16 09:30</span>
+                        <span>+180 -95 字符</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v7</span>
+                        <span class="text-xs text-gray-500">5 天前</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">添加了对话模块设计</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-14 15:20</span>
+                        <span>+420 -28 字符</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-800">v6</span>
+                        <span class="text-xs text-gray-500">1 周前</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2">初始化文档结构</p>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>2026-06-12 10:00</span>
+                        <span>+2,450 -0 字符</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间 - 版本对比 -->
+        <div class="flex-1 flex flex-col bg-white">
+            <!-- 工具栏 -->
+            <div class="h-12 border-b border-gray-200 flex items-center px-4 justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">对比版本：</span>
+                    <select class="text-sm border border-gray-300 rounded px-2 py-1">
+                        <option>v11 (3 小时前)</option>
+                        <option>v10 (昨天)</option>
+                        <option>v9 (2 天前)</option>
+                        <option>v8 (3 天前)</option>
+                    </select>
+                    <i class="fas fa-arrow-right text-gray-400"></i>
+                    <select class="text-sm border border-gray-300 rounded px-2 py-1">
+                        <option>v12 (当前)</option>
+                        <option>v11 (3 小时前)</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        <i class="fas fa-columns mr-1"></i>并排视图
+                    </button>
+                    <button class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        <i class="fas fa-list mr-1"></i>统一视图
+                    </button>
+                </div>
+            </div>
+
+            <!-- 对比内容 -->
+            <div class="flex-1 overflow-auto">
+                <div class="flex h-full">
+                    <!-- 旧版本 -->
+                    <div class="flex-1 border-r border-gray-200">
+                        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <span class="text-sm font-medium text-gray-700">v11 - 2026-06-19 11:20</span>
+                        </div>
+                        <div class="p-6 text-sm text-gray-700 leading-relaxed">
+                            <div class="mb-4">
+                                <div class="text-xs text-gray-500 mb-2">## 4. AI 智能功能</div>
+                            </div>
+                            <div class="bg-red-50 border-l-4 border-red-400 p-3 mb-3">
+                                <div class="text-xs text-red-600 mb-1">删除的内容：</div>
+                                <p class="text-gray-600 line-through">知识图谱部分暂未实现</p>
+                            </div>
+                            <div class="mb-4">
+                                <p>系统通过统一抽象层接入大语言模型（LLM）和 Embedding 模型，同时支持 <strong>OpenAI 协议</strong> 和 <strong>Anthropic 协议</strong>。</p>
+                            </div>
+                            <div class="bg-red-50 border-l-4 border-red-400 p-3 mb-3">
+                                <div class="text-xs text-red-600 mb-1">删除的内容：</div>
+                                <p class="text-gray-600 line-through">### 4.1 多模型管理</p>
+                                <p class="text-gray-600 line-through">- AI 供应商（Provider）管理：支持添加多个 Provider</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 新版本 -->
+                    <div class="flex-1">
+                        <div class="bg-blue-50 px-4 py-2 border-b border-gray-200">
+                            <span class="text-sm font-medium text-gray-700">v12 - 2026-06-19 14:32 (当前)</span>
+                        </div>
+                        <div class="p-6 text-sm text-gray-700 leading-relaxed">
+                            <div class="mb-4">
+                                <div class="text-xs text-gray-500 mb-2">## 4. AI 智能功能</div>
+                            </div>
+                            <div class="bg-green-50 border-l-4 border-green-400 p-3 mb-3">
+                                <div class="text-xs text-green-600 mb-1">新增的内容：</div>
+                                <p class="text-gray-800">### 4.3 知识图谱</p>
+                                <p class="text-gray-700 mt-2">基于笔记内容和分块结果，自动提取实体和关系，构建个人知识图谱，支持可视化浏览和增强检索。</p>
+                            </div>
+                            <div class="mb-4">
+                                <p>系统通过统一抽象层接入大语言模型（LLM）和 Embedding 模型，同时支持 <strong>OpenAI 协议</strong> 和 <strong>Anthropic 协议</strong>。</p>
+                            </div>
+                            <div class="bg-green-50 border-l-4 border-green-400 p-3 mb-3">
+                                <div class="text-xs text-green-600 mb-1">新增的内容：</div>
+                                <p class="text-gray-800">### 4.1 多模型管理（Provider → Model 两层结构）</p>
+                                <p class="text-gray-700 mt-2">- AI 供应商（Provider）管理：用户可添加多个 Provider，每个 Provider 包含：名称、协议类型、API Key、Base URL、启用状态</p>
+                                <p class="text-gray-700">- 模型（Model）管理：每个 Provider 下可配置多个模型，分别标记用途</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作栏 -->
+            <div class="border-t border-gray-200 px-6 py-3 bg-gray-50 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">
+                        <i class="fas fa-plus text-green-600 mr-1"></i>
+                        <span class="text-green-600 font-medium">+245</span> 新增
+                    </span>
+                    <span class="text-sm text-gray-600">
+                        <i class="fas fa-minus text-red-600 mr-1"></i>
+                        <span class="text-red-600 font-medium">-32</span> 删除
+                    </span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg border border-gray-300">
+                        <i class="fas fa-download mr-1"></i>导出此版本
+                    </button>
+                    <button class="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg">
+                        <i class="fas fa-undo mr-1"></i>回滚到此版本
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

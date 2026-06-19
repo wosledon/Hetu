@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 搜索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-gray-800">Hetu</h1>
+            <div class="flex space-x-1">
+                <a href="index.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-book-open mr-2"></i>笔记
+                </a>
+                <a href="chat.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-comments mr-2"></i>对话
+                </a>
+                <a href="graph.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-2"></i>知识图谱
+                </a>
+                <a href="search.html" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600">
+                    <i class="fas fa-search mr-2"></i>搜索
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="settings.html" class="p-2 rounded-lg hover:bg-gray-100">
+                <i class="fas fa-cog text-gray-600"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div style="height: calc(100vh - 4rem);" class="overflow-y-auto">
+        <div class="max-w-4xl mx-auto px-8 py-8">
+            <!-- 搜索框 -->
+            <div class="mb-8">
+                <div class="relative">
+                    <input type="text" value="React Hooks" class="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="搜索笔记、对话、标签...">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl"></i>
+                </div>
+                <div class="flex items-center space-x-4 mt-4">
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium">全部结果</button>
+                    <button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">笔记</button>
+                    <button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">对话</button>
+                    <button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">标签</button>
+                    <div class="flex-1"></div>
+                    <button class="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                        <i class="fas fa-filter"></i>
+                        <span>高级筛选</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 搜索结果统计 -->
+            <div class="mb-6">
+                <p class="text-sm text-gray-600">找到 <span class="font-semibold text-gray-800">15</span> 个相关结果</p>
+            </div>
+
+            <!-- 搜索结果列表 -->
+            <div class="space-y-4">
+                <!-- 笔记结果 -->
+                <div class="border border-gray-200 rounded-lg p-5 hover:shadow-md cursor-pointer">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-file-alt text-blue-500"></i>
+                            <span class="text-xs text-gray-500">笔记</span>
+                        </div>
+                        <span class="text-xs text-gray-400">2 小时前</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">React Hooks 最佳实践指南</h3>
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">
+                        本文介绍 <mark class="bg-yellow-100">React Hooks</mark> 的使用技巧和常见陷阱，包括 useEffect 依赖数组、useState 初始化、useMemo 和 useCallback 的正确使用...
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded"># 技术</span>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded"># 重要</span>
+                        </div>
+                        <span class="text-xs text-gray-500">
+                            <i class="fas fa-folder mr-1"></i>学习笔记 / 前端开发
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 对话结果 -->
+                <div class="border border-gray-200 rounded-lg p-5 hover:shadow-md cursor-pointer">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-comments text-green-500"></i>
+                            <span class="text-xs text-gray-500">对话</span>
+                        </div>
+                        <span class="text-xs text-gray-400">昨天</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">编程学习 / React Hooks 最佳实践</h3>
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">
+                        用户提问关于 <mark class="bg-yellow-100">React Hooks</mark> 依赖数组的常见陷阱，AI 助手详细解释了对象引用变化、函数引用问题等...
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">
+                            <i class="fas fa-message mr-1"></i>12 条消息
+                        </span>
+                        <button class="text-xs text-blue-600 hover:text-blue-700">
+                            查看对话 <i class="fas fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 语义搜索结果 -->
+                <div class="border border-green-200 bg-green-50 rounded-lg p-5 hover:shadow-md cursor-pointer">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-brain text-green-600"></i>
+                            <span class="text-xs text-green-700 font-medium">语义相关</span>
+                        </div>
+                        <span class="text-xs text-gray-400">1 周前</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">useState 与 useReducer 对比</h3>
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">
+                        深入对比 React 状态管理 Hook，分析何时使用 useState，何时使用 useReducer...
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">
+                            <i class="fas fa-folder mr-1"></i>学习笔记 / React 进阶
+                        </span>
+                        <span class="text-xs text-green-600">
+                            <i class="fas fa-link mr-1"></i>语义相似度 87%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

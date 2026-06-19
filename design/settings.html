@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 设置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-gray-800">Hetu</h1>
+            <div class="flex space-x-1">
+                <a href="index.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-book-open mr-2"></i>笔记
+                </a>
+                <a href="chat.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-comments mr-2"></i>对话
+                </a>
+                <a href="graph.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-2"></i>知识图谱
+                </a>
+                <a href="search.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-search mr-2"></i>搜索
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="settings.html" class="p-2 rounded-lg bg-gray-100">
+                <i class="fas fa-cog text-gray-600"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div style="height: calc(100vh - 4rem);" class="overflow-y-auto">
+        <div class="max-w-5xl mx-auto px-8 py-8">
+            <h1 class="text-2xl font-bold text-gray-800 mb-8">设置</h1>
+            
+            <!-- 设置分类 -->
+            <div class="flex space-x-8">
+                <!-- 左侧菜单 -->
+                <div class="w-56">
+                    <nav class="space-y-1">
+                        <button onclick="showSettings('app')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                            <i class="fas fa-sliders-h w-5"></i>
+                            <span>应用设置</span>
+                        </button>
+                        <button onclick="showSettings('ai')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-robot w-5"></i>
+                            <span>AI 模型</span>
+                        </button>
+                        <button onclick="showSettings('mcp')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-puzzle-piece w-5"></i>
+                            <span>MCP Server</span>
+                        </button>
+                        <button onclick="showSettings('skill')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-magic w-5"></i>
+                            <span>Skill 技能</span>
+                        </button>
+                        <button onclick="showSettings('prompt')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-comment-dots w-5"></i>
+                            <span>提示词</span>
+                        </button>
+                        <button onclick="showSettings('database')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-database w-5"></i>
+                            <span>数据库</span>
+                        </button>
+                        <button onclick="showSettings('trash')" class="settings-menu-btn w-full flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+                            <i class="fas fa-trash w-5"></i>
+                            <span>回收站</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- 右侧内容 -->
+                <div class="flex-1">
+                    <!-- 应用设置 -->
+                    <div id="settings-app" class="space-y-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">应用设置</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">显示名称</label>
+                                    <input type="text" value="Hetu" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="text-xs text-gray-500 mt-1">应用顶部栏显示的标题</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">主题模式</label>
+                                    <div class="flex space-x-3">
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="radio" name="theme" class="text-blue-500" checked>
+                                            <span class="text-sm text-gray-700">跟随系统</span>
+                                        </label>
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="radio" name="theme" class="text-blue-500">
+                                            <span class="text-sm text-gray-700">亮色</span>
+                                        </label>
+                                        <label class="flex items-center space-x-2 cursor-pointer">
+                                            <input type="radio" name="theme" class="text-blue-500">
+                                            <span class="text-sm text-gray-700">暗色</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="border-t border-gray-200 pt-6">
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">数据备份</h2>
+                            <div class="space-y-3">
+                                <button class="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium">
+                                    <i class="fas fa-download"></i>
+                                    <span>导出数据备份</span>
+                                </button>
+                                <button class="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-300 text-sm">
+                                    <i class="fas fa-upload"></i>
+                                    <span>从备份恢复</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI 模型配置 -->
+                    <div id="settings-ai" class="hidden space-y-6">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-800">AI 模型配置</h2>
+                                    <p class="text-sm text-gray-600 mt-1">配置多家 AI 模型供应商，为不同功能选择不同供应商的模型</p>
+                                </div>
+                                <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium">
+                                    <i class="fas fa-plus mr-1"></i>添加供应商
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between mb-3">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                                <i class="fas fa-robot text-green-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center space-x-2">
+                                                    <h3 class="font-medium text-gray-800">OpenAI 官方</h3>
+                                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">OpenAI 协议</span>
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">https://api.openai.com/v1 · 4 个模型</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已启用</span>
+                                            <button class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
+                                            <button class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="ml-13 space-y-2 border-t border-gray-100 pt-3">
+                                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm text-gray-700">gpt-4o</span>
+                                                <span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded">chat</span>
+                                                <span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">completion</span>
+                                            </div>
+                                            <span class="text-xs text-gray-400">128k context</span>
+                                        </div>
+                                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm text-gray-700">text-embedding-3-small</span>
+                                                <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">embedding</span>
+                                            </div>
+                                            <span class="text-xs text-gray-400">1536 dim</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between mb-3">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                                <i class="fas fa-robot text-orange-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center space-x-2">
+                                                    <h3 class="font-medium text-gray-800">Anthropic 官方</h3>
+                                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">Anthropic 协议</span>
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">https://api.anthropic.com · 3 个模型</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已启用</span>
+                                            <button class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
+                                            <button class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="ml-13 space-y-2 border-t border-gray-100 pt-3">
+                                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm text-gray-700">claude-3-5-sonnet</span>
+                                                <span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded">chat</span>
+                                            </div>
+                                            <span class="text-xs text-gray-400">200k context</span>
+                                        </div>
+                                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-sm text-gray-700">claude-3-5-haiku</span>
+                                                <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded">embedding</span>
+                                            </div>
+                                            <span class="text-xs text-gray-400">1024 dim</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-200 pt-6 mt-6">
+                                <h3 class="text-md font-semibold text-gray-800 mb-2">默认模型分配</h3>
+                                <p class="text-sm text-gray-500 mb-4">为不同功能指定默认模型，可跨供应商选择</p>
+                                <div class="space-y-4">
+                                    <div class="bg-gray-50 rounded-lg p-4">
+                                        <div class="flex items-center space-x-2 mb-3">
+                                            <i class="fas fa-comments text-blue-500"></i>
+                                            <span class="text-sm font-medium text-gray-700">对话默认模型</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option selected>OpenAI 官方</option>
+                                                <option>Anthropic 官方</option>
+                                            </select>
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option selected>gpt-4o</option>
+                                                <option>claude-3-5-sonnet</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">当前：OpenAI 官方 / gpt-4o</p>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-4">
+                                        <div class="flex items-center space-x-2 mb-3">
+                                            <i class="fas fa-vector-square text-green-500"></i>
+                                            <span class="text-sm font-medium text-gray-700">Embedding 默认模型</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option selected>OpenAI 官方</option>
+                                                <option>Anthropic 官方</option>
+                                            </select>
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option selected>text-embedding-3-small</option>
+                                                <option>claude-3-5-haiku</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">当前：OpenAI 官方 / text-embedding-3-small（1536 维）</p>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-4">
+                                        <div class="flex items-center space-x-2 mb-3">
+                                            <i class="fas fa-file-alt text-purple-500"></i>
+                                            <span class="text-sm font-medium text-gray-700">笔记摘要 / 智能分块模型</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option>OpenAI 官方</option>
+                                                <option selected>Anthropic 官方</option>
+                                            </select>
+                                            <select class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                                <option>claude-3-5-sonnet</option>
+                                                <option selected>claude-3-5-haiku</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">当前：Anthropic 官方 / claude-3-5-haiku</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MCP Server -->
+                    <div id="settings-mcp" class="hidden space-y-6">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-800">MCP Server</h2>
+                                    <p class="text-sm text-gray-600 mt-1">配置 Model Context Protocol 服务器</p>
+                                </div>
+                                <button class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">
+                                    <i class="fas fa-plus mr-1"></i>添加 Server
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-server text-blue-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">文件系统访问</div>
+                                                <div class="text-xs text-gray-500 mt-1">stdio · 本地进程</div>
+                                                <div class="mt-2 text-xs text-gray-600">工具：<span class="text-blue-600">read_file, write_file, list_dir</span></div>
+                                            </div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已启用</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-server text-green-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">网页抓取</div>
+                                                <div class="text-xs text-gray-500 mt-1">http-sse · 远程服务</div>
+                                                <div class="mt-2 text-xs text-gray-600">工具：<span class="text-blue-600">fetch_url, extract_content</span></div>
+                                            </div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已启用</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-dashed border-gray-300 rounded-lg text-center py-6">
+                                    <i class="fas fa-plus-circle text-gray-400 text-2xl mb-2"></i>
+                                    <p class="text-sm text-gray-500">添加新的 MCP Server</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skill 技能 -->
+                    <div id="settings-skill" class="hidden space-y-6">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-800">Skill 技能</h2>
+                                    <p class="text-sm text-gray-600 mt-1">管理 AI 技能和预设提示词</p>
+                                </div>
+                                <button class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">
+                                    <i class="fas fa-store mr-1"></i>技能市场
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="w-10 h-10 bg-purple-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-file-alt text-purple-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">笔记摘要生成</div>
+                                                <div class="text-xs text-gray-500 mt-1">为笔记生成结构化摘要</div>
+                                                <div class="mt-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">/summarize</span></div>
+                                            </div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer" checked>
+                                            <div class="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-comments text-green-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">对话整理为笔记</div>
+                                                <div class="text-xs text-gray-500 mt-1">将对话内容整理成结构化笔记</div>
+                                                <div class="mt-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">/organize-chat</span></div>
+                                            </div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer" checked>
+                                            <div class="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="w-10 h-10 bg-yellow-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-code text-yellow-600"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">代码解释</div>
+                                                <div class="text-xs text-gray-500 mt-1">解释选中的代码片段</div>
+                                                <div class="mt-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">/explain-code</span></div>
+                                            </div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer" checked>
+                                            <div class="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 提示词 -->
+                    <div id="settings-prompt" class="hidden space-y-6">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-800">提示词库</h2>
+                                    <p class="text-sm text-gray-600 mt-1">管理预设的提示词模板</p>
+                                </div>
+                                <button class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">
+                                    <i class="fas fa-plus mr-1"></i>新建提示词
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <div class="text-sm font-medium text-gray-800">写作助手</div>
+                                                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">写作</span>
+                                            </div>
+                                            <div class="text-xs text-gray-600 line-clamp-2">你是一位专业的写作助手，请帮助用户改进他们的写作内容...</div>
+                                            <div class="mt-2 flex items-center space-x-3 text-xs text-gray-500">
+                                                <span>创建于 2026-06-15</span>
+                                                <span>使用 23 次</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-2 ml-4">
+                                            <button class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
+                                            <button class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-2">
+                                                <div class="text-sm font-medium text-gray-800">学习笔记整理</div>
+                                                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">学习</span>
+                                            </div>
+                                            <div class="text-xs text-gray-600 line-clamp-2">请帮助我整理学习笔记。将零散的信息组织成结构化的知识体系...</div>
+                                            <div class="mt-2 flex items-center space-x-3 text-xs text-gray-500">
+                                                <span>创建于 2026-06-10</span>
+                                                <span>使用 45 次</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-2 ml-4">
+                                            <button class="text-gray-400 hover:text-gray-600"><i class="fas fa-edit"></i></button>
+                                            <button class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数据库 -->
+                    <div id="settings-database" class="hidden space-y-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">数据库配置</h2>
+                            <p class="text-sm text-gray-600 mb-4">切换数据存储方式</p>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">数据库类型</label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center p-3 border border-blue-500 bg-blue-50 rounded-lg cursor-pointer">
+                                            <input type="radio" name="db-type" class="text-blue-500" checked>
+                                            <div class="ml-3 flex-1">
+                                                <div class="text-sm font-medium text-gray-800">SQLite（本地）</div>
+                                                <div class="text-xs text-gray-500 mt-1">数据存储在本地文件，无需外部数据库服务</div>
+                                            </div>
+                                            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">当前使用</span>
+                                        </label>
+                                        <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                            <input type="radio" name="db-type" class="text-blue-500">
+                                            <div class="ml-3 flex-1">
+                                                <div class="text-sm font-medium text-gray-800">PostgreSQL（远程）</div>
+                                                <div class="text-xs text-gray-500 mt-1">支持跨设备同步，需要配置 PostgreSQL 服务器</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="border-t border-gray-200 pt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">SQLite 数据库路径</label>
+                                    <div class="flex space-x-2">
+                                        <input type="text" value="~/.hetu/data/hetu.db" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg" readonly>
+                                        <button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-300">
+                                            <i class="fas fa-folder-open mr-2"></i>浏览
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="border-t border-gray-200 pt-4">
+                                    <h3 class="text-sm font-medium text-gray-700 mb-3">PostgreSQL 配置</h3>
+                                    <div class="space-y-3">
+                                        <input type="text" placeholder="Host=localhost;Port=5432;Database=hetu;..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <div class="flex space-x-2">
+                                            <button class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-300">测试连接</button>
+                                            <button class="px-3 py-1.5 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg">切换数据库</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 回收站 -->
+                    <div id="settings-trash" class="hidden space-y-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">回收站</h2>
+                            <p class="text-sm text-gray-600 mb-4">已删除的笔记和对话将在 30 天后自动清理</p>
+                            <div class="space-y-3">
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-file-alt text-gray-400"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">已删除笔记</div>
+                                                <div class="text-xs text-gray-500 mt-1">5 个笔记</div>
+                                            </div>
+                                        </div>
+                                        <button class="text-sm text-blue-600 hover:text-blue-700">查看 <i class="fas fa-arrow-right ml-1"></i></button>
+                                    </div>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                                                <i class="fas fa-comments text-gray-400"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-800">已删除对话</div>
+                                                <div class="text-xs text-gray-500 mt-1">2 个对话</div>
+                                            </div>
+                                        </div>
+                                        <button class="text-sm text-blue-600 hover:text-blue-700">查看 <i class="fas fa-arrow-right ml-1"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <h3 class="text-sm font-medium text-red-800 mb-2">危险操作</h3>
+                                <p class="text-xs text-red-600 mb-3">清空回收站后，所有数据将无法恢复</p>
+                                <button class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg">
+                                    <i class="fas fa-trash mr-1"></i>清空回收站
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

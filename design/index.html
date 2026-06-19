@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hetu - 笔记</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-gray-800">Hetu</h1>
+            <div class="flex space-x-1">
+                <a href="index.html" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600">
+                    <i class="fas fa-book-open mr-2"></i>笔记
+                </a>
+                <a href="chat.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-comments mr-2"></i>对话
+                </a>
+                <a href="graph.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-project-diagram mr-2"></i>知识图谱
+                </a>
+                <a href="search.html" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <i class="fas fa-search mr-2"></i>搜索
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="settings.html" class="p-2 rounded-lg hover:bg-gray-100">
+                <i class="fas fa-cog text-gray-600"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div class="flex" style="height: calc(100vh - 4rem);">
+        
+        <!-- 左侧边栏 - 笔记本和标签 -->
+        <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <!-- 笔记本区域 -->
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">笔记本</h2>
+                    <button class="p-1 rounded hover:bg-gray-100">
+                        <i class="fas fa-plus text-gray-500 text-sm"></i>
+                    </button>
+                </div>
+                <div class="notebook-tree space-y-1">
+                    <div class="group">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
+                                <i class="fas fa-folder text-blue-500"></i>
+                                <span class="text-sm text-gray-700">工作笔记</span>
+                            </div>
+                            <span class="text-xs text-gray-400">12</span>
+                        </div>
+                        <div class="ml-4 space-y-1">
+                            <div class="flex items-center justify-between px-2 py-1.5 rounded bg-blue-50 cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-folder-open text-blue-500"></i>
+                                    <span class="text-sm text-blue-700 font-medium">项目文档</span>
+                                </div>
+                                <span class="text-xs text-blue-500">5</span>
+                            </div>
+                            <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-folder text-blue-500"></i>
+                                    <span class="text-sm text-gray-700">会议记录</span>
+                                </div>
+                                <span class="text-xs text-gray-400">4</span>
+                            </div>
+                            <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-folder text-blue-500"></i>
+                                    <span class="text-sm text-gray-700">技术调研</span>
+                                </div>
+                                <span class="text-xs text-gray-400">3</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="group">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                                <i class="fas fa-folder text-blue-500"></i>
+                                <span class="text-sm text-gray-700">学习笔记</span>
+                            </div>
+                            <span class="text-xs text-gray-400">8</span>
+                        </div>
+                    </div>
+                    <div class="group">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                                <i class="fas fa-folder text-blue-500"></i>
+                                <span class="text-sm text-gray-700">个人日记</span>
+                            </div>
+                            <span class="text-xs text-gray-400">23</span>
+                        </div>
+                    </div>
+                    <div class="group">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                                <i class="fas fa-folder text-blue-500"></i>
+                                <span class="text-sm text-gray-700">读书摘录</span>
+                            </div>
+                            <span class="text-xs text-gray-400">15</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签区域 -->
+            <div class="p-4 flex-1">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">标签</h2>
+                    <button class="p-1 rounded hover:bg-gray-100">
+                        <i class="fas fa-plus text-gray-500 text-sm"></i>
+                    </button>
+                </div>
+                <div class="tag-list flex flex-wrap gap-2">
+                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full cursor-pointer hover:bg-blue-200"># 重要</span>
+                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full cursor-pointer hover:bg-green-200"># AI</span>
+                    <span class="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full cursor-pointer hover:bg-purple-200"># 技术</span>
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full cursor-pointer hover:bg-yellow-200"># 待办</span>
+                    <span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full cursor-pointer hover:bg-red-200"># 紧急</span>
+                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full cursor-pointer hover:bg-indigo-200"># 学习</span>
+                    <span class="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full cursor-pointer hover:bg-pink-200"># 灵感</span>
+                </div>
+            </div>
+
+            <!-- 底部快捷操作 -->
+            <div class="p-4 border-t border-gray-200">
+                <button class="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium">
+                    <i class="fas fa-plus"></i>
+                    <span>新建笔记</span>
+                </button>
+                <div class="flex space-x-2 mt-2">
+                    <button class="flex-1 flex items-center justify-center space-x-1 px-2 py-1.5 text-gray-600 hover:bg-gray-100 rounded text-xs">
+                        <i class="fas fa-folder-plus"></i>
+                        <span>笔记本</span>
+                    </button>
+                    <button class="flex-1 flex items-center justify-center space-x-1 px-2 py-1.5 text-gray-600 hover:bg-gray-100 rounded text-xs">
+                        <i class="fas fa-tag"></i>
+                        <span>标签</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间笔记列表 -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <!-- 列表头部 -->
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">项目文档</h2>
+                    <div class="flex items-center space-x-2">
+                        <select class="text-xs border border-gray-300 rounded px-2 py-1">
+                            <option>最新更新</option>
+                            <option>创建时间</option>
+                            <option>标题</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="relative">
+                    <input type="text" placeholder="搜索笔记..." class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                </div>
+            </div>
+
+            <!-- 笔记列表 -->
+            <div class="note-list flex-1 overflow-y-auto">
+                <div class="p-4 border-b border-gray-100 bg-blue-50 cursor-pointer hover:bg-blue-100">
+                    <div class="flex items-start justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-800 line-clamp-1">Hetu 产品需求文档</h3>
+                        <i class="fas fa-star text-yellow-500 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">Hetu 是一款面向个人用户和小型团队的 AI 增强知识管理平台...</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded"># 重要</span>
+                            <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded"># AI</span>
+                        </div>
+                        <span class="text-xs text-gray-400">2 小时前</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <div class="flex items-start justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-800 line-clamp-1">数据库设计方案</h3>
+                    </div>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">本文档介绍 Hetu 的数据库设计，包括表结构、索引策略...</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded"># 技术</span>
+                        </div>
+                        <span class="text-xs text-gray-400">昨天</span>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                    <div class="flex items-start justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-800 line-clamp-1">API 接口文档 v2.0</h3>
+                        <i class="fas fa-thumbtack text-blue-500 text-xs"></i>
+                    </div>
+                    <p class="text-xs text-gray-600 line-clamp-2 mb-2">RESTful API 设计规范，包含认证、笔记、对话等模块...</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded"># 技术</span>
+                        </div>
+                        <span class="text-xs text-gray-400">3 天前</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧编辑器区域 -->
+        <div class="flex-1 flex flex-col bg-white">
+            <!-- 编辑器工具栏 -->
+            <div class="h-12 border-b border-gray-200 flex items-center px-4 justify-between">
+                <div class="flex items-center space-x-4">
+                    <button class="text-gray-600 hover:text-gray-800"><i class="fas fa-eye"></i></button>
+                    <button class="text-gray-600 hover:text-gray-800"><i class="fas fa-edit"></i></button>
+                    <button class="text-gray-600 hover:text-gray-800"><i class="fas fa-columns"></i></button>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-xs text-gray-400">自动保存于 14:32</span>
+                    <a href="history.html" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        <i class="fas fa-history mr-1"></i>历史版本
+                    </a>
+                    <a href="export.html" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded">
+                        <i class="fas fa-share-alt mr-1"></i>导出/分享
+                    </a>
+                    <button class="px-3 py-1.5 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">
+                        <i class="fas fa-magic mr-1"></i>AI 助手
+                    </button>
+                </div>
+            </div>
+
+            <!-- 笔记标题 -->
+            <div class="px-8 pt-6 pb-4">
+                <input type="text" value="Hetu 产品需求文档" class="text-3xl font-bold text-gray-800 w-full focus:outline-none border-none">
+                <div class="flex items-center space-x-4 mt-3">
+                    <span class="text-sm text-gray-500"><i class="far fa-calendar mr-1"></i>2026-06-19</span>
+                    <span class="text-sm text-gray-500"><i class="far fa-clock mr-1"></i>更新于 2 小时前</span>
+                    <span class="text-sm text-gray-500"><i class="fas fa-folder mr-1"></i>项目文档</span>
+                </div>
+            </div>
+
+            <!-- Markdown 编辑器 -->
+            <div class="flex-1 flex overflow-hidden">
+                <div class="flex-1 px-8 py-4 overflow-y-auto">
+                    <textarea class="w-full h-full text-sm text-gray-800 focus:outline-none resize-none leading-relaxed" placeholder="开始编写..."># Hetu 笔记软件产品需求文档
+
+## 1. 文档信息
+
+| 项目 | 内容 |
+|------|------|
+| 产品名称 | Hetu |
+| 产品定位 | AI 增强的个人知识管理工具（本地优先） |
+| 目标版本 | v1.0 MVP |
+| 技术栈 | ASP.NET Core 10 + SQLite（默认）/ PostgreSQL（可选）+ React + TS + LLM |
+
+## 2. 产品概述
+
+Hetu 是一款面向个人的 AI 增强知识管理工具，以 **笔记** 与 **对话** 作为两大并列的核心载体。
+
+### 2.1 核心价值
+
+- **笔记 + 对话双引擎**：同一产品内同时承载「写笔记」和「与 AI 对话」两种核心工作流
+- **AI 智能增强**：接入大语言模型（LLM）与 Embedding 模型
+- **本地优先**：默认使用 SQLite 本地存储，数据完全私有
+
+> **产品定位**：纯本地个人工具，无需登录注册。启动即用。</textarea>
+                </div>
+                <div class="flex-1 px-8 py-4 overflow-y-auto border-l border-gray-200 bg-gray-50">
+                    <div class="markdown-preview text-sm text-gray-800">
+                        <h1>Hetu 笔记软件产品需求文档</h1>
+                        <h2>1. 文档信息</h2>
+                        <table>
+                            <thead><tr><th>项目</th><th>内容</th></tr></thead>
+                            <tbody>
+                                <tr><td>产品名称</td><td>Hetu</td></tr>
+                                <tr><td>产品定位</td><td>AI 增强的个人知识管理工具（本地优先）</td></tr>
+                                <tr><td>目标版本</td><td>v1.0 MVP</td></tr>
+                                <tr><td>技术栈</td><td>ASP.NET Core 10 + SQLite / PostgreSQL + React + TS + LLM</td></tr>
+                            </tbody>
+                        </table>
+                        <h2>2. 产品概述</h2>
+                        <p>Hetu 是一款面向个人的 AI 增强知识管理工具，以 <strong>笔记</strong> 与 <strong>对话</strong> 作为两大并列的核心载体。</p>
+                        <h3>2.1 核心价值</h3>
+                        <ul>
+                            <li><strong>笔记 + 对话双引擎</strong></li>
+                            <li><strong>AI 智能增强</strong></li>
+                            <li><strong>本地优先</strong></li>
+                        </ul>
+                        <blockquote><p><strong>产品定位</strong>：纯本地个人工具，无需登录注册。启动即用。</p></blockquote>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI 助手弹窗 -->
+    <div id="ai-assistant-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <!-- 弹窗头部 -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-magic text-blue-500"></i>
+                    <h3 class="text-lg font-semibold text-gray-800">AI 助手</h3>
+                </div>
+                <button onclick="closeAIModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 选中的文本预览 -->
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div class="text-xs text-gray-500 mb-2">选中的文本：</div>
+                <div class="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200 max-h-24 overflow-y-auto">
+                    Hetu 是一款面向个人的 AI 增强知识管理工具，以 **笔记** 与 **对话** 作为两大并列的核心载体。
+                </div>
+            </div>
+
+            <!-- AI 操作选项 -->
+            <div class="px-6 py-4">
+                <div class="text-sm font-medium text-gray-700 mb-3">选择操作：</div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-blue-500 hover:bg-blue-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-pen-fancy text-blue-500"></i>
+                            <span class="text-sm font-medium text-gray-800">续写</span>
+                        </div>
+                        <p class="text-xs text-gray-500">根据上下文继续编写</p>
+                    </button>
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-green-500 hover:bg-green-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-sparkles text-green-500"></i>
+                            <span class="text-sm font-medium text-gray-800">润色</span>
+                        </div>
+                        <p class="text-xs text-gray-500">优化表达，提升文采</p>
+                    </button>
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-purple-500 hover:bg-purple-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-language text-purple-500"></i>
+                            <span class="text-sm font-medium text-gray-800">翻译</span>
+                        </div>
+                        <p class="text-xs text-gray-500">翻译为其他语言</p>
+                    </button>
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-orange-500 hover:bg-orange-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-compress-alt text-orange-500"></i>
+                            <span class="text-sm font-medium text-gray-800">精简</span>
+                        </div>
+                        <p class="text-xs text-gray-500">简化表达，去除冗余</p>
+                    </button>
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-pink-500 hover:bg-pink-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-expand-alt text-pink-500"></i>
+                            <span class="text-sm font-medium text-gray-800">扩展</span>
+                        </div>
+                        <p class="text-xs text-gray-500">丰富内容，添加细节</p>
+                    </button>
+                    <button class="border border-gray-200 rounded-lg p-3 hover:border-indigo-500 hover:bg-indigo-50 text-left transition-all">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas fa-comment-dots text-indigo-500"></i>
+                            <span class="text-sm font-medium text-gray-800">解释</span>
+                        </div>
+                        <p class="text-xs text-gray-500">解释文本含义</p>
+                    </button>
+                </div>
+
+                <!-- 自定义指令 -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">或输入自定义指令：</label>
+                    <textarea placeholder="例如：将这段内容改写为更正式的语气..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm" rows="2"></textarea>
+                </div>
+            </div>
+
+            <!-- 弹窗底部 -->
+            <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center space-x-2 text-xs text-gray-500">
+                    <i class="fas fa-robot"></i>
+                    <span>使用模型：GPT-4o</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="closeAIModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg">
+                        取消
+                    </button>
+                    <button class="px-6 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg">
+                        <i class="fas fa-paper-plane mr-2"></i>执行
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        function closeAIModal() {
+            document.getElementById('ai-assistant-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
