@@ -71,9 +71,8 @@ public class NotebookService : INotebookService
         if (notebook.Children.Count > 0)
             return ApiResponse.Fail("请先删除子笔记本");
 
-        var notes = await _unitOfWork.Notes.GetByNotebookAsync(id, true, cancellationToken);
-        if (notes.Count > 0)
-            return ApiResponse.Fail("请先移动或删除笔记本内的笔记");
+        // 将该笔记本内的笔记变为未分类，再删除笔记本本身
+        await _unitOfWork.Notes.UnassignNotebookAsync(id, cancellationToken);
 
         await _unitOfWork.Notebooks.DeleteAsync(notebook, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

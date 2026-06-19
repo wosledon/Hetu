@@ -7,6 +7,7 @@ public interface INoteRepository : IRepository<Note>
     Task<Note?> GetByIdWithTagsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetByNotebookAsync(Guid notebookId, bool includeDeleted = false, CancellationToken cancellationToken = default);
+    Task UnassignNotebookAsync(Guid notebookId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetByTagAsync(Guid tagId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> SearchAsync(string keyword, Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetDeletedAsync(CancellationToken cancellationToken = default);

@@ -6,6 +6,7 @@ public class TagDto
     public string Name { get; set; } = string.Empty;
     public string? Color { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public int NoteCount { get; set; }
 }
 
 public class CreateTagRequest

@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { shareService } from '../services/shareService';
-import MDEditor from '@uiw/react-md-editor';
+import ThemedMarkdown from '../components/ThemedMarkdown';
 
 export default function SharedNotePage() {
   const { shareCode } = useParams<{ shareCode: string }>();
@@ -43,9 +43,7 @@ export default function SharedNotePage() {
               更新于 {new Date(note.updatedAt).toLocaleString('zh-CN')}
             </div>
           </header>
-          <div data-color-mode="light" className="dark:[data-color-mode=dark]">
-            <MDEditor.Markdown source={note.content} />
-          </div>
+          <ThemedMarkdown source={note.content} />
         </div>
         <footer className="mt-4 text-center text-sm text-gray-400">
           由 Hetu 提供分享服务

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import MDEditor from '@uiw/react-md-editor'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import {
@@ -26,6 +25,7 @@ import {
   Send,
 } from 'lucide-react'
 import { TagInput } from './TagInput'
+import ThemedMarkdown from './ThemedMarkdown'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import { noteVersionService } from '../services/noteVersionService'
@@ -506,9 +506,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </div>
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
-          <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950' : 'w-full'} overflow-y-auto px-8 py-4`}>
+          <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-4`}>
             <div className="markdown-preview text-sm text-gray-800 dark:text-gray-100">
-              <MDEditor.Markdown source={content} />
+              <ThemedMarkdown source={content} />
             </div>
           </div>
         )}
@@ -563,16 +563,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-2 bg-white dark:bg-gray-900">
                     <div>
                       <div className="text-[10px] uppercase text-gray-400 mb-1">当前版本</div>
-                      <MDEditor.Markdown source={content.slice(0, 1000)} />
+                      <ThemedMarkdown source={content.slice(0, 1000)} />
                     </div>
                     <div>
                       <div className="text-[10px] uppercase text-gray-400 mb-1">历史版本</div>
-                      <MDEditor.Markdown source={previewVersion.content.slice(0, 1000)} />
+                      <ThemedMarkdown source={previewVersion.content.slice(0, 1000)} />
                     </div>
                   </div>
                 ) : (
                   <div className="text-xs text-gray-500 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-2 bg-white dark:bg-gray-900">
-                    <MDEditor.Markdown source={previewVersion.content.slice(0, 500)} />
+                    <ThemedMarkdown source={previewVersion.content.slice(0, 500)} />
                   </div>
                 )}
                 <button

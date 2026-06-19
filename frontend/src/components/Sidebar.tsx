@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -6,17 +7,13 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
-  Tag,
   Pencil,
   Folder,
   FolderOpen,
-  GitMerge,
 } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
-import { tagService } from '../services/tagService'
-import { getTagColorClasses } from '../utils/tagColor'
-import type { INotebook, ITag } from '../types'
+import type { INotebook } from '../types'
 
 function NotebookTreeItem({
   notebook,
@@ -52,7 +49,31 @@ function NotebookTreeItem({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => notebookService.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
+    onError: (err: Error) => alert(err.message || '删除笔记本失败'),
   })
+
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  useEffect(() => {
+    if (!menu) return
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        closeMenu()
+      }
+    }
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMenu()
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [menu, closeMenu])
 
   const handleRename = () => {
     const trimmed = draftName.trim()
@@ -94,6 +115,11 @@ function NotebookTreeItem({
           setSelectedNotebookId(notebook.id)
           navigate('/')
         }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
       >
         {isRenaming ? (
           <div className="flex min-w-0 flex-1 items-center space-x-2">
@@ -127,43 +153,10 @@ function NotebookTreeItem({
                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
               {isSelected ? <FolderOpen size={16} className="shrink-0 text-blue-500" /> : <Folder size={16} className="shrink-0 text-blue-500" />}
-              <span className={`truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
-            </div>
-            <div className="relative ml-2 flex h-5 w-16 shrink-0 items-center justify-end">
-              <span className={`absolute right-0 text-xs transition-opacity ${isHovered || isAddingChild ? 'opacity-0' : 'opacity-100'} ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>{notebook.children.length}</span>
-              <div className={`absolute right-0 flex items-center gap-0.5 transition-opacity ${isHovered || isAddingChild ? 'opacity-100' : 'opacity-0'} ${isHovered || isAddingChild ? '' : 'pointer-events-none'}`}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsAddingChild(true)
-                  }}
-                  title="新建子笔记本"
-                  className="rounded p-0.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <Plus size={12} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDraftName(notebook.name)
-                    setIsRenaming(true)
-                  }}
-                  title="重命名"
-                  className="rounded p-0.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDelete()
-                  }}
-                  title="删除"
-                  className="rounded p-0.5 text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              <span className={`min-w-0 flex-1 truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
+              {notebook.children.length > 0 && (
+                <span className={`shrink-0 text-xs ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>{notebook.children.length}</span>
+              )}
             </div>
           </>
         )}
@@ -197,182 +190,42 @@ function NotebookTreeItem({
         notebook.children.map((child) => (
           <NotebookTreeItem key={child.id} notebook={child} level={level + 1} />
         ))}
-    </div>
-  )
-}
 
-function TagItem({
-  tag,
-  allTags,
-}: {
-  tag: ITag
-  allTags: ITag[]
-}) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const selectedTagId = useUIStore((state) => state.selectedTagId)
-  const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
-  const isSelected = selectedTagId === tag.id
-  const [isRenaming, setIsRenaming] = useState(false)
-  const [draftName, setDraftName] = useState(tag.name)
-  const [isMerging, setIsMerging] = useState(false)
-  const [targetTagId, setTargetTagId] = useState('')
-  const [isHovered, setIsHovered] = useState(false)
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      tagService.update(id, { name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags'] }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => tagService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tags'] })
-      if (isSelected) setSelectedTagId(undefined)
-    },
-  })
-
-  const mergeMutation = useMutation({
-    mutationFn: ({ sourceTagIds, targetTagId }: { sourceTagIds: string[]; targetTagId: string }) =>
-      tagService.merge({ sourceTagIds, targetTagId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tags'] })
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
-      setIsMerging(false)
-      setTargetTagId('')
-      if (isSelected) setSelectedTagId(undefined)
-    },
-  })
-
-  const handleRename = () => {
-    const trimmed = draftName.trim()
-    if (trimmed && trimmed !== tag.name) {
-      updateMutation.mutate({ id: tag.id, name: trimmed })
-    }
-    setIsRenaming(false)
-    setDraftName(tag.name)
-  }
-
-  const handleDelete = () => {
-    if (confirm(`确定删除标签「${tag.name}」吗？相关笔记将不再关联此标签。`)) {
-      deleteMutation.mutate(tag.id)
-    }
-  }
-
-  const handleMerge = () => {
-    if (!targetTagId) return
-    if (targetTagId === tag.id) {
-      alert('不能合并到自身')
-      return
-    }
-    mergeMutation.mutate({ sourceTagIds: [tag.id], targetTagId })
-  }
-
-  const mergeTargets = allTags.filter((t) => t.id !== tag.id)
-
-  return (
-    <div
-      className="group relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="flex items-center gap-1">
-        {isRenaming ? (
-          <>
-            <Tag size={14} style={{ color: tag.color || '#6b7280' }} />
-            <input
-              autoFocus
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRename()
-                if (e.key === 'Escape') {
-                  setIsRenaming(false)
-                  setDraftName(tag.name)
-                }
-              }}
-              onBlur={handleRename}
-              className="flex-1 min-w-0 text-sm px-1 py-0.5 bg-white dark:bg-gray-800 border border-indigo-300 rounded outline-none"
-            />
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => {
-                setSelectedTagId(tag.id)
-                navigate('/')
-              }}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
-                isSelected
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200'
-                  : getTagColorClasses(tag.name, tag.color)
-              }`}
-            >
-              <span># {tag.name}</span>
-            </button>
-            {(isHovered || isMerging) && (
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => setIsMerging(true)}
-                  title="合并"
-                  className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-                >
-                  <GitMerge size={12} />
-                </button>
-                <button
-                  onClick={() => {
-                    setDraftName(tag.name)
-                    setIsRenaming(true)
-                  }}
-                  title="重命名"
-                  className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  onClick={handleDelete}
-                  title="删除"
-                  className="p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {isMerging && (
-        <div className="flex items-center gap-1 px-2 py-1 pl-8">
-          <select
-            value={targetTagId}
-            onChange={(e) => setTargetTagId(e.target.value)}
-            className="flex-1 min-w-0 text-sm px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded outline-none"
-          >
-            <option value="">选择目标标签</option>
-            {mergeTargets.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+      {menu && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed min-w-[160px] rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800"
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 180),
+            top: Math.min(menu.y, window.innerHeight - 160),
+            zIndex: 50,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
-            onClick={handleMerge}
-            className="px-2 py-0.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+            onClick={() => { closeMenu(); setIsExpanded(true); setIsAddingChild(true) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
-            合并
+            <Plus size={14} />
+            新建子笔记本
           </button>
           <button
-            onClick={() => {
-              setIsMerging(false)
-              setTargetTagId('')
-            }}
-            className="px-2 py-0.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={() => { closeMenu(); setDraftName(notebook.name); setIsRenaming(true) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
-            取消
+            <Pencil size={14} />
+            重命名
           </button>
-        </div>
+          <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+          <button
+            onClick={() => { closeMenu(); handleDelete() }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+          >
+            <Trash2 size={14} />
+            删除
+          </button>
+        </div>,
+        document.body
       )}
     </div>
   )
@@ -381,8 +234,8 @@ function TagItem({
 export default function Sidebar() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
   const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
+  const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
   const [isAddingRoot, setIsAddingRoot] = useState(false)
   const [rootName, setRootName] = useState('')
 
@@ -391,23 +244,10 @@ export default function Sidebar() {
     queryFn: notebookService.getTree,
   })
 
-  const { data: tags = [] } = useQuery({
-    queryKey: ['tags'],
-    queryFn: tagService.getAll,
-  })
-
   const createNotebookMutation = useMutation({
     mutationFn: (name: string) => notebookService.create({ name }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
   })
-
-  const createTagMutation = useMutation({
-    mutationFn: (name: string) => tagService.create({ name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags'] }),
-  })
-
-  const [isAddingTag, setIsAddingTag] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
 
   const handleCreateRoot = () => {
     const trimmed = rootName.trim()
@@ -418,20 +258,11 @@ export default function Sidebar() {
     setRootName('')
   }
 
-  const handleCreateTag = () => {
-    const trimmed = newTagName.trim()
-    if (trimmed) {
-      createTagMutation.mutate(trimmed)
-    }
-    setIsAddingTag(false)
-    setNewTagName('')
-  }
-
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-200 p-4 dark:border-gray-800">
-        <div className="mb-3 flex items-center justify-between">
+      <div className="flex min-h-0 flex-1 flex-col p-4">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">笔记本</h2>
           <button
             onClick={() => setIsAddingRoot(true)}
@@ -441,7 +272,7 @@ export default function Sidebar() {
             <Plus size={14} />
           </button>
         </div>
-        <div className="notebook-tree max-h-[40vh] space-y-1 overflow-y-auto">
+        <div className="notebook-tree flex-1 space-y-1 overflow-y-auto">
           {isAddingRoot && (
             <div className="flex items-center gap-2 px-2 py-1.5">
               <Folder size={14} className="text-blue-500" />
@@ -468,41 +299,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div className="flex-1 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">标签</h2>
-          <button
-            onClick={() => setIsAddingTag(true)}
-            title="新建标签"
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-        <div className="tag-list flex max-h-[20vh] flex-wrap gap-2 overflow-y-auto">
-          {isAddingTag && (
-            <input
-              autoFocus
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateTag()
-                if (e.key === 'Escape') {
-                  setIsAddingTag(false)
-                  setNewTagName('')
-                }
-              }}
-              onBlur={handleCreateTag}
-              placeholder="新标签"
-              className="w-24 rounded-full border border-blue-300 bg-white px-2 py-1 text-xs outline-none dark:bg-gray-800"
-            />
-          )}
-          {tags.map((tag) => (
-            <TagItem key={tag.id} tag={tag} allTags={tags} />
-          ))}
-        </div>
-      </div>
-
       <div className="border-t border-gray-200 p-4 dark:border-gray-800">
         <button
           onClick={() => {
@@ -515,22 +311,13 @@ export default function Sidebar() {
           <Plus size={15} />
           <span>新建笔记</span>
         </button>
-        <div className="mt-2 flex gap-2">
-          <button
-            onClick={() => setIsAddingRoot(true)}
-            className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <Folder size={13} />
-            <span>笔记本</span>
-          </button>
-          <button
-            onClick={() => setIsAddingTag(true)}
-            className="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <Tag size={13} />
-            <span>标签</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setIsAddingRoot(true)}
+          className="mt-2 flex w-full items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <Folder size={13} />
+          <span>新建笔记本</span>
+        </button>
       </div>
     </aside>
   )

@@ -17,7 +17,8 @@ public class TagService : ITagService
     public async Task<ApiResponse<List<TagDto>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var tags = await _unitOfWork.Tags.GetAllAsync(cancellationToken);
-        return ApiResponse<List<TagDto>>.Ok(tags.Select(Map).ToList());
+        var counts = await _unitOfWork.Tags.GetNoteCountsAsync(cancellationToken);
+        return ApiResponse<List<TagDto>>.Ok(tags.Select(t => Map(t, counts.GetValueOrDefault(t.Id))).ToList());
     }
 
     public async Task<ApiResponse<TagDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -120,11 +121,12 @@ public class TagService : ITagService
         return ApiResponse.Ok();
     }
 
-    private static TagDto Map(Tag tag) => new()
+    private static TagDto Map(Tag tag, int noteCount = 0) => new()
     {
         Id = tag.Id,
         Name = tag.Name,
         Color = tag.Color,
-        CreatedAt = tag.CreatedAt
+        CreatedAt = tag.CreatedAt,
+        NoteCount = noteCount
     };
 }

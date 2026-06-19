@@ -36,8 +36,7 @@ public class ChatMessageService : IChatMessageService
         };
 
         await _unitOfWork.ChatMessages.AddAsync(message, cancellationToken);
-        topic.UpdatedAt = DateTimeOffset.UtcNow;
-        await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
+        await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<ChatMessageDto>.Ok(Map(message));
@@ -52,13 +51,7 @@ public class ChatMessageService : IChatMessageService
         message.Content = request.Content.Trim();
         message.UpdatedAt = DateTimeOffset.UtcNow;
         await _unitOfWork.ChatMessages.UpdateAsync(message, cancellationToken);
-
-        var topic = await _unitOfWork.ChatTopics.GetByIdAsync(message.TopicId, cancellationToken);
-        if (topic != null)
-        {
-            topic.UpdatedAt = DateTimeOffset.UtcNow;
-            await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
-        }
+        await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(message.TopicId, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse<ChatMessageDto>.Ok(Map(message));
@@ -71,13 +64,7 @@ public class ChatMessageService : IChatMessageService
 
         var topicId = message.TopicId;
         await _unitOfWork.ChatMessages.DeleteAsync(message, cancellationToken);
-
-        var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
-        if (topic != null)
-        {
-            topic.UpdatedAt = DateTimeOffset.UtcNow;
-            await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
-        }
+        await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -100,8 +87,7 @@ public class ChatMessageService : IChatMessageService
         };
 
         await _unitOfWork.ChatMessages.AddAsync(message, cancellationToken);
-        topic.UpdatedAt = DateTimeOffset.UtcNow;
-        await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
+        await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return message;

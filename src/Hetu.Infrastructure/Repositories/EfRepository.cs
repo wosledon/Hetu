@@ -43,4 +43,9 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
         DbSet.Remove(entity);
         return Task.CompletedTask;
     }
+
+    public virtual Task TouchUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default)
+        => DbSet
+            .Where(e => e.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedAt, DateTimeOffset.UtcNow), cancellationToken);
 }

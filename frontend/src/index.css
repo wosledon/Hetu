@@ -52,3 +52,29 @@ body {
   font-size: 15px !important;
   line-height: 1.7 !important;
 }
+
+/* Markdown 预览（MDEditor.Markdown 渲染的 .wmde-markdown）
+   背景透明以继承父容器，文字颜色继承父级 Tailwind 类，
+   data-color-mode 由 ThemedMarkdown 组件按应用主题动态注入。 */
+.wmde-markdown {
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 0.875rem !important;
+  line-height: 1.7 !important;
+}
+
+.wmde-markdown pre {
+  background: rgb(246 248 250) !important;
+}
+
+[data-color-mode='dark'] .wmde-markdown pre {
+  background: rgb(13 17 23) !important;
+}
+
+.wmde-markdown code {
+  background: rgb(246 248 250) !important;
+}
+
+[data-color-mode='dark'] .wmde-markdown code {
+  background: rgb(33 38 45) !important;
+}

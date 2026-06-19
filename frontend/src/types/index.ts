@@ -46,6 +46,7 @@ export interface ITag {
   name: string;
   color?: string;
   createdAt: string;
+  noteCount?: number;
 }
 
 export interface INoteSearchResult {

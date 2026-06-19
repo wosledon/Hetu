@@ -20,4 +20,14 @@ public class TagRepository : EfRepository<Tag>, ITagRepository
             .Select(nt => nt.Tag)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<Dictionary<Guid, int>> GetNoteCountsAsync(CancellationToken cancellationToken = default)
+    {
+        var counts = await Context.NoteTags
+            .AsNoTracking()
+            .GroupBy(nt => nt.TagId)
+            .Select(g => new { TagId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        return counts.ToDictionary(x => x.TagId, x => x.Count);
+    }
 }

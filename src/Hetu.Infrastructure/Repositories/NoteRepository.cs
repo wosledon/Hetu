@@ -63,6 +63,13 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ToList();
     }
 
+    public async Task UnassignNotebookAsync(Guid notebookId, CancellationToken cancellationToken = default)
+    {
+        await DbSet
+            .Where(n => n.NotebookId == notebookId)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.NotebookId, (Guid?)null), cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Note>> GetByTagAsync(Guid tagId, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();

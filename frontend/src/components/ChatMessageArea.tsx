@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw } from 'lucide-react'
-import MDEditor from '@uiw/react-md-editor'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
+import ThemedMarkdown from './ThemedMarkdown'
 import type { IChatTopic, IPromptPreset } from '../types'
 
 interface ChatMessageAreaProps {
@@ -631,7 +631,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   </div>
                 ) : (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <MDEditor.Markdown source={message.content} />
+                    <ThemedMarkdown source={message.content} />
                   </div>
                 )}
               </div>
@@ -662,7 +662,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             </div>
             <div className="max-w-3xl rounded-lg bg-green-50 p-4 dark:bg-gray-800">
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <MDEditor.Markdown source={streamingContent || '思考中...'} />
+                <ThemedMarkdown source={streamingContent || '思考中...'} />
               </div>
             </div>
           </div>
@@ -672,7 +672,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20">
             <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">整理预览</div>
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              <MDEditor.Markdown source={organizePreview || '整理中...'} />
+              <ThemedMarkdown source={organizePreview || '整理中...'} />
             </div>
           </div>
         )}
