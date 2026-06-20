@@ -47,6 +47,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const agentPickerRef = useRef<HTMLDivElement>(null)
+  const modelPickerRef = useRef<HTMLDivElement>(null)
 
   const { data: messages = [] } = useQuery({
     queryKey: ['chatMessages', topic?.id],
@@ -85,6 +87,21 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setTopicContextWindowSize(topic?.contextWindowSize?.toString() ?? '')
   }, [topic?.id, topic?.modelId, topic?.customSystemPrompt, topic?.contextWindowSize])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (showAgentPicker && agentPickerRef.current && !agentPickerRef.current.contains(target)) {
+        setShowAgentPicker(false)
+      }
+      if (showModelPicker && modelPickerRef.current && !modelPickerRef.current.contains(target)) {
+        setShowModelPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showAgentPicker, showModelPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -769,7 +786,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
 
               {/* Agent selector */}
-              <div className="relative">
+              <div className="relative" ref={agentPickerRef}>
                 <button
                   onClick={() => { setShowAgentPicker(!showAgentPicker); setShowModelPicker(false) }}
                   className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
@@ -793,9 +810,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                           <button
                             key={p.id}
                             onClick={() => { applyPreset(p); setShowAgentPicker(false) }}
-                            className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                            className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                           >
-                            <div className="text-xs font-medium text-gray-800 dark:text-gray-200">{p.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
+                              {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
+                            </div>
                             <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
                           </button>
                         ))
@@ -806,15 +826,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               </div>
 
               {/* Model selector */}
-              <div className="relative">
+              <div className="relative" ref={modelPickerRef}>
                 <button
                   onClick={() => { setShowModelPicker(!showModelPicker); setShowAgentPicker(false) }}
-                  className="flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    selectedModelId
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                  }`}
                   title="选择模型"
                 >
-                  <span className="text-[11px] font-medium">
-                    {selectedModelId ? chatModels.find(m => m.id === selectedModelId)?.displayName || '模型' : '模型'}
-                  </span>
+                  {selectedModelId ? chatModels.find(m => m.id === selectedModelId)?.displayName || '默认模型' : '默认模型'}
                   <ChevronDown size={10} />
                 </button>
                 {showModelPicker && (
