@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Puzzle, Settings, Sliders, Trash2, Wrench } from 'lucide-react'
+import { Bot, Database, Puzzle, Settings, Trash2, Wrench } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import AiSettings from '../components/AiSettings'
-import PromptPresetManager from '../components/PromptPresetManager'
 import SkillManager from '../components/SkillManager'
 import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
@@ -13,14 +12,13 @@ import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'ai' | 'mcp' | 'skills' | 'prompts' | 'database' | 'trash'
+type SettingsSection = 'app' | 'ai' | 'mcp' | 'skills' | 'database' | 'trash'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', icon: Settings },
   { key: 'ai', label: 'AI 模型', icon: Bot },
   { key: 'mcp', label: 'MCP Server', icon: Wrench },
   { key: 'skills', label: 'Skill 技能', icon: Puzzle },
-  { key: 'prompts', label: '提示词', icon: Sliders },
   { key: 'database', label: '数据库', icon: Database },
   { key: 'trash', label: '回收站', icon: Trash2 },
 ] satisfies { key: SettingsSection; label: string; icon: typeof Settings }[]
@@ -174,7 +172,6 @@ export default function SettingsPage() {
 
                 {activeSection === 'database' && <DatabaseSettings />}
                 {activeSection === 'ai' && <AiSettings />}
-                {activeSection === 'prompts' && <PromptPresetManager />}
                 {activeSection === 'skills' && <SkillManager />}
                 {activeSection === 'trash' && (
                   <section className="space-y-4">

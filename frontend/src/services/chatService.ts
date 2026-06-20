@@ -1,5 +1,9 @@
 import { get, post, put, del } from './api';
-import type { IChatGroup, IChatTopic, IChatMessage, IPromptPreset } from '../types';
+import type { IChatGroup, IChatTopic, IChatMessage } from '../types';
+
+// Re-export prompt preset types and service from dedicated module
+export { promptPresetService } from './promptPresetService';
+export type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from './promptPresetService';
 
 export interface CreateChatGroupRequest {
   name: string;
@@ -42,17 +46,6 @@ export interface OrganizeTopicRequest {
   notebookId?: string;
   style?: 'summary' | 'detailed' | 'qna' | 'custom';
   customPrompt?: string;
-}
-
-export interface CreatePromptPresetRequest {
-  category: string;
-  name: string;
-  content: string;
-  variables?: string;
-}
-
-export interface UpdatePromptPresetRequest extends CreatePromptPresetRequest {
-  sortOrder: number;
 }
 
 export const chatGroupService = {
@@ -108,15 +101,4 @@ export const chatMessageService = {
     if (groupId) params.set('groupId', groupId);
     return get<ChatMessageSearchResult[]>(`/chat-messages/search?${params.toString()}`);
   },
-};
-
-export const promptPresetService = {
-  getAll: () => get<IPromptPreset[]>('/prompt-presets'),
-  getById: (id: string) => get<IPromptPreset>(`/prompt-presets/${id}`),
-  create: (data: CreatePromptPresetRequest) => post<IPromptPreset>('/prompt-presets', data),
-  update: (id: string, data: UpdatePromptPresetRequest) => put<IPromptPreset>(`/prompt-presets/${id}`, data),
-  delete: (id: string) => del<void>(`/prompt-presets/${id}`),
-  export: () => get<IPromptPreset[]>('/prompt-presets/export'),
-  import: (data: { category: string; name: string; content: string; variables?: string }[]) =>
-    post<number>('/prompt-presets/import', data),
 };

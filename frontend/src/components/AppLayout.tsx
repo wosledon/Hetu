@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, MessageSquare, Network, Search, Settings, Tag } from 'lucide-react'
+import { Bot, BookOpen, MessageSquare, Network, Search, Settings, Tag } from 'lucide-react'
 import Sidebar from './Sidebar'
 
 interface AppLayoutProps {
@@ -16,6 +16,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     { path: '/', label: '笔记', icon: BookOpen },
     { path: '/tags', label: '标签', icon: Tag },
     { path: '/chat', label: '对话', icon: MessageSquare },
+    { path: '/agents', label: '智能体', icon: Bot },
     { path: '/graph', label: '知识图谱', icon: Network },
     { path: '/search', label: '搜索', icon: Search },
   ]

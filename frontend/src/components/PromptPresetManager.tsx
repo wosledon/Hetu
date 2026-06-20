@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Edit2, Check, X, Download, Upload, RefreshCw } from 'lucide-react'
-import { promptPresetService } from '../services/chatService'
+import { promptPresetService } from '../services/promptPresetService'
 import type { IPromptPreset } from '../types'
 
 export default function PromptPresetManager() {
