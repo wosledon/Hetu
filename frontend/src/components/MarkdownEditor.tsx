@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -48,9 +48,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('split')
   const [aiResult, setAiResult] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [showAiModal, setShowAiModal] = useState(false)
+  const [showInlineAi, setShowInlineAi] = useState(false)
+  const [inlineCoords, setInlineCoords] = useState<{ top: number; left: number } | null>(null)
   const [aiAction, setAiAction] = useState<'continue' | 'polish' | 'translate' | 'condense' | 'expand' | 'explain' | 'custom'>('continue')
   const [aiCustomPrompt, setAiCustomPrompt] = useState('')
+  const [aiSelection, setAiSelection] = useState('')
+  const [aiSelectionRange, setAiSelectionRange] = useState<{ start: number; end: number } | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inlineInputRef = useRef<HTMLTextAreaElement>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -108,9 +113,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     },
   })
 
-  const handleAiExecute = async () => {
+  const handleAiExecuteFor = async (action: typeof aiAction, customPrompt: string) => {
     if (!note) return
-    const selectedText = window.getSelection()?.toString() || undefined
     const systemPrompts: Record<typeof aiAction, string> = {
       continue: '',
       polish: '请润色以下文本，优化表达，提升文采：',
@@ -118,19 +122,113 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       condense: '请简化以下表达，去除冗余：',
       expand: '请丰富以下内容，添加细节：',
       explain: '请解释以下文本含义：',
-      custom: aiCustomPrompt,
+      custom: customPrompt,
     }
-    const systemPrompt = systemPrompts[aiAction]
+    const systemPrompt = systemPrompts[action]
+    setAiAction(action)
     setAiLoading(true)
     setAiResult('')
     try {
-      const result = await noteAiService.continue(note.id, { selectedText, systemPrompt })
+      const result = await noteAiService.continue(note.id, { selectedText: aiSelection || undefined, systemPrompt })
       setAiResult(result)
     } catch (err) {
       setAiResult(`[ERROR] ${err instanceof Error ? err.message : 'AI 操作失败'}`)
     } finally {
       setAiLoading(false)
     }
+  }
+
+  const handleAiExecute = () => handleAiExecuteFor(aiAction, aiCustomPrompt)
+
+  const getSelectionCoords = useCallback((): { top: number; left: number } | null => {
+    const ta = textareaRef.current
+    if (!ta) return null
+    const { selectionStart, selectionEnd, value } = ta
+    const end = selectionEnd > selectionStart ? selectionEnd : selectionStart
+    if (end <= 0) return null
+
+    const style = window.getComputedStyle(ta)
+    const div = document.createElement('div')
+    const props = [
+      'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'fontSizeAdjust',
+      'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'textDecoration',
+      'letterSpacing', 'wordSpacing', 'tabSize', 'whiteSpace', 'wordWrap', 'wordBreak',
+    ]
+    props.forEach((p) => { div.style[p as string] = style[p as string] })
+    div.style.position = 'absolute'
+    div.style.visibility = 'hidden'
+    div.style.whiteSpace = 'pre-wrap'
+    div.style.wordWrap = 'break-word'
+
+    div.textContent = value.substring(0, end)
+    const span = document.createElement('span')
+    span.textContent = value.substring(end) || '.'
+    div.appendChild(span)
+    document.body.appendChild(div)
+
+    const lineHeight = parseFloat(style.lineHeight) || 24
+    const coords = {
+      top: span.offsetTop + parseFloat(style.borderTopWidth) + lineHeight - ta.scrollTop,
+      left: Math.max(span.offsetLeft + parseFloat(style.borderLeftWidth) - ta.scrollLeft, 0),
+    }
+    document.body.removeChild(div)
+    return coords
+  }, [])
+
+  const handleTextareaSelect = useCallback(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const { selectionStart, selectionEnd, value } = ta
+    if (selectionEnd > selectionStart) {
+      setAiSelection(value.slice(selectionStart, selectionEnd))
+      setAiSelectionRange({ start: selectionStart, end: selectionEnd })
+      const coords = getSelectionCoords()
+      if (coords) setInlineCoords(coords)
+      setShowInlineAi(true)
+    } else {
+      setAiSelection('')
+      setAiSelectionRange(null)
+      if (!aiLoading && !aiResult) {
+        setShowInlineAi(false)
+        setInlineCoords(null)
+      }
+    }
+  }, [getSelectionCoords, aiLoading, aiResult])
+
+  const openInlineAi = useCallback(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const { selectionStart, selectionEnd, value } = ta
+    if (selectionEnd <= selectionStart) {
+      ta.focus()
+      return
+    }
+    setAiSelection(value.slice(selectionStart, selectionEnd))
+    setAiSelectionRange({ start: selectionStart, end: selectionEnd })
+    const coords = getSelectionCoords()
+    if (coords) setInlineCoords(coords)
+    setShowInlineAi(true)
+    setTimeout(() => inlineInputRef.current?.focus(), 50)
+  }, [getSelectionCoords])
+
+  const closeInlineAi = useCallback(() => {
+    setShowInlineAi(false)
+    setAiResult('')
+    setAiCustomPrompt('')
+    setAiAction('continue')
+  }, [])
+
+  const handleReplaceSelection = () => {
+    if (!aiResult || aiResult.startsWith('[ERROR]') || !aiSelectionRange) return
+    const newContent = content.slice(0, aiSelectionRange.start) + aiResult + content.slice(aiSelectionRange.end)
+    handleContentChange(newContent)
+    setAiResult('')
+    setAiSelection('')
+    setAiSelectionRange(null)
+    closeInlineAi()
   }
 
   const handleInsertAiResult = () => {
@@ -182,6 +280,11 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     setContent(noteContent)
     setIsDirty(false)
     setPreviewVersion(null)
+    setShowInlineAi(false)
+    setInlineCoords(null)
+    setAiResult('')
+    setAiSelection('')
+    setAiSelectionRange(null)
   }, [noteId, noteTitle, noteContent])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -276,9 +379,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </button>
           <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
           <button
-            onClick={() => setShowAiModal(true)}
+            onClick={openInlineAi}
             disabled={aiLoading}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:shadow-indigo-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:shadow-indigo-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50 ${
+              showInlineAi
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-700'
+                : 'bg-gradient-to-r from-indigo-500 to-purple-600'
+            }`}
+            title="选中文字后点击，在选区下方行内调用 AI"
           >
             <Sparkles size={13} />
             AI 助手
@@ -383,137 +491,141 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       )}
 
-      {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 dark:border-gray-800 dark:from-blue-900/20 dark:to-indigo-900/20">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-gray-800">
-                  <Sparkles size={16} className="text-indigo-500" />
-                </div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">AI 助手</h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowAiModal(false)
-                  setAiResult('')
-                }}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/50 hover:text-gray-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-3 dark:border-gray-800 dark:bg-gray-950/50">
-              <div className="mb-1.5 text-xs font-medium text-gray-500">选中的文本</div>
-              <div className="max-h-20 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2.5 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200">
-                {window.getSelection()?.toString() || '未选择文本，将对整篇笔记进行操作'}
-              </div>
-            </div>
-
-            <div className="px-6 py-4">
-              <div className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">选择操作</div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: 'continue', label: '续写', icon: PenLine, desc: '根据上下文继续编写', color: 'blue' },
-                  { key: 'polish', label: '润色', icon: Sparkles, desc: '优化表达，提升文采', color: 'green' },
-                  { key: 'translate', label: '翻译', icon: Languages, desc: '翻译为其他语言', color: 'purple' },
-                  { key: 'condense', label: '精简', icon: Minimize2, desc: '简化表达，去除冗余', color: 'orange' },
-                  { key: 'expand', label: '扩展', icon: Maximize2, desc: '丰富内容，添加细节', color: 'pink' },
-                  { key: 'explain', label: '解释', icon: MessageCircle, desc: '解释文本含义', color: 'indigo' },
-                ].map((action) => {
-                  const Icon = action.icon
-                  const isActive = aiAction === action.key
-                  return (
-                    <button
-                      key={action.key}
-                      onClick={() => setAiAction(action.key as typeof aiAction)}
-                      className={`rounded-lg border p-3 text-left transition-all ${
-                        isActive
-                          ? `border-${action.color}-500 bg-${action.color}-50 dark:bg-${action.color}-950/30`
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'
-                      }`}
-                    >
-                      <div className="mb-1 flex items-center gap-2">
-                        <Icon size={16} className={`text-${action.color}-500`} />
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{action.label}</span>
-                      </div>
-                      <p className="text-xs text-gray-500">{action.desc}</p>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="mt-4">
-                <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">或输入自定义指令</label>
-                <textarea
-                  value={aiCustomPrompt}
-                  onChange={(e) => setAiCustomPrompt(e.target.value)}
-                  onFocus={() => setAiAction('custom')}
-                  placeholder="例如：将这段内容改写为更正式的语气..."
-                  rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 focus:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus:border-blue-500 dark:focus:bg-gray-800"
-                />
-              </div>
-            </div>
-
-            {aiResult && (
-              <div className="border-t border-gray-100 px-6 py-4 dark:border-gray-800">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">AI 生成结果</div>
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
-                  {aiResult}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-950/50">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Bot size={14} />
-                <span>使用模型：GPT-4o</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {aiResult && !aiResult.startsWith('[ERROR]') && (
-                  <button
-                    onClick={handleInsertAiResult}
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
-                  >
-                    插入到笔记
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setShowAiModal(false)
-                    setAiResult('')
-                    setAiCustomPrompt('')
-                  }}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleAiExecute}
-                  disabled={aiLoading}
-                  className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
-                >
-                  <Send size={13} />
-                  {aiLoading ? '生成中...' : aiResult ? '重新生成' : '执行'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
         {(viewMode === 'edit' || viewMode === 'split') && (
-          <div className={`${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900`}>
+          <div className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900`}>
             <textarea
+              ref={textareaRef}
               value={content}
               onChange={(e) => handleContentChange(e.target.value)}
+              onSelect={handleTextareaSelect}
+              onMouseUp={handleTextareaSelect}
+              onKeyUp={handleTextareaSelect}
               placeholder="开始编写..."
               className="w-full resize-none overflow-hidden text-sm leading-[1.85] text-gray-700 outline-none placeholder:text-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-600"
               style={{ minHeight: 'calc(100vh - 220px)' }}
             />
+
+            {showInlineAi && inlineCoords && (
+              <div
+                className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
+                style={{ top: inlineCoords.top, left: inlineCoords.left }}
+              >
+                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-indigo-500" />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">行内 AI</span>
+                    <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      {aiSelection.length} 字
+                    </span>
+                  </div>
+                  <button
+                    onClick={closeInlineAi}
+                    className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+
+                <div className="px-3 py-2">
+                  {!aiResult && (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {[
+                        { key: 'polish', label: '润色' },
+                        { key: 'translate', label: '翻译' },
+                        { key: 'condense', label: '精简' },
+                        { key: 'expand', label: '扩展' },
+                        { key: 'explain', label: '解释' },
+                      ].map((a) => (
+                        <button
+                          key={a.key}
+                          onClick={() => {
+                            setAiAction(a.key as typeof aiAction)
+                            setAiCustomPrompt('')
+                            handleAiExecuteFor(a.key as typeof aiAction, '')
+                          }}
+                          className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                            aiAction === a.key
+                              ? 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!aiResult && (
+                    <textarea
+                      ref={inlineInputRef}
+                      value={aiCustomPrompt}
+                      onChange={(e) => setAiCustomPrompt(e.target.value)}
+                      onFocus={() => setAiAction('custom')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleAiExecute()
+                        }
+                        if (e.key === 'Escape') {
+                          closeInlineAi()
+                        }
+                      }}
+                      placeholder="描述想要的修改，回车执行…"
+                      rows={2}
+                      className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-indigo-400 focus:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus:border-indigo-500 dark:focus:bg-gray-800"
+                    />
+                  )}
+
+                  {aiResult && (
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs whitespace-pre-wrap text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
+                      {aiResult}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-gray-800 dark:bg-gray-950/50">
+                  <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                    <Bot size={11} />
+                    <span>GPT-4o</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {aiResult && !aiResult.startsWith('[ERROR]') && (
+                      <>
+                        <button
+                          onClick={handleReplaceSelection}
+                          className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700"
+                        >
+                          接受替换
+                        </button>
+                        <button
+                          onClick={handleInsertAiResult}
+                          className="rounded-md px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                        >
+                          追加
+                        </button>
+                        <button
+                          onClick={() => { setAiResult(''); setAiCustomPrompt('') }}
+                          className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
+                        >
+                          重写
+                        </button>
+                      </>
+                    )}
+                    {!aiResult && (
+                      <button
+                        onClick={handleAiExecute}
+                        disabled={aiLoading}
+                        className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
+                      >
+                        <Send size={11} />
+                        {aiLoading ? '生成中…' : '执行'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
