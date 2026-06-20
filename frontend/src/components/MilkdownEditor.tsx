@@ -122,7 +122,6 @@ function selectionTrackerPlugin(onChange?: (info: SelectionInfo) => void) {
  */
 function markdownUpdatePlugin(onChange: (md: string) => void): MilkdownPlugin {
   return $prose((ctx) => {
-    const serializer = ctx.get(serializerCtx)
     let lastDoc: EditorState['doc'] | null = null
     return new Plugin({
       key: new PluginKey('hetu-markdown-update'),
@@ -131,6 +130,8 @@ function markdownUpdatePlugin(onChange: (md: string) => void): MilkdownPlugin {
           // 只在文档实际变化时序列化
           if (lastDoc && view.state.doc.eq(lastDoc)) return
           lastDoc = view.state.doc
+          // 在 update 中获取 serializer，此时 editor 已完全初始化
+          const serializer = ctx.get(serializerCtx)
           const md = serializer(view.state.doc)
           onChange(md)
         },
