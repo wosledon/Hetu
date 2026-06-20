@@ -2,6 +2,55 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ===== 自定义字体：FiraCode ===== */
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-Retina.ttf') format('truetype');
+  font-weight: 450;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('./fonts/FiraCode-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
@@ -433,8 +482,8 @@ body {
 .hetu-milkdown-root .milkdown-code-block {
   position: relative;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #1e1e2e;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f6f8fa;
   margin-bottom: 0;
 }
 
@@ -454,8 +503,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.4em 0.75em;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   font-size: 0.8em;
   border-radius: 9px 9px 0 0;
 }
@@ -472,7 +521,7 @@ body {
   gap: 0.3em;
   background: transparent;
   border: none;
-  color: #cdd6f4;
+  color: #4b5563;
   font-size: 0.85em;
   font-weight: 500;
   cursor: pointer;
@@ -481,7 +530,15 @@ body {
   transition: background 0.15s;
 }
 
+.dark .hetu-milkdown-root .milkdown-code-block .language-button {
+  color: #cdd6f4;
+}
+
 .hetu-milkdown-root .milkdown-code-block .language-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -502,7 +559,7 @@ body {
   gap: 0.3em;
   background: transparent;
   border: none;
-  color: #a6adc8;
+  color: #6b7280;
   font-size: 0.8em;
   cursor: pointer;
   padding: 0.2em 0.5em;
@@ -510,7 +567,16 @@ body {
   transition: all 0.15s;
 }
 
+.dark .hetu-milkdown-root .milkdown-code-block .copy-button {
+  color: #a6adc8;
+}
+
 .hetu-milkdown-root .milkdown-code-block .copy-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #374151;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .copy-button:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #cdd6f4;
 }
@@ -538,12 +604,18 @@ body {
 .hetu-milkdown-root .milkdown-code-block .language-picker {
   position: absolute;
   z-index: 50;
-  background: #1e1e2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   margin-top: 4px;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker {
+  background: #1e1e2e;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .list-wrapper {
@@ -558,15 +630,24 @@ body {
   align-items: center;
   gap: 0.5em;
   padding: 0.6em 0.75em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .search-box {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.2);
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .search-icon {
   display: flex;
   align-items: center;
-  color: #6c7086;
+  color: #9ca3af;
   flex-shrink: 0;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .search-icon {
+  color: #6c7086;
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .search-input {
@@ -574,21 +655,33 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  color: #cdd6f4;
+  color: #374151;
   font-size: 0.85em;
   min-width: 120px;
 }
 
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .search-input {
+  color: #cdd6f4;
+}
+
 .hetu-milkdown-root .milkdown-code-block .language-picker .search-input::placeholder {
+  color: #9ca3af;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .search-input::placeholder {
   color: #6c7086;
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .clear-icon {
   display: flex;
   align-items: center;
-  color: #6c7086;
+  color: #9ca3af;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .clear-icon {
+  color: #6c7086;
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .clear-icon.hidden {
@@ -609,21 +702,35 @@ body {
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .language-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .language-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item {
   padding: 0.4em 0.75em;
   border-radius: 4px;
-  color: #bac2de;
+  color: #4b5563;
   font-size: 0.85em;
   cursor: pointer;
   transition: background 0.1s;
 }
 
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item {
+  color: #bac2de;
+}
+
 .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item:hover,
 .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item[aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1f2937;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item:hover,
+.dark .hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item[aria-selected="true"] {
   background: rgba(137, 180, 250, 0.15);
   color: #cdd6f4;
 }
@@ -631,15 +738,20 @@ body {
 /* CodeMirror 编辑区域 */
 .hetu-milkdown-root .milkdown-code-block .cm-editor {
   background: transparent;
-  color: #cdd6f4;
+  color: #24292f;
   border-radius: 0 0 9px 9px;
 }
 
+.dark .hetu-milkdown-root .milkdown-code-block .cm-editor {
+  color: #cdd6f4;
+}
+
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.88em;
   line-height: 1.6;
   padding: 0.75em 1em;
+  font-variant-ligatures: contextual;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-gutters {
@@ -652,22 +764,38 @@ body {
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-line {
-  color: #cdd6f4;
+  color: inherit;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-content {
+  caret-color: #3b82f6;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-content {
   caret-color: #89b4fa;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-cursor {
+  border-left-color: #3b82f6;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-cursor {
   border-left-color: #89b4fa;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-selectionBackground {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-selectionBackground {
   background: rgba(137, 180, 250, 0.2) !important;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-activeLine {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-activeLine {
   background: rgba(255, 255, 255, 0.03);
 }
 
