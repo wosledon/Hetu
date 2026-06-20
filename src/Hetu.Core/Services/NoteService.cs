@@ -122,10 +122,19 @@ public class NoteService : INoteService
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var embeddingService = scope.ServiceProvider.GetRequiredService<INoteEmbeddingService>();
                 await embeddingService.GenerateEmbeddingAsync(note.Id);
+
+                // 按设置决定是否自动提取知识图谱
+                var settings = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var autoExtractSetting = await settings.AppSettings.GetByKeyAsync("GraphAutoExtract", CancellationToken.None);
+                if (autoExtractSetting?.Value == "true")
+                {
+                    var graphService = scope.ServiceProvider.GetRequiredService<IGraphService>();
+                    await graphService.ExtractFromNoteAsync(note.Id, CancellationToken.None);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "笔记 {NoteId} 更新后生成向量嵌入失败", note.Id);
+                _logger.LogWarning(ex, "笔记 {NoteId} 更新后后台处理失败", note.Id);
             }
         }, CancellationToken.None);
 

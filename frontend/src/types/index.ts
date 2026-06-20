@@ -60,6 +60,7 @@ export interface IAppSettingsSnapshot {
   appName: string;
   theme: 'light' | 'dark' | 'system';
   dataDirectory: string;
+  graphAutoExtract: string;
 }
 
 export interface IAiProvider {

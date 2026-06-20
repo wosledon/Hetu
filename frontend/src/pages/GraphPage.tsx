@@ -6,7 +6,9 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Trash2,
+  X,
   ZoomIn,
   ZoomOut,
   Lightbulb,
@@ -18,7 +20,8 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { graphService } from '../services/graphService'
-import type { IGraphEntity, IGraphRelation } from '../types'
+import { noteService } from '../services/noteService'
+import type { IGraphEntity, IGraphRelation, INote } from '../types'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -186,6 +189,8 @@ export default function GraphPage() {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 })
+  const [showExtractDialog, setShowExtractDialog] = useState(false)
+  const [extractingNoteId, setExtractingNoteId] = useState<string | null>(null)
 
   useEffect(() => {
     const el = containerRef.current
@@ -227,6 +232,27 @@ export default function GraphPage() {
   const deleteRelationMutation = useMutation({
     mutationFn: (id: string) => graphService.deleteRelation(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['graph'] }),
+  })
+
+  const { data: notesData } = useQuery({
+    queryKey: ['graph-extract-notes'],
+    queryFn: () => noteService.getList({ page: 1, pageSize: 200 }),
+    enabled: showExtractDialog,
+  })
+
+  const notes = notesData?.items ?? []
+
+  const extractMutation = useMutation({
+    mutationFn: (noteId: string) => graphService.extractFromNote(noteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graph'] })
+      setExtractingNoteId(null)
+      setShowExtractDialog(false)
+    },
+    onError: (err: Error) => {
+      alert(err.message || '提取失败')
+      setExtractingNoteId(null)
+    },
   })
 
   const filteredEntities = useMemo(() => {
@@ -299,6 +325,14 @@ export default function GraphPage() {
           <button className="rounded bg-blue-500 px-3 py-1.5 text-sm text-white hover:bg-blue-600">
             <Download size={14} className="mr-1 inline" />导出
           </button>
+          <button
+            onClick={() => setShowExtractDialog(true)}
+            className="flex items-center gap-1 rounded bg-emerald-500 px-3 py-1.5 text-sm text-white hover:bg-emerald-600"
+            title="用 AI 从笔记中提取实体和关系"
+          >
+            <Sparkles size={14} />
+            从笔记提取
+          </button>
         </div>
       </div>
       {isLoading ? (
@@ -308,6 +342,13 @@ export default function GraphPage() {
           <Network size={48} className="text-gray-300 dark:text-gray-700" />
           <p>知识图谱为空</p>
           <p className="text-sm text-gray-400">从笔记中提取实体和关系来构建知识图谱</p>
+          <button
+            onClick={() => setShowExtractDialog(true)}
+            className="flex items-center gap-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm text-white hover:bg-emerald-600"
+          >
+            <Sparkles size={15} />
+            从笔记提取
+          </button>
         </div>
       ) : (
         <div ref={containerRef} className="flex-1 relative overflow-hidden">
@@ -403,6 +444,68 @@ export default function GraphPage() {
               </svg>
             </>
           )}
+        </div>
+      )}
+
+      {showExtractDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-emerald-500" />
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">从笔记提取知识图谱</h3>
+              </div>
+              <button
+                onClick={() => setShowExtractDialog(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                AI 将分析笔记内容，提取实体（人物、技术、概念等）和它们之间的关系。此过程需要调用 LLM，可能需要 10-30 秒。
+              </p>
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                {notes.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-gray-500">暂无笔记</div>
+                ) : (
+                  notes.map((note: INote) => (
+                    <button
+                      key={note.id}
+                      disabled={extractingNoteId === note.id}
+                      onClick={() => {
+                        setExtractingNoteId(note.id)
+                        extractMutation.mutate(note.id)
+                      }}
+                      className="group flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:hover:bg-gray-700/50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                            {note.title || '未命名笔记'}
+                          </span>
+                          {extractingNoteId === note.id && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600">
+                              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              提取中...
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {(note.content || '').slice(0, 80)}
+                          {(note.content || '').length > 80 ? '...' : ''}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

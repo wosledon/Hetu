@@ -149,6 +149,41 @@ export default function SettingsPage() {
                     <p className="mt-1 text-xs text-gray-500">数据库文件和附件的存储位置，修改后需重启应用</p>
                   </div>
                   <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
+                    <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">知识图谱</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            自动提取知识图谱
+                          </label>
+                          <p className="mt-1 text-xs text-gray-500">
+                            开启后，每次保存笔记时将自动调用 AI 提取实体和关系。此功能会消耗 LLM 配额。
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const currentValue = snapshot?.graphAutoExtract === 'true'
+                            setSetting.mutate({ key: 'GraphAutoExtract', value: currentValue ? 'false' : 'true' })
+                          }}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">
+                          手动提取：在 <button onClick={() => navigate('/graph')} className="text-blue-500 hover:underline">知识图谱页面</button> 点击"从笔记提取"按钮，选择笔记进行提取。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
                     <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">数据备份</h3>
                     <ExportBackupPanel />
                   </div>
