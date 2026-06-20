@@ -397,11 +397,24 @@ export default function GraphPage() {
                     const source = posMap.get(rel.sourceEntityId)
                     const target = posMap.get(rel.targetEntityId)
                     if (!source || !target) return null
+                    const dx = target.x - source.x
+                    const dy = target.y - source.y
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1
+                    const targetEntity = filteredEntities.find(e => e.id === rel.targetEntityId)
+                    const sourceEntity = filteredEntities.find(e => e.id === rel.sourceEntityId)
+                    const targetR = 18 + Math.min((targetEntity?.relationCount ?? 0) * 2, 12)
+                    const sourceR = 18 + Math.min((sourceEntity?.relationCount ?? 0) * 2, 12)
+                    const ux = dx / dist
+                    const uy = dy / dist
+                    const x1 = source.x + ux * sourceR
+                    const y1 = source.y + uy * sourceR
+                    const x2 = target.x - ux * (targetR + 6)
+                    const y2 = target.y - uy * (targetR + 6)
                     return (
                       <g key={rel.id}>
                         <line
-                          x1={source.x} y1={source.y}
-                          x2={target.x} y2={target.y}
+                          x1={x1} y1={y1}
+                          x2={x2} y2={y2}
                           stroke="#94a3b8"
                           strokeWidth={1.5}
                           markerEnd="url(#arrowhead)"
