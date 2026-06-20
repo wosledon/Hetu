@@ -103,12 +103,12 @@ function NotebookTreeItem({
   return (
     <div className="group">
       <div
-        className={`group flex cursor-pointer items-center justify-between rounded px-2 py-1.5 transition-colors ${
+        className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 transition-colors ${
           isSelected
             ? 'bg-blue-50 dark:bg-blue-950/40'
             : 'hover:bg-gray-100 dark:hover:bg-gray-800'
         }`}
-        style={{ marginLeft: `${level * 16}px` }}
+        style={{ marginLeft: `${level * 12}px` }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => {
@@ -154,9 +154,6 @@ function NotebookTreeItem({
               </button>
               {isSelected ? <FolderOpen size={16} className="shrink-0 text-blue-500" /> : <Folder size={16} className="shrink-0 text-blue-500" />}
               <span className={`min-w-0 flex-1 truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
-              {notebook.children.length > 0 && (
-                <span className={`shrink-0 text-xs ${isSelected ? 'text-blue-500' : 'text-gray-400'}`}>{notebook.children.length}</span>
-              )}
             </div>
           </>
         )}
@@ -194,7 +191,7 @@ function NotebookTreeItem({
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed min-w-[160px] rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800"
+          className="fixed min-w-[160px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
           style={{
             left: Math.min(menu.x, window.innerWidth - 180),
             top: Math.min(menu.y, window.innerHeight - 160),
@@ -263,18 +260,18 @@ export default function Sidebar() {
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-3 flex shrink-0 items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">笔记本</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">笔记本</h2>
           <button
             onClick={() => setIsAddingRoot(true)}
             title="新建笔记本"
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           >
             <Plus size={14} />
           </button>
         </div>
-        <div className="notebook-tree flex-1 space-y-1 overflow-y-auto">
+        <div className="notebook-tree flex-1 space-y-0.5 overflow-y-auto">
           {isAddingRoot && (
-            <div className="flex items-center gap-2 px-2 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
               <Folder size={14} className="text-blue-500" />
               <input
                 autoFocus
@@ -289,7 +286,7 @@ export default function Sidebar() {
                 }}
                 onBlur={handleCreateRoot}
                 placeholder="新笔记本名称"
-                className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-sm outline-none dark:bg-gray-800"
+                className="min-w-0 flex-1 rounded-md border border-blue-300 bg-white px-2 py-0.5 text-sm outline-none dark:bg-gray-800"
               />
             </div>
           )}
@@ -299,21 +296,21 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div className="border-t border-gray-200 p-4 dark:border-gray-800">
+      <div className="border-t border-gray-100 p-4 dark:border-gray-800">
         <button
           onClick={() => {
             setSelectedNotebookId(undefined)
             setSelectedTagId(undefined)
             navigate('/')
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700"
         >
           <Plus size={15} />
           <span>新建笔记</span>
         </button>
         <button
           onClick={() => setIsAddingRoot(true)}
-          className="mt-2 flex w-full items-center justify-center gap-1 rounded px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           <Folder size={13} />
           <span>新建笔记本</span>

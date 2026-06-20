@@ -195,40 +195,50 @@ export default function NoteList({
 
   return (
     <div className="flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-200 p-4 dark:border-gray-800">
+      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             {selectedNotebookId ? '笔记本笔记' : selectedTagId ? '标签笔记' : includeDeleted ? '回收站' : '全部笔记'}
           </h2>
-          <div className="flex items-center gap-2">
-            <select className="rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900">
-              <option>最新更新</option>
-              <option>创建时间</option>
-              <option>标题</option>
-            </select>
-            {!includeDeleted && (
-              <button onClick={handleCreate} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="新建笔记">
-                <Plus size={14} />
-              </button>
-            )}
-          </div>
+          {!includeDeleted && (
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-1 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
+              title="新建笔记"
+            >
+              <Plus size={13} />
+              新建
+            </button>
+          )}
         </div>
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="搜索笔记..."
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
           />
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2" onScroll={handleScroll}>
         {isLoading ? (
-          <div className="p-4 text-sm text-gray-500">加载中...</div>
+          <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-400">
+            <svg className="h-6 w-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <p className="mt-2">加载中...</p>
+          </div>
         ) : notes.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">暂无笔记</div>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+              <Search size={22} className="text-blue-400" />
+            </div>
+            <p className="text-sm text-gray-500">暂无笔记</p>
+            {!includeDeleted && <p className="mt-1 text-xs text-gray-400">点击上方"新建"创建第一条笔记</p>}
+          </div>
         ) : (
           <div style={{ height: totalHeight, position: 'relative' }}>
             <div style={{ transform: `translateY(${offsetY}px)` }}>
@@ -244,25 +254,27 @@ export default function NoteList({
                       setMenu({ x: e.clientX, y: e.clientY, note })
                     }}
                     style={{ height: ITEM_HEIGHT }}
-                    className={`group cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors dark:border-gray-800 ${
-                      isSelected ? 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    className={`group mb-1 cursor-pointer rounded-xl border border-transparent px-4 py-3 transition-all ${
+                      isSelected
+                        ? 'border-blue-100 bg-blue-50/80 shadow-sm dark:border-blue-900/30 dark:bg-blue-950/30'
+                        : 'bg-white hover:border-gray-100 hover:bg-gray-50/80 hover:shadow-sm dark:bg-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800/50'
                     }`}
                   >
                     <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <h3 className={`line-clamp-1 flex-1 text-sm ${isSelected ? 'font-semibold' : 'font-medium'} text-gray-800 dark:text-gray-100`}>{note.title || '未命名笔记'}</h3>
-                      <div className="flex shrink-0 items-center gap-1">
+                      <h3 className={`line-clamp-1 flex-1 text-sm ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-800 dark:text-gray-100'}`}>{note.title || '未命名笔记'}</h3>
+                      <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}
-                              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-green-600 dark:hover:bg-gray-700"
+                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20"
                               title="恢复"
                             >
                               <RotateCcw size={13} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}
-                              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-500 dark:hover:bg-gray-700"
+                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                               title="彻底删除"
                             >
                               <Trash2 size={13} />
@@ -272,21 +284,21 @@ export default function NoteList({
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); togglePin.mutate({ id: note.id, isPinned: !note.isPinned }) }}
-                              className={`rounded p-1 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 ${note.isPinned ? 'text-blue-500' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
+                              className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isPinned ? 'text-blue-500' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
                               title={note.isPinned ? '取消置顶' : '置顶'}
                             >
                               <Pin size={13} className={note.isPinned ? 'fill-blue-500' : ''} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleFavorite.mutate({ id: note.id, isFavorite: !note.isFavorite }) }}
-                              className={`rounded p-1 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 ${note.isFavorite ? 'text-amber-400' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
+                              className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isFavorite ? 'text-amber-400' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
                               title={note.isFavorite ? '取消收藏' : '收藏'}
                             >
                               <Star size={13} className={note.isFavorite ? 'fill-amber-400' : ''} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}
-                              className="rounded p-1 text-gray-300 opacity-0 transition-colors hover:bg-gray-200 hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
+                              className="rounded-lg p-1.5 text-gray-300 opacity-0 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-red-900/20"
                               title="删除"
                             >
                               <Trash2 size={13} />
@@ -295,7 +307,7 @@ export default function NoteList({
                         )}
                       </div>
                     </div>
-                    <p className="mb-2 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">{note.content || '无内容'}</p>
+                    <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{note.content || '无内容'}</p>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-1">
                         {note.tags.map((tag) => {
@@ -303,7 +315,7 @@ export default function NoteList({
                           return (
                             <span
                               key={tag.id}
-                              className="inline-flex items-center rounded px-1.5 py-0.5 text-xs"
+                              className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium"
                               style={{ background: palette.soft, color: palette.text }}
                             >
                               {tag.name}
@@ -311,7 +323,7 @@ export default function NoteList({
                           )
                         })}
                       </div>
-                      <span className="shrink-0 text-xs text-gray-400">
+                      <span className="shrink-0 text-[10px] text-gray-400">
                         {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true, locale: zhCN })}
                       </span>
                     </div>
@@ -327,7 +339,7 @@ export default function NoteList({
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed min-w-[168px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
           style={{
             left: Math.min(menu.x, window.innerWidth - 188),
             top: Math.min(menu.y, window.innerHeight - 260),
