@@ -19,9 +19,13 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { nord } from '@milkdown/theme-nord'
 import { $prose } from '@milkdown/kit/utils'
+import { codeBlockComponent, codeBlockConfig } from '@milkdown/kit/component/code-block'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
+import { exitCode } from '@milkdown/kit/prose/commands'
 import type { MilkdownPlugin } from '@milkdown/ctx'
+import { languages } from '@codemirror/language-data'
+import { oneDark } from '@codemirror/theme-one-dark'
 import '@milkdown/theme-nord/style.css'
 
 export interface SelectionInfo {
@@ -140,6 +144,33 @@ function markdownUpdatePlugin(onChange: (md: string) => void): MilkdownPlugin {
   })
 }
 
+/**
+ * 代码块后自动补段落插件。
+ * 当文档末尾是 code_block 时，自动追加一个空段落，
+ * 方便用户在代码块下方继续编写普通文本。
+ * 仅在文档末尾生效，避免在已有内容之间插入多余空行。
+ */
+function autoParagraphAfterCodeBlockPlugin(): MilkdownPlugin {
+  return $prose(() => {
+    return new Plugin({
+      key: new PluginKey('hetu-auto-paragraph-after-code'),
+      appendTransaction: (trs, _oldState, newState) => {
+        // 只在有文档变化的 transaction 上触发
+        if (!trs.some((tr) => tr.docChanged)) return null
+        const { doc, schema } = newState
+        const lastChild = doc.lastChild
+        if (!lastChild) return null
+        // 仅在末尾是 code_block 时补一个空段落
+        if (lastChild.type.name !== 'code_block') return null
+        const tr = newState.tr
+        const paragraph = schema.nodes.paragraph.create()
+        tr.insert(doc.content.size, paragraph)
+        return tr
+      },
+    }) as Plugin
+  })
+}
+
 const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps>(
   function MilkdownEditorInner(props, ref) {
     const { initialMarkdown, onChange, onSelectionChange, placeholder } = props
@@ -162,6 +193,7 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
     const onSelChange = (info: SelectionInfo) => onSelectionChangeRef.current?.(info)
     const mdPlugin = markdownUpdatePlugin(onMdChange)
     const selPlugin = selectionTrackerPlugin(onSelChange)
+    const autoParagraphPlugin = autoParagraphAfterCodeBlockPlugin()
 
     const editorInfo = useEditor((root) =>
       Editor.make()
@@ -170,11 +202,20 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
           ctx.set(defaultValueCtx, initialMarkdownRef.current)
         })
         .config(nord)
+        .config((ctx) =>
+          ctx.update(codeBlockConfig.key, (config) => ({
+            ...config,
+            languages,
+            extensions: [oneDark],
+          })),
+        )
         .use(commonmark)
         .use(gfm)
         .use(history)
         .use(mdPlugin)
-        .use(selPlugin),
+        .use(selPlugin)
+        .use(autoParagraphPlugin)
+        .use(codeBlockComponent),
     )
 
     const [, getInstance] = useInstance()

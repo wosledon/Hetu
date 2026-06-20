@@ -412,19 +412,9 @@ body {
 }
 
 /* 代码块（margin 由 * + * 统一管理） */
+/* 代码块样式由 codeBlockComponent (CodeMirror) 接管，这里仅保留内联 code 样式 */
 .hetu-milkdown-root .ProseMirror pre {
-  background: rgb(248 249 252);
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  padding: 1em;
   margin-bottom: 0;
-  overflow-x: auto;
-  font-size: 0.88em;
-}
-
-.dark .hetu-milkdown-root pre {
-  background: rgb(13 17 23);
-  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .hetu-milkdown-root code {
@@ -437,6 +427,135 @@ body {
 
 .dark .hetu-milkdown-root code {
   background: rgb(33 38 45);
+}
+
+/* ===== Code block component (CodeMirror) ===== */
+.hetu-milkdown-root .milkdown-code-block {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #1e1e2e;
+  margin-bottom: 0;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block {
+  background: #1e1e2e;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.hetu-milkdown-root .milkdown-code-block.selected {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+/* 代码块顶部工具栏（语言 + 复制按钮） */
+.hetu-milkdown-root .milkdown-code-block .tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4em 0.75em;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.8em;
+}
+
+.dark .hetu-milkdown-root .milkdown-code-block .tools {
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 语言按钮 */
+.hetu-milkdown-root .milkdown-code-block .language-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  background: transparent;
+  border: none;
+  color: #cdd6f4;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hetu-milkdown-root .milkdown-code-block .expand-icon {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+/* 复制按钮 */
+.hetu-milkdown-root .milkdown-code-block .copy-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  background: transparent;
+  border: none;
+  color: #a6adc8;
+  font-size: 0.8em;
+  cursor: pointer;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.hetu-milkdown-root .milkdown-code-block .copy-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cdd6f4;
+}
+
+.hetu-milkdown-root .milkdown-code-block .tools-button-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+/* CodeMirror 编辑区域 */
+.hetu-milkdown-root .milkdown-code-block .cm-editor {
+  background: transparent;
+  color: #cdd6f4;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  line-height: 1.6;
+  padding: 0.75em 1em;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-gutters {
+  background: transparent;
+  border: none;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor.cm-focused {
+  outline: none;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-line {
+  color: #cdd6f4;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-content {
+  caret-color: #89b4fa;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-cursor {
+  border-left-color: #89b4fa;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-selectionBackground {
+  background: rgba(137, 180, 250, 0.2) !important;
+}
+
+.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-activeLine {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .hetu-milkdown-root pre code {
