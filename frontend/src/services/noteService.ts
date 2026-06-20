@@ -19,6 +19,7 @@ export interface GetNotesRequest {
   notebookId?: string;
   tagId?: string;
   includeDeleted?: boolean;
+  filterNoNotebook?: boolean;
   page?: number;
   pageSize?: number;
 }

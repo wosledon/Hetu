@@ -38,13 +38,15 @@ export default function NoteList({
   const [searchTerm, setSearchTerm] = useState('')
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const hasValidHeight = useRef(false)
+  const DEFAULT_NOTEBOOK_ID = 'default'
   const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
   const selectedTagId = useUIStore((state) => state.selectedTagId)
   const { data, isLoading } = useQuery({
     queryKey: ['notes', { selectedNotebookId, selectedTagId, includeDeleted }],
     queryFn: () =>
       noteService.getList({
-        notebookId: selectedNotebookId,
+        notebookId: selectedNotebookId === DEFAULT_NOTEBOOK_ID ? undefined : selectedNotebookId,
+        filterNoNotebook: selectedNotebookId === DEFAULT_NOTEBOOK_ID,
         tagId: selectedTagId,
         includeDeleted,
         page: 1,

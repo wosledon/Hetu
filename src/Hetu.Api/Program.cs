@@ -106,6 +106,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddDataProtection();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IBackgroundTaskQueue, ChannelBackgroundTaskQueue>();
+builder.Services.AddHostedService<BackgroundTaskProcessor>();
 builder.Services.AddHostedService<TrashCleanupService>();
 builder.Services.AddHostedService<AutoOrganizeService>();
 

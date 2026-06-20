@@ -23,14 +23,16 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ThenInclude(nt => nt.Tag)
             .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, bool filterNoNotebook = false, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();
         if (includeDeleted) query = query.IgnoreQueryFilters();
 
         query = query.Where(n => includeDeleted || !n.IsDeleted);
 
-        if (notebookId.HasValue)
+        if (filterNoNotebook)
+            query = query.Where(n => n.NotebookId == null);
+        else if (notebookId.HasValue)
             query = query.Where(n => n.NotebookId == notebookId.Value);
 
         if (tagId.HasValue)

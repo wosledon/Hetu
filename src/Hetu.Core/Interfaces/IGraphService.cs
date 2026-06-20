@@ -14,7 +14,7 @@ public interface IGraphService
     Task<ApiResponse> DeleteEntityAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<GraphRelationDto>> CreateRelationAsync(CreateGraphRelationRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteRelationAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<ApiResponse> ExtractFromNoteAsync(Guid noteId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<ExtractGraphResultDto>> ExtractFromNoteAsync(Guid noteId, CancellationToken cancellationToken = default);
     Task<ApiResponse> MergeEntitiesAsync(MergeGraphEntitiesRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<string>>> GetEntityTypesAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default);

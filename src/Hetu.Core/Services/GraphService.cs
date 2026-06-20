@@ -306,14 +306,14 @@ public class GraphService : IGraphService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse> ExtractFromNoteAsync(Guid noteId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ExtractGraphResultDto>> ExtractFromNoteAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
+        if (note == null) return ApiResponse<ExtractGraphResultDto>.Fail("笔记不存在");
 
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse.Fail("未找到可用的 LLM 模型");
+            return ApiResponse<ExtractGraphResultDto>.Fail("未找到可用的 LLM 模型");
 
         var content = note.Content.Length > 4000 ? note.Content[..4000] : note.Content;
         var jsonExample = """
@@ -350,12 +350,12 @@ public class GraphService : IGraphService
 
         var extracted = ParseExtractionResult(response);
         if (extracted == null)
-            return ApiResponse.Fail("无法解析 LLM 返回的结果");
+            return ApiResponse<ExtractGraphResultDto>.Fail("无法解析 LLM 返回的结果");
 
-        await ApplyExtractionResultAsync(extracted, noteId, cancellationToken);
+        var result = await ApplyExtractionResultAsync(extracted, noteId, cancellationToken);
         InvalidateGraphCache();
 
-        return ApiResponse.Ok();
+        return ApiResponse<ExtractGraphResultDto>.Ok(result);
     }
 
     public async Task<ApiResponse> MergeEntitiesAsync(MergeGraphEntitiesRequest request, CancellationToken cancellationToken = default)
@@ -409,8 +409,9 @@ public class GraphService : IGraphService
         ]);
     }
 
-    private async Task ApplyExtractionResultAsync(ExtractionResult extracted, Guid noteId, CancellationToken cancellationToken)
+    private async Task<ExtractGraphResultDto> ApplyExtractionResultAsync(ExtractionResult extracted, Guid noteId, CancellationToken cancellationToken)
     {
+        var result = new ExtractGraphResultDto();
         var allEntities = await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken);
         var entityNameMap = allEntities.ToDictionary(e => e.Name.ToLowerInvariant(), e => e);
 
@@ -424,11 +425,13 @@ public class GraphService : IGraphService
             if (entityNameMap.TryGetValue(name.ToLowerInvariant(), out var existing))
             {
                 createdEntities[name] = existing;
+                result.SkippedEntities++;
                 continue;
             }
 
             if (createdEntities.TryGetValue(name, out var alreadyCreated))
             {
+                result.SkippedEntities++;
                 continue;
             }
 
@@ -444,6 +447,7 @@ public class GraphService : IGraphService
 
             await _unitOfWork.GraphEntities.AddAsync(newEntity, cancellationToken);
             createdEntities[name] = newEntity;
+            result.NewEntities++;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -467,7 +471,11 @@ public class GraphService : IGraphService
                                   rel.TargetEntityId == targetEntity.Id &&
                                   rel.RelationType == NormalizeRelationType(r.Relation), cancellationToken);
 
-            if (existingRelations.Count > 0) continue;
+            if (existingRelations.Count > 0)
+            {
+                result.SkippedRelations++;
+                continue;
+            }
 
             var relation = new GraphRelation
             {
@@ -483,9 +491,11 @@ public class GraphService : IGraphService
             };
 
             await _unitOfWork.GraphRelations.AddAsync(relation, cancellationToken);
+            result.NewRelations++;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return result;
     }
 
     private static ExtractionResult? ParseExtractionResult(string response)

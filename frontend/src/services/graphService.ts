@@ -1,5 +1,5 @@
 import { get, post, put, del } from './api';
-import type { IGraphData, IGraphEntity, IGraphRelation, IGraphEntityDetail } from '../types';
+import type { IGraphData, IGraphEntity, IGraphRelation, IGraphEntityDetail, IExtractGraphResult } from '../types';
 
 export interface StreamGraphCallbacks {
   onMeta?: (meta: { entityCount: number; relationCount: number }) => void;
@@ -82,7 +82,13 @@ export const graphService = {
   deleteRelation: (id: string) => del<void>(`/graph/relations/${id}`),
 
   extractFromNote: (noteId: string) =>
-    post<void>(`/graph/extract/${noteId}`),
+    post<IExtractGraphResult>(`/graph/extract/${noteId}`),
+
+  batchExtract: (noteIds: string[]) =>
+    post<IExtractGraphResult[]>('/graph/extract/batch', { noteIds }),
+
+  batchExtractQueue: (noteIds: string[]) =>
+    post<void>('/graph/extract/batch-queue', { noteIds }),
 
   mergeEntities: (keepEntityId: string, mergeEntityId: string) =>
     post<void>('/graph/merge', { keepEntityId, mergeEntityId }),

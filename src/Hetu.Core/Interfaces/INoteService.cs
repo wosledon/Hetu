@@ -20,4 +20,5 @@ public class GetNotesRequest : PagedRequest
     public Guid? NotebookId { get; set; }
     public Guid? TagId { get; set; }
     public bool IncludeDeleted { get; set; }
+    public bool FilterNoNotebook { get; set; }
 }

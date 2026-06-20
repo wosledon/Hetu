@@ -16,11 +16,16 @@ import {
   Box,
   Tag,
   Loader2,
+  Check,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
-import type { IGraphEntity, IGraphRelation, INote } from '../types'
+import { notebookService } from '../services/notebookService'
+import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -231,7 +236,11 @@ export default function GraphPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 })
   const [showExtractDialog, setShowExtractDialog] = useState(false)
-  const [extractingNoteId, setExtractingNoteId] = useState<string | null>(null)
+  const [extractSearch, setExtractSearch] = useState('')
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
+  const [expandedNotebooks, setExpandedNotebooks] = useState<Set<string>>(new Set())
+  const [extractResults, setExtractResults] = useState<Map<string, IExtractGraphResult | { error: string }>>(new Map())
+  const [isExtracting, setIsExtracting] = useState(false)
   const [layoutKey, setLayoutKey] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -345,24 +354,95 @@ export default function GraphPage() {
 
   const { data: notesData } = useQuery({
     queryKey: ['graph-extract-notes'],
-    queryFn: () => noteService.getList({ page: 1, pageSize: 200 }),
+    queryFn: () => noteService.getList({ page: 1, pageSize: 500 }),
+    enabled: showExtractDialog,
+  })
+
+  const { data: notebooks } = useQuery({
+    queryKey: ['graph-extract-notebooks'],
+    queryFn: () => notebookService.getTree(),
     enabled: showExtractDialog,
   })
 
   const notes = notesData?.items ?? []
 
-  const extractMutation = useMutation({
-    mutationFn: (noteId: string) => graphService.extractFromNote(noteId),
-    onSuccess: () => {
-      refreshGraph()
-      setExtractingNoteId(null)
-      setShowExtractDialog(false)
-    },
-    onError: (err: Error) => {
-      alert(err.message || '提取失败')
-      setExtractingNoteId(null)
-    },
-  })
+  // Build notebook name map for grouping
+  const notebookNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    const walk = (nbs: typeof notebooks) => {
+      if (!nbs) return
+      for (const nb of nbs) {
+        map.set(nb.id, nb.name)
+        walk(nb.children)
+      }
+    }
+    walk(notebooks)
+    return map
+  }, [notebooks])
+
+  // Group notes by notebook, filtered by search
+  const groupedNotes = useMemo(() => {
+    const keyword = extractSearch.trim().toLowerCase()
+    const filtered = notes.filter(n =>
+      !n.isDeleted && (
+        !keyword ||
+        n.title.toLowerCase().includes(keyword) ||
+        n.content.toLowerCase().includes(keyword)
+      )
+    )
+    const groups = new Map<string, INote[]>()
+    for (const note of filtered) {
+      const key = note.notebookId || '__none__'
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(note)
+    }
+    // Sort groups: named notebooks first, then ungrouped
+    return [...groups.entries()].sort(([a], [b]) => {
+      if (a === '__none__') return 1
+      if (b === '__none__') return -1
+      return (notebookNameMap.get(a) || '').localeCompare(notebookNameMap.get(b) || '')
+    })
+  }, [notes, extractSearch, notebookNameMap])
+
+  const toggleNoteSelection = (noteId: string) => {
+    setSelectedNoteIds(prev => {
+      const next = new Set(prev)
+      if (next.has(noteId)) next.delete(noteId)
+      else next.add(noteId)
+      return next
+    })
+  }
+
+  const toggleNotebookSelection = (noteIds: string[]) => {
+    setSelectedNoteIds(prev => {
+      const next = new Set(prev)
+      const allSelected = noteIds.every(id => next.has(id))
+      if (allSelected) {
+        noteIds.forEach(id => next.delete(id))
+      } else {
+        noteIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const handleBatchExtract = async () => {
+    const ids = [...selectedNoteIds]
+    if (ids.length === 0) return
+    setIsExtracting(true)
+    setExtractResults(new Map())
+    // Extract sequentially to show per-note results
+    for (const noteId of ids) {
+      try {
+        const result = await graphService.extractFromNote(noteId)
+        setExtractResults(prev => new Map(prev).set(noteId, result))
+      } catch (err) {
+        setExtractResults(prev => new Map(prev).set(noteId, { error: (err as Error).message || '提取失败' }))
+      }
+    }
+    setIsExtracting(false)
+    refreshGraph()
+  }
 
   const filteredEntities = useMemo(() => {
     const keyword = entitySearch.trim().toLowerCase()
@@ -649,66 +729,173 @@ export default function GraphPage() {
 
       {showExtractDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="max-h-[80vh] w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                   <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">从笔记提取知识图谱</h3>
-                  <p className="text-xs text-gray-500">AI 将分析笔记提取实体和关系</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedNoteIds.size > 0 ? `已选择 ${selectedNoteIds.size} 篇笔记` : '选择笔记后 AI 提取实体和关系'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowExtractDialog(false)}
+                onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               >
                 <X size={18} />
               </button>
             </div>
-            <div className="px-5 py-4">
-              <div className="mb-4 rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
-                <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
-                  此过程需要调用 LLM，可能需要 10-30 秒。
-                </p>
+
+            {/* Search bar */}
+            <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={extractSearch}
+                  onChange={(e) => setExtractSearch(e.target.value)}
+                  placeholder="搜索笔记标题或内容..."
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 dark:border-gray-600 dark:bg-gray-700 dark:placeholder:text-gray-500 dark:focus:border-emerald-600"
+                />
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700">
-                {notes.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-sm text-gray-500">暂无笔记</div>
-                ) : (
-                  notes.map((note: INote) => (
-                    <button
-                      key={note.id}
-                      disabled={extractingNoteId === note.id}
-                      onClick={() => {
-                        setExtractingNoteId(note.id)
-                        extractMutation.mutate(note.id)
-                      }}
-                      className="group flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:hover:bg-gray-700/50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
-                            {note.title || '未命名笔记'}
-                          </span>
-                          {extractingNoteId === note.id && (
-                            <span className="flex items-center gap-1 text-xs text-emerald-600">
-                              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                              </svg>
-                              提取中...
-                            </span>
-                          )}
+            </div>
+
+            {/* Notes list grouped by notebook */}
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              {groupedNotes.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-gray-500">
+                  {extractSearch ? '未找到匹配的笔记' : '暂无笔记'}
+                </div>
+              ) : (
+                groupedNotes.map(([notebookId, notebookNotes]) => {
+                  const isExpanded = expandedNotebooks.has(notebookId)
+                  const notebookName = notebookId === '__none__' ? '未分组' : (notebookNameMap.get(notebookId) || '未知笔记本')
+                  const allSelected = notebookNotes.every(n => selectedNoteIds.has(n.id))
+                  const someSelected = notebookNotes.some(n => selectedNoteIds.has(n.id))
+
+                  return (
+                    <div key={notebookId} className="mb-1">
+                      {/* Notebook header */}
+                      <button
+                        onClick={() => {
+                          setExpandedNotebooks(prev => {
+                            const next = new Set(prev)
+                            if (next.has(notebookId)) next.delete(notebookId)
+                            else next.add(notebookId)
+                            return next
+                          })
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                        <FolderOpen size={14} className="text-emerald-500" />
+                        <span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-300">{notebookName}</span>
+                        <span className="text-[10px] text-gray-400">{notebookNotes.length}</span>
+                        {/* Select all checkbox for this notebook */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); toggleNotebookSelection(notebookNotes.map(n => n.id)) }}
+                          className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${
+                            allSelected
+                              ? 'border-emerald-500 bg-emerald-500'
+                              : someSelected
+                                ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
+                                : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        >
+                          {(allSelected || someSelected) && <Check size={10} className="text-white" />}
                         </div>
-                        <div className="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
-                          {note.content || '无内容'}
+                      </button>
+
+                      {/* Notes in this notebook */}
+                      {isExpanded && (
+                        <div className="ml-5 space-y-0.5">
+                          {notebookNotes.map((note) => {
+                            const isSelected = selectedNoteIds.has(note.id)
+                            const result = extractResults.get(note.id)
+
+                            return (
+                              <div
+                                key={note.id}
+                                onClick={() => toggleNoteSelection(note.id)}
+                                className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                              >
+                                {/* Checkbox */}
+                                <div
+                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                                    isSelected
+                                      ? 'border-emerald-500 bg-emerald-500'
+                                      : 'border-gray-300 dark:border-gray-600'
+                                  }`}
+                                >
+                                  {isSelected && <Check size={10} className="text-white" />}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                                      {note.title || '未命名笔记'}
+                                    </span>
+                                    {result && 'newEntities' in result && (
+                                      <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+                                        +{result.newEntities}实体 +{result.newRelations}关系
+                                      </span>
+                                    )}
+                                    {result && 'error' in result && (
+                                      <span className="text-[10px] text-red-500">失败</span>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">
+                                    {note.content?.slice(0, 80) || '无内容'}
+                                  </p>
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
-                      </div>
-                    </button>
-                  ))
-                )}
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Footer with action button */}
+            <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id))
+                    toggleNotebookSelection(allNoteIds)
+                  }}
+                  className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  {selectedNoteIds.size > 0 ? '取消全选' : '全选'}
+                </button>
+                <button
+                  onClick={handleBatchExtract}
+                  disabled={selectedNoteIds.size === 0 || isExtracting}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isExtracting ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      提取中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} />
+                      提取选中 ({selectedNoteIds.size})
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

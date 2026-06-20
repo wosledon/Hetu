@@ -84,3 +84,16 @@ public class MergeGraphEntitiesRequest
     public Guid KeepEntityId { get; set; }
     public Guid MergeEntityId { get; set; }
 }
+
+public class ExtractGraphResultDto
+{
+    public int NewEntities { get; set; }
+    public int SkippedEntities { get; set; }
+    public int NewRelations { get; set; }
+    public int SkippedRelations { get; set; }
+}
+
+public class BatchExtractGraphRequest
+{
+    public List<Guid> NoteIds { get; set; } = [];
+}

@@ -2,7 +2,6 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services;
@@ -10,13 +9,13 @@ namespace Hetu.Core.Services;
 public class NoteService : INoteService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IBackgroundTaskQueue _taskQueue;
     private readonly ILogger<NoteService> _logger;
 
-    public NoteService(IUnitOfWork unitOfWork, IServiceScopeFactory scopeFactory, ILogger<NoteService> logger)
+    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskQueue taskQueue, ILogger<NoteService> logger)
     {
         _unitOfWork = unitOfWork;
-        _scopeFactory = scopeFactory;
+        _taskQueue = taskQueue;
         _logger = logger;
     }
 
@@ -26,6 +25,7 @@ public class NoteService : INoteService
             request.NotebookId,
             request.TagId,
             request.IncludeDeleted,
+            request.FilterNoNotebook,
             cancellationToken);
 
         var ordered = notes.ToList();
@@ -70,19 +70,7 @@ public class NoteService : INoteService
         await _unitOfWork.Notes.AddAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await using var scope = _scopeFactory.CreateAsyncScope();
-                var embeddingService = scope.ServiceProvider.GetRequiredService<INoteEmbeddingService>();
-                await embeddingService.GenerateEmbeddingAsync(note.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "笔记 {NoteId} 创建后生成向量嵌入失败", note.Id);
-            }
-        }, CancellationToken.None);
+        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id), cancellationToken);
 
         return ApiResponse<NoteDto>.Ok(Map(note));
     }
@@ -115,28 +103,15 @@ public class NoteService : INoteService
         await _unitOfWork.Notes.UpdateAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await using var scope = _scopeFactory.CreateAsyncScope();
-                var embeddingService = scope.ServiceProvider.GetRequiredService<INoteEmbeddingService>();
-                await embeddingService.GenerateEmbeddingAsync(note.Id);
+        // 通过 Channel 队列入队后台任务
+        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id), cancellationToken);
 
-                // 按设置决定是否自动提取知识图谱
-                var settings = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                var autoExtractSetting = await settings.AppSettings.GetByKeyAsync("GraphAutoExtract", CancellationToken.None);
-                if (autoExtractSetting?.Value == "true")
-                {
-                    var graphService = scope.ServiceProvider.GetRequiredService<IGraphService>();
-                    await graphService.ExtractFromNoteAsync(note.Id, CancellationToken.None);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "笔记 {NoteId} 更新后后台处理失败", note.Id);
-            }
-        }, CancellationToken.None);
+        // 按设置决定是否自动提取知识图谱
+        var autoExtractSetting = await _unitOfWork.AppSettings.GetByKeyAsync("GraphAutoExtract", cancellationToken);
+        if (autoExtractSetting?.Value == "true")
+        {
+            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, note.Id), cancellationToken);
+        }
 
         return ApiResponse<NoteDto>.Ok(Map(note));
     }

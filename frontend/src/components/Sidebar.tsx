@@ -231,10 +231,14 @@ function NotebookTreeItem({
 export default function Sidebar() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
   const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
   const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
   const [isAddingRoot, setIsAddingRoot] = useState(false)
   const [rootName, setRootName] = useState('')
+
+  const DEFAULT_NOTEBOOK_ID = 'default'
+  const isDefaultSelected = selectedNotebookId === DEFAULT_NOTEBOOK_ID
 
   const { data: notebooks = [] } = useQuery({
     queryKey: ['notebooks'],
@@ -290,6 +294,26 @@ export default function Sidebar() {
               />
             </div>
           )}
+          {/* 默认笔记本 - 未分类笔记 */}
+          <div
+            onClick={() => {
+              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
+              navigate('/')
+            }}
+            className={`group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-all ${
+              isDefaultSelected
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300'
+                : 'hover:bg-gray-100 dark:hover:bg-white/[0.06]'
+            }`}
+          >
+            <Folder size={14} className={isDefaultSelected ? 'text-blue-500' : 'text-gray-400'} />
+            <span className="flex-1 truncate text-sm">默认笔记本</span>
+          </div>
+          {/* 分隔线 */}
+          {notebooks.length > 0 && (
+            <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
+          )}
+          {/* 其他笔记本 */}
           {notebooks.map((notebook) => (
             <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
           ))}

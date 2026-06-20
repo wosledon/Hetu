@@ -215,6 +215,13 @@ export interface IGraphEntityDetail {
   updatedAt: string;
 }
 
+export interface IExtractGraphResult {
+  newEntities: number;
+  skippedEntities: number;
+  newRelations: number;
+  skippedRelations: number;
+}
+
 export interface IShareLink {
   id: string;
   noteId: string;
