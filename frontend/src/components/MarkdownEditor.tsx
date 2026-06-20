@@ -212,6 +212,20 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const noteTitle = note?.title ?? ''
   const noteContent = note?.content ?? ''
 
+  // Synchronously sync state when note changes (avoids useEffect timing issues)
+  const prevNoteIdRef = useRef<string | undefined>(undefined)
+  if (noteId !== prevNoteIdRef.current) {
+    prevNoteIdRef.current = noteId
+    setTitle(noteTitle)
+    setContent(noteContent)
+    setIsDirty(false)
+    setPreviewVersion(null)
+    setShowInlineAi(false)
+    setInlineCoords(null)
+    setAiResult('')
+    setAiSelection('')
+  }
+
   const notebookPath = useMemo(() => {
     if (!note?.notebookId || !notebooks.length) return '未分类'
     const findPath = (items: INotebook[], id: string, path: string[] = []): string | null => {
@@ -226,19 +240,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     }
     return findPath(notebooks, note.notebookId) || '未分类'
   }, [note?.notebookId, notebooks])
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() =>  {
-    setTitle(noteTitle)
-    setContent(noteContent)
-    setIsDirty(false)
-    setPreviewVersion(null)
-    setShowInlineAi(false)
-    setInlineCoords(null)
-    setAiResult('')
-    setAiSelection('')
-  }, [noteId, noteTitle, noteContent])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const save = useCallback(() => {
     if (!note || !isDirty) return
@@ -346,30 +347,30 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-white px-8 pb-4 pt-5 dark:border-gray-800/50 dark:bg-gray-900">
+      <div className="border-b border-gray-100 bg-white px-8 pb-3 pt-4 dark:border-gray-800/50 dark:bg-gray-900">
         <input
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="笔记标题"
-          className="w-full border-none bg-transparent text-[28px] font-bold leading-tight tracking-tight text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
+          className="w-full border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Calendar size={11} />
-            {new Date(note.createdAt).toLocaleDateString('zh-CN')}
+            {new Date(note!.createdAt).toLocaleDateString('zh-CN')}
           </span>
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Clock size={11} />
-            更新于 {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true, locale: zhCN })}
+            更新于 {formatDistanceToNow(new Date(note!.updatedAt), { addSuffix: true, locale: zhCN })}
           </span>
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Folder size={11} />
             {notebookPath}
           </span>
         </div>
-        <div className="mt-3">
-          <TagInput noteId={note.id} tags={note.tags} />
+        <div className="mt-2">
+          <TagInput noteId={note!.id} tags={note!.tags} />
         </div>
       </div>
 
@@ -445,11 +446,11 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
       <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
         {(viewMode === 'edit' || viewMode === 'split') && (
-          <div className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900`}>
+          <div className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-5 dark:bg-gray-900`}>
             <MilkdownEditor
               key={noteId}
               ref={milkdownRef}
-              initialMarkdown={content}
+              initialMarkdown={noteContent}
               onChange={handleContentChange}
               onSelectionChange={handleSelectionChange}
               placeholder="开始编写..."
@@ -653,7 +654,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   </div>
                 )}
                 <button
-                  onClick={() => restoreVersion.mutate({ noteId: note.id, versionId: previewVersion.id, content: previewVersion.content })}
+                  onClick={() => restoreVersion.mutate({ noteId: note!.id, versionId: previewVersion.id, content: previewVersion.content })}
                   disabled={restoreVersion.isPending}
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-emerald-500/20 transition-all hover:shadow-md hover:shadow-emerald-500/25 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >

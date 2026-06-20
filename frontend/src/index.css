@@ -327,10 +327,11 @@ body {
 /* 标题（覆盖 nord 主题默认 margin，收紧上下边距） */
 /* 注意：ProseMirror contenteditable 中 margin 不会折叠，
    所以所有块级元素 margin-bottom 归零，只用 margin-top 控制间距 */
+/* margin-top 由下方的相邻兄弟选择器统一管理，这里不设置 */
 .hetu-milkdown-root .ProseMirror h1 {
   font-size: 1.85em;
   font-weight: 700;
-  margin: 0 0 0;
+  margin-bottom: 0;
   letter-spacing: -0.02em;
   line-height: 1.25;
 }
@@ -338,7 +339,7 @@ body {
 .hetu-milkdown-root .ProseMirror h2 {
   font-size: 1.4em;
   font-weight: 650;
-  margin: 0 0 0;
+  margin-bottom: 0;
   letter-spacing: -0.015em;
   line-height: 1.3;
 }
@@ -346,7 +347,7 @@ body {
 .hetu-milkdown-root .ProseMirror h3 {
   font-size: 1.15em;
   font-weight: 600;
-  margin: 0 0 0;
+  margin-bottom: 0;
 }
 
 /* 用相邻兄弟选择器统一控制间距，避免 contenteditable 中 margin 不折叠导致的叠加 */
@@ -382,14 +383,14 @@ body {
 
 /* 段落、引用、列表（margin 由上方 * + * 统一管理，这里只设其他属性） */
 .hetu-milkdown-root .ProseMirror p {
-  margin: 0;
+  margin-bottom: 0;
   line-height: 1.85;
 }
 
 .hetu-milkdown-root .ProseMirror blockquote {
   border-left: 3px solid #6366f1;
   padding-left: 1em;
-  margin: 0;
+  margin-bottom: 0;
   color: #6b7280;
   font-style: italic;
 }
@@ -401,7 +402,7 @@ body {
 
 .hetu-milkdown-root .ProseMirror ul,
 .hetu-milkdown-root .ProseMirror ol {
-  margin: 0;
+  margin-bottom: 0;
   padding-left: 1.75em;
 }
 
@@ -416,7 +417,7 @@ body {
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.04);
   padding: 1em;
-  margin: 0;
+  margin-bottom: 0;
   overflow-x: auto;
   font-size: 0.88em;
 }
@@ -459,7 +460,16 @@ body {
   border: none;
   height: 1px;
   background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.1), transparent);
-  margin: 0;
+  margin-bottom: 0;
+}
+
+/* hr 上下间距由相邻兄弟选择器统一管理，避免被 margin:0 覆盖 */
+.hetu-milkdown-root .ProseMirror > * + hr {
+  margin-top: 1.2em;
+}
+
+.hetu-milkdown-root .ProseMirror > hr + * {
+  margin-top: 1.2em;
 }
 
 .dark .hetu-milkdown-root .ProseMirror hr {
