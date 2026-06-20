@@ -194,16 +194,16 @@ export default function NoteList({
   const offsetY = startIndex * ITEM_HEIGHT
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
+    <div className="flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/60 dark:border-gray-800/50 dark:bg-gray-900/40">
+      <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             {selectedNotebookId ? '笔记本笔记' : selectedTagId ? '标签笔记' : includeDeleted ? '回收站' : '全部笔记'}
           </h2>
           {!includeDeleted && (
             <button
               onClick={handleCreate}
-              className="flex items-center gap-1 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.97]"
               title="新建笔记"
             >
               <Plus size={13} />
@@ -217,27 +217,27 @@ export default function NoteList({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="搜索笔记..."
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
+            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-2 pl-8 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:shadow-sm focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700/50 dark:bg-gray-800/50 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
           />
         </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-2" onScroll={handleScroll}>
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-400">
-            <svg className="h-6 w-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <p className="mt-2">加载中...</p>
+          <div className="flex flex-col items-center justify-center py-16 text-sm text-gray-400">
+            <div className="relative mb-3">
+              <div className="h-10 w-10 rounded-full border-2 border-gray-200 dark:border-gray-700" />
+              <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-2 border-transparent border-t-blue-500" />
+            </div>
+            <p className="text-xs text-gray-400">加载中...</p>
           </div>
         ) : notes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-              <Search size={22} className="text-blue-400" />
+          <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-inner dark:from-blue-900/20 dark:to-indigo-900/20">
+              <Search size={22} className="text-blue-400/70" />
             </div>
-            <p className="text-sm text-gray-500">暂无笔记</p>
-            {!includeDeleted && <p className="mt-1 text-xs text-gray-400">点击上方"新建"创建第一条笔记</p>}
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">暂无笔记</p>
+            {!includeDeleted && <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">点击上方「新建」创建第一条笔记</p>}
           </div>
         ) : (
           <div style={{ height: totalHeight, position: 'relative' }}>
@@ -254,14 +254,14 @@ export default function NoteList({
                       setMenu({ x: e.clientX, y: e.clientY, note })
                     }}
                     style={{ height: ITEM_HEIGHT }}
-                    className={`group mb-1 cursor-pointer rounded-xl border border-transparent px-4 py-3 transition-all ${
+                    className={`note-card group mb-1 cursor-pointer rounded-xl border px-4 py-3 ${
                       isSelected
-                        ? 'border-blue-100 bg-blue-50/80 shadow-sm dark:border-blue-900/30 dark:bg-blue-950/30'
-                        : 'bg-white hover:border-gray-100 hover:bg-gray-50/80 hover:shadow-sm dark:bg-gray-900 dark:hover:border-gray-800 dark:hover:bg-gray-800/50'
+                        ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
+                        : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
                     }`}
                   >
                     <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <h3 className={`line-clamp-1 flex-1 text-sm ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-800 dark:text-gray-100'}`}>{note.title || '未命名笔记'}</h3>
+                      <h3 className={`line-clamp-1 flex-1 text-[13px] leading-snug ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{note.title || '未命名笔记'}</h3>
                       <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>

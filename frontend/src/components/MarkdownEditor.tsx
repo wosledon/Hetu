@@ -215,12 +215,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   if (!note) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="flex min-h-0 flex-1 items-center justify-center bg-gradient-to-br from-gray-50/80 to-gray-100/50 dark:from-gray-950 dark:to-gray-900/50">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
             <PenLine size={28} className="text-white" />
           </div>
-          <p className="text-sm text-gray-400">选择或创建一个笔记开始编辑</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">选择或创建一个笔记开始编写</p>
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">支持 Markdown 语法 · AI 辅助写作 · 历史版本</p>
         </div>
       </div>
     )
@@ -228,8 +229,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-4 dark:border-gray-800/50 dark:bg-gray-900/80">
+        <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
           {[
             { key: 'preview', label: '预览', icon: Eye },
             { key: 'edit', label: '编辑', icon: Edit3 },
@@ -238,37 +239,46 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             <button
               key={key}
               onClick={() => setViewMode(key as typeof viewMode)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                 viewMode === key
-                  ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  ? 'bg-white text-gray-700 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                  : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
               }`}
             >
-              <Icon size={14} />
+              <Icon size={13} />
               {label}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-gray-400 sm:inline">{updateNote.isPending ? '保存中...' : isDirty ? '有未保存的更改' : '自动保存于 ' + new Date(note.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="hidden text-[11px] text-gray-400/80 sm:inline">
+            {updateNote.isPending ? (
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse-soft" />保存中...</span>
+            ) : isDirty ? (
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />有未保存的更改</span>
+            ) : (
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />已保存</span>
+            )}
+          </span>
           <button
             onClick={() => setShowVersions(!showVersions)}
-            className={`rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${showVersions ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
+            className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showVersions ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
             title="历史版本"
           >
             <History size={15} />
           </button>
           <button
             onClick={() => setShowShareDialog(true)}
-            className={`rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${showShareDialog ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
+            className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showShareDialog ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
             title="导出/分享"
           >
             <Share2 size={15} />
           </button>
+          <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
           <button
             onClick={() => setShowAiModal(true)}
             disabled={aiLoading}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:shadow-indigo-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
           >
             <Sparkles size={13} />
             AI 助手
@@ -276,25 +286,25 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-white px-8 pb-5 pt-6 dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-100 bg-white px-8 pb-5 pt-7 dark:border-gray-800/50 dark:bg-gray-900">
         <input
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="笔记标题"
-          className="w-full border-none bg-transparent text-3xl font-bold text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
+          className="w-full border-none bg-transparent text-[28px] font-bold leading-tight tracking-tight text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
-          <span className="flex items-center gap-1.5">
-            <Calendar size={12} />
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
+          <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
+            <Calendar size={11} />
             {new Date(note.createdAt).toLocaleDateString('zh-CN')}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Clock size={12} />
+          <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
+            <Clock size={11} />
             更新于 {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true, locale: zhCN })}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Folder size={12} />
+          <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
+            <Folder size={11} />
             {notebookPath}
           </span>
         </div>
@@ -304,7 +314,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       </div>
 
       {showShareDialog && (
-        <div className="border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-4 dark:border-gray-800 dark:from-blue-900/10 dark:to-indigo-900/10">
+        <div className="animate-fade-in border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 p-4 dark:border-gray-800/50 dark:from-blue-900/10 dark:to-indigo-900/5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">分享笔记</h3>
             <button
@@ -494,20 +504,20 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
+      <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div className={`${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900`}>
             <textarea
               value={content}
               onChange={(e) => handleContentChange(e.target.value)}
               placeholder="开始编写..."
-              className="h-full w-full resize-none text-sm leading-7 text-gray-700 outline-none placeholder:text-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-600"
-              style={{ minHeight: '100%' }}
+              className="w-full resize-none overflow-hidden text-sm leading-[1.85] text-gray-700 outline-none placeholder:text-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-600"
+              style={{ minHeight: 'calc(100vh - 220px)' }}
             />
           </div>
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
-          <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-950' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6`}>
+          <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6 bg-gray-50/30 dark:bg-gray-950/50`}>
             <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
               <ThemedMarkdown source={content} />
             </div>
@@ -515,39 +525,41 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )}
 
         {showVersions && (
-          <div className="flex w-80 flex-col border-l border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex items-center justify-between border-b border-gray-100 p-4 dark:border-gray-800">
+          <div className="animate-slide-in-right flex w-80 flex-col border-l border-gray-100 bg-white dark:border-gray-800/50 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
               <div className="flex items-center gap-2">
-                <History size={15} className="text-indigo-500" />
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">历史版本</h3>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                  <History size={14} className="text-indigo-500" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">历史版本</h3>
               </div>
               <button
                 onClick={() => {
                   setShowVersions(false)
                   setPreviewVersion(null)
                 }}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
               {versions.length === 0 && (
-                <div className="py-8 text-center text-sm text-gray-400">暂无历史版本</div>
+                <div className="py-10 text-center text-sm text-gray-400">暂无历史版本</div>
               )}
               {versions.map((version) => (
                 <div
                   key={version.id}
                   onClick={() => setPreviewVersion(version)}
-                  className={`cursor-pointer rounded-xl border p-3 text-sm transition-all ${
+                  className={`cursor-pointer rounded-xl border p-3 transition-all ${
                     previewVersion?.id === version.id
-                      ? 'border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-800 dark:bg-indigo-900/20'
-                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:border-gray-700 dark:hover:bg-gray-800/50'
+                      ? 'border-indigo-200 bg-indigo-50/60 shadow-sm shadow-indigo-500/5 dark:border-indigo-800/50 dark:bg-indigo-900/20'
+                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:border-gray-700 dark:hover:bg-white/[0.03]'
                   }`}
                 >
-                  <div className="font-medium truncate">{version.title || '无标题'}</div>
-                  <div className="mt-1 text-xs text-gray-400">{new Date(version.createdAt).toLocaleString()}</div>
+                  <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{version.title || '无标题'}</div>
+                  <div className="mt-1 text-[11px] text-gray-400">{new Date(version.createdAt).toLocaleString()}</div>
                 </div>
               ))}
             </div>
@@ -582,7 +594,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <button
                   onClick={() => restoreVersion.mutate({ noteId: note.id, versionId: previewVersion.id })}
                   disabled={restoreVersion.isPending}
-                  className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-emerald-500/20 transition-all hover:shadow-md hover:shadow-emerald-500/25 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >
                   <RotateCcw size={14} />
                   恢复此版本

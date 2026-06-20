@@ -21,13 +21,16 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   ]
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <nav className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center space-x-8">
-          <button onClick={() => navigate('/')} className="text-xl font-bold text-gray-800 dark:text-gray-100">
-            Hetu
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-[#0c0f1a] dark:text-gray-100">
+      <nav className="glass-nav flex h-14 shrink-0 items-center justify-between px-6">
+        <div className="flex items-center space-x-6">
+          <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
+              <BookOpen size={16} className="text-white" />
+            </div>
+            <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">Hetu</span>
           </button>
-          <div className="flex space-x-1">
+          <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.path
@@ -35,30 +38,30 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300'
-                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                      ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
-                  <Icon size={15} className="mr-2" />
+                  <Icon size={14} />
                   {item.label}
                 </button>
               )
             })}
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/settings')}
-            className={`rounded-lg p-2 transition-colors ${
+            className={`rounded-lg p-2 transition-all ${
               location.pathname === '/settings'
-                ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                ? 'bg-gray-100/80 text-gray-800 dark:bg-white/10 dark:text-gray-100'
+                : 'text-gray-400 hover:bg-gray-100/60 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200'
             }`}
             title="设置"
           >
-            <Settings size={18} />
+            <Settings size={17} />
           </button>
         </div>
       </nav>

@@ -103,10 +103,10 @@ function NotebookTreeItem({
   return (
     <div className="group">
       <div
-        className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 transition-colors ${
+        className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 transition-all ${
           isSelected
-            ? 'bg-blue-50 dark:bg-blue-950/40'
-            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+            ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
+            : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
         }`}
         style={{ marginLeft: `${level * 12}px` }}
         onMouseEnter={() => setIsHovered(true)}
@@ -257,14 +257,14 @@ export default function Sidebar() {
 
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50">
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-3 flex shrink-0 items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">笔记本</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">笔记本</h2>
           <button
             onClick={() => setIsAddingRoot(true)}
             title="新建笔记本"
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
           >
             <Plus size={14} />
           </button>
@@ -296,21 +296,21 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div className="border-t border-gray-100 p-4 dark:border-gray-800">
+      <div className="border-t border-gray-100 p-4 dark:border-gray-800/50">
         <button
           onClick={() => {
             setSelectedNotebookId(undefined)
             setSelectedTagId(undefined)
             navigate('/')
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.98]"
         >
           <Plus size={15} />
           <span>新建笔记</span>
         </button>
         <button
           onClick={() => setIsAddingRoot(true)}
-          className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-gray-300"
         >
           <Folder size={13} />
           <span>新建笔记本</span>
