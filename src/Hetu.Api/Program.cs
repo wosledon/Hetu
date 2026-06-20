@@ -119,7 +119,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-app = builder.Build();
+var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
