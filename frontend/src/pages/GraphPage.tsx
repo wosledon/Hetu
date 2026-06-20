@@ -59,11 +59,12 @@ interface NodePosition {
   vy: number
 }
 
-function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], width: number, height: number) {
+function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], width: number, height: number, layoutKey: number) {
   const [positions, setPositions] = useState<NodePosition[]>([])
   const positionsRef = useRef<NodePosition[]>([])
   const frameRef = useRef<number>(0)
   const initializedRef = useRef(false)
+  const prevLayoutKeyRef = useRef(layoutKey)
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -72,6 +73,12 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       setPositions((prev) => (prev.length === 0 ? prev : []))
       initializedRef.current = false
       return
+    }
+
+    // 当 layoutKey 变化时，重新初始化布局
+    if (prevLayoutKeyRef.current !== layoutKey) {
+      initializedRef.current = false
+      prevLayoutKeyRef.current = layoutKey
     }
 
     const cx = width / 2
@@ -172,7 +179,7 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
 
     frameRef.current = requestAnimationFrame(simulate)
     return () => cancelAnimationFrame(frameRef.current)
-  }, [entities, relations, width, height])
+  }, [entities, relations, width, height, layoutKey])
 
   return positions
 }
@@ -191,6 +198,7 @@ export default function GraphPage() {
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 })
   const [showExtractDialog, setShowExtractDialog] = useState(false)
   const [extractingNoteId, setExtractingNoteId] = useState<string | null>(null)
+  const [layoutKey, setLayoutKey] = useState(0)
 
   useEffect(() => {
     const el = containerRef.current
@@ -270,7 +278,7 @@ export default function GraphPage() {
     ) ?? []
   }, [filteredEntities, graphData?.relations])
 
-  const positions = useForceLayout(filteredEntities, filteredRelations, svgSize.width || 800, svgSize.height || 600)
+  const positions = useForceLayout(filteredEntities, filteredRelations, svgSize.width || 800, svgSize.height || 600, layoutKey)
   const posMap = useMemo(() => new Map(positions.map(p => [p.id, p])), [positions])
 
   const entityTypes = useMemo(() => [...new Set(graphData?.entities?.map(e => e.type) ?? [])], [graphData?.entities])
@@ -298,6 +306,10 @@ export default function GraphPage() {
     setPan({ x: 0, y: 0 })
   }
 
+  const handleAutoLayout = () => {
+    setLayoutKey(prev => prev + 1)
+  }
+
   const mainContent = (
     <div className="flex flex-1 flex-col bg-white dark:bg-gray-900">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-4 dark:border-gray-800 dark:bg-gray-900">
@@ -312,7 +324,7 @@ export default function GraphPage() {
             <RotateCcw size={16} />
           </button>
           <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-          <button className="rounded p-2 text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800" title="自动布局">
+          <button onClick={handleAutoLayout} className="rounded p-2 text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800" title="自动布局">
             <Network size={16} />
           </button>
         </div>
@@ -353,7 +365,7 @@ export default function GraphPage() {
       ) : (
         <div ref={containerRef} className="flex-1 relative overflow-hidden">
           {svgSize.width === 0 || svgSize.height === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500">正在初始化图谱...</div>
+            <div className="absolute inset-0 flex items-center justify-center text-gray-500">正在初始化图谱...</div>
           ) : (
             <>
               <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-2">
