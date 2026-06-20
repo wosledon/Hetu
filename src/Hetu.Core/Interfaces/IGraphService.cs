@@ -1,11 +1,13 @@
 using Hetu.Shared.Common;
 using Hetu.Shared.Graph;
+using Microsoft.AspNetCore.Http;
 
 namespace Hetu.Core.Interfaces;
 
 public interface IGraphService
 {
     Task<ApiResponse<GraphDataDto>> GetGraphAsync(CancellationToken cancellationToken = default);
+    Task StreamGraphAsync(HttpContext httpContext, CancellationToken cancellationToken = default);
     Task<ApiResponse<GraphEntityDetailDto>> GetEntityByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<GraphEntityDto>> CreateEntityAsync(CreateGraphEntityRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<GraphEntityDto>> UpdateEntityAsync(Guid id, UpdateGraphEntityRequest request, CancellationToken cancellationToken = default);

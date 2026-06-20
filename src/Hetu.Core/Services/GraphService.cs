@@ -3,6 +3,8 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Graph;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Hetu.Core.Services;
 
@@ -10,21 +12,83 @@ public class GraphService : IGraphService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly IMemoryCache _cache;
+    private const string GraphCacheKey = "graph_data";
 
-    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory)
+    private static readonly JsonSerializerOptions SseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, IMemoryCache cache)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
+        _cache = cache;
     }
 
     public async Task<ApiResponse<GraphDataDto>> GetGraphAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cache.TryGetValue(GraphCacheKey, out GraphDataDto? cached) && cached != null)
+            return ApiResponse<GraphDataDto>.Ok(cached);
+
+        var dto = await BuildGraphDataAsync(cancellationToken);
+        _cache.Set(GraphCacheKey, dto, new MemoryCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromMinutes(5)
+        });
+        return ApiResponse<GraphDataDto>.Ok(dto);
+    }
+
+    public async Task StreamGraphAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
+    {
+        var dto = _cache.TryGetValue(GraphCacheKey, out GraphDataDto? cached) && cached != null
+            ? cached
+            : await BuildGraphDataAsync(cancellationToken);
+
+        if (!_cache.TryGetValue(GraphCacheKey, out GraphDataDto? _))
+        {
+            _cache.Set(GraphCacheKey, dto, new MemoryCacheEntryOptions
+            {
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            });
+        }
+
+        httpContext.Response.ContentType = "text/event-stream";
+        httpContext.Response.Headers["Cache-Control"] = "no-cache";
+        httpContext.Response.Headers["Connection"] = "keep-alive";
+
+        await WriteSseEventAsync(httpContext.Response.Body, "meta", new { entityCount = dto.Entities.Count, relationCount = dto.Relations.Count }, cancellationToken);
+        await WriteSseEventAsync(httpContext.Response.Body, "entities", dto.Entities, cancellationToken);
+
+        const int batchSize = 200;
+        for (var i = 0; i < dto.Relations.Count; i += batchSize)
+        {
+            var batch = dto.Relations.Skip(i).Take(batchSize).ToList();
+            await WriteSseEventAsync(httpContext.Response.Body, "relations", batch, cancellationToken);
+        }
+
+        await WriteSseEventAsync(httpContext.Response.Body, "done", new { }, cancellationToken);
+    }
+
+    private async Task<GraphDataDto> BuildGraphDataAsync(CancellationToken cancellationToken)
     {
         var entities = await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken);
         var relations = await _unitOfWork.GraphRelations.GetAllAsync(cancellationToken);
 
         var entityDict = entities.ToDictionary(e => e.Id);
 
-        var dtos = new GraphDataDto
+        // O(N+R) relation count via dictionary precomputation
+        var relationCountDict = new Dictionary<Guid, int>();
+        foreach (var r in relations)
+        {
+            relationCountDict.TryGetValue(r.SourceEntityId, out var sc);
+            relationCountDict[r.SourceEntityId] = sc + 1;
+            relationCountDict.TryGetValue(r.TargetEntityId, out var tc);
+            relationCountDict[r.TargetEntityId] = tc + 1;
+        }
+
+        return new GraphDataDto
         {
             Entities = entities.Select(e => new GraphEntityDto
             {
@@ -33,7 +97,7 @@ public class GraphService : IGraphService
                 Type = e.Type,
                 Description = e.Description,
                 Metadata = e.Metadata,
-                RelationCount = relations.Count(r => r.SourceEntityId == e.Id || r.TargetEntityId == e.Id),
+                RelationCount = relationCountDict.GetValueOrDefault(e.Id, 0),
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt
             }).ToList(),
@@ -51,21 +115,38 @@ public class GraphService : IGraphService
                 CreatedAt = r.CreatedAt
             }).ToList()
         };
-
-        return ApiResponse<GraphDataDto>.Ok(dtos);
     }
+
+    private static async Task WriteSseEventAsync(Stream responseStream, string eventType, object data, CancellationToken cancellationToken)
+    {
+        var json = JsonSerializer.Serialize(data, SseJsonOptions);
+        var eventBytes = System.Text.Encoding.UTF8.GetBytes($"event: {eventType}\ndata: {json}\n\n");
+        await responseStream.WriteAsync(eventBytes, cancellationToken);
+        await responseStream.FlushAsync(cancellationToken);
+    }
+
+    private void InvalidateGraphCache() => _cache.Remove(GraphCacheKey);
 
     public async Task<ApiResponse<GraphEntityDetailDto>> GetEntityByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GraphEntities.GetByIdAsync(id, cancellationToken);
         if (entity == null) return ApiResponse<GraphEntityDetailDto>.Fail("实体不存在");
 
-        var allRelations = await _unitOfWork.GraphRelations.GetAllAsync(cancellationToken);
-        var allEntities = await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken);
-        var entityDict = allEntities.ToDictionary(e => e.Id);
+        // Only query relations involving this entity (not all)
+        var relatedRelations = await _unitOfWork.GraphRelations
+            .FindAsync(r => r.SourceEntityId == id || r.TargetEntityId == id, cancellationToken);
 
-        var relatedRelations = allRelations
-            .Where(r => r.SourceEntityId == id || r.TargetEntityId == id)
+        // Batch-fetch only the distinct entities referenced by these relations
+        var referencedIds = relatedRelations
+            .SelectMany(r => new[] { r.SourceEntityId, r.TargetEntityId })
+            .Distinct()
+            .ToHashSet();
+        var allEntities = await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken);
+        var entityDict = allEntities
+            .Where(e => referencedIds.Contains(e.Id))
+            .ToDictionary(e => e.Id);
+
+        var relationDtos = relatedRelations
             .Select(r => new GraphRelationDto
             {
                 Id = r.Id,
@@ -80,18 +161,18 @@ public class GraphService : IGraphService
                 CreatedAt = r.CreatedAt
             }).ToList();
 
-        var sourceNoteIds = relatedRelations
+        // Batch-fetch source notes in a single query
+        var sourceNoteIds = relationDtos
             .Where(r => r.SourceNoteId.HasValue)
             .Select(r => r.SourceNoteId!.Value)
             .Distinct()
             .ToList();
 
         var sourceNotes = new List<GraphSourceNoteDto>();
-        foreach (var noteId in sourceNoteIds)
+        if (sourceNoteIds.Count > 0)
         {
-            var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
-            if (note != null)
-                sourceNotes.Add(new GraphSourceNoteDto { NoteId = note.Id, Title = note.Title });
+            var notes = await _unitOfWork.Notes.FindAsync(n => sourceNoteIds.Contains(n.Id), cancellationToken);
+            sourceNotes = notes.Select(n => new GraphSourceNoteDto { NoteId = n.Id, Title = n.Title }).ToList();
         }
 
         return ApiResponse<GraphEntityDetailDto>.Ok(new GraphEntityDetailDto
@@ -101,7 +182,7 @@ public class GraphService : IGraphService
             Type = entity.Type,
             Description = entity.Description,
             Metadata = entity.Metadata,
-            Relations = relatedRelations,
+            Relations = relationDtos,
             SourceNotes = sourceNotes,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
@@ -130,6 +211,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphEntities.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse<GraphEntityDto>.Ok(MapEntity(entity, 0));
     }
@@ -147,6 +229,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphEntities.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         var relations = await _unitOfWork.GraphRelations
             .FindAsync(r => r.SourceEntityId == id || r.TargetEntityId == id, cancellationToken);
@@ -167,6 +250,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphEntities.DeleteAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse.Ok();
     }
@@ -193,6 +277,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphRelations.AddAsync(relation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse<GraphRelationDto>.Ok(new GraphRelationDto
         {
@@ -216,6 +301,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphRelations.DeleteAsync(relation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse.Ok();
     }
@@ -267,6 +353,7 @@ public class GraphService : IGraphService
             return ApiResponse.Fail("无法解析 LLM 返回的结果");
 
         await ApplyExtractionResultAsync(extracted, noteId, cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse.Ok();
     }
@@ -301,6 +388,7 @@ public class GraphService : IGraphService
 
         await _unitOfWork.GraphEntities.DeleteAsync(mergeEntity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
 
         return ApiResponse.Ok();
     }

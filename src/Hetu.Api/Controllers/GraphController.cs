@@ -20,6 +20,10 @@ public class GraphController : ControllerBase
     public Task<ApiResponse<GraphDataDto>> GetGraph(CancellationToken cancellationToken)
         => _graphService.GetGraphAsync(cancellationToken);
 
+    [HttpGet("stream")]
+    public Task StreamGraph(CancellationToken cancellationToken)
+        => _graphService.StreamGraphAsync(HttpContext, cancellationToken);
+
     [HttpGet("entities/types")]
     public Task<ApiResponse<List<string>>> GetEntityTypes(CancellationToken cancellationToken)
         => _graphService.GetEntityTypesAsync(cancellationToken);

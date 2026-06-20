@@ -30,6 +30,13 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(
+        new[] { "application/json", "text/event-stream" });
+});
+
 builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=hetu.db";
@@ -98,6 +105,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDataProtection();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<TrashCleanupService>();
 builder.Services.AddHostedService<AutoOrganizeService>();
 
@@ -111,9 +119,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-var app = builder.Build();
+app = builder.Build();
 
 app.UseSerilogRequestLogging();
+
+app.UseResponseCompression();
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Network,
   RotateCcw,
@@ -15,6 +15,7 @@ import {
   Brain,
   Box,
   Tag,
+  Loader2,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { graphService } from '../services/graphService'
@@ -113,7 +114,10 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
     }
 
     let iteration = 0
-    const maxIterations = 100
+    // 根据节点数量动态调整迭代次数和节流间隔
+    const nodeCount = nodes.length
+    const maxIterations = nodeCount > 100 ? 50 : nodeCount > 50 ? 75 : 100
+    const THROTTLE_INTERVAL = nodeCount > 100 ? 10 : nodeCount > 50 ? 5 : 3
 
     const simulate = () => {
       if (iteration >= maxIterations) return
@@ -123,29 +127,58 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       const damping = 0.85
       const centerPull = 0.01
 
+      // Pre-build node map for O(1) lookups during relation processing
+      const nodeMap = new Map<string, NodePosition>()
+      for (const n of nodes) nodeMap.set(n.id, n)
+
+      // 优化：使用网格分割近似计算排斥力（Barnes-Hut 简化版）
+      // 对于大量节点，远处节点的影响可以近似处理
+      const gridSize = 200
+      const grid = new Map<string, NodePosition[]>()
+      
+      for (const node of nodes) {
+        const gx = Math.floor(node.x / gridSize)
+        const gy = Math.floor(node.y / gridSize)
+        const key = `${gx},${gy}`
+        if (!grid.has(key)) grid.set(key, [])
+        grid.get(key)!.push(node)
+      }
+
       for (let i = 0; i < nodes.length; i++) {
         let fx = 0, fy = 0
+        const node = nodes[i]
+        const gx = Math.floor(node.x / gridSize)
+        const gy = Math.floor(node.y / gridSize)
 
-        for (let j = 0; j < nodes.length; j++) {
-          if (i === j) continue
-          const dx = nodes[i].x - nodes[j].x
-          const dy = nodes[i].y - nodes[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1
-          const force = repulsion / (dist * dist)
-          fx += (dx / dist) * force
-          fy += (dy / dist) * force
+        // 只计算周围 3x3 网格内的排斥力
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const key = `${gx + dx},${gy + dy}`
+            const cellNodes = grid.get(key)
+            if (!cellNodes) continue
+
+            for (const other of cellNodes) {
+              if (other === node) continue
+              const ddx = node.x - other.x
+              const ddy = node.y - other.y
+              const dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1
+              const force = repulsion / (dist * dist)
+              fx += (ddx / dist) * force
+              fy += (ddy / dist) * force
+            }
+          }
         }
 
-        fx += (cx - nodes[i].x) * centerPull
-        fy += (cy - nodes[i].y) * centerPull
+        fx += (cx - node.x) * centerPull
+        fy += (cy - node.y) * centerPull
 
-        nodes[i].vx = (nodes[i].vx + fx) * damping
-        nodes[i].vy = (nodes[i].vy + fy) * damping
+        node.vx = (node.vx + fx) * damping
+        node.vy = (node.vy + fy) * damping
       }
 
       for (const rel of relations) {
-        const source = nodes.find(n => n.id === rel.sourceEntityId)
-        const target = nodes.find(n => n.id === rel.targetEntityId)
+        const source = nodeMap.get(rel.sourceEntityId)
+        const target = nodeMap.get(rel.targetEntityId)
         if (!source || !target) continue
 
         const dx = target.x - source.x
@@ -167,8 +200,12 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       }
 
       iteration++
-      positionsRef.current = [...nodes]
-      setPositions(positionsRef.current)
+      positionsRef.current = nodes
+
+      // Throttle React state updates: every THROTTLE_INTERVAL iterations + always on last
+      if (iteration % THROTTLE_INTERVAL === 0 || iteration >= maxIterations) {
+        setPositions([...nodes])
+      }
 
       if (iteration < maxIterations) {
         frameRef.current = requestAnimationFrame(simulate)
@@ -183,7 +220,6 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
 }
 
 export default function GraphPage() {
-  const queryClient = useQueryClient()
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [entitySearch, setEntitySearch] = useState('')
@@ -197,6 +233,78 @@ export default function GraphPage() {
   const [showExtractDialog, setShowExtractDialog] = useState(false)
   const [extractingNoteId, setExtractingNoteId] = useState<string | null>(null)
   const [layoutKey, setLayoutKey] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Graph data state — populated by SSE stream or fallback query
+  const [entities, setEntities] = useState<IGraphEntity[]>([])
+  const [relations, setRelations] = useState<IGraphRelation[]>([])
+  const [isStreaming, setIsStreaming] = useState(true)
+  const [streamMeta, setStreamMeta] = useState<{ entityCount: number; relationCount: number } | null>(null)
+  const [loadedRelations, setLoadedRelations] = useState(0)
+
+  const refreshGraph = useCallback(() => {
+    setEntities([])
+    setRelations([])
+    setIsStreaming(true)
+    setStreamMeta(null)
+    setLoadedRelations(0)
+    setRefreshKey(k => k + 1)
+  }, [])
+
+  // --- Load graph data via SSE streaming with fallback ---
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    const startStream = async () => {
+      try {
+        await graphService.streamGraph(
+          {
+            onMeta: (meta) => {
+              setStreamMeta(meta)
+              setLoadedRelations(0)
+            },
+            onEntities: (newEntities) => {
+              setEntities(newEntities)
+            },
+            onRelations: (batch) => {
+              setRelations(prev => [...prev, ...batch])
+              setLoadedRelations(prev => prev + batch.length)
+            },
+            onDone: () => setIsStreaming(false),
+            onError: () => {
+              // Fallback: load via regular API
+              graphService.getGraph()
+                .then(data => {
+                  if (!abortController.signal.aborted) {
+                    setEntities(data.entities)
+                    setRelations(data.relations)
+                    setIsStreaming(false)
+                  }
+                })
+                .catch(() => setIsStreaming(false))
+            },
+          },
+          abortController.signal,
+        )
+      } catch {
+        // Stream failed, fallback
+        graphService.getGraph()
+          .then(data => {
+            if (!abortController.signal.aborted) {
+              setEntities(data.entities)
+              setRelations(data.relations)
+              setIsStreaming(false)
+            }
+          })
+          .catch(() => setIsStreaming(false))
+      }
+    }
+
+    startStream()
+    return () => abortController.abort()
+  }, [refreshKey])
+
+  const isLoading = isStreaming && entities.length === 0
 
   useEffect(() => {
     const el = containerRef.current
@@ -214,12 +322,7 @@ export default function GraphPage() {
     updateSize()
 
     return () => observer.disconnect()
-  }, [])
-
-  const { data: graphData, isLoading } = useQuery({
-    queryKey: ['graph'],
-    queryFn: () => graphService.getGraph(),
-  })
+  }, [isLoading, entities.length])
 
   const { data: entityDetail } = useQuery({
     queryKey: ['graph-entity', selectedEntityId],
@@ -230,14 +333,14 @@ export default function GraphPage() {
   const deleteEntityMutation = useMutation({
     mutationFn: (id: string) => graphService.deleteEntity(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['graph'] })
+      refreshGraph()
       setSelectedEntityId(null)
     },
   })
 
   const deleteRelationMutation = useMutation({
     mutationFn: (id: string) => graphService.deleteRelation(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['graph'] }),
+    onSuccess: () => refreshGraph(),
   })
 
   const { data: notesData } = useQuery({
@@ -251,7 +354,7 @@ export default function GraphPage() {
   const extractMutation = useMutation({
     mutationFn: (noteId: string) => graphService.extractFromNote(noteId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['graph'] })
+      refreshGraph()
       setExtractingNoteId(null)
       setShowExtractDialog(false)
     },
@@ -263,23 +366,29 @@ export default function GraphPage() {
 
   const filteredEntities = useMemo(() => {
     const keyword = entitySearch.trim().toLowerCase()
-    return graphData?.entities?.filter(e =>
+    return entities.filter(e =>
       (typeFilter === 'all' || e.type === typeFilter) &&
       (!keyword || `${e.name} ${e.description ?? ''}`.toLowerCase().includes(keyword))
-    ) ?? []
-  }, [entitySearch, graphData?.entities, typeFilter])
+    )
+  }, [entitySearch, entities, typeFilter])
 
   const filteredRelations = useMemo(() => {
     const filteredEntityIds = new Set(filteredEntities.map(e => e.id))
-    return graphData?.relations?.filter(
+    return relations.filter(
       r => filteredEntityIds.has(r.sourceEntityId) && filteredEntityIds.has(r.targetEntityId)
-    ) ?? []
-  }, [filteredEntities, graphData?.relations])
+    )
+  }, [filteredEntities, relations])
+
+  // Pre-build Map for O(1) entity lookup in SVG rendering
+  const filteredEntityMap = useMemo(
+    () => new Map(filteredEntities.map(e => [e.id, e])),
+    [filteredEntities],
+  )
 
   const positions = useForceLayout(filteredEntities, filteredRelations, svgSize.width || 800, svgSize.height || 600, layoutKey)
   const posMap = useMemo(() => new Map(positions.map(p => [p.id, p])), [positions])
 
-  const entityTypes = useMemo(() => [...new Set(graphData?.entities?.map(e => e.type) ?? [])], [graphData?.entities])
+  const entityTypes = useMemo(() => [...new Set(entities.map(e => e.type))], [entities])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.target === svgRef.current || (e.target as SVGElement).classList.contains('graph-bg')) {
@@ -340,13 +449,29 @@ export default function GraphPage() {
       </div>
       {isLoading ? (
         <div className="flex flex-1 flex-col items-center justify-center text-gray-500">
-          <svg className="h-8 w-8 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="mt-3 text-sm">加载知识图谱...</p>
+          <Loader2 size={32} className="animate-spin text-indigo-500" />
+          {streamMeta ? (
+            <div className="mt-3 text-center">
+              <p className="text-sm">正在加载知识图谱...</p>
+              <p className="mt-1 text-xs text-gray-400">
+                已加载 {streamMeta.entityCount} 个实体，{loadedRelations} / {streamMeta.relationCount} 个关系
+              </p>
+              <div className="mx-auto mt-2 h-1 w-48 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+                  style={{
+                    width: streamMeta.relationCount > 0
+                      ? `${Math.min(100, Math.round((loadedRelations / streamMeta.relationCount) * 100))}%`
+                      : '100%',
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm">正在连接服务...</p>
+          )}
         </div>
-      ) : !graphData?.entities?.length ? (
+      ) : !entities.length ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30">
             <Network size={36} className="text-indigo-500" />
@@ -416,8 +541,8 @@ export default function GraphPage() {
                     const dx = target.x - source.x
                     const dy = target.y - source.y
                     const dist = Math.sqrt(dx * dx + dy * dy) || 1
-                    const targetEntity = filteredEntities.find(e => e.id === rel.targetEntityId)
-                    const sourceEntity = filteredEntities.find(e => e.id === rel.sourceEntityId)
+                    const targetEntity = filteredEntityMap.get(rel.targetEntityId)
+                    const sourceEntity = filteredEntityMap.get(rel.sourceEntityId)
                     const targetR = 18 + Math.min((targetEntity?.relationCount ?? 0) * 2, 12)
                     const sourceR = 18 + Math.min((sourceEntity?.relationCount ?? 0) * 2, 12)
                     const ux = dx / dist
@@ -599,11 +724,11 @@ export default function GraphPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800">
               <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">实体</div>
-              <div className="mt-1 text-xl font-bold text-indigo-600 dark:text-indigo-400">{graphData?.entities?.length ?? 0}</div>
+              <div className="mt-1 text-xl font-bold text-indigo-600 dark:text-indigo-400">{entities.length}</div>
             </div>
             <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800">
               <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">关系</div>
-              <div className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400">{graphData?.relations?.length ?? 0}</div>
+              <div className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400">{relations.length}</div>
             </div>
           </div>
         </div>
