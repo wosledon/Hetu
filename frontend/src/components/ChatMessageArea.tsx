@@ -19,6 +19,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [streamingContent, setStreamingContent] = useState('')
+  const [streamingThinking, setStreamingThinking] = useState('')
+  const [streamingSearchResults, setStreamingSearchResults] = useState<Array<{ title: string; url: string; snippet: string }>>([])
+  const [showThinking, setShowThinking] = useState(false)
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -78,7 +82,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, organizePreview])
+  }, [messages, streamingContent, streamingThinking, organizePreview])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -195,12 +199,28 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
 
     try {
-      const response = await chatMessageService.stream(topic.id, { content })
+      const response = await chatMessageService.stream(topic.id, {
+        content,
+        deepThinking,
+        webSearch,
+      })
       await readSseStream(response, (data) => {
         if (data.startsWith('[ERROR]')) {
           setStreamingContent((prev) => prev + '\n' + data)
-        } else {
-          setStreamingContent((prev) => prev + data)
+          return
+        }
+        try {
+          const chunk = JSON.parse(data)
+          if (chunk.type === 'thinking') {
+            setStreamingThinking(prev => prev + chunk.text)
+          } else if (chunk.type === 'content') {
+            setStreamingContent(prev => prev + chunk.text)
+          } else if (chunk.type === 'search_results') {
+            setStreamingSearchResults(chunk.results || [])
+          }
+        } catch {
+          // Fallback: treat as plain text (backward compat)
+          setStreamingContent(prev => prev + data)
         }
       })
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
@@ -210,6 +230,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     } finally {
       setIsStreaming(false)
       setStreamingContent('')
+      setStreamingThinking('')
+      setStreamingSearchResults([])
+      setShowThinking(false)
     }
   }
 
@@ -695,10 +718,55 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
+                {/* Thinking block */}
+                {streamingThinking && (
+                  <div className="mb-3">
+                    <button
+                      onClick={() => setShowThinking(!showThinking)}
+                      className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <Brain size={12} />
+                      <span>深度思考</span>
+                      <ChevronDown size={10} className={`transition-transform ${showThinking ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showThinking && (
+                      <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
+                        <ThemedMarkdown source={streamingThinking} />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Content */}
                 <div className="prose prose-sm dark:prose-invert max-w-none">
                   <ThemedMarkdown source={streamingContent || ''} />
                 </div>
-                {!streamingContent && (
+                {/* Search results citations */}
+                {streamingSearchResults.length > 0 && (
+                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                      <Search size={11} />
+                      参考来源
+                    </div>
+                    <div className="space-y-1">
+                      {streamingSearchResults.map((r, i) => (
+                        <a
+                          key={i}
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
+                            <span className="block truncate text-gray-400">{r.url}</span>
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!streamingContent && !streamingThinking && (
                   <div className="flex items-center gap-1 py-1">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]"></span>
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]"></span>

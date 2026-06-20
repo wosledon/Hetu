@@ -14,15 +14,18 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly IWebSearchService _webSearchService;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
         IChatTopicService chatTopicService,
-        ILLMProviderFactory llmProviderFactory)
+        ILLMProviderFactory llmProviderFactory,
+        IWebSearchService webSearchService)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
+        _webSearchService = webSearchService;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -105,13 +108,61 @@ public class ChatMessagesController : ControllerBase
             Stream = true
         };
 
-        var sb = new StringBuilder();
+        // Deep thinking: instruct the model to think step by step
+        if (request.DeepThinking)
+        {
+            var thinkPrefix = string.IsNullOrEmpty(options.SystemPrompt) ? "" : options.SystemPrompt + "\n\n";
+            options.SystemPrompt = thinkPrefix + "请在回答前先进行深度思考，展示你的推理过程。使用 <thinking> 标签包裹你的思考过程，然后给出最终回答。";
+        }
+
+        // Web search: search the web and inject results into context
+        if (request.WebSearch)
+        {
+            var searchResults = await _webSearchService.SearchAsync(request.Content, 5, cancellationToken);
+            if (searchResults.Count > 0)
+            {
+                // Send search results as a structured event
+                var searchEvent = System.Text.Json.JsonSerializer.Serialize(new { type = "search_results", results = searchResults }, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                await Response.WriteAsync($"data: {searchEvent}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
+                // Inject search results into context
+                var searchContext = "以下是网络搜索的结果，请基于这些信息回答用户的问题，并在回答中引用来源：\n\n";
+                for (int i = 0; i < searchResults.Count; i++)
+                {
+                    searchContext += $"[{i + 1}] {searchResults[i].Title}\n来源: {searchResults[i].Url}\n摘要: {searchResults[i].Snippet}\n\n";
+                }
+                chatMessages.Insert(chatMessages.Count - 1, new LlmChatMessage
+                {
+                    Role = "user",
+                    Content = searchContext
+                });
+            }
+        }
+
+        var contentSb = new StringBuilder();
         try
         {
             await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
             {
-                sb.Append(delta);
-                await WriteEventAsync(delta);
+                await Response.WriteAsync($"data: {delta}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
+                // Extract content text for persistence (skip thinking chunks)
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(delta);
+                    if (doc.RootElement.TryGetProperty("type", out var type) && type.GetString() == "content")
+                    {
+                        if (doc.RootElement.TryGetProperty("text", out var text))
+                            contentSb.Append(text.GetString());
+                    }
+                }
+                catch
+                {
+                    // If not valid JSON, treat as plain text (backward compat)
+                    contentSb.Append(delta);
+                }
             }
         }
         catch (HttpRequestException ex)
@@ -120,6 +171,6 @@ public class ChatMessagesController : ControllerBase
             return;
         }
 
-        await _chatMessageService.SaveAssistantMessageAsync(topicId, sb.ToString(), modelId, cancellationToken);
+        await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, cancellationToken);
     }
 }

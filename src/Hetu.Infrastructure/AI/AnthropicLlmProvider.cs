@@ -71,10 +71,14 @@ public class AnthropicLlmProvider : ILLMProvider
                 continue;
             }
 
-            var text = evt?.Delta?.Text;
-            if (!string.IsNullOrEmpty(text))
+            var delta = evt?.Delta;
+            if (delta?.Type == "thinking_delta" && !string.IsNullOrEmpty(delta.Thinking))
             {
-                yield return text;
+                yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(delta.Thinking)}}}";
+            }
+            else if (!string.IsNullOrEmpty(delta?.Text))
+            {
+                yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(delta.Text)}}}";
             }
         }
     }
@@ -165,5 +169,6 @@ public class AnthropicLlmProvider : ILLMProvider
     {
         public string? Type { get; set; }
         public string? Text { get; set; }
+        public string? Thinking { get; set; }
     }
 }

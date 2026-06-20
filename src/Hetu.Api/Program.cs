@@ -6,6 +6,7 @@ using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
 using Hetu.Infrastructure.Repositories;
 using Hetu.Infrastructure.SemanticSearch;
+using Hetu.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Pgvector.EntityFrameworkCore;
@@ -102,6 +103,7 @@ builder.Services.AddScoped<IExportService>(sp =>
 builder.Services.AddScoped<INoteAiService, NoteAiService>();
 builder.Services.AddScoped<IGraphService, GraphService>();
 builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
+builder.Services.AddScoped<IWebSearchService, BingWebSearchService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDataProtection();

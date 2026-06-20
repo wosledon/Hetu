@@ -36,6 +36,14 @@ export interface UpdateChatTopicRequest {
 
 export interface SendMessageRequest {
   content: string;
+  deepThinking?: boolean;
+  webSearch?: boolean;
+}
+
+export interface IWebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
 }
 
 export interface UpdateChatMessageRequest {

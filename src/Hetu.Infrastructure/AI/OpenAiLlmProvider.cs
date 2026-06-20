@@ -68,10 +68,17 @@ public class OpenAiLlmProvider : ILLMProvider
                 continue;
             }
 
-            var delta = chunk?.Choices?.FirstOrDefault()?.Delta?.Content;
-            if (!string.IsNullOrEmpty(delta))
+            var choice = chunk?.Choices?.FirstOrDefault()?.Delta;
+            var content = choice?.Content;
+            var reasoning = choice?.ReasoningContent;
+
+            if (!string.IsNullOrEmpty(reasoning))
             {
-                yield return delta;
+                yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
+            }
+            else if (!string.IsNullOrEmpty(content))
+            {
+                yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(content)}}}";
             }
         }
     }
@@ -151,6 +158,7 @@ public class OpenAiLlmProvider : ILLMProvider
     private class OpenAiDelta
     {
         public string? Content { get; set; }
+        public string? ReasoningContent { get; set; }
     }
 
     private class OpenAiStreamChunk

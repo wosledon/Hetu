@@ -80,6 +80,15 @@ public class ChatMessageDto
 public class SendMessageRequest
 {
     public string Content { get; set; } = string.Empty;
+    public bool DeepThinking { get; set; }
+    public bool WebSearch { get; set; }
+}
+
+public class WebSearchResultDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string Snippet { get; set; } = string.Empty;
 }
 
 public class UpdateChatMessageRequest
