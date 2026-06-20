@@ -7,6 +7,19 @@ import type { IChatGroup } from '../types'
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
 type GroupColor = (typeof GROUP_COLORS)[number]
 
+// Tailwind 不支持动态类名拼接，需要预先定义完整的类名
+const GROUP_COLOR_CLASSES: Record<GroupColor, string> = {
+  blue: 'bg-blue-500',
+  green: 'bg-green-500',
+  purple: 'bg-purple-500',
+  yellow: 'bg-yellow-500',
+  red: 'bg-red-500',
+  indigo: 'bg-indigo-500',
+  pink: 'bg-pink-500',
+  orange: 'bg-orange-500',
+  teal: 'bg-teal-500',
+}
+
 const GROUP_ICONS: Record<string, React.ElementType> = {
   code: Code,
   book: BookOpen,
@@ -142,7 +155,7 @@ export default function ChatSidebar({ selectedGroupId, onSelectGroup }: ChatSide
                   : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
               }`}
             >
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-${color}-500 text-white shadow-sm`}>
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${GROUP_COLOR_CLASSES[color]}`}>
                 <Icon size={14} />
               </div>
               <span className={`flex-1 truncate text-sm ${selectedGroupId === group.id ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{group.name}</span>

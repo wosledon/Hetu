@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search, X, Pencil, Check } from 'lucide-react'
 import { chatTopicService } from '../services/chatService'
@@ -58,6 +58,13 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
       createTopic.mutate({ groupId, title: '' })
     }
   }
+
+  // 当话题列表加载完成且没有选择话题时，自动选择第一个话题
+  useEffect(() => {
+    if (topics.length > 0 && !selectedTopicId) {
+      onSelectTopic(topics[0])
+    }
+  }, [topics, selectedTopicId])
 
   return (
     <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
