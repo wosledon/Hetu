@@ -408,6 +408,28 @@ export default function GraphPage() {
     setIsPanning(false)
   }, [])
 
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    
+    const svg = svgRef.current
+    if (!svg) return
+    
+    const rect = svg.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+    const newZoom = Math.max(0.3, Math.min(3, zoom * zoomFactor))
+    
+    // 计算缩放中心点偏移，保持鼠标位置不变
+    const scale = newZoom / zoom
+    const newPanX = mouseX - (mouseX - pan.x) * scale
+    const newPanY = mouseY - (mouseY - pan.y) * scale
+    
+    setZoom(newZoom)
+    setPan({ x: newPanX, y: newPanY })
+  }, [zoom, pan])
+
   const handleResetView = () => {
     setZoom(1)
     setPan({ x: 0, y: 0 })
@@ -513,6 +535,7 @@ export default function GraphPage() {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
               >
                 <defs>
                   <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
