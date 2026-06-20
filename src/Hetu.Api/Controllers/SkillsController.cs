@@ -10,10 +10,12 @@ namespace Hetu.Api.Controllers;
 public class SkillsController : ControllerBase
 {
     private readonly ISkillService _skillService;
+    private readonly ILocalSkillService _localSkillService;
 
-    public SkillsController(ISkillService skillService)
+    public SkillsController(ISkillService skillService, ILocalSkillService localSkillService)
     {
         _skillService = skillService;
+        _localSkillService = localSkillService;
     }
 
     [HttpGet]
@@ -39,4 +41,16 @@ public class SkillsController : ControllerBase
     [HttpPost("{nameOrId}/invoke")]
     public Task<ApiResponse<string>> Invoke(string nameOrId, [FromBody] InvokeSkillRequest request, CancellationToken cancellationToken)
         => _skillService.InvokeAsync(nameOrId, request, cancellationToken);
+
+    [HttpGet("local")]
+    public Task<ApiResponse<List<LocalSkillDto>>> GetLocalSkills(CancellationToken cancellationToken)
+        => _localSkillService.ScanAllAsync(cancellationToken);
+
+    [HttpGet("directories")]
+    public Task<ApiResponse<List<string>>> GetSkillDirectories(CancellationToken cancellationToken)
+        => _localSkillService.GetDirectoriesAsync(cancellationToken);
+
+    [HttpPut("directories")]
+    public Task<ApiResponse> UpdateSkillDirectories([FromBody] List<string> directories, CancellationToken cancellationToken)
+        => _localSkillService.UpdateDirectoriesAsync(directories, cancellationToken);
 }

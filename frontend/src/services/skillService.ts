@@ -21,6 +21,17 @@ export interface InvokeSkillRequest {
   input: string;
 }
 
+export interface ILocalSkill {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  isEnabled: boolean;
+  config?: string;
+  filePath: string;
+  source: string;
+}
+
 export const skillService = {
   getAll: () => get<ISkill[]>('/skills'),
   getById: (id: string) => get<ISkill>(`/skills/${id}`),
@@ -28,4 +39,7 @@ export const skillService = {
   update: (id: string, data: UpdateSkillRequest) => put<ISkill>(`/skills/${id}`, data),
   delete: (id: string) => del<void>(`/skills/${id}`),
   invoke: (nameOrId: string, data: InvokeSkillRequest) => post<string>(`/skills/${nameOrId}/invoke`, data),
+  getLocalSkills: () => get<ILocalSkill[]>('/skills/local'),
+  getSkillDirectories: () => get<string[]>('/skills/directories'),
+  updateSkillDirectories: (directories: string[]) => put<void>('/skills/directories', directories),
 };

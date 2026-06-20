@@ -91,6 +91,7 @@ builder.Services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
 builder.Services.AddScoped<IPromptPresetService, PromptPresetService>();
 builder.Services.AddScoped<INoteVersionService, NoteVersionService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
+builder.Services.AddScoped<ILocalSkillService, LocalSkillService>();
 builder.Services.AddScoped<IMcpService, McpService>();
 builder.Services.AddScoped<IExportService>(sp =>
 {

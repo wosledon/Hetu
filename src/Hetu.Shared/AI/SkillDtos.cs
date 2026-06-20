@@ -36,3 +36,15 @@ public class InvokeSkillRequest
 {
     public string Input { get; set; } = string.Empty;
 }
+
+public class LocalSkillDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public bool IsEnabled { get; set; } = true;
+    public string? Config { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public string Source { get; set; } = "local";
+}
