@@ -17,8 +17,11 @@ public class AppSettingRepository : IAppSettingRepository
     public Task<AppSetting?> GetByKeyAsync(string key, CancellationToken cancellationToken = default)
         => _context.AppSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
 
-    public Task<IReadOnlyList<AppSetting>> GetAllAsync(CancellationToken cancellationToken = default)
-        => _context.AppSettings.AsNoTracking().ToListAsync(cancellationToken).ContinueWith(t => (IReadOnlyList<AppSetting>)t.Result);
+    public async Task<IReadOnlyList<AppSetting>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await _context.AppSettings.AsNoTracking().ToListAsync(cancellationToken);
+        return result;
+    }
 
     public async Task<AppSetting> SetAsync(AppSetting setting, CancellationToken cancellationToken = default)
     {

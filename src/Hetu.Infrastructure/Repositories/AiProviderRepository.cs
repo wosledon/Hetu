@@ -9,12 +9,14 @@ public class AiProviderRepository : EfRepository<AiProvider>, IAiProviderReposit
 {
     public AiProviderRepository(HetuDbContext context) : base(context) { }
 
-    public Task<IReadOnlyList<AiProvider>> GetAllWithModelsAsync(CancellationToken cancellationToken = default)
-        => DbSet.AsNoTracking()
+    public async Task<IReadOnlyList<AiProvider>> GetAllWithModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await DbSet.AsNoTracking()
             .Include(p => p.Models)
             .OrderBy(p => p.Name)
-            .ToListAsync(cancellationToken)
-            .ContinueWith(t => (IReadOnlyList<AiProvider>)t.Result);
+            .ToListAsync(cancellationToken);
+        return result;
+    }
 
     public Task<AiProvider?> GetByIdWithModelsAsync(Guid id, CancellationToken cancellationToken = default)
         => DbSet.AsNoTracking()

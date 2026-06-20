@@ -208,11 +208,13 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<NoteEmbedding>> GetAllEmbeddingsAsync(CancellationToken cancellationToken = default)
-        => Context.NoteEmbeddings.AsNoTracking()
+    public async Task<IReadOnlyList<NoteEmbedding>> GetAllEmbeddingsAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await Context.NoteEmbeddings.AsNoTracking()
             .Include(e => e.Note)
-            .ToListAsync(cancellationToken)
-            .ContinueWith(t => (IReadOnlyList<NoteEmbedding>)t.Result);
+            .ToListAsync(cancellationToken);
+        return result;
+    }
 
     public async Task SyncEmbeddingToVecTableAsync(Guid noteId, float[] embedding, CancellationToken cancellationToken = default)
     {

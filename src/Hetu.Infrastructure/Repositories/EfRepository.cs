@@ -20,11 +20,17 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
     public virtual Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => DbSet.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
-    public virtual Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
-        => DbSet.AsNoTracking().ToListAsync(cancellationToken).ContinueWith(t => (IReadOnlyList<T>)t.Result);
+    public virtual async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await DbSet.AsNoTracking().ToListAsync(cancellationToken);
+        return result;
+    }
 
-    public virtual Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
-        => DbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken).ContinueWith(t => (IReadOnlyList<T>)t.Result);
+    public virtual async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        var result = await DbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
+        return result;
+    }
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
