@@ -433,7 +433,6 @@ body {
 .hetu-milkdown-root .milkdown-code-block {
   position: relative;
   border-radius: 10px;
-  overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.06);
   background: #1e1e2e;
   margin-bottom: 0;
@@ -458,6 +457,7 @@ body {
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 0.8em;
+  border-radius: 9px 9px 0 0;
 }
 
 .dark .hetu-milkdown-root .milkdown-code-block .tools {
@@ -487,7 +487,12 @@ body {
 
 .hetu-milkdown-root .milkdown-code-block .expand-icon {
   opacity: 0.6;
-  font-size: 0.85em;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hetu-milkdown-root .milkdown-code-block .expand-icon .milkdown-icon {
+  display: inline-flex;
 }
 
 /* 复制按钮 */
@@ -516,10 +521,118 @@ body {
   gap: 0.25em;
 }
 
+/* SVG 图标通用样式 */
+.hetu-milkdown-root .milkdown-code-block .milkdown-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hetu-milkdown-root .milkdown-code-block .milkdown-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+/* ===== 语言下拉选择器 ===== */
+.hetu-milkdown-root .milkdown-code-block .language-picker {
+  position: absolute;
+  z-index: 50;
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .list-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+}
+
+/* 搜索框 */
+.hetu-milkdown-root .milkdown-code-block .language-picker .search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.6em 0.75em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .search-icon {
+  display: flex;
+  align-items: center;
+  color: #6c7086;
+  flex-shrink: 0;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #cdd6f4;
+  font-size: 0.85em;
+  min-width: 120px;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .search-input::placeholder {
+  color: #6c7086;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .clear-icon {
+  display: flex;
+  align-items: center;
+  color: #6c7086;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .clear-icon.hidden {
+  display: none;
+}
+
+/* 语言列表 */
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25em;
+  overflow-y: auto;
+  max-height: 220px;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item {
+  padding: 0.4em 0.75em;
+  border-radius: 4px;
+  color: #bac2de;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item:hover,
+.hetu-milkdown-root .milkdown-code-block .language-picker .language-list-item[aria-selected="true"] {
+  background: rgba(137, 180, 250, 0.15);
+  color: #cdd6f4;
+}
+
 /* CodeMirror 编辑区域 */
 .hetu-milkdown-root .milkdown-code-block .cm-editor {
   background: transparent;
   color: #cdd6f4;
+  border-radius: 0 0 9px 9px;
 }
 
 .hetu-milkdown-root .milkdown-code-block .cm-editor .cm-scroller {
