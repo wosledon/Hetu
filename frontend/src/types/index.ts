@@ -59,7 +59,6 @@ export interface INoteSearchResult {
 export interface IAppSettingsSnapshot {
   appName: string;
   theme: 'light' | 'dark' | 'system';
-  dataDirectory: string;
   graphAutoExtract: string;
 }
 

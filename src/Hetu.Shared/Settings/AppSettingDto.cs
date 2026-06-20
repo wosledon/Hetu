@@ -17,7 +17,6 @@ public class AppSettingsSnapshotDto
 {
     public string AppName { get; set; } = "Hetu";
     public string Theme { get; set; } = "system";
-    public string DataDirectory { get; set; } = string.Empty;
     public string GraphAutoExtract { get; set; } = "false";
 }
 

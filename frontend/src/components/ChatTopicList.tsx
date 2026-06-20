@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Search, X } from 'lucide-react'
+import { Plus, Trash2, Search, X, Pencil, Check } from 'lucide-react'
 import { chatTopicService } from '../services/chatService'
 import type { IChatTopic } from '../types'
 
@@ -12,10 +12,10 @@ interface ChatTopicListProps {
 
 export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic }: ChatTopicListProps) {
   const queryClient = useQueryClient()
-  const [isCreating, setIsCreating] = useState(false)
-  const [newTopicTitle, setNewTopicTitle] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   const { data: topics = [] } = useQuery({
     queryKey: ['chatTopics', groupId],
@@ -33,8 +33,6 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
     mutationFn: chatTopicService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chatTopics', groupId] })
-      setIsCreating(false)
-      setNewTopicTitle('')
     },
   })
 
@@ -45,22 +43,32 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
     },
   })
 
+  const updateTopic = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      chatTopicService.update(id, { title, modelId: undefined, customSystemPrompt: undefined, contextWindowSize: undefined, isArchived: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatTopics', groupId] })
+      setEditingTopicId(null)
+      setEditingTitle('')
+    },
+  })
+
   const handleCreate = () => {
-    if (newTopicTitle.trim() && groupId) {
-      createTopic.mutate({ groupId, title: newTopicTitle.trim() })
+    if (groupId) {
+      createTopic.mutate({ groupId, title: '' })
     }
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-200 p-4 dark:border-gray-800">
+    <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">话题</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">话题</h2>
           <div className="flex items-center gap-1">
             {groupId && (
               <button
                 onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery('') }}
-                className={`rounded p-1 text-gray-500 ${showSearch ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                className={`rounded-lg p-1.5 transition-colors ${showSearch ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
                 title="搜索话题"
               >
                 <Search size={14} />
@@ -68,22 +76,23 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
             )}
             {groupId && (
               <button
-                onClick={() => setIsCreating(true)}
-                className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={handleCreate}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                title="新建话题"
               >
                 <Plus size={14} />
               </button>
             )}
           </div>
         </div>
-        <select className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-900">
+        <select className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 outline-none transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
           <option>最新更新</option>
           <option>创建时间</option>
         </select>
       </div>
 
       {showSearch && (
-        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800">
+        <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -91,7 +100,7 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索话题..."
-              className="w-full pl-8 pr-7 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-transparent outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-7 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500"
               autoFocus
             />
             {searchQuery && (
@@ -106,63 +115,98 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
         </div>
       )}
 
-      {isCreating && (
-        <div className="p-3">
-          <input
-            type="text"
-            value={newTopicTitle}
-            onChange={(e) => setNewTopicTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            placeholder="话题标题"
-            className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-transparent"
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={handleCreate}
-              className="px-2 py-1 text-xs bg-indigo-600 text-white rounded"
-            >
-              创建
-            </button>
-            <button
-              onClick={() => setIsCreating(false)}
-              className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded"
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-2">
         {filteredTopics.length === 0 && searchQuery && (
-          <div className="p-3 text-sm text-gray-500 text-center">未找到匹配的话题</div>
+          <div className="py-8 text-center text-xs text-gray-400">未找到匹配的话题</div>
+        )}
+        {filteredTopics.length === 0 && !searchQuery && groupId && (
+          <div className="py-8 text-center text-xs text-gray-400">暂无话题，点击 + 创建</div>
         )}
         {filteredTopics.map((topic) => (
           <div
             key={topic.id}
             onClick={() => onSelectTopic(topic)}
-            className={`group cursor-pointer border-b border-gray-100 p-3 dark:border-gray-800 ${
+            className={`group mb-0.5 cursor-pointer rounded-xl p-3 transition-colors ${
               selectedTopicId === topic.id
                 ? 'bg-blue-50 dark:bg-blue-950/40'
                 : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
             }`}
           >
             <div className="mb-1 flex items-start justify-between gap-2">
-              <h3 className="line-clamp-1 text-sm font-medium text-gray-800 dark:text-gray-100">{topic.title}</h3>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  deleteTopic.mutate(topic.id)
-                }}
-                className="rounded p-1 opacity-0 hover:bg-gray-200 group-hover:opacity-100 dark:hover:bg-gray-700"
-              >
-                <Trash2 size={12} className="text-red-500" />
-              </button>
+              {editingTopicId === topic.id ? (
+                <div className="flex flex-1 items-center gap-1">
+                  <input
+                    type="text"
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation()
+                      if (e.key === 'Enter' && editingTitle.trim()) {
+                        updateTopic.mutate({ id: topic.id, title: editingTitle.trim() })
+                      } else if (e.key === 'Escape') {
+                        setEditingTopicId(null)
+                        setEditingTitle('')
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 rounded border border-gray-200 bg-white px-2 py-0.5 text-sm outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
+                    autoFocus
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (editingTitle.trim()) {
+                        updateTopic.mutate({ id: topic.id, title: editingTitle.trim() })
+                      }
+                    }}
+                    className="rounded p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingTopicId(null)
+                      setEditingTitle('')
+                    }}
+                    className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className={`flex-1 line-clamp-1 text-sm ${selectedTopicId === topic.id ? 'font-medium text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{topic.title || '新话题'}</h3>
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingTopicId(topic.id)
+                        setEditingTitle(topic.title)
+                      }}
+                      className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title="重命名"
+                    >
+                      <Pencil size={12} className="text-gray-500" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteTopic.mutate(topic.id)
+                      }}
+                      className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                      <Trash2 size={12} className="text-red-400" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-            <p className="mb-2 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">点击进入对话，继续围绕该话题提问和整理内容...</p>
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>{topic.isArchived ? '已归档' : '进行中'}</span>
+            <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">点击进入对话，继续围绕该话题提问和整理内容...</p>
+            <div className="flex items-center justify-between text-[10px] text-gray-400">
+              <span className={`rounded px-1.5 py-0.5 ${topic.isArchived ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                {topic.isArchived ? '已归档' : '进行中'}
+              </span>
               <span>{new Date(topic.updatedAt).toLocaleDateString('zh-CN')}</span>
             </div>
           </div>

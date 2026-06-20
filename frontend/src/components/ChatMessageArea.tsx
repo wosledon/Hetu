@@ -331,102 +331,69 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   if (!topic) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 bg-white dark:bg-gray-900">
-        选择一个话题开始对话
+      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+            <Bot size={28} className="text-white" />
+          </div>
+          <p className="text-sm text-gray-400">选择一个话题开始对话</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
-      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-gray-50 px-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="min-w-0">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 dark:border-gray-800 dark:bg-gray-900">
+        <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{topic.title}</h2>
-          <p className="text-xs text-gray-500">{group ? `${group.name} · ` : ''}{messages.length} 条消息</p>
+          <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{messages.length} 条消息</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => { setShowSearch(!showSearch); if (showSearch) { setSearchQuery(''); setSearchResults([]) } }}
-            className={`p-1.5 rounded-md ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500'}`}
-            title="搜索话题"
+            className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
+            title="搜索"
           >
-            <Search size={16} />
+            <Search size={15} />
           </button>
-          <select
-            value={organizeStyle}
-            onChange={(e) => setOrganizeStyle(e.target.value as typeof organizeStyle)}
-            className="text-sm px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent"
-          >
-            <option value="summary">摘要式</option>
-            <option value="detailed">详细式</option>
-            <option value="qna">Q&A</option>
-          </select>
-          <select
-            value={organizeTargetNotebook}
-            onChange={(e) => setOrganizeTargetNotebook(e.target.value)}
-            className="text-sm px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent"
-          >
-            <option value="">默认笔记本</option>
-            {notebooks.map((nb) => (
-              <option key={nb.id} value={nb.id}>
-                {nb.name}
-              </option>
-            ))}
-          </select>
           <button
             onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
             disabled={messages.length === 0}
-            className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300"
             title="分支话题"
           >
-            <GitBranch size={14} />
-            分支
+            <GitBranch size={15} />
           </button>
           <button
             onClick={handleOrganize}
             disabled={isOrganizing || isStreaming || messages.length === 0}
-            className="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20"
           >
             <FileText size={14} />
-            {isOrganizing ? '整理中...' : '整理为笔记'}
+            {isOrganizing ? '整理中...' : '整理笔记'}
           </button>
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5" />
           <button
             onClick={() => setShowTopicSettings(!showTopicSettings)}
-            className={`flex items-center gap-1 text-sm px-3 py-1.5 border rounded-md ${
-              showTopicSettings
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200'
-                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+            className={`p-2 rounded-lg transition-colors ${showTopicSettings ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
             title="话题设置"
           >
-            <Settings size={14} />
-            话题设置
-          </button>
-          <button
-            onClick={() => setShowAutoOrganizeSettings(!showAutoOrganizeSettings)}
-            className={`flex items-center gap-1 text-sm px-3 py-1.5 border rounded-md ${
-              showAutoOrganizeSettings || topic?.isAutoOrganizeEnabled
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200'
-                : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            title="自动整理设置"
-          >
-            <FileText size={14} />
-            自动整理
+            <Settings size={15} />
           </button>
         </div>
       </div>
 
       {showTopicSettings && topic && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-          <h3 className="text-sm font-medium mb-3">话题设置</h3>
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="border-b border-gray-200 bg-gray-50/80 p-5 dark:border-gray-800 dark:bg-gray-900/50">
+          <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-200">话题设置</h3>
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm">
-              <span className="block mb-1 text-gray-600 dark:text-gray-400">对话模型</span>
+              <span className="mb-1.5 block text-gray-600 dark:text-gray-400">对话模型</span>
               <select
                 value={topicModelId}
                 onChange={(e) => setTopicModelId(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
               >
                 <option value="">使用默认对话模型</option>
                 {chatModels.map((model) => (
@@ -437,37 +404,70 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               </select>
             </label>
             <label className="text-sm">
-              <span className="block mb-1 text-gray-600 dark:text-gray-400">上下文窗口消息数</span>
+              <span className="mb-1.5 block text-gray-600 dark:text-gray-400">上下文窗口消息数</span>
               <input
                 type="number"
                 min="1"
                 value={topicContextWindowSize}
                 onChange={(e) => setTopicContextWindowSize(e.target.value)}
                 placeholder="使用系统默认"
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
               />
             </label>
           </div>
-          <label className="block text-sm mt-3">
-            <span className="block mb-1 text-gray-600 dark:text-gray-400">系统提示词</span>
+          <label className="mt-4 block text-sm">
+            <span className="mb-1.5 block text-gray-600 dark:text-gray-400">系统提示词</span>
             <textarea
               value={topicSystemPrompt}
               onChange={(e) => setTopicSystemPrompt(e.target.value)}
               placeholder="留空则不设置话题级系统提示词"
-              className="w-full h-24 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 resize-none"
+              className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+              rows={3}
             />
           </label>
-          <div className="flex justify-end gap-2 mt-3">
+          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">整理为笔记</h4>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <span className="mb-1.5 block text-xs text-gray-600 dark:text-gray-400">整理风格</span>
+                <select
+                  value={organizeStyle}
+                  onChange={(e) => setOrganizeStyle(e.target.value as typeof organizeStyle)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <option value="summary">摘要式</option>
+                  <option value="detailed">详细式</option>
+                  <option value="qna">Q&A 式</option>
+                </select>
+              </div>
+              <div>
+                <span className="mb-1.5 block text-xs text-gray-600 dark:text-gray-400">目标笔记本</span>
+                <select
+                  value={organizeTargetNotebook}
+                  onChange={(e) => setOrganizeTargetNotebook(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <option value="">默认笔记本</option>
+                  {notebooks.map((nb) => (
+                    <option key={nb.id} value={nb.id}>
+                      {nb.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setShowTopicSettings(false)}
-              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
             >
-              取消
+              关闭
             </button>
             <button
               onClick={() => updateTopicSettingsMutation.mutate()}
               disabled={updateTopicSettingsMutation.isPending}
-              className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {updateTopicSettingsMutation.isPending ? '保存中...' : '保存设置'}
             </button>
@@ -564,48 +564,36 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         </div>
       )}
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
-        {messages.map((message) => (
-          <div key={message.id} className="flex gap-3">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${message.role === 'user' ? 'bg-blue-500' : 'bg-green-500'}`}>
-              {message.role === 'user' ? <span className="text-sm font-semibold">U</span> : <Bot size={16} />}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        {messages.length === 0 && !isStreaming && (
+          <div className="flex h-full flex-col items-center justify-center text-center py-20">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+              <Bot size={28} className="text-white" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="mb-1 flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                  {message.role === 'user' ? '你' : 'AI 助手'}
-                </span>
-                {message.modelId && message.role === 'assistant' && (
-                  <span className="text-xs text-gray-400">{message.modelId}</span>
+            <h3 className="mb-1 text-lg font-medium text-gray-800 dark:text-gray-100">开始对话</h3>
+            <p className="max-w-xs text-sm text-gray-500">在下方输入消息开始对话，或从左侧选择一个已有话题继续</p>
+          </div>
+        )}
+        <div className="space-y-5">
+          {messages.map((message) => (
+          <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}`}>
+              {message.role === 'user' ? <span className="text-xs font-bold">U</span> : <Bot size={15} />}
+            </div>
+            <div className={`flex min-w-0 max-w-[80%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+              <div className="mb-1.5 flex items-center gap-2">
+                {message.role === 'assistant' && (
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
                 )}
-                <span className="text-xs text-gray-400">· {new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                {message.modelId && message.role === 'assistant' && (
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{message.modelId}</span>
+                )}
+                {message.role === 'user' && (
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
+                )}
               </div>
-              <div className={`group relative inline-block max-w-full rounded-lg p-3 ${message.role === 'user' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100' : 'bg-green-50 text-gray-800 dark:bg-green-900/20 dark:text-gray-100'}`}>
-                <div className="absolute -top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-sm px-1 py-0.5">
-                  <button
-                    onClick={() => copyMessage(message.id, message.content)}
-                    className="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                    title="复制消息"
-                  >
-                    {copiedMessageId === message.id ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
-                  <button
-                    onClick={() => startEditingMessage(message.id, message.content)}
-                    disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-                    className="p-1 rounded text-gray-500 hover:text-gray-700 disabled:opacity-50 dark:hover:text-gray-300"
-                    title="编辑消息"
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    onClick={() => deleteMessage(message.id)}
-                    disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-                    className="p-1 rounded text-gray-500 hover:text-red-500 disabled:opacity-50"
-                    title="删除消息"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+              <div className={`group relative rounded-2xl px-4 py-3 ${message.role === 'user' ? 'rounded-tr-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm' : 'rounded-tl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'}`}>
                 {editingMessageId === message.id ? (
                   <div className="space-y-2">
                     <textarea
@@ -634,35 +622,59 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     <ThemedMarkdown source={message.content} />
                   </div>
                 )}
+                {!editingMessageId && (
+                  <div className={`absolute -top-3 ${message.role === 'user' ? 'left-0' : 'right-0'} opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white px-1 py-0.5 shadow-sm dark:border-gray-700 dark:bg-gray-800`}>
+                    <button
+                      onClick={() => copyMessage(message.id, message.content)}
+                      className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      title="复制"
+                    >
+                      {copiedMessageId === message.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                    </button>
+                    <button
+                      onClick={() => startEditingMessage(message.id, message.content)}
+                      disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                      className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-50 dark:hover:text-gray-300"
+                      title="编辑"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      onClick={() => deleteMessage(message.id)}
+                      disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                      className="p-1 rounded text-gray-400 hover:text-red-500 disabled:opacity-50"
+                      title="删除"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )}
               </div>
-              {message.role === 'assistant' && (
-                <div className="mt-1 flex items-center gap-3">
-                  <button onClick={() => copyMessage(message.id, message.content)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    {copiedMessageId === message.id ? <Check size={12} /> : <Copy size={12} />}
-                    复制
-                  </button>
-                  <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    <RotateCcw size={12} />
-                    重新生成
-                  </button>
-                  <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                    <Save size={12} />
-                    保存片段
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         ))}
+        </div>
 
         {isStreaming && (
           <div className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
-              <Bot size={16} />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+              <Bot size={15} />
             </div>
-            <div className="max-w-3xl rounded-lg bg-green-50 p-4 dark:bg-gray-800">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ThemedMarkdown source={streamingContent || '思考中...'} />
+            <div className="max-w-[80%] flex flex-col items-start">
+              <div className="mb-1.5">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
+              </div>
+              <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ThemedMarkdown source={streamingContent || ''} />
+                </div>
+                {!streamingContent && (
+                  <div className="flex items-center gap-1 py-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]"></span>
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]"></span>
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]"></span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -689,80 +701,83 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
         {selectedPreset && (
-          <div className="mb-2 p-2 border border-indigo-200 dark:border-indigo-800 rounded-md bg-indigo-50 dark:bg-indigo-900/20">
-            <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-              预设：{selectedPreset.name}
-            </div>
-            {Object.keys(presetVars).length > 0 ? (
-              <div className="space-y-1">
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20">
+            <Sparkles size={14} className="text-indigo-500" />
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{selectedPreset.name}</span>
+            {Object.keys(presetVars).length > 0 && (
+              <div className="flex flex-wrap gap-2 ml-auto">
                 {Object.entries(presetVars).map(([key, value]) => (
                   <input
                     key={key}
                     type="text"
                     value={value}
                     onChange={(e) => setPresetVars(prev => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={`{{${key}}}`}
-                    className="w-full px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-transparent"
+                    placeholder={key}
+                    className="w-28 rounded border border-indigo-300 bg-white px-2 py-0.5 text-xs outline-none focus:border-indigo-500 dark:border-indigo-700 dark:bg-indigo-900/40"
                   />
                 ))}
-                <div className="flex gap-1 mt-1">
-                  <button onClick={resolvePreset} className="text-xs px-2 py-1 bg-indigo-600 text-white rounded">应用</button>
-                  <button onClick={() => { setSelectedPreset(null); setPresetVars({}) }} className="text-xs px-2 py-1 text-gray-500">取消</button>
-                </div>
+                <button onClick={resolvePreset} className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white">应用</button>
+                <button onClick={() => { setSelectedPreset(null); setPresetVars({}) }} className="text-xs text-gray-500 hover:text-gray-700">取消</button>
               </div>
-            ) : null}
+            )}
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex items-end gap-3">
           <div className="relative">
             <button
               onClick={() => setShowPresetPicker(!showPresetPicker)}
-              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
+              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-indigo-500 transition-colors dark:hover:bg-gray-800"
               title="使用预设"
             >
               <Sparkles size={18} />
             </button>
             {showPresetPicker && (
-              <div className="absolute bottom-full left-0 mb-1 w-64 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
-                {presets.length === 0 ? (
-                  <div className="p-2 text-xs text-gray-500">暂无预设</div>
-                ) : (
-                  presets.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => applyPreset(p)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                    >
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-xs text-gray-500 truncate">{p.content}</div>
-                    </button>
-                  ))
-                )}
+              <div className="absolute bottom-full left-0 mb-2 w-72 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                <div className="max-h-56 overflow-y-auto p-1.5">
+                  {presets.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-gray-500">暂无预设</div>
+                  ) : (
+                    presets.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => applyPreset(p)}
+                        className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.name}</div>
+                        <div className="mt-0.5 text-xs text-gray-500 truncate">{p.content}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-            className="h-20 flex-1 resize-none rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
-          />
-          <button
-            onClick={handleSend}
-            disabled={isStreaming || !input.trim()}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send size={18} />
-          </button>
+          <div className="relative flex-1">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="输入消息，Enter 发送..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:bg-gray-800"
+            />
+            <button
+              onClick={handleSend}
+              disabled={isStreaming || !input.trim()}
+              className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+            >
+              <Send size={14} />
+            </button>
+          </div>
         </div>
+        <p className="mt-2 text-center text-[10px] text-gray-400">Shift + Enter 换行</p>
       </div>
     </div>
   )

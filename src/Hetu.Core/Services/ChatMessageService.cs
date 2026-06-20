@@ -36,6 +36,20 @@ public class ChatMessageService : IChatMessageService
         };
 
         await _unitOfWork.ChatMessages.AddAsync(message, cancellationToken);
+
+        // 如果是话题的第一条消息，自动设置标题
+        if (topic.Title == "新话题")
+        {
+            var existingMessages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId && m.Id != message.Id, cancellationToken);
+            if (existingMessages.Count == 0)
+            {
+                var title = content.Trim();
+                if (title.Length > 50) title = title.Substring(0, 50) + "...";
+                topic.Title = title;
+                await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
+            }
+        }
+
         await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

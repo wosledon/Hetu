@@ -20,7 +20,6 @@ public class AppSettingService : IAppSettingService
         {
             AppName = await GetValueAsync("AppName", "Hetu", cancellationToken),
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
-            DataDirectory = await GetValueAsync("DataDirectory", string.Empty, cancellationToken),
             GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken)
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);

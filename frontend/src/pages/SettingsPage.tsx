@@ -63,10 +63,6 @@ export default function SettingsPage() {
     setSetting.mutate({ key: 'Theme', value })
   }
 
-  const handleDataDirectoryChange = (value: string) => {
-    setSetting.mutate({ key: 'DataDirectory', value })
-  }
-
   return (
     <AppLayout
       showSidebar={false}
@@ -134,19 +130,6 @@ export default function SettingsPage() {
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      数据目录
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue={snapshot?.dataDirectory || ''}
-                      onBlur={(e) => handleDataDirectoryChange(e.target.value)}
-                      placeholder="默认使用应用目录"
-                      className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">数据库文件和附件的存储位置，修改后需重启应用</p>
                   </div>
                   <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
                     <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">知识图谱</h3>
