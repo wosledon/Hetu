@@ -72,12 +72,32 @@ public class LocalSkillService : ILocalSkillService
 
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(setting.Value) ?? [];
+            var dirs = JsonSerializer.Deserialize<List<string>>(setting.Value) ?? [];
+            // 展开 ~ 为用户主目录
+            return dirs.Select(ExpandPath).ToList();
         }
         catch
         {
             return [];
         }
+    }
+
+    private static string TrimQuotes(string s)
+    {
+        if (s.Length >= 2 && ((s[0] == '"' && s[^1] == '"') || (s[0] == '\'' && s[^1] == '\'')))
+            return s[1..^1];
+        return s;
+    }
+
+    private static string ExpandPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return path;
+        if (path.StartsWith("~/") || path == "~")
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return path == "~" ? home : Path.Combine(home, path[2..]);
+        }
+        return path;
     }
 
     private static List<LocalSkillDto> ScanDirectory(string baseDir)
@@ -179,7 +199,7 @@ public class LocalSkillService : ILocalSkillService
                 var colonIdx = line.IndexOf(':');
                 if (colonIdx < 0) continue;
                 var key = line[..colonIdx].Trim().ToLowerInvariant();
-                var value = line[(colonIdx + 1)..].Trim();
+                var value = TrimQuotes(line[(colonIdx + 1)..].Trim());
 
                 switch (key)
                 {

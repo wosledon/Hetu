@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw } from 'lucide-react'
+import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -26,8 +26,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
   const [organizeResult, setOrganizeResult] = useState<{ noteId: string; title: string } | null>(null)
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
-  const [presetVars, setPresetVars] = useState<Record<string, string>>({})
-  const [showPresetPicker, setShowPresetPicker] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ChatMessageSearchResult[]>([])
@@ -39,7 +37,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [deepThinking, setDeepThinking] = useState(false)
+  const [webSearch, setWebSearch] = useState(false)
+  const [knowledgeBase, setKnowledgeBase] = useState(false)
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const [showAgentPicker, setShowAgentPicker] = useState(false)
+  const [selectedModelId, setSelectedModelId] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { data: messages = [] } = useQuery({
     queryKey: ['chatMessages', topic?.id],
@@ -97,29 +104,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const applyPreset = (preset: IPromptPreset) => {
-    setSelectedPreset(preset)
-    setShowPresetPicker(false)
-    const varNames: string[] = preset.variables
-      ? (() => { try { return JSON.parse(preset.variables) } catch { return [] } })()
-      : []
-    const vars: Record<string, string> = {}
-    varNames.forEach(v => { vars[v] = '' })
-    setPresetVars(vars)
-    if (varNames.length === 0) {
-      setInput(preset.content)
-      setSelectedPreset(null)
-    }
-  }
-
-  const resolvePreset = () => {
-    if (!selectedPreset) return
-    let resolved = selectedPreset.content
-    Object.entries(presetVars).forEach(([key, value]) => {
-      resolved = resolved.replaceAll(`{{${key}}}`, value)
-    })
-    setInput(resolved)
-    setSelectedPreset(null)
-    setPresetVars({})
+    setSelectedPreset(prev => prev?.id === preset.id ? null : preset)
+    setShowAgentPicker(false)
   }
 
   const handleSearch = async () => {
@@ -288,6 +274,33 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const deleteMessage = (messageId: string) => {
     if (!window.confirm('确定删除这条消息吗？')) return
     deleteMessageMutation.mutate(messageId)
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    setAttachedFiles(prev => [...prev, ...Array.from(files)])
+    e.target.value = ''
+  }
+
+  const removeAttachedFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const files: File[] = []
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file) files.push(file)
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault()
+      setAttachedFiles(prev => [...prev, ...files])
+    }
   }
 
   const handleOrganize = async () => {
@@ -704,80 +717,186 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
         {selectedPreset && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20">
-            <Sparkles size={14} className="text-indigo-500" />
-            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{selectedPreset.name}</span>
-            {Object.keys(presetVars).length > 0 && (
-              <div className="flex flex-wrap gap-2 ml-auto">
-                {Object.entries(presetVars).map(([key, value]) => (
-                  <input
-                    key={key}
-                    type="text"
-                    value={value}
-                    onChange={(e) => setPresetVars(prev => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={key}
-                    className="w-28 rounded border border-indigo-300 bg-white px-2 py-0.5 text-xs outline-none focus:border-indigo-500 dark:border-indigo-700 dark:bg-indigo-900/40"
-                  />
-                ))}
-                <button onClick={resolvePreset} className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white">应用</button>
-                <button onClick={() => { setSelectedPreset(null); setPresetVars({}) }} className="text-xs text-gray-500 hover:text-gray-700">取消</button>
-              </div>
-            )}
+            <Bot size={14} className="text-indigo-500" />
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">智能体：{selectedPreset.name}</span>
+            <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
           </div>
         )}
-        <div className="flex items-end gap-3">
-          <div className="relative">
-            <button
-              onClick={() => setShowPresetPicker(!showPresetPicker)}
-              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-indigo-500 transition-colors dark:hover:bg-gray-800"
-              title="使用预设"
-            >
-              <Sparkles size={18} />
-            </button>
-            {showPresetPicker && (
-              <div className="absolute bottom-full left-0 mb-2 w-72 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <div className="max-h-56 overflow-y-auto p-1.5">
-                  {presets.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-gray-500">暂无预设</div>
-                  ) : (
-                    presets.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => applyPreset(p)}
-                        className="w-full rounded-lg px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.name}</div>
-                        <div className="mt-0.5 text-xs text-gray-500 truncate">{p.content}</div>
-                      </button>
-                    ))
-                  )}
-                </div>
+        {/* Attached files */}
+        {attachedFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {attachedFiles.map((file, i) => (
+              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800">
+                <FileText size={12} className="text-blue-500" />
+                <span className="max-w-[120px] truncate text-gray-700 dark:text-gray-300">{file.name}</span>
+                <button onClick={() => removeAttachedFile(i)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
               </div>
-            )}
+            ))}
           </div>
-          <div className="relative flex-1">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
-                }
-              }}
-              placeholder="输入消息，Enter 发送..."
-              rows={3}
-              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:bg-gray-800"
-            />
+        )}
+
+        {/* Input area */}
+        <div className="rounded-xl border border-gray-200 bg-white transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-blue-500">
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+            onPaste={handlePaste}
+            placeholder={attachedFiles.length > 0 ? `已附加 ${attachedFiles.length} 个文件，输入消息...` : "输入消息，Enter 发送..."}
+            rows={2}
+            className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          />
+
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
+            {/* Left tools */}
+            <div className="flex items-center gap-0.5">
+              {/* Attach file */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                title="附加文件"
+              >
+                <Plus size={16} />
+              </button>
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+
+              {/* Agent selector */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowAgentPicker(!showAgentPicker); setShowModelPicker(false) }}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    selectedPreset
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                  }`}
+                  title="智能体"
+                >
+                  <Bot size={14} />
+                  {selectedPreset ? selectedPreset.name : '智能体'}
+                  <ChevronDown size={10} />
+                </button>
+                {showAgentPicker && (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div className="max-h-56 overflow-y-auto p-1.5">
+                      {presets.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-gray-500">暂无智能体</div>
+                      ) : (
+                        presets.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => { applyPreset(p); setShowAgentPicker(false) }}
+                            className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <div className="text-xs font-medium text-gray-800 dark:text-gray-200">{p.name}</div>
+                            <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Model selector */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowModelPicker(!showModelPicker); setShowAgentPicker(false) }}
+                  className="flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title="选择模型"
+                >
+                  <span className="text-[11px] font-medium">
+                    {selectedModelId ? chatModels.find(m => m.id === selectedModelId)?.displayName || '模型' : '模型'}
+                  </span>
+                  <ChevronDown size={10} />
+                </button>
+                {showModelPicker && (
+                  <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div className="max-h-48 overflow-y-auto p-1.5">
+                      <button
+                        onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!selectedModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                      >
+                        默认模型
+                      </button>
+                      {chatModels.map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${selectedModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >
+                          {m.displayName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+
+              {/* Deep thinking toggle */}
+              <button
+                onClick={() => setDeepThinking(!deepThinking)}
+                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                  deepThinking
+                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="深度思考"
+              >
+                <Brain size={14} />
+                深度思考
+              </button>
+
+              {/* Web search toggle */}
+              <button
+                onClick={() => setWebSearch(!webSearch)}
+                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                  webSearch
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="网络搜索"
+              >
+                <Globe size={14} />
+                网络搜索
+              </button>
+
+              {/* Knowledge base toggle */}
+              <button
+                onClick={() => setKnowledgeBase(!knowledgeBase)}
+                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                  knowledgeBase
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="知识库"
+              >
+                <Database size={14} />
+                知识库
+              </button>
+            </div>
+
+            {/* Send button */}
             <button
               onClick={handleSend}
-              disabled={isStreaming || !input.trim()}
-              className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+              disabled={isStreaming || (!input.trim() && attachedFiles.length === 0)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
             >
               <Send size={14} />
             </button>
           </div>
         </div>
-        <p className="mt-2 text-center text-[10px] text-gray-400">Shift + Enter 换行</p>
+
+        <p className="mt-1.5 text-center text-[10px] text-gray-400">Shift + Enter 换行 · 支持粘贴文件</p>
       </div>
     </div>
   )
