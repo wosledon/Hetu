@@ -17,15 +17,12 @@ import {
   Clock,
   Folder,
   Bot,
-  Languages,
-  Minimize2,
-  Maximize2,
-  MessageCircle,
   PenLine,
   Send,
 } from 'lucide-react'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
+import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import { noteVersionService } from '../services/noteVersionService'
@@ -45,7 +42,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const [showVersions, setShowVersions] = useState(false)
   const [previewVersion, setPreviewVersion] = useState<INoteVersion | null>(null)
   const [diffMode, setDiffMode] = useState(false)
-  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('split')
+  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('edit')
   const [aiResult, setAiResult] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [showInlineAi, setShowInlineAi] = useState(false)
@@ -53,8 +50,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const [aiAction, setAiAction] = useState<'continue' | 'polish' | 'translate' | 'condense' | 'expand' | 'explain' | 'custom'>('continue')
   const [aiCustomPrompt, setAiCustomPrompt] = useState('')
   const [aiSelection, setAiSelection] = useState('')
-  const [aiSelectionRange, setAiSelectionRange] = useState<{ start: number; end: number } | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const milkdownRef = useRef<MilkdownEditorHandle>(null)
   const inlineInputRef = useRef<HTMLTextAreaElement>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -70,11 +66,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   })
 
   const restoreVersion = useMutation({
-    mutationFn: ({ noteId, versionId }: { noteId: string; versionId: string }) =>
-      noteVersionService.restore(noteId, versionId),
-    onSuccess: () => {
+    mutationFn: ({ noteId, versionId, content }: { noteId: string; versionId: string; content: string }) =>
+      noteVersionService.restore(noteId, versionId).then(() => content),
+    onSuccess: (restoredContent) => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
       queryClient.invalidateQueries({ queryKey: ['noteVersions', note?.id] })
+      // 同步到 Milkdown 编辑器
+      milkdownRef.current?.setMarkdown(restoredContent)
+      setContent(restoredContent)
+      setIsDirty(false)
       setShowVersions(false)
       setPreviewVersion(null)
     },
@@ -140,79 +140,34 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   const handleAiExecute = () => handleAiExecuteFor(aiAction, aiCustomPrompt)
 
-  const getSelectionCoords = useCallback((): { top: number; left: number } | null => {
-    const ta = textareaRef.current
-    if (!ta) return null
-    const { selectionStart, selectionEnd, value } = ta
-    const end = selectionEnd > selectionStart ? selectionEnd : selectionStart
-    if (end <= 0) return null
-
-    const style = window.getComputedStyle(ta)
-    const div = document.createElement('div')
-    const props = [
-      'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
-      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-      'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-      'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'fontSizeAdjust',
-      'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'textDecoration',
-      'letterSpacing', 'wordSpacing', 'tabSize', 'whiteSpace', 'wordWrap', 'wordBreak',
-    ]
-    props.forEach((p) => { div.style[p as string] = style[p as string] })
-    div.style.position = 'absolute'
-    div.style.visibility = 'hidden'
-    div.style.whiteSpace = 'pre-wrap'
-    div.style.wordWrap = 'break-word'
-
-    div.textContent = value.substring(0, end)
-    const span = document.createElement('span')
-    span.textContent = value.substring(end) || '.'
-    div.appendChild(span)
-    document.body.appendChild(div)
-
-    const lineHeight = parseFloat(style.lineHeight) || 24
-    const coords = {
-      top: span.offsetTop + parseFloat(style.borderTopWidth) + lineHeight - ta.scrollTop,
-      left: Math.max(span.offsetLeft + parseFloat(style.borderLeftWidth) - ta.scrollLeft, 0),
-    }
-    document.body.removeChild(div)
-    return coords
-  }, [])
-
-  const handleTextareaSelect = useCallback(() => {
-    const ta = textareaRef.current
-    if (!ta) return
-    const { selectionStart, selectionEnd, value } = ta
-    if (selectionEnd > selectionStart) {
-      setAiSelection(value.slice(selectionStart, selectionEnd))
-      setAiSelectionRange({ start: selectionStart, end: selectionEnd })
-      const coords = getSelectionCoords()
-      if (coords) setInlineCoords(coords)
+  /**
+   * 由 MilkdownEditor 在选区变化时回调，更新行内 AI 浮窗的位置和选中文字。
+   */
+  const handleSelectionChange = useCallback((info: SelectionInfo) => {
+    if (info.hasSelection && info.coords) {
+      setAiSelection(info.text)
+      setInlineCoords(info.coords)
       setShowInlineAi(true)
     } else {
       setAiSelection('')
-      setAiSelectionRange(null)
+      setInlineCoords(null)
       if (!aiLoading && !aiResult) {
         setShowInlineAi(false)
-        setInlineCoords(null)
       }
     }
-  }, [getSelectionCoords, aiLoading, aiResult])
+  }, [aiLoading, aiResult])
 
   const openInlineAi = useCallback(() => {
-    const ta = textareaRef.current
-    if (!ta) return
-    const { selectionStart, selectionEnd, value } = ta
-    if (selectionEnd <= selectionStart) {
-      ta.focus()
+    const info = milkdownRef.current?.getSelectionInfo()
+    if (!info || !info.hasSelection) {
+      milkdownRef.current?.focus()
       return
     }
-    setAiSelection(value.slice(selectionStart, selectionEnd))
-    setAiSelectionRange({ start: selectionStart, end: selectionEnd })
-    const coords = getSelectionCoords()
-    if (coords) setInlineCoords(coords)
+    setAiSelection(info.text)
+    if (info.coords) setInlineCoords(info.coords)
     setShowInlineAi(true)
     setTimeout(() => inlineInputRef.current?.focus(), 50)
-  }, [getSelectionCoords])
+  }, [])
 
   const closeInlineAi = useCallback(() => {
     setShowInlineAi(false)
@@ -222,18 +177,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   }, [])
 
   const handleReplaceSelection = () => {
-    if (!aiResult || aiResult.startsWith('[ERROR]') || !aiSelectionRange) return
-    const newContent = content.slice(0, aiSelectionRange.start) + aiResult + content.slice(aiSelectionRange.end)
-    handleContentChange(newContent)
+    if (!aiResult || aiResult.startsWith('[ERROR]')) return
+    milkdownRef.current?.replaceSelection(aiResult)
     setAiResult('')
     setAiSelection('')
-    setAiSelectionRange(null)
     closeInlineAi()
   }
 
   const handleInsertAiResult = () => {
     if (!aiResult || aiResult.startsWith('[ERROR]')) return
-    handleContentChange(`${content}\n\n${aiResult}`)
+    milkdownRef.current?.appendContent(aiResult)
     setAiResult('')
   }
 
@@ -284,7 +237,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     setInlineCoords(null)
     setAiResult('')
     setAiSelection('')
-    setAiSelectionRange(null)
   }, [noteId, noteTitle, noteContent])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -394,7 +346,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-white px-8 pb-5 pt-7 dark:border-gray-800/50 dark:bg-gray-900">
+      <div className="border-b border-gray-100 bg-white px-8 pb-4 pt-5 dark:border-gray-800/50 dark:bg-gray-900">
         <input
           type="text"
           value={title}
@@ -494,16 +446,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900`}>
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              onSelect={handleTextareaSelect}
-              onMouseUp={handleTextareaSelect}
-              onKeyUp={handleTextareaSelect}
+            <MilkdownEditor
+              key={noteId}
+              ref={milkdownRef}
+              initialMarkdown={content}
+              onChange={handleContentChange}
+              onSelectionChange={handleSelectionChange}
               placeholder="开始编写..."
-              className="w-full resize-none overflow-hidden text-sm leading-[1.85] text-gray-700 outline-none placeholder:text-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-600"
-              style={{ minHeight: 'calc(100vh - 220px)' }}
             />
 
             {showInlineAi && inlineCoords && (
@@ -704,7 +653,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   </div>
                 )}
                 <button
-                  onClick={() => restoreVersion.mutate({ noteId: note.id, versionId: previewVersion.id })}
+                  onClick={() => restoreVersion.mutate({ noteId: note.id, versionId: previewVersion.id, content: previewVersion.content })}
                   disabled={restoreVersion.isPending}
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-emerald-500/20 transition-all hover:shadow-md hover:shadow-emerald-500/25 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >
