@@ -626,7 +626,9 @@ public class ChatMessagesController : ControllerBase
             foreach (var toolCall in pendingToolCalls)
             {
                 // Emit tool_call event to frontend
-                bool isSilentTool = toolCall.Name is "todo";
+                // todo / ask_question 有专门的事件渲染（streamingTodos / streamingQuestions），
+                // 因此其 tool_call 和 tool_result 应标记为 hidden，避免在消息流里重复展示原始 JSON
+                bool isSilentTool = toolCall.Name is "todo" or "ask_question";
                 var tcEvent = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     type = "tool_call",
