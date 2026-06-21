@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useUIStore } from '../stores/uiStore'
 
@@ -23,6 +23,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     { path: '/knowledge-base', label: '知识库', icon: Database },
     { path: '/graph', label: '知识图谱', icon: Network },
     { path: '/tasks', label: '任务', icon: ListTodo },
+    { path: '/memories', label: '记忆', icon: Atom },
     { path: '/search', label: '搜索', icon: Search },
   ]
 

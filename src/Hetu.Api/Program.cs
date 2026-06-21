@@ -105,6 +105,7 @@ builder.Services.AddScoped<INoteAiService, NoteAiService>();
 builder.Services.AddScoped<IGraphService, GraphService>();
 builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
 builder.Services.AddScoped<IWebSearchService, BingWebSearchService>();
+builder.Services.AddScoped<IMemoryService, MemoryService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDataProtection();

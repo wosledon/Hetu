@@ -273,3 +273,17 @@ export interface ITaskStats {
   failed: number;
   recentFailed: number;
 }
+
+export interface IMemory {
+  id: string;
+  content: string;
+  source: string;
+  topicId?: string;
+  category?: string;
+  importance: number;
+  accessCount: number;
+  lastAccessedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  score?: number;
+}

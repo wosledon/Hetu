@@ -48,7 +48,7 @@ public class SqliteVecInterceptor : DbConnectionInterceptor
                 s_initialized = true;
 
                 await using var dropCmd = sqliteConnection.CreateCommand();
-                dropCmd.CommandText = "DROP TABLE IF EXISTS vec_note_embeddings; DROP TABLE IF EXISTS vec_chunk_embeddings;";
+                dropCmd.CommandText = "DROP TABLE IF EXISTS vec_note_embeddings; DROP TABLE IF EXISTS vec_chunk_embeddings; DROP TABLE IF EXISTS vec_memory_embeddings;";
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
                 await using var createCmd = sqliteConnection.CreateCommand();
@@ -59,6 +59,10 @@ public class SqliteVecInterceptor : DbConnectionInterceptor
                     );
                     CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunk_embeddings USING vec0(
                         chunk_id TEXT PRIMARY KEY,
+                        embedding float[{dimensions}]
+                    );
+                    CREATE VIRTUAL TABLE IF NOT EXISTS vec_memory_embeddings USING vec0(
+                        memory_id TEXT PRIMARY KEY,
                         embedding float[{dimensions}]
                     );";
                 await createCmd.ExecuteNonQueryAsync(cancellationToken);

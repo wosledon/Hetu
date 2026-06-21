@@ -70,6 +70,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
   const [streamMemory, setStreamMemory] = useState(false)
   const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
+  const [streamingMemoryResults, setStreamingMemoryResults] = useState<Array<{ id: string; content: string; category?: string; score?: number }>>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -266,6 +267,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamKnowledgeBase(knowledgeBase)
     setStreamMemory(memory)
     setStreamingKnowledgeResults([])
+    setStreamingMemoryResults([])
 
     // Convert attached files to base64
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -328,6 +330,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             setStreamingSearchResults(chunk.results || [])
           } else if (chunk.type === 'knowledge_results') {
             setStreamingKnowledgeResults(chunk.results || [])
+          } else if (chunk.type === 'memory_results') {
+            setStreamingMemoryResults(chunk.results || [])
           }
         } catch {
           // Fallback: treat as plain text (backward compat)
@@ -890,6 +894,32 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                             <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
                             {r.contentSnippet && (
                               <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Memory results - show when memory was used */}
+                {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
+                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                      <Atom size={11} />
+                      记忆参考
+                    </div>
+                    <div className="space-y-1">
+                      {streamingMemoryResults.map((r, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-teal-100 text-[9px] font-bold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">{i + 1}</span>
+                          <span className="min-w-0 flex-1">
+                            {r.category && <span className="mr-1 font-medium text-teal-600 dark:text-teal-400">[{r.category}]</span>}
+                            <span className="text-gray-600 dark:text-gray-300">{r.content}</span>
+                            {r.score != null && (
+                              <span className="ml-1 text-[10px] text-gray-400">({(r.score * 100).toFixed(0)}%)</span>
                             )}
                           </span>
                         </div>

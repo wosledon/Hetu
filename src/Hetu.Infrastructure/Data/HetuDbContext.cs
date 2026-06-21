@@ -30,6 +30,8 @@ public class HetuDbContext : DbContext
     public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
     public DbSet<NoteChunkEmbedding> NoteChunkEmbeddings => Set<NoteChunkEmbedding>();
     public DbSet<KnowledgeItem> KnowledgeItems => Set<KnowledgeItem>();
+    public DbSet<Memory> Memories => Set<Memory>();
+    public DbSet<MemoryEmbedding> MemoryEmbeddings => Set<MemoryEmbedding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -305,6 +307,55 @@ public class HetuDbContext : DbContext
                 .HasForeignKey<NoteChunkEmbedding>(e => e.ChunkId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(e => e.Model).IsRequired().HasMaxLength(200);
+
+            if (Database.IsNpgsql())
+            {
+                entity.Ignore(e => e.Embedding);
+
+                var vectorComparer = new ValueComparer<float[]>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(0, (hash, f) => HashCode.Combine(hash, f.GetHashCode())),
+                    v => v.ToArray());
+
+                entity.Property(e => e.Vector)
+                    .IsRequired()
+                    .HasColumnType("vector")
+                    .HasConversion(new VectorFloatArrayConverter(), vectorComparer);
+
+                entity.HasIndex(e => e.Vector)
+                    .HasMethod("hnsw")
+                    .HasOperators("vector_cosine_ops");
+            }
+            else
+            {
+                entity.Ignore(e => e.Vector);
+                entity.Property(e => e.Embedding).IsRequired();
+            }
+        });
+
+        modelBuilder.Entity<Memory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Source).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Category).HasMaxLength(100);
+            entity.HasIndex(e => e.Source);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasIndex(e => e.LastAccessedAt);
+            entity.HasIndex(e => e.Importance);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<MemoryEmbedding>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Memory)
+                .WithMany()
+                .HasForeignKey(e => e.MemoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Content).IsRequired();
+            entity.HasIndex(e => e.MemoryId);
 
             if (Database.IsNpgsql())
             {

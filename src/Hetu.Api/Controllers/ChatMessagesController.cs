@@ -17,6 +17,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IWebSearchService _webSearchService;
     private readonly ISemanticSearchService _semanticSearchService;
+    private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
 
     public ChatMessagesController(
@@ -25,6 +26,7 @@ public class ChatMessagesController : ControllerBase
         ILLMProviderFactory llmProviderFactory,
         IWebSearchService webSearchService,
         ISemanticSearchService semanticSearchService,
+        IMemoryService memoryService,
         IUnitOfWork unitOfWork)
     {
         _chatMessageService = chatMessageService;
@@ -32,6 +34,7 @@ public class ChatMessagesController : ControllerBase
         _llmProviderFactory = llmProviderFactory;
         _webSearchService = webSearchService;
         _semanticSearchService = semanticSearchService;
+        _memoryService = memoryService;
         _unitOfWork = unitOfWork;
     }
 
@@ -276,6 +279,44 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
+        // Memory RAG: retrieve relevant memories and inject into context
+        List<MemoryDto> retrievedMemories = [];
+        if (request.Memory)
+        {
+            try
+            {
+                retrievedMemories = await _memoryService.RetrieveForContextAsync(request.Content, 5, cancellationToken);
+                if (retrievedMemories.Count > 0)
+                {
+                    // Send memory results as a structured event
+                    var memEvent = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        type = "memory_results",
+                        results = retrievedMemories.Select(m => new { m.Id, m.Content, m.Category, m.Score })
+                    }, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                    await Response.WriteAsync($"data: {memEvent}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+
+                    // Inject memories into context
+                    var memContext = "以下是从你的长期记忆中检索到的相关信息，请参考这些个人记忆来回答用户的问题：\n\n";
+                    for (int i = 0; i < retrievedMemories.Count; i++)
+                    {
+                        var category = string.IsNullOrEmpty(retrievedMemories[i].Category) ? "" : $"[{retrievedMemories[i].Category}]";
+                        memContext += $"{i + 1}. {category} {retrievedMemories[i].Content}\n";
+                    }
+                    chatMessages.Insert(chatMessages.Count - 1, new LlmChatMessage
+                    {
+                        Role = "user",
+                        Content = memContext
+                    });
+                }
+            }
+            catch
+            {
+                // 记忆检索失败不阻塞对话
+            }
+        }
+
         try
         {
             // State machine for parsing <thinking>...</thinking> tags in stream
@@ -408,5 +449,18 @@ public class ChatMessagesController : ControllerBase
         }
 
         await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, cancellationToken);
+
+        // 记忆自动提取：当记忆功能开启时，每 N 条用户消息自动提取一次
+        if (request.Memory)
+        {
+            try
+            {
+                await _memoryService.TryAutoExtractAsync(topicId, cancellationToken);
+            }
+            catch
+            {
+                // 自动提取失败不阻塞对话
+            }
+        }
     }
 }

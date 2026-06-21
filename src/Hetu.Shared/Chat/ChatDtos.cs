@@ -82,6 +82,7 @@ public class SendMessageRequest
     public bool DeepThinking { get; set; }
     public bool WebSearch { get; set; }
     public bool KnowledgeBase { get; set; }
+    public bool Memory { get; set; }
     /// <summary>
     /// 图片附件列表（base64 编码的图片数据 + MIME 类型）
     /// </summary>
