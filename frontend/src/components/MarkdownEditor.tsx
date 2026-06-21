@@ -141,11 +141,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   })
 
   // ── 知识库索引状态 ──
+  const [isIndexing, setIsIndexing] = useState(false)
+
   const { data: embeddingStatuses = [] } = useQuery({
     queryKey: ['embeddingStatuses'],
     queryFn: () => knowledgeBaseService.getEmbeddingStatuses('note'),
     enabled: !!note,
-    refetchInterval: 5000,
+    refetchInterval: isIndexing ? 5000 : false,
   })
 
   const currentEmbedding = useMemo(
@@ -153,8 +155,18 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     [embeddingStatuses, note?.id]
   )
 
+  // 索引完成后停止轮询
+  useEffect(() => {
+    if (isIndexing && currentEmbedding) {
+      setIsIndexing(false)
+    }
+  }, [isIndexing, currentEmbedding])
+
   const generateEmbedding = useMutation({
-    mutationFn: () => noteService.generateIndex(note!.id),
+    mutationFn: () => {
+      setIsIndexing(true)
+      return noteService.generateIndex(note!.id)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
     },
