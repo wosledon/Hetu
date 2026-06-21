@@ -12,7 +12,8 @@ export default function NotesPage() {
       mainContent={<MarkdownEditor note={selectedNote} />}
     >
       <NoteList
-        onSelectNote={setSelectedNote}
+        onSelectNote={(note) => setSelectedNote(note)}
+        onDeleteNote={(id) => { if (selectedNote?.id === id) setSelectedNote(null) }}
         selectedNoteId={selectedNote?.id}
       />
     </AppLayout>

@@ -37,4 +37,5 @@ export const noteService = {
   restore: (id: string) => post<void>(`/notes/${id}/restore`),
   hardDelete: (id: string) => del<void>(`/notes/${id}/hard`),
   move: (id: string, data: MoveNoteRequest) => post<void>(`/notes/${id}/move`, data),
+  generateIndex: (id: string) => post<void>(`/notes/${id}/index`),
 };

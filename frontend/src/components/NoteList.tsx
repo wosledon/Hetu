@@ -12,6 +12,7 @@ import type { INote, INotebook } from '../types'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
+  onDeleteNote?: (id: string) => void
   selectedNoteId?: string
   includeDeleted?: boolean
 }
@@ -27,6 +28,7 @@ interface ContextMenuState {
 
 export default function NoteList({
   onSelectNote,
+  onDeleteNote,
   selectedNoteId,
   includeDeleted = false,
 }: NoteListProps) {
@@ -67,7 +69,10 @@ export default function NoteList({
 
   const deleteNote = useMutation({
     mutationFn: noteService.delete,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      onDeleteNote?.(id)
+    },
   })
 
   const restoreNote = useMutation({
@@ -77,7 +82,10 @@ export default function NoteList({
 
   const hardDeleteNote = useMutation({
     mutationFn: noteService.hardDelete,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      onDeleteNote?.(id)
+    },
   })
 
   const toggleFavorite = useMutation({

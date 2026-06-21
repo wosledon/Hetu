@@ -1,4 +1,5 @@
 using Hetu.Core.Interfaces;
+using Hetu.Core.Entities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +12,13 @@ public class NotesController : ControllerBase
 {
     private readonly INoteService _noteService;
     private readonly INoteAiService _noteAiService;
+    private readonly IBackgroundTaskQueue _taskQueue;
 
-    public NotesController(INoteService noteService, INoteAiService noteAiService)
+    public NotesController(INoteService noteService, INoteAiService noteAiService, IBackgroundTaskQueue taskQueue)
     {
         _noteService = noteService;
         _noteAiService = noteAiService;
+        _taskQueue = taskQueue;
     }
 
     [HttpGet]
@@ -57,4 +60,18 @@ public class NotesController : ControllerBase
     [HttpPost("{id:guid}/continue")]
     public IAsyncEnumerable<string> Continue(Guid id, [FromBody] ContinueNoteRequest request, CancellationToken cancellationToken)
         => _noteAiService.ContinueAsync(id, request, cancellationToken);
+
+    /// <summary>
+    /// 为指定笔记生成/重建索引（加入后台队列）
+    /// </summary>
+    [HttpPost("{id:guid}/index")]
+    public async Task<ApiResponse> GenerateIndex(Guid id, CancellationToken cancellationToken)
+    {
+        var note = await _noteService.GetByIdAsync(id, cancellationToken);
+        if (note == null || !note.Success)
+            return ApiResponse.Fail("笔记不存在");
+
+        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, id, note.Data?.Title), cancellationToken);
+        return ApiResponse.Ok();
+    }
 }
