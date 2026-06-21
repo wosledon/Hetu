@@ -12,6 +12,8 @@ import KnowledgeBasePage from './pages/KnowledgeBasePage'
 import SharedNotePage from './pages/SharedNotePage'
 import TasksPage from './pages/TasksPage'
 import MemoriesPage from './pages/MemoriesPage'
+import ModelsPage from './pages/ModelsPage'
+import WorkPage from './pages/WorkPage'
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
       <Route path="/graph" element={<GraphPage />} />
       <Route path="/tasks" element={<TasksPage />} />
       <Route path="/memories" element={<MemoriesPage />} />
+      <Route path="/models" element={<ModelsPage />} />
+      <Route path="/work" element={<WorkPage />} />
       <Route path="/trash" element={<TrashPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/share/:shareCode" element={<SharedNotePage />} />
