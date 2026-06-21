@@ -24,6 +24,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showThinking, setShowThinking] = useState(false)
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
   const [streamDeepThinking, setStreamDeepThinking] = useState(false)
+  const [streamWebSearch, setStreamWebSearch] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -84,6 +85,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent, streamingThinking, organizePreview])
+
+  // Clear streaming display when messages are refreshed (after query invalidation)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0)) {
+      setStreamingContent('')
+      setStreamingThinking('')
+      setStreamingSearchResults([])
+      setShowThinking(false)
+      setStreamWebSearch(false)
+      setStreamDeepThinking(false)
+    }
+  }, [messages])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -184,6 +198,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamingSearchResults([])
     setPendingUserMessage(content)
     setStreamDeepThinking(deepThinking)
+    setStreamWebSearch(webSearch)
 
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     if (skillMatch) {
@@ -224,6 +239,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           const chunk = JSON.parse(data)
           if (chunk.type === 'thinking') {
             setStreamingThinking(prev => prev + chunk.text)
+            setShowThinking(true) // Auto-expand when thinking content arrives
           } else if (chunk.type === 'content') {
             setStreamingContent(prev => prev + chunk.text)
           } else if (chunk.type === 'search_results') {
@@ -240,10 +256,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       setStreamingContent('流式输出失败，请检查模型配置。')
     } finally {
       setIsStreaming(false)
-      setStreamingContent('')
-      setStreamingThinking('')
-      setStreamingSearchResults([])
-      setShowThinking(false)
       setPendingUserMessage(null)
     }
   }
@@ -731,7 +743,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           </div>
         )}
 
-        {isStreaming && (
+        {/* Streaming response - show during and after stream until messages refresh */}
+        {(isStreaming || streamingContent || streamingThinking) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
@@ -753,7 +766,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                       <ChevronDown size={10} className={`transition-transform ${showThinking ? 'rotate-180' : ''}`} />
                     </button>
                     {showThinking && (
-                      <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
+                      <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
                         <ThemedMarkdown source={streamingThinking} />
                       </div>
                     )}
@@ -765,8 +778,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     <ThemedMarkdown source={streamingContent} />
                   </div>
                 )}
-                {/* Search results citations */}
-                {streamingSearchResults.length > 0 && (
+                {/* Search results citations - show when web search was used */}
+                {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
                     <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
                       <Search size={11} />
@@ -791,8 +804,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     </div>
                   </div>
                 )}
-                {/* Loading dots - show only when no content yet and no thinking */}
-                {!streamingContent && !streamingThinking && (
+                {/* Loading dots - show only when streaming and no content yet */}
+                {!streamingContent && !streamingThinking && isStreaming && (
                   <div className="flex items-center gap-1.5 py-1">
                     <Loader2 size={12} className="animate-spin text-gray-400" />
                     <span className="text-[11px] text-gray-400">思考中...</span>
