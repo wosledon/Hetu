@@ -37,7 +37,7 @@ public class ChatTopicDto
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
     public int? ContextWindowSize { get; set; }
-    public bool IsArchived { get; set; }
+    public string NoteSyncStatus { get; set; } = "pending";
     public bool IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -59,7 +59,7 @@ public class UpdateChatTopicRequest
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
     public int? ContextWindowSize { get; set; }
-    public bool IsArchived { get; set; }
+    public string? NoteSyncStatus { get; set; }
     public bool? IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }
 }

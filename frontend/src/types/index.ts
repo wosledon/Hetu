@@ -114,7 +114,7 @@ export interface IChatTopic {
   modelId?: string;
   customSystemPrompt?: string;
   contextWindowSize?: number;
-  isArchived: boolean;
+  noteSyncStatus: 'pending' | 'synced' | 'outdated';
   isAutoOrganizeEnabled: boolean;
   autoOrganizeNotebookId?: string;
   createdAt: string;

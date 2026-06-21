@@ -314,7 +314,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         modelId: topicModelId || undefined,
         customSystemPrompt: topicSystemPrompt.trim() || undefined,
         contextWindowSize: Number.isFinite(contextWindowSize) && contextWindowSize > 0 ? contextWindowSize : undefined,
-        isArchived: topic!.isArchived,
+        noteSyncStatus: topic!.noteSyncStatus,
         isAutoOrganizeEnabled: topic!.isAutoOrganizeEnabled,
         autoOrganizeNotebookId: topic!.autoOrganizeNotebookId,
       })
@@ -333,7 +333,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         modelId: topic!.modelId,
         customSystemPrompt: topic!.customSystemPrompt,
         contextWindowSize: topic!.contextWindowSize,
-        isArchived: topic!.isArchived,
+        noteSyncStatus: topic!.noteSyncStatus,
         isAutoOrganizeEnabled: enabled,
         autoOrganizeNotebookId: notebookId || undefined,
       }),

@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Text;
+using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
@@ -80,6 +81,17 @@ public class ChatMessagesController : ControllerBase
         {
             await WriteEventAsync($"[ERROR] {userMessageResult.Error}");
             return;
+        }
+
+        // 如果话题之前已整理为笔记，标记为需要重新整理
+        if (topic.NoteSyncStatus == "synced")
+        {
+            var topicEntity = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
+            if (topicEntity != null)
+            {
+                topicEntity.NoteSyncStatus = NoteSyncStatus.Outdated;
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
         }
 
         ILLMProvider? provider;

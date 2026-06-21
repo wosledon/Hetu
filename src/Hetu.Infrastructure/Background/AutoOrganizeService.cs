@@ -39,7 +39,7 @@ public class AutoOrganizeService : BackgroundService
 
             var allTopics = await unitOfWork.ChatTopics.GetAllAsync(cancellationToken);
             var autoOrganizeTopics = allTopics
-                .Where(t => t.IsAutoOrganizeEnabled && !t.IsArchived)
+                .Where(t => t.IsAutoOrganizeEnabled)
                 .ToList();
 
             foreach (var topic in autoOrganizeTopics)

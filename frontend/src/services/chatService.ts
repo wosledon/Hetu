@@ -29,7 +29,7 @@ export interface UpdateChatTopicRequest {
   modelId?: string;
   customSystemPrompt?: string;
   contextWindowSize?: number;
-  isArchived: boolean;
+  noteSyncStatus?: string;
   isAutoOrganizeEnabled?: boolean;
   autoOrganizeNotebookId?: string;
 }

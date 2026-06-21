@@ -16,7 +16,7 @@ public class ChatTopicService : IChatTopicService
 
     public async Task<ApiResponse<List<ChatTopicDto>>> GetByGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
     {
-        var topics = await _unitOfWork.ChatTopics.FindAsync(t => t.GroupId == groupId && !t.IsArchived, cancellationToken);
+        var topics = await _unitOfWork.ChatTopics.FindAsync(t => t.GroupId == groupId, cancellationToken);
         return ApiResponse<List<ChatTopicDto>>.Ok(topics.OrderByDescending(t => t.UpdatedAt).Select(Map).ToList());
     }
 
@@ -58,7 +58,8 @@ public class ChatTopicService : IChatTopicService
         topic.ModelId = request.ModelId;
         topic.CustomSystemPrompt = request.CustomSystemPrompt;
         topic.ContextWindowSize = request.ContextWindowSize;
-        topic.IsArchived = request.IsArchived;
+        if (!string.IsNullOrEmpty(request.NoteSyncStatus) && Enum.TryParse<NoteSyncStatus>(request.NoteSyncStatus, true, out var status))
+            topic.NoteSyncStatus = status;
         if (request.IsAutoOrganizeEnabled.HasValue)
             topic.IsAutoOrganizeEnabled = request.IsAutoOrganizeEnabled.Value;
         topic.AutoOrganizeNotebookId = request.AutoOrganizeNotebookId;
@@ -87,7 +88,7 @@ public class ChatTopicService : IChatTopicService
         ModelId = topic.ModelId,
         CustomSystemPrompt = topic.CustomSystemPrompt,
         ContextWindowSize = topic.ContextWindowSize,
-        IsArchived = topic.IsArchived,
+        NoteSyncStatus = topic.NoteSyncStatus.ToString().ToLower(),
         IsAutoOrganizeEnabled = topic.IsAutoOrganizeEnabled,
         AutoOrganizeNotebookId = topic.AutoOrganizeNotebookId,
         CreatedAt = topic.CreatedAt,

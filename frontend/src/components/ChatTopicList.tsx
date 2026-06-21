@@ -45,7 +45,7 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
 
   const updateTopic = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) =>
-      chatTopicService.update(id, { title, modelId: undefined, customSystemPrompt: undefined, contextWindowSize: undefined, isArchived: false }),
+      chatTopicService.update(id, { title }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chatTopics', groupId] })
       setEditingTopicId(null)
@@ -211,8 +211,14 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
             </div>
             <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">点击进入对话，继续围绕该话题提问和整理内容...</p>
             <div className="flex items-center justify-between text-[10px] text-gray-400">
-              <span className={`rounded px-1.5 py-0.5 ${topic.isArchived ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                {topic.isArchived ? '已归档' : '进行中'}
+              <span className={`rounded px-1.5 py-0.5 ${
+                topic.noteSyncStatus === 'synced'
+                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : topic.noteSyncStatus === 'outdated'
+                    ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-gray-100 text-gray-500 dark:bg-gray-800'
+              }`}>
+                {topic.noteSyncStatus === 'synced' ? '已整理' : topic.noteSyncStatus === 'outdated' ? '已变更' : '待整理'}
               </span>
               <span>{new Date(topic.updatedAt).toLocaleDateString('zh-CN')}</span>
             </div>
