@@ -25,6 +25,7 @@ public class ChatMessagesController : ControllerBase
     private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ToolRegistry _toolRegistry;
+    private readonly PromptComposer _promptComposer;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -34,7 +35,8 @@ public class ChatMessagesController : ControllerBase
         ISemanticSearchService semanticSearchService,
         IMemoryService memoryService,
         IUnitOfWork unitOfWork,
-        ToolRegistry toolRegistry)
+        ToolRegistry toolRegistry,
+        PromptComposer promptComposer)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -44,6 +46,7 @@ public class ChatMessagesController : ControllerBase
         _memoryService = memoryService;
         _unitOfWork = unitOfWork;
         _toolRegistry = toolRegistry;
+        _promptComposer = promptComposer;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -197,17 +200,24 @@ public class ChatMessagesController : ControllerBase
         var options = new ChatOptions
         {
             ModelId = modelId?.ToString() ?? string.Empty,
-            SystemPrompt = topic.CustomSystemPrompt,
             Stream = true
         };
 
-        // Merge preset system prompt (智能体预设)
-        if (!string.IsNullOrWhiteSpace(request.PresetSystemPrompt))
+        // === System prompt 组装 ===
+        // 分层结构：Profile 身份 → Agent 预设 → 工具约束 → 上下文 → Topic 自定义
+        // 当前 Controller 服务于 Chat 场景，绑定 Knowledge profile；
+        // 桌面 Agent / CoWork 等场景将由独立 Controller 提供，并绑定各自 profile。
+        var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
+        options.SystemPrompt = _promptComposer.Compose(new PromptComposeContext
         {
-            options.SystemPrompt = string.IsNullOrWhiteSpace(options.SystemPrompt)
-                ? request.PresetSystemPrompt
-                : options.SystemPrompt + "\n\n" + request.PresetSystemPrompt;
-        }
+            Profile = profile,
+            AgentPresetPrompt = request.PresetSystemPrompt,
+            TopicCustomPrompt = topic.CustomSystemPrompt,
+            EnabledTools = request.EnableTools ? request.EnabledTools : null,
+            Now = DateTimeOffset.Now,
+            TopicTitle = topic.Title,
+            Locale = "zh-CN",
+        });
 
         // Deep thinking: use model's reasoning mode configuration
         var reasoningMode = "none";
@@ -368,7 +378,9 @@ public class ChatMessagesController : ControllerBase
 
         if (useToolCalling)
         {
-            toolDefinitions = _toolRegistry.ToToolDefinitions(request.EnabledTools);
+            // Profile 强制过滤：前端请求 ∩ profile 允许 ∩ 已注册的工具
+            var effectiveToolNames = _promptComposer.ResolveEffectiveTools(profile, request.EnabledTools);
+            toolDefinitions = _toolRegistry.ToToolDefinitions(effectiveToolNames);
             if (request.ToolApprovalOverrides != null)
             {
                 foreach (var kv in request.ToolApprovalOverrides)
@@ -379,7 +391,8 @@ public class ChatMessagesController : ControllerBase
             }
             options.Tools = toolDefinitions;
             options.ToolChoice = "auto";
-            Log.Debug("[AgentLoop] Tools configured: {ToolCount} tools, names={ToolNames}",
+            Log.Debug("[AgentLoop] Profile={Profile}, Tools={ToolCount}, Names={ToolNames}",
+                profile.Id,
                 toolDefinitions.Count,
                 string.Join(", ", toolDefinitions.Select(t => t.Name)));
         }
@@ -389,13 +402,14 @@ public class ChatMessagesController : ControllerBase
         }
 
         const int maxAgentIterations = 15;
+        var profileMaxIterations = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxAgentIterations;
         var agentIteration = 0;
 
         // Per-stream todo list so the todo tool can resolve ids and report state back to the LLM
         var sessionTodos = new List<SessionTodo>();
 
         // Agent Loop: iterate LLM calls when tool_calls are returned
-        while (agentIteration < maxAgentIterations)
+        while (agentIteration < profileMaxIterations)
         {
             agentIteration++;
             var iterLog = $"[AgentLoop] Iteration {agentIteration}, useToolCalling={useToolCalling}, tools={toolDefinitions?.Count ?? 0}";

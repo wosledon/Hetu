@@ -16,6 +16,7 @@ public class UpdateNoteTool : IToolExecutor
     public string Name => "update_note";
     public string Description => "更新笔记内容";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
+    public string? UsageGuideline => "更新前先用 read_note 读取当前内容，避免覆盖用户最近的修改；大幅改写时先用 ask_question 确认。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

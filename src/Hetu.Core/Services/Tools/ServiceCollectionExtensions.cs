@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, TodoTool>();
         services.AddScoped<IToolExecutor, RunCommandTool>();
         services.AddScoped<ToolRegistry>();
+        services.AddScoped<PromptComposer>();
         return services;
     }
 }

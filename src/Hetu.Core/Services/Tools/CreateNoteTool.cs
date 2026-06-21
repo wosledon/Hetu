@@ -16,6 +16,7 @@ public class CreateNoteTool : IToolExecutor
     public string Name => "create_note";
     public string Description => "创建新笔记";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
+    public string? UsageGuideline => "仅在用户明确要求「保存/记下/整理为笔记」时调用；先用 search_notes 确认无重复笔记。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

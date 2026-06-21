@@ -8,6 +8,7 @@ public class AskQuestionTool : IToolExecutor
     public string Name => "ask_question";
     public string Description => "向用户提问以澄清需求或确认信息。提供预设选项的同时，用户可以通过自由输入框补充不在选项中的回答。";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Ask;
+    public string? UsageGuideline => "用户需求有 ≥2 种合理解释、或缺少关键信息时优先澄清；破坏性操作（删除/覆盖/清空）执行前必须先用本工具确认。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

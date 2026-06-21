@@ -15,6 +15,7 @@ public class SearchGraphTool : IToolExecutor
     public string Name => "search_graph";
     public string Description => "搜索知识图谱中的实体和关系";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public string? UsageGuideline => "用户询问概念之间的关系、相关笔记、知识脉络时调用；单点信息查询优先用 search_notes。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

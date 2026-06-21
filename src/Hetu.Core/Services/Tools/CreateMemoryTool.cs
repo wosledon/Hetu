@@ -16,6 +16,7 @@ public class CreateMemoryTool : IToolExecutor
     public string Name => "create_memory";
     public string Description => "保存一条记忆（用户偏好、重要信息）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
+    public string? UsageGuideline => "识别到值得长期记住的用户偏好/事实（如「我用 PostgreSQL」「项目代号叫 X」）时主动调用；不要把临时对话内容当作记忆保存。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

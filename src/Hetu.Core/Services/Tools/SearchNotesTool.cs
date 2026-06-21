@@ -18,6 +18,7 @@ public class SearchNotesTool : IToolExecutor
     public string Name => "search_notes";
     public string Description => "搜索笔记（全文+语义搜索）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public string? UsageGuideline => "用户问题涉及其个人笔记内容时，优先调用本工具检索后再作答，禁止仅凭记忆回答用户的私有笔记。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

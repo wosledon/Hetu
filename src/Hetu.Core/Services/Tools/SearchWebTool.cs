@@ -15,6 +15,7 @@ public class SearchWebTool : IToolExecutor
     public string Name => "search_web";
     public string Description => "搜索互联网获取最新信息";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public string? UsageGuideline => "用户问题涉及实时信息（新闻、行情、版本号、近期事件）或你不确定的事实时调用；纯主观问题/用户私有笔记问题不要调用。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

@@ -23,6 +23,7 @@ public class RunCommandTool : IToolExecutor
     public string Name => "run_command";
     public string Description => "执行命令行命令或脚本";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Ask;
+    public string? UsageGuideline => "仅用于只读诊断（查看版本、列目录、读文件）；任何写操作或包含 rm/format/del 的命令必须先 ask_question 确认；禁止执行可能危害系统的命令。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

@@ -19,6 +19,13 @@ public interface IToolExecutor
     /// <summary>默认审批模式</summary>
     ToolApprovalMode DefaultApproval { get; }
 
+    /// <summary>
+    /// 工具使用指引（拼入 system prompt 的"工具使用约定"段落，告诉模型在什么场景下、以什么方式调用本工具）。
+    /// 与 Description 互补：Description 描述"是什么 / 怎么调用"，UsageGuideline 描述"何时该用 / 与其他工具的协作规则"。
+    /// 留空时该工具不会在 system prompt 中出现额外的约束条目。
+    /// </summary>
+    string? UsageGuideline => null;
+
     /// <summary>执行工具</summary>
     Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default);
 }

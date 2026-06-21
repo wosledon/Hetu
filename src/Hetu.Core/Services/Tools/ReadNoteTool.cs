@@ -15,6 +15,7 @@ public class ReadNoteTool : IToolExecutor
     public string Name => "read_note";
     public string Description => "读取笔记内容";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public string? UsageGuideline => "在 search_notes 找到候选笔记、需要查看完整内容时调用；不要对同一笔记重复读取。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
