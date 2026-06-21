@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import {
   Check,
+  ChevronDown,
   Columns2,
   Copy,
   Edit3,
@@ -34,6 +35,7 @@ import { noteAiService } from '../services/noteAiService'
 import { shareService } from '../services/shareService'
 import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
+import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
 
 interface MarkdownEditorProps {
@@ -49,17 +51,51 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const [previewVersion, setPreviewVersion] = useState<INoteVersion | null>(null)
   const [diffMode, setDiffMode] = useState(false)
   const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'split'>('edit')
-  const [aiResult, setAiResult] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
+  // ── 行内 AI（选区触发，定位在选区附近） ──
   const [showInlineAi, setShowInlineAi] = useState(false)
   const [inlineCoords, setInlineCoords] = useState<{ top: number; left: number } | null>(null)
-  const [aiAction, setAiAction] = useState<'continue' | 'polish' | 'translate' | 'condense' | 'expand' | 'explain' | 'custom'>('continue')
-  const [aiCustomPrompt, setAiCustomPrompt] = useState('')
+  const [inlineAiResult, setInlineAiResult] = useState('')
+  const [inlineAiLoading, setInlineAiLoading] = useState(false)
+  const [inlineAiAction, setInlineAiAction] = useState<'continue' | 'polish' | 'translate' | 'condense' | 'expand' | 'explain' | 'custom'>('continue')
+  const [inlineCustomPrompt, setInlineCustomPrompt] = useState('')
   const [aiSelection, setAiSelection] = useState('')
+
+  // ── AI 助手面板（按钮触发，固定在编辑区右上角） ──
+  const [showAssistant, setShowAssistant] = useState(false)
+  const [assistantResult, setAssistantResult] = useState('')
+  const [assistantLoading, setAssistantLoading] = useState(false)
+  const [assistantAction, setAssistantAction] = useState<'continue' | 'polish' | 'translate' | 'condense' | 'expand' | 'explain' | 'custom'>('continue')
+  const [assistantCustomPrompt, setAssistantCustomPrompt] = useState('')
   const milkdownRef = useRef<MilkdownEditorHandle>(null)
   const inlineInputRef = useRef<HTMLTextAreaElement>(null)
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const modelPickerRef = useRef<HTMLDivElement>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // ── 模型选择 ──
+  const { data: allModels = [] } = useQuery({
+    queryKey: ['aiModels'],
+    queryFn: aiModelService.getAll,
+  })
+  const chatModels = useMemo(() => allModels.filter((m) => m.purpose === 'chat'), [allModels])
+  const [selectedModelId, setSelectedModelId] = useState<string>('')
+  const activeModelName = useMemo(() => {
+    if (!selectedModelId) return '默认模型'
+    return chatModels.find((m) => m.id === selectedModelId)?.displayName ?? '默认模型'
+  }, [selectedModelId, chatModels])
+
+  // 点击外部关闭模型选择器
+  useEffect(() => {
+    if (!showModelPicker) return
+    const handler = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showModelPicker])
 
   const updateNote = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof noteService.update>[1] }) =>
@@ -150,9 +186,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     },
   })
 
-  const handleAiExecuteFor = async (action: typeof aiAction, customPrompt: string) => {
+  const handleAiExecuteFor = async (
+    action: typeof inlineAiAction,
+    customPrompt: string,
+    context: 'inline' | 'assistant',
+  ) => {
     if (!note) return
-    const systemPrompts: Record<typeof aiAction, string> = {
+    const systemPrompts: Record<typeof inlineAiAction, string> = {
       continue: '',
       polish: '请润色以下文本，优化表达，提升文采：',
       translate: '请将以下文本翻译为其他语言：',
@@ -162,20 +202,22 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       custom: customPrompt,
     }
     const systemPrompt = systemPrompts[action]
-    setAiAction(action)
-    setAiLoading(true)
-    setAiResult('')
+    const setLoading = context === 'inline' ? setInlineAiLoading : setAssistantLoading
+    const setResult = context === 'inline' ? setInlineAiResult : setAssistantResult
+    const selection = context === 'inline' ? aiSelection : (milkdownRef.current?.getMarkdown() ?? '')
+    if (context === 'inline') setInlineAiAction(action)
+    else setAssistantAction(action)
+    setLoading(true)
+    setResult('')
     try {
-      const result = await noteAiService.continue(note.id, { selectedText: aiSelection || undefined, systemPrompt })
-      setAiResult(result)
+      const result = await noteAiService.continue(note.id, { selectedText: selection || undefined, systemPrompt, modelId: selectedModelId || undefined })
+      setResult(result)
     } catch (err) {
-      setAiResult(`[ERROR] ${err instanceof Error ? err.message : 'AI 操作失败'}`)
+      setResult(`[ERROR] ${err instanceof Error ? err.message : 'AI 操作失败'}`)
     } finally {
-      setAiLoading(false)
+      setLoading(false)
     }
   }
-
-  const handleAiExecute = () => handleAiExecuteFor(aiAction, aiCustomPrompt)
 
   /**
    * 由 MilkdownEditor 在选区变化时回调，更新行内 AI 浮窗的位置和选中文字。
@@ -188,43 +230,43 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     } else {
       setAiSelection('')
       setInlineCoords(null)
-      if (!aiLoading && !aiResult) {
+      if (!inlineAiLoading && !inlineAiResult) {
         setShowInlineAi(false)
       }
     }
-  }, [aiLoading, aiResult])
+  }, [inlineAiLoading, inlineAiResult])
 
-  const openInlineAi = useCallback(() => {
-    const info = milkdownRef.current?.getSelectionInfo()
-    if (!info || !info.hasSelection) {
-      milkdownRef.current?.focus()
-      return
-    }
-    setAiSelection(info.text)
-    if (info.coords) setInlineCoords(info.coords)
-    setShowInlineAi(true)
-    setTimeout(() => inlineInputRef.current?.focus(), 50)
+  /** AI 助手按钮：打开/关闭固定面板 */
+  const toggleAssistant = useCallback(() => {
+    setShowAssistant((prev) => !prev)
+    setAssistantResult('')
+    setAssistantCustomPrompt('')
+    setAssistantAction('continue')
+    setShowModelPicker(false)
   }, [])
 
   const closeInlineAi = useCallback(() => {
     setShowInlineAi(false)
-    setAiResult('')
-    setAiCustomPrompt('')
-    setAiAction('continue')
+    setInlineAiResult('')
+    setInlineCustomPrompt('')
+    setInlineAiAction('continue')
+    setShowModelPicker(false)
   }, [])
 
   const handleReplaceSelection = () => {
-    if (!aiResult || aiResult.startsWith('[ERROR]')) return
-    milkdownRef.current?.replaceSelection(aiResult)
-    setAiResult('')
+    if (!inlineAiResult || inlineAiResult.startsWith('[ERROR]')) return
+    milkdownRef.current?.replaceSelection(inlineAiResult)
+    setInlineAiResult('')
     setAiSelection('')
     closeInlineAi()
   }
 
   const handleInsertAiResult = () => {
-    if (!aiResult || aiResult.startsWith('[ERROR]')) return
-    milkdownRef.current?.appendContent(aiResult)
-    setAiResult('')
+    const result = inlineAiResult || assistantResult
+    if (!result || result.startsWith('[ERROR]')) return
+    milkdownRef.current?.appendContent(result)
+    setInlineAiResult('')
+    setAssistantResult('')
   }
 
   const handleCopyLink = async (url: string) => {
@@ -259,7 +301,11 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     setPreviewVersion(null)
     setShowInlineAi(false)
     setInlineCoords(null)
-    setAiResult('')
+    setInlineAiResult('')
+    setInlineAiLoading(false)
+    setAssistantResult('')
+    setAssistantLoading(false)
+    setShowAssistant(false)
     setAiSelection('')
   }
 
@@ -369,14 +415,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </button>
           <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
           <button
-            onClick={openInlineAi}
-            disabled={aiLoading}
+            onClick={toggleAssistant}
+            disabled={assistantLoading}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:shadow-indigo-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50 ${
-              showInlineAi
+              showAssistant
                 ? 'bg-gradient-to-r from-indigo-600 to-purple-700'
                 : 'bg-gradient-to-r from-indigo-500 to-purple-600'
             }`}
-            title="选中文字后点击，在选区下方行内调用 AI"
+            title="AI 助手面板（全文操作）"
           >
             <Sparkles size={13} />
             AI 助手
@@ -548,7 +594,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     <Sparkles size={13} className="text-indigo-500" />
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-200">行内 AI</span>
                     <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
-                      {aiSelection.length} 字
+                      {aiSelection.length > 0 ? `${aiSelection.length} 字` : '全文'}
                     </span>
                   </div>
                   <button
@@ -560,7 +606,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 </div>
 
                 <div className="px-3 py-2">
-                  {!aiResult && (
+                  {!inlineAiResult && (
                     <div className="mb-2 flex flex-wrap gap-1">
                       {[
                         { key: 'polish', label: '润色' },
@@ -572,12 +618,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         <button
                           key={a.key}
                           onClick={() => {
-                            setAiAction(a.key as typeof aiAction)
-                            setAiCustomPrompt('')
-                            handleAiExecuteFor(a.key as typeof aiAction, '')
+                            setInlineAiAction(a.key as typeof inlineAiAction)
+                            setInlineCustomPrompt('')
+                            handleAiExecuteFor(a.key as typeof inlineAiAction, '', 'inline')
                           }}
                           className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
-                            aiAction === a.key
+                            inlineAiAction === a.key
                               ? 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
                               : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
                           }`}
@@ -588,16 +634,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     </div>
                   )}
 
-                  {!aiResult && (
+                  {!inlineAiResult && (
                     <textarea
                       ref={inlineInputRef}
-                      value={aiCustomPrompt}
-                      onChange={(e) => setAiCustomPrompt(e.target.value)}
-                      onFocus={() => setAiAction('custom')}
+                      value={inlineCustomPrompt}
+                      onChange={(e) => setInlineCustomPrompt(e.target.value)}
+                      onFocus={() => setInlineAiAction('custom')}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
-                          handleAiExecute()
+                          handleAiExecuteFor(inlineAiAction, inlineCustomPrompt, 'inline')
                         }
                         if (e.key === 'Escape') {
                           closeInlineAi()
@@ -609,20 +655,48 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     />
                   )}
 
-                  {aiResult && (
+                  {inlineAiResult && (
                     <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs whitespace-pre-wrap text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
-                      {aiResult}
+                      {inlineAiResult}
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-gray-800 dark:bg-gray-950/50">
-                  <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                    <Bot size={11} />
-                    <span>GPT-4o</span>
+                  <div className="relative" ref={modelPickerRef}>
+                    <button
+                      onClick={() => setShowModelPicker((v) => !v)}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
+                      title="选择模型"
+                    >
+                      <Bot size={11} />
+                      {activeModelName}
+                      <ChevronDown size={10} className={`transition-transform ${showModelPicker ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showModelPicker && (
+                      <div className="absolute bottom-full left-0 z-30 mb-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                        <button
+                          onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
+                          className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <span className="flex-1">默认模型</span>
+                          {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
+                        </button>
+                        {chatModels.filter((m) => !m.isDefault).map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
+                            className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                          >
+                            <span className="flex-1">{m.displayName}</span>
+                            {selectedModelId === m.id && <span className="text-[10px] text-emerald-500">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {aiResult && !aiResult.startsWith('[ERROR]') && (
+                    {inlineAiResult && !inlineAiResult.startsWith('[ERROR]') && (
                       <>
                         <button
                           onClick={handleReplaceSelection}
@@ -637,21 +711,21 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                           追加
                         </button>
                         <button
-                          onClick={() => { setAiResult(''); setAiCustomPrompt('') }}
+                          onClick={() => { setInlineAiResult(''); setInlineCustomPrompt('') }}
                           className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
                         >
                           重写
                         </button>
                       </>
                     )}
-                    {!aiResult && (
+                    {!inlineAiResult && (
                       <button
-                        onClick={handleAiExecute}
-                        disabled={aiLoading}
+                        onClick={() => handleAiExecuteFor(inlineAiAction, inlineCustomPrompt, 'inline')}
+                        disabled={inlineAiLoading}
                         className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
                       >
                         <Send size={11} />
-                        {aiLoading ? '生成中…' : '执行'}
+                        {inlineAiLoading ? '生成中…' : '执行'}
                       </button>
                     )}
                   </div>
@@ -664,6 +738,145 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6 bg-gray-50/30 dark:bg-gray-950/50`}>
             <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
               <ThemedMarkdown source={content} />
+            </div>
+          </div>
+        )}
+
+        {showAssistant && (
+          <div className="animate-slide-in-right flex w-80 flex-col border-l border-indigo-200 bg-white dark:border-indigo-900/30 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                  <Sparkles size={14} className="text-indigo-500" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">AI 助手</h3>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">全文</span>
+              </div>
+              <button
+                onClick={() => { setShowAssistant(false); setAssistantResult(''); setAssistantCustomPrompt(''); }}
+                className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {!assistantResult && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'continue', label: '续写' },
+                    { key: 'polish', label: '润色' },
+                    { key: 'translate', label: '翻译' },
+                    { key: 'condense', label: '精简' },
+                    { key: 'expand', label: '扩展' },
+                    { key: 'explain', label: '解释' },
+                  ].map((a) => (
+                    <button
+                      key={a.key}
+                      onClick={() => {
+                        setAssistantAction(a.key as typeof assistantAction)
+                        setAssistantCustomPrompt('')
+                        handleAiExecuteFor(a.key as typeof assistantAction, '', 'assistant')
+                      }}
+                      className={`rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                        assistantAction === a.key
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!assistantResult && (
+                <textarea
+                  value={assistantCustomPrompt}
+                  onChange={(e) => setAssistantCustomPrompt(e.target.value)}
+                  onFocus={() => setAssistantAction('custom')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleAiExecuteFor(assistantAction, assistantCustomPrompt, 'assistant')
+                    }
+                  }}
+                  placeholder="输入自定义指令，回车执行…"
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs outline-none transition-colors focus:border-indigo-400 focus:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus:border-indigo-500 dark:focus:bg-gray-800"
+                />
+              )}
+
+              {assistantResult && (
+                <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100">
+                  {assistantResult}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
+              <div className="flex items-center justify-between">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowModelPicker((v) => !v)}
+                    className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
+                    title="选择模型"
+                  >
+                    <Bot size={11} />
+                    {activeModelName}
+                    <ChevronDown size={10} className={`transition-transform ${showModelPicker ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showModelPicker && (
+                    <div className="absolute bottom-full left-0 z-30 mb-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                      <button
+                        onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
+                        className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        <span className="flex-1">默认模型</span>
+                        {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
+                      </button>
+                      {chatModels.filter((m) => !m.isDefault).map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
+                          className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <span className="flex-1">{m.displayName}</span>
+                          {selectedModelId === m.id && <span className="text-[10px] text-emerald-500">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {assistantResult && !assistantResult.startsWith('[ERROR]') && (
+                    <>
+                      <button
+                        onClick={handleInsertAiResult}
+                        className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700"
+                      >
+                        追加到末尾
+                      </button>
+                      <button
+                        onClick={() => { setAssistantResult(''); setAssistantCustomPrompt('') }}
+                        className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
+                      >
+                        重写
+                      </button>
+                    </>
+                  )}
+                  {!assistantResult && (
+                    <button
+                      onClick={() => handleAiExecuteFor(assistantAction, assistantCustomPrompt, 'assistant')}
+                      disabled={assistantLoading}
+                      className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
+                    >
+                      <Send size={11} />
+                      {assistantLoading ? '生成中…' : '执行'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

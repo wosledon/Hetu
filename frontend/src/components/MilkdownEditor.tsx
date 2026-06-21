@@ -104,14 +104,24 @@ function selectionTrackerPlugin(onChange?: (info: SelectionInfo) => void) {
           // 计算选区末尾坐标，相对编辑器容器
           const containerRect = view.dom.getBoundingClientRect()
           const end = Math.max(state.from, state.to)
-          const coords = view.coordsAtPos(end)
+          const start = Math.min(state.from, state.to)
+          const endCoords = view.coordsAtPos(end)
+          const startCoords = view.coordsAtPos(start)
+          // 浮窗宽度 320px (w-80)，夹紧 left 防止溢出右侧
+          const popupWidth = 320
+          const left = Math.min(
+            Math.max(endCoords.left - containerRect.left, 0),
+            containerRect.width - popupWidth - 16
+          )
+          // 放在选区下方：取选区底部坐标 + 行高偏移
+          const selectionBottom = Math.max(endCoords.bottom, startCoords.bottom)
           onChange({
             text: state.text,
             from: state.from,
             to: state.to,
             coords: {
-              top: coords.top - containerRect.top + 24, // 让浮窗位于选区下方一行
-              left: Math.max(coords.left - containerRect.left, 0),
+              top: selectionBottom - containerRect.top + 8,
+              left,
             },
             hasSelection: true,
           })
