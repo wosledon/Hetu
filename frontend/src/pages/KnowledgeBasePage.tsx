@@ -12,13 +12,18 @@ import {
   BarChart3,
   Play,
   ChevronDown,
+  Layers,
+  X,
+  Brain,
+  Clock,
+  Hash,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
 import { knowledgeBaseService } from '../services/knowledgeBaseService'
-import type { INoteSearchResult } from '../types'
+import type { INoteSearchResult, INoteChunk } from '../services/knowledgeBaseService'
 
 type TabKey = 'overview' | 'manage' | 'search'
 
@@ -36,6 +41,8 @@ export default function KnowledgeBasePage() {
   const [searchResults, setSearchResults] = useState<INoteSearchResult[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [chunkDetailNoteId, setChunkDetailNoteId] = useState<string | null>(null)
+  const [chunkDetailTitle, setChunkDetailTitle] = useState<string>('')
 
   // Status
   const { data: status, isLoading: statusLoading } = useQuery({
@@ -48,6 +55,13 @@ export default function KnowledgeBasePage() {
     queryKey: ['knowledgeBaseEmbeddings'],
     queryFn: knowledgeBaseService.getEmbeddingStatuses,
     enabled: activeTab === 'manage',
+  })
+
+  // Chunk detail
+  const { data: chunks = [], isLoading: chunksLoading } = useQuery({
+    queryKey: ['noteChunks', chunkDetailNoteId],
+    queryFn: () => knowledgeBaseService.getChunks(chunkDetailNoteId!),
+    enabled: !!chunkDetailNoteId,
   })
 
   // Generate single embedding
@@ -84,6 +98,17 @@ export default function KnowledgeBasePage() {
   }
 
   const indexedPercent = status ? (status.totalNotes > 0 ? Math.round((status.indexedNotes / status.totalNotes) * 100) : 0) : 0
+  const totalChunks = embeddingStatuses.reduce((sum, s) => sum + s.chunkCount, 0)
+
+  const openChunkDetail = (noteId: string, title: string) => {
+    setChunkDetailNoteId(noteId)
+    setChunkDetailTitle(title)
+  }
+
+  const closeChunkDetail = () => {
+    setChunkDetailNoteId(null)
+    setChunkDetailTitle('')
+  }
 
   return (
     <AppLayout
@@ -99,7 +124,7 @@ export default function KnowledgeBasePage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">知识库</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">管理笔记的向量索引，测试语义搜索</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">管理笔记的向量索引与文档分块</p>
                 </div>
               </div>
             </div>
@@ -129,7 +154,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Status Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                   <StatusCard
                     icon={<FileText size={20} />}
                     label="总笔记数"
@@ -150,6 +175,13 @@ export default function KnowledgeBasePage() {
                     value={status?.unindexedNotes ?? '-'}
                     color="amber"
                     loading={statusLoading}
+                  />
+                  <StatusCard
+                    icon={<Layers size={20} />}
+                    label="文档分块"
+                    value={totalChunks}
+                    color="indigo"
+                    loading={embeddingsLoading}
                   />
                   <StatusCard
                     icon={<Zap size={20} />}
@@ -254,74 +286,79 @@ export default function KnowledgeBasePage() {
                     <p className="mt-4 text-sm">暂无笔记</p>
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">笔记标题</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">索引状态</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">模型</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">维度</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">分块</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">更新时间</th>
-                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {embeddingStatuses.map((item) => (
-                          <tr key={item.noteId} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
-                            <td className="px-4 py-3">
-                              <span className="font-medium text-gray-900 dark:text-gray-100">{item.title || '无标题'}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              {item.hasEmbedding ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                  <CheckCircle2 size={12} />
-                                  已索引
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                                  <AlertCircle size={12} />
-                                  未索引
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                              {item.embeddingModel ?? '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                              {item.embeddingDimensions || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                              {item.chunkCount > 0 ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                  {item.chunkCount} 块
-                                </span>
-                              ) : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                              {item.embeddingUpdatedAt
-                                ? formatDistanceToNow(new Date(item.embeddingUpdatedAt), { addSuffix: true, locale: zhCN })
-                                : '-'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <button
-                                onClick={() => generateMutation.mutate(item.noteId)}
-                                disabled={generateMutation.isPending}
-                                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                              >
-                                {generateMutation.isPending ? (
-                                  <Loader2 size={12} className="animate-spin" />
-                                ) : (
-                                  <RefreshCw size={12} />
-                                )}
-                                {item.hasEmbedding ? '重新索引' : '生成索引'}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {embeddingStatuses.map((item) => (
+                      <div
+                        key={item.noteId}
+                        className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                      >
+                        {/* Title */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {item.title || '无标题'}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                            {item.embeddingUpdatedAt
+                              ? `更新于 ${formatDistanceToNow(new Date(item.embeddingUpdatedAt), { addSuffix: true, locale: zhCN })}`
+                              : '未索引'}
+                          </p>
+                        </div>
+
+                        {/* Status badges */}
+                        <div className="flex items-center gap-2">
+                          {item.hasEmbedding ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                              <CheckCircle2 size={10} />
+                              已索引
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                              <AlertCircle size={10} />
+                              未索引
+                            </span>
+                          )}
+
+                          {item.embeddingModel && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                              <Brain size={10} />
+                              {item.embeddingModel}
+                            </span>
+                          )}
+
+                          {item.embeddingDimensions > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                              <Hash size={10} />
+                              {item.embeddingDimensions}d
+                            </span>
+                          )}
+
+                          {item.chunkCount > 0 && (
+                            <button
+                              onClick={() => openChunkDetail(item.noteId, item.title)}
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                              title="查看分块详情"
+                            >
+                              <Layers size={10} />
+                              {item.chunkCount} 块
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <button
+                          onClick={() => generateMutation.mutate(item.noteId)}
+                          disabled={generateMutation.isPending}
+                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                        >
+                          {generateMutation.isPending ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={12} />
+                          )}
+                          {item.hasEmbedding ? '重新索引' : '生成索引'}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -431,11 +468,156 @@ export default function KnowledgeBasePage() {
               </div>
             )}
           </div>
+
+          {/* Chunk Detail Modal */}
+          {chunkDetailNoteId && (
+            <ChunkDetailModal
+              title={chunkDetailTitle}
+              chunks={chunks}
+              loading={chunksLoading}
+              onClose={closeChunkDetail}
+            />
+          )}
         </div>
       }
     />
   )
 }
+
+/* ─── Chunk Detail Modal ─── */
+
+function ChunkDetailModal({
+  title,
+  chunks,
+  loading,
+  onClose,
+}: {
+  title: string
+  chunks: INoteChunk[]
+  loading: boolean
+  onClose: () => void
+}) {
+  const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="flex h-[80vh] w-[640px] flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-semibold text-gray-900 dark:text-gray-50">文档分块</h3>
+            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{title}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              {chunks.length} 块
+            </span>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={24} className="animate-spin text-gray-400" />
+            </div>
+          ) : chunks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <Layers size={48} strokeWidth={1} />
+              <p className="mt-4 text-sm">暂无分块数据</p>
+              <p className="mt-1 text-xs">生成索引时会自动创建分块</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {chunks.map((chunk) => {
+                const isExpanded = expandedChunkId === chunk.id
+                return (
+                  <div
+                    key={chunk.id}
+                    className="rounded-xl border border-gray-200 bg-white transition-all dark:border-gray-800 dark:bg-gray-900"
+                  >
+                    <button
+                      onClick={() => setExpandedChunkId(isExpanded ? null : chunk.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                        {chunk.chunkIndex + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-gray-700 dark:text-gray-300">
+                          {chunk.summary || chunk.content.slice(0, 80) + (chunk.content.length > 80 ? '...' : '')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          chunk.chunkMethod === 'llm'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
+                        }`}>
+                          {chunk.chunkMethod === 'llm' ? 'LLM' : '结构化'}
+                        </span>
+                        {chunk.hasEmbedding ? (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                            <CheckCircle2 size={8} />
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                            <AlertCircle size={8} />
+                          </span>
+                        )}
+                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06]">
+                        {chunk.summary && (
+                          <div className="mb-3">
+                            <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">摘要</p>
+                            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{chunk.summary}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">原始内容</p>
+                          <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-3 dark:bg-white/[0.02]">
+                            <pre className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+                              {chunk.content}
+                            </pre>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {formatDistanceToNow(new Date(chunk.updatedAt), { addSuffix: true, locale: zhCN })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Hash size={10} />
+                            {chunk.content.length} 字符
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Status Card ─── */
 
 function StatusCard({
   icon,
@@ -447,7 +629,7 @@ function StatusCard({
   icon: React.ReactNode
   label: string
   value: number | string
-  color: 'blue' | 'green' | 'amber' | 'purple'
+  color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo'
   loading: boolean
 }) {
   const colorMap = {
@@ -455,6 +637,7 @@ function StatusCard({
     green: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
     amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+    indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
   }
 
   return (
