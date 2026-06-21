@@ -196,13 +196,139 @@ body {
   line-height: 1.8 !important;
 }
 
+.wmde-markdown > *:first-child {
+  margin-top: 0 !important;
+}
+
+.wmde-markdown > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.wmde-markdown p {
+  margin: 0.6em 0 !important;
+  line-height: 1.85 !important;
+}
+
+.wmde-markdown h1 {
+  font-size: 1.5em !important;
+  font-weight: 700 !important;
+  margin: 1.2em 0 0.5em !important;
+  line-height: 1.3 !important;
+}
+
+.wmde-markdown h2 {
+  font-size: 1.3em !important;
+  font-weight: 650 !important;
+  margin: 1em 0 0.4em !important;
+  line-height: 1.35 !important;
+}
+
+.wmde-markdown h3 {
+  font-size: 1.1em !important;
+  font-weight: 600 !important;
+  margin: 0.9em 0 0.3em !important;
+  line-height: 1.4 !important;
+}
+
+.wmde-markdown h4,
+.wmde-markdown h5,
+.wmde-markdown h6 {
+  font-size: 1em !important;
+  font-weight: 600 !important;
+  margin: 0.8em 0 0.3em !important;
+}
+
+.wmde-markdown ul,
+.wmde-markdown ol {
+  margin: 0.6em 0 !important;
+  padding-left: 1.75em !important;
+}
+
+.wmde-markdown li {
+  margin: 0.2em 0 !important;
+  line-height: 1.75 !important;
+}
+
+.wmde-markdown li > p {
+  margin: 0.2em 0 !important;
+}
+
+.wmde-markdown blockquote {
+  border-left: 3px solid #6366f1 !important;
+  padding-left: 1em !important;
+  margin: 0.8em 0 !important;
+  color: #6b7280 !important;
+}
+
+.wmde-markdown.dark blockquote {
+  border-left-color: #818cf8 !important;
+  color: #9ca3af !important;
+}
+
+.wmde-markdown hr {
+  border: none !important;
+  height: 1px !important;
+  background: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent) !important;
+  margin: 1.5em 0 !important;
+}
+
+.wmde-markdown.dark hr {
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent) !important;
+}
+
+.wmde-markdown a {
+  color: #3b82f6 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+
+.wmde-markdown.dark a {
+  color: #60a5fa !important;
+}
+
+.wmde-markdown img {
+  max-width: 100% !important;
+  border-radius: 8px !important;
+}
+
+.wmde-markdown table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 0.8em 0 !important;
+  font-size: 0.875em !important;
+}
+
+.wmde-markdown th {
+  background: rgba(0,0,0,0.03) !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  padding: 0.5em 0.75em !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.wmde-markdown td {
+  padding: 0.5em 0.75em !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+.wmde-markdown.dark th {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+.wmde-markdown.dark td {
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
 .wmde-markdown pre {
   background: rgb(248 249 252) !important;
   border-radius: 10px !important;
   border: 1px solid rgba(0,0,0,0.04) !important;
+  overflow-x: auto !important;
+  padding: 1em !important;
 }
 
-[data-color-mode='dark'] .wmde-markdown pre {
+.wmde-markdown.dark pre {
   background: rgb(13 17 23) !important;
   border-color: rgba(255,255,255,0.06) !important;
 }
@@ -214,7 +340,14 @@ body {
   font-size: 0.88em !important;
 }
 
-[data-color-mode='dark'] .wmde-markdown code {
+.wmde-markdown pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 0.85em !important;
+}
+
+.wmde-markdown.dark code {
   background: rgb(33 38 45) !important;
 }
 

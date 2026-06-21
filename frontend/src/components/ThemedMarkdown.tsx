@@ -1,28 +1,6 @@
-import { useEffect, useState } from 'react'
-import MDEditor from '@uiw/react-md-editor'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useUIStore } from '../stores/uiStore'
-
-type ColorMode = 'light' | 'dark'
-
-function useResolvedColorMode(): ColorMode {
-  const theme = useUIStore((state) => state.theme)
-  const [systemDark, setSystemDark] = useState(() =>
-    typeof window !== 'undefined'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : false
-  )
-
-  useEffect(() => {
-    if (theme !== 'system') return
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches)
-    media.addEventListener('change', handler)
-    return () => media.removeEventListener('change', handler)
-  }, [theme])
-
-  if (theme === 'system') return systemDark ? 'dark' : 'light'
-  return theme
-}
 
 interface ThemedMarkdownProps {
   source: string
@@ -30,15 +8,43 @@ interface ThemedMarkdownProps {
 }
 
 /**
- * 跟随应用主题的 Markdown 渲染组件。
- * 通过 data-color-mode 让 @uiw/react-md-editor 的内部样式（背景、代码块、表格等）
- * 与 Tailwind 的 .dark 类切换保持一致，避免预览背景在亮色模式下显示为黑色。
+ * 预处理 markdown 文本，修复 LLM 输出中常见的格式问题：
+ * - 将非标准列表符号（▪、•、·）转换为标准 markdown 列表标记
+ * - 修复列表项之间缺少空行的问题
+ */
+function preprocessMarkdown(source: string): string {
+  if (!source) return source
+  let text = source
+
+  // 将行首的 ▪、•、· 等非标准列表符号转换为标准 - 标记
+  text = text.replace(/^[ \t]*[▪•·]\s+/gm, '- ')
+
+  // 将行首的数字+点/顿号列表（如 1、）转换为标准格式
+  text = text.replace(/^(\d+)[、.]\s/gm, '$1. ')
+
+  // 在连续列表项之间确保有空行（提升段落间距）
+  text = text.replace(/\n- /g, '\n\n- ')
+
+  // 修复标题后紧跟内容缺少空行的问题
+  text = text.replace(/^(#{1,6}\s+.+)\n([^\n#])/gm, '$1\n\n$2')
+
+  return text
+}
+
+/**
+ * Markdown 渲染组件，使用 react-markdown + remark-gfm。
+ * 支持 GFM 表格、任务列表、删除线等扩展语法。
  */
 export default function ThemedMarkdown({ source, className }: ThemedMarkdownProps) {
-  const colorMode = useResolvedColorMode()
+  const theme = useUIStore((state) => state.theme)
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const processed = preprocessMarkdown(source)
+
   return (
-    <div data-color-mode={colorMode} className={className}>
-      <MDEditor.Markdown source={source} />
+    <div className={`wmde-markdown ${isDark ? 'dark' : ''} ${className ?? ''}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {processed}
+      </ReactMarkdown>
     </div>
   )
 }
