@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useUIStore } from '../stores/uiStore'
 
@@ -26,6 +26,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     { path: '/memories', label: '记忆', icon: Atom },
     { path: '/models', label: '大模型', icon: Cpu },
     { path: '/work', label: 'Work', icon: Workflow },
+    { path: '/workflows', label: '工作流', icon: GitBranch },
     { path: '/search', label: '搜索', icon: Search },
   ]
 
