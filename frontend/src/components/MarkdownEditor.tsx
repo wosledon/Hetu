@@ -22,6 +22,7 @@ import {
   Database,
   RefreshCw,
   Loader2,
+  Network,
 } from 'lucide-react'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
@@ -32,6 +33,7 @@ import { noteVersionService } from '../services/noteVersionService'
 import { noteAiService } from '../services/noteAiService'
 import { shareService } from '../services/shareService'
 import { knowledgeBaseService } from '../services/knowledgeBaseService'
+import { graphService } from '../services/graphService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
 
 interface MarkdownEditorProps {
@@ -119,6 +121,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     mutationFn: () => noteService.generateIndex(note!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
+    },
+  })
+
+  // ── 知识图谱提取 ──
+  const [extractResult, setExtractResult] = useState<{ newEntities: number; newRelations: number } | null>(null)
+
+  const extractGraph = useMutation({
+    mutationFn: () => graphService.extractFromNote(note!.id),
+    onSuccess: (result) => {
+      setExtractResult({ newEntities: result.newEntities, newRelations: result.newRelations })
+      setTimeout(() => setExtractResult(null), 5000)
     },
   })
 
@@ -418,6 +431,25 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             )}
             {generateEmbedding.isPending ? '处理中...' : currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
           </button>
+          <button
+            onClick={() => extractGraph.mutate()}
+            disabled={extractGraph.isPending}
+            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+            title="从当前笔记提取知识图谱实体与关系"
+          >
+            {extractGraph.isPending ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <Network size={11} />
+            )}
+            {extractGraph.isPending ? '提取中...' : '提取图谱'}
+          </button>
+          {extractResult && (
+            <span className="flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-400">
+              <Check size={11} />
+              +{extractResult.newEntities} 实体 · +{extractResult.newRelations} 关系
+            </span>
+          )}
         </div>
         <div className="mt-2">
           <TagInput noteId={note!.id} tags={note!.tags} />
