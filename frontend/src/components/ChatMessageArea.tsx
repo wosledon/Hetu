@@ -673,9 +673,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
                 )}
                 <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-                {message.modelId && message.role === 'assistant' && (
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{message.modelId}</span>
-                )}
+
                 {message.role === 'user' && (
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
                 )}
