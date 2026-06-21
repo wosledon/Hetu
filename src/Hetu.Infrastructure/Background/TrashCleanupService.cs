@@ -36,12 +36,15 @@ public class TrashCleanupService : BackgroundService
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var graphService = scope.ServiceProvider.GetRequiredService<IGraphService>();
 
             var cutoff = DateTimeOffset.UtcNow.AddDays(-30);
             var oldNotes = await unitOfWork.Notes.GetOldDeletedAsync(cutoff, cancellationToken);
 
             foreach (var note in oldNotes)
             {
+                // 先清理该笔记关联的知识图谱数据
+                await graphService.CleanUpByNoteIdAsync(note.Id, cancellationToken);
                 await unitOfWork.Notes.HardDeleteAsync(note, cancellationToken);
             }
 
