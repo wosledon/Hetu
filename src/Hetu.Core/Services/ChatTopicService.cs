@@ -39,7 +39,6 @@ public class ChatTopicService : IChatTopicService
             Title = string.IsNullOrWhiteSpace(request.Title) ? "新话题" : request.Title.Trim(),
             ModelId = request.ModelId,
             CustomSystemPrompt = request.CustomSystemPrompt,
-            ContextWindowSize = request.ContextWindowSize,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -57,7 +56,6 @@ public class ChatTopicService : IChatTopicService
         topic.Title = string.IsNullOrWhiteSpace(request.Title) ? topic.Title : request.Title.Trim();
         topic.ModelId = request.ModelId;
         topic.CustomSystemPrompt = request.CustomSystemPrompt;
-        topic.ContextWindowSize = request.ContextWindowSize;
         if (!string.IsNullOrEmpty(request.NoteSyncStatus) && Enum.TryParse<NoteSyncStatus>(request.NoteSyncStatus, true, out var status))
             topic.NoteSyncStatus = status;
         if (request.IsAutoOrganizeEnabled.HasValue)
@@ -87,7 +85,6 @@ public class ChatTopicService : IChatTopicService
         Title = topic.Title,
         ModelId = topic.ModelId,
         CustomSystemPrompt = topic.CustomSystemPrompt,
-        ContextWindowSize = topic.ContextWindowSize,
         NoteSyncStatus = topic.NoteSyncStatus.ToString().ToLower(),
         IsAutoOrganizeEnabled = topic.IsAutoOrganizeEnabled,
         AutoOrganizeNotebookId = topic.AutoOrganizeNotebookId,
@@ -119,7 +116,6 @@ public class ChatTopicService : IChatTopicService
             Title = sourceTopic.Title + " (分支)",
             ModelId = sourceTopic.ModelId,
             CustomSystemPrompt = sourceTopic.CustomSystemPrompt,
-            ContextWindowSize = sourceTopic.ContextWindowSize,
             ParentTopicId = topicId,
             BranchMessageId = branchMessageId,
             CreatedAt = DateTimeOffset.UtcNow,

@@ -64,8 +64,28 @@ public class ChatOrganizeService : IChatOrganizeService
             options,
             cancellationToken))
         {
-            sb.Append(delta);
             yield return delta;
+
+            // 解析结构化事件，只提取 content 文本存入笔记
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(delta);
+                if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
+                    doc.RootElement.TryGetProperty("text", out var textEl))
+                {
+                    if (typeEl.GetString() == "content")
+                        sb.Append(textEl.GetString());
+                }
+                else
+                {
+                    sb.Append(delta);
+                }
+            }
+            catch
+            {
+                // 非 JSON，直接追加
+                sb.Append(delta);
+            }
         }
 
         var organizedContent = sb.ToString().Trim();

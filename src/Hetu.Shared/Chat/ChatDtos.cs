@@ -36,7 +36,6 @@ public class ChatTopicDto
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
-    public int? ContextWindowSize { get; set; }
     public string NoteSyncStatus { get; set; } = "pending";
     public bool IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }
@@ -50,7 +49,6 @@ public class CreateChatTopicRequest
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
-    public int? ContextWindowSize { get; set; }
 }
 
 public class UpdateChatTopicRequest
@@ -58,7 +56,6 @@ public class UpdateChatTopicRequest
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
-    public int? ContextWindowSize { get; set; }
     public string? NoteSyncStatus { get; set; }
     public bool? IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }

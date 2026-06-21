@@ -25,6 +25,7 @@ public class AppSettingService : IAppSettingService
             DefaultChunkModelId = await GetNullableValueAsync("DefaultChunkModelId", cancellationToken),
             DefaultFastModelId = await GetNullableValueAsync("DefaultFastModelId", cancellationToken),
             DefaultEmbeddingModelId = await GetNullableValueAsync("DefaultEmbeddingModelId", cancellationToken),
+            ContextWindowSize = await GetNullableIntValueAsync("ContextWindowSize", cancellationToken),
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }
@@ -72,6 +73,13 @@ public class AppSettingService : IAppSettingService
     {
         var setting = await _unitOfWork.AppSettings.GetByKeyAsync(key, cancellationToken);
         return string.IsNullOrWhiteSpace(setting?.Value) ? null : setting.Value;
+    }
+
+    private async Task<int?> GetNullableIntValueAsync(string key, CancellationToken cancellationToken)
+    {
+        var setting = await _unitOfWork.AppSettings.GetByKeyAsync(key, cancellationToken);
+        if (string.IsNullOrWhiteSpace(setting?.Value)) return null;
+        return int.TryParse(setting.Value, out var val) ? val : null;
     }
 
     private static AppSettingDto Map(AppSetting setting) => new()

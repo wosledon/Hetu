@@ -20,7 +20,6 @@ public class ChatTopic : BaseEntity
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
-    public int? ContextWindowSize { get; set; }
     public NoteSyncStatus NoteSyncStatus { get; set; } = NoteSyncStatus.Pending;
     public bool IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }

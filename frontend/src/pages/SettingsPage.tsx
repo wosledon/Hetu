@@ -299,6 +299,28 @@ function AppSettingsSection({
         </p>
       </div>
 
+      {/* Context Window Size */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">上下文窗口</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">控制发送给 AI 的历史消息条数，留空表示不限制</p>
+        </div>
+        <div className="max-w-xs">
+          <input
+            type="number"
+            value={snapshot?.contextWindowSize?.toString() ?? ''}
+            onChange={(e) => onSettingChange('ContextWindowSize', e.target.value || '')}
+            placeholder="不限制"
+            min={1}
+            max={100}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+          />
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+            建议 10-30，值越大 token 消耗越高，但对话连贯性越好
+          </p>
+        </div>
+      </div>
+
       {/* Default Models */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">

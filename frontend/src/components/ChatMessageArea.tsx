@@ -7,12 +7,27 @@ import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
-import type { IChatTopic, IPromptPreset } from '../types'
+import type { IChatTopic, IPromptPreset, INotebook } from '../types'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
   group?: IChatGroup
   onTopicUpdated?: (topic: IChatTopic) => void
+}
+
+function renderNotebookTree(notebooks: INotebook[], depth: number): React.ReactNode[] {
+  const result: React.ReactNode[] = []
+  for (const nb of notebooks) {
+    result.push(
+      <option key={nb.id} value={nb.id}>
+        {'\u00A0\u00A0'.repeat(depth)}{depth > 0 ? '└ ' : ''}{nb.name}
+      </option>
+    )
+    if (nb.children && nb.children.length > 0) {
+      result.push(...renderNotebookTree(nb.children, depth + 1))
+    }
+  }
+  return result
 }
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
@@ -33,6 +48,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [organizeStyle, setOrganizeStyle] = useState<'summary' | 'detailed' | 'qna'>('summary')
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
   const [organizeResult, setOrganizeResult] = useState<{ noteId: string; title: string } | null>(null)
+  const [showOrganizeOptions, setShowOrganizeOptions] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -41,7 +57,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showTopicSettings, setShowTopicSettings] = useState(false)
   const [topicModelId, setTopicModelId] = useState('')
   const [topicSystemPrompt, setTopicSystemPrompt] = useState('')
-  const [topicContextWindowSize, setTopicContextWindowSize] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
@@ -87,7 +102,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, streamingThinking, organizePreview])
+  }, [messages, streamingContent, streamingThinking, isOrganizing, organizeResult])
 
   // Clear streaming display when messages are refreshed (after query invalidation)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,8 +121,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     setTopicModelId(topic?.modelId ?? '')
     setTopicSystemPrompt(topic?.customSystemPrompt ?? '')
-    setTopicContextWindowSize(topic?.contextWindowSize?.toString() ?? '')
-  }, [topic?.id, topic?.modelId, topic?.customSystemPrompt, topic?.contextWindowSize])
+  }, [topic?.id, topic?.modelId, topic?.customSystemPrompt])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close dropdowns on click outside
@@ -308,12 +322,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   const updateTopicSettingsMutation = useMutation({
     mutationFn: () => {
-      const contextWindowSize = Number.parseInt(topicContextWindowSize, 10)
       return chatTopicService.update(topic!.id, {
         title: topic!.title,
         modelId: topicModelId || undefined,
         customSystemPrompt: topicSystemPrompt.trim() || undefined,
-        contextWindowSize: Number.isFinite(contextWindowSize) && contextWindowSize > 0 ? contextWindowSize : undefined,
         noteSyncStatus: topic!.noteSyncStatus,
         isAutoOrganizeEnabled: topic!.isAutoOrganizeEnabled,
         autoOrganizeNotebookId: topic!.autoOrganizeNotebookId,
@@ -427,10 +439,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           setOrganizeResult({ noteId, title })
           queryClient.invalidateQueries({ queryKey: ['notes'] })
         } else if (data.startsWith('[ERROR]')) {
-          setOrganizePreview((prev) => prev + '\n' + data)
+          // ignore
         } else {
-          preview += data
-          setOrganizePreview(preview)
+          // 尝试解析为 JSON（thinking/content 结构化事件）
+          try {
+            const chunk = JSON.parse(data)
+            if (chunk.type === 'content') {
+              preview += chunk.text
+            }
+            // thinking 类型忽略，不展示
+          } catch {
+            // 非 JSON，作为纯文本追加
+            preview += data
+          }
         }
       })
 
@@ -482,165 +503,71 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <GitBranch size={15} />
           </button>
           <button
-            onClick={handleOrganize}
+            onClick={() => setShowOrganizeOptions(!showOrganizeOptions)}
             disabled={isOrganizing || isStreaming || messages.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20"
           >
             <FileText size={14} />
             {isOrganizing ? '整理中...' : '整理笔记'}
-          </button>
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5" />
-          <button
-            onClick={() => setShowTopicSettings(!showTopicSettings)}
-            className={`p-2 rounded-lg transition-colors ${showTopicSettings ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
-            title="话题设置"
-          >
-            <Settings size={15} />
+            <ChevronDown size={12} />
           </button>
         </div>
       </div>
 
-      {showTopicSettings && topic && (
-        <div className="border-b border-gray-200 bg-gray-50/80 p-5 dark:border-gray-800 dark:bg-gray-900/50">
-          <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-200">话题设置</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm">
-              <span className="mb-1.5 block text-gray-600 dark:text-gray-400">对话模型</span>
-              <select
-                value={topicModelId}
-                onChange={(e) => setTopicModelId(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-              >
-                <option value="">使用默认对话模型</option>
-                {chatModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.displayName || model.modelId}{model.isDefault ? '（默认）' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              <span className="mb-1.5 block text-gray-600 dark:text-gray-400">上下文窗口消息数</span>
-              <input
-                type="number"
-                min="1"
-                value={topicContextWindowSize}
-                onChange={(e) => setTopicContextWindowSize(e.target.value)}
-                placeholder="使用系统默认"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-              />
-            </label>
-          </div>
-          <label className="mt-4 block text-sm">
-            <span className="mb-1.5 block text-gray-600 dark:text-gray-400">系统提示词</span>
-            <textarea
-              value={topicSystemPrompt}
-              onChange={(e) => setTopicSystemPrompt(e.target.value)}
-              placeholder="留空则不设置话题级系统提示词"
-              className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-              rows={3}
-            />
-          </label>
-          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-            <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500">整理为笔记</h4>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <span className="mb-1.5 block text-xs text-gray-600 dark:text-gray-400">整理风格</span>
-                <select
-                  value={organizeStyle}
-                  onChange={(e) => setOrganizeStyle(e.target.value as typeof organizeStyle)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-                >
-                  <option value="summary">摘要式</option>
-                  <option value="detailed">详细式</option>
-                  <option value="qna">Q&A 式</option>
-                </select>
-              </div>
-              <div>
-                <span className="mb-1.5 block text-xs text-gray-600 dark:text-gray-400">目标笔记本</span>
-                <select
-                  value={organizeTargetNotebook}
-                  onChange={(e) => setOrganizeTargetNotebook(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-                >
-                  <option value="">默认笔记本</option>
-                  {notebooks.map((nb) => (
-                    <option key={nb.id} value={nb.id}>
-                      {nb.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => setShowTopicSettings(false)}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              关闭
-            </button>
-            <button
-              onClick={() => updateTopicSettingsMutation.mutate()}
-              disabled={updateTopicSettingsMutation.isPending}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {updateTopicSettingsMutation.isPending ? '保存中...' : '保存设置'}
-            </button>
-          </div>
+      {/* Organize options dropdown */}
+      {/* Organizing status - shown at top */}
+      {isOrganizing && (
+        <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
+          <Loader2 size={14} className="animate-spin text-emerald-600" />
+          <span className="text-sm text-emerald-700 dark:text-emerald-300">正在整理为笔记...</span>
+        </div>
+      )}
+      {organizeResult && !isOrganizing && (
+        <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
+          <Check size={14} className="text-emerald-600" />
+          <span className="text-sm text-emerald-700 dark:text-emerald-300">已保存笔记：{organizeResult.title}</span>
         </div>
       )}
 
-      {showAutoOrganizeSettings && topic && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-          <h3 className="text-sm font-medium mb-3">自动整理设置</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">启用自动整理</span>
-              <button
-                onClick={() => {
-                  const newValue = !topic.isAutoOrganizeEnabled
-                  updateAutoOrganizeMutation.mutate({
-                    enabled: newValue,
-                    notebookId: topic.autoOrganizeNotebookId,
-                  })
-                }}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  topic.isAutoOrganizeEnabled ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
+      {showOrganizeOptions && topic && (
+        <div className="border-b border-gray-200 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-900/50">
+          <div className="flex items-end gap-4">
+            <div>
+              <span className="mb-1 block text-[11px] text-gray-500">整理风格</span>
+              <select
+                value={organizeStyle}
+                onChange={(e) => setOrganizeStyle(e.target.value as typeof organizeStyle)}
+                className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"
               >
-                <span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                    topic.isAutoOrganizeEnabled ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+                <option value="summary">摘要式</option>
+                <option value="detailed">详细式</option>
+                <option value="qna">Q&A 式</option>
+              </select>
             </div>
-            {topic.isAutoOrganizeEnabled && (
-              <div>
-                <label className="block text-sm mb-1">目标笔记本</label>
-                <select
-                  value={topic.autoOrganizeNotebookId || ''}
-                  onChange={(e) => {
-                    updateAutoOrganizeMutation.mutate({
-                      enabled: true,
-                      notebookId: e.target.value || undefined,
-                    })
-                  }}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800"
-                >
-                  <option value="">默认笔记本</option>
-                  {notebooks.map((nb) => (
-                    <option key={nb.id} value={nb.id}>
-                      {nb.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  当对话消息达到 20 条时，系统将自动整理为笔记
-                </p>
-              </div>
-            )}
+            <div className="flex-1">
+              <span className="mb-1 block text-[11px] text-gray-500">目标笔记本</span>
+              <select
+                value={organizeTargetNotebook}
+                onChange={(e) => setOrganizeTargetNotebook(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"
+              >
+                <option value="">默认笔记本</option>
+                {renderNotebookTree(notebooks, 0)}
+              </select>
+            </div>
+            <button
+              onClick={() => { setShowOrganizeOptions(false); handleOrganize() }}
+              disabled={isOrganizing}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              开始整理
+            </button>
+            <button
+              onClick={() => setShowOrganizeOptions(false)}
+              className="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              取消
+            </button>
           </div>
         </div>
       )}
@@ -927,24 +854,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        {isOrganizing && (
-          <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20">
-            <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-2">整理预览</div>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ThemedMarkdown source={organizePreview || '整理中...'} />
-            </div>
-          </div>
-        )}
-
-        {organizeResult && !isOrganizing && (
-          <div className="border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20">
-            <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">
-              已保存笔记：{organizeResult.title}
-            </div>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400">ID: {organizeResult.noteId}</div>
           </div>
         )}
 

@@ -64,6 +64,7 @@ export interface IAppSettingsSnapshot {
   defaultChunkModelId?: string;
   defaultFastModelId?: string;
   defaultEmbeddingModelId?: string;
+  contextWindowSize?: number;
 }
 
 export interface IAiProvider {
@@ -113,7 +114,6 @@ export interface IChatTopic {
   title: string;
   modelId?: string;
   customSystemPrompt?: string;
-  contextWindowSize?: number;
   noteSyncStatus: 'pending' | 'synced' | 'outdated';
   isAutoOrganizeEnabled: boolean;
   autoOrganizeNotebookId?: string;

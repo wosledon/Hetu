@@ -26,6 +26,8 @@ public class AppSettingsSnapshotDto
     public string? DefaultFastModelId { get; set; }
     /// <summary>默认 Embedding 模型 ID</summary>
     public string? DefaultEmbeddingModelId { get; set; }
+    /// <summary>上下文窗口消息数（null 表示不限制）</summary>
+    public int? ContextWindowSize { get; set; }
 }
 
 public class DatabaseConnectionRequest

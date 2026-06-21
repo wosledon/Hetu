@@ -21,14 +21,12 @@ export interface CreateChatTopicRequest {
   title: string;
   modelId?: string;
   customSystemPrompt?: string;
-  contextWindowSize?: number;
 }
 
 export interface UpdateChatTopicRequest {
   title: string;
   modelId?: string;
   customSystemPrompt?: string;
-  contextWindowSize?: number;
   noteSyncStatus?: string;
   isAutoOrganizeEnabled?: boolean;
   autoOrganizeNotebookId?: string;

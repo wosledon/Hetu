@@ -112,7 +112,13 @@ public class ChatMessagesController : ControllerBase
             return;
         }
 
-        var history = await _chatMessageService.BuildHistoryAsync(topicId, topic.ContextWindowSize, cancellationToken);
+        // 从全局设置读取上下文窗口大小
+        int? contextWindowSize = null;
+        var ctxSetting = await _unitOfWork.AppSettings.GetByKeyAsync("ContextWindowSize", cancellationToken);
+        if (!string.IsNullOrWhiteSpace(ctxSetting?.Value) && int.TryParse(ctxSetting.Value, out var ctxVal))
+            contextWindowSize = ctxVal;
+
+        var history = await _chatMessageService.BuildHistoryAsync(topicId, contextWindowSize, cancellationToken);
         var chatMessages = history.Select(m => new LlmChatMessage
         {
             Role = m.Role,
