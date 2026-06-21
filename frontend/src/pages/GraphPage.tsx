@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import ThemedMarkdown from '../components/ThemedMarkdown'
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
@@ -496,6 +497,10 @@ export default function GraphPage() {
   const [extractResults, setExtractResults] = useState<Map<string, IExtractGraphResult | { error: string }>>(new Map())
   const [isExtracting, setIsExtracting] = useState(false)
   const [layoutKey, setLayoutKey] = useState(0)
+  const [previewNoteId, setPreviewNoteId] = useState<string | null>(null)
+  const [previewNoteTitle, setPreviewNoteTitle] = useState('')
+  const [previewNoteContent, setPreviewNoteContent] = useState('')
+  const [isLoadingNote, setIsLoadingNote] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [entities, setEntities] = useState<IGraphEntity[]>([])
@@ -634,6 +639,21 @@ export default function GraphPage() {
   const handleResetView = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
   const handleAutoLayout = () => { setLayoutKey(prev => prev + 1) }
 
+  const handleOpenNotePreview = useCallback(async (noteId: string, noteTitle: string) => {
+    setPreviewNoteId(noteId)
+    setPreviewNoteTitle(noteTitle)
+    setIsLoadingNote(true)
+    setPreviewNoteContent('')
+    try {
+      const note = await noteService.getById(noteId)
+      setPreviewNoteContent(note.content || '无内容')
+    } catch {
+      setPreviewNoteContent('加载失败')
+    } finally {
+      setIsLoadingNote(false)
+    }
+  }, [])
+
   const mainContent = (
     <div className="flex flex-1 flex-col bg-gray-50 dark:bg-gray-950">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
@@ -736,11 +756,88 @@ export default function GraphPage() {
           </div>
         </div>
       )}
+
+      {previewNoteId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }}>
+          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                  <FolderOpen size={16} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{previewNoteTitle}</h3>
+              </div>
+              <button onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingNote ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-gray-400"><Loader2 size={20} className="animate-spin" />加载中...</div>
+              ) : (
+                <ThemedMarkdown source={previewNoteContent} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
+  const rightPanel = selectedEntityId && entityDetail ? (
+    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">实体详情</h2>
+        <div className="flex items-center gap-1">
+          <button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" title="删除实体"><Trash2 size={14} /></button>
+          <button onClick={() => setSelectedEntityId(null)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="关闭"><X size={14} /></button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15` }}>
+              {(() => { const Icon = ENTITY_ICONS[entityDetail.type] || ENTITY_ICONS.custom; return <Icon size={18} style={{ color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }} /> })()}
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{entityDetail.name}</h3>
+              <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{ENTITY_TYPE_LABELS[entityDetail.type] || entityDetail.type}</span>
+            </div>
+          </div>
+          {entityDetail.description && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{entityDetail.description}</p>}
+        </div>
+        {entityDetail.sourceNotes.length > 0 && (
+          <div className="mb-4">
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">来源笔记 ({entityDetail.sourceNotes.length})</h4>
+            <div className="space-y-1">{entityDetail.sourceNotes.map(n => (
+              <div key={n.noteId} onClick={() => handleOpenNotePreview(n.noteId, n.title)} className="cursor-pointer truncate rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400">
+                • {n.title}
+              </div>
+            ))}</div>
+          </div>
+        )}
+        {entityDetail.relations.length > 0 && (
+          <div>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">关系 ({entityDetail.relations.length})</h4>
+            <div className="space-y-1.5">{entityDetail.relations.map(rel => (
+              <div key={rel.id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-gray-800">
+                <span className="font-medium text-gray-700 dark:text-gray-300">{rel.sourceEntityName}</span>
+                <span className="text-indigo-500">→</span>
+                <span className="text-gray-400">{RELATION_LABELS[rel.relationType] || rel.relationType}</span>
+                <span className="text-indigo-500">→</span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">{rel.targetEntityName}</span>
+              </div>))}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null
+
   return (
-    <AppLayout showSidebar={false} mainContent={mainContent}>
+    <AppLayout showSidebar={false} mainContent={
+      <div className="flex flex-1 overflow-hidden">
+        {mainContent}
+        {rightPanel}
+      </div>
+    }>
       <div className="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2></div>
@@ -774,22 +871,6 @@ export default function GraphPage() {
             )
           })}
         </div>
-        {selectedEntityId && entityDetail && (
-          <div className="max-h-64 overflow-y-auto border-t border-gray-100 p-4 dark:border-gray-800">
-            <div className="mb-3 flex items-center justify-between"><h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{entityDetail.name}</h3><button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"><Trash2 size={14} /></button></div>
-            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{ENTITY_TYPE_LABELS[entityDetail.type] || entityDetail.type}</span>
-            {entityDetail.description && <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{entityDetail.description}</p>}
-            {entityDetail.relations.length > 0 && (
-              <div className="mt-3"><h4 className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">关系</h4><div className="space-y-1">{entityDetail.relations.map(rel => (
-                <div key={rel.id} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2 py-1.5 text-xs dark:bg-gray-800">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{rel.sourceEntityName}</span><span className="text-indigo-500">→</span><span className="text-gray-400">{RELATION_LABELS[rel.relationType] || rel.relationType}</span><span className="text-indigo-500">→</span><span className="font-medium text-gray-700 dark:text-gray-300">{rel.targetEntityName}</span>
-                </div>))}</div></div>
-            )}
-            {entityDetail.sourceNotes.length > 0 && (
-              <div className="mt-3"><h4 className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">来源笔记</h4><div className="space-y-0.5">{entityDetail.sourceNotes.map(n => (<div key={n.noteId} className="truncate text-xs text-gray-500 dark:text-gray-400">• {n.title}</div>))}</div></div>
-            )}
-          </div>
-        )}
       </div>
     </AppLayout>
   )
