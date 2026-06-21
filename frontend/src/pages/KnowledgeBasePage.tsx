@@ -23,8 +23,16 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, isValid } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+
+function safeFormatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '未知时间'
+  const d = new Date(dateStr)
+  if (!isValid(d)) return '未知时间'
+  return formatDistanceToNow(d, { addSuffix: true, locale: zhCN })
+}
+
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
 import {
@@ -502,7 +510,7 @@ export default function KnowledgeBasePage() {
                           </div>
                           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                             {item.embeddingUpdatedAt
-                              ? `更新于 ${formatDistanceToNow(new Date(item.embeddingUpdatedAt), { addSuffix: true, locale: zhCN })}`
+                              ? `更新于 ${safeFormatDate(item.embeddingUpdatedAt)}`
                               : '未索引'}
                           </p>
                         </div>
@@ -671,7 +679,7 @@ export default function KnowledgeBasePage() {
                                 )}
                               </div>
                               <span className="ml-4 shrink-0 text-xs text-gray-400">
-                                {formatDistanceToNow(new Date(result.updatedAt), { addSuffix: true, locale: zhCN })}
+                                {safeFormatDate(result.updatedAt)}
                               </span>
                             </div>
                           </div>
@@ -812,7 +820,7 @@ function ChunkDetailModal({
                         <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
                           <span className="flex items-center gap-1">
                             <Clock size={10} />
-                            {formatDistanceToNow(new Date(chunk.updatedAt), { addSuffix: true, locale: zhCN })}
+                            {safeFormatDate(chunk.updatedAt)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Hash size={10} />

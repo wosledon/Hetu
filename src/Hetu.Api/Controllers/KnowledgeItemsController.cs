@@ -79,20 +79,25 @@ public class KnowledgeItemsController : ControllerBase
             Title = request.Title ?? request.Url,
             Content = request.Content ?? string.Empty,
             SourceUrl = request.Url,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
 
-        // 如果没有提供内容，自动抓取网页
+        // 如果没有提供内容，自动抓取网页（失败不阻塞）
         if (string.IsNullOrWhiteSpace(item.Content))
         {
-            var result = await _webExtractor.ExtractAsync(request.Url, cancellationToken);
-            if (result.Success)
+            try
             {
-                item.Title = request.Title ?? result.Title ?? request.Url;
-                item.Content = result.Content;
+                var result = await _webExtractor.ExtractAsync(request.Url, cancellationToken);
+                if (result.Success)
+                {
+                    item.Title = request.Title ?? result.Title ?? request.Url;
+                    item.Content = result.Content;
+                }
             }
-            else
+            catch
             {
-                item.Content = result.Description ?? string.Empty;
+                // 抓取失败时仍创建知识项，内容为空，后续可手动补充
             }
         }
 
@@ -146,6 +151,8 @@ public class KnowledgeItemsController : ControllerBase
             FileName = file.FileName,
             FileSize = file.Length,
             MimeType = file.ContentType,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
 
         await _unitOfWork.KnowledgeItems.AddAsync(item, cancellationToken);
