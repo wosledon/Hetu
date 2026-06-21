@@ -223,13 +223,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   // Clear streaming display when messages are refreshed (after query invalidation)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0)) {
+    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0 || streamingTodos.length > 0 || streamingQuestions.length > 0 || streamingToolCalls.length > 0)) {
       setStreamingContent('')
       setStreamingThinking('')
       setStreamingSearchResults([])
       setShowThinking(false)
       setStreamWebSearch(false)
       setStreamDeepThinking(false)
+      setStreamingTodos([])
+      setStreamingQuestions([])
+      setQuestionAnswers({})
+      setCurrentQuestionIndex(0)
+      setStreamingToolCalls([])
+      setStreamingToolResults([])
     }
   }, [messages])
 
@@ -310,10 +316,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }))
 
     // Mark as answered and clear state — do not render answers in the UI
-    setStreamingQuestions(prev => prev.map(q => ({
-      ...q,
-      answered: true,
-    })))
+    setStreamingQuestions([])
     setQuestionAnswers({})
     setCurrentQuestionIndex(0)
 
@@ -504,7 +507,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           } else if (chunk.type === 'todo') {
             try {
               const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
-              if (todoData?.action === 'create' && todoData?.title) {
+              // Prefer the full authoritative list from the backend
+              if (Array.isArray(todoData?.todos) && todoData.todos.length > 0) {
+                setStreamingTodos(todoData.todos.map((t: any) => ({
+                  id: t.id || `t${Math.random().toString(36).slice(2)}`,
+                  title: t.title || '',
+                  description: t.description,
+                  status: (t.status as 'not-started' | 'in-progress' | 'completed') || 'not-started',
+                })))
+              } else if (todoData?.action === 'create' && todoData?.title) {
                 setStreamingTodos(prev => [...prev, {
                   id: todoData.id || `t${prev.length + 1}`,
                   title: todoData.title,
@@ -1011,7 +1022,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
@@ -1202,7 +1213,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Ask question panel - sequential one-at-a-time mode */}
-        {streamingQuestions.filter(q => !q.answered).length > 0 && (() => {
+        {streamingQuestions.length > 0 && (() => {
           const total = streamingQuestions.length
           const idx = Math.min(currentQuestionIndex, total - 1)
           const q = streamingQuestions[idx]

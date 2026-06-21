@@ -754,6 +754,8 @@ public class ChatMessagesController : ControllerBase
                                     title = todoTitle,
                                     description = todoDescription,
                                     status = todoStatus,
+                                    // Full list so the frontend can replace its state authoritatively
+                                    todos = sessionTodos.Select(t => new { t.Id, t.Title, t.Status }).ToList()
                                 }
                             }, jsonOptions);
                             await Response.WriteAsync($"data: {todoEvent}\n\n", cancellationToken);
