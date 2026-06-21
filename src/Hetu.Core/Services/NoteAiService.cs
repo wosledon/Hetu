@@ -65,14 +65,31 @@ public class NoteAiService : INoteAiService
             yield break;
         }
 
-        var prompt = string.IsNullOrWhiteSpace(request.SelectedText)
-            ? $"请根据以下笔记的上下文进行续写，保持原有风格和主题：\n\n标题：{note.Title}\n\n内容：\n{note.Content}\n\n续写："
-            : $"请根据以下笔记内容进行续写或扩展。选中的文本是：\n\n{request.SelectedText}\n\n完整笔记上下文：\n\n标题：{note.Title}\n\n内容：\n{note.Content}\n\n续写：";
+        var hasCustomPrompt = !string.IsNullOrWhiteSpace(request.SystemPrompt);
+        var systemPrompt = hasCustomPrompt
+            ? request.SystemPrompt
+            : "你是写作助手，擅长根据上下文续写内容。";
+
+        string prompt;
+        if (hasCustomPrompt)
+        {
+            // 有自定义指令（润色/翻译/缩写等）时，提供通用上下文，由 system prompt 驱动行为
+            prompt = string.IsNullOrWhiteSpace(request.SelectedText)
+                ? $"以下是笔记内容：\n\n标题：{note.Title}\n\n内容：\n{note.Content}"
+                : $"以下是选中的文本：\n\n{request.SelectedText}\n\n完整笔记上下文：\n\n标题：{note.Title}\n\n内容：\n{note.Content}";
+        }
+        else
+        {
+            // 默认续写
+            prompt = string.IsNullOrWhiteSpace(request.SelectedText)
+                ? $"请根据以下笔记的上下文进行续写，保持原有风格和主题：\n\n标题：{note.Title}\n\n内容：\n{note.Content}\n\n续写："
+                : $"请根据以下笔记内容进行续写或扩展。选中的文本是：\n\n{request.SelectedText}\n\n完整笔记上下文：\n\n标题：{note.Title}\n\n内容：\n{note.Content}\n\n续写：";
+        }
 
         var options = new CompletionOptions
         {
             ModelId = string.Empty,
-            SystemPrompt = request.SystemPrompt ?? "你是写作助手，擅长根据上下文续写内容。"
+            SystemPrompt = systemPrompt
         };
 
         await foreach (var chunk in provider.ChatStreamAsync(
