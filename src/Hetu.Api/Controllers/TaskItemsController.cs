@@ -17,114 +17,46 @@ public class TaskItemsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ApiResponse<List<TaskItemDto>>> GetAll(CancellationToken ct)
+    public async Task<ApiResponse<List<TaskItemDto>>> GetAll([FromQuery] string? type, [FromQuery] int? status, CancellationToken ct)
     {
         var items = await _unitOfWork.TaskItems.GetAllAsync(ct);
-        var dtos = items
-            .OrderByDescending(t => t.Priority)
-            .ThenBy(t => t.SortOrder)
-            .ThenByDescending(t => t.UpdatedAt)
+        var query = items.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(type))
+            query = query.Where(t => t.TaskType.Equals(type, StringComparison.OrdinalIgnoreCase));
+        if (status.HasValue)
+            query = query.Where(t => t.Status == status.Value);
+
+        var dtos = query
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(200)
             .Select(MapToDto)
             .ToList();
         return ApiResponse<List<TaskItemDto>>.Ok(dtos);
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<ApiResponse<TaskItemDto>> GetById(Guid id, CancellationToken ct)
+    [HttpGet("stats")]
+    public async Task<ApiResponse<TaskStatsDto>> GetStats(CancellationToken ct)
     {
-        var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse<TaskItemDto>.Fail("任务不存在");
-        return ApiResponse<TaskItemDto>.Ok(MapToDto(item));
-    }
-
-    [HttpPost]
-    public async Task<ApiResponse<TaskItemDto>> Create([FromBody] CreateTaskItemRequest request, CancellationToken ct)
-    {
-        var item = new TaskItem
+        var items = await _unitOfWork.TaskItems.GetAllAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        var stats = new TaskStatsDto
         {
-            Id = Guid.NewGuid(),
-            Title = request.Title,
-            Description = request.Description,
-            Status = request.Status,
-            Priority = request.Priority,
-            Progress = request.Progress,
-            DueDate = request.DueDate,
-            Tags = request.Tags,
-            SortOrder = request.SortOrder,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
+            Total = items.Count,
+            Queued = items.Count(t => t.Status == 0),
+            Running = items.Count(t => t.Status == 1),
+            Completed = items.Count(t => t.Status == 2),
+            Failed = items.Count(t => t.Status == 3),
+            RecentFailed = items.Count(t => t.Status == 3 && t.CreatedAt > now.AddHours(-24)),
         };
-        await _unitOfWork.TaskItems.AddAsync(item, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-        return ApiResponse<TaskItemDto>.Ok(MapToDto(item));
-    }
-
-    [HttpPut("{id:guid}")]
-    public async Task<ApiResponse<TaskItemDto>> Update(Guid id, [FromBody] UpdateTaskItemRequest request, CancellationToken ct)
-    {
-        var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse<TaskItemDto>.Fail("任务不存在");
-
-        item.Title = request.Title;
-        item.Description = request.Description;
-        item.Status = request.Status;
-        item.Priority = request.Priority;
-        item.Progress = request.Progress;
-        item.DueDate = request.DueDate;
-        item.Tags = request.Tags;
-        item.SortOrder = request.SortOrder;
-        item.CompletedAt = request.Status == 2 ? DateTimeOffset.UtcNow : null;
-        item.UpdatedAt = DateTimeOffset.UtcNow;
-
-        await _unitOfWork.TaskItems.UpdateAsync(item, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-        return ApiResponse<TaskItemDto>.Ok(MapToDto(item));
-    }
-
-    [HttpPatch("{id:guid}/status")]
-    public async Task<ApiResponse<TaskItemDto>> UpdateStatus(Guid id, [FromBody] UpdateTaskStatusRequest request, CancellationToken ct)
-    {
-        var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse<TaskItemDto>.Fail("任务不存在");
-
-        item.Status = request.Status;
-        item.Progress = request.Status == 2 ? 100 : item.Progress;
-        item.CompletedAt = request.Status == 2 ? DateTimeOffset.UtcNow : null;
-        item.UpdatedAt = DateTimeOffset.UtcNow;
-
-        await _unitOfWork.TaskItems.UpdateAsync(item, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-        return ApiResponse<TaskItemDto>.Ok(MapToDto(item));
-    }
-
-    [HttpPatch("{id:guid}/progress")]
-    public async Task<ApiResponse<TaskItemDto>> UpdateProgress(Guid id, [FromBody] UpdateTaskProgressRequest request, CancellationToken ct)
-    {
-        var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse<TaskItemDto>.Fail("任务不存在");
-
-        item.Progress = Math.Clamp(request.Progress, 0, 100);
-        if (item.Progress == 100 && item.Status != 2)
-        {
-            item.Status = 2;
-            item.CompletedAt = DateTimeOffset.UtcNow;
-        }
-        else if (item.Progress > 0 && item.Progress < 100 && item.Status == 0)
-        {
-            item.Status = 1;
-        }
-        item.UpdatedAt = DateTimeOffset.UtcNow;
-
-        await _unitOfWork.TaskItems.UpdateAsync(item, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-        return ApiResponse<TaskItemDto>.Ok(MapToDto(item));
+        return ApiResponse<TaskStatsDto>.Ok(stats);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<ApiResponse> Delete(Guid id, CancellationToken ct)
     {
         var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse.Fail("任务不存在");
+        if (item is null) return ApiResponse.Fail("记录不存在");
 
         item.IsDeleted = true;
         item.UpdatedAt = DateTimeOffset.UtcNow;
@@ -133,95 +65,57 @@ public class TaskItemsController : ControllerBase
         return ApiResponse.Ok();
     }
 
-    [HttpGet("stats")]
-    public async Task<ApiResponse<TaskStatsDto>> GetStats(CancellationToken ct)
+    [HttpDelete("completed")]
+    public async Task<ApiResponse> ClearCompleted(CancellationToken ct)
     {
-        var items = await _unitOfWork.TaskItems.GetAllAsync(ct);
-        var stats = new TaskStatsDto
+        var items = await _unitOfWork.TaskItems.FindAsync(t => t.Status == 2, ct);
+        foreach (var item in items)
         {
-            Total = items.Count,
-            Todo = items.Count(t => t.Status == 0),
-            InProgress = items.Count(t => t.Status == 1),
-            Done = items.Count(t => t.Status == 2),
-            Blocked = items.Count(t => t.Status == 3),
-            Overdue = items.Count(t => t.DueDate.HasValue && t.DueDate.Value < DateTimeOffset.UtcNow && t.Status != 2),
-        };
-        return ApiResponse<TaskStatsDto>.Ok(stats);
+            item.IsDeleted = true;
+            item.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.TaskItems.UpdateAsync(item, ct);
+        }
+        await _unitOfWork.SaveChangesAsync(ct);
+        return ApiResponse.Ok();
     }
 
     private static TaskItemDto MapToDto(TaskItem t) => new()
     {
         Id = t.Id,
-        Title = t.Title,
-        Description = t.Description,
+        TaskType = t.TaskType,
+        EntityId = t.EntityId,
+        EntityTitle = t.EntityTitle,
         Status = t.Status,
-        Priority = t.Priority,
-        Progress = t.Progress,
-        DueDate = t.DueDate,
+        ErrorMessage = t.ErrorMessage,
+        StartedAt = t.StartedAt,
         CompletedAt = t.CompletedAt,
-        Tags = t.Tags,
-        SortOrder = t.SortOrder,
         CreatedAt = t.CreatedAt,
-        UpdatedAt = t.UpdatedAt,
+        DurationMs = t.StartedAt.HasValue && t.CompletedAt.HasValue
+            ? (long)(t.CompletedAt.Value - t.StartedAt.Value).TotalMilliseconds
+            : null,
     };
 }
 
 public class TaskItemDto
 {
     public Guid Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
+    public string TaskType { get; set; } = string.Empty;
+    public Guid EntityId { get; set; }
+    public string? EntityTitle { get; set; }
     public int Status { get; set; }
-    public int Priority { get; set; }
-    public int Progress { get; set; }
-    public DateTimeOffset? DueDate { get; set; }
+    public string? ErrorMessage { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
-    public string? Tags { get; set; }
-    public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
-}
-
-public class CreateTaskItemRequest
-{
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public int Status { get; set; }
-    public int Priority { get; set; }
-    public int Progress { get; set; }
-    public DateTimeOffset? DueDate { get; set; }
-    public string? Tags { get; set; }
-    public int SortOrder { get; set; }
-}
-
-public class UpdateTaskItemRequest
-{
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public int Status { get; set; }
-    public int Priority { get; set; }
-    public int Progress { get; set; }
-    public DateTimeOffset? DueDate { get; set; }
-    public string? Tags { get; set; }
-    public int SortOrder { get; set; }
-}
-
-public class UpdateTaskStatusRequest
-{
-    public int Status { get; set; }
-}
-
-public class UpdateTaskProgressRequest
-{
-    public int Progress { get; set; }
+    public long? DurationMs { get; set; }
 }
 
 public class TaskStatsDto
 {
     public int Total { get; set; }
-    public int Todo { get; set; }
-    public int InProgress { get; set; }
-    public int Done { get; set; }
-    public int Blocked { get; set; }
-    public int Overdue { get; set; }
+    public int Queued { get; set; }
+    public int Running { get; set; }
+    public int Completed { get; set; }
+    public int Failed { get; set; }
+    public int RecentFailed { get; set; }
 }

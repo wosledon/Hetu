@@ -698,33 +698,31 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Description")
+                    b.Property<Guid>("EntityId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("DueDate")
+                    b.Property<string>("EntityTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorMessage")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Priority")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Metadata")
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("Progress")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Tags")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
+                    b.Property<string>("TaskType")
                         .IsRequired()
-                        .HasMaxLength(500)
+                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
@@ -735,6 +733,8 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("TaskType");
 
                     b.ToTable("TaskItems");
                 });

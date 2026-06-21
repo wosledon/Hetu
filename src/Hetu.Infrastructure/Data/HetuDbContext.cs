@@ -249,7 +249,9 @@ public class HetuDbContext : DbContext
         modelBuilder.Entity<TaskItem>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityTitle).HasMaxLength(500);
+            entity.HasIndex(e => e.TaskType);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.IsDeleted);
             entity.HasQueryFilter(e => !e.IsDeleted);

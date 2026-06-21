@@ -16,15 +16,14 @@ namespace Hetu.Infrastructure.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: true),
+                    TaskType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    EntityId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    EntityTitle = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    Priority = table.Column<int>(type: "INTEGER", nullable: false),
-                    Progress = table.Column<int>(type: "INTEGER", nullable: false),
-                    DueDate = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "TEXT", nullable: true),
+                    Metadata = table.Column<string>(type: "TEXT", nullable: true),
+                    StartedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
                     CompletedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    Tags = table.Column<string>(type: "TEXT", nullable: true),
-                    SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
                     IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
@@ -43,6 +42,11 @@ namespace Hetu.Infrastructure.Data.Migrations
                 name: "IX_TaskItems_Status",
                 table: "TaskItems",
                 column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TaskItems_TaskType",
+                table: "TaskItems",
+                column: "TaskType");
         }
 
         /// <inheritdoc />

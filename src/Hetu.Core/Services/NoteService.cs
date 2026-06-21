@@ -70,7 +70,7 @@ public class NoteService : INoteService
         await _unitOfWork.Notes.AddAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id), cancellationToken);
+        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
 
         return ApiResponse<NoteDto>.Ok(Map(note));
     }
@@ -104,13 +104,13 @@ public class NoteService : INoteService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 通过 Channel 队列入队后台任务
-        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id), cancellationToken);
+        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
 
         // 按设置决定是否自动提取知识图谱
         var autoExtractSetting = await _unitOfWork.AppSettings.GetByKeyAsync("GraphAutoExtract", cancellationToken);
         if (autoExtractSetting?.Value == "true")
         {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, note.Id), cancellationToken);
+            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, note.Id, note.Title), cancellationToken);
         }
 
         return ApiResponse<NoteDto>.Ok(Map(note));

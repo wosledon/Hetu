@@ -1,4 +1,7 @@
+using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Hetu.Infrastructure.Background;
 
 /// <summary>
-/// 后台任务处理器：从 Channel 消费工作项并执行
+/// 后台任务处理器：从 Channel 消费工作项并执行，同时记录状态到 DB
 /// </summary>
 public class BackgroundTaskProcessor : BackgroundService
 {
@@ -40,18 +43,47 @@ public class BackgroundTaskProcessor : BackgroundService
                 break;
             }
 
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<HetuDbContext>();
+
+            // 创建任务记录
+            var record = new TaskItem
+            {
+                Id = Guid.NewGuid(),
+                TaskType = item.Type.ToString(),
+                EntityId = item.EntityId,
+                EntityTitle = item.Metadata,
+                Status = 1, // Running
+                StartedAt = DateTimeOffset.UtcNow,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            };
+            db.TaskItems.Add(record);
+            await db.SaveChangesAsync(stoppingToken);
+
             try
             {
-                await using var scope = _scopeFactory.CreateAsyncScope();
                 await ProcessItemAsync(item, scope.ServiceProvider, stoppingToken);
+                record.Status = 2; // Completed
+                _logger.LogDebug("后台任务 {TaskType}({EntityId}) 完成", item.Type, item.EntityId);
             }
             catch (OperationCanceledException)
             {
+                record.Status = 3; // Failed
+                record.ErrorMessage = "任务被取消";
                 _logger.LogWarning("后台任务 {TaskType}({EntityId}) 被取消", item.Type, item.EntityId);
             }
             catch (Exception ex)
             {
+                record.Status = 3; // Failed
+                record.ErrorMessage = ex.Message;
                 _logger.LogError(ex, "后台任务 {TaskType}({EntityId}) 执行失败", item.Type, item.EntityId);
+            }
+            finally
+            {
+                record.CompletedAt = DateTimeOffset.UtcNow;
+                record.UpdatedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(stoppingToken);
             }
         }
 
@@ -65,16 +97,13 @@ public class BackgroundTaskProcessor : BackgroundService
             case BackgroundTaskType.GenerateEmbedding:
                 var embeddingService = sp.GetRequiredService<INoteEmbeddingService>();
                 await embeddingService.GenerateEmbeddingAsync(item.EntityId);
-                _logger.LogDebug("笔记 {NoteId} Embedding 生成完成", item.EntityId);
                 break;
 
             case BackgroundTaskType.GraphExtract:
                 var graphService = sp.GetRequiredService<IGraphService>();
                 var result = await graphService.ExtractFromNoteAsync(item.EntityId, ct);
-                if (result.Success)
-                    _logger.LogDebug("笔记 {NoteId} 图谱提取完成", item.EntityId);
-                else
-                    _logger.LogWarning("笔记 {NoteId} 图谱提取失败: {Error}", item.EntityId, result.Error);
+                if (!result.Success)
+                    throw new InvalidOperationException(result.Error);
                 break;
 
             default:
