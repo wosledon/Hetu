@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, Loader2 } from 'lucide-react'
+import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -68,6 +68,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamDeepThinking, setStreamDeepThinking] = useState(false)
   const [streamWebSearch, setStreamWebSearch] = useState(false)
   const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
+  const [streamMemory, setStreamMemory] = useState(false)
   const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
@@ -92,6 +93,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [deepThinking, setDeepThinking] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [knowledgeBase, setKnowledgeBase] = useState(false)
+  const [memory, setMemory] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState('')
@@ -262,6 +264,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamDeepThinking(deepThinking)
     setStreamWebSearch(webSearch)
     setStreamKnowledgeBase(knowledgeBase)
+    setStreamMemory(memory)
     setStreamingKnowledgeResults([])
 
     // Convert attached files to base64
@@ -306,6 +309,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         deepThinking,
         webSearch,
         knowledgeBase,
+        memory,
         images: images.length > 0 ? images : undefined,
       })
       await readSseStream(response, (data) => {
@@ -1123,6 +1127,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               >
                 <Database size={14} />
                 知识库
+              </button>
+
+              {/* Memory toggle */}
+              <button
+                onClick={() => setMemory(!memory)}
+                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                  memory
+                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="记忆"
+              >
+                <Atom size={14} />
+                记忆
               </button>
             </div>
 

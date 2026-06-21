@@ -37,6 +37,7 @@ export interface SendMessageRequest {
   deepThinking?: boolean;
   webSearch?: boolean;
   knowledgeBase?: boolean;
+  memory?: boolean;
   images?: { data: string; mimeType: string; fileName?: string }[];
 }
 
