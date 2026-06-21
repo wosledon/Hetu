@@ -139,6 +139,7 @@ public class OpenAiLlmProvider : ILLMProvider
 
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
         if (options.MaxTokens.HasValue) body["max_tokens"] = options.MaxTokens.Value;
+        if (!string.IsNullOrWhiteSpace(options.ReasoningEffort)) body["reasoning_effort"] = options.ReasoningEffort;
 
         return body;
     }

@@ -159,6 +159,20 @@ public class AnthropicLlmProvider : ILLMProvider
         if (!string.IsNullOrWhiteSpace(systemPrompt)) body["system"] = systemPrompt;
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
 
+        // Extended thinking: map reasoning effort to budget_tokens
+        if (!string.IsNullOrWhiteSpace(options.ReasoningEffort))
+        {
+            var budget = options.ReasoningEffort switch
+            {
+                "low" => 2048,
+                "high" => 32768,
+                _ => 8192 // medium
+            };
+            body["thinking"] = new { type = "enabled", budget_tokens = budget };
+            // thinking requires streaming
+            if (!stream) body["stream"] = true;
+        }
+
         return body;
     }
 

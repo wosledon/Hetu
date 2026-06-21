@@ -223,8 +223,11 @@ public class ChatMessagesController : ControllerBase
                 var thinkPrefix = string.IsNullOrEmpty(options.SystemPrompt) ? "" : options.SystemPrompt + "\n\n";
                 options.SystemPrompt = thinkPrefix + "请在回答前先进行深度思考，展示你的推理过程。使用 <thinking> 标签包裹你的思考过程，然后给出最终回答。";
             }
-            // Native mode: the provider handles reasoning natively (o1/Claude)
-            // reasoning_effort is passed to the provider if supported
+            else if (reasoningMode == "native")
+            {
+                // Native mode: pass reasoning_effort to provider
+                options.ReasoningEffort = effort;
+            }
         }
 
         var contentSb = new StringBuilder();

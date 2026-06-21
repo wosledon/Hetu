@@ -27,6 +27,10 @@ public class ChatOptions
     public double? Temperature { get; set; }
     public int? MaxTokens { get; set; }
     public bool Stream { get; set; }
+    /// <summary>
+    /// 推理强度（native 模式）：low / medium / high
+    /// </summary>
+    public string? ReasoningEffort { get; set; }
 }
 
 public class CompletionOptions
