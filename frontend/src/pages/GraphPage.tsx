@@ -45,6 +45,15 @@ const RELATION_LABELS: Record<string, string> = {
   custom: '自定义',
 }
 
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  concept: '概念',
+  person: '人物',
+  organization: '组织',
+  technology: '技术',
+  project: '项目',
+  custom: '自定义',
+}
+
 const ENTITY_ICONS: Record<string, React.ElementType> = {
   concept: Lightbulb,
   technology: Code,
@@ -672,7 +681,7 @@ export default function GraphPage() {
             <div className="flex flex-wrap gap-3">
               {Object.entries(ENTITY_COLORS).slice(0, 5).map(([type, color]) => (
                 <span key={type} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">
-                  <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }} />{type}
+                  <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }} />{ENTITY_TYPE_LABELS[type] || type}
                 </span>
               ))}
             </div>
@@ -737,7 +746,7 @@ export default function GraphPage() {
           <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2></div>
           <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder="搜索实体..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <option value="all">全部类型</option>{entityTypes.map(type => <option key={type} value={type}>{type}</option>)}
+            <option value="all">全部类型</option>{entityTypes.map(type => <option key={type} value={type}>{ENTITY_TYPE_LABELS[type] || type}</option>)}
           </select>
         </div>
         <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 p-4 dark:border-gray-800 dark:from-indigo-950/20 dark:to-purple-950/20">
@@ -757,7 +766,7 @@ export default function GraphPage() {
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm" style={{ backgroundColor: `${color}15` }}><EntityIcon size={16} style={{ color }} /></div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2"><h3 className={`truncate text-sm ${selectedEntityId === entity.id ? 'font-medium text-indigo-700 dark:text-indigo-200' : 'font-medium text-gray-800 dark:text-gray-100'}`}>{entity.name}</h3><span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{entity.relationCount}</span></div>
-                    <span className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]" style={{ backgroundColor: `${color}15`, color }}>{entity.type}</span>
+                    <span className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]" style={{ backgroundColor: `${color}15`, color }}>{ENTITY_TYPE_LABELS[entity.type] || entity.type}</span>
                     {entity.description && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{entity.description}</p>}
                   </div>
                 </div>
@@ -768,7 +777,7 @@ export default function GraphPage() {
         {selectedEntityId && entityDetail && (
           <div className="max-h-64 overflow-y-auto border-t border-gray-100 p-4 dark:border-gray-800">
             <div className="mb-3 flex items-center justify-between"><h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{entityDetail.name}</h3><button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"><Trash2 size={14} /></button></div>
-            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{entityDetail.type}</span>
+            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{ENTITY_TYPE_LABELS[entityDetail.type] || entityDetail.type}</span>
             {entityDetail.description && <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{entityDetail.description}</p>}
             {entityDetail.relations.length > 0 && (
               <div className="mt-3"><h4 className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">关系</h4><div className="space-y-1">{entityDetail.relations.map(rel => (
