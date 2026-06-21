@@ -102,7 +102,37 @@ public class AnthropicLlmProvider : ILLMProvider
     {
         var requestMessages = messages
             .Where(m => m.Role is "user" or "assistant")
-            .Select(m => new AnthropicMessage { Role = m.Role, Content = m.Content })
+            .Select(m =>
+            {
+                if (m.ContentParts != null && m.ContentParts.Count > 0)
+                {
+                    // Multimodal: use content blocks array
+                    var contentBlocks = new List<object>();
+                    foreach (var part in m.ContentParts)
+                    {
+                        if (part.Type == "text" && part.Text != null)
+                        {
+                            contentBlocks.Add(new { type = "text", text = part.Text });
+                        }
+                        else if (part.Type == "image_url" && part.ImageUrl != null)
+                        {
+                            // Anthropic uses base64 image source format
+                            contentBlocks.Add(new
+                            {
+                                type = "image",
+                                source = new
+                                {
+                                    type = "base64",
+                                    media_type = part.MediaType ?? "image/png",
+                                    data = part.ImageUrl // base64 data without data: prefix
+                                }
+                            });
+                        }
+                    }
+                    return new AnthropicMessage { Role = m.Role, ContentBlocks = contentBlocks };
+                }
+                return new AnthropicMessage { Role = m.Role, Content = m.Content };
+            })
             .ToList();
 
         return (systemPrompt, requestMessages);
@@ -110,10 +140,18 @@ public class AnthropicLlmProvider : ILLMProvider
 
     private object CreateMessagesRequest(List<AnthropicMessage> messages, bool stream, ChatOptions options, string? systemPrompt)
     {
+        // Convert messages to the correct serialization format
+        var formattedMessages = messages.Select(m =>
+        {
+            if (m.ContentBlocks != null && m.ContentBlocks.Count > 0)
+                return new { role = m.Role, content = (object)m.ContentBlocks };
+            return new { role = m.Role, content = (object)(m.Content ?? string.Empty) };
+        }).ToList();
+
         var body = new Dictionary<string, object>
         {
             ["model"] = string.IsNullOrWhiteSpace(options.ModelId) ? _modelId : options.ModelId,
-            ["messages"] = messages,
+            ["messages"] = formattedMessages,
             ["max_tokens"] = options.MaxTokens ?? 2048,
             ["stream"] = stream
         };
@@ -145,7 +183,11 @@ public class AnthropicLlmProvider : ILLMProvider
     private class AnthropicMessage
     {
         public string Role { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
+        public string? Content { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        public List<object>? ContentBlocks { get; set; }
+        // When ContentBlocks is set, use it as "content" (array); otherwise use Content (string)
+        // This is handled by a custom converter or by using the right property at serialization
     }
 
     private class AnthropicMessageResponse

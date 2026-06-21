@@ -84,6 +84,17 @@ public class SendMessageRequest
     public string Content { get; set; } = string.Empty;
     public bool DeepThinking { get; set; }
     public bool WebSearch { get; set; }
+    /// <summary>
+    /// 图片附件列表（base64 编码的图片数据 + MIME 类型）
+    /// </summary>
+    public List<ImageAttachment>? Images { get; set; }
+}
+
+public class ImageAttachment
+{
+    public string Data { get; set; } = string.Empty;
+    public string MimeType { get; set; } = "image/png";
+    public string? FileName { get; set; }
 }
 
 public class WebSearchResultDto

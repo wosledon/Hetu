@@ -104,6 +104,42 @@ public class ChatMessagesController : ControllerBase
             Content = m.Content
         }).ToList();
 
+        // If images are attached, convert the last user message to multimodal format
+        if (request.Images != null && request.Images.Count > 0)
+        {
+            var lastUserIdx = chatMessages.FindLastIndex(m => m.Role == "user");
+            if (lastUserIdx >= 0)
+            {
+                var parts = new List<LlmContentPart>();
+                var existingContent = chatMessages[lastUserIdx].Content;
+                if (!string.IsNullOrWhiteSpace(existingContent))
+                    parts.Add(new LlmContentPart { Type = "text", Text = existingContent });
+
+                foreach (var img in request.Images)
+                {
+                    if (provider.ProviderType == "anthropic")
+                    {
+                        // Anthropic: strip data URI prefix, use base64 directly
+                        var base64 = img.Data.Contains(',') ? img.Data[(img.Data.IndexOf(',') + 1)..] : img.Data;
+                        parts.Add(new LlmContentPart { Type = "image_url", ImageUrl = base64, MediaType = img.MimeType });
+                    }
+                    else
+                    {
+                        // OpenAI-compatible: use data URI format
+                        var dataUri = img.Data.StartsWith("data:") ? img.Data : $"data:{img.MimeType};base64,{img.Data}";
+                        parts.Add(new LlmContentPart { Type = "image_url", ImageUrl = dataUri });
+                    }
+                }
+
+                chatMessages[lastUserIdx] = new LlmChatMessage
+                {
+                    Role = "user",
+                    Content = existingContent,
+                    ContentParts = parts
+                };
+            }
+        }
+
         var options = new ChatOptions
         {
             ModelId = modelId?.ToString() ?? string.Empty,

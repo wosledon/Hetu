@@ -2,10 +2,22 @@
 
 namespace Hetu.Core.Interfaces;
 
+public class LlmContentPart
+{
+    public string Type { get; set; } = "text";
+    public string? Text { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? MediaType { get; set; }
+}
+
 public class LlmChatMessage
 {
     public string Role { get; set; } = "user";
     public string Content { get; set; } = string.Empty;
+    /// <summary>
+    /// 多模态内容（文本 + 图片）。当有图片时，LLM Provider 会使用此字段而非 Content。
+    /// </summary>
+    public List<LlmContentPart>? ContentParts { get; set; }
 }
 
 public class ChatOptions
@@ -27,6 +39,7 @@ public class CompletionOptions
 
 public interface ILLMProvider
 {
+    string ProviderType { get; }
     bool SupportsStreaming { get; }
     Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);
     IAsyncEnumerable<string> ChatStreamAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);

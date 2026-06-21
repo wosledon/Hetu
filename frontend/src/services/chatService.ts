@@ -38,6 +38,7 @@ export interface SendMessageRequest {
   content: string;
   deepThinking?: boolean;
   webSearch?: boolean;
+  images?: { data: string; mimeType: string; fileName?: string }[];
 }
 
 export interface IWebSearchResult {

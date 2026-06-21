@@ -107,7 +107,27 @@ public class OpenAiLlmProvider : ILLMProvider
         }
         foreach (var message in messages)
         {
-            requestMessages.Add(new { role = message.Role, content = message.Content });
+            if (message.ContentParts != null && message.ContentParts.Count > 0)
+            {
+                // Multimodal: use content parts array
+                var parts = new List<object>();
+                foreach (var part in message.ContentParts)
+                {
+                    if (part.Type == "text" && part.Text != null)
+                    {
+                        parts.Add(new { type = "text", text = part.Text });
+                    }
+                    else if (part.Type == "image_url" && part.ImageUrl != null)
+                    {
+                        parts.Add(new { type = "image_url", image_url = new { url = part.ImageUrl } });
+                    }
+                }
+                requestMessages.Add(new { role = message.Role, content = parts });
+            }
+            else
+            {
+                requestMessages.Add(new { role = message.Role, content = message.Content });
+            }
         }
 
         var body = new Dictionary<string, object>

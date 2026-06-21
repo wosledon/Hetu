@@ -169,6 +169,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
   }
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
   const readSseStream = async (response: Response, onData: (data: string) => void): Promise<boolean> => {
     if (!response.body) return false
     const reader = response.body.getReader()
@@ -198,7 +206,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const handleSend = async () => {
-    if (!topic || !input.trim() || isStreaming) return
+    if (!topic || (!input.trim() && attachedFiles.length === 0) || isStreaming) return
 
     const content = input.trim()
     setInput('')
@@ -209,6 +217,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setPendingUserMessage(content)
     setStreamDeepThinking(deepThinking)
     setStreamWebSearch(webSearch)
+
+    // Convert attached files to base64
+    const images: { data: string; mimeType: string; fileName?: string }[] = []
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        if (file.type.startsWith('image/')) {
+          const base64 = await fileToBase64(file)
+          images.push({ data: base64, mimeType: file.type, fileName: file.name })
+        }
+      }
+    }
+    setAttachedFiles([])
 
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     if (skillMatch) {
@@ -239,6 +259,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         content,
         deepThinking,
         webSearch,
+        images: images.length > 0 ? images : undefined,
       })
       await readSseStream(response, (data) => {
         if (data.startsWith('[ERROR]')) {
@@ -353,7 +374,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    setAttachedFiles(prev => [...prev, ...Array.from(files)])
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'))
+    setAttachedFiles(prev => [...prev, ...imageFiles])
     e.target.value = ''
   }
 
@@ -932,7 +954,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               }
             }}
             onPaste={handlePaste}
-            placeholder={attachedFiles.length > 0 ? `已附加 ${attachedFiles.length} 个文件，输入消息...` : "输入消息，Enter 发送..."}
+            placeholder={attachedFiles.length > 0 ? `已附加 ${attachedFiles.length} 张图片，输入消息...` : "输入消息，Enter 发送..."}
             rows={2}
             className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
@@ -941,15 +963,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
             {/* Left tools */}
             <div className="flex items-center gap-0.5">
-              {/* Attach file */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                title="附加文件"
-              >
-                <Plus size={16} />
-              </button>
-              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+              {/* Attach file (only for vision-capable models) */}
+              {currentModel?.supportsVision && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title="附加图片"
+                >
+                  <Plus size={16} />
+                </button>
+              )}
+              <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
               {/* Agent selector */}
               <div className="relative" ref={agentPickerRef}>
