@@ -559,6 +559,67 @@ public class GraphService : IGraphService
         UpdatedAt = entity.UpdatedAt
     };
 
+    public async Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default)
+    {
+        // 1. 找到该笔记提取的所有关系（包括已软删除的）
+        var noteRelations = await _unitOfWork.GraphRelations
+            .FindAsync(r => r.SourceNoteId == noteId, cancellationToken);
+
+        if (noteRelations.Count == 0) return;
+
+        // 2. 软删除这些关系
+        foreach (var rel in noteRelations)
+        {
+            rel.IsDeleted = true;
+            rel.DeletedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.GraphRelations.UpdateAsync(rel, cancellationToken);
+        }
+
+        // 3. 收集涉及的实体 ID，检查是否变成孤立实体
+        var involvedEntityIds = new HashSet<Guid>();
+        foreach (var rel in noteRelations)
+        {
+            involvedEntityIds.Add(rel.SourceEntityId);
+            involvedEntityIds.Add(rel.TargetEntityId);
+        }
+
+        foreach (var entityId in involvedEntityIds)
+        {
+            var remainingRelations = await _unitOfWork.GraphRelations
+                .FindAsync(r => !r.IsDeleted && (r.SourceEntityId == entityId || r.TargetEntityId == entityId), cancellationToken);
+
+            if (remainingRelations.Count == 0)
+            {
+                var entity = await _unitOfWork.GraphEntities.GetByIdAsync(entityId, cancellationToken);
+                if (entity != null)
+                    await _unitOfWork.GraphEntities.DeleteAsync(entity, cancellationToken);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
+    }
+
+    public async Task RestoreByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default)
+    {
+        // 1. 找到该笔记被软删除的关系（忽略查询过滤器）
+        var noteRelations = await _unitOfWork.GraphRelations
+            .FindIgnoreQueryFilterAsync(r => r.SourceNoteId == noteId && r.IsDeleted, cancellationToken);
+
+        if (noteRelations.Count == 0) return;
+
+        // 2. 恢复这些关系
+        foreach (var rel in noteRelations)
+        {
+            rel.IsDeleted = false;
+            rel.DeletedAt = null;
+            await _unitOfWork.GraphRelations.UpdateAsync(rel, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        InvalidateGraphCache();
+    }
+
     private class ExtractionResult
     {
         public List<ExtractedEntity> Entities { get; set; } = [];

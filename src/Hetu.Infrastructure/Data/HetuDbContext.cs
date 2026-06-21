@@ -236,6 +236,8 @@ public class HetuDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.SourceEntityId);
             entity.HasIndex(e => e.TargetEntityId);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
         modelBuilder.Entity<ShareLink>(entity =>

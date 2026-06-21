@@ -32,6 +32,12 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
         return result;
     }
 
+    public virtual async Task<IReadOnlyList<T>> FindIgnoreQueryFilterAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        var result = await DbSet.IgnoreQueryFilters().AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
+        return result;
+    }
+
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await DbSet.AddAsync(entity, cancellationToken);

@@ -18,4 +18,6 @@ public interface IGraphService
     Task<ApiResponse> MergeEntitiesAsync(MergeGraphEntitiesRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<string>>> GetEntityTypesAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default);
+    Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default);
+    Task RestoreByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default);
 }

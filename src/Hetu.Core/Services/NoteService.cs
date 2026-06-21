@@ -10,12 +10,14 @@ public class NoteService : INoteService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly IGraphService _graphService;
     private readonly ILogger<NoteService> _logger;
 
-    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskQueue taskQueue, ILogger<NoteService> logger)
+    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskQueue taskQueue, IGraphService graphService, ILogger<NoteService> logger)
     {
         _unitOfWork = unitOfWork;
         _taskQueue = taskQueue;
+        _graphService = graphService;
         _logger = logger;
     }
 
@@ -122,6 +124,9 @@ public class NoteService : INoteService
         if (note == null) return ApiResponse.Fail("笔记不存在");
         if (note.IsDeleted) return ApiResponse.Fail("笔记已在回收站");
 
+        // 移入回收站时清理关联的知识图谱数据
+        await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
+
         await _unitOfWork.Notes.SoftDeleteAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -133,6 +138,9 @@ public class NoteService : INoteService
         if (note == null) return ApiResponse.Fail("笔记不存在");
         if (!note.IsDeleted) return ApiResponse.Fail("笔记未删除");
 
+        // 恢复该笔记关联的知识图谱数据
+        await _graphService.RestoreByNoteIdAsync(id, cancellationToken);
+
         await _unitOfWork.Notes.RestoreAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -142,6 +150,9 @@ public class NoteService : INoteService
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
         if (note == null) return ApiResponse.Fail("笔记不存在");
+
+        // 先清理该笔记关联的知识图谱数据
+        await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
 
         await _unitOfWork.Notes.HardDeleteAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

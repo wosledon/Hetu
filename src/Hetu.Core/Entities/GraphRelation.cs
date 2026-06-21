@@ -13,4 +13,7 @@ public class GraphRelation : BaseEntity
     public double Confidence { get; set; } = 1.0;
 
     public Guid? SourceNoteId { get; set; }
+
+    public bool IsDeleted { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 }
