@@ -6,6 +6,7 @@ export interface CreatePromptPresetRequest {
   name: string;
   content: string;
   variables?: string;
+  toolsConfig?: string;
 }
 
 export interface UpdatePromptPresetRequest extends CreatePromptPresetRequest {

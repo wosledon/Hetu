@@ -1,6 +1,7 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
 using Hetu.Infrastructure.AI;
 using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
@@ -106,6 +107,7 @@ builder.Services.AddScoped<IGraphService, GraphService>();
 builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
 builder.Services.AddScoped<IWebSearchService, BingWebSearchService>();
 builder.Services.AddScoped<IMemoryService, MemoryService>();
+builder.Services.AddToolExecutors();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDataProtection();

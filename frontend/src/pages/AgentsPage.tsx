@@ -12,6 +12,16 @@ import {
   Sparkles,
   Trash2,
   X,
+  BookOpen,
+  Globe,
+  Brain,
+  Network,
+  PenLine,
+  FileEdit,
+  Save,
+  HelpCircle,
+  ClipboardList,
+  Zap,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { promptPresetService } from '../services/promptPresetService'
@@ -30,6 +40,45 @@ const CATEGORY_COLORS: Record<string, string> = {
 const getCategoryColor = (category: string) =>
   CATEGORY_COLORS[category] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
 
+const TOOL_ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  search_notes: Search,
+  read_note: BookOpen,
+  search_web: Globe,
+  search_memory: Brain,
+  search_graph: Network,
+  create_note: PenLine,
+  update_note: FileEdit,
+  create_memory: Save,
+  ask_question: HelpCircle,
+  todo: ClipboardList,
+  run_command: Zap,
+}
+
+const renderToolIcon = (name: string, className = 'text-gray-500') => {
+  const Icon = TOOL_ICON_MAP[name]
+  return Icon ? <Icon size={14} className={className} /> : <Sparkles size={14} className={className} />
+}
+
+const AVAILABLE_TOOLS = [
+  { name: 'search_notes', label: '搜索笔记', category: '检索' },
+  { name: 'read_note', label: '读取笔记', category: '检索' },
+  { name: 'search_web', label: '网络搜索', category: '检索' },
+  { name: 'search_memory', label: '搜索记忆', category: '检索' },
+  { name: 'search_graph', label: '搜索图谱', category: '检索' },
+  { name: 'create_note', label: '创建笔记', category: '写入' },
+  { name: 'update_note', label: '更新笔记', category: '写入' },
+  { name: 'create_memory', label: '保存记忆', category: '写入' },
+  { name: 'ask_question', label: '向用户提问', category: '交互' },
+  { name: 'todo', label: '任务管理', category: '交互' },
+  { name: 'run_command', label: '执行命令', category: '执行' },
+] as const
+
+const TOOL_APPROVAL_LABELS: Record<string, string> = {
+  bypass: '静默',
+  auto: '自动',
+  ask: '询问',
+}
+
 export default function AgentsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -37,6 +86,8 @@ export default function AgentsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ category: '', name: '', content: '' })
+  const [enabledTools, setEnabledTools] = useState<string[]>(AVAILABLE_TOOLS.map(t => t.name))
+  const [toolApprovals, setToolApprovals] = useState<Record<string, string>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: presets = [] } = useQuery({
@@ -45,7 +96,7 @@ export default function AgentsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: { category: string; name: string; content: string }) =>
+    mutationFn: (data: { category: string; name: string; content: string; toolsConfig: string }) =>
       promptPresetService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promptPresets'] })
@@ -54,7 +105,7 @@ export default function AgentsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { category: string; name: string; content: string; sortOrder: number } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { category: string; name: string; content: string; sortOrder: number; toolsConfig: string } }) =>
       promptPresetService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promptPresets'] })
@@ -87,17 +138,30 @@ export default function AgentsPage() {
     })
   }, [presets, search, activeCategory])
 
-  const openCreateForm = () => { setEditingId(null); setForm({ category: '自定义', name: '', content: '' }); setShowForm(true) }
-  const openEditForm = (preset: IPromptPreset) => { setEditingId(preset.id); setForm({ category: preset.category, name: preset.name, content: preset.content }); setShowForm(true) }
-  const closeForm = () => { setShowForm(false); setEditingId(null); setForm({ category: '', name: '', content: '' }) }
+  const openCreateForm = () => { setEditingId(null); setForm({ category: '自定义', name: '', content: '' }); setEnabledTools(AVAILABLE_TOOLS.map(t => t.name)); setToolApprovals({}); setShowForm(true) }
+  const openEditForm = (preset: IPromptPreset) => {
+    setEditingId(preset.id)
+    setForm({ category: preset.category, name: preset.name, content: preset.content })
+    try {
+      const config = preset.toolsConfig ? JSON.parse(preset.toolsConfig) : {}
+      setEnabledTools(config.tools || AVAILABLE_TOOLS.map(t => t.name))
+      setToolApprovals(config.toolApprovals || {})
+    } catch {
+      setEnabledTools(AVAILABLE_TOOLS.map(t => t.name))
+      setToolApprovals({})
+    }
+    setShowForm(true)
+  }
+  const closeForm = () => { setShowForm(false); setEditingId(null); setForm({ category: '', name: '', content: '' }); setEnabledTools(AVAILABLE_TOOLS.map(t => t.name)); setToolApprovals({}) }
 
   const handleSave = () => {
     if (!form.name.trim() || !form.content.trim()) return
+    const toolsConfigJson = JSON.stringify({ tools: enabledTools, toolApprovals })
     if (editingId) {
       const preset = presets.find(p => p.id === editingId)
-      updateMutation.mutate({ id: editingId, data: { ...form, sortOrder: preset?.sortOrder ?? 0 } })
+      updateMutation.mutate({ id: editingId, data: { ...form, sortOrder: preset?.sortOrder ?? 0, toolsConfig: toolsConfigJson } })
     } else {
-      createMutation.mutate(form)
+      createMutation.mutate({ ...form, toolsConfig: toolsConfigJson })
     }
   }
 
@@ -203,6 +267,18 @@ export default function AgentsPage() {
                     </div>
                   </div>
                   <p className="mb-3 line-clamp-3 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{preset.content}</p>
+                  {(() => {
+                    try {
+                      const config = preset.toolsConfig ? JSON.parse(preset.toolsConfig) : {}
+                      const toolCount = config.tools?.length ?? AVAILABLE_TOOLS.length
+                      return toolCount > 0 ? (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+                          <span>⚡</span>
+                          <span>{toolCount} 个工具</span>
+                        </div>
+                      ) : null
+                    } catch { return null }
+                  })()}
                   {!preset.isBuiltIn && (
                     <div className="flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-gray-700">
                       <button onClick={() => openEditForm(preset)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> 编辑</button>
@@ -245,6 +321,56 @@ export default function AgentsPage() {
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System Prompt</label>
                 <textarea placeholder="定义智能体的角色和行为规则..." value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="h-48 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
                 <p className="mt-1 text-[10px] text-gray-400">定义智能体的角色、能力和行为准则。对话时将作为系统提示词使用。</p>
+              </div>
+              {/* Tool Configuration */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">可用工具</label>
+                <div className="space-y-1.5 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                  {Object.entries(
+                    AVAILABLE_TOOLS.reduce((acc, tool) => {
+                      (acc[tool.category] ??= []).push(tool)
+                      return acc
+                    }, {} as Record<string, typeof AVAILABLE_TOOLS[number][]>)
+                  ).map(([category, tools]) => (
+                    <div key={category}>
+                      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{category}</div>
+                      <div className="space-y-1">
+                        {tools.map(tool => {
+                          const isEnabled = enabledTools.includes(tool.name)
+                          const approval = toolApprovals[tool.name] || 'auto'
+                          return (
+                            <div key={tool.name} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-white dark:hover:bg-gray-700/50">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setEnabledTools(prev => [...prev, tool.name])
+                                    else setEnabledTools(prev => prev.filter(n => n !== tool.name))
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-xs">{renderToolIcon(tool.name)}</span>
+                                <span className="text-xs text-gray-700 dark:text-gray-300">{tool.label}</span>
+                              </label>
+                              {isEnabled && (
+                                <select
+                                  value={approval}
+                                  onChange={(e) => setToolApprovals(prev => ({ ...prev, [tool.name]: e.target.value }))}
+                                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                >
+                                  <option value="bypass">静默</option>
+                                  <option value="auto">自动</option>
+                                  <option value="ask">询问</option>
+                                </select>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">

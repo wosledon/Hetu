@@ -141,6 +141,8 @@ export interface IPromptPreset {
   name: string;
   content: string;
   variables?: string;
+  /** JSON: { variables: string[], tools: string[], toolApprovals: Record<string, string> } */
+  toolsConfig?: string;
   isBuiltIn: boolean;
   sortOrder: number;
   createdAt: string;

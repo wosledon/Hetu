@@ -42,6 +42,16 @@ export interface SendMessageRequest {
   memory?: boolean;
   presetSystemPrompt?: string;
   images?: { data: string; mimeType: string; fileName?: string }[];
+  /** 前端 /skill 选择的 Skill 名称 */
+  skillName?: string;
+  /** 前端选择的 Agent/PromptPreset ID */
+  agentId?: string;
+  /** 用户手动启用的工具名列表 */
+  enabledTools?: string[];
+  /** 用户/Agent 级别的工具审批模式覆盖 */
+  toolApprovalOverrides?: Record<string, string>;
+  /** 是否启用工具调用（Agent Loop） */
+  enableTools?: boolean;
 }
 
 export interface IWebSearchResult {

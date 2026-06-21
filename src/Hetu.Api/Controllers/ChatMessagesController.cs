@@ -1,10 +1,13 @@
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Text;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace Hetu.Api.Controllers;
 
@@ -12,6 +15,8 @@ namespace Hetu.Api.Controllers;
 [Route("api/chat-messages")]
 public class ChatMessagesController : ControllerBase
 {
+    // Pending ask_question requests: key = toolCallId, value = TCS that Agent Loop is waiting on
+    private static readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingQuestions = new();
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
@@ -19,6 +24,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ToolRegistry _toolRegistry;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -27,7 +33,8 @@ public class ChatMessagesController : ControllerBase
         IWebSearchService webSearchService,
         ISemanticSearchService semanticSearchService,
         IMemoryService memoryService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ToolRegistry toolRegistry)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -36,6 +43,7 @@ public class ChatMessagesController : ControllerBase
         _semanticSearchService = semanticSearchService;
         _memoryService = memoryService;
         _unitOfWork = unitOfWork;
+        _toolRegistry = toolRegistry;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -58,12 +66,27 @@ public class ChatMessagesController : ControllerBase
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _chatMessageService.DeleteAsync(id, cancellationToken);
 
+    [HttpPost("answer")]
+    public async Task<ApiResponse> SubmitAnswer([FromBody] AnswerRequest request, CancellationToken cancellationToken)
+    {
+        if (_pendingQuestions.TryRemove(request.ToolCallId, out var tcs))
+        {
+            tcs.TrySetResult(request.Answer);
+            return ApiResponse.Ok();
+        }
+        return ApiResponse.Fail("未找到对应的提问请求");
+    }
+
     [HttpPost("topic/{topicId:guid}/stream")]
     public async Task Stream(Guid topicId, [FromBody] SendMessageRequest request, CancellationToken cancellationToken = default)
     {
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Connection = "keep-alive";
+
+        Log.Debug("[Stream] Request received: content={Content}, enableTools={EnableTools}, toolCount={ToolCount}, modelId={ModelId}",
+            request.Content?.Length > 50 ? request.Content[..50] + "..." : request.Content,
+            request.EnableTools, request.EnabledTools?.Count ?? 0, request.ModelId);
 
         async Task WriteEventAsync(string data)
         {
@@ -338,138 +361,478 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        try
+        // === Agent Loop Configuration ===
+        var useToolCalling = request.EnableTools;
+        List<LlmToolDefinition>? toolDefinitions = null;
+        Dictionary<string, ToolApprovalMode> approvalOverrides = new();
+
+        if (useToolCalling)
         {
-            // State machine for parsing <thinking>...</thinking> tags in stream
-            var rawSb = new StringBuilder();
-            var inThinking = false;
-            var thinkTagBuffer = "";
+            toolDefinitions = _toolRegistry.ToToolDefinitions(request.EnabledTools);
+            if (request.ToolApprovalOverrides != null)
+            {
+                foreach (var kv in request.ToolApprovalOverrides)
+                {
+                    if (Enum.TryParse<ToolApprovalMode>(kv.Value, true, out var mode))
+                        approvalOverrides[kv.Key] = mode;
+                }
+            }
+            options.Tools = toolDefinitions;
+            options.ToolChoice = "auto";
+            Log.Debug("[AgentLoop] Tools configured: {ToolCount} tools, names={ToolNames}",
+                toolDefinitions.Count,
+                string.Join(", ", toolDefinitions.Select(t => t.Name)));
+        }
+        else
+        {
+            Log.Debug("[AgentLoop] Tool calling disabled");
+        }
+
+        const int maxAgentIterations = 15;
+        var agentIteration = 0;
+
+        // Per-stream todo list so the todo tool can resolve ids and report state back to the LLM
+        var sessionTodos = new List<SessionTodo>();
+
+        // Agent Loop: iterate LLM calls when tool_calls are returned
+        while (agentIteration < maxAgentIterations)
+        {
+            agentIteration++;
+            var iterLog = $"[AgentLoop] Iteration {agentIteration}, useToolCalling={useToolCalling}, tools={toolDefinitions?.Count ?? 0}";
+            await WriteEventAsync($"{{\"type\":\"debug\",\"text\":{System.Text.Json.JsonSerializer.Serialize(iterLog)}}}");
+
+            // Per-iteration state (don't clear contentSb/thinkingSb — accumulate across iterations)
+            var iterationContentSb = new StringBuilder();
+            var iterationThinkingSb = new StringBuilder();
+
+            List<LlmToolCall>? pendingToolCalls = null;
             var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
-            async Task EmitChunkAsync(string type, string text)
+            try
             {
-                var chunk = System.Text.Json.JsonSerializer.Serialize(new { type, text }, jsonOptions);
-                await Response.WriteAsync($"data: {chunk}\n\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
-                if (type == "thinking") thinkingSb.Append(text);
-            }
+                // State machine for parsing <thinking>...</thinking> tags in stream
+                var rawSb = new StringBuilder();
+                var inThinking = false;
+                var thinkTagBuffer = "";
 
-            await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
-            {
-                // Try to parse as structured JSON (from providers that support native thinking)
-                bool parsedAsStructured = false;
-                try
+                async Task EmitChunkAsync(string type, string text)
                 {
-                    using var doc = System.Text.Json.JsonDocument.Parse(delta);
-                    if (doc.RootElement.TryGetProperty("type", out var typeEl))
-                    {
-                        var typeStr = typeEl.GetString();
-                        var text = doc.RootElement.TryGetProperty("text", out var textEl) ? textEl.GetString() ?? "" : "";
-                        await EmitChunkAsync(typeStr ?? "content", text);
-                        if (typeStr == "content") contentSb.Append(text);
-                        parsedAsStructured = true;
-                    }
+                    var chunk = System.Text.Json.JsonSerializer.Serialize(new { type, text }, jsonOptions);
+                    await Response.WriteAsync($"data: {chunk}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                    if (type == "thinking") iterationThinkingSb.Append(text);
+                    if (type == "content") iterationContentSb.Append(text);
                 }
-                catch { /* not JSON, proceed with tag parsing */ }
 
-                if (parsedAsStructured) continue;
-
-                // Raw text from provider — parse <thinking> tags
-                rawSb.Append(delta);
-                var raw = delta;
-
-                while (raw.Length > 0)
+                await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
                 {
-                    if (!inThinking)
+                    // Try to parse as structured JSON (from providers that support native thinking)
+                    bool parsedAsStructured = false;
+                    try
                     {
-                        // Look for opening <thinking> tag
-                        var openIdx = raw.IndexOf("<thinking>", StringComparison.OrdinalIgnoreCase);
-                        if (openIdx >= 0)
+                        using var doc = System.Text.Json.JsonDocument.Parse(delta);
+                        if (doc.RootElement.TryGetProperty("type", out var typeEl))
                         {
-                            // Emit content before the tag
-                            if (openIdx > 0)
+                            var typeStr = typeEl.GetString();
+                            var text = doc.RootElement.TryGetProperty("text", out var textEl) ? textEl.GetString() ?? "" : "";
+                            if (typeStr == "tool_calls")
                             {
-                                var before = raw[..openIdx];
-                                await EmitChunkAsync("content", before);
-                                contentSb.Append(before);
-                            }
-                            inThinking = true;
-                            raw = raw[(openIdx + "<thinking>".Length)..];
-                            // Emit a thinking start marker
-                            await EmitChunkAsync("thinking", "");
-                        }
-                        else
-                        {
-                            // No tag found — check if partial tag at end
-                            var partialTag = false;
-                            for (int k = 1; k < raw.Length && k <= "<thinking>".Length; k++)
-                            {
-                                if ("<thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
+                                // Capture tool calls from provider (camelCase from provider)
+                                if (doc.RootElement.TryGetProperty("toolCalls", out var tcArray))
                                 {
-                                    // Buffer partial tag
-                                    thinkTagBuffer = raw[^k..];
-                                    if (k < raw.Length)
+                                    var tcOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+                                    pendingToolCalls = System.Text.Json.JsonSerializer.Deserialize<List<LlmToolCall>>(tcArray.GetRawText(), tcOptions);
+                                }
+                            }
+                            else
+                            {
+                                await EmitChunkAsync(typeStr ?? "content", text);
+                            }
+                            parsedAsStructured = true;
+                        }
+                    }
+                    catch { /* not JSON, proceed with tag parsing */ }
+
+                    if (parsedAsStructured) continue;
+
+                    // Raw text from provider — parse <thinking> tags
+                    rawSb.Append(delta);
+                    var raw = delta;
+
+                    while (raw.Length > 0)
+                    {
+                        if (!inThinking)
+                        {
+                            // Look for opening <thinking> tag
+                            var openIdx = raw.IndexOf("<thinking>", StringComparison.OrdinalIgnoreCase);
+                            if (openIdx >= 0)
+                            {
+                                // Emit content before the tag
+                                if (openIdx > 0)
+                                {
+                                    var before = raw[..openIdx];
+                                    await EmitChunkAsync("content", before);
+                                }
+                                inThinking = true;
+                                raw = raw[(openIdx + "<thinking>".Length)..];
+                                // Emit a thinking start marker
+                                await EmitChunkAsync("thinking", "");
+                            }
+                            else
+                            {
+                                // No tag found — check if partial tag at end
+                                var partialTag = false;
+                                for (int k = 1; k < raw.Length && k <= "<thinking>".Length; k++)
+                                {
+                                    if ("<thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
                                     {
-                                        var before = raw[..^k];
-                                        await EmitChunkAsync("content", before);
-                                        contentSb.Append(before);
+                                        // Buffer partial tag
+                                        thinkTagBuffer = raw[^k..];
+                                        if (k < raw.Length)
+                                        {
+                                            var before = raw[..^k];
+                                            await EmitChunkAsync("content", before);
+                                        }
+                                        partialTag = true;
+                                        break;
                                     }
-                                    partialTag = true;
-                                    break;
                                 }
+                                if (!partialTag)
+                                {
+                                    await EmitChunkAsync("content", raw);
+                                }
+                                raw = "";
                             }
-                            if (!partialTag)
-                            {
-                                await EmitChunkAsync("content", raw);
-                                contentSb.Append(raw);
-                            }
-                            raw = "";
-                        }
-                    }
-                    else
-                    {
-                        // Inside thinking — look for closing </thinking> tag
-                        var closeIdx = raw.IndexOf("</thinking>", StringComparison.OrdinalIgnoreCase);
-                        if (closeIdx >= 0)
-                        {
-                            var thinkingText = raw[..closeIdx];
-                            if (!string.IsNullOrEmpty(thinkingText))
-                                await EmitChunkAsync("thinking", thinkingText);
-                            inThinking = false;
-                            raw = raw[(closeIdx + "</thinking>".Length)..];
                         }
                         else
                         {
-                            // Check partial closing tag at end
-                            var partialTag = false;
-                            for (int k = 1; k < raw.Length && k <= "</thinking>".Length; k++)
+                            // Inside thinking — look for closing </thinking> tag
+                            var closeIdx = raw.IndexOf("</thinking>", StringComparison.OrdinalIgnoreCase);
+                            if (closeIdx >= 0)
                             {
-                                if ("</thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
+                                var thinkingText = raw[..closeIdx];
+                                if (!string.IsNullOrEmpty(thinkingText))
+                                    await EmitChunkAsync("thinking", thinkingText);
+                                inThinking = false;
+                                raw = raw[(closeIdx + "</thinking>".Length)..];
+                            }
+                            else
+                            {
+                                // Check partial closing tag at end
+                                var partialTag = false;
+                                for (int k = 1; k < raw.Length && k <= "</thinking>".Length; k++)
                                 {
-                                    if (k < raw.Length)
-                                        await EmitChunkAsync("thinking", raw[..^k]);
-                                    thinkTagBuffer = raw[^k..];
-                                    partialTag = true;
-                                    break;
+                                    if ("</thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        if (k < raw.Length)
+                                            await EmitChunkAsync("thinking", raw[..^k]);
+                                        thinkTagBuffer = raw[^k..];
+                                        partialTag = true;
+                                        break;
+                                    }
                                 }
+                                if (!partialTag)
+                                {
+                                    await EmitChunkAsync("thinking", raw);
+                                }
+                                raw = "";
                             }
-                            if (!partialTag)
-                            {
-                                await EmitChunkAsync("thinking", raw);
-                            }
-                            raw = "";
                         }
                     }
                 }
             }
-        }
-        catch (HttpRequestException ex)
-        {
-            await WriteEventAsync($"[ERROR] 调用模型失败：{ex.Message}");
-            return;
+            catch (HttpRequestException ex)
+            {
+                Log.Warning("[AgentLoop] Iter {Iter}: HttpRequestException: {Msg}", agentIteration, ex.Message);
+                // If this was a tool call iteration that failed, strip tool messages and retry without tools
+                if (pendingToolCalls is { Count: > 0 } && agentIteration > 1)
+                {
+                    Log.Warning("[AgentLoop] Tool call iteration failed, stripping tool messages and saving content");
+                    // Remove the tool-related messages we added
+                    while (chatMessages.Count > 0 && chatMessages[^1].Role is "tool" or "assistant")
+                    {
+                        var last = chatMessages[^1];
+                        if (last.Role == "tool" || (last.Role == "assistant" && last.ToolCalls is { Count: > 0 }))
+                            chatMessages.RemoveAt(chatMessages.Count - 1);
+                        else break;
+                    }
+                    // Merge content from the successful first iteration
+                    // (iterationContentSb is from the failed iteration, so don't merge it)
+                }
+                else
+                {
+                    contentSb.Append(iterationContentSb);
+                    thinkingSb.Append(iterationThinkingSb);
+                }
+                await WriteEventAsync($"[ERROR] 调用模型失败：{ex.Message}");
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                contentSb.Append(iterationContentSb);
+                thinkingSb.Append(iterationThinkingSb);
+                await WriteEventAsync("[ERROR] 请求超时或被取消");
+                break;
+            }
+            catch (Exception ex)
+            {
+                contentSb.Append(iterationContentSb);
+                thinkingSb.Append(iterationThinkingSb);
+                await WriteEventAsync($"[ERROR] Agent Loop 异常：{ex.Message}");
+                break;
+            }
+
+            // Check for tool calls after stream completes
+            var debugTcCount = pendingToolCalls?.Count ?? 0;
+            Log.Debug("[AgentLoop] Iter {Iter}: Stream done. pendingToolCalls={TcCount}, iterationContent={Len}chars, useToolCalling={Use}", agentIteration, debugTcCount, iterationContentSb.Length, useToolCalling);
+            await WriteEventAsync($"{{\"type\":\"debug\",\"text\":{System.Text.Json.JsonSerializer.Serialize($"[AgentLoop] Stream done. pendingToolCalls={debugTcCount}, iterationContent={iterationContentSb.Length}chars, useToolCalling={useToolCalling}")}}}");
+
+            if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
+            {
+                Log.Debug("[AgentLoop] No tool calls, breaking loop");
+                // No tool calls — normal completion, merge and break
+                contentSb.Append(iterationContentSb);
+                thinkingSb.Append(iterationThinkingSb);
+                break;
+            }
+
+            // Merge iteration buffers into main buffers
+            contentSb.Append(iterationContentSb);
+            thinkingSb.Append(iterationThinkingSb);
+
+            // === Execute tool calls ===
+            // Add assistant message with tool_calls to history (use iteration content only)
+            chatMessages.Add(new LlmChatMessage
+            {
+                Role = "assistant",
+                Content = iterationContentSb.ToString(),
+                ToolCalls = pendingToolCalls
+            });
+
+            foreach (var toolCall in pendingToolCalls)
+            {
+                // Emit tool_call event to frontend
+                bool isSilentTool = toolCall.Name is "todo";
+                var tcEvent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    type = "tool_call",
+                    id = toolCall.Id,
+                    name = toolCall.Name,
+                    arguments = toolCall.Arguments,
+                    hidden = isSilentTool
+                }, jsonOptions);
+                await Response.WriteAsync($"data: {tcEvent}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
+                // Check approval mode
+                var executor = _toolRegistry.GetExecutor(toolCall.Name);
+                var approval = approvalOverrides.GetValueOrDefault(toolCall.Name,
+                    approvalOverrides.GetValueOrDefault("*",
+                        executor?.DefaultApproval ?? ToolApprovalMode.Auto));
+
+                string toolResultContent;
+                bool toolResultIsError = false;
+
+                if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
+                {
+                    // For Ask mode (except ask_question itself), emit approval request
+                    // For now, auto-approve (frontend will add confirmation UI later)
+                    // TODO: implement proper approval flow with TaskCompletionSource
+                    var approvalReqEvent = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        type = "approval_request",
+                        id = toolCall.Id,
+                        name = toolCall.Name,
+                        arguments = toolCall.Arguments
+                    }, jsonOptions);
+                    await Response.WriteAsync($"data: {approvalReqEvent}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                }
+
+                // Execute the tool
+                if (executor != null)
+                {
+                    try
+                    {
+                        // Special handling for ask_question: emit question event and wait for answer
+                        if (toolCall.Name == "ask_question")
+                        {
+                            // Parse the question data and emit as question event
+                            var questionEvent = System.Text.Json.JsonSerializer.Serialize(new
+                            {
+                                type = "question",
+                                toolCallId = toolCall.Id,
+                                data = toolCall.Arguments
+                            }, jsonOptions);
+                            await Response.WriteAsync($"data: {questionEvent}\n\n", cancellationToken);
+                            await Response.Body.FlushAsync(cancellationToken);
+
+                            // Wait for user answer via TaskCompletionSource
+                            var tcs = new TaskCompletionSource<string>();
+                            _pendingQuestions[toolCall.Id] = tcs;
+
+                            try
+                            {
+                                toolResultContent = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+                            }
+                            catch (TimeoutException)
+                            {
+                                toolResultContent = "用户未在规定时间内回答，跳过此问题。";
+                            }
+                            finally
+                            {
+                                _pendingQuestions.TryRemove(toolCall.Id, out _);
+                            }
+                        }
+                        // Special handling for todo: maintain state and emit structured event
+                        else if (toolCall.Name == "todo")
+                        {
+                            // Parse todo arguments
+                            string todoAction = "list";
+                            string todoId = "";
+                            string todoTitle = "";
+                            string todoDescription = "";
+                            string todoStatus = "";
+
+                            try
+                            {
+                                using var todoDoc = System.Text.Json.JsonDocument.Parse(toolCall.Arguments);
+                                var todoRoot = todoDoc.RootElement;
+                                if (todoRoot.TryGetProperty("action", out var actionEl))
+                                    todoAction = actionEl.GetString() ?? "list";
+                                if (todoRoot.TryGetProperty("id", out var idEl) && idEl.ValueKind == System.Text.Json.JsonValueKind.String)
+                                    todoId = idEl.GetString() ?? "";
+                                if (todoRoot.TryGetProperty("title", out var titleEl))
+                                    todoTitle = titleEl.GetString() ?? "";
+                                if (todoRoot.TryGetProperty("description", out var descEl))
+                                    todoDescription = descEl.GetString() ?? "";
+                                if (todoRoot.TryGetProperty("status", out var statusEl))
+                                    todoStatus = statusEl.GetString() ?? "";
+                            }
+                            catch
+                            {
+                                // Ignore parse errors — treat as list
+                            }
+
+                            // Apply action to session state
+                            if (todoAction == "create" && !string.IsNullOrEmpty(todoTitle))
+                            {
+                                if (string.IsNullOrEmpty(todoId))
+                                    todoId = $"step-{sessionTodos.Count + 1}";
+                                if (string.IsNullOrEmpty(todoStatus))
+                                    todoStatus = "not-started";
+                                // Avoid duplicate ids
+                                if (!sessionTodos.Any(t => t.Id == todoId))
+                                {
+                                    sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
+                                }
+                            }
+                            else if (todoAction == "update" && !string.IsNullOrEmpty(todoId))
+                            {
+                                var existing = sessionTodos.FirstOrDefault(t => t.Id == todoId);
+                                if (existing != null && !string.IsNullOrEmpty(todoStatus))
+                                    existing.Status = todoStatus;
+                            }
+                            else if (todoAction == "complete" && !string.IsNullOrEmpty(todoId))
+                            {
+                                var existing = sessionTodos.FirstOrDefault(t => t.Id == todoId);
+                                if (existing != null)
+                                {
+                                    existing.Status = "completed";
+                                    todoStatus = "completed";
+                                }
+                            }
+
+                            // Emit structured todo event (frontend uses resolved id)
+                            var todoEvent = System.Text.Json.JsonSerializer.Serialize(new
+                            {
+                                type = "todo",
+                                data = new
+                                {
+                                    action = todoAction,
+                                    id = todoId,
+                                    title = todoTitle,
+                                    description = todoDescription,
+                                    status = todoStatus,
+                                }
+                            }, jsonOptions);
+                            await Response.WriteAsync($"data: {todoEvent}\n\n", cancellationToken);
+                            await Response.Body.FlushAsync(cancellationToken);
+
+                            // Build tool result with current todo list so the LLM knows ids + status
+                            if (sessionTodos.Count == 0)
+                            {
+                                toolResultContent = "当前工作计划为空。使用 action=create 创建步骤。";
+                            }
+                            else
+                            {
+                                var todoSb = new StringBuilder();
+                                todoSb.AppendLine($"当前工作计划（共 {sessionTodos.Count} 个步骤）：");
+                                foreach (var t in sessionTodos)
+                                {
+                                    var statusMark = t.Status switch
+                                    {
+                                        "completed" => "[已完成]",
+                                        "in-progress" => "[进行中]",
+                                        _ => "[未开始]"
+                                    };
+                                    todoSb.AppendLine($"  - id={t.Id} {statusMark} {t.Title}");
+                                }
+                                toolResultContent = todoSb.ToString();
+                            }
+                        }
+                        else
+                        {
+                            var result = await executor.ExecuteAsync(toolCall.Arguments, cancellationToken);
+                            toolResultContent = result.Content;
+                            toolResultIsError = result.IsError;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        toolResultContent = $"工具执行失败: {ex.Message}";
+                        toolResultIsError = true;
+                    }
+                }
+                else
+                {
+                    toolResultContent = $"未找到工具: {toolCall.Name}";
+                    toolResultIsError = true;
+                }
+
+                // Emit tool_result event
+                var trEvent = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    type = "tool_result",
+                    name = toolCall.Name,
+                    content = toolResultContent,
+                    isError = toolResultIsError,
+                    collapsed = approval == ToolApprovalMode.Bypass,
+                    hidden = isSilentTool
+                }, jsonOptions);
+                await Response.WriteAsync($"data: {trEvent}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+
+                // Add tool result to message history
+                chatMessages.Add(new LlmChatMessage
+                {
+                    Role = "tool",
+                    ToolCallId = toolCall.Id,
+                    Content = toolResultContent
+                });
+            }
+
+            // Continue the while loop — LLM will see tool results and respond
         }
 
-        await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, cancellationToken);
+        // Save the final assistant message (from last iteration)
+        // Skip saving when the LLM only invoked tools (e.g. todo) without producing any text —
+        // otherwise an empty assistant bubble would appear in the UI.
+        var finalContent = contentSb.ToString().Trim();
+        if (!string.IsNullOrEmpty(finalContent))
+        {
+            await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, cancellationToken);
+        }
 
         // 记忆自动提取：当记忆功能开启时，每 N 条用户消息自动提取一次
         if (request.Memory)
@@ -484,4 +847,15 @@ public class ChatMessagesController : ControllerBase
             }
         }
     }
+}
+
+/// <summary>
+/// Per-stream todo item tracked by the Agent Loop so the todo tool can return
+/// the actual state (with resolved ids) back to the LLM.
+/// </summary>
+internal class SessionTodo
+{
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Status { get; set; } = "not-started";
 }

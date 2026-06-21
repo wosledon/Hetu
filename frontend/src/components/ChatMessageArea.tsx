@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom } from 'lucide-react'
+import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleDashed, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -71,6 +71,26 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamMemory, setStreamMemory] = useState(false)
   const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
   const [streamingMemoryResults, setStreamingMemoryResults] = useState<Array<{ id: string; content: string; category?: string; score?: number }>>([])
+  const [streamingToolCalls, setStreamingToolCalls] = useState<{id: string; name: string; arguments: string}[]>([])
+  const [streamingToolResults, setStreamingToolResults] = useState<{name: string; content: string; isError?: boolean; collapsed?: boolean}[]>([])
+  const [streamingQuestions, setStreamingQuestions] = useState<Array<{
+    id: string
+    toolCallId: string
+    header: string
+    question: string
+    options?: Array<{ label: string; description?: string }>
+    allowCustom?: boolean
+    answered: boolean
+    answer?: string
+  }>>([])
+  const [streamingTodos, setStreamingTodos] = useState<Array<{
+    id: string
+    title: string
+    description?: string
+    status: 'not-started' | 'in-progress' | 'completed'
+  }>>([])
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -96,11 +116,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showReasoningPicker, setShowReasoningPicker] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [knowledgeBase, setKnowledgeBase] = useState(false)
+  const [toolCalling, setToolCalling] = useState(true)
+  const [toolApprovalMode, setToolApprovalMode] = useState<'auto' | 'ask' | 'bypass'>('ask')
+  const [showApprovalPicker, setShowApprovalPicker] = useState(false)
+  const approvalPickerRef = useRef<HTMLDivElement>(null)
   const [memory, setMemory] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState('')
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0)
+  const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
+  const slashMenuRef = useRef<HTMLDivElement>(null)
+  const slashItemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -125,6 +153,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     queryFn: () => skillService.getAll(),
   })
 
+  const { data: localSkills = [] } = useQuery({
+    queryKey: ['localSkills'],
+    queryFn: () => skillService.getLocalSkills(),
+  })
+
   const { data: presets = [] } = useQuery({
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
@@ -135,9 +168,50 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     queryFn: () => aiModelService.getAll(),
   })
 
+  // Slash command menu items (db skills + local skills + agents)
+  const slashItems = useMemo(() => {
+    const items: { key: string; label: string; description: string; icon: React.ReactNode; type: 'skill' | 'agent' }[] = []
+    const seenNames = new Set<string>()
+    for (const s of skills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
+      if (s.isEnabled && !seenNames.has(s.name)) {
+        seenNames.add(s.name)
+        items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description || '', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
+      }
+    }
+    for (const s of localSkills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
+      if (s.isEnabled && !seenNames.has(s.name)) {
+        seenNames.add(s.name)
+        items.push({ key: `local:${s.name}`, label: `/${s.name}`, description: s.description || '', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
+      }
+    }
+    for (const p of presets as Array<{ id: string; name: string; category: string }>) {
+      items.push({ key: `agent:${p.id}`, label: `/${p.name}`, description: p.category, icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
+    }
+    return items
+  }, [skills, localSkills, presets])
+
+  const slashQuery = input.startsWith('/') && !input.includes(' ') ? input.slice(1).toLowerCase() : ''
+  const showSlashMenu = !selectedSlashItem && slashQuery.length >= 0 && input.startsWith('/') && !input.includes(' ') && !isStreaming && slashItems.length > 0
+  const filteredSlashItems = useMemo(() => {
+    if (!showSlashMenu) return []
+    if (!slashQuery) return slashItems
+    return slashItems.filter(item =>
+      item.label.toLowerCase().includes(slashQuery) || item.description.toLowerCase().includes(slashQuery)
+    )
+  }, [showSlashMenu, slashQuery, slashItems])
+
+  // Reset slash menu index when items change, and auto-scroll selected item into view
+  useEffect(() => {
+    setSlashMenuIndex(0)
+  }, [filteredSlashItems.length])
+
+  useEffect(() => {
+    slashItemRefs.current[slashMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [slashMenuIndex])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pendingUserMessage, streamingContent, streamingThinking, isOrganizing, organizeResult])
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, streamingQuestions, streamingTodos, isOrganizing, organizeResult])
 
   // Auto-scroll thinking block to bottom as thinking content streams in
   useEffect(() => {
@@ -179,10 +253,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showReasoningPicker && reasoningPickerRef.current && !reasoningPickerRef.current.contains(target)) {
         setShowReasoningPicker(false)
       }
+      if (showApprovalPicker && approvalPickerRef.current && !approvalPickerRef.current.contains(target)) {
+        setShowApprovalPicker(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -218,6 +295,37 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     setCopiedMessageId(messageId)
     window.setTimeout(() => setCopiedMessageId(null), 1500)
+  }
+
+  const submitAllAnswers = async () => {
+    const toolCallId = streamingQuestions[0]?.toolCallId || ''
+    const allAnswered = streamingQuestions.every(q => questionAnswers[q.id])
+    if (!allAnswered) return
+
+    // Build combined answer JSON
+    const combined = streamingQuestions.map(q => ({
+      id: q.id,
+      question: q.question,
+      answer: questionAnswers[q.id],
+    }))
+
+    // Mark as answered and clear state — do not render answers in the UI
+    setStreamingQuestions(prev => prev.map(q => ({
+      ...q,
+      answered: true,
+    })))
+    setQuestionAnswers({})
+    setCurrentQuestionIndex(0)
+
+    try {
+      await fetch('/api/chat-messages/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolCallId, answer: JSON.stringify(combined) }),
+      })
+    } catch (e) {
+      console.error('Failed to submit answers:', e)
+    }
   }
 
   const applyPreset = (preset: IPromptPreset) => {
@@ -272,10 +380,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const handleSend = async () => {
-    if (!topic || (!input.trim() && attachedFiles.length === 0) || isStreaming) return
+    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0) || isStreaming) return
 
-    const content = input.trim()
+    // Combine selected slash chip with input
+    const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
+    const content = (slashPrefix + input.trim()).trim()
     setInput('')
+    setSelectedSlashItem(null)
     setIsStreaming(true)
     setStreamingContent('')
     setStreamingThinking('')
@@ -287,6 +398,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamMemory(memory)
     setStreamingKnowledgeResults([])
     setStreamingMemoryResults([])
+    setStreamingToolCalls([])
+    setStreamingToolResults([])
+    setStreamingQuestions([])
+    setStreamingTodos([])
+    setQuestionAnswers({})
+    setCurrentQuestionIndex(0)
 
     // Convert attached files to base64
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -300,27 +417,25 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     setAttachedFiles([])
 
+    // Detect /skill command
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
+    let detectedSkillName: string | undefined
+    let detectedAgentId: string | undefined
     if (skillMatch) {
-      const skillName = skillMatch[1]
-      const skillInput = skillMatch[2] || ''
-      const skill = skills.find((s) => s.name === skillName && s.isEnabled)
-
+      const name = skillMatch[1]
+      // Check if it's a skill
+      const skill = skills.find((s) => s.name === name && s.isEnabled)
       if (skill) {
-        try {
-          await chatMessageService.send(topic.id, { content })
-          const result = await skillService.invoke(skillName, { input: skillInput })
-          await chatMessageService.send(topic.id, { content: result })
-          queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
-        } catch (error) {
-          console.error('Skill error:', error)
-          setStreamingContent('Skill 调用失败，请检查模型配置。')
-          setTimeout(() => setStreamingContent(''), 3000)
-        } finally {
-          setIsStreaming(false)
-          setPendingUserMessage(null)
+        detectedSkillName = name
+      }
+      // Check if it's an agent/preset (by name match)
+      const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
+      if (preset) {
+        detectedAgentId = preset.id
+        // Apply preset system prompt
+        if (!selectedPreset) {
+          // Could auto-select the preset, but for now just pass the ID
         }
-        return
       }
     }
 
@@ -335,6 +450,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         memory,
         presetSystemPrompt: selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
+        skillName: detectedSkillName,
+        agentId: detectedAgentId || selectedPreset?.id,
+        enableTools: toolCalling,
+        toolApprovalOverrides: toolApprovalMode !== 'auto' ? { '*': toolApprovalMode } : undefined,
       })
       await readSseStream(response, (data) => {
         if (data.startsWith('[ERROR]')) {
@@ -354,6 +473,54 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             setStreamingKnowledgeResults(chunk.results || [])
           } else if (chunk.type === 'memory_results') {
             setStreamingMemoryResults(chunk.results || [])
+          } else if (chunk.type === 'tool_call') {
+            if (!chunk.hidden) {
+              setStreamingToolCalls(prev => [...prev, { id: chunk.id, name: chunk.name, arguments: chunk.arguments }])
+            }
+          } else if (chunk.type === 'tool_result') {
+            if (!chunk.hidden) {
+              setStreamingToolResults(prev => [...prev, { name: chunk.name, content: chunk.content, isError: chunk.isError, collapsed: chunk.collapsed }])
+            }
+          } else if (chunk.type === 'approval_request') {
+            // For now, auto-approve. In the future, show a confirmation UI.
+            console.log('Approval request:', chunk.name, chunk.arguments)
+          } else if (chunk.type === 'question') {
+            try {
+              const questionData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
+              if (questionData?.questions) {
+                const newQuestions = questionData.questions.map((q: any, i: number) => ({
+                  id: `${chunk.toolCallId || 'q'}_${i}`,
+                  toolCallId: chunk.toolCallId || '',
+                  header: q.header || '问题',
+                  question: q.question || '',
+                  options: q.options,
+                  allowCustom: q.allowCustom !== false,
+                  answered: false,
+                  answer: undefined,
+                }))
+                setStreamingQuestions(prev => [...prev, ...newQuestions])
+              }
+            } catch {}
+          } else if (chunk.type === 'todo') {
+            try {
+              const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
+              if (todoData?.action === 'create' && todoData?.title) {
+                setStreamingTodos(prev => [...prev, {
+                  id: todoData.id || `t${prev.length + 1}`,
+                  title: todoData.title,
+                  description: todoData.description,
+                  status: todoData.status || 'not-started',
+                }])
+              } else if (todoData?.action === 'update' && todoData?.id) {
+                setStreamingTodos(prev => prev.map(t =>
+                  t.id === todoData.id ? { ...t, status: todoData.status || t.status } : t
+                ))
+              } else if (todoData?.action === 'complete' && todoData?.id) {
+                setStreamingTodos(prev => prev.map(t =>
+                  t.id === todoData.id ? { ...t, status: 'completed' } : t
+                ))
+              }
+            } catch {}
           }
         } catch {
           // Fallback: treat as plain text (backward compat)
@@ -844,7 +1011,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
@@ -854,6 +1021,30 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
+                {/* Tool calls and results during streaming */}
+                {streamingToolCalls.length > 0 && (
+                  <div className="mb-2 space-y-1">
+                    {streamingToolCalls.map((tc, i) => {
+                      const result = streamingToolResults.find(r => r.name === tc.name)
+                      return (
+                        <div key={tc.id || i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={12} className={result ? 'text-green-500' : 'text-blue-500 animate-spin'} />
+                            <span className="font-medium text-gray-700 dark:text-gray-300">{tc.name}</span>
+                          </div>
+                          {result && !result.collapsed && (
+                            <div className={`mt-1.5 rounded-md px-2.5 py-1.5 text-xs ${result.isError ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
+                              <pre className="whitespace-pre-wrap break-words font-mono text-[11px]">{result.content.length > 500 ? result.content.slice(0, 500) + '...' : result.content}</pre>
+                            </div>
+                          )}
+                          {!result && (
+                            <div className="mt-1 text-[11px] text-gray-400">执行中...</div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
                 {/* Thinking block - show whenever thinking content exists */}
                 {streamingThinking && (
                   <div className="mb-3">
@@ -979,6 +1170,145 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
           </div>
         )}
+        {/* Todo progress panel - fixed above input */}
+        {streamingTodos.length > 0 && (
+          <div className="mb-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500">
+              <ClipboardList size={14} /> 工作计划
+            </div>
+            <div className="space-y-1.5">
+              {streamingTodos.map((t) => (
+                <div key={t.id} className="flex items-center gap-2 text-xs">
+                  {t.status === 'completed' ? (
+                    <CircleCheckBig size={14} className="text-green-500" />
+                  ) : t.status === 'in-progress' ? (
+                    <Loader2 size={14} className="animate-spin text-blue-500" />
+                  ) : (
+                    <Circle size={14} className="text-gray-300" />
+                  )}
+                  <span className={
+                    t.status === 'completed'
+                      ? 'text-gray-400 line-through'
+                      : t.status === 'in-progress'
+                        ? 'font-medium text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400'
+                  }>
+                    {t.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Ask question panel - sequential one-at-a-time mode */}
+        {streamingQuestions.filter(q => !q.answered).length > 0 && (() => {
+          const total = streamingQuestions.length
+          const idx = Math.min(currentQuestionIndex, total - 1)
+          const q = streamingQuestions[idx]
+          if (!q) return null
+          const currentAnswer = questionAnswers[q.id]
+          const hasAnswer = !!currentAnswer
+          const answeredCount = streamingQuestions.filter(qq => questionAnswers[qq.id]).length
+          const allAnswered = streamingQuestions.every(qq => questionAnswers[qq.id])
+          const isFirst = idx === 0
+          const isLast = idx === total - 1
+          return (
+            <div className="mb-2 rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm dark:border-blue-800 dark:bg-blue-900/20">
+              {/* Header: step indicator + answered markers */}
+              <div className="mb-3 flex items-center gap-2">
+                <HelpCircle size={16} className="text-blue-500" />
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">{q.header}</span>
+                <span className="ml-auto text-[11px] text-gray-400">
+                  {idx + 1} / {total}
+                </span>
+                {hasAnswer && (
+                  <CircleCheckBig size={14} className="text-green-500" />
+                )}
+              </div>
+
+              {/* Question text */}
+              <p className="mb-3 text-sm text-gray-700 dark:text-gray-300">{q.question}</p>
+
+              {/* Options */}
+              {q.options && q.options.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {q.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setQuestionAnswers(prev => ({ ...prev, [q.id]: opt.label }))
+                      }}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        currentAnswer === opt.label
+                          ? 'border-blue-500 bg-blue-500 text-white'
+                          : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-blue-900/30'
+                      }`}
+                    >
+                      {opt.label}
+                      {opt.description && <span className="ml-1 text-gray-400">— {opt.description}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Custom input — do not reveal previous answer content when navigating back */}
+              {q.allowCustom !== false && (
+                <input
+                  type="text"
+                  placeholder={hasAnswer && q.options?.some(o => o.label === currentAnswer) ? '或输入自定义回答...' : '输入回答...'}
+                  value={q.options?.some(o => o.label === currentAnswer) ? '' : (currentAnswer || '')}
+                  onChange={(e) => {
+                    setQuestionAnswers(prev => ({ ...prev, [q.id]: e.target.value }))
+                  }}
+                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-blue-400 dark:border-blue-700 dark:bg-gray-800"
+                />
+              )}
+
+              {/* Navigation */}
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentQuestionIndex(i => Math.max(0, i - 1))}
+                    disabled={isFirst}
+                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      isFirst
+                        ? 'text-gray-300 cursor-not-allowed dark:text-gray-600'
+                        : 'text-blue-600 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-900/30'
+                    }`}
+                  >
+                    <ChevronLeft size={14} /> 上一题
+                  </button>
+                  {!isLast && (
+                    <button
+                      onClick={() => setCurrentQuestionIndex(i => Math.min(total - 1, i + 1))}
+                      className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600"
+                    >
+                      下一题 <ChevronRight size={14} />
+                    </button>
+                  )}
+                  {isLast && (
+                    <button
+                      onClick={submitAllAnswers}
+                      disabled={!allAnswered}
+                      className={`flex items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${
+                        allAnswered
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                      }`}
+                    >
+                      提交
+                    </button>
+                  )}
+                </div>
+                <span className="text-[11px] text-gray-400">
+                  已回答 {answeredCount} / {total} 题
+                </span>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Attached files */}
         {attachedFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
@@ -993,20 +1323,120 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Input area */}
-        <div className="rounded-xl border border-gray-200 bg-white transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-blue-500">
+        <div className="relative rounded-xl border border-gray-200 bg-white transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-blue-500">
+          {/* Slash command menu */}
+          {showSlashMenu && filteredSlashItems.length > 0 && (
+            <div
+              ref={slashMenuRef}
+              className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                输入 / 选择技能或智能体
+              </div>
+              {filteredSlashItems.map((item, i) => (
+                <button
+                  key={item.key}
+                  ref={el => { slashItemRefs.current[i] = el }}
+                  onClick={() => {
+                    setSelectedSlashItem({ label: item.label, icon: item.icon, type: item.type, description: item.description })
+                    setInput('')
+                    textareaRef.current?.focus()
+                  }}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
+                    i === slashMenuIndex
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium">{item.label}</div>
+                    <div className="truncate text-[11px] text-gray-400">{item.description}</div>
+                  </div>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+                    item.type === 'skill'
+                      ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'
+                      : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                  }`}>
+                    {item.type === 'skill' ? '技能' : '智能体'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Selected slash command chip */}
+          {selectedSlashItem && (
+            <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-0.5">
+              <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${
+                selectedSlashItem.type === 'skill'
+                  ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}>
+                <span>{selectedSlashItem.icon}</span>
+                <span>{selectedSlashItem.label}</span>
+                <button
+                  onClick={() => setSelectedSlashItem(null)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            </div>
+          )}
           {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
+              if (showSlashMenu && filteredSlashItems.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setSlashMenuIndex(i => (i + 1) % filteredSlashItems.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setSlashMenuIndex(i => (i - 1 + filteredSlashItems.length) % filteredSlashItems.length)
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  const selected = filteredSlashItems[slashMenuIndex]
+                  if (selected) {
+                    setSelectedSlashItem({ label: selected.label, icon: selected.icon, type: selected.type, description: selected.description })
+                    setInput('')
+                  }
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setInput('')
+                  return
+                }
+                if (e.key === 'Tab') {
+                  e.preventDefault()
+                  const selected = filteredSlashItems[slashMenuIndex]
+                  if (selected) {
+                    setSelectedSlashItem({ label: selected.label, icon: selected.icon, type: selected.type, description: selected.description })
+                    setInput('')
+                  }
+                  return
+                }
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 handleSend()
               }
             }}
             onPaste={handlePaste}
-            placeholder={attachedFiles.length > 0 ? `已附加 ${attachedFiles.length} 张图片，输入消息...` : "输入消息，Enter 发送..."}
+            placeholder={
+              selectedSlashItem
+                ? (selectedSlashItem.description || '输入内容...')
+                : attachedFiles.length > 0
+                  ? `已附加 ${attachedFiles.length} 张图片，输入消息...`
+                  : "输入消息，Enter 发送，/ 选择技能..."
+            }
             rows={2}
             className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
@@ -1100,6 +1530,63 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+
+              {/* Tool calling toggle + approval picker */}
+              <div className="relative flex items-center" ref={approvalPickerRef}>
+                {toolCalling && (
+                  <button
+                    onClick={() => setShowApprovalPicker(!showApprovalPicker)}
+                    className={`flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[10px] font-medium transition-colors ${
+                      toolApprovalMode === 'ask'
+                        ? 'text-blue-500'
+                        : toolApprovalMode === 'bypass'
+                          ? 'text-red-500'
+                          : 'text-amber-500'
+                    } hover:bg-gray-100 dark:hover:bg-gray-700`}
+                    title="审批模式"
+                  >
+                    {toolApprovalMode === 'ask' ? '询问' : toolApprovalMode === 'bypass' ? '静默' : '自动'}
+                    <ChevronDown size={10} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setToolCalling(!toolCalling)}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    toolCalling
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                  }`}
+                  title="工具调用"
+                >
+                  <Zap size={14} />
+                  工具
+                </button>
+                {showApprovalPicker && (
+                  <div className="absolute bottom-full left-0 z-50 mb-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">审批模式</div>
+                    {([
+                      { value: 'auto', label: '自动执行', desc: '工具自动运行，结果正常展示', color: 'text-amber-600 dark:text-amber-400' },
+                      { value: 'ask', label: '询问确认', desc: '执行前暂停等待确认', color: 'text-blue-600 dark:text-blue-400' },
+                      { value: 'bypass', label: '静默执行', desc: '工具自动运行，结果折叠', color: 'text-red-600 dark:text-red-400' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => { setToolApprovalMode(opt.value); setShowApprovalPicker(false) }}
+                        className={`flex w-full flex-col px-3 py-1.5 text-left transition-colors ${
+                          toolApprovalMode === opt.value
+                            ? 'bg-gray-100 dark:bg-gray-700/50'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                      >
+                        <span className={`text-xs font-medium ${opt.color}`}>{opt.label}</span>
+                        <span className="text-[10px] text-gray-400">{opt.desc}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

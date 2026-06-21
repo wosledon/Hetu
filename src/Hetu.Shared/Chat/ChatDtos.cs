@@ -99,6 +99,26 @@ public class SendMessageRequest
     /// 图片附件列表（base64 编码的图片数据 + MIME 类型）
     /// </summary>
     public List<ImageAttachment>? Images { get; set; }
+    /// <summary>
+    /// 前端 /skill 选择的 Skill 名称
+    /// </summary>
+    public string? SkillName { get; set; }
+    /// <summary>
+    /// 前端选择的 Agent/PromptPreset ID
+    /// </summary>
+    public string? AgentId { get; set; }
+    /// <summary>
+    /// 用户手动启用的工具名列表（为空则使用 Agent 默认或全部工具）
+    /// </summary>
+    public List<string>? EnabledTools { get; set; }
+    /// <summary>
+    /// 用户/Agent 级别的工具审批模式覆盖
+    /// </summary>
+    public Dictionary<string, string>? ToolApprovalOverrides { get; set; }
+    /// <summary>
+    /// 是否启用工具调用（Agent Loop）
+    /// </summary>
+    public bool EnableTools { get; set; }
 }
 
 public class ImageAttachment
@@ -113,6 +133,12 @@ public class WebSearchResultDto
     public string Title { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string Snippet { get; set; } = string.Empty;
+}
+
+public class AnswerRequest
+{
+    public string ToolCallId { get; set; } = string.Empty;
+    public string Answer { get; set; } = string.Empty;
 }
 
 public class UpdateChatMessageRequest
@@ -140,6 +166,7 @@ public class PromptPresetDto
     public string Name { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string? Variables { get; set; }
+    public string? ToolsConfig { get; set; }
     public bool IsBuiltIn { get; set; }
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -152,6 +179,7 @@ public class CreatePromptPresetRequest
     public string Name { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string? Variables { get; set; }
+    public string? ToolsConfig { get; set; }
 }
 
 public class UpdatePromptPresetRequest
@@ -160,5 +188,6 @@ public class UpdatePromptPresetRequest
     public string Name { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string? Variables { get; set; }
+    public string? ToolsConfig { get; set; }
     public int SortOrder { get; set; }
 }

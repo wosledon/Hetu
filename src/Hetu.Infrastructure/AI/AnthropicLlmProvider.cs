@@ -27,7 +27,7 @@ public class AnthropicLlmProvider : ILLMProvider
 
     public async Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
     {
-        var (systemPrompt, requestMessages) = BuildMessages(messages, options.SystemPrompt);
+        var (systemPrompt, requestMessages) = BuildMessages(messages);
         var requestBody = CreateMessagesRequest(requestMessages, false, options, systemPrompt);
         using var request = CreateRequest("messages", requestBody);
         var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -42,7 +42,7 @@ public class AnthropicLlmProvider : ILLMProvider
         ChatOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var (systemPrompt, requestMessages) = BuildMessages(messages, options.SystemPrompt);
+        var (systemPrompt, requestMessages) = BuildMessages(messages);
         var requestBody = CreateMessagesRequest(requestMessages, true, options, systemPrompt);
         using var request = CreateRequest("messages", requestBody);
         var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -51,15 +51,20 @@ public class AnthropicLlmProvider : ILLMProvider
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream, Encoding.UTF8);
 
+        // Track tool use blocks across stream events
+        var currentToolUseId = "";
+        var currentToolName = "";
+        var currentToolArgs = new StringBuilder();
+        var hasToolUse = false;
+
         while (!cancellationToken.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(cancellationToken);
-            if (line == null) yield break;
+            if (line == null) break;
             if (string.IsNullOrWhiteSpace(line)) continue;
             if (!line.StartsWith("data: ")) continue;
 
             var data = line[6..];
-            if (data == "[DONE]") yield break;
 
             AnthropicStreamEvent? evt = null;
             try
@@ -71,14 +76,67 @@ public class AnthropicLlmProvider : ILLMProvider
                 continue;
             }
 
-            var delta = evt?.Delta;
-            if (delta?.Type == "thinking_delta" && !string.IsNullOrEmpty(delta.Thinking))
+            switch (evt?.Type)
             {
-                yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(delta.Thinking)}}}";
-            }
-            else if (!string.IsNullOrEmpty(delta?.Text))
-            {
-                yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(delta.Text)}}}";
+                case "content_block_start":
+                    {
+                        var block = evt.ContentBlock;
+                        if (block?.Type == "tool_use")
+                        {
+                            currentToolUseId = block.Id ?? "";
+                            currentToolName = block.Name ?? "";
+                            currentToolArgs.Clear();
+                            hasToolUse = true;
+                        }
+                        break;
+                    }
+
+                case "content_block_delta":
+                    {
+                        var delta = evt.Delta;
+                        if (delta?.Type == "thinking_delta" && !string.IsNullOrEmpty(delta.Thinking))
+                        {
+                            yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(delta.Thinking)}}}";
+                        }
+                        else if (delta?.Type == "text_delta" && !string.IsNullOrEmpty(delta.Text))
+                        {
+                            yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(delta.Text)}}}";
+                        }
+                        else if (delta?.Type == "input_json_delta" && !string.IsNullOrEmpty(delta.PartialJson))
+                        {
+                            currentToolArgs.Append(delta.PartialJson);
+                        }
+                        break;
+                    }
+
+                case "content_block_stop":
+                    {
+                        if (hasToolUse && !string.IsNullOrEmpty(currentToolUseId))
+                        {
+                            // A tool_use block completed
+                            var toolCall = new LlmToolCall
+                            {
+                                Id = currentToolUseId,
+                                Name = currentToolName,
+                                Arguments = currentToolArgs.Length > 0 ? currentToolArgs.ToString() : "{}"
+                            };
+                            yield return JsonSerializer.Serialize(new
+                            {
+                                type = "tool_calls",
+                                toolCalls = new[] { toolCall }
+                            }, JsonOptionsOut);
+
+                            currentToolUseId = "";
+                            currentToolName = "";
+                            currentToolArgs.Clear();
+                        }
+                        break;
+                    }
+
+                case "message_stop":
+                    {
+                        yield break;
+                    }
             }
         }
     }
@@ -98,49 +156,87 @@ public class AnthropicLlmProvider : ILLMProvider
         }, cancellationToken);
     }
 
-    private static (string? SystemPrompt, List<AnthropicMessage> Messages) BuildMessages(IReadOnlyList<LlmChatMessage> messages, string? systemPrompt)
+    /// <summary>
+    /// Build Anthropic message format. Handles user, assistant, and tool roles.
+    /// Anthropic uses content block arrays for tool_use and tool_result.
+    /// </summary>
+    private static (string? SystemPrompt, List<AnthropicMessage> Messages) BuildMessages(IReadOnlyList<LlmChatMessage> messages)
     {
-        var requestMessages = messages
-            .Where(m => m.Role is "user" or "assistant")
-            .Select(m =>
+        var result = new List<AnthropicMessage>();
+
+        foreach (var msg in messages)
+        {
+            if (msg.Role == "tool")
             {
-                if (m.ContentParts != null && m.ContentParts.Count > 0)
+                // Tool result: send as user message with tool_result content block
+                result.Add(new AnthropicMessage
                 {
-                    // Multimodal: use content blocks array
-                    var contentBlocks = new List<object>();
-                    foreach (var part in m.ContentParts)
+                    Role = "user",
+                    ContentBlocks = new List<object>
                     {
-                        if (part.Type == "text" && part.Text != null)
+                        new
                         {
-                            contentBlocks.Add(new { type = "text", text = part.Text });
-                        }
-                        else if (part.Type == "image_url" && part.ImageUrl != null)
-                        {
-                            // Anthropic uses base64 image source format
-                            contentBlocks.Add(new
-                            {
-                                type = "image",
-                                source = new
-                                {
-                                    type = "base64",
-                                    media_type = part.MediaType ?? "image/png",
-                                    data = part.ImageUrl // base64 data without data: prefix
-                                }
-                            });
+                            type = "tool_result",
+                            tool_use_id = msg.ToolCallId ?? "",
+                            content = msg.Content
                         }
                     }
-                    return new AnthropicMessage { Role = m.Role, ContentBlocks = contentBlocks };
-                }
-                return new AnthropicMessage { Role = m.Role, Content = m.Content };
-            })
-            .ToList();
+                });
+                continue;
+            }
 
-        return (systemPrompt, requestMessages);
+            if (msg.Role == "assistant" && msg.ToolCalls is { Count: > 0 })
+            {
+                // Assistant with tool_use content blocks
+                var blocks = new List<object>();
+                if (!string.IsNullOrWhiteSpace(msg.Content))
+                    blocks.Add(new { type = "text", text = msg.Content });
+                foreach (var tc in msg.ToolCalls)
+                {
+                    // Parse arguments as JsonElement for Anthropic's input field
+                    JsonElement inputEl;
+                    try { inputEl = JsonSerializer.Deserialize<JsonElement>(tc.Arguments); }
+                    catch { inputEl = JsonSerializer.Deserialize<JsonElement>("{}"); }
+                    blocks.Add(new { type = "tool_use", id = tc.Id, name = tc.Name, input = inputEl });
+                }
+                result.Add(new AnthropicMessage { Role = "assistant", ContentBlocks = blocks });
+                continue;
+            }
+
+            // Normal user/assistant messages
+            if (msg.ContentParts != null && msg.ContentParts.Count > 0)
+            {
+                var blocks = new List<object>();
+                foreach (var part in msg.ContentParts)
+                {
+                    if (part.Type == "text" && part.Text != null)
+                        blocks.Add(new { type = "text", text = part.Text });
+                    else if (part.Type == "image_url" && part.ImageUrl != null)
+                        blocks.Add(new
+                        {
+                            type = "image",
+                            source = new
+                            {
+                                type = "base64",
+                                media_type = part.MediaType ?? "image/png",
+                                data = part.ImageUrl
+                            }
+                        });
+                }
+                result.Add(new AnthropicMessage { Role = msg.Role, ContentBlocks = blocks });
+            }
+            else
+            {
+                result.Add(new AnthropicMessage { Role = msg.Role, Content = msg.Content });
+            }
+        }
+
+        // Extract system prompt from first message if it's from options (handled by caller)
+        return (null, result);
     }
 
     private object CreateMessagesRequest(List<AnthropicMessage> messages, bool stream, ChatOptions options, string? systemPrompt)
     {
-        // Convert messages to the correct serialization format
         var formattedMessages = messages.Select(m =>
         {
             if (m.ContentBlocks != null && m.ContentBlocks.Count > 0)
@@ -156,21 +252,33 @@ public class AnthropicLlmProvider : ILLMProvider
             ["stream"] = stream
         };
 
-        if (!string.IsNullOrWhiteSpace(systemPrompt)) body["system"] = systemPrompt;
+        // System prompt from ChatOptions
+        if (!string.IsNullOrWhiteSpace(options.SystemPrompt))
+            body["system"] = options.SystemPrompt;
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
 
-        // Extended thinking: map reasoning effort to budget_tokens
+        // Extended thinking
         if (!string.IsNullOrWhiteSpace(options.ReasoningEffort))
         {
             var budget = options.ReasoningEffort switch
             {
                 "low" => 2048,
                 "high" => 32768,
-                _ => 8192 // medium
+                _ => 8192
             };
             body["thinking"] = new { type = "enabled", budget_tokens = budget };
-            // thinking requires streaming
             if (!stream) body["stream"] = true;
+        }
+
+        // Tools
+        if (options.Tools is { Count: > 0 })
+        {
+            body["tools"] = options.Tools.Select(t => new
+            {
+                name = t.Name,
+                description = t.Description,
+                input_schema = t.ParametersSchema
+            }).ToList();
         }
 
         return body;
@@ -194,14 +302,19 @@ public class AnthropicLlmProvider : ILLMProvider
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private static JsonSerializerOptions JsonOptionsOut => new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    // --- Response models ---
+
     private class AnthropicMessage
     {
         public string Role { get; set; } = string.Empty;
         public string? Content { get; set; }
-        [System.Text.Json.Serialization.JsonIgnore]
+        [JsonIgnore]
         public List<object>? ContentBlocks { get; set; }
-        // When ContentBlocks is set, use it as "content" (array); otherwise use Content (string)
-        // This is handled by a custom converter or by using the right property at serialization
     }
 
     private class AnthropicMessageResponse
@@ -213,12 +326,15 @@ public class AnthropicLlmProvider : ILLMProvider
     {
         public string? Type { get; set; }
         public string? Text { get; set; }
+        public string? Id { get; set; }
+        public string? Name { get; set; }
     }
 
     private class AnthropicStreamEvent
     {
         public string? Type { get; set; }
         public AnthropicStreamDelta? Delta { get; set; }
+        public AnthropicContentBlock? ContentBlock { get; set; }
     }
 
     private class AnthropicStreamDelta
@@ -226,5 +342,6 @@ public class AnthropicLlmProvider : ILLMProvider
         public string? Type { get; set; }
         public string? Text { get; set; }
         public string? Thinking { get; set; }
+        public string? PartialJson { get; set; }
     }
 }

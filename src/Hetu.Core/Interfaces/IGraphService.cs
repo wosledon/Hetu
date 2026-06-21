@@ -20,4 +20,5 @@ public interface IGraphService
     Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default);
     Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default);
     Task RestoreByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<GraphEntityDto>>> SearchEntitiesAsync(string query, string? type = null, int topK = 10, CancellationToken cancellationToken = default);
 }

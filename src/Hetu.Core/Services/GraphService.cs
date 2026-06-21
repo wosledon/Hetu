@@ -620,6 +620,32 @@ public class GraphService : IGraphService
         InvalidateGraphCache();
     }
 
+    public async Task<ApiResponse<List<GraphEntityDto>>> SearchEntitiesAsync(string query, string? type = null, int topK = 10, CancellationToken cancellationToken = default)
+    {
+        var normalizedQuery = query.Trim().ToLowerInvariant();
+        var entities = await _unitOfWork.GraphEntities.FindAsync(
+            e => (e.Name.ToLowerInvariant().Contains(normalizedQuery) ||
+                  (e.Description != null && e.Description.ToLowerInvariant().Contains(normalizedQuery))) &&
+                 (type == null || e.Type == type),
+            cancellationToken);
+
+        var result = entities
+            .Take(topK)
+            .Select(e => new GraphEntityDto
+            {
+                Id = e.Id,
+                Name = e.Name,
+                Type = e.Type,
+                Description = e.Description,
+                Metadata = e.Metadata,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt
+            })
+            .ToList();
+
+        return ApiResponse<List<GraphEntityDto>>.Ok(result);
+    }
+
     private class ExtractionResult
     {
         public List<ExtractedEntity> Entities { get; set; } = [];

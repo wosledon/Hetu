@@ -39,6 +39,7 @@ public class PromptPresetService : IPromptPresetService
             Name = request.Name.Trim(),
             Content = request.Content.Trim(),
             Variables = request.Variables,
+            ToolsConfig = request.ToolsConfig,
             IsBuiltIn = false,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -59,6 +60,7 @@ public class PromptPresetService : IPromptPresetService
         preset.Name = string.IsNullOrWhiteSpace(request.Name) ? preset.Name : request.Name.Trim();
         preset.Content = string.IsNullOrWhiteSpace(request.Content) ? preset.Content : request.Content.Trim();
         preset.Variables = request.Variables;
+        preset.ToolsConfig = request.ToolsConfig;
         preset.SortOrder = request.SortOrder;
         preset.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -85,6 +87,7 @@ public class PromptPresetService : IPromptPresetService
         Name = preset.Name,
         Content = preset.Content,
         Variables = preset.Variables,
+        ToolsConfig = preset.ToolsConfig,
         IsBuiltIn = preset.IsBuiltIn,
         SortOrder = preset.SortOrder,
         CreatedAt = preset.CreatedAt,
