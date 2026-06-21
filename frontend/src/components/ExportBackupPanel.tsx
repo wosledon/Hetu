@@ -52,7 +52,7 @@ export default function ExportBackupPanel() {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-medium">导出与备份</h2>
+      <h3 className="text-md font-semibold text-gray-800 dark:text-gray-100">导出与备份</h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button

@@ -17,7 +17,7 @@ const settingsSections = [
   { key: 'app', label: '应用设置', icon: Settings },
   { key: 'ai', label: 'AI 模型', icon: Bot },
   { key: 'mcp', label: 'MCP Server', icon: Wrench },
-  { key: 'database', label: '数据库', icon: Database },
+  { key: 'database', label: '数据与备份', icon: Database },
   { key: 'trash', label: '回收站', icon: Trash2 },
 ] satisfies { key: SettingsSection; label: string; icon: typeof Settings }[]
 
@@ -162,13 +162,14 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                </section>}
+
+                {activeSection === 'database' && <section className="space-y-6">
+                  <DatabaseSettings />
                   <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
-                    <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">数据备份</h3>
                     <ExportBackupPanel />
                   </div>
                 </section>}
-
-                {activeSection === 'database' && <DatabaseSettings />}
                 {activeSection === 'ai' && <AiSettings />}
                 {activeSection === 'trash' && (
                   <section className="space-y-4">
