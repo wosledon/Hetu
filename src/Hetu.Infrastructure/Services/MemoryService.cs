@@ -27,6 +27,8 @@ public class MemoryService : IMemoryService
 
     // 自动提取阈值：每 N 条用户消息提取一次
     private const int AutoExtractInterval = 10;
+    // 时间触发阈值（分钟）：距上次提取超过此时间触发
+    private const int TimeTriggerMinutes = 30;
 
     public MemoryService(
         IUnitOfWork unitOfWork,
@@ -244,10 +246,40 @@ public class MemoryService : IMemoryService
         // 统计该话题的用户消息数
         var userMessages = await _unitOfWork.ChatMessages.FindAsync(
             m => m.TopicId == topicId && m.Role == "user", cancellationToken);
-        var count = userMessages.Count;
+        var allMessages = userMessages.OrderBy(m => m.CreatedAt).ToList();
+        var totalCount = allMessages.Count;
 
-        // 每 AutoExtractInterval 条用户消息触发一次提取
-        if (count == 0 || count % AutoExtractInterval != 0)
+        if (totalCount == 0)
+            return [];
+
+        // 获取该话题最近一次提取的时间和提取时的消息数
+        var lastMemory = (await _unitOfWork.Memories.FindAsync(
+            m => m.TopicId == topicId && m.Source == "conversation", cancellationToken))
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstOrDefault();
+
+        var lastExtractTime = lastMemory?.CreatedAt ?? DateTimeOffset.MinValue;
+        var messagesSinceLastExtract = lastMemory == null
+            ? totalCount
+            : allMessages.Count(m => m.CreatedAt > lastExtractTime);
+
+        // ── 多信号触发算法 ──
+        var now = DateTimeOffset.UtcNow;
+        var minutesSinceLastExtract = (now - lastExtractTime).TotalMinutes;
+
+        // 信号 1: 消息数阈值（常规触发）
+        var countTrigger = messagesSinceLastExtract >= AutoExtractInterval;
+
+        // 信号 2: 时间阈值（长时间对话触发）
+        var timeTrigger = minutesSinceLastExtract >= TimeTriggerMinutes && messagesSinceLastExtract >= 3;
+
+        // 信号 3: 信息密度触发（最近消息内容较长，说明有实质内容）
+        var recentMessages = allMessages.TakeLast(3).ToList();
+        var avgLength = recentMessages.Average(m => m.Content?.Length ?? 0);
+        var densityTrigger = messagesSinceLastExtract >= 5 && avgLength > 200;
+
+        // 任一信号触发即可
+        if (!countTrigger && !timeTrigger && !densityTrigger)
             return [];
 
         var result = await ExtractFromConversationAsync(topicId, cancellationToken);
