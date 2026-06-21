@@ -210,7 +210,6 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
                 </>
               )}
             </div>
-            <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">点击进入对话，继续围绕该话题提问和整理内容...</p>
             <div className="flex items-center justify-between text-[10px] text-gray-400">
               <span className={`rounded px-1.5 py-0.5 ${
                 topic.noteSyncStatus === 'synced'
