@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain } from 'lucide-react'
+import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap } from 'lucide-react'
 import { aiProviderService, aiModelService } from '../services/aiProviderService'
 import type { RemoteModelInfo } from '../services/aiProviderService'
 
@@ -13,6 +13,7 @@ export default function AiSettings() {
   const [showModelForm, setShowModelForm] = useState(false)
   const [showFetchForm, setShowFetchForm] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
+  const [editingModel, setEditingModel] = useState<{ id: string; modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean } | null>(null)
 
   const { data: providers = [] } = useQuery({
     queryKey: ['aiProviders'],
@@ -39,6 +40,17 @@ export default function AiSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['aiProviders'] })
       setShowModelForm(false)
+      setEditingModel(null)
+    },
+  })
+
+  const updateModel = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof aiModelService.update>[1] }) =>
+      aiModelService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aiProviders'] })
+      setShowModelForm(false)
+      setEditingModel(null)
     },
   })
 
@@ -75,13 +87,13 @@ export default function AiSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">AI 模型</h2>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">管理 AI Provider 和模型配置</p>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">管理 AI 提供商和模型配置</p>
         </div>
         <button
           onClick={() => setShowProviderForm(true)}
           className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
         >
-          <Plus size={15} /> 添加 Provider
+          <Plus size={15} /> 添加提供商
         </button>
       </div>
 
@@ -99,8 +111,8 @@ export default function AiSettings() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
             <Bot size={24} className="text-gray-400" />
           </div>
-          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">还没有 AI Provider</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">点击上方按钮添加第一个 Provider</p>
+          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">还没有 AI 提供商</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">点击上方按钮添加第一个提供商</p>
         </div>
       )}
 
@@ -148,7 +160,7 @@ export default function AiSettings() {
               <button
                 onClick={() => deleteProvider.mutate(provider.id)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                title="删除 Provider"
+                title="删除提供商"
               >
                 <Trash2 size={15} />
               </button>
@@ -170,7 +182,7 @@ export default function AiSettings() {
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{model.displayName}</span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{model.modelId}</span>
                       <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                        {model.purpose}
+                        {model.purpose === 'chat' ? '对话' : model.purpose === 'embedding' ? 'Embedding' : model.purpose}
                       </span>
                       {model.supportsVision && (
                         <span title="视觉" className="inline-flex shrink-0 items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
@@ -198,13 +210,23 @@ export default function AiSettings() {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => setDefaultModel.mutate(model.id)}
-                        className={`rounded-md p-1.5 transition-colors ${model.isDefault ? 'text-amber-400 opacity-100' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600'}`}
+                        className={`rounded-md p-1.5 transition-colors ${model.isDefault ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600'}`}
                         title={model.isDefault ? '默认模型' : '设为默认'}
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingModel(model)
+                          setShowModelForm(true)
+                        }}
+                        className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400"
+                        title="编辑模型"
+                      >
+                        <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => toggleModelVisibility.mutate({ id: model.id, isVisible: !model.isVisible })}
@@ -231,8 +253,16 @@ export default function AiSettings() {
       {/* Model Form Modal */}
       {showModelForm && (
         <ModelForm
-          onSubmit={(data) => createModel.mutate({ ...data, providerId: selectedProviderId })}
-          onCancel={() => setShowModelForm(false)}
+          initialData={editingModel ?? undefined}
+          isEdit={!!editingModel}
+          onSubmit={(data) => {
+            if (editingModel) {
+              updateModel.mutate({ id: editingModel.id, data })
+            } else {
+              createModel.mutate({ ...data, providerId: selectedProviderId })
+            }
+          }}
+          onCancel={() => { setShowModelForm(false); setEditingModel(null) }}
         />
       )}
 
@@ -264,7 +294,7 @@ function ProviderForm({
 
   return (
     <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
-      <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">添加 Provider</h3>
+      <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">添加提供商</h3>
       <div className="space-y-3">
         <select
           value={providerType}
@@ -317,33 +347,58 @@ function ProviderForm({
 /* ─── Model Form Modal ─── */
 
 function ModelForm({
+  initialData,
+  isEdit,
   onSubmit,
   onCancel,
 }: {
-  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding' | 'completion'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
+  initialData?: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean }
+  isEdit?: boolean
+  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
   onCancel: () => void
 }) {
-  const [modelId, setModelId] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [purpose, setPurpose] = useState<'chat' | 'embedding' | 'completion'>('chat')
-  const [isDefault, setIsDefault] = useState(false)
-  const [contextWindow, setContextWindow] = useState('')
-  const [dimensions, setDimensions] = useState('')
-  const [reasoningMode, setReasoningMode] = useState('none')
-  const [reasoningEffort, setReasoningEffort] = useState('medium')
-  const [supportsVision, setSupportsVision] = useState(false)
-  const [supportsReasoning, setSupportsReasoning] = useState(false)
-  const [supportsTools, setSupportsTools] = useState(false)
-  const [isVisible, setIsVisible] = useState(true)
+  const [modelId, setModelId] = useState(initialData?.modelId ?? '')
+  const [displayName, setDisplayName] = useState(initialData?.displayName ?? '')
+  const [purpose, setPurpose] = useState<'chat' | 'embedding'>(initialData?.purpose ?? 'chat')
+  const [isDefault, setIsDefault] = useState(initialData?.isDefault ?? false)
+  const [contextWindow, setContextWindow] = useState(initialData?.contextWindow?.toString() ?? '')
+  const [dimensions, setDimensions] = useState(initialData?.dimensions?.toString() ?? '')
+  const [reasoningMode, setReasoningMode] = useState(initialData?.reasoningMode ?? 'none')
+  const [reasoningEffort, setReasoningEffort] = useState(initialData?.reasoningEffort ?? 'medium')
+  const [supportsVision, setSupportsVision] = useState(initialData?.supportsVision ?? false)
+  const [supportsReasoning, setSupportsReasoning] = useState(initialData?.supportsReasoning ?? false)
+  const [supportsTools, setSupportsTools] = useState(initialData?.supportsTools ?? false)
+  const [isVisible, setIsVisible] = useState(initialData?.isVisible ?? true)
+
+  const isChat = purpose === 'chat'
+  const isEmbedding = purpose === 'embedding'
+
+  const handleSubmit = () => {
+    onSubmit({
+      modelId,
+      displayName: displayName || modelId,
+      purpose,
+      isDefault,
+      contextWindow: contextWindow ? parseInt(contextWindow) : undefined,
+      dimensions: dimensions ? parseInt(dimensions) : undefined,
+      reasoningMode: isChat ? reasoningMode : 'none',
+      reasoningEffort: isChat ? reasoningEffort : 'medium',
+      supportsVision: isChat ? supportsVision : false,
+      supportsReasoning: isChat ? supportsReasoning : false,
+      supportsTools: isChat ? supportsTools : false,
+      isVisible,
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[420px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[460px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">添加模型</h3>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{isEdit ? '编辑模型' : '添加模型'}</h3>
           <button
             onClick={onCancel}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
@@ -352,152 +407,200 @@ function ModelForm({
           </button>
         </div>
 
-        <div className="space-y-3.5">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">模型 ID</label>
-            <input
-              type="text"
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              placeholder="gpt-4o, claude-3-opus, ..."
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">显示名称</label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="留空则使用模型 ID"
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">用途</label>
-            <select
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value as 'chat' | 'embedding' | 'completion')}
-              className={selectClass}
-            >
-              <option value="chat">对话</option>
-              <option value="embedding">Embedding</option>
-              <option value="completion">补全</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-5 px-6 py-5">
+          {/* ── 基础信息 ── */}
+          <section className="space-y-3.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">基础信息</h4>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">上下文窗口</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">用途</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPurpose('chat')}
+                  className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
+                    isChat
+                      ? 'border-blue-500 bg-blue-50/60 text-blue-700 shadow-sm dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-300'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Bot size={16} />
+                  对话模型
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPurpose('embedding')}
+                  className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
+                    isEmbedding
+                      ? 'border-violet-500 bg-violet-50/60 text-violet-700 shadow-sm dark:border-violet-400/60 dark:bg-violet-950/30 dark:text-violet-300'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Zap size={16} />
+                  Embedding 模型
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">模型 ID</label>
               <input
-                type="number"
-                value={contextWindow}
-                onChange={(e) => setContextWindow(e.target.value)}
-                placeholder="可选"
-                className={inputClass}
+                type="text"
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                placeholder={isChat ? 'gpt-4o, claude-3-opus, ...' : 'text-embedding-3-small, ...'}
+                disabled={isEdit}
+                className={`${inputClass} ${isEdit ? 'opacity-60' : ''}`}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">向量维度</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">显示名称</label>
               <input
-                type="number"
-                value={dimensions}
-                onChange={(e) => setDimensions(e.target.value)}
-                placeholder="Embedding 专用"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="留空则使用模型 ID"
                 className={inputClass}
               />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理模式</label>
-            <select
-              value={reasoningMode}
-              onChange={(e) => setReasoningMode(e.target.value)}
-              className={selectClass}
-            >
-              <option value="none">不支持</option>
-              <option value="tag">标签模式（&lt;thinking&gt; 标签）</option>
-              <option value="native">原生模式（o1/Claude 等）</option>
-            </select>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500">标签模式适用于普通模型，原生模式适用于内置推理的模型</p>
-          </div>
-          {reasoningMode !== 'none' && (
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理强度</label>
-              <select
-                value={reasoningEffort}
-                onChange={(e) => setReasoningEffort(e.target.value)}
-                className={selectClass}
-              >
-                <option value="off">关闭</option>
-                <option value="low">低</option>
-                <option value="medium">中</option>
-                <option value="high">高</option>
-              </select>
-            </div>
+          </section>
+
+          {/* ── 对话模型专属配置 ── */}
+          {isChat && (
+            <section className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">对话配置</h4>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">上下文窗口</label>
+                <input
+                  type="number"
+                  value={contextWindow}
+                  onChange={(e) => setContextWindow(e.target.value)}
+                  placeholder="如 128000"
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">模型支持的最大 Token 数（可选）</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理模式</label>
+                <select
+                  value={reasoningMode}
+                  onChange={(e) => setReasoningMode(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="none">不支持推理</option>
+                  <option value="tag">标签模式（&lt;thinking&gt; 标签）</option>
+                  <option value="native">原生模式（o1 / Claude 等）</option>
+                </select>
+              </div>
+              {reasoningMode !== 'none' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理强度</label>
+                  <select
+                    value={reasoningEffort}
+                    onChange={(e) => setReasoningEffort(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="off">关闭</option>
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high">高</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">AI 能力</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                    supportsVision
+                      ? 'border-sky-400 bg-sky-50/60 text-sky-700 dark:border-sky-500/40 dark:bg-sky-950/20 dark:text-sky-300'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
+                  }`}>
+                    <input type="checkbox" checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="sr-only" />
+                    <Sparkles size={18} className={supportsVision ? 'text-sky-500' : 'text-gray-400'} />
+                    视觉
+                  </label>
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                    supportsReasoning
+                      ? 'border-amber-400 bg-amber-50/60 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-300'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
+                  }`}>
+                    <input type="checkbox" checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="sr-only" />
+                    <Brain size={18} className={supportsReasoning ? 'text-amber-500' : 'text-gray-400'} />
+                    推理
+                  </label>
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                    supportsTools
+                      ? 'border-emerald-400 bg-emerald-50/60 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
+                  }`}>
+                    <input type="checkbox" checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="sr-only" />
+                    <Wrench size={18} className={supportsTools ? 'text-emerald-500' : 'text-gray-400'} />
+                    工具
+                  </label>
+                </div>
+              </div>
+            </section>
           )}
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-            <input
-              type="checkbox"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
-            />
-            设为默认模型
-          </label>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">AI 能力</label>
-            <div className="flex flex-wrap gap-3">
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
-                <input type="checkbox" checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500/20" />
-                <Sparkles size={14} className="text-sky-500" />
-                <span className="text-gray-700 dark:text-gray-300">视觉</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
-                <input type="checkbox" checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20" />
-                <Brain size={14} className="text-amber-500" />
-                <span className="text-gray-700 dark:text-gray-300">推理</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
-                <input type="checkbox" checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/20" />
-                <Wrench size={14} className="text-emerald-500" />
-                <span className="text-gray-700 dark:text-gray-300">工具</span>
-              </label>
-            </div>
-          </div>
+          {/* ── Embedding 模型专属配置 ── */}
+          {isEmbedding && (
+            <section className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Embedding 配置</h4>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">向量维度</label>
+                <input
+                  type="number"
+                  value={dimensions}
+                  onChange={(e) => setDimensions(e.target.value)}
+                  placeholder="如 1536, 3072"
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">必须与模型实际输出维度一致</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">上下文窗口</label>
+                <input
+                  type="number"
+                  value={contextWindow}
+                  onChange={(e) => setContextWindow(e.target.value)}
+                  placeholder="可选"
+                  className={inputClass}
+                />
+              </div>
+            </section>
+          )}
 
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-            <input
-              type="checkbox"
-              checked={isVisible}
-              onChange={(e) => setIsVisible(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
-            />
-            在 UI 中可见
-          </label>
+          {/* ── 通用设置 ── */}
+          <section className="space-y-3 border-t border-gray-100 pt-4 dark:border-white/[0.06]">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+              <input
+                type="checkbox"
+                checked={isDefault}
+                onChange={(e) => setIsDefault(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
+              />
+              设为默认{isChat ? '对话' : 'Embedding'}模型
+            </label>
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+              <input
+                type="checkbox"
+                checked={isVisible}
+                onChange={(e) => setIsVisible(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
+              />
+              在 UI 中可见
+            </label>
+          </section>
         </div>
 
-        <div className="mt-6 flex gap-2">
+        {/* Footer */}
+        <div className="flex gap-2 border-t border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <button
-            onClick={() =>
-              onSubmit({
-                modelId,
-                displayName: displayName || modelId,
-                purpose,
-                isDefault,
-                contextWindow: contextWindow ? parseInt(contextWindow) : undefined,
-                dimensions: dimensions ? parseInt(dimensions) : undefined,
-                reasoningMode,
-                reasoningEffort,
-                supportsVision,
-                supportsReasoning,
-                supportsTools,
-                isVisible,
-              })
-            }
-            className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
+            onClick={handleSubmit}
+            disabled={!modelId.trim()}
+            className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
           >
-            保存
+            {isEdit ? '更新' : '添加'}
           </button>
           <button
             onClick={onCancel}

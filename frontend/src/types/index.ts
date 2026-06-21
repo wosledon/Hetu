@@ -82,7 +82,7 @@ export interface IAiModel {
   providerId: string;
   modelId: string;
   displayName: string;
-  purpose: 'chat' | 'embedding' | 'completion';
+  purpose: 'chat' | 'embedding';
   isDefault: boolean;
   contextWindow?: number;
   dimensions?: number;

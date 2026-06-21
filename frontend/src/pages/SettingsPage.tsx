@@ -16,7 +16,7 @@ type SettingsSection = 'app' | 'ai' | 'mcp' | 'database' | 'trash'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
-  { key: 'ai', label: 'AI 模型', description: 'Provider 与模型管理', icon: Bot },
+  { key: 'ai', label: 'AI 模型', description: '提供商与模型管理', icon: Bot },
   { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
   { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
   { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
