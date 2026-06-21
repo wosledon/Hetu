@@ -32,36 +32,36 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-[#0c0f1a] dark:text-gray-100">
-      <nav className="glass-nav flex h-14 shrink-0 items-center justify-between px-6">
-        <div className="flex items-center space-x-6">
+      <nav className="glass-nav grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-6">
+        <div className="flex items-center justify-start">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
               <BookOpen size={16} className="text-white" />
             </div>
             <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
-          <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = location.pathname === item.path
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                    isActive
-                      ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                  }`}
-                >
-                  <Icon size={14} />
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = location.pathname === item.path
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                <Icon size={14} />
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => navigate('/settings')}
             className={`rounded-lg p-2 transition-all ${
