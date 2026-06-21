@@ -100,6 +100,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [selectedModelId, setSelectedModelId] = useState('')
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const thinkingEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const agentPickerRef = useRef<HTMLDivElement>(null)
@@ -133,7 +134,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, streamingThinking, isOrganizing, organizeResult])
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, isOrganizing, organizeResult])
+
+  // Auto-scroll thinking block to bottom as thinking content streams in
+  useEffect(() => {
+    if (streamingThinking && showThinking) {
+      thinkingEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [streamingThinking, showThinking])
 
   // Clear streaming display when messages are refreshed (after query invalidation)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -806,9 +814,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         {/* Pending user message (shown immediately while streaming) */}
         {pendingUserMessage && (
-          <div className="flex justify-end">
+          <div className="flex gap-3 flex-row-reverse">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
+              <span className="text-xs font-bold">U</span>
+            </div>
             <div className="max-w-[80%] flex flex-col items-end">
-              <div className="rounded-2xl rounded-tr-sm bg-blue-500 px-4 py-3 text-sm text-white">
+              <div className="mb-1.5">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
+              </div>
+              <div className="rounded-2xl rounded-tr-sm bg-gradient-to-br from-blue-500 to-blue-600 px-4 py-3 text-sm text-white shadow-sm">
                 {pendingUserMessage}
               </div>
             </div>
@@ -840,6 +854,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {showThinking && (
                       <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
                         <ThemedMarkdown source={streamingThinking} />
+                        <div ref={thinkingEndRef} />
                       </div>
                     )}
                   </div>

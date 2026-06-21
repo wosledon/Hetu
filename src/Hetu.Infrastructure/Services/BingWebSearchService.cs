@@ -9,7 +9,7 @@ public class BingWebSearchService : IWebSearchService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<BingWebSearchService> _logger;
-    private const string BingRssUrl = "https://www.bing.com/search?q={0}&format=rss";
+    private const string BingRssUrl = "https://www.bing.com/search?q={0}&format=rss&setlang=zh-CN&mkt=zh-CN";
 
     public BingWebSearchService(HttpClient httpClient, ILogger<BingWebSearchService> logger)
     {
@@ -25,6 +25,7 @@ public class BingWebSearchService : IWebSearchService
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             // Mimic a browser to avoid being blocked
             request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            request.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
 
             var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();

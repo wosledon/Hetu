@@ -31,8 +31,9 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
 
   const createTopic = useMutation({
     mutationFn: chatTopicService.create,
-    onSuccess: () => {
+    onSuccess: (newTopic) => {
       queryClient.invalidateQueries({ queryKey: ['chatTopics', groupId] })
+      onSelectTopic(newTopic)
     },
   })
 
