@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# AI tool folders
+.qwen/
+
 # dotenv files
 .env
 
@@ -484,3 +487,4 @@ $RECYCLE.BIN/
 *.db
 *.db-wal
 *.db-shm
+
