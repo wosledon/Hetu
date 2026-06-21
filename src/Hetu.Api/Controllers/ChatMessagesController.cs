@@ -15,6 +15,7 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IWebSearchService _webSearchService;
+    private readonly ISemanticSearchService _semanticSearchService;
     private readonly IUnitOfWork _unitOfWork;
 
     public ChatMessagesController(
@@ -22,12 +23,14 @@ public class ChatMessagesController : ControllerBase
         IChatTopicService chatTopicService,
         ILLMProviderFactory llmProviderFactory,
         IWebSearchService webSearchService,
+        ISemanticSearchService semanticSearchService,
         IUnitOfWork unitOfWork)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
         _webSearchService = webSearchService;
+        _semanticSearchService = semanticSearchService;
         _unitOfWork = unitOfWork;
     }
 
@@ -214,6 +217,44 @@ public class ChatMessagesController : ControllerBase
                     Role = "user",
                     Content = searchContext
                 });
+            }
+        }
+
+        // Knowledge base RAG: semantic search and inject results into context
+        if (request.KnowledgeBase)
+        {
+            try
+            {
+                var kbResult = await _semanticSearchService.SearchAsync(request.Content, 5, cancellationToken);
+                if (kbResult.Success && kbResult.Data?.Items?.Count > 0)
+                {
+                    var kbItems = kbResult.Data.Items;
+
+                    // Send knowledge base results as a structured event
+                    var kbEvent = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        type = "knowledge_results",
+                        results = kbItems.Select(r => new { r.Title, r.ContentSnippet, r.Id })
+                    }, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                    await Response.WriteAsync($"data: {kbEvent}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+
+                    // Inject knowledge base results into context
+                    var kbContext = "以下是从知识库中检索到的相关内容，请基于这些信息回答用户的问题：\n\n";
+                    for (int i = 0; i < kbItems.Count; i++)
+                    {
+                        kbContext += $"[{i + 1}] {kbItems[i].Title}\n内容: {kbItems[i].ContentSnippet}\n\n";
+                    }
+                    chatMessages.Insert(chatMessages.Count - 1, new LlmChatMessage
+                    {
+                        Role = "user",
+                        Content = kbContext
+                    });
+                }
+            }
+            catch
+            {
+                // 知识库搜索失败不阻塞对话
             }
         }
 

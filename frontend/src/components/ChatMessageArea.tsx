@@ -25,6 +25,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
   const [streamDeepThinking, setStreamDeepThinking] = useState(false)
   const [streamWebSearch, setStreamWebSearch] = useState(false)
+  const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
+  const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -217,6 +219,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setPendingUserMessage(content)
     setStreamDeepThinking(deepThinking)
     setStreamWebSearch(webSearch)
+    setStreamKnowledgeBase(knowledgeBase)
+    setStreamingKnowledgeResults([])
 
     // Convert attached files to base64
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -259,6 +263,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         content,
         deepThinking,
         webSearch,
+        knowledgeBase,
         images: images.length > 0 ? images : undefined,
       })
       await readSseStream(response, (data) => {
@@ -275,6 +280,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             setStreamingContent(prev => prev + chunk.text)
           } else if (chunk.type === 'search_results') {
             setStreamingSearchResults(chunk.results || [])
+          } else if (chunk.type === 'knowledge_results') {
+            setStreamingKnowledgeResults(chunk.results || [])
           }
         } catch {
           // Fallback: treat as plain text (backward compat)
@@ -882,6 +889,31 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                             <span className="block truncate text-gray-400">{r.url}</span>
                           </span>
                         </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Knowledge base results - show when knowledge base was used */}
+                {(streamKnowledgeBase || streamingKnowledgeResults.length > 0) && streamingKnowledgeResults.length > 0 && (
+                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                      <Database size={11} />
+                      知识库参考
+                    </div>
+                    <div className="space-y-1">
+                      {streamingKnowledgeResults.map((r, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-100 text-[9px] font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{i + 1}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
+                            {r.contentSnippet && (
+                              <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
+                            )}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>
