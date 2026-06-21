@@ -6,7 +6,8 @@ namespace Hetu.Core.Interfaces;
 public enum BackgroundTaskType
 {
     GenerateEmbedding,
-    GraphExtract
+    GraphExtract,
+    GenerateKnowledgeItemEmbedding
 }
 
 /// <summary>

@@ -58,11 +58,11 @@ public class PostgresSemanticSearchStrategy : ISemanticSearchStrategy
                 {
                     using var chunkCmd = connection.CreateCommand();
                     chunkCmd.CommandText = @"
-                        SELECT n.""Id"", n.""Title"", c.""Content"", c.""Summary"", n.""UpdatedAt""
+                        SELECT ki.""Id"", ki.""Title"", c.""Content"", c.""Summary"", ki.""UpdatedAt""
                         FROM ""NoteChunkEmbeddings"" nce
                         JOIN ""NoteChunks"" c ON c.""Id"" = nce.""ChunkId""
-                        JOIN ""Notes"" n ON n.""Id"" = c.""NoteId""
-                        WHERE n.""IsDeleted"" = false
+                        JOIN ""KnowledgeItems"" ki ON ki.""Id"" = c.""KnowledgeItemId""
+                        WHERE ki.""IsDeleted"" = false
                         ORDER BY nce.""Vector"" <=> @query
                         LIMIT @limitK";
                     chunkCmd.Parameters.Add(new NpgsqlParameter("query", new Vector(queryEmbedding)));
@@ -72,8 +72,8 @@ public class PostgresSemanticSearchStrategy : ISemanticSearchStrategy
                     using var chunkReader = await chunkCmd.ExecuteReaderAsync(cancellationToken);
                     while (await chunkReader.ReadAsync(cancellationToken))
                     {
-                        var noteId = chunkReader.GetGuid(0);
-                        if (existingIds.Contains(noteId)) continue;
+                        var itemId = chunkReader.GetGuid(0);
+                        if (existingIds.Contains(itemId)) continue;
 
                         var content = chunkReader.IsDBNull(2) ? "" : chunkReader.GetString(2);
                         var summary = chunkReader.IsDBNull(3) ? null : chunkReader.GetString(3);
@@ -81,12 +81,12 @@ public class PostgresSemanticSearchStrategy : ISemanticSearchStrategy
 
                         results.Add(new NoteSearchResultDto
                         {
-                            Id = noteId,
+                            Id = itemId,
                             Title = chunkReader.GetString(1),
                             ContentSnippet = snippet,
                             UpdatedAt = chunkReader.GetFieldValue<DateTimeOffset>(4)
                         });
-                        existingIds.Add(noteId);
+                        existingIds.Add(itemId);
                     }
                 }
                 catch

@@ -1,12 +1,15 @@
 namespace Hetu.Core.Entities;
 
 /// <summary>
-/// 笔记文档块，用于知识库分块索引
+/// 文档块，用于知识库分块索引
 /// </summary>
 public class NoteChunk : BaseEntity
 {
-    public Guid NoteId { get; set; }
-    public Note Note { get; set; } = null!;
+    /// <summary>
+    /// 所属知识库项目 ID
+    /// </summary>
+    public Guid KnowledgeItemId { get; set; }
+    public KnowledgeItem KnowledgeItem { get; set; } = null!;
 
     /// <summary>
     /// 块在文档中的顺序索引（从 0 开始）

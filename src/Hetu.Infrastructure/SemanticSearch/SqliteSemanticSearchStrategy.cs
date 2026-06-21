@@ -80,11 +80,11 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
                 {
                     using var chunkCmd = connection.CreateCommand();
                     chunkCmd.CommandText = @"
-                        SELECT n.""Id"", n.""Title"", c.""Content"", c.""Summary"", n.""UpdatedAt""
+                        SELECT ki.""Id"", ki.""Title"", c.""Content"", c.""Summary"", ki.""UpdatedAt""
                         FROM vec_chunk_embeddings v
                         JOIN ""NoteChunks"" c ON c.""Id"" = v.chunk_id
-                        JOIN ""Notes"" n ON n.""Id"" = c.""NoteId""
-                        WHERE v.embedding MATCH @query AND k = @fetchK AND n.""IsDeleted"" = false
+                        JOIN ""KnowledgeItems"" ki ON ki.""Id"" = c.""KnowledgeItemId""
+                        WHERE v.embedding MATCH @query AND k = @fetchK AND ki.""IsDeleted"" = false
                         ORDER BY distance
                         LIMIT @limitK";
                     chunkCmd.Parameters.Add(new SqliteParameter("query", $"[{string.Join(",", queryEmbedding)}]"));
@@ -95,8 +95,8 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
                     using var chunkReader = await chunkCmd.ExecuteReaderAsync(cancellationToken);
                     while (await chunkReader.ReadAsync(cancellationToken))
                     {
-                        var noteId = chunkReader.GetGuid(0);
-                        if (existingIds.Contains(noteId)) continue;
+                        var itemId = chunkReader.GetGuid(0);
+                        if (existingIds.Contains(itemId)) continue;
 
                         var content = chunkReader.IsDBNull(2) ? "" : chunkReader.GetString(2);
                         var summary = chunkReader.IsDBNull(3) ? null : chunkReader.GetString(3);
@@ -104,12 +104,12 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
 
                         results.Add(new NoteSearchResultDto
                         {
-                            Id = noteId,
+                            Id = itemId,
                             Title = chunkReader.GetString(1),
                             ContentSnippet = snippet,
                             UpdatedAt = chunkReader.GetFieldValue<DateTimeOffset>(4)
                         });
-                        existingIds.Add(noteId);
+                        existingIds.Add(itemId);
                     }
                 }
                 catch
@@ -143,12 +143,12 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
         // 2. Chunk embedding
         try
         {
-            var allChunkEmbeddings = await _unitOfWork.Notes.GetAllChunkEmbeddingsAsync(cancellationToken);
+            var allChunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingsAsync(cancellationToken);
             results.AddRange(allChunkEmbeddings.Select(ce => (
-                ce.Chunk.NoteId,
-                ce.Chunk.Note.Title,
+                ce.Chunk.KnowledgeItemId,
+                ce.Chunk.KnowledgeItem.Title,
                 !string.IsNullOrWhiteSpace(ce.Chunk.Summary) ? ce.Chunk.Summary : ce.Chunk.Content,
-                ce.Chunk.Note.UpdatedAt,
+                ce.Chunk.KnowledgeItem.UpdatedAt,
                 Similarity: CosineSimilarity(queryEmbedding, BytesToFloatArray(ce.Embedding))
             )));
         }

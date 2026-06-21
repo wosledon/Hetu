@@ -78,7 +78,6 @@ public class ChunkService : IChunkService
             chunks.Add(new NoteChunk
             {
                 Id = Guid.NewGuid(),
-                NoteId = note.Id,
                 ChunkIndex = i,
                 Content = finalChunks[i].Trim(),
                 ChunkMethod = "structure",
@@ -90,47 +89,67 @@ public class ChunkService : IChunkService
         return chunks;
     }
 
+    public async Task<List<NoteChunk>> ChunkTextAsync(string text, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return new List<NoteChunk>();
+
+        // 如果配置了 LLM，让大模型直接理解文档并返回分块+摘要
+        var chunkModelId = await GetChunkModelIdAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(chunkModelId))
+        {
+            var llm = await _llmProviderFactory.CreateProviderAsync(Guid.Parse(chunkModelId), cancellationToken);
+            if (llm != null)
+            {
+                try
+                {
+                    return await LlmChunkAsync(text, llm, chunkModelId, cancellationToken);
+                }
+                catch
+                {
+                    // LLM 失败时回退到结构化分块
+                }
+            }
+        }
+
+        // 未配置 LLM 或 LLM 不可用：纯物理分块
+        return StructureChunkText(text);
+    }
+
     public async Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, string modelId, CancellationToken cancellationToken = default)
     {
         var content = note.Content;
         if (string.IsNullOrWhiteSpace(content))
-        {
             return new List<NoteChunk>();
-        }
 
-        // 先用结构化方式做初步分块
-        var structureChunks = ChunkByStructure(note);
-
-        // 对每个块使用 LLM 生成摘要
-        var chunks = new List<NoteChunk>();
-        foreach (var chunk in structureChunks)
-        {
-            string? summary = null;
-            try
-            {
-                summary = await GenerateSummaryAsync(llm, chunk.Content, modelId, cancellationToken);
-            }
-            catch
-            {
-                // LLM 调用失败时跳过摘要
-            }
-
-            chunk.Summary = summary;
-            chunk.ChunkMethod = "llm";
-            chunks.Add(chunk);
-        }
-
-        return chunks;
+        return await LlmChunkAsync(content, llm, modelId, cancellationToken);
     }
 
-    private async Task<string?> GenerateSummaryAsync(ILLMProvider llm, string content, string modelId, CancellationToken cancellationToken)
+    /// <summary>
+    /// 让大模型理解文档，一次性返回结构化的分块+摘要
+    /// </summary>
+    private async Task<List<NoteChunk>> LlmChunkAsync(string content, ILLMProvider llm, string modelId, CancellationToken cancellationToken)
     {
-        var prompt = @"请对以下文本段落生成一段简洁的摘要（不超过 100 字），保留关键信息，便于后续向量搜索匹配。
+        var truncated = content.Length > 12000 ? content[..12000] : content;
 
-原文：
-" + content + @"
+        var prompt = $@"请将以下文档进行智能分块，每个分块应是一个完整的语义单元。
+对每个分块，同时生成一段简洁的摘要（不超过 100 字）。
 
-请直接输出摘要内容，不要添加任何前缀或说明。";
+请以 JSON 数组格式输出，每个元素包含：
+- summary: 分块摘要
+- content: 分块原始内容
+
+要求：
+1. 每个分块控制在 300-1500 字之间
+2. 分块之间尽量不重叠
+3. 保持段落/章节的完整性
+4. 如果文档较短（< 500 字），可以只返回一个分块
+
+文档内容：
+{truncated}
+
+请直接输出 JSON 数组，不要添加其他说明。示例：
+[{{""summary"":""摘要内容"",""content"":""分块正文内容""}}]";
 
         var messages = new List<LlmChatMessage>
         {
@@ -141,12 +160,103 @@ public class ChunkService : IChunkService
         {
             ModelId = modelId,
             Temperature = 0.3,
-            MaxTokens = 200
+            MaxTokens = 4096
         };
 
         var result = await llm.ChatAsync(messages, options, cancellationToken);
-        return string.IsNullOrWhiteSpace(result) ? null : result.Trim();
+        if (string.IsNullOrWhiteSpace(result))
+            throw new InvalidOperationException("LLM 返回空结果");
+
+        var chunks = ParseLlmChunks(result.Trim());
+        if (chunks.Count == 0)
+            throw new InvalidOperationException("LLM 返回的分块无法解析");
+
+        return chunks;
     }
+
+    /// <summary>
+    /// 解析 LLM 返回的 JSON 分块结果
+    /// </summary>
+    private static List<NoteChunk> ParseLlmChunks(string json)
+    {
+        var chunks = new List<NoteChunk>();
+
+        try
+        {
+            var jsonStr = json;
+            var match = Regex.Match(json, @"\[[\s\S]*\]");
+            if (match.Success)
+                jsonStr = match.Value;
+
+            var items = JsonSerializer.Deserialize<List<LlmChunkResult>>(jsonStr, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (items == null || items.Count == 0) return chunks;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (string.IsNullOrWhiteSpace(item.Content)) continue;
+
+                chunks.Add(new NoteChunk
+                {
+                    Id = Guid.NewGuid(),
+                    ChunkIndex = i,
+                    Content = item.Content.Trim(),
+                    Summary = string.IsNullOrWhiteSpace(item.Summary) ? null : item.Summary.Trim(),
+                    ChunkMethod = "llm",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+            }
+        }
+        catch
+        {
+            // JSON 解析失败
+        }
+
+        return chunks;
+    }
+
+    /// <summary>
+    /// 纯物理结构化分块
+    /// </summary>
+    private static List<NoteChunk> StructureChunkText(string text)
+    {
+        var sections = SplitByHeadings(text);
+        if (sections.Count <= 1)
+            sections = SplitByParagraphs(text);
+
+        var finalChunks = new List<string>();
+        foreach (var section in sections)
+        {
+            if (section.Length <= MaxChunkSize)
+                finalChunks.Add(section);
+            else
+                finalChunks.AddRange(SplitLargeSection(section));
+        }
+        finalChunks = MergeSmallChunks(finalChunks);
+
+        var chunks = new List<NoteChunk>();
+        for (int i = 0; i < finalChunks.Count; i++)
+        {
+            chunks.Add(new NoteChunk
+            {
+                Id = Guid.NewGuid(),
+                ChunkIndex = i,
+                Content = finalChunks[i].Trim(),
+                ChunkMethod = "structure",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+        }
+
+        return chunks;
+    }
+
+    private record LlmChunkResult(string? Summary, string? Content);
 
     /// <summary>
     /// 按 Markdown 标题拆分

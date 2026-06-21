@@ -10,6 +10,9 @@ public class Note : BaseEntity
 
     public List<NoteTag> NoteTags { get; set; } = [];
 
+    /// <summary>该笔记对应的知识库项目</summary>
+    public List<KnowledgeItem> KnowledgeItems { get; set; } = [];
+
     public bool IsDeleted { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
     public bool IsFavorite { get; set; }

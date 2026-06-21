@@ -110,6 +110,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddDataProtection();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<WebContentExtractor>();
 builder.Services.AddSingleton<IBackgroundTaskQueue, ChannelBackgroundTaskQueue>();
 builder.Services.AddHostedService<BackgroundTaskProcessor>();
 builder.Services.AddHostedService<TrashCleanupService>();
@@ -147,6 +148,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
     await SeedPromptPresetsAsync(db);
     await SeedSkillsAsync(db);
+    await SyncVecTablesAsync(db);
 }
 
 app.Run();
@@ -293,4 +295,72 @@ static async Task SeedSkillsAsync(HetuDbContext db)
 
     await db.Skills.AddRangeAsync(skills);
     await db.SaveChangesAsync();
+}
+
+static async Task SyncVecTablesAsync(HetuDbContext db)
+{
+    try
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        // 检查 vec 表是否存在
+        await using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'vec_note_embeddings' AND type = 'table'";
+        var exists = await checkCmd.ExecuteScalarAsync();
+        if (exists is not long count || count == 0) return;
+
+        // 同步 NoteEmbeddings → vec_note_embeddings
+        var embeddings = await db.NoteEmbeddings.AsNoTracking().ToListAsync();
+        foreach (var emb in embeddings)
+        {
+            try
+            {
+                var floats = new float[emb.Embedding.Length / 4];
+                for (int i = 0; i < floats.Length; i++)
+                    floats[i] = BitConverter.ToSingle(emb.Embedding, i * 4);
+
+                var vectorText = $"[{string.Join(",", floats)}]";
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = $"INSERT OR REPLACE INTO vec_note_embeddings (note_id, embedding) VALUES ('{emb.NoteId}', '{vectorText}')";
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                // 单条失败不影响其他
+            }
+        }
+
+        // 同步 NoteChunkEmbeddings → vec_chunk_embeddings
+        await using var chunkCheckCmd = connection.CreateCommand();
+        chunkCheckCmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'vec_chunk_embeddings' AND type = 'table'";
+        var chunkExists = await chunkCheckCmd.ExecuteScalarAsync();
+        if (chunkExists is long cc && cc > 0)
+        {
+            var chunkEmbeddings = await db.NoteChunkEmbeddings.AsNoTracking().ToListAsync();
+            foreach (var cemb in chunkEmbeddings)
+            {
+                try
+                {
+                    var floats = new float[cemb.Embedding.Length / 4];
+                    for (int i = 0; i < floats.Length; i++)
+                        floats[i] = BitConverter.ToSingle(cemb.Embedding, i * 4);
+
+                    var vectorText = $"[{string.Join(",", floats)}]";
+                    await using var cmd = connection.CreateCommand();
+                    cmd.CommandText = $"INSERT OR REPLACE INTO vec_chunk_embeddings (chunk_id, embedding) VALUES ('{cemb.ChunkId}', '{vectorText}')";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                    // 单条失败不影响其他
+                }
+            }
+        }
+    }
+    catch
+    {
+        // vec 表不可用时忽略，搜索会回退到内存计算
+    }
 }

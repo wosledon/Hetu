@@ -10,6 +10,7 @@ public class UnitOfWork : IUnitOfWork
 
     public INotebookRepository Notebooks { get; }
     public INoteRepository Notes { get; }
+    public IKnowledgeItemRepository KnowledgeItems { get; }
     public ITagRepository Tags { get; }
     public IAppSettingRepository AppSettings { get; }
     public IAiProviderRepository AiProviders { get; }
@@ -31,6 +32,7 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
         Notebooks = new NotebookRepository(context);
         Notes = new NoteRepository(context);
+        KnowledgeItems = new KnowledgeItemRepository(context);
         Tags = new TagRepository(context);
         AppSettings = new AppSettingRepository(context);
         AiProviders = new AiProviderRepository(context);

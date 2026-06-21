@@ -29,6 +29,7 @@ public class HetuDbContext : DbContext
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
     public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
     public DbSet<NoteChunkEmbedding> NoteChunkEmbeddings => Set<NoteChunkEmbedding>();
+    public DbSet<KnowledgeItem> KnowledgeItems => Set<KnowledgeItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -259,18 +260,39 @@ public class HetuDbContext : DbContext
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
+        modelBuilder.Entity<KnowledgeItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Content).HasDefaultValue(string.Empty);
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.SourceUrl).HasMaxLength(2000);
+            entity.Property(e => e.FilePath).HasMaxLength(2000);
+            entity.Property(e => e.FileName).HasMaxLength(500);
+            entity.Property(e => e.MimeType).HasMaxLength(200);
+            entity.HasOne(e => e.Note)
+                .WithMany(n => n.KnowledgeItems)
+                .HasForeignKey(e => e.NoteId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.NoteId);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasIndex(e => e.UpdatedAt);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
         modelBuilder.Entity<NoteChunk>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Content).IsRequired();
             entity.Property(e => e.Summary).HasMaxLength(2000);
             entity.Property(e => e.ChunkMethod).IsRequired().HasMaxLength(50);
-            entity.HasOne(e => e.Note)
-                .WithMany()
-                .HasForeignKey(e => e.NoteId)
+            entity.HasOne(e => e.KnowledgeItem)
+                .WithMany(k => k.Chunks)
+                .HasForeignKey(e => e.KnowledgeItemId)
                 .OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(e => e.NoteId);
-            entity.HasIndex(e => new { e.NoteId, e.ChunkIndex }).IsUnique();
+            entity.HasIndex(e => e.KnowledgeItemId);
+            entity.HasIndex(e => new { e.KnowledgeItemId, e.ChunkIndex }).IsUnique();
         });
 
         modelBuilder.Entity<NoteChunkEmbedding>(entity =>

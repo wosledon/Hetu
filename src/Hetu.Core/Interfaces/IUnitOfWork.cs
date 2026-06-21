@@ -6,6 +6,7 @@ public interface IUnitOfWork : IAsyncDisposable
 {
     INotebookRepository Notebooks { get; }
     INoteRepository Notes { get; }
+    IKnowledgeItemRepository KnowledgeItems { get; }
     ITagRepository Tags { get; }
     IAppSettingRepository AppSettings { get; }
     IAiProviderRepository AiProviders { get; }

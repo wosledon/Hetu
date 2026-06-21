@@ -3,7 +3,7 @@ namespace Hetu.Shared.Notes;
 public class NoteChunkDto
 {
     public Guid Id { get; set; }
-    public Guid NoteId { get; set; }
+    public Guid KnowledgeItemId { get; set; }
     public int ChunkIndex { get; set; }
     public string Content { get; set; } = string.Empty;
     public string? Summary { get; set; }
@@ -15,7 +15,7 @@ public class NoteChunkDto
 
 public class NoteChunkStatusDto
 {
-    public Guid NoteId { get; set; }
+    public Guid KnowledgeItemId { get; set; }
     public string Title { get; set; } = string.Empty;
     public int ChunkCount { get; set; }
     public int EmbeddedChunkCount { get; set; }
@@ -25,8 +25,8 @@ public class NoteChunkStatusDto
 
 public class ChunkSearchResultDto
 {
-    public Guid NoteId { get; set; }
-    public string NoteTitle { get; set; } = string.Empty;
+    public Guid KnowledgeItemId { get; set; }
+    public string ItemTitle { get; set; } = string.Empty;
     public Guid ChunkId { get; set; }
     public int ChunkIndex { get; set; }
     public string ContentSnippet { get; set; } = string.Empty;

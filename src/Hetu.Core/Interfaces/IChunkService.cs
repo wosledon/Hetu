@@ -11,6 +11,11 @@ public interface IChunkService
     Task<List<NoteChunk>> ChunkNoteAsync(Note note, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 对纯文本内容进行结构化分块（用于文件/网址等非笔记类型）
+    /// </summary>
+    Task<List<NoteChunk>> ChunkTextAsync(string text, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 使用结构化方式分块（按标题/段落拆分）
     /// </summary>
     List<NoteChunk> ChunkByStructure(Note note);

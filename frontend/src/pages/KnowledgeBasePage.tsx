@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Database,
@@ -17,15 +17,28 @@ import {
   Brain,
   Clock,
   Hash,
+  Link,
+  Upload,
+  Globe,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
-import { knowledgeBaseService } from '../services/knowledgeBaseService'
-import type { INoteSearchResult, INoteChunk } from '../services/knowledgeBaseService'
+import {
+  knowledgeBaseService,
+  knowledgeItemService,
+} from '../services/knowledgeBaseService'
+import type {
+  IKnowledgeItemEmbeddingStatus,
+  INoteChunk,
+  IKnowledgeItem,
+} from '../services/knowledgeBaseService'
 
 type TabKey = 'overview' | 'manage' | 'search'
+type ManageFilter = 'all' | 'note' | 'file' | 'url'
 
 const tabs: { key: TabKey; label: string; icon: typeof Database }[] = [
   { key: 'overview', label: '概览', icon: BarChart3 },
@@ -33,40 +46,66 @@ const tabs: { key: TabKey; label: string; icon: typeof Database }[] = [
   { key: 'search', label: '搜索测试', icon: Search },
 ]
 
+const typeFilters: { key: ManageFilter; label: string; icon: typeof FileText }[] = [
+  { key: 'all', label: '全部', icon: Layers },
+  { key: 'note', label: '笔记', icon: FileText },
+  { key: 'file', label: '文件', icon: Upload },
+  { key: 'url', label: '网址', icon: Globe },
+]
+
 export default function KnowledgeBasePage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [manageFilter, setManageFilter] = useState<ManageFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchTopK, setSearchTopK] = useState(10)
-  const [searchResults, setSearchResults] = useState<INoteSearchResult[] | null>(null)
+  const [searchResults, setSearchResults] = useState<{ id: string; title: string; contentSnippet: string; updatedAt: string }[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [chunkDetailNoteId, setChunkDetailNoteId] = useState<string | null>(null)
+  const [chunkDetailId, setChunkDetailId] = useState<string | null>(null)
   const [chunkDetailTitle, setChunkDetailTitle] = useState<string>('')
+  const [showAddUrl, setShowAddUrl] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [urlTitle, setUrlTitle] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Status
+  // Status - 批量索引期间自动轮询
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ['knowledgeBaseStatus'],
     queryFn: knowledgeBaseService.getStatus,
+    refetchInterval: (query) => {
+      // 如果有未索引项，每 3 秒轮询一次
+      const s = query.state.data
+      if (s && s.unindexedItems > 0) return 3000
+      return false
+    },
   })
 
-  // Embedding statuses
+  // Embedding statuses with filter - 有未索引项时自动轮询
   const { data: embeddingStatuses = [], isLoading: embeddingsLoading } = useQuery({
-    queryKey: ['knowledgeBaseEmbeddings'],
-    queryFn: knowledgeBaseService.getEmbeddingStatuses,
+    queryKey: ['knowledgeBaseEmbeddings', manageFilter],
+    queryFn: () => knowledgeBaseService.getEmbeddingStatuses(manageFilter === 'all' ? undefined : manageFilter),
+    enabled: activeTab === 'manage',
+    refetchInterval: activeTab === 'manage' && status && status.unindexedItems > 0 ? 3000 : false,
+  })
+
+  // Knowledge items for manage tab
+  const { data: knowledgeItems = [] } = useQuery({
+    queryKey: ['knowledgeItems', manageFilter],
+    queryFn: () => knowledgeItemService.getList(manageFilter === 'all' ? undefined : manageFilter),
     enabled: activeTab === 'manage',
   })
 
   // Chunk detail
   const { data: chunks = [], isLoading: chunksLoading } = useQuery({
-    queryKey: ['noteChunks', chunkDetailNoteId],
-    queryFn: () => knowledgeBaseService.getChunks(chunkDetailNoteId!),
-    enabled: !!chunkDetailNoteId,
+    queryKey: ['noteChunks', chunkDetailId],
+    queryFn: () => knowledgeBaseService.getChunks(chunkDetailId!),
+    enabled: !!chunkDetailId,
   })
 
   // Generate single embedding
   const generateMutation = useMutation({
-    mutationFn: (noteId: string) => knowledgeBaseService.generateEmbedding(noteId),
+    mutationFn: (id: string) => knowledgeBaseService.generateEmbedding(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['knowledgeBaseStatus'] })
       queryClient.invalidateQueries({ queryKey: ['knowledgeBaseEmbeddings'] })
@@ -77,6 +116,29 @@ export default function KnowledgeBasePage() {
   const batchMutation = useMutation({
     mutationFn: knowledgeBaseService.batchGenerateEmbeddings,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseEmbeddings'] })
+    },
+  })
+
+  // Add URL
+  const addUrlMutation = useMutation({
+    mutationFn: (request: { url: string; title?: string }) => knowledgeItemService.addUrl(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledgeItems'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseEmbeddings'] })
+      setShowAddUrl(false)
+      setUrlInput('')
+      setUrlTitle('')
+    },
+  })
+
+  // Delete item
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => knowledgeItemService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledgeItems'] })
       queryClient.invalidateQueries({ queryKey: ['knowledgeBaseStatus'] })
       queryClient.invalidateQueries({ queryKey: ['knowledgeBaseEmbeddings'] })
     },
@@ -97,17 +159,61 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  const indexedPercent = status ? (status.totalNotes > 0 ? Math.round((status.indexedNotes / status.totalNotes) * 100) : 0) : 0
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      await knowledgeItemService.uploadFile(file)
+      queryClient.invalidateQueries({ queryKey: ['knowledgeItems'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledgeBaseEmbeddings'] })
+    } catch (err) {
+      console.error('上传失败:', err)
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleAddUrl = () => {
+    if (!urlInput.trim()) return
+    addUrlMutation.mutate({ url: urlInput.trim(), title: urlTitle.trim() || undefined })
+  }
+
+  const indexedPercent = status ? (status.totalItems > 0 ? Math.round((status.indexedItems / status.totalItems) * 100) : 0) : 0
   const totalChunks = embeddingStatuses.reduce((sum, s) => sum + s.chunkCount, 0)
 
-  const openChunkDetail = (noteId: string, title: string) => {
-    setChunkDetailNoteId(noteId)
+  const openChunkDetail = (id: string, title: string) => {
+    setChunkDetailId(id)
     setChunkDetailTitle(title)
   }
 
   const closeChunkDetail = () => {
-    setChunkDetailNoteId(null)
+    setChunkDetailId(null)
     setChunkDetailTitle('')
+  }
+
+  // 获取知识项的类型图标
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'note': return <FileText size={14} />
+      case 'file': return <Upload size={14} />
+      case 'url': return <Globe size={14} />
+      default: return <Database size={14} />
+    }
+  }
+
+  const getTypeBadge = (type: string) => {
+    const config = {
+      note: { label: '笔记', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+      file: { label: '文件', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+      url: { label: '网址', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+    }
+    const c = config[type as keyof typeof config] || { label: type, className: 'bg-gray-100 text-gray-600' }
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${c.className}`}>
+        {getTypeIcon(type)}
+        {c.label}
+      </span>
+    )
   }
 
   return (
@@ -124,7 +230,7 @@ export default function KnowledgeBasePage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">知识库</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">管理笔记的向量索引与文档分块</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">管理笔记、文件、网址的向量索引与文档分块</p>
                 </div>
               </div>
             </div>
@@ -154,40 +260,47 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Status Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+                  <StatusCard
+                    icon={<Layers size={20} />}
+                    label="总项目数"
+                    value={status?.totalItems ?? '-'}
+                    color="blue"
+                    loading={statusLoading}
+                  />
                   <StatusCard
                     icon={<FileText size={20} />}
-                    label="总笔记数"
-                    value={status?.totalNotes ?? '-'}
-                    color="blue"
+                    label="笔记"
+                    value={status?.noteCount ?? '-'}
+                    color="indigo"
+                    loading={statusLoading}
+                  />
+                  <StatusCard
+                    icon={<Upload size={20} />}
+                    label="文件"
+                    value={status?.fileCount ?? '-'}
+                    color="green"
+                    loading={statusLoading}
+                  />
+                  <StatusCard
+                    icon={<Globe size={20} />}
+                    label="网址"
+                    value={status?.urlCount ?? '-'}
+                    color="purple"
                     loading={statusLoading}
                   />
                   <StatusCard
                     icon={<CheckCircle2 size={20} />}
                     label="已索引"
-                    value={status?.indexedNotes ?? '-'}
+                    value={status?.indexedItems ?? '-'}
                     color="green"
                     loading={statusLoading}
                   />
                   <StatusCard
                     icon={<AlertCircle size={20} />}
                     label="未索引"
-                    value={status?.unindexedNotes ?? '-'}
+                    value={status?.unindexedItems ?? '-'}
                     color="amber"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<Layers size={20} />}
-                    label="文档分块"
-                    value={totalChunks}
-                    color="indigo"
-                    loading={embeddingsLoading}
-                  />
-                  <StatusCard
-                    icon={<Zap size={20} />}
-                    label="向量维度"
-                    value={status?.dimensions ?? '-'}
-                    color="purple"
                     loading={statusLoading}
                   />
                 </div>
@@ -205,7 +318,7 @@ export default function KnowledgeBasePage() {
                     />
                   </div>
                   <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    {status ? `${status.indexedNotes} / ${status.totalNotes} 笔记已生成向量索引` : '加载中...'}
+                    {status ? `${status.indexedItems} / ${status.totalItems} 知识项已生成向量索引` : '加载中...'}
                   </p>
                 </div>
 
@@ -236,13 +349,13 @@ export default function KnowledgeBasePage() {
                 </div>
 
                 {/* Batch Action */}
-                {status && status.unindexedNotes > 0 && (
+                {status && status.unindexedItems > 0 && (
                   <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">批量索引</h3>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          为 {status.unindexedNotes} 篇未索引笔记生成向量
+                          为 {status.unindexedItems} 个未索引知识项生成向量
                         </p>
                       </div>
                       <button
@@ -260,7 +373,7 @@ export default function KnowledgeBasePage() {
                     </div>
                     {batchMutation.data && (
                       <p className="mt-3 text-sm text-green-600 dark:text-green-400">
-                        已将 {batchMutation.data.queuedCount} 篇笔记加入队列
+                        已将 {batchMutation.data.queuedCount} 个知识项加入队列
                       </p>
                     )}
                     {batchMutation.error && (
@@ -276,27 +389,117 @@ export default function KnowledgeBasePage() {
             {/* Manage Tab */}
             {activeTab === 'manage' && (
               <div className="space-y-4">
+                {/* Type Filter + Actions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
+                    {typeFilters.map((f) => {
+                      const Icon = f.icon
+                      return (
+                        <button
+                          key={f.key}
+                          onClick={() => setManageFilter(f.key)}
+                          className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                            manageFilter === f.key
+                              ? 'bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                          }`}
+                        >
+                          <Icon size={12} />
+                          {f.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <Upload size={13} />
+                      上传文件
+                    </button>
+                    <button
+                      onClick={() => setShowAddUrl(true)}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <Plus size={13} />
+                      添加网址
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add URL Modal */}
+                {showAddUrl && (
+                  <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                    <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">添加网址</h3>
+                    <div className="flex gap-3">
+                      <input
+                        type="url"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        placeholder="https://example.com"
+                        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+                      />
+                      <input
+                        type="text"
+                        value={urlTitle}
+                        onChange={(e) => setUrlTitle(e.target.value)}
+                        placeholder="标题（可选）"
+                        className="w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+                      />
+                      <button
+                        onClick={handleAddUrl}
+                        disabled={addUrlMutation.isPending || !urlInput.trim()}
+                        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        添加
+                      </button>
+                      <button
+                        onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}
+                        className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        取消
+                      </button>
+                    </div>
+                    {addUrlMutation.error && (
+                      <p className="mt-2 text-xs text-red-500">{(addUrlMutation.error as Error).message}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Items List */}
                 {embeddingsLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 size={24} className="animate-spin text-gray-400" />
                   </div>
                 ) : embeddingStatuses.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                    <FileText size={48} strokeWidth={1} />
-                    <p className="mt-4 text-sm">暂无笔记</p>
+                    <Layers size={48} strokeWidth={1} />
+                    <p className="mt-4 text-sm">暂无知识项</p>
+                    <p className="mt-1 text-xs">上传文件、添加网址或创建笔记后自动生成</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {embeddingStatuses.map((item) => (
                       <div
-                        key={item.noteId}
+                        key={item.id}
                         className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
                       >
-                        {/* Title */}
+                        {/* Type + Title */}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {item.title || '无标题'}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {getTypeBadge(item.type)}
+                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {item.title || '无标题'}
+                            </p>
+                          </div>
                           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                             {item.embeddingUpdatedAt
                               ? `更新于 ${formatDistanceToNow(new Date(item.embeddingUpdatedAt), { addSuffix: true, locale: zhCN })}`
@@ -334,7 +537,7 @@ export default function KnowledgeBasePage() {
 
                           {item.chunkCount > 0 && (
                             <button
-                              onClick={() => openChunkDetail(item.noteId, item.title)}
+                              onClick={() => openChunkDetail(item.id, item.title)}
                               className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
                               title="查看分块详情"
                             >
@@ -345,18 +548,30 @@ export default function KnowledgeBasePage() {
                         </div>
 
                         {/* Actions */}
-                        <button
-                          onClick={() => generateMutation.mutate(item.noteId)}
-                          disabled={generateMutation.isPending}
-                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                        >
-                          {generateMutation.isPending ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <RefreshCw size={12} />
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => generateMutation.mutate(item.id)}
+                            disabled={generateMutation.isPending}
+                            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                          >
+                            {generateMutation.isPending ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={12} />
+                            )}
+                            {item.hasEmbedding ? '重新索引' : '生成索引'}
+                          </button>
+                          {item.type !== 'note' && (
+                            <button
+                              onClick={() => {
+                                if (confirm('确定删除该知识项？')) deleteMutation.mutate(item.id)
+                              }}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-all hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
-                          {item.hasEmbedding ? '重新索引' : '生成索引'}
-                        </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -430,7 +645,7 @@ export default function KnowledgeBasePage() {
                       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                         <Search size={48} strokeWidth={1} />
                         <p className="mt-4 text-sm">未找到相关结果</p>
-                        <p className="mt-1 text-xs">尝试使用不同的关键词，或确保笔记已生成索引</p>
+                        <p className="mt-1 text-xs">尝试使用不同的关键词，或确保知识项已生成索引</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -470,7 +685,7 @@ export default function KnowledgeBasePage() {
           </div>
 
           {/* Chunk Detail Modal */}
-          {chunkDetailNoteId && (
+          {chunkDetailId && (
             <ChunkDetailModal
               title={chunkDetailTitle}
               chunks={chunks}

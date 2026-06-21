@@ -106,6 +106,11 @@ public class BackgroundTaskProcessor : BackgroundService
                     throw new InvalidOperationException(result.Error);
                 break;
 
+            case BackgroundTaskType.GenerateKnowledgeItemEmbedding:
+                var kiEmbeddingService = sp.GetRequiredService<INoteEmbeddingService>();
+                await kiEmbeddingService.GenerateKnowledgeItemEmbeddingAsync(item.EntityId, ct);
+                break;
+
             default:
                 _logger.LogWarning("未知的后台任务类型: {Type}", item.Type);
                 break;
