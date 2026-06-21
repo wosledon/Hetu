@@ -220,22 +220,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
   }, [streamingThinking, showThinking])
 
-  // Clear streaming display when messages are refreshed (after query invalidation)
+  // Clear streaming text/thinking display when messages are refreshed (after query invalidation).
+  // Auxiliary panels (todos, questions, tool calls) are preserved until the next send — they
+  // are not saved into messages and should remain visible after the stream ends.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0 || streamingTodos.length > 0 || streamingQuestions.length > 0 || streamingToolCalls.length > 0)) {
+    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0)) {
       setStreamingContent('')
       setStreamingThinking('')
       setStreamingSearchResults([])
       setShowThinking(false)
       setStreamWebSearch(false)
       setStreamDeepThinking(false)
-      setStreamingTodos([])
-      setStreamingQuestions([])
-      setQuestionAnswers({})
-      setCurrentQuestionIndex(0)
-      setStreamingToolCalls([])
-      setStreamingToolResults([])
     }
   }, [messages])
 

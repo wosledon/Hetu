@@ -727,18 +727,36 @@ public class ChatMessagesController : ControllerBase
                                     sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
                                 }
                             }
-                            else if (todoAction == "update" && !string.IsNullOrEmpty(todoId))
+                            else if (todoAction == "update")
                             {
-                                var existing = sessionTodos.FirstOrDefault(t => t.Id == todoId);
+                                // Resolve target by id, then title, then first non-completed
+                                var existing = !string.IsNullOrEmpty(todoId)
+                                    ? sessionTodos.FirstOrDefault(t => t.Id == todoId)
+                                    : null;
+                                if (existing == null && !string.IsNullOrEmpty(todoTitle))
+                                    existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+                                if (existing == null)
+                                    existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
                                 if (existing != null && !string.IsNullOrEmpty(todoStatus))
+                                {
                                     existing.Status = todoStatus;
+                                    todoId = existing.Id;
+                                }
                             }
-                            else if (todoAction == "complete" && !string.IsNullOrEmpty(todoId))
+                            else if (todoAction == "complete")
                             {
-                                var existing = sessionTodos.FirstOrDefault(t => t.Id == todoId);
+                                // Resolve target by id, then title, then first non-completed
+                                var existing = !string.IsNullOrEmpty(todoId)
+                                    ? sessionTodos.FirstOrDefault(t => t.Id == todoId)
+                                    : null;
+                                if (existing == null && !string.IsNullOrEmpty(todoTitle))
+                                    existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+                                if (existing == null)
+                                    existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
                                 if (existing != null)
                                 {
                                     existing.Status = "completed";
+                                    todoId = existing.Id;
                                     todoStatus = "completed";
                                 }
                             }

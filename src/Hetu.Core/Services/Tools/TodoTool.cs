@@ -18,13 +18,13 @@ public class TodoTool : IToolExecutor
                 "enum": ["create", "update", "list", "complete"],
                 "description": "create=创建步骤, update=更新进度, list=查看当前计划, complete=标记完成"
             },
-            "id": { "type": "string", "description": "步骤 ID（update/complete 时需要）" },
-            "title": { "type": "string", "description": "步骤标题（create 时需要）" },
+            "id": { "type": "string", "description": "步骤 ID（update/complete 时使用，从 create 的返回结果中获取）" },
+            "title": { "type": "string", "description": "步骤标题（create 时需要；complete/update 时若不确定 id 可传 title 来匹配）" },
             "description": { "type": "string", "description": "步骤详细说明（可选）" },
             "status": {
                 "type": "string",
                 "enum": ["not-started", "in-progress", "completed"],
-                "description": "当前进度（可选）"
+                "description": "当前进度（update 时需要）"
             }
         },
         "required": ["action"]
