@@ -1,140 +1,257 @@
-# Hetu - AI 增强知识管理工具
+# Hetu
 
-Hetu 是一款面向个人用户的 AI 增强知识管理工具，采用「笔记 + 对话」双引擎设计，支持本地优先的数据存储策略。
+> AI-augmented personal knowledge management — Notes + Chat as dual engines, local-first by design.
 
-## 技术栈
+[简体中文](./README.zh-CN.md) | English
 
-- **后端**: ASP.NET Core 10 + EF Core 10 + SQLite
-- **前端**: React 19 + TypeScript 5.x + Vite 8 + Tailwind CSS 4
-- **AI**: 统一 LLM / Embedding Provider 抽象，支持 OpenAI 协议与 Anthropic 协议
-- **状态管理**: Zustand（客户端状态）+ TanStack Query（服务端状态）
+Hetu (河图) is a local-first knowledge workspace that fuses a Markdown note system with an AI chat workspace, then connects them through embeddings, a knowledge graph, an agent + tool layer (MCP, web search, skills, memories) and structured background tasks — so notes, conversations and AI actions evolve as one living knowledge base.
 
-## 已完成功能
+---
 
-### Milestone 1：笔记基础（MVP）
+## ✨ Features
 
-- 笔记本 CRUD，支持无限层级嵌套
-- 笔记 CRUD、Markdown 编辑、3 秒自动保存
-- 标签管理与筛选
-- 全文搜索
-- 回收站（软删除、恢复）
-- 应用设置（显示名称、主题）
+### 📝 Notes & Notebooks
 
-### Milestone 2：AI 能力
+- WYSIWYG Markdown editing (Milkdown) plus **Edit / Preview / Split** view modes.
+- **Inline AI** triggered by text selection (Polish / Translate / Condense / Expand / Explain / Custom) — replace selection or insert the result back into the note.
+- **AI Assistant panel** for whole-note actions, with **per-call model selection** independent of the global default.
+- Infinitely-nested notebooks with a tree sidebar (create / rename / delete / context menu), including a default "Uncategorized" bucket.
+- Tags with color picker, rename, merge and filter from the sidebar.
+- **3-second autosave** with explicit save / dirty / saved indicators.
+- **Version history** — auto-snapshotted on update, with preview, diff and one-click restore.
+- **Share links** per note (permanent / 24h / 3-day), with view counters and one-click disable; public viewer at `/share/:code`.
+- Per-note **knowledge-base index** status (chunk count, re-index button) and **one-click graph extraction** that reports new entities / relations.
+- **Trash** view with soft-delete and 30-day cleanup.
 
-- AI Provider 管理（OpenAI / Anthropic）
-- AI Model 管理（chat / embedding / completion），支持默认模型
-- API Key 使用 DPAPI 加密存储
-- 对话模块：会话组、话题、消息
-- SSE 流式对话输出
-- 笔记侧 AI 后端：摘要、续写
-- Embedding 向量化与语义搜索（SQLite 下使用内存余弦相似度）
-- 前端 AI 设置页与对话页面
+### 💬 Chat Workspace
 
-### Milestone 3：对话沉淀与整理
+- Conversation **Groups** and **Topics**, each topic with its own model, system prompt, context window and message history.
+- **SSE streaming** with rich event types — `delta`, `thinking`, web-search results, knowledge-base hits, memory hits, tool calls / results, interactive questions, and live to-do plans.
+- **Deep thinking** toggle with reasoning-effort picker (low / medium / high) and a collapsible thinking trace per message.
+- **Toolbelt toggles** alongside the input box: Web Search, Knowledge Base, Memory, Tool-calling (with approval mode: auto / ask / bypass), Model picker, Agent picker, Reasoning effort.
+- **Slash menu** (`/`) to invoke Skills or Agents inline.
+- Message **copy / edit / delete**, with topic **fork** for branching exploration.
+- **Distill to note** — turn a topic into a Markdown note in 4 styles (Summary / Detailed / Q&A / custom prompt) with streaming preview and notebook picker.
+- **File attachments** on the input, plus full-conversation **search** across messages.
 
-- 一键将话题整理为 Markdown 笔记（摘要 / 详细 / Q&A 风格）
-- 整理前流式预览，整理后自动保存到目标笔记本
-- 预设提示词库（内置 + 用户自定义）
-- 前端设置页管理提示词
+### 🤖 Agents, Skills & Prompts
 
-### Milestone 4：历史版本
+- **Agents page** — manage system-prompt presets ("agents") with categories, search, per-agent **tool whitelist** and **per-tool approval policy** (silent / auto / ask), plus JSON **import / export** of all agents.
+- Available tool surface includes: `search_notes`, `read_note`, `search_web`, `search_memory`, `search_graph`, `create_note`, `update_note`, `create_memory`, `ask_question`, `todo`, `run_command`.
+- **Skills page** — two tabs:
+  - **Database skills**: built-in (Translate / Summarize / Explain / Polish) + custom skills with editable prompt template and system prompt; invoke directly from the page to preview output.
+  - **Local skills**: load Markdown / JSON skill files from configurable directories on disk, with directory management UI.
+- Skills are callable from chat via `/skill-name` and from the prompt-preset library.
 
-- 笔记更新时自动保存历史版本（最多保留 20 个）
-- 查看历史版本列表与内容预览
-- 一键恢复到指定历史版本
+### 🧠 Knowledge Base
 
-### Milestone 4：Skill 技能系统
+- Three tabs: **Overview**, **Index management** and **Search test**.
+- Index any combination of **notes, uploaded files and URLs** — type filters for Notes / Files / URLs / All.
+- Live indexing status with auto-polling while items remain unindexed; per-item chunk counts and re-index actions.
+- Built-in **semantic search playground** to validate retrieval with adjustable Top-K and highlighted chunk previews.
 
-- Skill 实体与 CRUD 管理（内置 + 用户自定义）
-- 启动时内置 4 个常用 Skill：translate、summarize、explain、polish
-- 在对话中通过 `/skill-name` 命令触发 Skill
-- 前端设置页管理 Skill
+### 🕸️ Knowledge Graph
 
-### Milestone 5：导出与备份
+- Force-directed graph visualization with zoom, pan, search and reset-layout controls.
+- **Entity types** with distinct colors and icons: Concept, Person, Organization, Technology, Project, Custom.
+- **Relation types**: belongs-to, related-to, depends-on, contains, compared-with, custom.
+- **AI extraction** of entities and relations from any selected note, with merge / dedup pass.
+- Click an entity to see linked notes and jump back into the editor.
 
-- 一键导出全部笔记为 Markdown ZIP
-- 下载 SQLite 数据库备份文件
-- 上传 .db 文件恢复数据
+### 🔌 MCP Servers
 
-## 快速开始
+- Manage **Model Context Protocol** servers from Settings → MCP Server.
+- **stdio** transport fully supported (process spawning + JSON-RPC 2.0); SSE transport is configurable.
+- **Auto tool discovery** (`tools/list`) and tool invocation (`tools/call`); discovered tools become callable from chat.
 
-### 环境要求
+### 🧬 Memories
 
-- .NET SDK 10.0+
-- Node.js 20+
+- Long-term **AI memory store** — content, optional category (Preference / Identity / Work / Habit / Knowledge / …) and **importance** score (rendered as 1–5 stars).
+- Create, edit, delete, search and filter memories; surfaced to chat through the **Memory** toggle and the `search_memory` tool.
 
-### 启动方式
+### 🗂️ Tasks (Background Jobs)
 
-#### 方式一：一键启动（推荐）
+- Two tabs: **Background tasks** and **Scheduled tasks**.
+- Live status for jobs: Queued / Running / Done / Failed, with type filtering (e.g. *Generate Embedding*, *Graph Extract*).
+- Auto-refresh every 5 s, plus "clear completed" and per-task delete.
 
-```bash
-./scripts/start.sh        # Linux / macOS / Git Bash
-# 或
-.\scripts\start.ps1       # PowerShell
-```
+### 🔎 Global Search
 
-#### 方式二：分别启动
+- Unified search across **Notes / Chats / Tags** with tabs and `⌘/Ctrl + K` focus shortcut.
+- Two modes: **Keyword search** and **Semantic (embedding) search**; results highlight matched fragments and open the full note in-place.
 
-```bash
-# 后端（默认端口 5000）
-dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
+### 🤝 Sharing & Export
 
-# 前端（默认端口 5173）
-cd frontend && npm run dev
-```
+- Per-note **share links** with expiration and access counters; public viewer route renders the rendered Markdown without login.
+- Settings → **Data & backup**: export all notes as a Markdown ZIP, back up / restore the SQLite database file.
 
-前端访问地址：http://localhost:5173
-后端 API 地址：http://localhost:5000/api
+### ⚙️ Settings
 
-## 配置 AI
+- **App**: display name, theme (System / Light / Dark) and graph options.
+- **AI Models**: providers (OpenAI-compatible / Anthropic), models per purpose (`chat` / `embedding` / `completion`), default-by-purpose, encrypted API keys.
+- **MCP Server** management.
+- **Database**: switch between SQLite and PostgreSQL, run connection tests.
+- **Trash** shortcut from the settings index.
 
-1. 打开前端页面，进入「设置 → AI 模型」。
-2. 添加 Provider：选择协议类型（OpenAI / Anthropic），填写 Base URL、API Key。
-3. 在该 Provider 下添加 Model：
-   - Purpose: `chat` / `embedding` / `completion`
-   - 将需要的用途设为默认（IsDefault）。
-4. 保存后即可在对话页使用流式聊天。
+### 🔐 Privacy & Storage
 
-## 项目结构
+- 100% local execution — no cloud account required.
+- API keys encrypted at rest via ASP.NET DataProtection (DPAPI on Windows).
+- Vectors stored locally with `sqlite-vec`, or in PostgreSQL with `pgvector`.
+
+---
+
+## 🧱 Tech Stack
+
+| Layer    | Stack                                                              |
+| -------- | ------------------------------------------------------------------ |
+| Backend  | ASP.NET Core 10, EF Core 10, Serilog                               |
+| Storage  | SQLite (default, with `sqlite-vec`) / PostgreSQL (with `pgvector`) |
+| Frontend | React 19, TypeScript 5, Vite 8, Tailwind CSS 4                     |
+| State    | Zustand (client) + TanStack Query (server)                         |
+| Editor   | Milkdown (WYSIWYG) + react-markdown renderer + DOMPurify           |
+| AI       | OpenAI-compatible & Anthropic protocols, embeddings, SSE streaming |
+| Protocol | RESTful API, JSON-RPC 2.0 for MCP                                  |
+
+## 📂 Project Structure
 
 ```
 Hetu/
 ├── src/
-│   ├── Hetu.Api/              # Web API 层
-│   ├── Hetu.Core/             # 核心业务逻辑与接口
-│   ├── Hetu.Infrastructure/   # 数据库、AI Provider 实现
-│   └── Hetu.Shared/           # DTO 与共享模型
-├── frontend/                  # React 前端
-├── scripts/                   # 启动与测试脚本
-├── docs/
-│   └── PRD.md                 # 产品需求文档
-└── design/                    # 原型设计文件
+│   ├── Hetu.Api/                                 # Web API host
+│   ├── Hetu.Core/                                # Domain entities, services, interfaces
+│   ├── Hetu.Infrastructure/                      # EF Core, AI providers, MCP, sqlite-vec
+│   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL migrations
+│   └── Hetu.Shared/                              # DTOs and shared models
+├── frontend/                                     # React + Vite app (see pages below)
+├── scripts/                                      # start.sh / start.ps1 / test scripts
+├── docs/                                         # PRD and design notes
+├── design/                                       # HTML prototypes
+└── AGENTS.md                                     # Implementation conventions
 ```
 
-## 测试
+Frontend page map (routes in [`frontend/src/App.tsx`](frontend/src/App.tsx)):
+
+| Route                            | Page            | Purpose                                     |
+| -------------------------------- | --------------- | ------------------------------------------- |
+| `/`                              | Notes           | Notebook tree + note list + Markdown editor |
+| `/tags`                          | Tags            | Tag CRUD, merge, rename                     |
+| `/chat`                          | Chat            | Groups + topics + streaming message area    |
+| `/agents`                        | Agents          | System-prompt presets + tool policies       |
+| `/skills`                        | Skills          | Database skills + local skills              |
+| `/knowledge-base`                | Knowledge Base  | Indexing & semantic-search playground       |
+| `/graph`                         | Knowledge Graph | Force-directed entity/relation graph        |
+| `/tasks`                         | Tasks           | Background & scheduled job monitor          |
+| `/memories`                      | Memories        | Long-term AI memory store                   |
+| `/search`                        | Search          | Keyword + semantic search across content    |
+| `/trash`                         | Trash           | Soft-deleted notes                          |
+| `/settings`                      | Settings        | App / AI / MCP / Database / Trash           |
+| `/share/:code`                   | Shared note     | Public read-only viewer                     |
+| `/models`, `/work`, `/workflows` | Placeholders    | Reserved for upcoming surfaces              |
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- .NET SDK **10.0+**
+- Node.js **20+**
+- (Optional) PostgreSQL **16+** with the `pgvector` extension
+
+### One-shot launch
 
 ```bash
-# 后端构建
-dotnet build src/Hetu.Api -c Release
+# Linux / macOS / Git Bash
+./scripts/start.sh
 
-# 前端构建
-cd frontend && npm run build
+# PowerShell
+.\scripts\start.ps1
+```
 
-# API 集成测试（需先启动后端）
+### Run manually
+
+```bash
+# Backend (defaults to http://localhost:5000)
+dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
+
+# Frontend (defaults to http://localhost:5173)
+cd frontend
+npm install
+npm run dev
+```
+
+Then open <http://localhost:5173>. The API is served at <http://localhost:5000/api>.
+
+## ⚙️ Configure AI Providers
+
+1. Open the app and go to **Settings → AI Models**.
+2. Add a **Provider**: pick a protocol (OpenAI / Anthropic), enter Base URL and API Key.
+3. Add **Models** under that provider:
+   - `Purpose`: `chat`, `embedding`, or `completion`.
+   - Mark one model as default per purpose.
+4. Save — chat streams replies, notes can be embedded for semantic search, and graph extraction can run.
+
+> API keys are encrypted at rest using ASP.NET DataProtection.
+
+## 🗄️ Switching to PostgreSQL
+
+SQLite is the default and requires no setup. To use PostgreSQL + `pgvector`:
+
+```bash
+export DatabaseProvider=Postgresql
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;Password=postgres"
+
+# Apply migrations (only needed when the schema changes)
+dotnet ef database update \
+  --project src/Hetu.Infrastructure.PostgresMigrations \
+  --startup-project src/Hetu.Api
+```
+
+The vector column dimension is controlled by `Embedding:Dimensions` (default `1536`) and must match your embedding model.
+
+## 🧪 Build & Test
+
+```bash
+# Backend build (whole solution)
+dotnet build Hetu.slnx
+
+# Frontend type-check + production build
+cd frontend
+npm run build
+
+# API smoke tests (backend must be running)
 ./scripts/test-api.sh
 ```
 
-## 已知问题
+## ⚠️ Known Limitations
 
-- EF Core 警告：Note 全局查询过滤器与 NoteTag / NoteVersion / NoteEmbedding 的必需关系冲突（运行时无影响）。
-- 语义搜索在 SQLite 模式下使用内存余弦相似度，大数据量时建议切换到 PostgreSQL + pgvector。
-- Anthropic 当前未提供公开 Embedding API，选择 Anthropic 用途为 embedding 时会抛出明确提示。
-- 前端对话流式输出在遇到 `[ERROR]` 事件时仅追加显示，未做更精细的错误 UI。
+- Anthropic does not currently expose a public embedding API — selecting Anthropic for `embedding` raises an explicit error.
+- MCP **SSE** transport is configurable but only **stdio** is wired up for tool execution.
+- `/models`, `/work`, `/workflows` pages are placeholders for upcoming features.
+- Full-text search across notes uses `LIKE`; an FTS5 / `tsvector` upgrade is planned.
 
-## 后续规划
+## 🤝 Contributing
 
-参见 `docs/PRD.md` 中的里程碑计划：
+Issues and PRs are welcome. Please read [`AGENTS.md`](./AGENTS.md) for layering, naming, commit format and testing conventions before submitting changes.
 
-- Milestone 4：MCP Server
-- Milestone 5：PostgreSQL、PWA、桌面壳、附件上传
+Conventional commit format:
+
+```
+<type>(<scope>): <subject>
+
+# type: feat | fix | docs | style | refactor | test | chore
+# scope: api | ui | db | ai | config
+```
+
+## 📜 License
+
+Licensed under the [Apache License 2.0](./LICENSE).
+
+```
+Copyright 2026 Hetu Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+```
