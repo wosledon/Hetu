@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -14,12 +14,18 @@ type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'ai' | 'mcp' | 'database' | 'trash'
 
 const settingsSections = [
-  { key: 'app', label: '应用设置', icon: Settings },
-  { key: 'ai', label: 'AI 模型', icon: Bot },
-  { key: 'mcp', label: 'MCP Server', icon: Wrench },
-  { key: 'database', label: '数据与备份', icon: Database },
-  { key: 'trash', label: '回收站', icon: Trash2 },
-] satisfies { key: SettingsSection; label: string; icon: typeof Settings }[]
+  { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
+  { key: 'ai', label: 'AI 模型', description: 'Provider 与模型管理', icon: Bot },
+  { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
+  { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
+  { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
+] satisfies { key: SettingsSection; label: string; description: string; icon: typeof Settings }[]
+
+const themeOptions = [
+  { key: 'system' as Theme, label: '跟随系统', desc: '自动匹配系统设置', icon: Monitor },
+  { key: 'light' as Theme, label: '亮色', desc: '明亮清晰', icon: Sun },
+  { key: 'dark' as Theme, label: '暗色', desc: '护眼深色', icon: Moon },
+]
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -63,129 +69,84 @@ export default function SettingsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
-          <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-gray-100">设置</h1>
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-6xl px-6 py-8">
+            {/* Page Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">设置</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">管理应用偏好、AI 模型和数据存储</p>
+            </div>
+
             <div className="flex gap-8">
-              <aside className="w-56 shrink-0">
-                <nav className="space-y-1">
+              {/* Sidebar Navigation */}
+              <aside className="w-60 shrink-0">
+                <nav className="sticky top-8 space-y-1">
                   {settingsSections.map((item) => {
                     const Icon = item.icon
+                    const isActive = activeSection === item.key
                     return (
                       <button
                         key={item.key}
                         type="button"
                         onClick={() => setActiveSection(item.key)}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
-                          activeSection === item.key
-                            ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-200'
-                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                        className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-all duration-200 ${
+                          isActive
+                            ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10'
+                            : 'hover:bg-gray-100/60 dark:hover:bg-white/[0.04]'
                         }`}
                       >
-                        <Icon size={16} />
-                        {item.label}
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                          isActive
+                            ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/25'
+                            : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700 dark:bg-white/[0.06] dark:text-gray-400 dark:group-hover:bg-white/10 dark:group-hover:text-gray-300'
+                        }`}>
+                          <Icon size={15} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className={`text-sm font-medium ${
+                            isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {item.label}
+                          </div>
+                          <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
+                            {item.description}
+                          </div>
+                        </div>
+                        {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
                       </button>
                     )
                   })}
                 </nav>
               </aside>
 
-              <div className="min-w-0 flex-1 rounded-lg bg-white p-6 dark:bg-gray-900">
-                {activeSection === 'app' && <section className="space-y-4">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">应用设置</h2>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      显示名称
-                    </label>
-                    <input
-                      type="text"
-                      value={appName}
-                      onChange={(e) => handleAppNameChange(e.target.value)}
-                      className="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">应用顶部栏显示的标题</p>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      主题模式
-                    </label>
-                    <div className="flex gap-3">
-                      {(['system', 'light', 'dark'] as Theme[]).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => handleThemeChange(t)}
-                          className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-                            theme === t
-                              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200'
-                              : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800'
-                          }`}
-                        >
-                          {t === 'light' && '亮色'}
-                          {t === 'dark' && '暗色'}
-                          {t === 'system' && '跟随系统'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
-                    <h3 className="mb-4 text-md font-semibold text-gray-800 dark:text-gray-100">知识图谱</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            自动提取知识图谱
-                          </label>
-                          <p className="mt-1 text-xs text-gray-500">
-                            开启后，每次保存笔记时将自动调用 AI 提取实体和关系。此功能会消耗 LLM 配额。
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const currentValue = snapshot?.graphAutoExtract === 'true'
-                            setSetting.mutate({ key: 'GraphAutoExtract', value: currentValue ? 'false' : 'true' })
-                          }}
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          手动提取：在 <button onClick={() => navigate('/graph')} className="text-blue-500 hover:underline">知识图谱页面</button> 点击"从笔记提取"按钮，选择笔记进行提取。
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>}
+              {/* Content Area */}
+              <div className="min-w-0 flex-1 animate-fade-in">
+                <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+                  {activeSection === 'app' && <AppSettingsSection
+                    appName={appName}
+                    theme={theme}
+                    snapshot={snapshot}
+                    onAppNameChange={handleAppNameChange}
+                    onThemeChange={handleThemeChange}
+                    onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+                    onNavigate={navigate}
+                  />}
 
-                {activeSection === 'database' && <section className="space-y-6">
-                  <DatabaseSettings />
-                  <div className="border-t border-gray-200 pt-6 dark:border-gray-800">
-                    <ExportBackupPanel />
-                  </div>
-                </section>}
-                {activeSection === 'ai' && <AiSettings />}
-                {activeSection === 'trash' && (
-                  <section className="space-y-4">
-                    <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">回收站</h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      回收站中保存了被删除的笔记。您可以在回收站中恢复或彻底删除笔记。
-                    </p>
-                    <button
-                      onClick={() => navigate('/trash')}
-                      className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-                    >
-                      打开回收站
-                    </button>
-                  </section>
-                )}
-                {activeSection === 'mcp' && <McpServerManager />}
+                  {activeSection === 'database' && (
+                    <section className="space-y-8">
+                      <DatabaseSettings />
+                      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                        <ExportBackupPanel />
+                      </div>
+                    </section>
+                  )}
+
+                  {activeSection === 'ai' && <AiSettings />}
+
+                  {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
+
+                  {activeSection === 'mcp' && <McpServerManager />}
+                </div>
               </div>
             </div>
           </div>
@@ -194,5 +155,141 @@ export default function SettingsPage() {
     >
       {null}
     </AppLayout>
+  )
+}
+
+/* ─── App Settings Section ─── */
+
+function AppSettingsSection({
+  appName,
+  theme,
+  snapshot,
+  onAppNameChange,
+  onThemeChange,
+  onSettingChange,
+  onNavigate,
+}: {
+  appName: string
+  theme: Theme
+  snapshot: Record<string, string> | undefined
+  onAppNameChange: (v: string) => void
+  onThemeChange: (v: Theme) => void
+  onSettingChange: (key: string, value: string) => void
+  onNavigate: (path: string) => void
+}) {
+  return (
+    <div className="space-y-8">
+      {/* Display Name */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">应用设置</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">自定义应用的外观和显示</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">显示名称</label>
+        <input
+          type="text"
+          value={appName}
+          onChange={(e) => onAppNameChange(e.target.value)}
+          className="w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+          placeholder="输入应用名称"
+        />
+        <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
+      </div>
+
+      {/* Theme Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">外观主题</label>
+        <div className="grid grid-cols-3 gap-3">
+          {themeOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = theme === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onThemeChange(opt.key)}
+                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <div className="text-center">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    当前
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Knowledge Graph */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">知识图谱</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">自动从笔记中提取实体与关系</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">自动提取知识图谱</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              保存笔记时自动调用 AI 提取实体和关系，会消耗 LLM 配额
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('GraphAutoExtract', snapshot?.graphAutoExtract === 'true' ? 'false' : 'true')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+          也可手动提取：前往{' '}
+          <button onClick={() => onNavigate('/graph')} className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400">
+            知识图谱页面
+          </button>
+          {' '}点击「从笔记提取」
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Trash Section ─── */
+
+function TrashSection({ onNavigate }: { onNavigate: (path: string) => void }) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">回收站</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">查看和管理已删除的笔记，可恢复或彻底删除</p>
+      </div>
+      <button
+        onClick={() => onNavigate('/trash')}
+        className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
+      >
+        <Trash2 size={15} />
+        打开回收站
+      </button>
+    </section>
   )
 }
