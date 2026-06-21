@@ -94,24 +94,29 @@ export default function ExportBackupPanel() {
       </div>
 
       {/* Restore Section */}
-      <div className="rounded-xl border border-gray-200/80 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-        <div className="mb-3 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400">
-            <Upload size={15} />
+      <div className="group relative overflow-hidden rounded-xl border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/50 to-orange-50/30 p-6 transition-all hover:border-amber-300 hover:from-amber-50 hover:to-orange-50/50 dark:border-amber-500/20 dark:from-amber-500/[0.03] dark:to-orange-500/[0.02] dark:hover:border-amber-500/30 dark:hover:from-amber-500/[0.06] dark:hover:to-orange-500/[0.04]">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600 transition-transform group-hover:scale-110 dark:bg-amber-500/10 dark:text-amber-400">
+            <Upload size={22} />
           </div>
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">恢复数据库</span>
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">恢复数据库</h4>
+          <p className="mt-1 mb-4 max-w-xs text-xs text-gray-400 dark:text-gray-500">
+            上传之前的 .db 备份文件恢复数据，恢复后需要重启应用
+          </p>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-amber-500/25 transition-all hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 active:scale-[0.98]">
+            <Upload size={14} />
+            选择备份文件
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".db"
+              onChange={handleRestore}
+              disabled={isLoading}
+              className="hidden"
+            />
+          </label>
+          <p className="mt-2.5 text-[11px] text-gray-400 dark:text-gray-500">支持 .db 格式文件</p>
         </div>
-        <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">
-          上传之前的 .db 备份文件恢复数据。恢复后需要重启应用才能生效。
-        </p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".db"
-          onChange={handleRestore}
-          disabled={isLoading}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-amber-700 hover:file:bg-amber-100 dark:file:bg-amber-500/10 dark:file:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
-        />
       </div>
 
       {/* Loading Indicator */}
