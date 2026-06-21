@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Notes;
 
@@ -43,7 +44,8 @@ public class NoteAiService : INoteAiService
             new ChatOptions { ModelId = string.Empty, SystemPrompt = options.SystemPrompt },
             cancellationToken))
         {
-            yield return chunk;
+            if (TryExtractContent(chunk, out var content))
+                yield return content;
         }
     }
 
@@ -78,8 +80,37 @@ public class NoteAiService : INoteAiService
             new ChatOptions { ModelId = string.Empty, SystemPrompt = options.SystemPrompt },
             cancellationToken))
         {
-            yield return chunk;
+            if (TryExtractContent(chunk, out var content))
+                yield return content;
         }
+    }
+
+    /// <summary>
+    /// 从 LLM 流式 chunk 中提取正文内容，过滤掉 thinking 等结构化类型。
+    /// </summary>
+    private static bool TryExtractContent(string chunk, out string content)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(chunk);
+            if (doc.RootElement.TryGetProperty("type", out var typeEl))
+            {
+                var type = typeEl.GetString();
+                // 只返回 content 类型，跳过 thinking 等其他类型
+                if (type == "content" && doc.RootElement.TryGetProperty("text", out var textEl))
+                {
+                    content = textEl.GetString() ?? "";
+                    return content.Length > 0;
+                }
+                content = "";
+                return false;
+            }
+        }
+        catch { /* not JSON — treat as plain text */ }
+
+        // Not structured JSON, return as-is
+        content = chunk;
+        return content.Length > 0;
     }
 
     private async Task<ILLMProvider?> GetProviderAsync(Guid? modelId, CancellationToken cancellationToken)

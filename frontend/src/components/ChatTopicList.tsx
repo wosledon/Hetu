@@ -8,9 +8,10 @@ interface ChatTopicListProps {
   groupId?: string
   selectedTopicId?: string
   onSelectTopic: (topic: IChatTopic) => void
+  onDeleteTopic?: (topicId: string) => void
 }
 
-export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic }: ChatTopicListProps) {
+export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic, onDeleteTopic }: ChatTopicListProps) {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -39,8 +40,11 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic 
 
   const deleteTopic = useMutation({
     mutationFn: chatTopicService.delete,
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['chatTopics', groupId] })
+      if (deletedId === selectedTopicId) {
+        onDeleteTopic?.(deletedId)
+      }
     },
   })
 

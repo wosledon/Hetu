@@ -37,6 +37,7 @@ export default function ChatPage() {
         groupId={selectedGroup?.id}
         selectedTopicId={selectedTopic?.id}
         onSelectTopic={setSelectedTopic}
+        onDeleteTopic={() => setSelectedTopic(null)}
       />
     </AppLayout>
   )
