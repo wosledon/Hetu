@@ -15,16 +15,43 @@ interface ChatMessageAreaProps {
   onTopicUpdated?: (topic: IChatTopic) => void
 }
 
-function renderNotebookTree(notebooks: INotebook[], depth: number): React.ReactNode[] {
+function findNotebookName(notebooks: INotebook[], id: string): string {
+  for (const nb of notebooks) {
+    if (nb.id === id) return nb.name
+    if (nb.children) {
+      const found = findNotebookName(nb.children, id)
+      if (found) return found
+    }
+  }
+  return '默认笔记本'
+}
+
+function renderNotebookTree(
+  notebooks: INotebook[],
+  depth: number,
+  selectedId: string,
+  onSelect: (id: string, name: string) => void
+): React.ReactNode[] {
   const result: React.ReactNode[] = []
   for (const nb of notebooks) {
     result.push(
-      <option key={nb.id} value={nb.id}>
-        {'\u00A0\u00A0'.repeat(depth)}{depth > 0 ? '└ ' : ''}{nb.name}
-      </option>
+      <button
+        key={nb.id}
+        type="button"
+        onClick={() => onSelect(nb.id, nb.name)}
+        className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+          selectedId === nb.id
+            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+            : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+        }`}
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
+      >
+        {depth > 0 && <span className="text-gray-300 dark:text-gray-600 mr-1">└</span>}
+        {nb.name}
+      </button>
     )
     if (nb.children && nb.children.length > 0) {
-      result.push(...renderNotebookTree(nb.children, depth + 1))
+      result.push(...renderNotebookTree(nb.children, depth + 1, selectedId, onSelect))
     }
   }
   return result
@@ -49,6 +76,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
   const [organizeResult, setOrganizeResult] = useState<{ noteId: string; title: string } | null>(null)
   const [showOrganizeOptions, setShowOrganizeOptions] = useState(false)
+  const [showNotebookPicker, setShowNotebookPicker] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -438,6 +466,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           const title = preview.split('\n')[0]?.replace(/^#+\s*/, '').trim() ?? '整理笔记'
           setOrganizeResult({ noteId, title })
           queryClient.invalidateQueries({ queryKey: ['notes'] })
+          queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+          // 刷新当前话题状态
+          chatTopicService.getById(topic.id).then(onTopicUpdated).catch(() => {})
         } else if (data.startsWith('[ERROR]')) {
           // ignore
         } else {
@@ -544,16 +575,33 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <option value="qna">Q&A 式</option>
               </select>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <span className="mb-1 block text-[11px] text-gray-500">目标笔记本</span>
-              <select
-                value={organizeTargetNotebook}
-                onChange={(e) => setOrganizeTargetNotebook(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"
+              <button
+                type="button"
+                onClick={() => setShowNotebookPicker(!showNotebookPicker)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800"
               >
-                <option value="">默认笔记本</option>
-                {renderNotebookTree(notebooks, 0)}
-              </select>
+                <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : '默认笔记本'}</span>
+                <ChevronDown size={12} className="text-gray-400 shrink-0" />
+              </button>
+              {showNotebookPicker && (
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => { setOrganizeTargetNotebook(''); setShowNotebookPicker(false) }}
+                    className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                      !organizeTargetNotebook ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    默认笔记本
+                  </button>
+                  {renderNotebookTree(notebooks, 0, organizeTargetNotebook, (id) => {
+                    setOrganizeTargetNotebook(id)
+                    setShowNotebookPicker(false)
+                  })}
+                </div>
+              )}
             </div>
             <button
               onClick={() => { setShowOrganizeOptions(false); handleOrganize() }}

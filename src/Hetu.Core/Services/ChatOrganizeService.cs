@@ -104,6 +104,11 @@ public class ChatOrganizeService : IChatOrganizeService
             yield break;
         }
 
+        // 更新话题笔记同步状态为已整理
+        topic.NoteSyncStatus = NoteSyncStatus.Synced;
+        await _unitOfWork.ChatTopics.UpdateAsync(topic);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         yield return $"\n[DONE]{createResult.Data!.Id}";
     }
 
