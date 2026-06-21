@@ -34,10 +34,13 @@ export interface UpdateChatTopicRequest {
 
 export interface SendMessageRequest {
   content: string;
+  modelId?: string;
   deepThinking?: boolean;
+  reasoningEffort?: string;
   webSearch?: boolean;
   knowledgeBase?: boolean;
   memory?: boolean;
+  presetSystemPrompt?: string;
   images?: { data: string; mimeType: string; fileName?: string }[];
 }
 

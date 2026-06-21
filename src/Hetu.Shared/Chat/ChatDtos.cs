@@ -79,10 +79,22 @@ public class ChatMessageDto
 public class SendMessageRequest
 {
     public string Content { get; set; } = string.Empty;
+    /// <summary>
+    /// 前端选择的模型 ID（覆盖话题默认模型）
+    /// </summary>
+    public string? ModelId { get; set; }
     public bool DeepThinking { get; set; }
+    /// <summary>
+    /// 推理强度：low / medium / high（native 模式下使用）
+    /// </summary>
+    public string? ReasoningEffort { get; set; }
     public bool WebSearch { get; set; }
     public bool KnowledgeBase { get; set; }
     public bool Memory { get; set; }
+    /// <summary>
+    /// 智能体预设的系统提示词（前端选择智能体时传入）
+    /// </summary>
+    public string? PresetSystemPrompt { get; set; }
     /// <summary>
     /// 图片附件列表（base64 编码的图片数据 + MIME 类型）
     /// </summary>

@@ -98,9 +98,16 @@ public class ChatMessagesController : ControllerBase
         }
 
         ILLMProvider? provider;
-        Guid? modelId = topic.ModelId;
-        if (modelId.HasValue)
+        Guid? modelId;
+        if (!string.IsNullOrWhiteSpace(request.ModelId) && Guid.TryParse(request.ModelId, out var reqModelId))
         {
+            // 前端选择了模型，优先使用
+            modelId = reqModelId;
+            provider = await _llmProviderFactory.CreateProviderAsync(modelId.Value, cancellationToken);
+        }
+        else if (topic.ModelId.HasValue)
+        {
+            modelId = topic.ModelId;
             provider = await _llmProviderFactory.CreateProviderAsync(modelId.Value, cancellationToken);
         }
         else
@@ -171,6 +178,14 @@ public class ChatMessagesController : ControllerBase
             Stream = true
         };
 
+        // Merge preset system prompt (智能体预设)
+        if (!string.IsNullOrWhiteSpace(request.PresetSystemPrompt))
+        {
+            options.SystemPrompt = string.IsNullOrWhiteSpace(options.SystemPrompt)
+                ? request.PresetSystemPrompt
+                : options.SystemPrompt + "\n\n" + request.PresetSystemPrompt;
+        }
+
         // Deep thinking: use model's reasoning mode configuration
         var reasoningMode = "none";
         var reasoningEffort = "medium";
@@ -197,9 +212,12 @@ public class ChatMessagesController : ControllerBase
         }
 
         // Apply deep thinking based on model's reasoning mode and user toggle
-        if (request.DeepThinking && reasoningMode != "none" && reasoningEffort != "off")
+        if (request.DeepThinking && reasoningMode != "none")
         {
-            if (reasoningMode == "tag")
+            // 前端传入的推理强度优先
+            var effort = !string.IsNullOrWhiteSpace(request.ReasoningEffort) ? request.ReasoningEffort : reasoningEffort;
+            if (effort == "off") { /* 用户关闭了推理 */ }
+            else if (reasoningMode == "tag")
             {
                 // Tag mode: instruct model to use <thinking> tags
                 var thinkPrefix = string.IsNullOrEmpty(options.SystemPrompt) ? "" : options.SystemPrompt + "\n\n";

@@ -92,6 +92,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [editingContent, setEditingContent] = useState('')
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [deepThinking, setDeepThinking] = useState(false)
+  const [reasoningEffort, setReasoningEffort] = useState<string>('medium')
+  const [showReasoningPicker, setShowReasoningPicker] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [knowledgeBase, setKnowledgeBase] = useState(false)
   const [memory, setMemory] = useState(false)
@@ -105,6 +107,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const agentPickerRef = useRef<HTMLDivElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
+  const reasoningPickerRef = useRef<HTMLDivElement>(null)
 
   const { data: messages = [] } = useQuery({
     queryKey: ['chatMessages', topic?.id],
@@ -173,10 +176,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showModelPicker && modelPickerRef.current && !modelPickerRef.current.contains(target)) {
         setShowModelPicker(false)
       }
+      if (showReasoningPicker && reasoningPickerRef.current && !reasoningPickerRef.current.contains(target)) {
+        setShowReasoningPicker(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -184,6 +190,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const currentModel = selectedModelId ? chatModels.find(m => m.id === selectedModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
   const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
   const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
+
+  // Sync reasoning effort from model when model changes
+  useEffect(() => {
+    setReasoningEffort(currentReasoningEffort)
+  }, [currentReasoningEffort])
 
   const toggleSavedThinking = (messageId: string) => {
     setExpandedThinking(prev => {
@@ -316,10 +327,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     try {
       const response = await chatMessageService.stream(topic.id, {
         content,
+        modelId: selectedModelId || undefined,
         deepThinking,
+        reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch,
         knowledgeBase,
         memory,
+        presetSystemPrompt: selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
       })
       await readSseStream(response, (data) => {
@@ -1108,9 +1122,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 </button>
               )}
               {currentReasoningMode === 'native' && (
-                <div className="relative">
+                <div className="relative" ref={reasoningPickerRef}>
                   <button
-                    onClick={() => setDeepThinking(!deepThinking)}
+                    onClick={() => setShowReasoningPicker(!showReasoningPicker)}
                     className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
                       deepThinking
                         ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
@@ -1119,23 +1133,23 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     title="推理强度"
                   >
                     <Brain size={14} />
-                    {currentReasoningEffort === 'low' ? '低' : currentReasoningEffort === 'high' ? '高' : currentReasoningEffort === 'off' ? '关闭' : '中'}
+                    {reasoningEffort === 'low' ? '低' : reasoningEffort === 'high' ? '高' : reasoningEffort === 'off' ? '关闭' : '中'}
                     <ChevronDown size={10} />
                   </button>
-                  {deepThinking && (
+                  {showReasoningPicker && (
                     <div className="absolute bottom-full left-0 mb-2 w-32 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                       <div className="p-1.5">
                         {['low', 'medium', 'high'].map(level => (
                           <button
                             key={level}
-                            onClick={() => { setDeepThinking(true) }}
-                            className={`w-full rounded-lg px-3 py-1.5 text-left text-xs ${currentReasoningEffort === level ? 'bg-violet-50 text-violet-600 dark:bg-violet-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            onClick={() => { setReasoningEffort(level); setDeepThinking(true); setShowReasoningPicker(false) }}
+                            className={`w-full rounded-lg px-3 py-1.5 text-left text-xs ${reasoningEffort === level ? 'bg-violet-50 text-violet-600 dark:bg-violet-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                           >
                             {level === 'low' ? '低强度' : level === 'medium' ? '中等' : '高强度'}
                           </button>
                         ))}
                         <button
-                          onClick={() => setDeepThinking(false)}
+                          onClick={() => { setDeepThinking(false); setShowReasoningPicker(false) }}
                           className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
                           关闭
