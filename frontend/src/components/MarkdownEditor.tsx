@@ -158,6 +158,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   // 索引完成后停止轮询
   useEffect(() => {
     if (isIndexing && currentEmbedding) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsIndexing(false)
     }
   }, [isIndexing, currentEmbedding])
@@ -249,21 +250,21 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   }, [inlineAiLoading, inlineAiResult])
 
   /** AI 助手按钮：打开/关闭固定面板 */
-  const toggleAssistant = useCallback(() => {
+  const toggleAssistant = () => {
     setShowAssistant((prev) => !prev)
     setAssistantResult('')
     setAssistantCustomPrompt('')
     setAssistantAction('continue')
     setShowModelPicker(false)
-  }, [])
+  }
 
-  const closeInlineAi = useCallback(() => {
+  const closeInlineAi = () => {
     setShowInlineAi(false)
     setInlineAiResult('')
     setInlineCustomPrompt('')
     setInlineAiAction('continue')
     setShowModelPicker(false)
-  }, [])
+  }
 
   const handleReplaceSelection = () => {
     if (!inlineAiResult || inlineAiResult.startsWith('[ERROR]')) return

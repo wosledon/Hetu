@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleDashed, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Copy, Check, Pencil, Trash2, X, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
-import type { IChatTopic, IPromptPreset, INotebook } from '../types'
+import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -65,7 +65,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamingSearchResults, setStreamingSearchResults] = useState<Array<{ title: string; url: string; snippet: string }>>([])
   const [showThinking, setShowThinking] = useState(false)
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
-  const [streamDeepThinking, setStreamDeepThinking] = useState(false)
   const [streamWebSearch, setStreamWebSearch] = useState(false)
   const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
   const [streamMemory, setStreamMemory] = useState(false)
@@ -94,7 +93,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
-  const [organizePreview, setOrganizePreview] = useState('')
   const [organizeStyle, setOrganizeStyle] = useState<'summary' | 'detailed' | 'qna'>('summary')
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
   const [organizeResult, setOrganizeResult] = useState<{ noteId: string; title: string } | null>(null)
@@ -104,10 +102,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ChatMessageSearchResult[]>([])
-  const [showAutoOrganizeSettings, setShowAutoOrganizeSettings] = useState(false)
-  const [showTopicSettings, setShowTopicSettings] = useState(false)
-  const [topicModelId, setTopicModelId] = useState('')
-  const [topicSystemPrompt, setTopicSystemPrompt] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
@@ -203,6 +197,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   // Reset slash menu index when items change, and auto-scroll selected item into view
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlashMenuIndex(0)
   }, [filteredSlashItems.length])
 
@@ -224,24 +219,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   // Clear streaming text/thinking display when messages are refreshed (after query invalidation).
   // Auxiliary panels (todos, questions, tool calls) are preserved until the next send — they
   // are not saved into messages and should remain visible after the stream ends.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0)) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setStreamingContent('')
       setStreamingThinking('')
       setStreamingSearchResults([])
       setShowThinking(false)
       setStreamWebSearch(false)
-      setStreamDeepThinking(false)
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
+    // Intentionally only react to messages list changes (post-stream refresh).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    setTopicModelId(topic?.modelId ?? '')
-    setTopicSystemPrompt(topic?.customSystemPrompt ?? '')
-  }, [topic?.id, topic?.modelId, topic?.customSystemPrompt])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -273,6 +263,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   // Sync reasoning effort from model when model changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
 
@@ -392,7 +383,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamingThinking('')
     setStreamingSearchResults([])
     setPendingUserMessage(content)
-    setStreamDeepThinking(deepThinking)
     setStreamWebSearch(webSearch)
     setStreamKnowledgeBase(knowledgeBase)
     setStreamMemory(memory)
@@ -488,7 +478,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             try {
               const questionData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
               if (questionData?.questions) {
-                const newQuestions = questionData.questions.map((q: any, i: number) => ({
+                const newQuestions = (questionData.questions as Array<{
+                  header?: string
+                  question?: string
+                  options?: Array<{ label: string; description?: string }>
+                  allowCustom?: boolean
+                }>).map((q, i) => ({
                   id: `${chunk.toolCallId || 'q'}_${i}`,
                   toolCallId: chunk.toolCallId || '',
                   header: q.header || '问题',
@@ -500,17 +495,24 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 }))
                 setStreamingQuestions(prev => [...prev, ...newQuestions])
               }
-            } catch {}
+            } catch {
+              // Ignore malformed question payloads
+            }
           } else if (chunk.type === 'todo') {
             try {
               const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
               // Prefer the full authoritative list from the backend
               if (Array.isArray(todoData?.todos) && todoData.todos.length > 0) {
-                setStreamingTodos(todoData.todos.map((t: any) => ({
+                setStreamingTodos((todoData.todos as Array<{
+                  id?: string
+                  title?: string
+                  description?: string
+                  status?: 'not-started' | 'in-progress' | 'completed'
+                }>).map(t => ({
                   id: t.id || `t${Math.random().toString(36).slice(2)}`,
                   title: t.title || '',
                   description: t.description,
-                  status: (t.status as 'not-started' | 'in-progress' | 'completed') || 'not-started',
+                  status: t.status || 'not-started',
                 })))
               } else if (todoData?.action === 'create' && todoData?.title) {
                 setStreamingTodos(prev => [...prev, {
@@ -528,7 +530,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   t.id === todoData.id ? { ...t, status: 'completed' } : t
                 ))
               }
-            } catch {}
+            } catch {
+              // Ignore malformed todo payloads
+            }
           }
         } catch {
           // Fallback: treat as plain text (backward compat)
@@ -550,41 +554,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       chatTopicService.fork(topicId, branchMessageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-    },
-  })
-
-  const updateTopicSettingsMutation = useMutation({
-    mutationFn: () => {
-      return chatTopicService.update(topic!.id, {
-        title: topic!.title,
-        modelId: topicModelId || undefined,
-        customSystemPrompt: topicSystemPrompt.trim() || undefined,
-        noteSyncStatus: topic!.noteSyncStatus,
-        isAutoOrganizeEnabled: topic!.isAutoOrganizeEnabled,
-        autoOrganizeNotebookId: topic!.autoOrganizeNotebookId,
-      })
-    },
-    onSuccess: (updatedTopic) => {
-      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-      onTopicUpdated?.(updatedTopic)
-      setShowTopicSettings(false)
-    },
-  })
-
-  const updateAutoOrganizeMutation = useMutation({
-    mutationFn: ({ enabled, notebookId }: { enabled: boolean; notebookId?: string }) =>
-      chatTopicService.update(topic!.id, {
-        title: topic!.title,
-        modelId: topic!.modelId,
-        customSystemPrompt: topic!.customSystemPrompt,
-        contextWindowSize: topic!.contextWindowSize,
-        noteSyncStatus: topic!.noteSyncStatus,
-        isAutoOrganizeEnabled: enabled,
-        autoOrganizeNotebookId: notebookId || undefined,
-      }),
-    onSuccess: (updatedTopic) => {
-      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-      onTopicUpdated?.(updatedTopic)
     },
   })
 
@@ -655,7 +624,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     if (!topic || isOrganizing || isStreaming) return
 
     setIsOrganizing(true)
-    setOrganizePreview('')
     setOrganizeResult(null)
 
     try {
@@ -692,11 +660,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       })
 
       if (!success) {
-        setOrganizePreview((prev) => prev || '整理失败，请检查模型配置。')
+        console.warn('整理失败，请检查模型配置。')
       }
     } catch (error) {
       console.error('Organize error:', error)
-      setOrganizePreview('整理失败，请检查模型配置。')
     } finally {
       setIsOrganizing(false)
     }
