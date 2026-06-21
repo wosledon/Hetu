@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo } from 'lucide-react'
 import Sidebar from './Sidebar'
+import { useUIStore } from '../stores/uiStore'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -12,6 +13,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const appName = useUIStore((state) => state.appName)
   const navItems = [
     { path: '/', label: '笔记', icon: BookOpen },
     { path: '/tags', label: '标签', icon: Tag },
@@ -32,7 +34,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
               <BookOpen size={16} className="text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">Hetu</span>
+            <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
           <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             {navItems.map((item) => {

@@ -65,7 +65,10 @@ export default function SettingsPage() {
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
-    setSetting.mutate({ key: 'AppName', value })
+  }
+
+  const handleAppNameSave = () => {
+    setSetting.mutate({ key: 'AppName', value: appName })
   }
 
   const handleThemeChange = (value: Theme) => {
@@ -136,6 +139,7 @@ export default function SettingsPage() {
                     snapshot={snapshot}
                     models={allModels}
                     onAppNameChange={handleAppNameChange}
+                    onAppNameSave={handleAppNameSave}
                     onThemeChange={handleThemeChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
@@ -175,6 +179,7 @@ function AppSettingsSection({
   snapshot,
   models,
   onAppNameChange,
+  onAppNameSave,
   onThemeChange,
   onSettingChange,
   onNavigate,
@@ -184,6 +189,7 @@ function AppSettingsSection({
   snapshot: Record<string, string> | undefined
   models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
   onAppNameChange: (v: string) => void
+  onAppNameSave: () => void
   onThemeChange: (v: Theme) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
@@ -200,13 +206,22 @@ function AppSettingsSection({
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">显示名称</label>
-        <input
-          type="text"
-          value={appName}
-          onChange={(e) => onAppNameChange(e.target.value)}
-          className="w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
-          placeholder="输入应用名称"
-        />
+        <div className="flex max-w-sm items-center gap-2">
+          <input
+            type="text"
+            value={appName}
+            onChange={(e) => onAppNameChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
+            className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            placeholder="输入应用名称"
+          />
+          <button
+            onClick={onAppNameSave}
+            className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
+          >
+            保存
+          </button>
+        </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
       </div>
 
