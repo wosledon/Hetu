@@ -32,7 +32,7 @@ function NotebookTreeItem({
   const [draftName, setDraftName] = useState(notebook.name)
   const [isAddingChild, setIsAddingChild] = useState(false)
   const [childName, setChildName] = useState('')
-  const [isHovered, setIsHovered] = useState(false)
+  const [, setIsHovered] = useState(false)
 
   const updateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
