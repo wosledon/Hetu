@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown } from 'lucide-react'
+import { Send, Bot, FileText, Sparkles, Search, GitBranch, Settings, Copy, Check, Pencil, Trash2, X, Save, RotateCcw, Plus, Brain, Globe, Database, ChevronDown, Loader2 } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -23,6 +23,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamingSearchResults, setStreamingSearchResults] = useState<Array<{ title: string; url: string; snippet: string }>>([])
   const [showThinking, setShowThinking] = useState(false)
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
+  const [streamDeepThinking, setStreamDeepThinking] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState('')
@@ -109,6 +110,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
+  // Get current model's reasoning configuration
+  const currentModel = selectedModelId ? chatModels.find(m => m.id === selectedModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
+  const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
+  const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
+
   const copyMessage = async (messageId: string, content: string) => {
     try {
       await navigator.clipboard.writeText(content)
@@ -174,6 +180,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setInput('')
     setIsStreaming(true)
     setStreamingContent('')
+    setStreamingThinking('')
+    setStreamingSearchResults([])
+    setPendingUserMessage(content)
+    setStreamDeepThinking(deepThinking)
 
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     if (skillMatch) {
@@ -193,6 +203,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           setTimeout(() => setStreamingContent(''), 3000)
         } finally {
           setIsStreaming(false)
+          setPendingUserMessage(null)
         }
         return
       }
@@ -233,6 +244,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       setStreamingThinking('')
       setStreamingSearchResults([])
       setShowThinking(false)
+      setPendingUserMessage(null)
     }
   }
 
@@ -708,6 +720,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         ))}
         </div>
 
+        {/* Pending user message (shown immediately while streaming) */}
+        {pendingUserMessage && (
+          <div className="flex justify-end">
+            <div className="max-w-[80%] flex flex-col items-end">
+              <div className="rounded-2xl rounded-tr-sm bg-blue-500 px-4 py-3 text-sm text-white">
+                {pendingUserMessage}
+              </div>
+            </div>
+          </div>
+        )}
+
         {isStreaming && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
@@ -718,7 +741,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
-                {/* Thinking block */}
+                {/* Thinking block - show whenever thinking content exists */}
                 {streamingThinking && (
                   <div className="mb-3">
                     <button
@@ -737,9 +760,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   </div>
                 )}
                 {/* Content */}
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ThemedMarkdown source={streamingContent || ''} />
-                </div>
+                {streamingContent && (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ThemedMarkdown source={streamingContent} />
+                  </div>
+                )}
                 {/* Search results citations */}
                 {streamingSearchResults.length > 0 && (
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -757,8 +782,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                           className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
                           <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
                             <span className="block truncate text-gray-400">{r.url}</span>
                           </span>
                         </a>
@@ -766,11 +791,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     </div>
                   </div>
                 )}
+                {/* Loading dots - show only when no content yet and no thinking */}
                 {!streamingContent && !streamingThinking && (
-                  <div className="flex items-center gap-1 py-1">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:0ms]"></span>
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:150ms]"></span>
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:300ms]"></span>
+                  <div className="flex items-center gap-1.5 py-1">
+                    <Loader2 size={12} className="animate-spin text-gray-400" />
+                    <span className="text-[11px] text-gray-400">思考中...</span>
                   </div>
                 )}
               </div>
@@ -932,19 +957,59 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
               <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
 
-              {/* Deep thinking toggle */}
-              <button
-                onClick={() => setDeepThinking(!deepThinking)}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                  deepThinking
-                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                }`}
-                title="深度思考"
-              >
-                <Brain size={14} />
-                深度思考
-              </button>
+              {/* Deep thinking - dynamic based on model reasoning mode */}
+              {currentReasoningMode === 'tag' && (
+                <button
+                  onClick={() => setDeepThinking(!deepThinking)}
+                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    deepThinking
+                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                  }`}
+                  title="深度思考"
+                >
+                  <Brain size={14} />
+                  深度思考
+                </button>
+              )}
+              {currentReasoningMode === 'native' && (
+                <div className="relative">
+                  <button
+                    onClick={() => setDeepThinking(!deepThinking)}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                      deepThinking
+                        ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                    }`}
+                    title="推理强度"
+                  >
+                    <Brain size={14} />
+                    {currentReasoningEffort === 'low' ? '低' : currentReasoningEffort === 'high' ? '高' : currentReasoningEffort === 'off' ? '关闭' : '中'}
+                    <ChevronDown size={10} />
+                  </button>
+                  {deepThinking && (
+                    <div className="absolute bottom-full left-0 mb-2 w-32 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                      <div className="p-1.5">
+                        {['low', 'medium', 'high'].map(level => (
+                          <button
+                            key={level}
+                            onClick={() => { setDeepThinking(true) }}
+                            className={`w-full rounded-lg px-3 py-1.5 text-left text-xs ${currentReasoningEffort === level ? 'bg-violet-50 text-violet-600 dark:bg-violet-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                          >
+                            {level === 'low' ? '低强度' : level === 'medium' ? '中等' : '高强度'}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setDeepThinking(false)}
+                          className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          关闭
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Web search toggle */}
               <button

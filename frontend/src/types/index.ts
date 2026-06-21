@@ -82,6 +82,8 @@ export interface IAiModel {
   isDefault: boolean;
   contextWindow?: number;
   dimensions?: number;
+  reasoningMode: 'none' | 'tag' | 'native';
+  reasoningEffort: 'off' | 'low' | 'medium' | 'high';
   createdAt: string;
   updatedAt: string;
 }

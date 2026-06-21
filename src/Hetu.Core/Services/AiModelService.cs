@@ -53,6 +53,8 @@ public class AiModelService : IAiModelService
             IsDefault = request.IsDefault,
             ContextWindow = request.ContextWindow,
             Dimensions = request.Dimensions,
+            ReasoningMode = request.ReasoningMode ?? "none",
+            ReasoningEffort = request.ReasoningEffort ?? "medium",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -78,6 +80,8 @@ public class AiModelService : IAiModelService
         model.IsDefault = request.IsDefault;
         model.ContextWindow = request.ContextWindow;
         model.Dimensions = request.Dimensions;
+        model.ReasoningMode = request.ReasoningMode ?? model.ReasoningMode;
+        model.ReasoningEffort = request.ReasoningEffort ?? model.ReasoningEffort;
         model.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.AiModels.UpdateAsync(model, cancellationToken);
@@ -118,6 +122,8 @@ public class AiModelService : IAiModelService
         IsDefault = model.IsDefault,
         ContextWindow = model.ContextWindow,
         Dimensions = model.Dimensions,
+        ReasoningMode = model.ReasoningMode ?? "none",
+        ReasoningEffort = model.ReasoningEffort ?? "medium",
         CreatedAt = model.CreatedAt,
         UpdatedAt = model.UpdatedAt
     };

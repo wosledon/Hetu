@@ -106,6 +106,11 @@ export default function AiSettings() {
                 <div>
                   <span className="text-sm font-medium">{model.displayName}</span>
                   <span className="text-xs text-gray-500 ml-2">{model.modelId} · {model.purpose}</span>
+                  {model.reasoningMode && model.reasoningMode !== 'none' && (
+                    <span className="ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                      {model.reasoningMode === 'native' ? '原生推理' : '标签推理'} · {model.reasoningEffort === 'low' ? '低' : model.reasoningEffort === 'medium' ? '中' : model.reasoningEffort === 'high' ? '高' : '关闭'}
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -203,7 +208,7 @@ function ModelForm({
   onSubmit,
   onCancel,
 }: {
-  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding' | 'completion'; isDefault: boolean; contextWindow?: number; dimensions?: number }) => void
+  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding' | 'completion'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string }) => void
   onCancel: () => void
 }) {
   const [modelId, setModelId] = useState('')
@@ -212,6 +217,8 @@ function ModelForm({
   const [isDefault, setIsDefault] = useState(false)
   const [contextWindow, setContextWindow] = useState('')
   const [dimensions, setDimensions] = useState('')
+  const [reasoningMode, setReasoningMode] = useState('none')
+  const [reasoningEffort, setReasoningEffort] = useState('medium')
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -254,6 +261,34 @@ function ModelForm({
           placeholder="向量维度（Embedding 模型专用，如 1536）"
           className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent"
         />
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">推理模式</label>
+          <select
+            value={reasoningMode}
+            onChange={(e) => setReasoningMode(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
+          >
+            <option value="none">不支持</option>
+            <option value="tag">标签模式（&lt;thinking&gt; 标签）</option>
+            <option value="native">原生模式（o1/Claude 等）</option>
+          </select>
+          <p className="mt-1 text-[10px] text-gray-400">标签模式适用于普通模型，原生模式适用于内置推理的模型</p>
+        </div>
+        {reasoningMode !== 'none' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">推理强度</label>
+            <select
+              value={reasoningEffort}
+              onChange={(e) => setReasoningEffort(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
+            >
+              <option value="off">关闭</option>
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+            </select>
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -272,6 +307,8 @@ function ModelForm({
                 isDefault,
                 contextWindow: contextWindow ? parseInt(contextWindow) : undefined,
                 dimensions: dimensions ? parseInt(dimensions) : undefined,
+                reasoningMode,
+                reasoningEffort,
               })
             }
             className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md"

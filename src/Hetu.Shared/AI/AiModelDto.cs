@@ -10,6 +10,8 @@ public class AiModelDto
     public bool IsDefault { get; set; }
     public int? ContextWindow { get; set; }
     public int? Dimensions { get; set; }
+    public string ReasoningMode { get; set; } = "none";
+    public string ReasoningEffort { get; set; } = "medium";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -23,6 +25,8 @@ public class CreateAiModelRequest
     public bool IsDefault { get; set; }
     public int? ContextWindow { get; set; }
     public int? Dimensions { get; set; }
+    public string ReasoningMode { get; set; } = "none";
+    public string ReasoningEffort { get; set; } = "medium";
 }
 
 public class UpdateAiModelRequest
@@ -33,4 +37,6 @@ public class UpdateAiModelRequest
     public bool IsDefault { get; set; }
     public int? ContextWindow { get; set; }
     public int? Dimensions { get; set; }
+    public string ReasoningMode { get; set; } = "none";
+    public string ReasoningEffort { get; set; } = "medium";
 }

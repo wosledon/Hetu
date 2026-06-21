@@ -15,17 +15,20 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IWebSearchService _webSearchService;
+    private readonly IUnitOfWork _unitOfWork;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
         IChatTopicService chatTopicService,
         ILLMProviderFactory llmProviderFactory,
-        IWebSearchService webSearchService)
+        IWebSearchService webSearchService,
+        IUnitOfWork unitOfWork)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
         _webSearchService = webSearchService;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -108,11 +111,42 @@ public class ChatMessagesController : ControllerBase
             Stream = true
         };
 
-        // Deep thinking: instruct the model to think step by step
-        if (request.DeepThinking)
+        // Deep thinking: use model's reasoning mode configuration
+        var reasoningMode = "none";
+        var reasoningEffort = "medium";
+        if (modelId.HasValue)
         {
-            var thinkPrefix = string.IsNullOrEmpty(options.SystemPrompt) ? "" : options.SystemPrompt + "\n\n";
-            options.SystemPrompt = thinkPrefix + "请在回答前先进行深度思考，展示你的推理过程。使用 <thinking> 标签包裹你的思考过程，然后给出最终回答。";
+            var modelEntity = await _unitOfWork.AiModels.GetByIdAsync(modelId.Value, cancellationToken);
+            if (modelEntity != null)
+            {
+                reasoningMode = modelEntity.ReasoningMode ?? "none";
+                reasoningEffort = modelEntity.ReasoningEffort ?? "medium";
+            }
+        }
+        else
+        {
+            // Default model — check default chat model
+            var allModels = await _unitOfWork.AiModels.GetAllAsync(cancellationToken);
+            var defaultModel = allModels.FirstOrDefault(m => m.IsDefault && m.Purpose == "chat");
+            if (defaultModel != null)
+            {
+                reasoningMode = defaultModel.ReasoningMode ?? "none";
+                reasoningEffort = defaultModel.ReasoningEffort ?? "medium";
+                modelId = defaultModel.Id;
+            }
+        }
+
+        // Apply deep thinking based on model's reasoning mode and user toggle
+        if (request.DeepThinking && reasoningMode != "none" && reasoningEffort != "off")
+        {
+            if (reasoningMode == "tag")
+            {
+                // Tag mode: instruct model to use <thinking> tags
+                var thinkPrefix = string.IsNullOrEmpty(options.SystemPrompt) ? "" : options.SystemPrompt + "\n\n";
+                options.SystemPrompt = thinkPrefix + "请在回答前先进行深度思考，展示你的推理过程。使用 <thinking> 标签包裹你的思考过程，然后给出最终回答。";
+            }
+            // Native mode: the provider handles reasoning natively (o1/Claude)
+            // reasoning_effort is passed to the provider if supported
         }
 
         // Web search: search the web and inject results into context
@@ -143,25 +177,125 @@ public class ChatMessagesController : ControllerBase
         var contentSb = new StringBuilder();
         try
         {
+            // State machine for parsing <thinking>...</thinking> tags in stream
+            var rawSb = new StringBuilder();
+            var inThinking = false;
+            var thinkTagBuffer = "";
+            var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+
+            async Task EmitChunkAsync(string type, string text)
+            {
+                var chunk = System.Text.Json.JsonSerializer.Serialize(new { type, text }, jsonOptions);
+                await Response.WriteAsync($"data: {chunk}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+
             await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
             {
-                await Response.WriteAsync($"data: {delta}\n\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
-
-                // Extract content text for persistence (skip thinking chunks)
+                // Try to parse as structured JSON (from providers that support native thinking)
+                bool parsedAsStructured = false;
                 try
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(delta);
-                    if (doc.RootElement.TryGetProperty("type", out var type) && type.GetString() == "content")
+                    if (doc.RootElement.TryGetProperty("type", out var typeEl))
                     {
-                        if (doc.RootElement.TryGetProperty("text", out var text))
-                            contentSb.Append(text.GetString());
+                        var typeStr = typeEl.GetString();
+                        var text = doc.RootElement.TryGetProperty("text", out var textEl) ? textEl.GetString() ?? "" : "";
+                        await EmitChunkAsync(typeStr ?? "content", text);
+                        if (typeStr == "content") contentSb.Append(text);
+                        parsedAsStructured = true;
                     }
                 }
-                catch
+                catch { /* not JSON, proceed with tag parsing */ }
+
+                if (parsedAsStructured) continue;
+
+                // Raw text from provider — parse <thinking> tags
+                rawSb.Append(delta);
+                var raw = delta;
+
+                while (raw.Length > 0)
                 {
-                    // If not valid JSON, treat as plain text (backward compat)
-                    contentSb.Append(delta);
+                    if (!inThinking)
+                    {
+                        // Look for opening <thinking> tag
+                        var openIdx = raw.IndexOf("<thinking>", StringComparison.OrdinalIgnoreCase);
+                        if (openIdx >= 0)
+                        {
+                            // Emit content before the tag
+                            if (openIdx > 0)
+                            {
+                                var before = raw[..openIdx];
+                                await EmitChunkAsync("content", before);
+                                contentSb.Append(before);
+                            }
+                            inThinking = true;
+                            raw = raw[(openIdx + "<thinking>".Length)..];
+                            // Emit a thinking start marker
+                            await EmitChunkAsync("thinking", "");
+                        }
+                        else
+                        {
+                            // No tag found — check if partial tag at end
+                            var partialTag = false;
+                            for (int k = 1; k < raw.Length && k <= "<thinking>".Length; k++)
+                            {
+                                if ("<thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // Buffer partial tag
+                                    thinkTagBuffer = raw[^k..];
+                                    if (k < raw.Length)
+                                    {
+                                        var before = raw[..^k];
+                                        await EmitChunkAsync("content", before);
+                                        contentSb.Append(before);
+                                    }
+                                    partialTag = true;
+                                    break;
+                                }
+                            }
+                            if (!partialTag)
+                            {
+                                await EmitChunkAsync("content", raw);
+                                contentSb.Append(raw);
+                            }
+                            raw = "";
+                        }
+                    }
+                    else
+                    {
+                        // Inside thinking — look for closing </thinking> tag
+                        var closeIdx = raw.IndexOf("</thinking>", StringComparison.OrdinalIgnoreCase);
+                        if (closeIdx >= 0)
+                        {
+                            var thinkingText = raw[..closeIdx];
+                            if (!string.IsNullOrEmpty(thinkingText))
+                                await EmitChunkAsync("thinking", thinkingText);
+                            inThinking = false;
+                            raw = raw[(closeIdx + "</thinking>".Length)..];
+                        }
+                        else
+                        {
+                            // Check partial closing tag at end
+                            var partialTag = false;
+                            for (int k = 1; k < raw.Length && k <= "</thinking>".Length; k++)
+                            {
+                                if ("</thinking>".StartsWith(raw[^k..], StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (k < raw.Length)
+                                        await EmitChunkAsync("thinking", raw[..^k]);
+                                    thinkTagBuffer = raw[^k..];
+                                    partialTag = true;
+                                    break;
+                                }
+                            }
+                            if (!partialTag)
+                            {
+                                await EmitChunkAsync("thinking", raw);
+                            }
+                            raw = "";
+                        }
+                    }
                 }
             }
         }
