@@ -243,3 +243,27 @@ export interface ISharedNote {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ITaskItem {
+  id: string;
+  title: string;
+  description?: string;
+  status: number;
+  priority: number;
+  progress: number;
+  dueDate?: string;
+  completedAt?: string;
+  tags?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ITaskStats {
+  total: number;
+  todo: number;
+  inProgress: number;
+  done: number;
+  blocked: number;
+  overdue: number;
+}

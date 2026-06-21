@@ -40,6 +40,14 @@ export async function put<T>(url: string, data?: unknown): Promise<T> {
   return response.data.data as T;
 }
 
+export async function patch<T>(url: string, data?: unknown): Promise<T> {
+  const response = await api.patch<IApiResponse<T>>(url, data);
+  if (!response.data.success) {
+    throw new Error(response.data.error || '请求失败');
+  }
+  return response.data.data as T;
+}
+
 export async function del<T>(url: string): Promise<T> {
   const response = await api.delete<IApiResponse<T>>(url);
   if (!response.data.success) {

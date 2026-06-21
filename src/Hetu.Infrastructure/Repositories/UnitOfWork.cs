@@ -24,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<GraphEntity> GraphEntities { get; }
     public IRepository<GraphRelation> GraphRelations { get; }
     public IRepository<ShareLink> ShareLinks { get; }
+    public IRepository<TaskItem> TaskItems { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -44,6 +45,7 @@ public class UnitOfWork : IUnitOfWork
         GraphEntities = new EfRepository<GraphEntity>(context);
         GraphRelations = new EfRepository<GraphRelation>(context);
         ShareLinks = new EfRepository<ShareLink>(context);
+        TaskItems = new EfRepository<TaskItem>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

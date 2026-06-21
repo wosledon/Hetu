@@ -26,6 +26,7 @@ public class HetuDbContext : DbContext
     public DbSet<GraphEntity> GraphEntities => Set<GraphEntity>();
     public DbSet<GraphRelation> GraphRelations => Set<GraphRelation>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
+    public DbSet<TaskItem> TaskItems => Set<TaskItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -243,6 +244,15 @@ public class HetuDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.NoteId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaskItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
     }
 }
