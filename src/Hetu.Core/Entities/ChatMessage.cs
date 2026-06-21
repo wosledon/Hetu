@@ -10,4 +10,6 @@ public class ChatMessage : BaseEntity
     public Guid? ModelId { get; set; }
     public int? TokensUsed { get; set; }
     public int? LatencyMs { get; set; }
+    public string? ThinkingContent { get; set; }
+    public string? SearchResultsJson { get; set; }
 }

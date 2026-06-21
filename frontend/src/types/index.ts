@@ -122,6 +122,8 @@ export interface IChatMessage {
   modelId?: string;
   tokensUsed?: number;
   latencyMs?: number;
+  thinkingContent?: string;
+  searchResultsJson?: string;
   createdAt: string;
 }
 

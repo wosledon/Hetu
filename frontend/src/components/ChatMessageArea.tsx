@@ -50,6 +50,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState('')
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -128,6 +129,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const currentModel = selectedModelId ? chatModels.find(m => m.id === selectedModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
   const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
   const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
+
+  const toggleSavedThinking = (messageId: string) => {
+    setExpandedThinking(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) next.delete(messageId)
+      else next.add(messageId)
+      return next
+    })
+  }
 
   const copyMessage = async (messageId: string, content: string) => {
     try {
@@ -695,9 +705,61 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     </div>
                   </div>
                 ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ThemedMarkdown source={message.content} />
-                  </div>
+                  <>
+                    {/* Thinking block for saved messages */}
+                    {message.role === 'assistant' && message.thinkingContent && (
+                      <div className="mb-3">
+                        <button
+                          onClick={() => toggleSavedThinking(message.id)}
+                          className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <Brain size={12} />
+                          <span>深度思考</span>
+                          <ChevronDown size={10} className={`transition-transform ${expandedThinking.has(message.id) ? 'rotate-180' : ''}`} />
+                        </button>
+                        {expandedThinking.has(message.id) && (
+                          <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
+                            <ThemedMarkdown source={message.thinkingContent} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ThemedMarkdown source={message.content} />
+                    </div>
+                    {/* Search results for saved messages */}
+                    {message.role === 'assistant' && message.searchResultsJson && (() => {
+                      try {
+                        const results = JSON.parse(message.searchResultsJson) as Array<{ title: string; url: string; snippet: string }>
+                        if (results.length === 0) return null
+                        return (
+                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                              <Search size={11} />
+                              参考来源
+                            </div>
+                            <div className="space-y-1">
+                              {results.map((r, i) => (
+                                <a
+                                  key={i}
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                >
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
+                                    <span className="block truncate text-gray-400">{r.url}</span>
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      } catch { return null }
+                    })()}
+                  </>
                 )}
                 {!editingMessageId && (
                   <div className={`absolute -top-3 ${message.role === 'user' ? 'left-0' : 'right-0'} opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white px-1 py-0.5 shadow-sm dark:border-gray-700 dark:bg-gray-800`}>

@@ -149,6 +149,10 @@ public class ChatMessagesController : ControllerBase
             // reasoning_effort is passed to the provider if supported
         }
 
+        var contentSb = new StringBuilder();
+        var thinkingSb = new StringBuilder();
+        string? searchResultsJson = null;
+
         // Web search: search the web and inject results into context
         if (request.WebSearch)
         {
@@ -159,6 +163,9 @@ public class ChatMessagesController : ControllerBase
                 var searchEvent = System.Text.Json.JsonSerializer.Serialize(new { type = "search_results", results = searchResults }, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
                 await Response.WriteAsync($"data: {searchEvent}\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
+
+                // Save search results JSON for persistence
+                searchResultsJson = System.Text.Json.JsonSerializer.Serialize(searchResults, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
 
                 // Inject search results into context
                 var searchContext = "以下是网络搜索的结果，请基于这些信息回答用户的问题，并在回答中引用来源：\n\n";
@@ -174,7 +181,6 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        var contentSb = new StringBuilder();
         try
         {
             // State machine for parsing <thinking>...</thinking> tags in stream
@@ -188,6 +194,7 @@ public class ChatMessagesController : ControllerBase
                 var chunk = System.Text.Json.JsonSerializer.Serialize(new { type, text }, jsonOptions);
                 await Response.WriteAsync($"data: {chunk}\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
+                if (type == "thinking") thinkingSb.Append(text);
             }
 
             await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
@@ -305,6 +312,6 @@ public class ChatMessagesController : ControllerBase
             return;
         }
 
-        await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, cancellationToken);
+        await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, cancellationToken);
     }
 }

@@ -84,7 +84,7 @@ public class ChatMessageService : IChatMessageService
         return ApiResponse.Ok();
     }
 
-    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, CancellationToken cancellationToken = default)
+    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
         if (topic == null) return null;
@@ -96,6 +96,8 @@ public class ChatMessageService : IChatMessageService
             Role = "assistant",
             Content = content,
             ModelId = modelId,
+            ThinkingContent = thinkingContent,
+            SearchResultsJson = searchResultsJson,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -132,6 +134,8 @@ public class ChatMessageService : IChatMessageService
         ModelId = message.ModelId,
         TokensUsed = message.TokensUsed,
         LatencyMs = message.LatencyMs,
+        ThinkingContent = message.ThinkingContent,
+        SearchResultsJson = message.SearchResultsJson,
         CreatedAt = message.CreatedAt
     };
 
