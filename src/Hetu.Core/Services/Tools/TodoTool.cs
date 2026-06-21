@@ -6,7 +6,7 @@ namespace Hetu.Core.Services.Tools;
 public class TodoTool : IToolExecutor
 {
     public string Name => "todo";
-    public string Description => "规划和追踪自身工作步骤。收到复杂任务时，先用此工具拆解为子步骤并追踪进度，每完成一步更新状态，确保不遗漏任何步骤。";
+    public string Description => "规划和追踪你的工作步骤。使用规则：(1) 收到复杂任务时，先用 action=create 把任务拆解为多个子步骤；(2) 开始执行某一步前，调用 action=update 把它的 status 改为 in-progress；(3) 完成某一步后，立即调用 action=complete 把它标记完成；(4) 这是强制流程：每完成一个子步骤都必须调用一次 complete，不要等到最后才更新；(5) update/complete 时优先用 create 时返回的 id，也可以用 title 精确匹配。";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""

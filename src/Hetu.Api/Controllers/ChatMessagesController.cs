@@ -798,6 +798,20 @@ public class ChatMessagesController : ControllerBase
                                     };
                                     todoSb.AppendLine($"  - id={t.Id} {statusMark} {t.Title}");
                                 }
+
+                                // Append actionable hint so the LLM keeps updating progress
+                                var nextPending = sessionTodos.FirstOrDefault(t => t.Status != "completed");
+                                if (nextPending != null)
+                                {
+                                    todoSb.AppendLine();
+                                    todoSb.AppendLine($"下一步：开始执行 \"{nextPending.Title}\"（id={nextPending.Id}）。先调用 todo(action=update, id={nextPending.Id}, status=in-progress)，做完后调用 todo(action=complete, id={nextPending.Id})。");
+                                }
+                                else
+                                {
+                                    todoSb.AppendLine();
+                                    todoSb.AppendLine("所有步骤已完成。");
+                                }
+
                                 toolResultContent = todoSb.ToString();
                             }
                         }
