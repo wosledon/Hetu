@@ -27,6 +27,8 @@ public class HetuDbContext : DbContext
     public DbSet<GraphRelation> GraphRelations => Set<GraphRelation>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
+    public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
+    public DbSet<NoteChunkEmbedding> NoteChunkEmbeddings => Set<NoteChunkEmbedding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -255,6 +257,54 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.IsDeleted);
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<NoteChunk>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Summary).HasMaxLength(2000);
+            entity.Property(e => e.ChunkMethod).IsRequired().HasMaxLength(50);
+            entity.HasOne(e => e.Note)
+                .WithMany()
+                .HasForeignKey(e => e.NoteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.NoteId);
+            entity.HasIndex(e => new { e.NoteId, e.ChunkIndex }).IsUnique();
+        });
+
+        modelBuilder.Entity<NoteChunkEmbedding>(entity =>
+        {
+            entity.HasKey(e => e.ChunkId);
+            entity.HasOne(e => e.Chunk)
+                .WithOne()
+                .HasForeignKey<NoteChunkEmbedding>(e => e.ChunkId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.Model).IsRequired().HasMaxLength(200);
+
+            if (Database.IsNpgsql())
+            {
+                entity.Ignore(e => e.Embedding);
+
+                var vectorComparer = new ValueComparer<float[]>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(0, (hash, f) => HashCode.Combine(hash, f.GetHashCode())),
+                    v => v.ToArray());
+
+                entity.Property(e => e.Vector)
+                    .IsRequired()
+                    .HasColumnType("vector")
+                    .HasConversion(new VectorFloatArrayConverter(), vectorComparer);
+
+                entity.HasIndex(e => e.Vector)
+                    .HasMethod("hnsw")
+                    .HasOperators("vector_cosine_ops");
+            }
+            else
+            {
+                entity.Ignore(e => e.Vector);
+                entity.Property(e => e.Embedding).IsRequired();
+            }
         });
     }
 }

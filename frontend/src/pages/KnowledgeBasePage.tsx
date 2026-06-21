@@ -262,6 +262,7 @@ export default function KnowledgeBasePage() {
                           <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">索引状态</th>
                           <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">模型</th>
                           <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">维度</th>
+                          <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">分块</th>
                           <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">更新时间</th>
                           <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">操作</th>
                         </tr>
@@ -290,6 +291,13 @@ export default function KnowledgeBasePage() {
                             </td>
                             <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                               {item.embeddingDimensions || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                              {item.chunkCount > 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                  {item.chunkCount} 块
+                                </span>
+                              ) : '-'}
                             </td>
                             <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                               {item.embeddingUpdatedAt

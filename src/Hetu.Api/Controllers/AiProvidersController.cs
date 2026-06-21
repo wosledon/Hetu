@@ -39,4 +39,8 @@ public class AiProvidersController : ControllerBase
     [HttpGet("default/{purpose}")]
     public Task<ApiResponse<AiProviderDto?>> GetDefault(string purpose, CancellationToken cancellationToken)
         => _aiProviderService.GetDefaultProviderAsync(purpose, cancellationToken);
+
+    [HttpGet("{id:guid}/fetch-models")]
+    public Task<ApiResponse<List<RemoteModelInfo>>> FetchModels(Guid id, CancellationToken cancellationToken)
+        => _aiProviderService.FetchRemoteModelsAsync(id, cancellationToken);
 }

@@ -60,6 +60,10 @@ export interface IAppSettingsSnapshot {
   appName: string;
   theme: 'light' | 'dark' | 'system';
   graphAutoExtract: string;
+  defaultChatModelId?: string;
+  defaultChunkModelId?: string;
+  defaultFastModelId?: string;
+  defaultEmbeddingModelId?: string;
 }
 
 export interface IAiProvider {
@@ -84,6 +88,10 @@ export interface IAiModel {
   dimensions?: number;
   reasoningMode: 'none' | 'tag' | 'native';
   reasoningEffort: 'off' | 'low' | 'medium' | 'high';
+  supportsVision: boolean;
+  supportsReasoning: boolean;
+  supportsTools: boolean;
+  isVisible: boolean;
   createdAt: string;
   updatedAt: string;
 }

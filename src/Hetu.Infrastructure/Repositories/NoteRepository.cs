@@ -235,4 +235,71 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             // sqlite-vec 虚拟表未就绪时忽略，不影响主流程
         }
     }
+
+    // ── Chunk 相关 ──
+
+    public async Task<IReadOnlyList<NoteChunk>> GetChunksAsync(Guid noteId, CancellationToken cancellationToken = default)
+    {
+        return await Context.NoteChunks
+            .AsNoTracking()
+            .Where(c => c.NoteId == noteId)
+            .OrderBy(c => c.ChunkIndex)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task AddChunksAsync(IEnumerable<NoteChunk> chunks, CancellationToken cancellationToken = default)
+    {
+        Context.NoteChunks.AddRange(chunks);
+        return Task.CompletedTask;
+    }
+
+    public async Task DeleteChunksAsync(Guid noteId, CancellationToken cancellationToken = default)
+    {
+        var chunks = await Context.NoteChunks
+            .Where(c => c.NoteId == noteId)
+            .ToListAsync(cancellationToken);
+        Context.NoteChunks.RemoveRange(chunks);
+    }
+
+    public Task<NoteChunkEmbedding?> GetChunkEmbeddingAsync(Guid chunkId, CancellationToken cancellationToken = default)
+        => Context.NoteChunkEmbeddings.AsNoTracking().FirstOrDefaultAsync(e => e.ChunkId == chunkId, cancellationToken);
+
+    public Task AddChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default)
+    {
+        Context.NoteChunkEmbeddings.Add(embedding);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default)
+    {
+        Context.NoteChunkEmbeddings.Update(embedding);
+        return Task.CompletedTask;
+    }
+
+    public async Task<IReadOnlyList<NoteChunkEmbedding>> GetAllChunkEmbeddingsAsync(CancellationToken cancellationToken = default)
+    {
+        return await Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            .Include(e => e.Chunk)
+            .ThenInclude(c => c.Note)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task SyncChunkEmbeddingToVecTableAsync(Guid chunkId, float[] embedding, CancellationToken cancellationToken = default)
+    {
+        if (!Context.Database.IsSqlite()) return;
+
+        try
+        {
+            var vectorText = $"[{string.Join(",", embedding)}]";
+            await Context.Database.ExecuteSqlRawAsync(
+                "INSERT OR REPLACE INTO vec_chunk_embeddings (chunk_id, embedding) VALUES ({0}, {1})",
+                new[] { chunkId.ToString(), vectorText },
+                cancellationToken);
+        }
+        catch
+        {
+            // sqlite-vec 虚拟表未就绪时忽略
+        }
+    }
 }

@@ -24,4 +24,14 @@ public interface INoteRepository : IRepository<Note>
     Task UpdateEmbeddingAsync(NoteEmbedding embedding, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NoteEmbedding>> GetAllEmbeddingsAsync(CancellationToken cancellationToken = default);
     Task SyncEmbeddingToVecTableAsync(Guid noteId, float[] embedding, CancellationToken cancellationToken = default);
+
+    // Chunk 相关
+    Task<IReadOnlyList<NoteChunk>> GetChunksAsync(Guid noteId, CancellationToken cancellationToken = default);
+    Task AddChunksAsync(IEnumerable<NoteChunk> chunks, CancellationToken cancellationToken = default);
+    Task DeleteChunksAsync(Guid noteId, CancellationToken cancellationToken = default);
+    Task<NoteChunkEmbedding?> GetChunkEmbeddingAsync(Guid chunkId, CancellationToken cancellationToken = default);
+    Task AddChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default);
+    Task UpdateChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NoteChunkEmbedding>> GetAllChunkEmbeddingsAsync(CancellationToken cancellationToken = default);
+    Task SyncChunkEmbeddingToVecTableAsync(Guid chunkId, float[] embedding, CancellationToken cancellationToken = default);
 }

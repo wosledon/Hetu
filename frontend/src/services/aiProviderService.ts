@@ -19,6 +19,10 @@ export interface CreateAiModelRequest {
   isDefault?: boolean;
   contextWindow?: number;
   dimensions?: number;
+  supportsVision?: boolean;
+  supportsReasoning?: boolean;
+  supportsTools?: boolean;
+  isVisible?: boolean;
 }
 
 export interface UpdateAiModelRequest {
@@ -28,6 +32,16 @@ export interface UpdateAiModelRequest {
   isDefault?: boolean;
   contextWindow?: number;
   dimensions?: number;
+  supportsVision?: boolean;
+  supportsReasoning?: boolean;
+  supportsTools?: boolean;
+  isVisible?: boolean;
+}
+
+export interface RemoteModelInfo {
+  modelId: string;
+  displayName?: string;
+  contextWindow?: number;
 }
 
 export const aiProviderService = {
@@ -37,6 +51,7 @@ export const aiProviderService = {
   update: (id: string, data: UpdateAiProviderRequest) => put<IAiProvider>(`/ai-providers/${id}`, data),
   delete: (id: string) => del<void>(`/ai-providers/${id}`),
   getDefault: (purpose: string) => get<IAiProvider | null>(`/ai-providers/default/${purpose}`),
+  fetchModels: (id: string) => get<RemoteModelInfo[]>(`/ai-providers/${id}/fetch-models`),
 };
 
 export const aiModelService = {

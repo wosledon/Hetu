@@ -9,6 +9,7 @@ import DatabaseSettings from '../components/DatabaseSettings'
 import McpServerManager from '../components/McpServerManager'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
+import { aiProviderService } from '../services/aiProviderService'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'ai' | 'mcp' | 'database' | 'trash'
@@ -40,6 +41,13 @@ export default function SettingsPage() {
     queryKey: ['settings'],
     queryFn: settingService.getSnapshot,
   })
+
+  const { data: providers = [] } = useQuery({
+    queryKey: ['aiProviders'],
+    queryFn: aiProviderService.getAll,
+  })
+
+  const allModels = providers.flatMap((p) => p.models)
 
   const setSetting = useMutation({
     mutationFn: settingService.set,
@@ -126,6 +134,7 @@ export default function SettingsPage() {
                     appName={appName}
                     theme={theme}
                     snapshot={snapshot}
+                    models={allModels}
                     onAppNameChange={handleAppNameChange}
                     onThemeChange={handleThemeChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
@@ -164,6 +173,7 @@ function AppSettingsSection({
   appName,
   theme,
   snapshot,
+  models,
   onAppNameChange,
   onThemeChange,
   onSettingChange,
@@ -172,11 +182,14 @@ function AppSettingsSection({
   appName: string
   theme: Theme
   snapshot: Record<string, string> | undefined
+  models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
   onAppNameChange: (v: string) => void
   onThemeChange: (v: Theme) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
+  const chatModels = models.filter((m) => m.purpose === 'chat' && m.isVisible)
+  const embeddingModels = models.filter((m) => m.purpose === 'embedding' && m.isVisible);
   return (
     <div className="space-y-8">
       {/* Display Name */}
@@ -270,6 +283,82 @@ function AppSettingsSection({
           {' '}点击「从笔记提取」
         </p>
       </div>
+
+      {/* Default Models */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">默认模型</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">为不同场景指定默认使用的 AI 模型</p>
+        </div>
+        <div className="space-y-4">
+          <DefaultModelSelect
+            label="默认对话模型"
+            description="新对话默认使用的模型"
+            value={snapshot?.defaultChatModelId || ''}
+            models={chatModels}
+            onChange={(v) => onSettingChange('DefaultChatModelId', v)}
+          />
+          <DefaultModelSelect
+            label="默认文档 Chunk 模型"
+            description="知识库分块时使用的 LLM（可选，不配置则使用结构化分块）"
+            value={snapshot?.defaultChunkModelId || ''}
+            models={chatModels}
+            onChange={(v) => onSettingChange('DefaultChunkModelId', v)}
+            placeholder="不使用 LLM 分块"
+          />
+          <DefaultModelSelect
+            label="快速模型"
+            description="用于轻量级任务（如标签建议、摘要等）"
+            value={snapshot?.defaultFastModelId || ''}
+            models={chatModels}
+            onChange={(v) => onSettingChange('DefaultFastModelId', v)}
+          />
+          <DefaultModelSelect
+            label="默认 Embedding 模型"
+            description="知识库向量化使用的模型"
+            value={snapshot?.defaultEmbeddingModelId || ''}
+            models={embeddingModels}
+            onChange={(v) => onSettingChange('DefaultEmbeddingModelId', v)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DefaultModelSelect({
+  label,
+  description,
+  value,
+  models,
+  onChange,
+  placeholder = '未设置',
+}: {
+  label: string
+  description: string
+  value: string
+  models: { id: string; modelId: string; displayName: string }[]
+  onChange: (value: string) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex-1">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{description}</p>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-56 rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+      >
+        <option value="">{placeholder}</option>
+        {models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.displayName} ({m.modelId})
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

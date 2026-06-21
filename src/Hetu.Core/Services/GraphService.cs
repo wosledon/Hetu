@@ -58,17 +58,24 @@ public class GraphService : IGraphService
         httpContext.Response.Headers["Cache-Control"] = "no-cache";
         httpContext.Response.Headers["Connection"] = "keep-alive";
 
-        await WriteSseEventAsync(httpContext.Response.Body, "meta", new { entityCount = dto.Entities.Count, relationCount = dto.Relations.Count }, cancellationToken);
-        await WriteSseEventAsync(httpContext.Response.Body, "entities", dto.Entities, cancellationToken);
-
-        const int batchSize = 200;
-        for (var i = 0; i < dto.Relations.Count; i += batchSize)
+        try
         {
-            var batch = dto.Relations.Skip(i).Take(batchSize).ToList();
-            await WriteSseEventAsync(httpContext.Response.Body, "relations", batch, cancellationToken);
-        }
+            await WriteSseEventAsync(httpContext.Response.Body, "meta", new { entityCount = dto.Entities.Count, relationCount = dto.Relations.Count }, cancellationToken);
+            await WriteSseEventAsync(httpContext.Response.Body, "entities", dto.Entities, cancellationToken);
 
-        await WriteSseEventAsync(httpContext.Response.Body, "done", new { }, cancellationToken);
+            const int batchSize = 200;
+            for (var i = 0; i < dto.Relations.Count; i += batchSize)
+            {
+                var batch = dto.Relations.Skip(i).Take(batchSize).ToList();
+                await WriteSseEventAsync(httpContext.Response.Body, "relations", batch, cancellationToken);
+            }
+
+            await WriteSseEventAsync(httpContext.Response.Body, "done", new { }, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected — this is expected, not an error
+        }
     }
 
     private async Task<GraphDataDto> BuildGraphDataAsync(CancellationToken cancellationToken)

@@ -20,7 +20,11 @@ public class AppSettingService : IAppSettingService
         {
             AppName = await GetValueAsync("AppName", "Hetu", cancellationToken),
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
-            GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken)
+            GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken),
+            DefaultChatModelId = await GetNullableValueAsync("DefaultChatModelId", cancellationToken),
+            DefaultChunkModelId = await GetNullableValueAsync("DefaultChunkModelId", cancellationToken),
+            DefaultFastModelId = await GetNullableValueAsync("DefaultFastModelId", cancellationToken),
+            DefaultEmbeddingModelId = await GetNullableValueAsync("DefaultEmbeddingModelId", cancellationToken),
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }
@@ -62,6 +66,12 @@ public class AppSettingService : IAppSettingService
     {
         var setting = await _unitOfWork.AppSettings.GetByKeyAsync(key, cancellationToken);
         return string.IsNullOrWhiteSpace(setting?.Value) ? defaultValue : setting.Value;
+    }
+
+    private async Task<string?> GetNullableValueAsync(string key, CancellationToken cancellationToken)
+    {
+        var setting = await _unitOfWork.AppSettings.GetByKeyAsync(key, cancellationToken);
+        return string.IsNullOrWhiteSpace(setting?.Value) ? null : setting.Value;
     }
 
     private static AppSettingDto Map(AppSetting setting) => new()

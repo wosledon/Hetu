@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.AI;
@@ -10,11 +12,13 @@ public class AiProviderService : IAiProviderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDataProtector _protector;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public AiProviderService(IUnitOfWork unitOfWork, IDataProtectionProvider dataProtectionProvider)
+    public AiProviderService(IUnitOfWork unitOfWork, IDataProtectionProvider dataProtectionProvider, IHttpClientFactory httpClientFactory)
     {
         _unitOfWork = unitOfWork;
         _protector = dataProtectionProvider.CreateProtector("Hetu.AiProvider.ApiKey");
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<ApiResponse<List<AiProviderDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -87,6 +91,66 @@ public class AiProviderService : IAiProviderService
         return ApiResponse<AiProviderDto?>.Ok(Map(provider));
     }
 
+    public async Task<ApiResponse<List<RemoteModelInfo>>> FetchRemoteModelsAsync(Guid providerId, CancellationToken cancellationToken = default)
+    {
+        var provider = await _unitOfWork.AiProviders.GetByIdAsync(providerId, cancellationToken);
+        if (provider == null) return ApiResponse<List<RemoteModelInfo>>.Fail("AI 供应商不存在");
+
+        var apiKey = string.IsNullOrWhiteSpace(provider.EncryptedApiKey) ? string.Empty : _protector.Unprotect(provider.EncryptedApiKey);
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+            var baseUrl = provider.BaseUrl?.TrimEnd('/') ?? GetDefaultBaseUrl(provider.ProviderType);
+            var response = await client.GetAsync($"{baseUrl}/models", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var models = ParseModels(json, provider.ProviderType);
+            return ApiResponse<List<RemoteModelInfo>>.Ok(models);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<RemoteModelInfo>>.Fail($"获取模型列表失败: {ex.Message}");
+        }
+    }
+
+    private static string GetDefaultBaseUrl(string providerType) => providerType switch
+    {
+        "anthropic" => "https://api.anthropic.com/v1",
+        _ => "https://api.openai.com/v1"
+    };
+
+    private static List<RemoteModelInfo> ParseModels(string json, string providerType)
+    {
+        var result = new List<RemoteModelInfo>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in data.EnumerateArray())
+                {
+                    var modelId = item.TryGetProperty("id", out var id) ? id.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(modelId)) continue;
+                    result.Add(new RemoteModelInfo
+                    {
+                        ModelId = modelId,
+                        DisplayName = modelId,
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // JSON 解析失败返回空列表
+        }
+        return result;
+    }
+
     private AiProviderDto Map(AiProvider provider) => new()
     {
         Id = provider.Id,
@@ -105,6 +169,13 @@ public class AiProviderService : IAiProviderService
             Purpose = m.Purpose,
             IsDefault = m.IsDefault,
             ContextWindow = m.ContextWindow,
+            Dimensions = m.Dimensions,
+            ReasoningMode = m.ReasoningMode,
+            ReasoningEffort = m.ReasoningEffort,
+            SupportsVision = m.SupportsVision,
+            SupportsReasoning = m.SupportsReasoning,
+            SupportsTools = m.SupportsTools,
+            IsVisible = m.IsVisible,
             CreatedAt = m.CreatedAt,
             UpdatedAt = m.UpdatedAt
         }).ToList() ?? []

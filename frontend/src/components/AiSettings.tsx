@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Star, Bot, X } from 'lucide-react'
+import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain } from 'lucide-react'
 import { aiProviderService, aiModelService } from '../services/aiProviderService'
+import type { RemoteModelInfo } from '../services/aiProviderService'
 
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 const selectClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
@@ -10,6 +11,7 @@ export default function AiSettings() {
   const queryClient = useQueryClient()
   const [showProviderForm, setShowProviderForm] = useState(false)
   const [showModelForm, setShowModelForm] = useState(false)
+  const [showFetchForm, setShowFetchForm] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
 
   const { data: providers = [] } = useQuery({
@@ -49,6 +51,19 @@ export default function AiSettings() {
 
   const setDefaultModel = useMutation({
     mutationFn: aiModelService.setDefault,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aiProviders'] })
+    },
+  })
+
+  const toggleModelVisibility = useMutation({
+    mutationFn: ({ id, isVisible }: { id: string; isVisible: boolean }) =>
+      aiModelService.update(id, {
+        modelId: '',
+        displayName: '',
+        purpose: 'chat',
+        isVisible,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['aiProviders'] })
     },
@@ -121,6 +136,16 @@ export default function AiSettings() {
                 <Plus size={15} />
               </button>
               <button
+                onClick={() => {
+                  setSelectedProviderId(provider.id)
+                  setShowFetchForm(true)
+                }}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-400"
+                title="自动获取模型"
+              >
+                <Download size={15} />
+              </button>
+              <button
                 onClick={() => deleteProvider.mutate(provider.id)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                 title="删除 Provider"
@@ -147,9 +172,29 @@ export default function AiSettings() {
                       <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                         {model.purpose}
                       </span>
+                      {model.supportsVision && (
+                        <span title="视觉" className="inline-flex shrink-0 items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+                          <Sparkles size={10} className="mr-0.5" />视觉
+                        </span>
+                      )}
+                      {model.supportsReasoning && (
+                        <span title="推理" className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                          <Brain size={10} className="mr-0.5" />推理
+                        </span>
+                      )}
+                      {model.supportsTools && (
+                        <span title="工具调用" className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+                          <Wrench size={10} className="mr-0.5" />工具
+                        </span>
+                      )}
                       {model.reasoningMode && model.reasoningMode !== 'none' && (
                         <span className="inline-flex shrink-0 items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
                           {model.reasoningMode === 'native' ? '原生推理' : '标签推理'} · {model.reasoningEffort === 'low' ? '低' : model.reasoningEffort === 'medium' ? '中' : model.reasoningEffort === 'high' ? '高' : '关闭'}
+                        </span>
+                      )}
+                      {!model.isVisible && (
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:bg-white/[0.06] dark:text-gray-500">
+                          已隐藏
                         </span>
                       )}
                     </div>
@@ -160,6 +205,13 @@ export default function AiSettings() {
                         title={model.isDefault ? '默认模型' : '设为默认'}
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
+                      </button>
+                      <button
+                        onClick={() => toggleModelVisibility.mutate({ id: model.id, isVisible: !model.isVisible })}
+                        className={`rounded-md p-1.5 transition-colors ${model.isVisible ? 'text-gray-300 hover:text-gray-500 dark:text-gray-600' : 'text-gray-300 hover:text-blue-400 dark:text-gray-600'}`}
+                        title={model.isVisible ? '隐藏模型' : '显示模型'}
+                      >
+                        {model.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                       </button>
                       <button
                         onClick={() => deleteModel.mutate(model.id)}
@@ -181,6 +233,15 @@ export default function AiSettings() {
         <ModelForm
           onSubmit={(data) => createModel.mutate({ ...data, providerId: selectedProviderId })}
           onCancel={() => setShowModelForm(false)}
+        />
+      )}
+
+      {/* Fetch Models Modal */}
+      {showFetchForm && (
+        <FetchModelsForm
+          providerId={selectedProviderId}
+          onAdd={(modelId) => createModel.mutate({ providerId: selectedProviderId, modelId, displayName: modelId, purpose: 'chat' })}
+          onCancel={() => setShowFetchForm(false)}
         />
       )}
     </div>
@@ -259,7 +320,7 @@ function ModelForm({
   onSubmit,
   onCancel,
 }: {
-  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding' | 'completion'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string }) => void
+  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding' | 'completion'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
   onCancel: () => void
 }) {
   const [modelId, setModelId] = useState('')
@@ -270,6 +331,10 @@ function ModelForm({
   const [dimensions, setDimensions] = useState('')
   const [reasoningMode, setReasoningMode] = useState('none')
   const [reasoningEffort, setReasoningEffort] = useState('medium')
+  const [supportsVision, setSupportsVision] = useState(false)
+  const [supportsReasoning, setSupportsReasoning] = useState(false)
+  const [supportsTools, setSupportsTools] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
@@ -379,6 +444,37 @@ function ModelForm({
             />
             设为默认模型
           </label>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">AI 能力</label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
+                <input type="checkbox" checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500/20" />
+                <Sparkles size={14} className="text-sky-500" />
+                <span className="text-gray-700 dark:text-gray-300">视觉</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
+                <input type="checkbox" checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500/20" />
+                <Brain size={14} className="text-amber-500" />
+                <span className="text-gray-700 dark:text-gray-300">推理</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:hover:bg-white/[0.03]">
+                <input type="checkbox" checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/20" />
+                <Wrench size={14} className="text-emerald-500" />
+                <span className="text-gray-700 dark:text-gray-300">工具</span>
+              </label>
+            </div>
+          </div>
+
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+            <input
+              type="checkbox"
+              checked={isVisible}
+              onChange={(e) => setIsVisible(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
+            />
+            在 UI 中可见
+          </label>
         </div>
 
         <div className="mt-6 flex gap-2">
@@ -393,6 +489,10 @@ function ModelForm({
                 dimensions: dimensions ? parseInt(dimensions) : undefined,
                 reasoningMode,
                 reasoningEffort,
+                supportsVision,
+                supportsReasoning,
+                supportsTools,
+                isVisible,
               })
             }
             className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
@@ -404,6 +504,101 @@ function ModelForm({
             className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
           >
             取消
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Fetch Models Form ───
+
+function FetchModelsForm({
+  providerId,
+  onAdd,
+  onCancel,
+}: {
+  providerId: string
+  onAdd: (modelId: string) => void
+  onCancel: () => void
+}) {
+  const [models, setModels] = useState<RemoteModelInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useState(() => {
+    aiProviderService.fetchModels(providerId)
+      .then((data) => {
+        setModels(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError((err as Error).message)
+        setLoading(false)
+      })
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
+      <div
+        className="w-[480px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">自动获取模型</h3>
+          <button onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
+            <X size={16} />
+          </button>
+        </div>
+
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <span className="ml-3 text-sm text-gray-500">正在获取模型列表...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && models.length === 0 && (
+          <p className="py-8 text-center text-sm text-gray-400">未获取到可用模型</p>
+        )}
+
+        {!loading && !error && models.length > 0 && (
+          <div className="space-y-2">
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">点击「添加」将模型加入配置：</p>
+            {models.map((m) => (
+              <div
+                key={m.modelId}
+                className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50 dark:border-white/[0.06] dark:hover:bg-white/[0.03]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{m.modelId}</p>
+                  {m.contextWindow && (
+                    <p className="text-xs text-gray-400">上下文: {m.contextWindow.toLocaleString()}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => onAdd(m.modelId)}
+                  className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97]"
+                >
+                  添加
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end">
+          <button
+            onClick={onCancel}
+            className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
+          >
+            关闭
           </button>
         </div>
       </div>

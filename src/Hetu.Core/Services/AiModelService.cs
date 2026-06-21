@@ -55,6 +55,10 @@ public class AiModelService : IAiModelService
             Dimensions = request.Dimensions,
             ReasoningMode = request.ReasoningMode ?? "none",
             ReasoningEffort = request.ReasoningEffort ?? "medium",
+            SupportsVision = request.SupportsVision,
+            SupportsReasoning = request.SupportsReasoning,
+            SupportsTools = request.SupportsTools,
+            IsVisible = request.IsVisible,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -82,6 +86,10 @@ public class AiModelService : IAiModelService
         model.Dimensions = request.Dimensions;
         model.ReasoningMode = request.ReasoningMode ?? model.ReasoningMode;
         model.ReasoningEffort = request.ReasoningEffort ?? model.ReasoningEffort;
+        model.SupportsVision = request.SupportsVision;
+        model.SupportsReasoning = request.SupportsReasoning;
+        model.SupportsTools = request.SupportsTools;
+        model.IsVisible = request.IsVisible;
         model.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.AiModels.UpdateAsync(model, cancellationToken);
@@ -124,6 +132,10 @@ public class AiModelService : IAiModelService
         Dimensions = model.Dimensions,
         ReasoningMode = model.ReasoningMode ?? "none",
         ReasoningEffort = model.ReasoningEffort ?? "medium",
+        SupportsVision = model.SupportsVision,
+        SupportsReasoning = model.SupportsReasoning,
+        SupportsTools = model.SupportsTools,
+        IsVisible = model.IsVisible,
         CreatedAt = model.CreatedAt,
         UpdatedAt = model.UpdatedAt
     };

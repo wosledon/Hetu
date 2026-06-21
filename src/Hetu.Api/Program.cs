@@ -84,6 +84,7 @@ builder.Services.AddScoped<IAiModelService, AiModelService>();
 builder.Services.AddScoped<ILLMProviderFactory, LlmProviderFactory>();
 builder.Services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
 builder.Services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();
+builder.Services.AddScoped<IChunkService, ChunkService>();
 builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
 builder.Services.AddScoped<IChatGroupService, ChatGroupService>();
 builder.Services.AddScoped<IChatTopicService, ChatTopicService>();

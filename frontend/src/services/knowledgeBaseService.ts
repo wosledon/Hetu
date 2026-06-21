@@ -17,6 +17,7 @@ export interface INoteEmbeddingStatus {
   embeddingModel: string | null;
   embeddingDimensions: number;
   embeddingUpdatedAt: string | null;
+  chunkCount: number;
 }
 
 export interface IBatchEmbeddingResult {
@@ -27,6 +28,18 @@ export interface IBatchEmbeddingResult {
 export interface IKnowledgeBaseSearchRequest {
   query: string;
   topK?: number;
+}
+
+export interface INoteChunk {
+  id: string;
+  noteId: string;
+  chunkIndex: number;
+  content: string;
+  summary: string | null;
+  chunkMethod: string;
+  hasEmbedding: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const knowledgeBaseService = {
@@ -44,4 +57,7 @@ export const knowledgeBaseService = {
 
   testSearch: (request: IKnowledgeBaseSearchRequest) =>
     post<IPagedResult<INoteSearchResult>>('/knowledge-base/search', request),
+
+  getChunks: (noteId: string) =>
+    get<INoteChunk[]>(`/knowledge-base/chunks/${noteId}`),
 };
