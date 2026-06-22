@@ -319,27 +319,6 @@ export default function Sidebar() {
           ))}
         </div>
       </div>
-
-      <div className="border-t border-gray-100 p-4 dark:border-gray-800/50">
-        <button
-          onClick={() => {
-            setSelectedNotebookId(undefined)
-            setSelectedTagId(undefined)
-            navigate('/')
-          }}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.98]"
-        >
-          <Plus size={15} />
-          <span>新建笔记</span>
-        </button>
-        <button
-          onClick={() => setIsAddingRoot(true)}
-          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-gray-300"
-        >
-          <Folder size={13} />
-          <span>新建笔记本</span>
-        </button>
-      </div>
     </aside>
   )
 }
