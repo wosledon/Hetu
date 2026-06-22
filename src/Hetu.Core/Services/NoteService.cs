@@ -265,8 +265,8 @@ public class NoteService : INoteService
         UpdatedAt = note.UpdatedAt,
         Tags = note.NoteTags?.Select(nt => new TagDto
         {
-            Id = nt.Tag.Id,
-            Name = nt.Tag.Name,
+            Id = nt.Tag!.Id,
+            Name = nt.Tag!.Name,
             Color = nt.Tag.Color,
             CreatedAt = nt.Tag.CreatedAt
         }).ToList() ?? []

@@ -9,7 +9,7 @@ public class NoteChunk : BaseEntity
     /// 所属知识库项目 ID
     /// </summary>
     public Guid KnowledgeItemId { get; set; }
-    public KnowledgeItem KnowledgeItem { get; set; } = null!;
+    public KnowledgeItem? KnowledgeItem { get; set; }
 
     /// <summary>
     /// 块在文档中的顺序索引（从 0 开始）

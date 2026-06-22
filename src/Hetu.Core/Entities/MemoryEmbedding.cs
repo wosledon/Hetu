@@ -6,7 +6,7 @@ namespace Hetu.Core.Entities;
 public class MemoryEmbedding : BaseEntity
 {
     public Guid MemoryId { get; set; }
-    public Memory Memory { get; set; } = null!;
+    public Memory? Memory { get; set; }
 
     /// <summary>嵌入内容（用于生成 embedding 的文本）</summary>
     public string Content { get; set; } = string.Empty;
