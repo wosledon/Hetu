@@ -77,7 +77,7 @@ public class NoteService : INoteService
         var autoEmbeddingSetting = await _unitOfWork.AppSettings.GetByKeyAsync("AutoEmbedding", cancellationToken);
         if (autoEmbeddingSetting?.Value == "true")
         {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
+            await QueueIfNotRunningAsync(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title, cancellationToken);
         }
 
         return ApiResponse<NoteDto>.Ok(Map(note));
@@ -115,14 +115,14 @@ public class NoteService : INoteService
         var autoEmbeddingSetting = await _unitOfWork.AppSettings.GetByKeyAsync("AutoEmbedding", cancellationToken);
         if (autoEmbeddingSetting?.Value == "true")
         {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
+            await QueueIfNotRunningAsync(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title, cancellationToken);
         }
 
         // 按设置决定是否自动提取知识图谱
         var autoExtractSetting = await _unitOfWork.AppSettings.GetByKeyAsync("GraphAutoExtract", cancellationToken);
         if (autoExtractSetting?.Value == "true")
         {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, note.Id, note.Title), cancellationToken);
+            await QueueIfNotRunningAsync(BackgroundTaskType.GraphExtract, note.Id, note.Title, cancellationToken);
         }
 
         return ApiResponse<NoteDto>.Ok(Map(note));
@@ -182,7 +182,7 @@ public class NoteService : INoteService
         var autoEmbeddingSetting = await _unitOfWork.AppSettings.GetByKeyAsync("AutoEmbedding", cancellationToken);
         if (autoEmbeddingSetting?.Value == "true")
         {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
+            await QueueIfNotRunningAsync(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title, cancellationToken);
         }
 
         return ApiResponse.Ok();
@@ -271,4 +271,23 @@ public class NoteService : INoteService
             CreatedAt = nt.Tag.CreatedAt
         }).ToList() ?? []
     };
+
+    /// <summary>
+    /// 仅在无进行中任务时才入队，防止重复触发
+    /// </summary>
+    private async Task QueueIfNotRunningAsync(BackgroundTaskType taskType, Guid entityId, string? metadata, CancellationToken ct)
+    {
+        var typeName = taskType.ToString();
+        var existing = await _unitOfWork.TaskItems.FindAsync(
+            t => t.EntityId == entityId && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
+            ct);
+        if (existing.Count == 0)
+        {
+            await _taskQueue.QueueAsync(new BackgroundWorkItem(taskType, entityId, metadata), ct);
+        }
+        else
+        {
+            _logger.LogDebug("跳过重复任务: {TaskType}({EntityId}), 已有进行中任务", typeName, entityId);
+        }
+    }
 }

@@ -12,6 +12,8 @@ export interface IKnowledgeBaseStatus {
   urlCount: number;
   hasEmbeddingProvider: boolean;
   dimensions: number;
+  /** 正在运行的后台任务数（Queued + Running） */
+  runningTaskCount: number;
 }
 
 // ── 知识项 Embedding 状态 ──
@@ -30,11 +32,15 @@ export interface IKnowledgeItemEmbeddingStatus {
   embeddingDimensions: number;
   embeddingUpdatedAt: string | null;
   chunkCount: number;
+  /** 是否有正在进行的索引任务 */
+  hasRunningTask: boolean;
 }
 
 export interface IBatchEmbeddingResult {
   totalUnindexed: number;
   queuedCount: number;
+  /** 因已有进行中任务而跳过的数量 */
+  skippedCount: number;
 }
 
 export interface IKnowledgeBaseSearchRequest {

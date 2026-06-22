@@ -22,6 +22,8 @@ import {
   Globe,
   Plus,
   Trash2,
+  CircleDot,
+  Activity,
 } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -83,19 +85,18 @@ export default function KnowledgeBasePage() {
     queryKey: ['knowledgeBaseStatus'],
     queryFn: knowledgeBaseService.getStatus,
     refetchInterval: (query) => {
-      // 如果有未索引项，每 3 秒轮询一次
       const s = query.state.data
-      if (s && s.unindexedItems > 0) return 3000
+      if (s && (s.unindexedItems > 0 || s.runningTaskCount > 0)) return 3000
       return false
     },
   })
 
-  // Embedding statuses with filter - 有未索引项时自动轮询
+  // Embedding statuses with filter - 有未索引项或运行中任务时自动轮询
   const { data: embeddingStatuses = [], isLoading: embeddingsLoading } = useQuery({
     queryKey: ['knowledgeBaseEmbeddings', manageFilter],
     queryFn: () => knowledgeBaseService.getEmbeddingStatuses(manageFilter === 'all' ? undefined : manageFilter),
     enabled: activeTab === 'manage',
-    refetchInterval: activeTab === 'manage' && status && status.unindexedItems > 0 ? 3000 : false,
+    refetchInterval: activeTab === 'manage' && status && (status.unindexedItems > 0 || status.runningTaskCount > 0) ? 3000 : false,
   })
 
   // Knowledge items for manage tab
@@ -269,7 +270,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Status Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-7">
                   <StatusCard
                     icon={<Layers size={20} />}
                     label="总项目数"
@@ -311,6 +312,14 @@ export default function KnowledgeBasePage() {
                     value={status?.unindexedItems ?? '-'}
                     color="amber"
                     loading={statusLoading}
+                  />
+                  <StatusCard
+                    icon={<Activity size={20} />}
+                    label="进行中"
+                    value={status?.runningTaskCount ?? '-'}
+                    color={status && status.runningTaskCount > 0 ? 'teal' : 'gray'}
+                    loading={statusLoading}
+                    pulse={status && status.runningTaskCount > 0}
                   />
                 </div>
 
@@ -357,6 +366,25 @@ export default function KnowledgeBasePage() {
                   )}
                 </div>
 
+                {/* Running Tasks Indicator */}
+                {status && status.runningTaskCount > 0 && (
+                  <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-6 dark:border-teal-800 dark:bg-teal-900/10">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                        <Loader2 size={20} className="animate-spin text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-teal-800 dark:text-teal-300">
+                          索引任务进行中
+                        </h3>
+                        <p className="mt-0.5 text-xs text-teal-600 dark:text-teal-400">
+                          当前有 {status.runningTaskCount} 个任务正在排队或执行中，请等待完成
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Batch Action */}
                 {status && status.unindexedItems > 0 && (
                   <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
@@ -365,24 +393,35 @@ export default function KnowledgeBasePage() {
                         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">批量索引</h3>
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           为 {status.unindexedItems} 个未索引知识项生成向量
+                          {status.runningTaskCount > 0 && (
+                            <span className="ml-1 inline-flex items-center gap-1 text-teal-600 dark:text-teal-400">
+                              <CircleDot size={10} className="animate-pulse" />
+                              {status.runningTaskCount} 个任务进行中
+                            </span>
+                          )}
                         </p>
                       </div>
                       <button
                         onClick={() => batchMutation.mutate()}
-                        disabled={batchMutation.isPending || !status.hasEmbeddingProvider}
+                        disabled={batchMutation.isPending || !status.hasEmbeddingProvider || status.runningTaskCount > 0}
                         className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
                       >
-                        {batchMutation.isPending ? (
+                        {batchMutation.isPending || status.runningTaskCount > 0 ? (
                           <Loader2 size={16} className="animate-spin" />
                         ) : (
                           <Zap size={16} />
                         )}
-                        {batchMutation.isPending ? '排队中...' : '批量生成'}
+                        {batchMutation.isPending ? '排队中...' : status.runningTaskCount > 0 ? '任务进行中...' : '批量生成'}
                       </button>
                     </div>
                     {batchMutation.data && (
                       <p className="mt-3 text-sm text-green-600 dark:text-green-400">
                         已将 {batchMutation.data.queuedCount} 个知识项加入队列
+                        {batchMutation.data.skippedCount > 0 && (
+                          <span className="ml-2 text-amber-600 dark:text-amber-400">
+                            （跳过 {batchMutation.data.skippedCount} 个已有进行中任务的项）
+                          </span>
+                        )}
                       </p>
                     )}
                     {batchMutation.error && (
@@ -499,7 +538,11 @@ export default function KnowledgeBasePage() {
                     {embeddingStatuses.map((item) => (
                       <div
                         key={item.id}
-                        className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                        className={`group flex items-center gap-4 rounded-xl border bg-white px-5 py-4 transition-all hover:shadow-sm dark:bg-gray-900 ${
+                          item.hasRunningTask
+                            ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+                        }`}
                       >
                         {/* Type + Title */}
                         <div className="min-w-0 flex-1">
@@ -510,15 +553,22 @@ export default function KnowledgeBasePage() {
                             </p>
                           </div>
                           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                            {item.embeddingUpdatedAt
-                              ? `更新于 ${safeFormatDate(item.embeddingUpdatedAt)}`
-                              : '未索引'}
+                            {item.hasRunningTask
+                              ? '索引生成中...'
+                              : item.embeddingUpdatedAt
+                                ? `更新于 ${safeFormatDate(item.embeddingUpdatedAt)}`
+                                : '未索引'}
                           </p>
                         </div>
 
                         {/* Status badges */}
                         <div className="flex items-center gap-2">
-                          {item.hasEmbedding ? (
+                          {item.hasRunningTask ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                              <Loader2 size={10} className="animate-spin" />
+                              索引中
+                            </span>
+                          ) : item.hasEmbedding ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                               <CheckCircle2 size={10} />
                               已索引
@@ -560,15 +610,17 @@ export default function KnowledgeBasePage() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => generateMutation.mutate(item.id)}
-                            disabled={generateMutation.isPending}
+                            disabled={generateMutation.isPending || item.hasRunningTask}
                             className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                           >
-                            {generateMutation.isPending ? (
+                            {item.hasRunningTask ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : generateMutation.isPending ? (
                               <Loader2 size={12} className="animate-spin" />
                             ) : (
                               <RefreshCw size={12} />
                             )}
-                            {item.hasEmbedding ? '重新索引' : '生成索引'}
+                            {item.hasRunningTask ? '索引中...' : item.hasEmbedding ? '重新索引' : '生成索引'}
                           </button>
                           {item.type !== 'note' && (
                             <button
@@ -848,25 +900,29 @@ function StatusCard({
   value,
   color,
   loading,
+  pulse,
 }: {
   icon: React.ReactNode
   label: string
   value: number | string
-  color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo'
+  color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo' | 'gray' | 'teal'
   loading: boolean
+  pulse?: boolean
 }) {
-  const colorMap = {
+  const colorMap: Record<string, string> = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
     green: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
     amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
     indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+    gray: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+    teal: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
   }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[color]}`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[color]} ${pulse ? 'animate-pulse' : ''}`}>
           {icon}
         </div>
         <div>
