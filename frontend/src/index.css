@@ -595,17 +595,25 @@ body {
 
 .hetu-milkdown-root .ProseMirror th,
 .hetu-milkdown-root .ProseMirror td {
-  background: transparent !important;
   padding: 0.5em 0.75em !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
 .hetu-milkdown-root .ProseMirror th {
+  background: rgba(0, 0, 0, 0.04) !important;
   font-weight: 600 !important;
   text-align: left !important;
 }
 
-.dark .hetu-milkdown-root .ProseMirror th,
+.hetu-milkdown-root .ProseMirror td {
+  background: transparent !important;
+}
+
+.dark .hetu-milkdown-root .ProseMirror th {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 .dark .hetu-milkdown-root .ProseMirror td {
   background: transparent !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
