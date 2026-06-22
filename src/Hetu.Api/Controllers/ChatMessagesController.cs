@@ -322,7 +322,7 @@ public class ChatMessagesController : ControllerBase
                         new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
 
                     // Inject knowledge base results into context
-                    var kbContext = "以下是从知识库中检索到的相关内容，请基于这些信息回答用户的问题：\n\n";
+                    var kbContext = "以下是从知识库中检索到的相关内容，请基于这些信息回答用户的问题。**注意：不要在回答中使用 [[...]] 或任何 wiki-link 格式引用来源，直接给出自然的回答即可。**\n\n";
                     for (int i = 0; i < kbItems.Count; i++)
                     {
                         kbContext += $"[{i + 1}] {kbItems[i].Title}\n内容: {kbItems[i].ContentSnippet}\n\n";
