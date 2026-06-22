@@ -109,7 +109,7 @@ public class ChatMessagesController : ControllerBase
         if (!topicResult.Success || topicResult.Data == null) { await writer.WriteErrorAsync(topicResult.Error ?? "话题不存在"); return; }
         var topic = topicResult.Data;
 
-        var userMsgResult = await _chatMessageService.CreateUserMessageAsync(topicId, request.Content, ct);
+        var userMsgResult = await _chatMessageService.CreateUserMessageAsync(topicId, request.Content ?? "", ct);
         if (!userMsgResult.Success) { await writer.WriteErrorAsync(userMsgResult.Error ?? "创建消息失败"); return; }
 
         await MarkTopicOutdatedIfNeededAsync(topic, topicId, ct);

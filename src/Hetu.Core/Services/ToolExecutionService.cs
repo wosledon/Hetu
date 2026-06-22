@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Hetu.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,17 +11,25 @@ namespace Hetu.Core.Services;
 /// Thread-safe, designed for singletons that need per-session state without
 /// cross-session interference.
 /// </summary>
-public class Session<T> where T : new()
+public class Session<T> where T : class, new()
 {
     private readonly ConcurrentDictionary<string, T> _sessions = new();
 
     public T GetOrCreate(string sessionId) => _sessions.GetOrAdd(sessionId, _ => new T());
 
-    public bool TryGet(string sessionId, [NotNullWhen(true)] out T? value) =>
-        _sessions.TryGetValue(sessionId, out value);
+    public bool TryGet(string sessionId, out T value)
+    {
+        var ok = _sessions.TryGetValue(sessionId, out var v);
+        value = v!;
+        return ok;
+    }
 
-    public bool TryRemove(string sessionId, [NotNullWhen(true)] out T? value) =>
-        _sessions.TryRemove(sessionId, out value);
+    public bool TryRemove(string sessionId, out T value)
+    {
+        var ok = _sessions.TryRemove(sessionId, out var v);
+        value = v!;
+        return ok;
+    }
 }
 
 /// <summary>Per-session state for pending interactive tool calls.</summary>
