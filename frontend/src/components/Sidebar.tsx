@@ -10,9 +10,11 @@ import {
   Pencil,
   Folder,
   FolderOpen,
+  FileText,
 } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
+import { noteService } from '../services/noteService'
 import type { INotebook } from '../types'
 
 function NotebookTreeItem({
@@ -245,6 +247,18 @@ export default function Sidebar() {
     queryFn: notebookService.getTree,
   })
 
+  const { data: notesPaged } = useQuery({
+    queryKey: ['notes', 'sidebar-stats'],
+    queryFn: () => noteService.getList({ page: 1, pageSize: 1 }),
+    staleTime: 30 * 1000,
+  })
+  const totalNotes = notesPaged?.totalCount ?? 0
+
+  // 递归统计所有笔记本数量（含子笔记本）
+  const countNotebooks = (items: INotebook[]): number =>
+    items.reduce((sum, n) => sum + 1 + countNotebooks(n.children), 0)
+  const totalNotebooks = countNotebooks(notebooks)
+
   const createNotebookMutation = useMutation({
     mutationFn: (name: string) => notebookService.create({ name }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
@@ -317,6 +331,37 @@ export default function Sidebar() {
           {notebooks.map((notebook) => (
             <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
           ))}
+        </div>
+      </div>
+
+      {/* 笔记统计 */}
+      <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-gray-800/50">
+        <div className="grid grid-cols-2 gap-2">
+          <div
+            onClick={() => {
+              setSelectedNotebookId(undefined)
+              setSelectedTagId(undefined)
+              navigate('/')
+            }}
+            className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 transition-all hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-blue-500/40 dark:hover:bg-blue-950/20"
+          >
+            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
+              <FileText size={11} />
+              <span className="text-[10px] font-medium uppercase tracking-wider">笔记</span>
+            </div>
+            <div className="mt-0.5 text-lg font-semibold text-gray-700 dark:text-gray-200">
+              {totalNotes}
+            </div>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
+              <Folder size={11} />
+              <span className="text-[10px] font-medium uppercase tracking-wider">笔记本</span>
+            </div>
+            <div className="mt-0.5 text-lg font-semibold text-gray-700 dark:text-gray-200">
+              {totalNotebooks}
+            </div>
+          </div>
         </div>
       </div>
     </aside>
