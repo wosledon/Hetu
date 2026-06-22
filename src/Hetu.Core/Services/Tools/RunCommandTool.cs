@@ -87,8 +87,6 @@ public class RunCommandTool : IToolExecutor
             if (root.TryGetProperty("workingDir", out var wdProp) && wdProp.ValueKind == JsonValueKind.String)
                 workingDir = wdProp.GetString();
 
-            var stdout = new StringBuilder();
-            var stderr = new StringBuilder();
             const int maxOutput = 4000;
 
             using var process = new Process();
@@ -102,7 +100,10 @@ public class RunCommandTool : IToolExecutor
             var fullArgs = string.Join(" ", args.Select(a => $"\"{a}\""));
             if (OperatingSystem.IsWindows() && !isExe)
             {
-                process.StartInfo.FileName = "cmd.exe";
+                // Use COMSPEC to locate cmd.exe reliably; fall back to System32\cmd.exe
+                var shell = Environment.GetEnvironmentVariable("COMSPEC")
+                    ?? Path.Combine(Environment.SystemDirectory, "cmd.exe");
+                process.StartInfo.FileName = shell;
                 process.StartInfo.Arguments = $"/c {command} {fullArgs}";
             }
             else
@@ -117,20 +118,7 @@ public class RunCommandTool : IToolExecutor
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
 
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data != null && stdout.Length < maxOutput)
-                    stdout.AppendLine(e.Data);
-            };
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    stderr.AppendLine(e.Data);
-            };
-
             process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(30));
@@ -145,19 +133,24 @@ public class RunCommandTool : IToolExecutor
                 return ToolExecutionResult.Error("命令执行超时（30 秒）");
             }
 
-            var output = stdout.ToString();
-            if (output.Length > maxOutput)
-                output = output[..maxOutput] + "\n...(输出已截断)";
+            // Read output after process exits — avoids race with pipe closure
+            var outText = process.StandardOutput.ReadToEnd();
+            var errText = process.StandardError.ReadToEnd();
+
+            // Trim and limit output
+            if (outText.Length > maxOutput)
+                outText = outText[..maxOutput] + "\n...(输出已截断)";
 
             var result = new StringBuilder();
-            result.AppendLine(output);
+            if (!string.IsNullOrWhiteSpace(outText))
+                result.AppendLine(outText.TrimEnd());
 
-            if (stderr.Length > 0)
+            if (!string.IsNullOrWhiteSpace(errText))
             {
-                var errText = stderr.ToString();
-                if (errText.Length > 1000)
-                    errText = errText[..1000] + "\n...(错误输出已截断)";
-                result.AppendLine($"[stderr]\n{errText}");
+                var trimmedErr = errText;
+                if (trimmedErr.Length > 1000)
+                    trimmedErr = trimmedErr[..1000] + "\n...(错误输出已截断)";
+                result.AppendLine($"[stderr]\n{trimmedErr.TrimEnd()}");
             }
 
             result.AppendLine($"[exit code: {process.ExitCode}]");

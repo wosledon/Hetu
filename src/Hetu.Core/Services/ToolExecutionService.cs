@@ -1,0 +1,313 @@
+using System.Collections.Concurrent;
+using System.Text;
+using Hetu.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Hetu.Core.Services;
+
+/// <summary>
+/// Orchestrates tool execution during the Agent Loop, including:
+/// approval flow, ask_question, todo state management, and generic tool execution.
+/// Registered as Singleton because it holds stateful pending-request dictionaries.
+/// </summary>
+public class ToolExecutionService
+{
+    private readonly ILogger<ToolExecutionService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingQuestions = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingApprovals = new();
+
+    public ToolExecutionService(ILogger<ToolExecutionService> logger, IServiceScopeFactory scopeFactory)
+    {
+        _logger = logger;
+        _scopeFactory = scopeFactory;
+    }
+
+    /// <summary>Wait for and return the user's answer to a question.</summary>
+    public bool TrySetAnswer(string toolCallId, string answer)
+    {
+        if (_pendingQuestions.TryRemove(toolCallId, out var tcs))
+        {
+            tcs.TrySetResult(answer);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Wait for and return the user's approval decision.</summary>
+    public bool TrySetApproval(string toolCallId, bool approved)
+    {
+        if (_pendingApprovals.TryRemove(toolCallId, out var tcs))
+        {
+            tcs.TrySetResult(approved);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Execute a list of tool calls, handling approval, ask_question, and todo.
+    /// </summary>
+    public async Task ExecuteToolCallsAsync(
+        List<LlmToolCall> toolCalls,
+        Dictionary<string, ToolApprovalMode> approvalOverrides,
+        List<SessionTodo> sessionTodos,
+        Func<string, Task> writeEventAsync,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken cancellationToken)
+    {
+        // Resolve scoped ToolRegistry via scope factory (this service is singleton)
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
+
+        foreach (var toolCall in toolCalls)
+        {
+            bool isSilentTool = toolCall.Name is "todo" or "ask_question";
+
+            await writeJsonAsync(new
+            {
+                type = "tool_call",
+                id = toolCall.Id,
+                name = toolCall.Name,
+                arguments = toolCall.Arguments,
+                hidden = isSilentTool
+            });
+
+            var executor = toolRegistry.GetExecutor(toolCall.Name);
+            var approval = approvalOverrides.GetValueOrDefault(toolCall.Name,
+                approvalOverrides.GetValueOrDefault("*",
+                    executor?.DefaultApproval ?? ToolApprovalMode.Auto));
+
+            string resultContent;
+            bool isError = false;
+
+            if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
+            {
+                (resultContent, isError) = await ExecuteWithApprovalAsync(toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
+            }
+            else if (executor != null)
+            {
+                (resultContent, isError) = await ExecuteSingleToolAsync(toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
+            }
+            else
+            {
+                resultContent = $"未找到工具: {toolCall.Name}";
+                isError = true;
+            }
+
+            // Emit tool_result
+            await writeJsonAsync(new
+            {
+                type = "tool_result",
+                id = toolCall.Id,
+                name = toolCall.Name,
+                content = resultContent,
+                isError,
+                collapsed = approval == ToolApprovalMode.Bypass,
+                hidden = isSilentTool
+            });
+        }
+    }
+
+    private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(
+        LlmToolCall toolCall,
+        IToolExecutor? executor,
+        List<SessionTodo> sessionTodos,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct)
+    {
+        // Emit approval request
+        await writeJsonAsync(new
+        {
+            type = "approval_request",
+            id = toolCall.Id,
+            name = toolCall.Name,
+            arguments = toolCall.Arguments
+        });
+
+        var approvalTcs = new TaskCompletionSource<bool>();
+        _pendingApprovals[toolCall.Id] = approvalTcs;
+
+        bool approved;
+        try
+        {
+            approved = await approvalTcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
+        }
+        catch (TimeoutException)
+        {
+            return ($"用户未在规定时间内确认工具 \"{toolCall.Name}\" 的执行，已跳过。", true);
+        }
+        finally
+        {
+            _pendingApprovals.TryRemove(toolCall.Id, out _);
+        }
+
+        if (!approved)
+            return ($"用户拒绝了工具 \"{toolCall.Name}\" 的执行。", true);
+
+        if (executor != null)
+            return await ExecuteSingleToolAsync(toolCall, executor, sessionTodos, writeJsonAsync, ct);
+
+        return ($"未找到工具: {toolCall.Name}", true);
+    }
+
+    private async Task<(string content, bool isError)> ExecuteSingleToolAsync(
+        LlmToolCall toolCall,
+        IToolExecutor executor,
+        List<SessionTodo> sessionTodos,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (toolCall.Name == "ask_question")
+                return await HandleAskQuestionAsync(toolCall, writeJsonAsync, ct);
+
+            if (toolCall.Name == "todo")
+                return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
+
+            var result = await executor.ExecuteAsync(toolCall.Arguments, ct);
+            return (result.Content, result.IsError);
+        }
+        catch (Exception ex)
+        {
+            return ($"工具执行失败: {ex.Message}", true);
+        }
+    }
+
+    private async Task<(string content, bool isError)> HandleAskQuestionAsync(
+        LlmToolCall toolCall,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct)
+    {
+        await writeJsonAsync(new
+        {
+            type = "question",
+            toolCallId = toolCall.Id,
+            data = toolCall.Arguments
+        });
+
+        var tcs = new TaskCompletionSource<string>();
+        _pendingQuestions[toolCall.Id] = tcs;
+
+        try
+        {
+            var answer = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
+            return (answer, false);
+        }
+        catch (TimeoutException)
+        {
+            return ("用户未在规定时间内回答，跳过此问题。", false);
+        }
+        finally
+        {
+            _pendingQuestions.TryRemove(toolCall.Id, out _);
+        }
+    }
+
+    private async Task<(string content, bool isError)> HandleTodoAsync(
+        LlmToolCall toolCall,
+        List<SessionTodo> sessionTodos,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct)
+    {
+        string todoAction = "list";
+        string todoId = "";
+        string todoTitle = "";
+        string todoDescription = "";
+        string todoStatus = "";
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(toolCall.Arguments);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("action", out var aEl)) todoAction = aEl.GetString() ?? "list";
+            if (root.TryGetProperty("id", out var idEl) && idEl.ValueKind == System.Text.Json.JsonValueKind.String)
+                todoId = idEl.GetString() ?? "";
+            if (root.TryGetProperty("title", out var tEl)) todoTitle = tEl.GetString() ?? "";
+            if (root.TryGetProperty("description", out var dEl)) todoDescription = dEl.GetString() ?? "";
+            if (root.TryGetProperty("status", out var sEl)) todoStatus = sEl.GetString() ?? "";
+        }
+        catch { }
+
+        if (todoAction == "create" && !string.IsNullOrEmpty(todoTitle))
+        {
+            if (string.IsNullOrEmpty(todoId)) todoId = $"step-{sessionTodos.Count + 1}";
+            if (string.IsNullOrEmpty(todoStatus)) todoStatus = "not-started";
+            if (!sessionTodos.Any(t => t.Id == todoId))
+                sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
+        }
+        else if (todoAction == "update" || todoAction == "complete")
+        {
+            var existing = !string.IsNullOrEmpty(todoId)
+                ? sessionTodos.FirstOrDefault(t => t.Id == todoId)
+                : null;
+            if (existing == null && !string.IsNullOrEmpty(todoTitle))
+                existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+            if (existing == null)
+                existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
+
+            if (existing != null)
+            {
+                existing.Status = todoAction == "complete" ? "completed" : todoStatus;
+                if (existing.Status == "completed" && string.IsNullOrEmpty(todoStatus))
+                    todoStatus = "completed";
+                todoId = existing.Id;
+            }
+        }
+
+        await writeJsonAsync(new
+        {
+            type = "todo",
+            data = new
+            {
+                action = todoAction,
+                id = todoId,
+                title = todoTitle,
+                description = todoDescription,
+                status = todoStatus,
+                todos = sessionTodos.Select(t => new { t.Id, t.Title, t.Status }).ToList()
+            }
+        });
+
+        if (sessionTodos.Count == 0)
+            return ("当前工作计划为空。使用 action=create 创建步骤。", false);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"当前工作计划（共 {sessionTodos.Count} 个步骤）：");
+        foreach (var t in sessionTodos)
+        {
+            var mark = t.Status switch
+            {
+                "completed" => "[已完成]",
+                "in-progress" => "[进行中]",
+                _ => "[未开始]"
+            };
+            sb.AppendLine($"  - id={t.Id} {mark} {t.Title}");
+        }
+
+        var next = sessionTodos.FirstOrDefault(t => t.Status != "completed");
+        if (next != null)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"下一步：开始执行 \"{next.Title}\"（id={next.Id}）。先调用 todo(action=update, id={next.Id}, status=in-progress)，做完后调用 todo(action=complete, id={next.Id})。");
+        }
+        else
+        {
+            sb.AppendLine();
+            sb.AppendLine("所有步骤已完成。");
+        }
+
+        return (sb.ToString(), false);
+    }
+}
+
+/// <summary>Per-stream todo item tracked by the Agent Loop.</summary>
+public class SessionTodo
+{
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Status { get; set; } = "not-started";
+}

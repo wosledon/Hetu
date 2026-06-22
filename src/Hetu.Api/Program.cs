@@ -120,6 +120,7 @@ builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
 builder.Services.AddScoped<IWebSearchService, BingWebSearchService>();
 builder.Services.AddScoped<IMemoryService, MemoryService>();
 builder.Services.AddToolExecutors();
+builder.Services.AddSingleton<ToolExecutionService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDataProtection();

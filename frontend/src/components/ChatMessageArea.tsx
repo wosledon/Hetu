@@ -8,6 +8,10 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import Select from './Select'
+import ToolCallsPanel from './ToolCallsPanel'
+import ApprovalPanel from './ApprovalPanel'
+import { useStreaming } from '../hooks/useStreaming'
+import { renderToolName, renderToolResult } from '../utils/toolRendering'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -58,103 +62,30 @@ function renderNotebookTree(
   return result
 }
 
-const TOOL_LABELS: Record<string, string> = {
-  search_notes: '搜索笔记',
-  read_note: '读取笔记',
-  search_web: '网络搜索',
-  search_memory: '搜索记忆',
-  search_graph: '搜索图谱',
-  create_note: '创建笔记',
-  update_note: '更新笔记',
-  create_memory: '保存记忆',
-  ask_question: '提问',
-  todo: '任务管理',
-  run_command: '执行命令',
-}
-
-function renderToolName(name: string): string {
-  return TOOL_LABELS[name] || name
-}
-
-function renderToolResult(name: string, content: string, isError?: boolean): React.ReactNode {
-  if (isError) {
-    return <span className="text-[11px]">{content}</span>
-  }
-  // Try to parse JSON and render a nice summary
-  try {
-    const parsed = JSON.parse(content)
-    if (Array.isArray(parsed)) {
-      if (parsed.length === 0) return <span className="text-[11px]">无结果</span>
-      return (
-        <div className="space-y-1">
-          {parsed.slice(0, 5).map((item: Record<string, unknown>, idx: number) => (
-            <div key={idx} className="text-[11px] leading-relaxed">
-              <span className="font-medium">{idx + 1}. </span>
-              {item.title && <span className="font-medium">{String(item.title)}</span>}
-              {item.name && !item.title && <span className="font-medium">{String(item.name)}</span>}
-              {item.content && <span> — {String(item.content).slice(0, 80)}{String(item.content).length > 80 ? '...' : ''}</span>}
-              {item.snippet && !item.content && <span className="text-gray-500 dark:text-gray-400"> — {String(item.snippet).slice(0, 80)}</span>}
-              {item.id && !item.title && !item.name && !item.content && <span>{String(item.id)}</span>}
-            </div>
-          ))}
-          {parsed.length > 5 && <span className="text-[10px] text-gray-400">...共 {parsed.length} 条结果</span>}
-        </div>
-      )
-    }
-    if (parsed && typeof parsed === 'object') {
-      return (
-        <div className="space-y-0.5 text-[11px]">
-          {Object.entries(parsed as Record<string, unknown>).slice(0, 6).map(([key, value]) => (
-            <div key={key} className="flex gap-2">
-              <span className="font-medium shrink-0">{key}:</span>
-              <span className="text-gray-600 dark:text-gray-400 truncate">{String(value).slice(0, 100)}</span>
-            </div>
-          ))}
-        </div>
-      )
-    }
-  } catch {
-    // Not JSON, show as plain text
-  }
-  return <span className="whitespace-pre-wrap break-words text-[11px]">{content.length > 500 ? content.slice(0, 500) + '...' : content}</span>
-}
-
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
-  const [streamingContent, setStreamingContent] = useState('')
-  const [streamingThinking, setStreamingThinking] = useState('')
-  const [streamingSearchResults, setStreamingSearchResults] = useState<Array<{ title: string; url: string; snippet: string }>>([])
-  const [showThinking, setShowThinking] = useState(false)
-  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
+  const {
+    streamingContent, setStreamingContent,
+    streamingThinking, setStreamingThinking,
+    showThinking, setShowThinking,
+    isStreaming, pendingUserMessage, setPendingUserMessage,
+    streamingSearchResults, setStreamingSearchResults,
+    streamingKnowledgeResults, setStreamingKnowledgeResults,
+    streamingMemoryResults, setStreamingMemoryResults,
+    streamingToolCalls, streamingToolResults, setStreamingToolResults,
+    streamingQuestions, setStreamingQuestions,
+    questionAnswers, setQuestionAnswers,
+    currentQuestionIndex, setCurrentQuestionIndex,
+    streamingTodos, setStreamingTodos,
+    todoPanelCollapsed, setTodoPanelCollapsed,
+    approvalRequests, setApprovalRequests,
+    resetStreaming, startStreaming, stopStreaming, handleSseChunk,
+  } = useStreaming()
+
   const [streamWebSearch, setStreamWebSearch] = useState(false)
   const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
   const [streamMemory, setStreamMemory] = useState(false)
-  const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
-  const [streamingMemoryResults, setStreamingMemoryResults] = useState<Array<{ id: string; content: string; category?: string; score?: number }>>([])
-  const [streamingToolCalls, setStreamingToolCalls] = useState<{id: string; name: string; arguments: string}[]>([])
-  const [streamingToolResults, setStreamingToolResults] = useState<{id: string; name: string; content: string; isError?: boolean; collapsed?: boolean}[]>([])
-  const [streamingQuestions, setStreamingQuestions] = useState<Array<{
-    id: string
-    toolCallId: string
-    header: string
-    question: string
-    options?: Array<{ label: string; description?: string }>
-    allowCustom?: boolean
-    answered: boolean
-    answer?: string
-  }>>([])
-  const [streamingTodos, setStreamingTodos] = useState<Array<{
-    id: string
-    title: string
-    description?: string
-    status: 'not-started' | 'in-progress' | 'completed'
-  }>>([])
-  const [todoPanelCollapsed, setTodoPanelCollapsed] = useState(false)
-  const [approvalRequests, setApprovalRequests] = useState<Array<{ id: string; name: string; arguments: string }>>([])
-  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [isStreaming, setIsStreaming] = useState(false)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizeStyle, setOrganizeStyle] = useState<'summary' | 'detailed' | 'qna'>('summary')
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
@@ -443,30 +374,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleSend = async () => {
     if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0) || isStreaming) return
 
-    // Combine selected slash chip with input
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
     const content = (slashPrefix + input.trim()).trim()
     setInput('')
     setSelectedSlashItem(null)
-    setIsStreaming(true)
-    setStreamingContent('')
-    setStreamingThinking('')
-    setStreamingSearchResults([])
+    startStreaming()
     setPendingUserMessage(content)
     setStreamWebSearch(webSearch)
     setStreamKnowledgeBase(knowledgeBase)
     setStreamMemory(memory)
-    setStreamingKnowledgeResults([])
-    setStreamingMemoryResults([])
-    setStreamingToolCalls([])
-    setStreamingToolResults([])
-    setStreamingQuestions([])
-    setStreamingTodos([])
-    setApprovalRequests([])
-    setQuestionAnswers({})
-    setCurrentQuestionIndex(0)
 
-    // Convert attached files to base64
     const images: { data: string; mimeType: string; fileName?: string }[] = []
     if (attachedFiles.length > 0) {
       for (const file of attachedFiles) {
@@ -478,27 +395,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     setAttachedFiles([])
 
-    // Detect /skill command
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     let detectedSkillName: string | undefined
     let detectedAgentId: string | undefined
     if (skillMatch) {
       const name = skillMatch[1]
-      // Check if it's a skill (DB first, then local)
       const skill = skills.find((s) => s.name === name && s.isEnabled)
       const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
-      if (skill || localSkill) {
-        detectedSkillName = name
-      }
-      // Check if it's an agent/preset (by name match)
+      if (skill || localSkill) detectedSkillName = name
       const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
-      if (preset) {
-        detectedAgentId = preset.id
-        // Apply preset system prompt
-        if (!selectedPreset) {
-          // Could auto-select the preset, but for now just pass the ID
-        }
-      }
+      if (preset) detectedAgentId = preset.id
     }
 
     try {
@@ -507,9 +413,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         modelId: selectedModelId || undefined,
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
-        webSearch,
-        knowledgeBase,
-        memory,
+        webSearch, knowledgeBase, memory,
         presetSystemPrompt: selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
         skillName: detectedSkillName,
@@ -519,94 +423,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       })
       await readSseStream(response, (data) => {
         if (data.startsWith('[ERROR]')) {
-          setStreamingContent((prev) => prev + '\n' + data)
+          setStreamingContent(prev => prev + '\n' + data)
           return
         }
         try {
-          const chunk = JSON.parse(data)
-          if (chunk.type === 'thinking') {
-            setStreamingThinking(prev => prev + chunk.text)
-            setShowThinking(true) // Auto-expand when thinking content arrives
-          } else if (chunk.type === 'content') {
-            setStreamingContent(prev => prev + chunk.text)
-          } else if (chunk.type === 'search_results') {
-            setStreamingSearchResults(chunk.results || [])
-          } else if (chunk.type === 'knowledge_results') {
-            setStreamingKnowledgeResults(chunk.results || [])
-          } else if (chunk.type === 'memory_results') {
-            setStreamingMemoryResults(chunk.results || [])
-          } else if (chunk.type === 'tool_call') {
-            if (!chunk.hidden) {
-              setStreamingToolCalls(prev => [...prev, { id: chunk.id, name: chunk.name, arguments: chunk.arguments }])
-            }
-          } else if (chunk.type === 'tool_result') {
-            if (!chunk.hidden) {
-              setStreamingToolResults(prev => [...prev, { id: chunk.id, name: chunk.name, content: chunk.content, isError: chunk.isError, collapsed: chunk.collapsed }])
-            }
-          } else if (chunk.type === 'approval_request') {
-            setApprovalRequests(prev => [...prev, { id: chunk.id, name: chunk.name, arguments: chunk.arguments }])
-          } else if (chunk.type === 'question') {
-            try {
-              const questionData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
-              if (questionData?.questions) {
-                const newQuestions = (questionData.questions as Array<{
-                  header?: string
-                  question?: string
-                  options?: Array<{ label: string; description?: string }>
-                  allowCustom?: boolean
-                }>).map((q, i) => ({
-                  id: `${chunk.toolCallId || 'q'}_${i}`,
-                  toolCallId: chunk.toolCallId || '',
-                  header: q.header || '问题',
-                  question: q.question || '',
-                  options: q.options,
-                  allowCustom: q.allowCustom !== false,
-                  answered: false,
-                  answer: undefined,
-                }))
-                setStreamingQuestions(prev => [...prev, ...newQuestions])
-              }
-            } catch {
-              // Ignore malformed question payloads
-            }
-          } else if (chunk.type === 'todo') {
-            try {
-              const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
-              // Prefer the full authoritative list from the backend
-              if (Array.isArray(todoData?.todos) && todoData.todos.length > 0) {
-                setStreamingTodos((todoData.todos as Array<{
-                  id?: string
-                  title?: string
-                  description?: string
-                  status?: 'not-started' | 'in-progress' | 'completed'
-                }>).map(t => ({
-                  id: t.id || `t${Math.random().toString(36).slice(2)}`,
-                  title: t.title || '',
-                  description: t.description,
-                  status: t.status || 'not-started',
-                })))
-              } else if (todoData?.action === 'create' && todoData?.title) {
-                setStreamingTodos(prev => [...prev, {
-                  id: todoData.id || `t${prev.length + 1}`,
-                  title: todoData.title,
-                  description: todoData.description,
-                  status: todoData.status || 'not-started',
-                }])
-              } else if (todoData?.action === 'update' && todoData?.id) {
-                setStreamingTodos(prev => prev.map(t =>
-                  t.id === todoData.id ? { ...t, status: todoData.status || t.status } : t
-                ))
-              } else if (todoData?.action === 'complete' && todoData?.id) {
-                setStreamingTodos(prev => prev.map(t =>
-                  t.id === todoData.id ? { ...t, status: 'completed' } : t
-                ))
-              }
-            } catch {
-              // Ignore malformed todo payloads
-            }
-          }
+          handleSseChunk(JSON.parse(data))
         } catch {
-          // Fallback: treat as plain text (backward compat)
+          // Fallback: treat as plain text
           setStreamingContent(prev => prev + data)
         }
       })
@@ -615,11 +438,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       console.error('Stream error:', error)
       setStreamingContent('流式输出失败，请检查模型配置。')
     } finally {
-      setIsStreaming(false)
-      setPendingUserMessage(null)
-      // Clear tool call state — the final message is saved server-side
-      setStreamingToolCalls([])
-      setStreamingToolResults([])
+      stopStreaming()
     }
   }
 
@@ -1169,29 +988,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   </div>
                 )}
                 {/* Tool calls and results during streaming */}
-                {streamingToolCalls.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {streamingToolCalls.map((tc, i) => {
-                      const result = streamingToolResults.find(r => r.id === tc.id)
-                      return (
-                        <div key={tc.id || i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
-                          <div className="flex items-center gap-2">
-                            <Loader2 size={12} className={result ? 'text-green-500' : 'text-blue-500 animate-spin'} />
-                            <span className="font-medium text-gray-700 dark:text-gray-300">{renderToolName(tc.name)}</span>
-                          </div>
-                          {result && !result.collapsed && (
-                            <div className={`mt-1.5 rounded-md px-2.5 py-1.5 text-xs ${result.isError ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
-                              {renderToolResult(tc.name, result.content, result.isError)}
-                            </div>
-                          )}
-                          {!result && (
-                            <div className="mt-1 text-[11px] text-gray-400">执行中...</div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                <ToolCallsPanel toolCalls={streamingToolCalls} toolResults={streamingToolResults} />
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -1293,30 +1090,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           </div>
         )}
         {/* Approval request panel */}
-        {approvalRequests.length > 0 && (
-          <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/20">
-            {approvalRequests.map((req) => (
-              <div key={req.id} className="flex items-center gap-2">
-                <HelpCircle size={14} className="text-amber-500 shrink-0" />
-                <span className="flex-1 text-xs text-amber-700 dark:text-amber-300">
-                  确认执行 <span className="font-medium">{renderToolName(req.name)}</span>？
-                </span>
-                <button
-                  onClick={() => handleApprove(req.id, true)}
-                  className="rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600"
-                >
-                  允许
-                </button>
-                <button
-                  onClick={() => handleApprove(req.id, false)}
-                  className="rounded-md bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
-                >
-                  拒绝
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <ApprovalPanel requests={approvalRequests} onApprove={handleApprove} />
         {/* Todo progress panel - fixed above input */}
         {streamingTodos.length > 0 && (() => {
           const total = streamingTodos.length
