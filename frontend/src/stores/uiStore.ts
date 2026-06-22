@@ -10,12 +10,14 @@ interface UIState {
   selectedNotebookId?: string;
   selectedTagId?: string;
   searchQuery: string;
+  pinnedNavItems: string[];
   setAppName: (name: string) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSelectedNotebookId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
   setSearchQuery: (query: string) => void;
+  setPinnedNavItems: (items: string[]) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -27,12 +29,14 @@ export const useUIStore = create<UIState>()(
       selectedNotebookId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
+      pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks', '/memories', '/models'],
       setAppName: (name) => set({ appName: name }),
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSelectedNotebookId: (id) => set({ selectedNotebookId: id, selectedTagId: undefined }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNotebookId: undefined }),
       setSearchQuery: (query) => set({ searchQuery: query }),
+      setPinnedNavItems: (items) => set({ pinnedNavItems: items }),
     }),
     {
       name: 'hetu-ui',
@@ -40,6 +44,7 @@ export const useUIStore = create<UIState>()(
         appName: state.appName,
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
+        pinnedNavItems: state.pinnedNavItems,
       }),
     }
   )

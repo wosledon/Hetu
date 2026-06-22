@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, BookOpen, MessageSquare, Workflow, GitBranch, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -29,14 +29,27 @@ const themeOptions = [
   { key: 'dark' as Theme, label: '暗色', desc: '护眼深色', icon: Moon },
 ]
 
+const configurableNavItems = [
+  { path: '/tags', label: '标签', icon: Tag },
+  { path: '/agents', label: '智能体', icon: Bot },
+  { path: '/skills', label: '技能', icon: Zap },
+  { path: '/knowledge-base', label: '知识库', icon: Database },
+  { path: '/graph', label: '知识图谱', icon: Network },
+  { path: '/tasks', label: '任务', icon: ListTodo },
+  { path: '/memories', label: '记忆', icon: Atom },
+  { path: '/models', label: '大模型', icon: Cpu },
+]
+
 export default function SettingsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeSection, setActiveSection] = useState<SettingsSection>('app')
   const appName = useUIStore((state) => state.appName)
   const theme = useUIStore((state) => state.theme)
+  const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
   const setAppName = useUIStore((state) => state.setAppName)
   const setTheme = useUIStore((state) => state.setTheme)
+  const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
 
   const { data: snapshot } = useQuery({
     queryKey: ['settings'],
@@ -139,6 +152,8 @@ export default function SettingsPage() {
                     theme={theme}
                     snapshot={snapshot}
                     models={allModels}
+                    pinnedNavItems={pinnedNavItems}
+                    setPinnedNavItems={setPinnedNavItems}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
                     onThemeChange={handleThemeChange}
@@ -179,6 +194,8 @@ function AppSettingsSection({
   theme,
   snapshot,
   models,
+  pinnedNavItems,
+  setPinnedNavItems,
   onAppNameChange,
   onAppNameSave,
   onThemeChange,
@@ -189,6 +206,8 @@ function AppSettingsSection({
   theme: Theme
   snapshot: Record<string, string> | undefined
   models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
+  pinnedNavItems: string[]
+  setPinnedNavItems: (items: string[]) => void
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
   onThemeChange: (v: Theme) => void
@@ -224,6 +243,71 @@ function AppSettingsSection({
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
+      </div>
+
+      {/* Navigation Menu */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">导航菜单</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+            选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Work、工作流、搜索始终固定显示。
+          </p>
+        </div>
+
+        {/* Quick Jump */}
+        <div className="mb-5 grid grid-cols-4 gap-2">
+          {configurableNavItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.path}
+                onClick={() => onNavigate(item.path)}
+                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300"
+              >
+                <Icon size={14} />
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Pin Toggles */}
+        <div className="space-y-2">
+          {configurableNavItems.map((item) => {
+            const Icon = item.icon
+            const isPinned = pinnedNavItems.includes(item.path)
+            return (
+              <div
+                key={item.path}
+                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon size={14} className="text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setPinnedNavItems(
+                      isPinned
+                        ? pinnedNavItems.filter((p) => p !== item.path)
+                        : [...pinnedNavItems, item.path]
+                    )
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+                    isPinned ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+                      isPinned ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                    style={{ marginTop: '2px' }}
+                  />
+                </button>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Theme Selector */}
