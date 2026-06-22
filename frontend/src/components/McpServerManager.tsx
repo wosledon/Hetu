@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Edit2, Check, X, Wrench, RefreshCw, Loader2 } from 'lucide-react'
 import { mcpService } from '../services/mcpService'
+import Select from './Select'
 import type { IMcpServer, IMcpTool } from '../types'
 
 const defaultConfig = JSON.stringify(
@@ -15,7 +16,6 @@ const defaultConfig = JSON.stringify(
 )
 
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
-const selectClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 export default function McpServerManager() {
   const queryClient = useQueryClient()
@@ -178,14 +178,14 @@ export default function McpServerManager() {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className={inputClass}
             />
-            <select
+            <Select
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as 'stdio' | 'sse' })}
-              className={selectClass}
-            >
-              <option value="stdio">stdio</option>
-              <option value="sse">sse</option>
-            </select>
+              onChange={(value) => setForm({ ...form, type: value as 'stdio' | 'sse' })}
+              options={[
+                { value: 'stdio', label: 'stdio' },
+                { value: 'sse', label: 'sse' },
+              ]}
+            />
             <textarea
               placeholder='连接配置 JSON：{ "command": "...", "args": [], "env": {} }'
               value={form.connectionConfig}

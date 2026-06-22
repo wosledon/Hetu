@@ -35,6 +35,7 @@ function safeFormatDate(dateStr: string | null | undefined): string {
 
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
+import Select from '../components/Select'
 import {
   knowledgeBaseService,
   knowledgeItemService,
@@ -606,16 +607,15 @@ export default function KnowledgeBasePage() {
                       />
                     </div>
                     <div className="relative">
-                      <select
-                        value={searchTopK}
-                        onChange={(e) => setSearchTopK(Number(e.target.value))}
-                        className="appearance-none rounded-lg border border-gray-300 bg-white py-2.5 pl-3 pr-8 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
-                      >
-                        <option value={5}>Top 5</option>
-                        <option value={10}>Top 10</option>
-                        <option value={20}>Top 20</option>
-                      </select>
-                      <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Select
+                        value={searchTopK.toString()}
+                        onChange={(value) => setSearchTopK(Number(value))}
+                        options={[
+                          { value: '5', label: 'Top 5' },
+                          { value: '10', label: 'Top 10' },
+                          { value: '20', label: 'Top 20' },
+                        ]}
+                      />
                     </div>
                     <button
                       onClick={handleSearch}

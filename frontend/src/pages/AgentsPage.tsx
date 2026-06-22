@@ -24,6 +24,7 @@ import {
   Zap,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import Select from '../components/Select'
 import { promptPresetService } from '../services/promptPresetService'
 import type { IPromptPreset } from '../types'
 
@@ -354,15 +355,15 @@ export default function AgentsPage() {
                                 <span className="text-xs text-gray-700 dark:text-gray-300">{tool.label}</span>
                               </label>
                               {isEnabled && (
-                                <select
+                                <Select
                                   value={approval}
-                                  onChange={(e) => setToolApprovals(prev => ({ ...prev, [tool.name]: e.target.value }))}
-                                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                                >
-                                  <option value="bypass">静默</option>
-                                  <option value="auto">自动</option>
-                                  <option value="ask">询问</option>
-                                </select>
+                                  onChange={(value) => setToolApprovals(prev => ({ ...prev, [tool.name]: value }))}
+                                  options={[
+                                    { value: 'bypass', label: '静默' },
+                                    { value: 'auto', label: '自动' },
+                                    { value: 'ask', label: '询问' },
+                                  ]}
+                                />
                               )}
                             </div>
                           )

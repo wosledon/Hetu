@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import Select from '../components/Select'
 import { tagService } from '../services/tagService'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
@@ -384,16 +385,14 @@ export default function TagsPage() {
                   </span>
                   {' '}合并到目标标签，合并后原标签将被删除，相关笔记改用目标标签。
                 </p>
-                <select
+                <Select
                   value={mergeTargetId}
-                  onChange={(e) => setMergeTargetId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
-                >
-                  <option value="">选择目标标签</option>
-                  {mergeTargets.map((t) => (
-                    <option key={t.id} value={t.id}>#{t.name}（{t.noteCount ?? 0} 篇）</option>
-                  ))}
-                </select>
+                  onChange={setMergeTargetId}
+                  options={[
+                    { value: '', label: '选择目标标签', disabled: true },
+                    ...mergeTargets.map((t) => ({ value: t.id, label: `#${t.name}（${t.noteCount ?? 0} 篇）` })),
+                  ]}
+                />
               </div>
               <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
                 <button

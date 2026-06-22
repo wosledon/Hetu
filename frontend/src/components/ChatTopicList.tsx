@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Search, X, Pencil, Check } from 'lucide-react'
 import { chatTopicService } from '../services/chatService'
 import type { IChatTopic } from '../types'
+import Select from './Select'
+
+type SortKey = 'updated' | 'created'
 
 interface ChatTopicListProps {
   groupId?: string
@@ -17,6 +20,7 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic,
   const [showSearch, setShowSearch] = useState(false)
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('updated')
 
   const { data: topics = [] } = useQuery({
     queryKey: ['chatTopics', groupId],
@@ -97,10 +101,14 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic,
             )}
           </div>
         </div>
-        <select className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 outline-none transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-          <option>最新更新</option>
-          <option>创建时间</option>
-        </select>
+        <Select
+          value={sortKey}
+          onChange={(value) => setSortKey(value as SortKey)}
+          options={[
+            { value: 'updated', label: '最新更新' },
+            { value: 'created', label: '创建时间' },
+          ]}
+        />
       </div>
 
       {showSearch && (

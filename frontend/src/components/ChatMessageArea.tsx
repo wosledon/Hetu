@@ -7,6 +7,7 @@ import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
+import Select from './Select'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -737,15 +738,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <div className="flex items-end gap-4">
             <div>
               <span className="mb-1 block text-[11px] text-gray-500">整理风格</span>
-              <select
+              <Select
                 value={organizeStyle}
-                onChange={(e) => setOrganizeStyle(e.target.value as typeof organizeStyle)}
-                className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"
-              >
-                <option value="summary">摘要式</option>
-                <option value="detailed">详细式</option>
-                <option value="qna">Q&A 式</option>
-              </select>
+                onChange={(value) => setOrganizeStyle(value as typeof organizeStyle)}
+                options={[
+                  { value: 'summary', label: '摘要式' },
+                  { value: 'detailed', label: '详细式' },
+                  { value: 'qna', label: 'Q&A 式' },
+                ]}
+              />
             </div>
             <div className="flex-1 relative">
               <span className="mb-1 block text-[11px] text-gray-500">目标笔记本</span>

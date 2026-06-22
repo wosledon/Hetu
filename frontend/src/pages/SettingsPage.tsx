@@ -7,6 +7,7 @@ import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
 import McpServerManager from '../components/McpServerManager'
+import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
@@ -384,18 +385,13 @@ function DefaultModelSelect({
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
         <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{description}</p>
       </div>
-      <select
+      <Select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-56 rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
-      >
-        <option value="">{placeholder}</option>
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.displayName} ({m.modelId})
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={models.map((m) => ({ value: m.id, label: `${m.displayName} (${m.modelId})` }))}
+        placeholder={placeholder}
+        className="w-56"
+      />
     </div>
   )
 }

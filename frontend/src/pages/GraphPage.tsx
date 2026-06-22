@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import Select from '../components/Select'
 import ThemedMarkdown from '../components/ThemedMarkdown'
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
@@ -842,9 +843,7 @@ export default function GraphPage() {
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2></div>
           <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder="搜索实体..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <option value="all">全部类型</option>{entityTypes.map(type => <option key={type} value={type}>{ENTITY_TYPE_LABELS[type] || type}</option>)}
-          </select>
+          <Select value={typeFilter} onChange={(e) => setTypeFilter(e)} options={[{ value: 'all', label: '全部类型' }, ...entityTypes.map(type => ({ value: type, label: ENTITY_TYPE_LABELS[type] || type }))]} />
         </div>
         <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 p-4 dark:border-gray-800 dark:from-indigo-950/20 dark:to-purple-950/20">
           <div className="grid grid-cols-2 gap-3">

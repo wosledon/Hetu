@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap } from 'lucide-react'
 import { aiProviderService, aiModelService } from '../services/aiProviderService'
 import type { RemoteModelInfo } from '../services/aiProviderService'
+import Select from './Select'
 
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
-const selectClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 export default function AiSettings() {
   const queryClient = useQueryClient()
@@ -296,14 +296,14 @@ function ProviderForm({
     <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
       <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">添加提供商</h3>
       <div className="space-y-3">
-        <select
+        <Select
           value={providerType}
-          onChange={(e) => setProviderType(e.target.value as 'openai' | 'anthropic')}
-          className={selectClass}
-        >
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-        </select>
+          onChange={(value) => setProviderType(value as 'openai' | 'anthropic')}
+          options={[
+            { value: 'openai', label: 'OpenAI' },
+            { value: 'anthropic', label: 'Anthropic' },
+          ]}
+        />
         <input
           type="text"
           value={name}
@@ -481,29 +481,29 @@ function ModelForm({
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理模式</label>
-                <select
+                <Select
                   value={reasoningMode}
-                  onChange={(e) => setReasoningMode(e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="none">不支持推理</option>
-                  <option value="tag">标签模式（&lt;thinking&gt; 标签）</option>
-                  <option value="native">原生模式（o1 / Claude 等）</option>
-                </select>
+                  onChange={(value) => setReasoningMode(value)}
+                  options={[
+                    { value: 'none', label: '不支持推理' },
+                    { value: 'tag', label: '标签模式（<thinking> 标签）' },
+                    { value: 'native', label: '原生模式（o1 / Claude 等）' },
+                  ]}
+                />
               </div>
               {reasoningMode !== 'none' && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理强度</label>
-                  <select
+                  <Select
                     value={reasoningEffort}
-                    onChange={(e) => setReasoningEffort(e.target.value)}
-                    className={selectClass}
-                  >
-                    <option value="off">关闭</option>
-                    <option value="low">低</option>
-                    <option value="medium">中</option>
-                    <option value="high">高</option>
-                  </select>
+                    onChange={(value) => setReasoningEffort(value)}
+                    options={[
+                      { value: 'off', label: '关闭' },
+                      { value: 'low', label: '低' },
+                      { value: 'medium', label: '中' },
+                      { value: 'high', label: '高' },
+                    ]}
+                  />
                 </div>
               )}
 
