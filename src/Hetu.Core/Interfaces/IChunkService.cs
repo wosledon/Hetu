@@ -23,5 +23,5 @@ public interface IChunkService
     /// <summary>
     /// 使用 LLM 方式分块（总结 + 分块）
     /// </summary>
-    Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, string modelId, CancellationToken cancellationToken = default);
+    Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, CancellationToken cancellationToken = default);
 }

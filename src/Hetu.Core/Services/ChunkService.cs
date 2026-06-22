@@ -31,7 +31,7 @@ public class ChunkService : IChunkService
             var llm = await _llmProviderFactory.CreateProviderAsync(Guid.Parse(chunkModelId), cancellationToken);
             if (llm != null)
             {
-                return await ChunkByLLMAsync(note, llm, chunkModelId, cancellationToken);
+                return await ChunkByLLMAsync(note, llm, cancellationToken);
             }
         }
 
@@ -103,7 +103,7 @@ public class ChunkService : IChunkService
             {
                 try
                 {
-                    return await LlmChunkAsync(text, llm, chunkModelId, cancellationToken);
+                    return await LlmChunkAsync(text, llm, cancellationToken);
                 }
                 catch
                 {
@@ -116,19 +116,19 @@ public class ChunkService : IChunkService
         return StructureChunkText(text);
     }
 
-    public async Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, string modelId, CancellationToken cancellationToken = default)
+    public async Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, CancellationToken cancellationToken = default)
     {
         var content = note.Content;
         if (string.IsNullOrWhiteSpace(content))
             return new List<NoteChunk>();
 
-        return await LlmChunkAsync(content, llm, modelId, cancellationToken);
+        return await LlmChunkAsync(content, llm, cancellationToken);
     }
 
     /// <summary>
     /// 让大模型理解文档，一次性返回结构化的分块+摘要
     /// </summary>
-    private async Task<List<NoteChunk>> LlmChunkAsync(string content, ILLMProvider llm, string modelId, CancellationToken cancellationToken)
+    private async Task<List<NoteChunk>> LlmChunkAsync(string content, ILLMProvider llm, CancellationToken cancellationToken)
     {
         var truncated = content.Length > 12000 ? content[..12000] : content;
 
@@ -158,7 +158,6 @@ public class ChunkService : IChunkService
 
         var options = new ChatOptions
         {
-            ModelId = modelId,
             Temperature = 0.3,
             MaxTokens = 4096
         };
