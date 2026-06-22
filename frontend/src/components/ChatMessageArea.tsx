@@ -58,6 +58,67 @@ function renderNotebookTree(
   return result
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  search_notes: '搜索笔记',
+  read_note: '读取笔记',
+  search_web: '网络搜索',
+  search_memory: '搜索记忆',
+  search_graph: '搜索图谱',
+  create_note: '创建笔记',
+  update_note: '更新笔记',
+  create_memory: '保存记忆',
+  ask_question: '提问',
+  todo: '任务管理',
+  run_command: '执行命令',
+}
+
+function renderToolName(name: string): string {
+  return TOOL_LABELS[name] || name
+}
+
+function renderToolResult(name: string, content: string, isError?: boolean): React.ReactNode {
+  if (isError) {
+    return <span className="text-[11px]">{content}</span>
+  }
+  // Try to parse JSON and render a nice summary
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) {
+      if (parsed.length === 0) return <span className="text-[11px]">无结果</span>
+      return (
+        <div className="space-y-1">
+          {parsed.slice(0, 5).map((item: Record<string, unknown>, idx: number) => (
+            <div key={idx} className="text-[11px] leading-relaxed">
+              <span className="font-medium">{idx + 1}. </span>
+              {item.title && <span className="font-medium">{String(item.title)}</span>}
+              {item.name && !item.title && <span className="font-medium">{String(item.name)}</span>}
+              {item.content && <span> — {String(item.content).slice(0, 80)}{String(item.content).length > 80 ? '...' : ''}</span>}
+              {item.snippet && !item.content && <span className="text-gray-500 dark:text-gray-400"> — {String(item.snippet).slice(0, 80)}</span>}
+              {item.id && !item.title && !item.name && !item.content && <span>{String(item.id)}</span>}
+            </div>
+          ))}
+          {parsed.length > 5 && <span className="text-[10px] text-gray-400">...共 {parsed.length} 条结果</span>}
+        </div>
+      )
+    }
+    if (parsed && typeof parsed === 'object') {
+      return (
+        <div className="space-y-0.5 text-[11px]">
+          {Object.entries(parsed as Record<string, unknown>).slice(0, 6).map(([key, value]) => (
+            <div key={key} className="flex gap-2">
+              <span className="font-medium shrink-0">{key}:</span>
+              <span className="text-gray-600 dark:text-gray-400 truncate">{String(value).slice(0, 100)}</span>
+            </div>
+          ))}
+        </div>
+      )
+    }
+  } catch {
+    // Not JSON, show as plain text
+  }
+  return <span className="whitespace-pre-wrap break-words text-[11px]">{content.length > 500 ? content.slice(0, 500) + '...' : content}</span>
+}
+
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
@@ -72,7 +133,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<Array<{ title: string; contentSnippet: string; id: string }>>([])
   const [streamingMemoryResults, setStreamingMemoryResults] = useState<Array<{ id: string; content: string; category?: string; score?: number }>>([])
   const [streamingToolCalls, setStreamingToolCalls] = useState<{id: string; name: string; arguments: string}[]>([])
-  const [streamingToolResults, setStreamingToolResults] = useState<{name: string; content: string; isError?: boolean; collapsed?: boolean}[]>([])
+  const [streamingToolResults, setStreamingToolResults] = useState<{id: string; name: string; content: string; isError?: boolean; collapsed?: boolean}[]>([])
   const [streamingQuestions, setStreamingQuestions] = useState<Array<{
     id: string
     toolCallId: string
@@ -478,7 +539,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             }
           } else if (chunk.type === 'tool_result') {
             if (!chunk.hidden) {
-              setStreamingToolResults(prev => [...prev, { name: chunk.name, content: chunk.content, isError: chunk.isError, collapsed: chunk.collapsed }])
+              setStreamingToolResults(prev => [...prev, { id: chunk.id, name: chunk.name, content: chunk.content, isError: chunk.isError, collapsed: chunk.collapsed }])
             }
           } else if (chunk.type === 'approval_request') {
             // For now, auto-approve. In the future, show a confirmation UI.
@@ -1069,16 +1130,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 {streamingToolCalls.length > 0 && (
                   <div className="mb-2 space-y-1">
                     {streamingToolCalls.map((tc, i) => {
-                      const result = streamingToolResults.find(r => r.name === tc.name)
+                      const result = streamingToolResults.find(r => r.id === tc.id)
                       return (
                         <div key={tc.id || i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
                           <div className="flex items-center gap-2">
                             <Loader2 size={12} className={result ? 'text-green-500' : 'text-blue-500 animate-spin'} />
-                            <span className="font-medium text-gray-700 dark:text-gray-300">{tc.name}</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">{renderToolName(tc.name)}</span>
                           </div>
                           {result && !result.collapsed && (
                             <div className={`mt-1.5 rounded-md px-2.5 py-1.5 text-xs ${result.isError ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
-                              <pre className="whitespace-pre-wrap break-words font-mono text-[11px]">{result.content.length > 500 ? result.content.slice(0, 500) + '...' : result.content}</pre>
+                              {renderToolResult(tc.name, result.content, result.isError)}
                             </div>
                           )}
                           {!result && (

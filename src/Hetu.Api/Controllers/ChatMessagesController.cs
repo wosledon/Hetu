@@ -738,8 +738,7 @@ public class ChatMessagesController : ControllerBase
                 if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
                 {
                     // For Ask mode (except ask_question itself), emit approval request
-                    // For now, auto-approve (frontend will add confirmation UI later)
-                    // TODO: implement proper approval flow with TaskCompletionSource
+                    // For now, skip execution (frontend will add confirmation UI later)
                     var approvalReqEvent = System.Text.Json.JsonSerializer.Serialize(new
                     {
                         type = "approval_request",
@@ -749,10 +748,11 @@ public class ChatMessagesController : ControllerBase
                     }, jsonOptions);
                     await Response.WriteAsync($"data: {approvalReqEvent}\n\n", cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);
-                }
 
-                // Execute the tool
-                if (executor != null)
+                    toolResultContent = $"工具 \"{toolCall.Name}\" 需要用户确认后才能执行，当前版本暂不支持交互式审批。";
+                    toolResultIsError = true;
+                }
+                else if (executor != null)
                 {
                     try
                     {
@@ -940,6 +940,7 @@ public class ChatMessagesController : ControllerBase
                 var trEvent = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     type = "tool_result",
+                    id = toolCall.Id,
                     name = toolCall.Name,
                     content = toolResultContent,
                     isError = toolResultIsError,
