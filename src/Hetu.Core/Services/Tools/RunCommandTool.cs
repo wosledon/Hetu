@@ -14,8 +14,8 @@ public class RunCommandTool : IToolExecutor
     {
         // 禁止执行具有破坏性的命令
         "rm", "rmdir", "del", "erase", "format", "diskpart", "reg", "regedit",
-        "shutdown", "reboot", "halt", "poweroff", "taskkill", "kill",
-        "dd", "mkfs", "fdisk", "chmod", "chown", "wget", "curl",
+        "shutdown", "reboot", "halt", "poweroff", "taskkill",
+        "dd", "mkfs", "fdisk", "chmod", "chown", "wget",
         "sc", "net", "bcdedit", "icacls", "cacls", "takeown",
         "rundll32", "mshta", "wmic", "wscript", "cscript",
     };
@@ -26,9 +26,17 @@ public class RunCommandTool : IToolExecutor
     }
 
     public string Name => "run_command";
-    public string Description => "执行命令行命令或脚本";
+
+    public string Description => OperatingSystem.IsWindows()
+        ? "执行命令（当前 OS: Windows）。使用 cmd.exe 语法，如 echo、dir、type、findstr 等"
+        : OperatingSystem.IsMacOS()
+            ? "执行命令（当前 OS: macOS）。使用 zsh/bash 语法，如 echo、ls、cat、grep 等"
+            : "执行命令（当前 OS: Linux）。使用 bash 语法，如 echo、ls、cat、grep 等";
+
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Ask;
-    public string? UsageGuideline => "仅用于只读诊断（查看版本、列目录、读文件）；任何写操作或包含 rm/format/del 的命令必须先 ask_question 确认；禁止执行可能危害系统的命令。";
+    public string? UsageGuideline => OperatingSystem.IsWindows()
+        ? "仅用于只读诊断（dir、type、findstr、echo %VAR% 等）；任何写操作或包含 rm/format/del 的命令必须先 ask_question 确认；禁止执行可能危害系统的命令。"
+        : "仅用于只读诊断（ls、cat、grep、echo 等）；任何写操作或包含 rm/format 的命令必须先 ask_question 确认；禁止执行可能危害系统的命令。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
@@ -46,7 +54,31 @@ public class RunCommandTool : IToolExecutor
     }
     """).RootElement;
 
-    public JsonElement ParametersSchema => _schema;
+    private static readonly string _osTag = OperatingSystem.IsWindows() ? "Windows (cmd.exe)" : OperatingSystem.IsMacOS() ? "macOS (zsh/bash)" : "Linux (bash)";
+
+    public JsonElement ParametersSchema
+    {
+        get
+        {
+            var osCmd = OperatingSystem.IsWindows() ? "echo、dir、type、findstr" : "echo、ls、cat、grep";
+            var json = $$"""
+            {
+                "type": "object",
+                "properties": {
+                    "command": { "type": "string", "description": "要执行的命令。当前系统: {{_osTag}}，常用命令: {{osCmd}}" },
+                    "args": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "命令参数（可选）"
+                    },
+                    "workingDir": { "type": "string", "description": "工作目录（可选）" }
+                },
+                "required": ["command"]
+            }
+            """;
+            return JsonDocument.Parse(json).RootElement;
+        }
+    }
 
     public async Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default)
     {
