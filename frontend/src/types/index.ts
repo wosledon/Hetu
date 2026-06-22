@@ -279,6 +279,74 @@ export interface ITaskStats {
   recentFailed: number;
 }
 
+export type ScheduledTaskKind = 'Skill' | 'AiTask' | 'GraphRebuild' | 'EmbeddingRegenerate';
+export type ScheduleType = 'Interval' | 'Cron';
+export type ScheduledTaskLastStatus = 'Running' | 'Success' | 'Failed' | null;
+export type ScheduledExecutionStatus = 'Running' | 'Success' | 'Failed' | 'Queued';
+
+export interface IScheduledTask {
+  id: string;
+  name: string;
+  description?: string;
+  taskKind: ScheduledTaskKind;
+  targetId?: string;
+  targetName?: string;
+  parameters?: string;
+  scheduleType: ScheduleType;
+  intervalMinutes: number;
+  cronExpression?: string;
+  isEnabled: boolean;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  lastStatus?: ScheduledTaskLastStatus;
+  lastError?: string;
+  maxRetries: number;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IScheduledTaskExecution {
+  id: string;
+  scheduledTaskId: string;
+  startedAt: string;
+  completedAt?: string;
+  status: ScheduledExecutionStatus;
+  errorMessage?: string;
+  result?: string;
+  retryAttempt: number;
+  isManual: boolean;
+  durationMs?: number;
+}
+
+export interface IScheduledTaskTargetOption {
+  value: string;
+  label: string;
+  description: string;
+  source: 'database' | 'local';
+}
+
+export interface IScheduledTaskTargetOptions {
+  skills: IScheduledTaskTargetOption[];
+  localSkills: IScheduledTaskTargetOption[];
+}
+
+export interface ICreateScheduledTaskRequest {
+  name: string;
+  description?: string;
+  taskKind: ScheduledTaskKind;
+  targetId?: string;
+  targetName?: string;
+  parameters?: string;
+  scheduleType: ScheduleType;
+  intervalMinutes: number;
+  cronExpression?: string;
+  isEnabled: boolean;
+  maxRetries: number;
+}
+
+export type IUpdateScheduledTaskRequest = ICreateScheduledTaskRequest;
+
 export interface IMemory {
   id: string;
   content: string;

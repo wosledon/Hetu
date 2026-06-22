@@ -6,6 +6,7 @@ using Hetu.Infrastructure.AI;
 using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
 using Hetu.Infrastructure.Repositories;
+using Hetu.Infrastructure.ScheduledTasks;
 using Hetu.Infrastructure.SemanticSearch;
 using Hetu.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -131,6 +132,14 @@ builder.Services.AddSingleton<IBackgroundTaskQueue, ChannelBackgroundTaskQueue>(
 builder.Services.AddHostedService<BackgroundTaskProcessor>();
 builder.Services.AddHostedService<TrashCleanupService>();
 builder.Services.AddHostedService<AutoOrganizeService>();
+builder.Services.AddHostedService<ScheduledTaskRunner>();
+
+// 定时任务
+builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+builder.Services.AddScoped<IScheduledTaskExecutor, SkillScheduledTaskExecutor>();
+builder.Services.AddScoped<IScheduledTaskExecutor, AiTaskScheduledTaskExecutor>();
+builder.Services.AddScoped<IScheduledTaskExecutor, GraphRebuildScheduledTaskExecutor>();
+builder.Services.AddScoped<IScheduledTaskExecutor, EmbeddingRegenerateScheduledTaskExecutor>();
 
 builder.Services.AddCors(options =>
 {

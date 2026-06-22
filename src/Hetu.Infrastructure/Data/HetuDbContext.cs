@@ -27,6 +27,8 @@ public class HetuDbContext : DbContext
     public DbSet<GraphRelation> GraphRelations => Set<GraphRelation>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
+    public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
+    public DbSet<ScheduledTaskExecution> ScheduledTaskExecutions => Set<ScheduledTaskExecution>();
     public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
     public DbSet<NoteChunkEmbedding> NoteChunkEmbeddings => Set<NoteChunkEmbedding>();
     public DbSet<KnowledgeItem> KnowledgeItems => Set<KnowledgeItem>();
@@ -266,6 +268,34 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.IsDeleted);
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<ScheduledTask>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.TaskKind).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TargetId).HasMaxLength(100);
+            entity.Property(e => e.TargetName).HasMaxLength(500);
+            entity.Property(e => e.ScheduleType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.CronExpression).HasMaxLength(200);
+            entity.Property(e => e.LastStatus).HasMaxLength(20);
+            entity.Property(e => e.LastError).HasMaxLength(2000);
+            entity.HasIndex(e => e.IsEnabled);
+            entity.HasIndex(e => e.NextRunAt);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<ScheduledTaskExecution>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.Result).HasMaxLength(2000);
+            entity.HasIndex(e => e.ScheduledTaskId);
+            entity.HasIndex(e => e.StartedAt);
         });
 
         modelBuilder.Entity<KnowledgeItem>(entity =>

@@ -12,4 +12,8 @@ public interface ISkillService
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<string>> InvokeAsync(string nameOrId, InvokeSkillRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<string>> InvokeByIdAsync(Guid id, InvokeSkillRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// 执行本地技能（通过 LocalSkillDto 的 Config 配置）
+    /// </summary>
+    Task<ApiResponse<string>> InvokeLocalAsync(LocalSkillDto skill, string input, CancellationToken cancellationToken = default);
 }

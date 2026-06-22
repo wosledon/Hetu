@@ -115,11 +115,37 @@ public class SkillService : ISkillService
         return await InvokeSkillAsync(skill, request.Input, cancellationToken);
     }
 
+    public Task<ApiResponse<string>> InvokeLocalAsync(LocalSkillDto skill, string input, CancellationToken cancellationToken = default)
+    {
+        if (skill == null) return Task.FromResult(ApiResponse<string>.Fail("本地技能不存在"));
+        if (!skill.IsEnabled) return Task.FromResult(ApiResponse<string>.Fail($"本地技能 '{skill.Name}' 已禁用"));
+        return InvokeWithConfigAsync(skill.Config, input, cancellationToken);
+    }
+
     private async Task<ApiResponse<string>> InvokeSkillAsync(Skill skill, string input, CancellationToken cancellationToken)
     {
         var config = ParseConfig(skill.Config);
         var promptTemplate = config?.PromptTemplate ?? "{{input}}";
         var systemPrompt = config?.SystemPrompt ?? "你是智能助手。";
+
+        var prompt = promptTemplate.Replace("{{input}}", input);
+
+        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        if (provider == null) return ApiResponse<string>.Fail("未找到可用的对话模型");
+
+        var result = await provider.ChatAsync(
+            [new LlmChatMessage { Role = "user", Content = prompt }],
+            new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
+            cancellationToken);
+
+        return ApiResponse<string>.Ok(result);
+    }
+
+    private async Task<ApiResponse<string>> InvokeWithConfigAsync(string? configJson, string input, CancellationToken cancellationToken)
+    {
+        var config = ParseConfig(configJson);
+        var promptTemplate = config?.PromptTemplate ?? "{{input}}";
+        var systemPrompt = string.IsNullOrWhiteSpace(config?.SystemPrompt) ? "你是智能助手。" : config.SystemPrompt;
 
         var prompt = promptTemplate.Replace("{{input}}", input);
 

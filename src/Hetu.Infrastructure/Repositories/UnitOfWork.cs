@@ -26,6 +26,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<GraphRelation> GraphRelations { get; }
     public IRepository<ShareLink> ShareLinks { get; }
     public IRepository<TaskItem> TaskItems { get; }
+    public IRepository<ScheduledTask> ScheduledTasks { get; }
+    public IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     public IRepository<Memory> Memories { get; }
     public IRepository<MemoryEmbedding> MemoryEmbeddings { get; }
 
@@ -50,6 +52,8 @@ public class UnitOfWork : IUnitOfWork
         GraphRelations = new EfRepository<GraphRelation>(context);
         ShareLinks = new EfRepository<ShareLink>(context);
         TaskItems = new EfRepository<TaskItem>(context);
+        ScheduledTasks = new EfRepository<ScheduledTask>(context);
+        ScheduledTaskExecutions = new EfRepository<ScheduledTaskExecution>(context);
         Memories = new EfRepository<Memory>(context);
         MemoryEmbeddings = new EfRepository<MemoryEmbedding>(context);
     }

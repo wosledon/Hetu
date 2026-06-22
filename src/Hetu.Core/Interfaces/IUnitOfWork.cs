@@ -22,6 +22,8 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<GraphRelation> GraphRelations { get; }
     IRepository<ShareLink> ShareLinks { get; }
     IRepository<TaskItem> TaskItems { get; }
+    IRepository<ScheduledTask> ScheduledTasks { get; }
+    IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     IRepository<Memory> Memories { get; }
     IRepository<MemoryEmbedding> MemoryEmbeddings { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
