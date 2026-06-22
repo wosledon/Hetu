@@ -46,19 +46,34 @@ public class BackgroundTaskProcessor : BackgroundService
             await using var scope = _scopeFactory.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<HetuDbContext>();
 
-            // 创建任务记录
-            var record = new TaskItem
+            // 查找已有的 Queued 记录，或新建
+            var taskTypeStr = item.Type.ToString();
+            var record = await db.TaskItems
+                .FirstOrDefaultAsync(t => t.EntityId == item.EntityId
+                    && t.TaskType == taskTypeStr
+                    && t.Status == 0, stoppingToken);
+
+            if (record != null)
             {
-                Id = Guid.NewGuid(),
-                TaskType = item.Type.ToString(),
-                EntityId = item.EntityId,
-                EntityTitle = item.Metadata,
-                Status = 1, // Running
-                StartedAt = DateTimeOffset.UtcNow,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow,
-            };
-            db.TaskItems.Add(record);
+                record.Status = 1; // Running
+                record.StartedAt = DateTimeOffset.UtcNow;
+                record.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                record = new TaskItem
+                {
+                    Id = Guid.NewGuid(),
+                    TaskType = taskTypeStr,
+                    EntityId = item.EntityId,
+                    EntityTitle = item.Metadata,
+                    Status = 1, // Running
+                    StartedAt = DateTimeOffset.UtcNow,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                };
+                db.TaskItems.Add(record);
+            }
             await db.SaveChangesAsync(stoppingToken);
 
             try

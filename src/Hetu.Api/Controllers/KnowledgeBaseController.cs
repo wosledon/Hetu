@@ -147,6 +147,20 @@ public class KnowledgeBaseController : ControllerBase
         if (existingTasks.Count > 0)
             return ApiResponse.Fail("该知识项已有正在进行的索引任务，请等待完成");
 
+        // 立即创建 Queued 记录
+        var taskItem = new TaskItem
+        {
+            Id = Guid.NewGuid(),
+            TaskType = taskType,
+            EntityId = entityId,
+            EntityTitle = item.Title,
+            Status = 0, // Queued
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         if (item.Type == KnowledgeItemType.Note && item.NoteId.HasValue)
         {
             await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value), cancellationToken);
@@ -194,6 +208,23 @@ public class KnowledgeBaseController : ControllerBase
                 continue;
             }
 
+            var taskType = item.Type == KnowledgeItemType.Note && item.NoteId.HasValue
+                ? nameof(BackgroundTaskType.GenerateEmbedding)
+                : nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding);
+
+            // 立即创建 Queued 记录
+            var taskItem = new TaskItem
+            {
+                Id = Guid.NewGuid(),
+                TaskType = taskType,
+                EntityId = entityId,
+                EntityTitle = item.Title,
+                Status = 0, // Queued
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            };
+            await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
+
             if (item.Type == KnowledgeItemType.Note && item.NoteId.HasValue)
             {
                 await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value), cancellationToken);
@@ -204,6 +235,8 @@ public class KnowledgeBaseController : ControllerBase
             }
             queued++;
         }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<BatchEmbeddingResultDto>.Ok(new BatchEmbeddingResultDto
         {

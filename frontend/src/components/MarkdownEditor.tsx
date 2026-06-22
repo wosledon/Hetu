@@ -141,13 +141,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   })
 
   // ── 知识库索引状态 ──
-  const [isIndexing, setIsIndexing] = useState(false)
 
   const { data: embeddingStatuses = [] } = useQuery({
     queryKey: ['embeddingStatuses'],
     queryFn: () => knowledgeBaseService.getEmbeddingStatuses('note'),
     enabled: !!note,
-    refetchInterval: isIndexing ? 5000 : false,
+    refetchInterval: 5000,
   })
 
   const currentEmbedding = useMemo(
@@ -155,19 +154,10 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     [embeddingStatuses, note?.id]
   )
 
-  // 索引完成后停止轮询
-  useEffect(() => {
-    if (isIndexing && currentEmbedding) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsIndexing(false)
-    }
-  }, [isIndexing, currentEmbedding])
+  const isIndexing = currentEmbedding?.hasRunningTask ?? false
 
   const generateEmbedding = useMutation({
-    mutationFn: () => {
-      setIsIndexing(true)
-      return noteService.generateIndex(note!.id)
-    },
+    mutationFn: () => noteService.generateIndex(note!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
     },
@@ -464,7 +454,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             <Folder size={11} />
             {notebookPath}
           </span>
-          {currentEmbedding?.hasEmbedding ? (
+          {isIndexing ? (
+            <span className="flex items-center gap-1.5 rounded-md bg-teal-50 px-2 py-1 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
+              <Loader2 size={11} className="animate-spin" />
+              索引中...
+            </span>
+          ) : currentEmbedding?.hasEmbedding ? (
             <span className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
               <Database size={11} />
               已索引 · {currentEmbedding.chunkCount} 块
@@ -477,18 +472,20 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           )}
           <button
             onClick={() => generateEmbedding.mutate()}
-            disabled={generateEmbedding.isPending}
+            disabled={generateEmbedding.isPending || isIndexing}
             className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
             title={currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
           >
-            {generateEmbedding.isPending ? (
+            {isIndexing ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : generateEmbedding.isPending ? (
               <Loader2 size={11} className="animate-spin" />
             ) : currentEmbedding?.hasEmbedding ? (
               <RefreshCw size={11} />
             ) : (
               <Database size={11} />
             )}
-            {generateEmbedding.isPending ? '处理中...' : currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
+            {isIndexing ? '索引中...' : generateEmbedding.isPending ? '处理中...' : currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
           </button>
           <button
             onClick={() => extractGraph.mutate()}

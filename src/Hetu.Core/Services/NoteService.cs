@@ -283,6 +283,20 @@ public class NoteService : INoteService
             ct);
         if (existing.Count == 0)
         {
+            // 立即创建 Queued 记录
+            var taskItem = new TaskItem
+            {
+                Id = Guid.NewGuid(),
+                TaskType = typeName,
+                EntityId = entityId,
+                EntityTitle = metadata,
+                Status = 0, // Queued
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            };
+            await _unitOfWork.TaskItems.AddAsync(taskItem, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+
             await _taskQueue.QueueAsync(new BackgroundWorkItem(taskType, entityId, metadata), ct);
         }
         else
