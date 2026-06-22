@@ -42,11 +42,10 @@ public static class BuiltinProfiles
         {
             "search_notes", "read_note", "create_note", "update_note",
             "search_memory", "create_memory", "search_graph",
-            "search_web", "ask_question", "todo",
+            "search_web", "ask_question", "todo", "run_command",
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "run_command", // 知识场景不允许执行 shell
         },
         MaxToolCallsPerTurn = 5,
         MaxAgentIterations = 15,
