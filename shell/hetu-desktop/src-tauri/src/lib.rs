@@ -6,15 +6,8 @@ use backend::{spawn_backend, BackendHandle};
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder,
-    WindowEvent,
-};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime, WindowEvent};
 use tokio::sync::OnceCell;
-
-/// 主窗口默认尺寸。
-const MAIN_WIDTH: f64 = 1280.0;
-const MAIN_HEIGHT: f64 = 840.0;
 
 /// dev 模式下主窗口加载的前端开发服务器地址（与 `frontend/vite.config.ts` 的 `server.port` 一致）。
 const DEV_FRONTEND_URL: &str = "http://localhost:5174";
@@ -40,7 +33,12 @@ fn get_backend_info(state: tauri::State<'_, Arc<BackendHandle>>) -> BackendReady
 
 #[tauri::command]
 async fn open_main_window<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
-    show_main_window(&app).map_err(|e| e.to_string())
+    // main 窗口由 tauri.conf.json 在启动时创建；托盘点击仅做显示/聚焦。
+    if let Some(main) = app.get_webview_window("main") {
+        main.show().map_err(|e| e.to_string())?;
+        let _ = main.set_focus();
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -68,8 +66,10 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            // 记录加载页开始显示的时刻，用于强制最小展示时长。
+            let splash_start = std::time::Instant::now();
 
-            // 后端启动放到异步任务，避免阻塞 setup（splash 窗口由 config 直接显示）。
+            // 后端启动放到异步任务，避免阻塞 setup（main 窗口由 config 直接显示加载页）。
             tauri::async_runtime::spawn(async move {
                 match spawn_backend(&handle).await {
                     Ok(backend) => {
@@ -81,8 +81,14 @@ pub fn run() {
                             data_dir: backend.data_dir.to_string_lossy().to_string(),
                         };
                         let _ = handle.emit("backend-ready", payload);
-                        if let Err(err) = show_main_window(&handle) {
-                            tracing::error!("show main window failed: {err:?}");
+                        // 强制加载动画至少展示 1.5s，避免后端秒开导致一闪而过。
+                        let min_splash = std::time::Duration::from_millis(1500);
+                        let elapsed = splash_start.elapsed();
+                        if elapsed < min_splash {
+                            tokio::time::sleep(min_splash - elapsed).await;
+                        }
+                        if let Err(err) = navigate_main_window(&handle) {
+                            tracing::error!("navigate main window failed: {err:?}");
                             let _ = handle.emit("backend-error", err.to_string());
                         }
                     }
@@ -120,36 +126,23 @@ pub fn run() {
     });
 }
 
-/// 显示主窗口：使用 backend handle 暴露的 URL 加载前端。
-fn show_main_window<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<()> {
-    if let Some(main) = app.get_webview_window("main") {
-        main.show()?;
-        main.set_focus().ok();
-        close_splash(app);
-        return Ok(());
-    }
-
+/// 后端就绪后，把 main 窗口的加载页切换到前端主界面。
+///
+/// main 窗口由 `tauri.conf.json` 在启动时直接创建并显示加载动画，
+/// 此处仅做 URL 导航，避免窗口创建/销毁带来的切换闪烁。
+fn navigate_main_window<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<()> {
     let target_url = resolve_main_url(app)?;
-    tracing::info!("creating main window at {target_url}");
-
-    let url = WebviewUrl::External(target_url.parse()?);
-    let window = WebviewWindowBuilder::new(app, "main", url)
-        .title("Hetu")
-        .inner_size(MAIN_WIDTH, MAIN_HEIGHT)
-        .min_inner_size(960.0, 640.0)
-        .center()
-        .visible(true)
-        .build()?;
-    let _ = window.set_size(LogicalSize::new(MAIN_WIDTH, MAIN_HEIGHT));
-
-    close_splash(app);
+    let main = app
+        .get_webview_window("main")
+        .ok_or_else(|| anyhow::anyhow!("main window not found"))?;
+    tracing::info!("navigating main window to {target_url}");
+    // 用 location.replace 导航，不留历史记录，避免用户后退回加载页。
+    let js = format!(
+        "window.location.replace({})",
+        serde_json::to_string(&target_url)?
+    );
+    main.eval(&js)?;
     Ok(())
-}
-
-fn close_splash<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(splash) = app.get_webview_window("splash") {
-        let _ = splash.close();
-    }
 }
 
 fn resolve_main_url<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<String> {
