@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, BookOpen, MessageSquare, Workflow, GitBranch, Search, Menu } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -11,13 +11,16 @@ import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
+import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'ai' | 'mcp' | 'database' | 'trash'
+type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
-  { key: 'ai', label: 'AI 模型', description: '提供商与模型管理', icon: Bot },
+  { key: 'navigation', label: '导航菜单', description: '顶部功能入口', icon: Menu },
+  { key: 'models', label: '默认模型', description: '场景模型分配', icon: Cpu },
+  { key: 'ai', label: '供应商配置', description: 'AI 供应商与模型管理', icon: Bot },
   { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
   { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
   { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
@@ -99,7 +102,7 @@ export default function SettingsPage() {
             {/* Page Header */}
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">设置</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">管理应用偏好、AI 模型和数据存储</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">管理应用偏好、导航、默认模型、供应商与数据存储</p>
             </div>
 
             <div className="flex gap-8">
@@ -151,14 +154,23 @@ export default function SettingsPage() {
                     appName={appName}
                     theme={theme}
                     snapshot={snapshot}
-                    models={allModels}
-                    pinnedNavItems={pinnedNavItems}
-                    setPinnedNavItems={setPinnedNavItems}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
                     onThemeChange={handleThemeChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
+                  />}
+
+                  {activeSection === 'navigation' && <NavigationSettingsSection
+                    pinnedNavItems={pinnedNavItems}
+                    setPinnedNavItems={setPinnedNavItems}
+                    onNavigate={navigate}
+                  />}
+
+                  {activeSection === 'models' && <DefaultModelsSection
+                    snapshot={snapshot}
+                    models={allModels}
+                    onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                   />}
 
                   {activeSection === 'database' && (
@@ -193,9 +205,6 @@ function AppSettingsSection({
   appName,
   theme,
   snapshot,
-  models,
-  pinnedNavItems,
-  setPinnedNavItems,
   onAppNameChange,
   onAppNameSave,
   onThemeChange,
@@ -204,18 +213,13 @@ function AppSettingsSection({
 }: {
   appName: string
   theme: Theme
-  snapshot: Record<string, string> | undefined
-  models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
-  pinnedNavItems: string[]
-  setPinnedNavItems: (items: string[]) => void
+  snapshot: IAppSettingsSnapshot | undefined
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
   onThemeChange: (v: Theme) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
-  const chatModels = models.filter((m) => m.purpose === 'chat' && m.isVisible)
-  const embeddingModels = models.filter((m) => m.purpose === 'embedding' && m.isVisible);
   return (
     <div className="space-y-8">
       {/* Display Name */}
@@ -243,71 +247,6 @@ function AppSettingsSection({
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
-      </div>
-
-      {/* Navigation Menu */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">导航菜单</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-            选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Work、工作流、搜索始终固定显示。
-          </p>
-        </div>
-
-        {/* Quick Jump */}
-        <div className="mb-5 grid grid-cols-4 gap-2">
-          {configurableNavItems.map((item) => {
-            const Icon = item.icon
-            return (
-              <button
-                key={item.path}
-                onClick={() => onNavigate(item.path)}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300"
-              >
-                <Icon size={14} />
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Pin Toggles */}
-        <div className="space-y-2">
-          {configurableNavItems.map((item) => {
-            const Icon = item.icon
-            const isPinned = pinnedNavItems.includes(item.path)
-            return (
-              <div
-                key={item.path}
-                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon size={14} className="text-gray-400" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
-                </div>
-                <button
-                  onClick={() => {
-                    setPinnedNavItems(
-                      isPinned
-                        ? pinnedNavItems.filter((p) => p !== item.path)
-                        : [...pinnedNavItems, item.path]
-                    )
-                  }}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-                    isPinned ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-                      isPinned ? 'translate-x-5' : 'translate-x-0.5'
-                    }`}
-                    style={{ marginTop: '2px' }}
-                  />
-                </button>
-              </div>
-            )
-          })}
-        </div>
       </div>
 
       {/* Theme Selector */}
@@ -431,44 +370,139 @@ function AppSettingsSection({
           </p>
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Default Models */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">默认模型</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">为不同场景指定默认使用的 AI 模型</p>
-        </div>
-        <div className="space-y-4">
-          <DefaultModelSelect
-            label="默认对话模型"
-            description="新对话默认使用的模型"
-            value={snapshot?.defaultChatModelId || ''}
-            models={chatModels}
-            onChange={(v) => onSettingChange('DefaultChatModelId', v)}
-          />
-          <DefaultModelSelect
-            label="默认文档 Chunk 模型"
-            description="知识库分块时使用的 LLM（可选，不配置则使用结构化分块）"
-            value={snapshot?.defaultChunkModelId || ''}
-            models={chatModels}
-            onChange={(v) => onSettingChange('DefaultChunkModelId', v)}
-            placeholder="不使用 LLM 分块"
-          />
-          <DefaultModelSelect
-            label="快速模型"
-            description="用于轻量级任务（如标签建议、摘要等）"
-            value={snapshot?.defaultFastModelId || ''}
-            models={chatModels}
-            onChange={(v) => onSettingChange('DefaultFastModelId', v)}
-          />
-          <DefaultModelSelect
-            label="默认 Embedding 模型"
-            description="知识库向量化使用的模型"
-            value={snapshot?.defaultEmbeddingModelId || ''}
-            models={embeddingModels}
-            onChange={(v) => onSettingChange('DefaultEmbeddingModelId', v)}
-          />
-        </div>
+/* ─── Navigation Settings Section ─── */
+
+function NavigationSettingsSection({
+  pinnedNavItems,
+  setPinnedNavItems,
+  onNavigate,
+}: {
+  pinnedNavItems: string[]
+  setPinnedNavItems: (items: string[]) => void
+  onNavigate: (path: string) => void
+}) {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">导航菜单</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Work、工作流、搜索始终固定显示。
+        </p>
+      </div>
+
+      {/* Quick Jump */}
+      <div className="grid grid-cols-4 gap-2">
+        {configurableNavItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <button
+              key={item.path}
+              onClick={() => onNavigate(item.path)}
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300"
+            >
+              <Icon size={14} />
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Pin Toggles */}
+      <div className="space-y-2">
+        {configurableNavItems.map((item) => {
+          const Icon = item.icon
+          const isPinned = pinnedNavItems.includes(item.path)
+          return (
+            <div
+              key={item.path}
+              className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]"
+            >
+              <div className="flex items-center gap-2">
+                <Icon size={14} className="text-gray-400" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setPinnedNavItems(
+                    isPinned
+                      ? pinnedNavItems.filter((p) => p !== item.path)
+                      : [...pinnedNavItems, item.path]
+                  )
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+                  isPinned ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+                    isPinned ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                  style={{ marginTop: '2px' }}
+                />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Default Models Section ─── */
+
+function DefaultModelsSection({
+  snapshot,
+  models,
+  onSettingChange,
+}: {
+  snapshot: IAppSettingsSnapshot | undefined
+  models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
+  onSettingChange: (key: string, value: string) => void
+}) {
+  const chatModels = models.filter((m) => m.purpose === 'chat' && m.isVisible)
+  const embeddingModels = models.filter((m) => m.purpose === 'embedding' && m.isVisible)
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">默认模型</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">为不同场景指定默认使用的 AI 模型</p>
+      </div>
+
+      <div className="space-y-4">
+        <DefaultModelSelect
+          label="默认对话模型"
+          description="新对话默认使用的模型"
+          value={snapshot?.defaultChatModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultChatModelId', v)}
+        />
+        <DefaultModelSelect
+          label="默认文档 Chunk 模型"
+          description="知识库分块时使用的 LLM（可选，不配置则使用结构化分块）"
+          value={snapshot?.defaultChunkModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultChunkModelId', v)}
+          placeholder="不使用 LLM 分块"
+        />
+        <DefaultModelSelect
+          label="快速模型"
+          description="用于轻量级任务（如标签建议、摘要等）"
+          value={snapshot?.defaultFastModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultFastModelId', v)}
+        />
+        <DefaultModelSelect
+          label="默认 Embedding 模型"
+          description="知识库向量化使用的模型"
+          value={snapshot?.defaultEmbeddingModelId || ''}
+          models={embeddingModels}
+          onChange={(v) => onSettingChange('DefaultEmbeddingModelId', v)}
+        />
       </div>
     </div>
   )
