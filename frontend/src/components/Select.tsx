@@ -148,25 +148,41 @@ export default function Select({
     if (open && searchable) setActiveIndex(-1)
   }, [search, open, searchable])
 
-  // Position dropdown
+  // Position dropdown — recompute on open, scroll, and resize so it follows the trigger
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
   useEffect(() => {
-    if (!open || !triggerRef.current) return
-    const rect = triggerRef.current.getBoundingClientRect()
-    const bottomSpace = window.innerHeight - rect.bottom
-    const topSpace = rect.top
-    const minH = 160
-    const dropUp = bottomSpace < minH && topSpace > bottomSpace
+    if (!open) return
 
-    setDropdownStyle({
-      position: 'fixed',
-      left: rect.left,
-      width: rect.width,
-      ...(dropUp
-        ? { bottom: window.innerHeight - rect.top }
-        : { top: rect.bottom + 4 }),
-    })
-  }, [open])
+    const update = () => {
+      if (!triggerRef.current) return
+      const rect = triggerRef.current.getBoundingClientRect()
+      const bottomSpace = window.innerHeight - rect.bottom
+      const topSpace = rect.top
+      const minH = 160
+      const dropUp = bottomSpace < minH && topSpace > bottomSpace
+
+      setDropdownStyle({
+        position: 'fixed',
+        left: rect.left,
+        width: rect.width,
+        ...(dropUp
+          ? { bottom: window.innerHeight - rect.top + 4 }
+          : { top: rect.bottom + 4 }),
+      })
+    }
+
+    update()
+
+    // 监听窗口尺寸变化
+    window.addEventListener('resize', update)
+    // 监听所有滚动事件（捕获模式，覆盖模态框内的滚动容器）
+    window.addEventListener('scroll', update, true)
+
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open, search])
 
   const displayText = selectedOption?.label ?? placeholder ?? ''
 
