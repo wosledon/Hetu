@@ -17,6 +17,8 @@ public class ChatMessagesController : ControllerBase
 {
     // Pending ask_question requests: key = toolCallId, value = TCS that Agent Loop is waiting on
     private static readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingQuestions = new();
+    // Pending approval requests: key = toolCallId, value = TCS that Agent Loop is waiting on
+    private static readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingApprovals = new();
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
@@ -81,6 +83,17 @@ public class ChatMessagesController : ControllerBase
             return ApiResponse.Ok();
         }
         return ApiResponse.Fail("未找到对应的提问请求");
+    }
+
+    [HttpPost("approve")]
+    public async Task<ApiResponse> SubmitApproval([FromBody] ApprovalRequest request, CancellationToken cancellationToken)
+    {
+        if (_pendingApprovals.TryRemove(request.ToolCallId, out var tcs))
+        {
+            tcs.TrySetResult(request.Approve);
+            return ApiResponse.Ok();
+        }
+        return ApiResponse.Fail("未找到对应的审批请求");
     }
 
     [HttpPost("topic/{topicId:guid}/stream")]
@@ -732,64 +745,46 @@ public class ChatMessagesController : ControllerBase
                     approvalOverrides.GetValueOrDefault("*",
                         executor?.DefaultApproval ?? ToolApprovalMode.Auto));
 
-                string toolResultContent;
-                bool toolResultIsError = false;
-
-                if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
-                {
-                    // For Ask mode (except ask_question itself), emit approval request
-                    // For now, skip execution (frontend will add confirmation UI later)
-                    var approvalReqEvent = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        type = "approval_request",
-                        id = toolCall.Id,
-                        name = toolCall.Name,
-                        arguments = toolCall.Arguments
-                    }, jsonOptions);
-                    await Response.WriteAsync($"data: {approvalReqEvent}\n\n", cancellationToken);
-                    await Response.Body.FlushAsync(cancellationToken);
-
-                    toolResultContent = $"工具 \"{toolCall.Name}\" 需要用户确认后才能执行，当前版本暂不支持交互式审批。";
-                    toolResultIsError = true;
-                }
-                else if (executor != null)
+                async Task<(string content, bool isError)> ExecuteToolAsync(
+                    LlmToolCall tc, IToolExecutor toolExecutor,
+                    List<SessionTodo> todos,
+                    System.Text.Json.JsonSerializerOptions jOpts,
+                    CancellationToken ct)
                 {
                     try
                     {
                         // Special handling for ask_question: emit question event and wait for answer
-                        if (toolCall.Name == "ask_question")
+                        if (tc.Name == "ask_question")
                         {
-                            // Parse the question data and emit as question event
                             var questionEvent = System.Text.Json.JsonSerializer.Serialize(new
                             {
                                 type = "question",
-                                toolCallId = toolCall.Id,
-                                data = toolCall.Arguments
-                            }, jsonOptions);
-                            await Response.WriteAsync($"data: {questionEvent}\n\n", cancellationToken);
-                            await Response.Body.FlushAsync(cancellationToken);
+                                toolCallId = tc.Id,
+                                data = tc.Arguments
+                            }, jOpts);
+                            await Response.WriteAsync($"data: {questionEvent}\n\n", ct);
+                            await Response.Body.FlushAsync(ct);
 
-                            // Wait for user answer via TaskCompletionSource
                             var tcs = new TaskCompletionSource<string>();
-                            _pendingQuestions[toolCall.Id] = tcs;
+                            _pendingQuestions[tc.Id] = tcs;
 
                             try
                             {
-                                toolResultContent = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+                                var answer = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
+                                return (answer, false);
                             }
                             catch (TimeoutException)
                             {
-                                toolResultContent = "用户未在规定时间内回答，跳过此问题。";
+                                return ("用户未在规定时间内回答，跳过此问题。", false);
                             }
                             finally
                             {
-                                _pendingQuestions.TryRemove(toolCall.Id, out _);
+                                _pendingQuestions.TryRemove(tc.Id, out _);
                             }
                         }
                         // Special handling for todo: maintain state and emit structured event
-                        else if (toolCall.Name == "todo")
+                        else if (tc.Name == "todo")
                         {
-                            // Parse todo arguments
                             string todoAction = "list";
                             string todoId = "";
                             string todoTitle = "";
@@ -798,7 +793,7 @@ public class ChatMessagesController : ControllerBase
 
                             try
                             {
-                                using var todoDoc = System.Text.Json.JsonDocument.Parse(toolCall.Arguments);
+                                using var todoDoc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
                                 var todoRoot = todoDoc.RootElement;
                                 if (todoRoot.TryGetProperty("action", out var actionEl))
                                     todoAction = actionEl.GetString() ?? "list";
@@ -811,34 +806,26 @@ public class ChatMessagesController : ControllerBase
                                 if (todoRoot.TryGetProperty("status", out var statusEl))
                                     todoStatus = statusEl.GetString() ?? "";
                             }
-                            catch
-                            {
-                                // Ignore parse errors — treat as list
-                            }
+                            catch { }
 
-                            // Apply action to session state
                             if (todoAction == "create" && !string.IsNullOrEmpty(todoTitle))
                             {
                                 if (string.IsNullOrEmpty(todoId))
-                                    todoId = $"step-{sessionTodos.Count + 1}";
+                                    todoId = $"step-{todos.Count + 1}";
                                 if (string.IsNullOrEmpty(todoStatus))
                                     todoStatus = "not-started";
-                                // Avoid duplicate ids
-                                if (!sessionTodos.Any(t => t.Id == todoId))
-                                {
-                                    sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
-                                }
+                                if (!todos.Any(t => t.Id == todoId))
+                                    todos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
                             }
                             else if (todoAction == "update")
                             {
-                                // Resolve target by id, then title, then first non-completed
                                 var existing = !string.IsNullOrEmpty(todoId)
-                                    ? sessionTodos.FirstOrDefault(t => t.Id == todoId)
+                                    ? todos.FirstOrDefault(t => t.Id == todoId)
                                     : null;
                                 if (existing == null && !string.IsNullOrEmpty(todoTitle))
-                                    existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+                                    existing = todos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
                                 if (existing == null)
-                                    existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
+                                    existing = todos.FirstOrDefault(t => t.Status != "completed");
                                 if (existing != null && !string.IsNullOrEmpty(todoStatus))
                                 {
                                     existing.Status = todoStatus;
@@ -847,14 +834,13 @@ public class ChatMessagesController : ControllerBase
                             }
                             else if (todoAction == "complete")
                             {
-                                // Resolve target by id, then title, then first non-completed
                                 var existing = !string.IsNullOrEmpty(todoId)
-                                    ? sessionTodos.FirstOrDefault(t => t.Id == todoId)
+                                    ? todos.FirstOrDefault(t => t.Id == todoId)
                                     : null;
                                 if (existing == null && !string.IsNullOrEmpty(todoTitle))
-                                    existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+                                    existing = todos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
                                 if (existing == null)
-                                    existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
+                                    existing = todos.FirstOrDefault(t => t.Status != "completed");
                                 if (existing != null)
                                 {
                                     existing.Status = "completed";
@@ -863,7 +849,6 @@ public class ChatMessagesController : ControllerBase
                                 }
                             }
 
-                            // Emit structured todo event (frontend uses resolved id)
                             var todoEvent = System.Text.Json.JsonSerializer.Serialize(new
                             {
                                 type = "todo",
@@ -874,61 +859,110 @@ public class ChatMessagesController : ControllerBase
                                     title = todoTitle,
                                     description = todoDescription,
                                     status = todoStatus,
-                                    // Full list so the frontend can replace its state authoritatively
-                                    todos = sessionTodos.Select(t => new { t.Id, t.Title, t.Status }).ToList()
+                                    todos = todos.Select(t => new { t.Id, t.Title, t.Status }).ToList()
                                 }
-                            }, jsonOptions);
-                            await Response.WriteAsync($"data: {todoEvent}\n\n", cancellationToken);
-                            await Response.Body.FlushAsync(cancellationToken);
+                            }, jOpts);
+                            await Response.WriteAsync($"data: {todoEvent}\n\n", ct);
+                            await Response.Body.FlushAsync(ct);
 
-                            // Build tool result with current todo list so the LLM knows ids + status
-                            if (sessionTodos.Count == 0)
+                            if (todos.Count == 0)
+                                return ("当前工作计划为空。使用 action=create 创建步骤。", false);
+
+                            var todoSb = new StringBuilder();
+                            todoSb.AppendLine($"当前工作计划（共 {todos.Count} 个步骤）：");
+                            foreach (var t in todos)
                             {
-                                toolResultContent = "当前工作计划为空。使用 action=create 创建步骤。";
+                                var statusMark = t.Status switch
+                                {
+                                    "completed" => "[已完成]",
+                                    "in-progress" => "[进行中]",
+                                    _ => "[未开始]"
+                                };
+                                todoSb.AppendLine($"  - id={t.Id} {statusMark} {t.Title}");
+                            }
+                            var nextPending = todos.FirstOrDefault(t => t.Status != "completed");
+                            if (nextPending != null)
+                            {
+                                todoSb.AppendLine();
+                                todoSb.AppendLine($"下一步：开始执行 \"{nextPending.Title}\"（id={nextPending.Id}）。先调用 todo(action=update, id={nextPending.Id}, status=in-progress)，做完后调用 todo(action=complete, id={nextPending.Id})。");
                             }
                             else
                             {
-                                var todoSb = new StringBuilder();
-                                todoSb.AppendLine($"当前工作计划（共 {sessionTodos.Count} 个步骤）：");
-                                foreach (var t in sessionTodos)
-                                {
-                                    var statusMark = t.Status switch
-                                    {
-                                        "completed" => "[已完成]",
-                                        "in-progress" => "[进行中]",
-                                        _ => "[未开始]"
-                                    };
-                                    todoSb.AppendLine($"  - id={t.Id} {statusMark} {t.Title}");
-                                }
-
-                                // Append actionable hint so the LLM keeps updating progress
-                                var nextPending = sessionTodos.FirstOrDefault(t => t.Status != "completed");
-                                if (nextPending != null)
-                                {
-                                    todoSb.AppendLine();
-                                    todoSb.AppendLine($"下一步：开始执行 \"{nextPending.Title}\"（id={nextPending.Id}）。先调用 todo(action=update, id={nextPending.Id}, status=in-progress)，做完后调用 todo(action=complete, id={nextPending.Id})。");
-                                }
-                                else
-                                {
-                                    todoSb.AppendLine();
-                                    todoSb.AppendLine("所有步骤已完成。");
-                                }
-
-                                toolResultContent = todoSb.ToString();
+                                todoSb.AppendLine();
+                                todoSb.AppendLine("所有步骤已完成。");
                             }
+                            return (todoSb.ToString(), false);
                         }
                         else
                         {
-                            var result = await executor.ExecuteAsync(toolCall.Arguments, cancellationToken);
-                            toolResultContent = result.Content;
-                            toolResultIsError = result.IsError;
+                            var result = await toolExecutor.ExecuteAsync(tc.Arguments, ct);
+                            return (result.Content, result.IsError);
                         }
                     }
                     catch (Exception ex)
                     {
-                        toolResultContent = $"工具执行失败: {ex.Message}";
+                        return ($"工具执行失败: {ex.Message}", true);
+                    }
+                }
+
+                string toolResultContent = string.Empty;
+                bool toolResultIsError = false;
+
+                if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
+                {
+                    // For Ask mode: emit approval request and wait for user confirmation
+                    var approvalReqEvent = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        type = "approval_request",
+                        id = toolCall.Id,
+                        name = toolCall.Name,
+                        arguments = toolCall.Arguments
+                    }, jsonOptions);
+                    await Response.WriteAsync($"data: {approvalReqEvent}\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+
+                    // Wait for user approval
+                    var approvalTcs = new TaskCompletionSource<bool>();
+                    _pendingApprovals[toolCall.Id] = approvalTcs;
+
+                    bool approved;
+                    try
+                    {
+                        approved = await approvalTcs.Task.WaitAsync(TimeSpan.FromMinutes(5), cancellationToken);
+                    }
+                    catch (TimeoutException)
+                    {
+                        toolResultContent = $"用户未在规定时间内确认工具 \"{toolCall.Name}\" 的执行，已跳过。";
+                        toolResultIsError = true;
+                        approved = false;
+                    }
+                    finally
+                    {
+                        _pendingApprovals.TryRemove(toolCall.Id, out _);
+                    }
+
+                    if (approved && executor != null)
+                    {
+                        (toolResultContent, toolResultIsError) = await ExecuteToolAsync(toolCall, executor, sessionTodos, jsonOptions, cancellationToken);
+                    }
+                    else if (approved)
+                    {
+                        toolResultContent = $"未找到工具: {toolCall.Name}";
                         toolResultIsError = true;
                     }
+                    else
+                    {
+                        // Not approved or timeout — toolResultContent/toolResultIsError already set above
+                        if (string.IsNullOrEmpty(toolResultContent))
+                        {
+                            toolResultContent = $"用户拒绝了工具 \"{toolCall.Name}\" 的执行。";
+                            toolResultIsError = true;
+                        }
+                    }
+                }
+                else if (executor != null)
+                {
+                    (toolResultContent, toolResultIsError) = await ExecuteToolAsync(toolCall, executor, sessionTodos, jsonOptions, cancellationToken);
                 }
                 else
                 {

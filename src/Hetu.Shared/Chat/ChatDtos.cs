@@ -143,6 +143,12 @@ public class AnswerRequest
     public string Answer { get; set; } = string.Empty;
 }
 
+public class ApprovalRequest
+{
+    public string ToolCallId { get; set; } = string.Empty;
+    public bool Approve { get; set; }
+}
+
 public class UpdateChatMessageRequest
 {
     public string Content { get; set; } = string.Empty;

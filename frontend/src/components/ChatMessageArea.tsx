@@ -151,6 +151,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     status: 'not-started' | 'in-progress' | 'completed'
   }>>([])
   const [todoPanelCollapsed, setTodoPanelCollapsed] = useState(false)
+  const [approvalRequests, setApprovalRequests] = useState<Array<{ id: string; name: string; arguments: string }>>([])
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isStreaming, setIsStreaming] = useState(false)
@@ -461,6 +462,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setStreamingToolResults([])
     setStreamingQuestions([])
     setStreamingTodos([])
+    setApprovalRequests([])
     setQuestionAnswers({})
     setCurrentQuestionIndex(0)
 
@@ -542,8 +544,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               setStreamingToolResults(prev => [...prev, { id: chunk.id, name: chunk.name, content: chunk.content, isError: chunk.isError, collapsed: chunk.collapsed }])
             }
           } else if (chunk.type === 'approval_request') {
-            // For now, auto-approve. In the future, show a confirmation UI.
-            console.log('Approval request:', chunk.name, chunk.arguments)
+            setApprovalRequests(prev => [...prev, { id: chunk.id, name: chunk.name, arguments: chunk.arguments }])
           } else if (chunk.type === 'question') {
             try {
               const questionData = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
@@ -616,6 +617,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     } finally {
       setIsStreaming(false)
       setPendingUserMessage(null)
+      // Clear tool call state — the final message is saved server-side
+      setStreamingToolCalls([])
+      setStreamingToolResults([])
     }
   }
 
@@ -687,6 +691,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     if (files.length > 0) {
       e.preventDefault()
       setAttachedFiles(prev => [...prev, ...files])
+    }
+  }
+
+  const handleApprove = async (toolCallId: string, approved: boolean) => {
+    setApprovalRequests(prev => prev.filter(r => r.id !== toolCallId))
+    try {
+      await fetch('/api/chat-messages/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolCallId, approve: approved }),
+      })
+    } catch {
+      // Ignore — backend will timeout anyway
     }
   }
 
@@ -1126,30 +1143,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
-                {/* Tool calls and results during streaming */}
-                {streamingToolCalls.length > 0 && (
-                  <div className="mb-2 space-y-1">
-                    {streamingToolCalls.map((tc, i) => {
-                      const result = streamingToolResults.find(r => r.id === tc.id)
-                      return (
-                        <div key={tc.id || i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
-                          <div className="flex items-center gap-2">
-                            <Loader2 size={12} className={result ? 'text-green-500' : 'text-blue-500 animate-spin'} />
-                            <span className="font-medium text-gray-700 dark:text-gray-300">{renderToolName(tc.name)}</span>
-                          </div>
-                          {result && !result.collapsed && (
-                            <div className={`mt-1.5 rounded-md px-2.5 py-1.5 text-xs ${result.isError ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
-                              {renderToolResult(tc.name, result.content, result.isError)}
-                            </div>
-                          )}
-                          {!result && (
-                            <div className="mt-1 text-[11px] text-gray-400">执行中...</div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
                 {/* Thinking block - show whenever thinking content exists */}
                 {streamingThinking && (
                   <div className="mb-3">
@@ -1173,6 +1166,30 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 {streamingContent && (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ThemedMarkdown source={streamingContent} />
+                  </div>
+                )}
+                {/* Tool calls and results during streaming */}
+                {streamingToolCalls.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {streamingToolCalls.map((tc, i) => {
+                      const result = streamingToolResults.find(r => r.id === tc.id)
+                      return (
+                        <div key={tc.id || i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={12} className={result ? 'text-green-500' : 'text-blue-500 animate-spin'} />
+                            <span className="font-medium text-gray-700 dark:text-gray-300">{renderToolName(tc.name)}</span>
+                          </div>
+                          {result && !result.collapsed && (
+                            <div className={`mt-1.5 rounded-md px-2.5 py-1.5 text-xs ${result.isError ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
+                              {renderToolResult(tc.name, result.content, result.isError)}
+                            </div>
+                          )}
+                          {!result && (
+                            <div className="mt-1 text-[11px] text-gray-400">执行中...</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
                 {/* Search results citations - show when web search was used */}
@@ -1273,6 +1290,31 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <Bot size={14} className="text-indigo-500" />
             <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">智能体：{selectedPreset.name}</span>
             <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
+          </div>
+        )}
+        {/* Approval request panel */}
+        {approvalRequests.length > 0 && (
+          <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/20">
+            {approvalRequests.map((req) => (
+              <div key={req.id} className="flex items-center gap-2">
+                <HelpCircle size={14} className="text-amber-500 shrink-0" />
+                <span className="flex-1 text-xs text-amber-700 dark:text-amber-300">
+                  确认执行 <span className="font-medium">{renderToolName(req.name)}</span>？
+                </span>
+                <button
+                  onClick={() => handleApprove(req.id, true)}
+                  className="rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600"
+                >
+                  允许
+                </button>
+                <button
+                  onClick={() => handleApprove(req.id, false)}
+                  className="rounded-md bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
+                >
+                  拒绝
+                </button>
+              </div>
+            ))}
           </div>
         )}
         {/* Todo progress panel - fixed above input */}
