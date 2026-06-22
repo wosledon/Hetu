@@ -227,10 +227,10 @@ public class ChatMessagesController : ControllerBase
             }
             else
             {
-                // DB 未找到，回退到本地 skill
+                // DB 未找到，回退到本地 skill（使用 Contains 模糊匹配，兼容 YAML 引号等差异）
                 var localResult = await _localSkillService.ScanAllAsync(cancellationToken);
                 var localSkill = localResult.Data?.FirstOrDefault(
-                    s => s.Name == request.SkillName && s.IsEnabled);
+                    s => s.IsEnabled && s.Name.Contains(request.SkillName, StringComparison.OrdinalIgnoreCase));
                 skillConfig = localSkill?.Config;
             }
 
