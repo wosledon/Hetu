@@ -307,6 +307,7 @@ body {
 }
 
 .wmde-markdown td {
+  background: transparent !important;
   padding: 0.5em 0.75em !important;
   border: 1px solid rgba(0,0,0,0.08) !important;
 }
@@ -317,6 +318,7 @@ body {
 }
 
 .wmde-markdown.dark td {
+  background: transparent !important;
   border-color: rgba(255,255,255,0.08) !important;
 }
 
