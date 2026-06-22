@@ -76,6 +76,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.Note)
                 .WithMany(e => e.NoteTags)
                 .HasForeignKey(e => e.NoteId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Tag)
                 .WithMany(e => e.NoteTags)
@@ -90,6 +91,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.Note)
                 .WithMany()
                 .HasForeignKey(e => e.NoteId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.NoteId);
         });
@@ -130,6 +132,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.Note)
                 .WithOne()
                 .HasForeignKey<NoteEmbedding>(e => e.NoteId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(e => e.Model).IsRequired().HasMaxLength(200);
 
@@ -250,6 +253,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.Note)
                 .WithMany()
                 .HasForeignKey(e => e.NoteId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -294,6 +298,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.KnowledgeItem)
                 .WithMany(k => k.Chunks)
                 .HasForeignKey(e => e.KnowledgeItemId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.KnowledgeItemId);
             entity.HasIndex(e => new { e.KnowledgeItemId, e.ChunkIndex }).IsUnique();
@@ -353,6 +358,7 @@ public class HetuDbContext : DbContext
             entity.HasOne(e => e.Memory)
                 .WithMany()
                 .HasForeignKey(e => e.MemoryId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.Property(e => e.Content).IsRequired();
             entity.HasIndex(e => e.MemoryId);
