@@ -107,7 +107,7 @@ Hetu (河图) is a local-first knowledge workspace that fuses a Markdown note sy
 | -------- | ------------------------------------------------------------------ |
 | Backend  | ASP.NET Core 10, EF Core 10, Serilog                               |
 | Storage  | SQLite (default, with `sqlite-vec`) / PostgreSQL (with `pgvector`) |
-| Frontend | React 19, TypeScript 5, Vite 8, Tailwind CSS 4                     |
+| Frontend | React 19, TypeScript ~6, Vite 8, Tailwind CSS 4                     |
 | State    | Zustand (client) + TanStack Query (server)                         |
 | Editor   | Milkdown (WYSIWYG) + react-markdown renderer + DOMPurify           |
 | AI       | OpenAI-compatible & Anthropic protocols, embeddings, SSE streaming |
@@ -124,6 +124,8 @@ Hetu/
 │   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL migrations
 │   └── Hetu.Shared/                              # DTOs and shared models
 ├── frontend/                                     # React + Vite app (see pages below)
+├── shell/
+│   └── hetu-desktop/                             # Tauri 2 desktop shell (optional)
 ├── scripts/                                      # start.sh / start.ps1 / test scripts
 ├── docs/                                         # PRD and design notes
 ├── design/                                       # HTML prototypes
@@ -173,13 +175,28 @@ Frontend page map (routes in [`frontend/src/App.tsx`](frontend/src/App.tsx)):
 # Backend (defaults to http://localhost:5000)
 dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
 
-# Frontend (defaults to http://localhost:5173)
+# Frontend (defaults to http://localhost:5174)
 cd frontend
 npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173>. The API is served at <http://localhost:5000/api>.
+Then open <http://localhost:5174>. The API is served at <http://localhost:5000/api>.
+
+### Desktop Shell (Tauri 2, optional)
+
+A native desktop wrapper is available under `shell/hetu-desktop/`. It launches the backend as a sidecar process and loads the frontend in a WebView.
+
+```bash
+# Development
+pwsh ./scripts/desktop-dev.ps1
+
+# Build (SelfContained ≈120 MB, or FrameworkDependent slim)
+pwsh ./scripts/publish-backend.ps1
+cd shell/hetu-desktop && npm run tauri:build
+```
+
+The backend receives the OS user data directory via `HETU_DATA_DIR`, where SQLite databases and logs are stored.
 
 ## ⚙️ Configure AI Providers
 

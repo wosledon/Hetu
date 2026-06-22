@@ -107,7 +107,7 @@ Hetu（河图）是一个本地优先的知识工作台，把 Markdown 笔记系
 | ------- | ----------------------------------------------------------- |
 | 后端    | ASP.NET Core 10、EF Core 10、Serilog                        |
 | 存储    | SQLite（默认，配合 `sqlite-vec`）/ PostgreSQL（`pgvector`） |
-| 前端    | React 19、TypeScript 5、Vite 8、Tailwind CSS 4              |
+| 前端    | React 19、TypeScript ~6、Vite 8、Tailwind CSS 4              |
 | 状态    | Zustand（客户端）+ TanStack Query（服务端）                 |
 | 编辑器  | Milkdown（所见即所得）+ react-markdown + DOMPurify          |
 | AI 协议 | OpenAI 兼容、Anthropic，支持 Embedding 与 SSE 流式          |
@@ -124,6 +124,8 @@ Hetu/
 │   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL 迁移
 │   └── Hetu.Shared/                              # DTO 与共享模型
 ├── frontend/                                     # React + Vite 前端（页面见下表）
+├── shell/
+│   └── hetu-desktop/                             # Tauri 2 桌面外壳（可选）
 ├── scripts/                                      # start.sh / start.ps1 / 测试脚本
 ├── docs/                                         # PRD 与设计文档
 ├── design/                                       # HTML 原型
@@ -173,13 +175,28 @@ Hetu/
 # 后端（默认 http://localhost:5000）
 dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
 
-# 前端（默认 http://localhost:5173）
+# 前端（默认 http://localhost:5174）
 cd frontend
 npm install
 npm run dev
 ```
 
-打开 <http://localhost:5173> 即可使用，API 地址为 <http://localhost:5000/api>。
+打开 <http://localhost:5174> 即可使用，API 地址为 <http://localhost:5000/api>。
+
+### 桌面外壳（Tauri 2，可选）
+
+`shell/hetu-desktop/` 下提供了原生桌面包装。它将后端作为 sidecar 子进程启动，并在 WebView 中加载前端。
+
+```bash
+# 开发模式
+pwsh ./scripts/desktop-dev.ps1
+
+# 构建（SelfContained ≈120 MB，或 FrameworkDependent 瘦身版）
+pwsh ./scripts/publish-backend.ps1
+cd shell/hetu-desktop && npm run tauri:build
+```
+
+后端通过 `HETU_DATA_DIR` 环境变量接收 OS 用户数据目录，SQLite 数据库与日志均存放于此。
 
 ## ⚙️ 配置 AI
 

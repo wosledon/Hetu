@@ -8,13 +8,13 @@ Hetu 是一款面向个人用户的 AI 增强知识管理工具，采用笔记 +
 
 ### 后端
 - **框架**: ASP.NET Core 10
-- **ORM**: Entity Framework Core
+- **ORM**: Entity Framework Core 10
 - **数据库**: SQLite（默认）/ PostgreSQL（可选）
 - **API 风格**: RESTful API
 - **认证**: 无认证（本地个人工具）
 
 ### 前端
-- **框架**: React 18+
+- **框架**: React 19+
 - **语言**: TypeScript
 - **样式**: Tailwind CSS
 - **状态管理**: Zustand
@@ -263,7 +263,7 @@ Closes #42
 - TODO 注释格式：`// TODO(username): 描述`
 
 #### API 文档
-- 使用 Swagger 自动生成
+- 使用 Scalar 自动生成（`/scalar/v1`）
 - 每个 API 必须有示例请求/响应
 - 错误码说明
 
@@ -276,7 +276,7 @@ Closes #42
 
 #### 本地开发
 - 后端：`dotnet run`（默认端口 5000）
-- 前端：`npm run dev`（默认端口 5173）
+- 前端：`npm run dev`（默认端口 5174）
 - 数据库：SQLite 本地文件（自动创建）
 - 启动顺序：先后端，后前端
 
