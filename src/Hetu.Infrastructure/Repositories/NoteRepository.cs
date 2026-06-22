@@ -210,6 +210,14 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
         return Task.CompletedTask;
     }
 
+    public async Task DeleteEmbeddingAsync(Guid noteId, CancellationToken cancellationToken = default)
+    {
+        var embedding = await Context.NoteEmbeddings
+            .FirstOrDefaultAsync(e => e.NoteId == noteId, cancellationToken);
+        if (embedding != null)
+            Context.NoteEmbeddings.Remove(embedding);
+    }
+
     public async Task<IReadOnlyList<NoteEmbedding>> GetAllEmbeddingsAsync(CancellationToken cancellationToken = default)
     {
         var result = await Context.NoteEmbeddings.AsNoTracking()

@@ -3,6 +3,7 @@ using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Hetu.Core.Services;
 
@@ -136,6 +137,19 @@ public class NoteService : INoteService
         // 移入回收站时清理关联的知识图谱数据
         await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
 
+        // 软删除关联的 KnowledgeItem
+        var knowledgeItem = await _unitOfWork.KnowledgeItems.GetByNoteIdAsync(id, cancellationToken);
+        if (knowledgeItem != null)
+        {
+            knowledgeItem.IsDeleted = true;
+            knowledgeItem.DeletedAt = DateTimeOffset.UtcNow;
+            knowledgeItem.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.KnowledgeItems.UpdateAsync(knowledgeItem, cancellationToken);
+        }
+
+        // 删除 NoteEmbedding（NoteEmbedding 无 IsDeleted，直接物理删除）
+        await _unitOfWork.Notes.DeleteEmbeddingAsync(id, cancellationToken);
+
         await _unitOfWork.Notes.SoftDeleteAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -150,8 +164,27 @@ public class NoteService : INoteService
         // 恢复该笔记关联的知识图谱数据
         await _graphService.RestoreByNoteIdAsync(id, cancellationToken);
 
+        // 恢复关联的 KnowledgeItem（已被软删除，需要忽略查询过滤器）
+        var items = await _unitOfWork.KnowledgeItems.FindIgnoreQueryFilterAsync(k => k.NoteId == id, cancellationToken);
+        var knowledgeItem = items.FirstOrDefault();
+        if (knowledgeItem != null)
+        {
+            knowledgeItem.IsDeleted = false;
+            knowledgeItem.DeletedAt = null;
+            knowledgeItem.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.KnowledgeItems.UpdateAsync(knowledgeItem, cancellationToken);
+        }
+
         await _unitOfWork.Notes.RestoreAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 恢复后重建 Embedding
+        var autoEmbeddingSetting = await _unitOfWork.AppSettings.GetByKeyAsync("AutoEmbedding", cancellationToken);
+        if (autoEmbeddingSetting?.Value == "true")
+        {
+            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title), cancellationToken);
+        }
+
         return ApiResponse.Ok();
     }
 
@@ -162,6 +195,16 @@ public class NoteService : INoteService
 
         // 先清理该笔记关联的知识图谱数据
         await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
+
+        // 删除关联的 KnowledgeItem 及其 chunks（Note-KnowledgeItem 是 SetNull，不会级联删除）
+        var knowledgeItem = await _unitOfWork.KnowledgeItems.GetByNoteIdAsync(id, cancellationToken);
+        if (knowledgeItem != null)
+        {
+            await _unitOfWork.KnowledgeItems.DeleteChunksAsync(knowledgeItem.Id, cancellationToken);
+            await _unitOfWork.KnowledgeItems.DeleteAsync(knowledgeItem, cancellationToken);
+        }
+
+        // NoteEmbedding 由 FK 级联删除，无需手动处理
 
         await _unitOfWork.Notes.HardDeleteAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

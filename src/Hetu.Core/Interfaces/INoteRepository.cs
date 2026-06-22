@@ -22,6 +22,7 @@ public interface INoteRepository : IRepository<Note>
     Task<NoteEmbedding?> GetEmbeddingAsync(Guid noteId, CancellationToken cancellationToken = default);
     Task AddEmbeddingAsync(NoteEmbedding embedding, CancellationToken cancellationToken = default);
     Task UpdateEmbeddingAsync(NoteEmbedding embedding, CancellationToken cancellationToken = default);
+    Task DeleteEmbeddingAsync(Guid noteId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NoteEmbedding>> GetAllEmbeddingsAsync(CancellationToken cancellationToken = default);
     Task SyncEmbeddingToVecTableAsync(Guid noteId, float[] embedding, CancellationToken cancellationToken = default);
 }
