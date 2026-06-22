@@ -584,6 +584,33 @@ body {
   color: #9ca3af;
 }
 
+/* 编辑器内表格
+ * 使用 !important 覆盖 nord 主题的 .prose :where(td,th):nth-child(odd) 交替列背景 */
+.hetu-milkdown-root .ProseMirror table {
+  margin: 0.8em 0 !important;
+  border-collapse: collapse !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+.hetu-milkdown-root .ProseMirror th,
+.hetu-milkdown-root .ProseMirror td {
+  background: transparent !important;
+  padding: 0.5em 0.75em !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.hetu-milkdown-root .ProseMirror th {
+  font-weight: 600 !important;
+  text-align: left !important;
+}
+
+.dark .hetu-milkdown-root .ProseMirror th,
+.dark .hetu-milkdown-root .ProseMirror td {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 .hetu-milkdown-root .ProseMirror ul,
 .hetu-milkdown-root .ProseMirror ol {
   margin-bottom: 0;
