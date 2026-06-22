@@ -45,6 +45,12 @@ public class PromptComposer
             AppendSection(sb, "当前角色", agentBody.ToString().TrimEnd());
         }
 
+        // [2.5] Skill 指令（用户通过 /skill 命令激活的技能，控制器已在 PromptComposeContext 中注入）
+        if (!string.IsNullOrWhiteSpace(ctx.SkillPrompt))
+        {
+            AppendSection(sb, "当前技能", ctx.SkillPrompt!);
+        }
+
         // [3] 工具约束（只描述启用 ∩ profile 允许的工具）
         var effectiveTools = ResolveEffectiveTools(profile, ctx.EnabledTools);
         AppendToolSection(sb, profile, effectiveTools);
@@ -131,6 +137,7 @@ public class PromptComposeContext
 {
     public RuntimeProfile? Profile { get; init; }
     public string? AgentPresetPrompt { get; init; }
+    public string? SkillPrompt { get; init; }
     public string? TopicCustomPrompt { get; init; }
     public IReadOnlyList<string>? EnabledTools { get; init; }
     public DateTimeOffset? Now { get; init; }

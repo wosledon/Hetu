@@ -24,6 +24,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalSkillService _localSkillService;
     private readonly ToolRegistry _toolRegistry;
     private readonly PromptComposer _promptComposer;
 
@@ -35,6 +36,7 @@ public class ChatMessagesController : ControllerBase
         ISemanticSearchService semanticSearchService,
         IMemoryService memoryService,
         IUnitOfWork unitOfWork,
+        ILocalSkillService localSkillService,
         ToolRegistry toolRegistry,
         PromptComposer promptComposer)
     {
@@ -45,6 +47,7 @@ public class ChatMessagesController : ControllerBase
         _semanticSearchService = semanticSearchService;
         _memoryService = memoryService;
         _unitOfWork = unitOfWork;
+        _localSkillService = localSkillService;
         _toolRegistry = toolRegistry;
         _promptComposer = promptComposer;
     }
@@ -204,14 +207,50 @@ public class ChatMessagesController : ControllerBase
         };
 
         // === System prompt 组装 ===
-        // 分层结构：Profile 身份 → Agent 预设 → 工具约束 → 上下文 → Topic 自定义
+        // 分层结构：Profile 身份 → Agent 预设 → Skill 指令 → 工具约束 → 上下文 → Topic 自定义
         // 当前 Controller 服务于 Chat 场景，绑定 Knowledge profile；
         // 桌面 Agent / CoWork 等场景将由独立 Controller 提供，并绑定各自 profile。
         var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
+
+        // 如果用户通过 /skill 命令激活了技能，读取其 system prompt 注入到 system prompt 中
+        string? skillPrompt = null;
+        if (!string.IsNullOrWhiteSpace(request.SkillName))
+        {
+            // 先查 DB 中的 skill
+            var skill = (await _unitOfWork.Skills.FindAsync(
+                s => s.Name == request.SkillName && s.IsEnabled, cancellationToken)).FirstOrDefault();
+
+            string? skillConfig = null;
+            if (skill?.Config != null)
+            {
+                skillConfig = skill.Config;
+            }
+            else
+            {
+                // DB 未找到，回退到本地 skill
+                var localResult = await _localSkillService.ScanAllAsync(cancellationToken);
+                var localSkill = localResult.Data?.FirstOrDefault(
+                    s => s.Name == request.SkillName && s.IsEnabled);
+                skillConfig = localSkill?.Config;
+            }
+
+            if (!string.IsNullOrWhiteSpace(skillConfig))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(skillConfig);
+                    if (doc.RootElement.TryGetProperty("systemPrompt", out var sp))
+                        skillPrompt = sp.GetString();
+                }
+                catch { /* config 解析失败则忽略 */ }
+            }
+        }
+
         options.SystemPrompt = _promptComposer.Compose(new PromptComposeContext
         {
             Profile = profile,
             AgentPresetPrompt = request.PresetSystemPrompt,
+            SkillPrompt = skillPrompt,
             TopicCustomPrompt = topic.CustomSystemPrompt,
             EnabledTools = request.EnableTools ? request.EnabledTools : null,
             Now = DateTimeOffset.Now,

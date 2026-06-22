@@ -421,9 +421,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     let detectedAgentId: string | undefined
     if (skillMatch) {
       const name = skillMatch[1]
-      // Check if it's a skill
+      // Check if it's a skill (DB first, then local)
       const skill = skills.find((s) => s.name === name && s.isEnabled)
-      if (skill) {
+      const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
+      if (skill || localSkill) {
         detectedSkillName = name
       }
       // Check if it's an agent/preset (by name match)
