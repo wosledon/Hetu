@@ -27,6 +27,9 @@ import type { MilkdownPlugin } from '@milkdown/ctx'
 import { languages } from '@codemirror/language-data'
 import { syntaxHighlighting, defaultHighlightStyle, indentUnit } from '@codemirror/language'
 import { EditorView as CMEditorView } from '@codemirror/view'
+import { math } from '@milkdown/plugin-math'
+import { emoji } from '@milkdown/plugin-emoji'
+import { diagram } from '@milkdown/plugin-diagram'
 import '@milkdown/theme-nord/style.css'
 
 export interface SelectionInfo {
@@ -234,6 +237,9 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         .use(commonmark)
         .use(gfm)
         .use(history)
+        .use(math)
+        .use(emoji)
+        .use(diagram)
         .use(mdPlugin)
         .use(selPlugin)
         .use(autoParagraphPlugin)

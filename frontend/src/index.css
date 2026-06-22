@@ -465,6 +465,22 @@ body {
   border-color: rgba(255,255,255,0.06);
 }
 
+/* ===== KaTeX math override ===== */
+.wmde-markdown .katex-display {
+  margin: 0.8em 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.wmde-markdown .katex {
+  font-size: 1.05em !important;
+}
+
+/* ===== Mermaid dark mode ===== */
+.dark .wmde-markdown svg[id^="mermaid-"] {
+  /* mermaid renders inline SVG, let it use theme colors */
+}
+
 /* ===== Milkdown editor ===== */
 .hetu-milkdown-root {
   height: 100%;

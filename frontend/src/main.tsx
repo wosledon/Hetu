@@ -6,6 +6,7 @@ import { queryClient } from './utils/queryClient'
 import { useTheme } from './utils/theme'
 import App from './App'
 import './index.css'
+import 'katex/dist/katex.min.css'
 
 // eslint-disable-next-line react-refresh/only-export-components
 function ThemedApp() {
