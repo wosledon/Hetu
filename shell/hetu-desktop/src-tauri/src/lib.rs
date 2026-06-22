@@ -81,8 +81,8 @@ pub fn run() {
                             data_dir: backend.data_dir.to_string_lossy().to_string(),
                         };
                         let _ = handle.emit("backend-ready", payload);
-                        // 强制加载动画至少展示 1.5s，避免后端秒开导致一闪而过。
-                        let min_splash = std::time::Duration::from_millis(1500);
+                        // 强制加载动画至少展示 2s，避免后端秒开导致一闪而过。
+                        let min_splash = std::time::Duration::from_millis(2000);
                         let elapsed = splash_start.elapsed();
                         if elapsed < min_splash {
                             tokio::time::sleep(min_splash - elapsed).await;

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hetu</title>
+    <title>河图</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -15,8 +15,9 @@
         padding: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
           "Microsoft YaHei", sans-serif;
-        background: radial-gradient(circle at 50% 40%, #1f2937 0%, #0f172a 70%, #0b1120 100%);
+        background: radial-gradient(circle at 50% 38%, #1e1b4b 0%, #0f172a 60%, #050816 100%);
         color: #f9fafb;
+        overflow: hidden;
       }
       body {
         display: flex;
@@ -25,47 +26,110 @@
         user-select: none;
         -webkit-user-select: none;
       }
+      /* 背景星点 */
+      .stars {
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.6), transparent),
+          radial-gradient(1px 1px at 70% 20%, rgba(147, 197, 253, 0.5), transparent),
+          radial-gradient(1.5px 1.5px at 40% 70%, rgba(255, 255, 255, 0.4), transparent),
+          radial-gradient(1px 1px at 85% 65%, rgba(244, 114, 182, 0.4), transparent),
+          radial-gradient(1px 1px at 15% 80%, rgba(167, 139, 250, 0.5), transparent),
+          radial-gradient(1.5px 1.5px at 60% 50%, rgba(255, 255, 255, 0.3), transparent);
+        animation: twinkle 4s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes twinkle {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.9; }
+      }
       .card {
+        position: relative;
         text-align: center;
-        padding: 48px 56px;
         display: flex;
         flex-direction: column;
         align-items: center;
+        z-index: 1;
+      }
+      .logo {
+        width: 200px;
+        height: 200px;
+        margin-bottom: 28px;
       }
       .brand {
-        font-size: 40px;
+        font-size: 44px;
         font-weight: 600;
-        letter-spacing: 6px;
+        letter-spacing: 12px;
         margin-bottom: 10px;
-        background: linear-gradient(90deg, #60a5fa, #a78bfa);
+        padding-left: 12px; /* 补偿字间距导致的视觉偏移 */
+        background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+        text-shadow: 0 0 30px rgba(167, 139, 250, 0.3);
+        animation: glowText 3s ease-in-out infinite;
+      }
+      @keyframes glowText {
+        0%, 100% { filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.4)); }
+        50% { filter: drop-shadow(0 0 18px rgba(244, 114, 182, 0.6)); }
       }
       .tagline {
         font-size: 14px;
         color: #9ca3af;
-        margin-bottom: 36px;
-        letter-spacing: 1px;
+        margin-bottom: 32px;
+        letter-spacing: 2px;
       }
-      .spinner {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.16);
-        border-top-color: #93c5fd;
-        animation: spin 0.9s linear infinite;
-        margin: 0 auto 18px;
+      /* 洛书九宫辅助线 */
+      .grid line {
+        stroke: #334155;
+        stroke-width: 0.8;
+        opacity: 0.45;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+      /* 洛书点阵：奇数为阳（白点），偶数为阴（黑点） */
+      .luoshu-dot {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: dotIn 0.4s ease-out forwards, breathe 2.6s ease-in-out infinite 1.3s;
+      }
+      .luoshu-dot.yang {
+        fill: #f8fafc;
+        filter: url(#glow);
+      }
+      .luoshu-dot.yin {
+        fill: #1e293b;
+        stroke: #64748b;
+        stroke-width: 1;
+      }
+      @keyframes dotIn {
+        0% { opacity: 0; transform: scale(0); }
+        60% { opacity: 1; transform: scale(1.3); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      @keyframes breathe {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+      }
+      /* 洛水涟漪 */
+      .ripple {
+        fill: none;
+        stroke-width: 1.2;
+        opacity: 0;
+        animation: ripple 2.6s ease-out infinite;
+      }
+      .ripple-1 { stroke: #60a5fa; }
+      .ripple-2 { stroke: #a78bfa; animation-delay: 0.85s; }
+      .ripple-3 { stroke: #f472b6; animation-delay: 1.7s; }
+      @keyframes ripple {
+        0% { r: 26; opacity: 0.5; }
+        100% { r: 94; opacity: 0; }
       }
       .status {
         font-size: 13px;
         color: #9ca3af;
         min-height: 18px;
+        letter-spacing: 1px;
       }
       .status.error {
         color: #fca5a5;
@@ -76,15 +140,83 @@
     </style>
   </head>
   <body>
+    <div class="stars"></div>
     <div class="card">
-      <div class="spinner" id="spinner"></div>
-      <div class="brand">Hetu</div>
+      <svg class="logo" viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <!-- 洛书九宫格线 -->
+        <g class="grid">
+          <line x1="77.5" y1="32" x2="77.5" y2="168" />
+          <line x1="122.5" y1="32" x2="122.5" y2="168" />
+          <line x1="32" y1="77.5" x2="168" y2="77.5" />
+          <line x1="32" y1="122.5" x2="168" y2="122.5" />
+        </g>
+
+        <!-- 洛水涟漪（三色错相扩散） -->
+        <circle class="ripple ripple-1" cx="100" cy="100" r="26" />
+        <circle class="ripple ripple-2" cx="100" cy="100" r="26" />
+        <circle class="ripple ripple-3" cx="100" cy="100" r="26" />
+
+        <!-- 洛书点阵（JS 注入：奇阳白点 / 偶阴黑点） -->
+        <g id="luoshu"></g>
+      </svg>
+      <div class="brand">河图</div>
       <div class="tagline">AI 增强知识管理</div>
       <div class="status" id="status">正在启动后端服务…</div>
     </div>
     <script type="module">
       const status = document.getElementById('status');
-      const spinner = document.getElementById('spinner');
+      const logo = document.querySelector('.logo');
+
+      // 洛书九宫：戴九履一、左三右七、二四为肩、六八为足、五居中央。
+      // 奇数为阳（白点），偶数为阴（黑点）。
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const d = 9; // 点间距
+      // 各数对应的点排列（相对宫中心）。
+      const dotPos = {
+        1: [[0, 0]],
+        2: [[0, -d], [0, d]],
+        3: [[0, -d], [0, 0], [0, d]],
+        4: [[-d, -d], [d, -d], [-d, d], [d, d]],
+        5: [[0, 0], [-d, 0], [d, 0], [0, -d], [0, d]],
+        6: [[-d, -d], [d, -d], [-d, 0], [d, 0], [-d, d], [d, d]],
+        7: [[-d, -d], [0, -d], [d, -d], [0, 0], [-d, d], [0, d], [d, d]],
+        8: [[-d, -1.5 * d], [d, -1.5 * d], [-d, -0.5 * d], [d, -0.5 * d], [-d, 0.5 * d], [d, 0.5 * d], [-d, 1.5 * d], [d, 1.5 * d]],
+        9: [[-d, -d], [0, -d], [d, -d], [-d, 0], [0, 0], [d, 0], [-d, d], [0, d], [d, d]],
+      };
+      // 九宫方位（上南下北）：[数, 宫心x, 宫心y]
+      const cells = [
+        [4, 55, 55], [9, 100, 55], [2, 145, 55],
+        [3, 55, 100], [5, 100, 100], [7, 145, 100],
+        [8, 55, 145], [1, 100, 145], [6, 145, 145],
+      ];
+      // 点亮顺序：中五立极 → 四正 → 四隅，每宫递增 90ms，约 1.1s 成图。
+      const order = [5, 1, 3, 7, 9, 2, 4, 6, 8];
+      const delayMap = {};
+      order.forEach((n, i) => { delayMap[n] = i * 90; });
+
+      const g = document.getElementById('luoshu');
+      cells.forEach(([num, cx, cy]) => {
+        const isYang = num % 2 === 1;
+        dotPos[num].forEach(([dx, dy]) => {
+          const c = document.createElementNS(svgNS, 'circle');
+          c.setAttribute('cx', cx + dx);
+          c.setAttribute('cy', cy + dy);
+          c.setAttribute('r', 3.4);
+          c.setAttribute('class', 'luoshu-dot ' + (isYang ? 'yang' : 'yin'));
+          c.style.animationDelay = delayMap[num] + 'ms';
+          g.appendChild(c);
+        });
+      });
 
       async function bind() {
         try {
@@ -93,7 +225,8 @@
             status.textContent = '就绪，正在加载界面…';
           });
           await listen('backend-error', (evt) => {
-            spinner.style.display = 'none';
+            // 调暗点阵以提示异常状态。
+            if (logo) logo.style.opacity = '0.35';
             status.classList.add('error');
             status.textContent = '启动失败：\n' + (evt.payload ?? '未知错误');
           });
