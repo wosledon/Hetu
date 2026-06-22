@@ -476,9 +476,59 @@ body {
   font-size: 1.05em !important;
 }
 
-/* ===== Mermaid dark mode ===== */
-.dark .wmde-markdown svg[id^="mermaid-"] {
-  /* mermaid renders inline SVG, let it use theme colors */
+/* ===== HTML inline elements ===== */
+.wmde-markdown kbd {
+  display: inline-block;
+  padding: 0.15em 0.4em;
+  font-size: 0.85em;
+  font-family: inherit;
+  line-height: 1.4;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 1px 0 #d1d5db;
+}
+
+.dark .wmde-markdown kbd {
+  color: #e5e7eb;
+  background: #374151;
+  border-color: #4b5563;
+  box-shadow: 0 1px 0 #4b5563;
+}
+
+.wmde-markdown details {
+  margin: 0.6em 0;
+  padding: 0.5em 0.75em;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+}
+
+.dark .wmde-markdown details {
+  border-color: rgba(255,255,255,0.08);
+}
+
+.wmde-markdown summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25em 0;
+  user-select: none;
+}
+
+.wmde-markdown details[open] > summary {
+  margin-bottom: 0.5em;
+}
+
+/* ===== Mermaid container ===== */
+.wmde-markdown .mermaid-container {
+  display: flex;
+  justify-content: center;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.wmde-markdown .mermaid-container svg {
+  max-width: 100%;
 }
 
 /* ===== Milkdown editor ===== */
@@ -633,6 +683,23 @@ body {
 .dark .hetu-milkdown-root .ProseMirror td {
   background: transparent !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 移除编辑器内 emoji 图片的边框 */
+.hetu-milkdown-root .ProseMirror span[data-type="emoji"] {
+  display: inline;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.hetu-milkdown-root .ProseMirror span[data-type="emoji"] img {
+  display: inline !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  vertical-align: -0.1em;
+  width: 1em;
+  height: 1em;
 }
 
 .hetu-milkdown-root .ProseMirror ul,
