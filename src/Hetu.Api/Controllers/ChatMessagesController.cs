@@ -216,6 +216,8 @@ public class ChatMessagesController : ControllerBase
         string? skillPrompt = null;
         if (!string.IsNullOrWhiteSpace(request.SkillName))
         {
+            Log.Information("[Skill] 收到 SkillName 请求: {SkillName}", request.SkillName);
+
             // 先查 DB 中的 skill
             var skill = (await _unitOfWork.Skills.FindAsync(
                 s => s.Name == request.SkillName && s.IsEnabled, cancellationToken)).FirstOrDefault();
@@ -223,15 +225,29 @@ public class ChatMessagesController : ControllerBase
             string? skillConfig = null;
             if (skill?.Config != null)
             {
+                Log.Information("[Skill] DB 中找到 skill: {Name}, Config: {Config}", skill.Name, skill.Config);
                 skillConfig = skill.Config;
             }
             else
             {
+                Log.Information("[Skill] DB 未找到，回退扫描本地 skill");
                 // DB 未找到，回退到本地 skill（使用 Contains 模糊匹配，兼容 YAML 引号等差异）
                 var localResult = await _localSkillService.ScanAllAsync(cancellationToken);
-                var localSkill = localResult.Data?.FirstOrDefault(
+                var localSkills = localResult.Data ?? [];
+                Log.Information("[Skill] 本地扫描到 {Count} 个 skill: {Names}",
+                    localSkills.Count, localSkills.Select(s => s.Name));
+
+                var localSkill = localSkills.FirstOrDefault(
                     s => s.IsEnabled && s.Name.Contains(request.SkillName, StringComparison.OrdinalIgnoreCase));
-                skillConfig = localSkill?.Config;
+                if (localSkill != null)
+                {
+                    Log.Information("[Skill] 本地匹配到 skill: {Name}, Config: {Config}", localSkill.Name, localSkill.Config);
+                    skillConfig = localSkill.Config;
+                }
+                else
+                {
+                    Log.Warning("[Skill] 本地也未找到匹配的 skill，SkillName: {SkillName}", request.SkillName);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(skillConfig))
@@ -240,10 +256,25 @@ public class ChatMessagesController : ControllerBase
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(skillConfig);
                     if (doc.RootElement.TryGetProperty("systemPrompt", out var sp))
+                    {
                         skillPrompt = sp.GetString();
+                        Log.Information("[Skill] 提取到 systemPrompt ({Len} 字符): {Prompt}",
+                            skillPrompt?.Length ?? 0, skillPrompt?.Length > 200 ? skillPrompt![..200] + "..." : skillPrompt);
+                    }
+                    else
+                    {
+                        Log.Warning("[Skill] Config 中未找到 systemPrompt 字段: {Config}", skillConfig);
+                    }
                 }
-                catch { /* config 解析失败则忽略 */ }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "[Skill] Config JSON 解析失败: {Config}", skillConfig);
+                }
             }
+        }
+        else
+        {
+            Log.Debug("[Skill] 未收到 SkillName，跳过 skill 注入");
         }
 
         options.SystemPrompt = _promptComposer.Compose(new PromptComposeContext
@@ -257,6 +288,10 @@ public class ChatMessagesController : ControllerBase
             TopicTitle = topic.Title,
             Locale = "zh-CN",
         });
+
+        Log.Information("[Skill] systemPrompt 组装完成, SkillPrompt={SkillPrompt}, 总长度={Len}",
+            skillPrompt != null ? (skillPrompt.Length > 100 ? skillPrompt[..100] + "..." : skillPrompt) : "null",
+            options.SystemPrompt.Length);
 
         // Deep thinking: use model's reasoning mode configuration
         var reasoningMode = "none";
