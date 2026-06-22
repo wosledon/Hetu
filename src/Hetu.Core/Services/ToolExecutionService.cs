@@ -49,8 +49,9 @@ public class ToolExecutionService
 
     /// <summary>
     /// Execute a list of tool calls, handling approval, ask_question, and todo.
+    /// Returns the tool results so the caller can add them to the LLM chat history.
     /// </summary>
-    public async Task ExecuteToolCallsAsync(
+    public async Task<List<(string toolCallId, string content)>> ExecuteToolCallsAsync(
         List<LlmToolCall> toolCalls,
         Dictionary<string, ToolApprovalMode> approvalOverrides,
         List<SessionTodo> sessionTodos,
@@ -58,6 +59,8 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken cancellationToken)
     {
+        var results = new List<(string toolCallId, string content)>();
+
         // Resolve scoped ToolRegistry via scope factory (this service is singleton)
         await using var scope = _scopeFactory.CreateAsyncScope();
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
@@ -108,7 +111,11 @@ public class ToolExecutionService
                 collapsed = approval == ToolApprovalMode.Bypass,
                 hidden = isSilentTool
             });
+
+            results.Add((toolCall.Id, resultContent));
         }
+
+        return results;
     }
 
     private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(

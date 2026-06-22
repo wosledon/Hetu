@@ -154,15 +154,15 @@ public class ChatMessagesController : ControllerBase
                 ToolCalls = pendingToolCalls
             });
 
-            await _toolExecution.ExecuteToolCallsAsync(
+            var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                 pendingToolCalls, approvalOverrides, sessionTodos,
                 data => writer.WriteEventAsync(data),
                 payload => writer.WriteJsonAsync(payload),
                 ct);
 
-            foreach (var tc in pendingToolCalls)
+            foreach (var (toolCallId, content) in toolResults)
             {
-                chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = tc.Id, Content = "" });
+                chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
             }
         }
 
