@@ -8,7 +8,7 @@ import AppLayout from '../components/AppLayout'
 import { taskService } from '../services/taskService'
 import type { ITaskItem, ITaskStats } from '../types'
 
-type TasksTab = 'background' | 'scheduled'
+type TasksMode = 'background' | 'scheduled'
 
 const STATUS_MAP: Record<number, { label: string; color: string; bg: string; icon: typeof Clock }> = {
   0: { label: '排队中', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]', icon: ListTodo },
@@ -24,9 +24,8 @@ const TYPE_MAP: Record<string, { label: string; icon: typeof Cpu; color: string 
 
 type FilterStatus = 'all' | '0' | '1' | '2' | '3'
 
-export default function TasksPage() {
+export default function TasksPage({ mode }: { mode: TasksMode }) {
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<TasksTab>('background')
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [typeFilter, setTypeFilter] = useState<string>('')
 
@@ -54,6 +53,10 @@ export default function TasksPage() {
 
   const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === Number(filter))
 
+  const isBackground = mode === 'background'
+  const headerTitle = isBackground ? '后台任务' : '定时任务'
+  const headerSubtitle = isBackground ? '系统后台任务的执行状态和历史记录' : '按计划周期触发的定时任务'
+
   return (
     <AppLayout
       showSidebar={false}
@@ -63,14 +66,12 @@ export default function TasksPage() {
             {/* Header */}
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">任务</h1>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {tab === 'background' ? '系统后台任务的执行状态和历史记录' : '按计划周期触发的定时任务'}
-                </p>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{headerTitle}</h1>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{headerSubtitle}</p>
               </div>
               <div className="flex items-center gap-2">
-                {tab === 'background' && isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
-                {tab === 'background' && (
+                {isBackground && isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
+                {isBackground && (
                   <button
                     onClick={() => {
                       queryClient.invalidateQueries({ queryKey: ['task-items'] })
@@ -81,7 +82,7 @@ export default function TasksPage() {
                     <RefreshCw size={16} />
                   </button>
                 )}
-                {tab === 'background' && stats && stats.completed > 0 && (
+                {isBackground && stats && stats.completed > 0 && (
                   <button
                     onClick={() => clearMutation.mutate()}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
@@ -92,32 +93,7 @@ export default function TasksPage() {
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="mb-6 inline-flex items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]">
-              {([
-                { key: 'background', label: '后台任务', icon: ListTodo },
-                { key: 'scheduled', label: '定时任务', icon: CalendarClock },
-              ] as const).map((t) => {
-                const Icon = t.icon
-                const active = tab === t.key
-                return (
-                  <button
-                    key={t.key}
-                    onClick={() => setTab(t.key)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                      active
-                        ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    <Icon size={14} />
-                    {t.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            {tab === 'background' ? (
+            {isBackground ? (
               <BackgroundTasksView
                 stats={stats}
                 tasks={filtered}

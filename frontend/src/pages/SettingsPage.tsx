@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -38,7 +38,8 @@ const configurableNavItems = [
   { path: '/skills', label: '技能', icon: Zap },
   { path: '/knowledge-base', label: '知识库', icon: Database },
   { path: '/graph', label: '知识图谱', icon: Network },
-  { path: '/tasks', label: '任务', icon: ListTodo },
+  { path: '/tasks/background', label: '后台任务', icon: ListTodo },
+  { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
 ]

@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useUIStore } from '../stores/uiStore'
 
@@ -25,7 +25,8 @@ const allConfigurableItems = [
   { path: '/skills', label: '技能', icon: Zap },
   { path: '/knowledge-base', label: '知识库', icon: Database },
   { path: '/graph', label: '知识图谱', icon: Network },
-  { path: '/tasks', label: '任务', icon: ListTodo },
+  { path: '/tasks/background', label: '后台任务', icon: ListTodo },
+  { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
 ] as const

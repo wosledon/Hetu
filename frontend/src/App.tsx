@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import NotesPage from './pages/NotesPage'
 import TagsPage from './pages/TagsPage'
 import SearchPage from './pages/SearchPage'
@@ -27,7 +27,9 @@ function App() {
       <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/graph" element={<GraphPage />} />
-      <Route path="/tasks" element={<TasksPage />} />
+      <Route path="/tasks" element={<Navigate to="/tasks/background" replace />} />
+      <Route path="/tasks/background" element={<TasksPage mode="background" />} />
+      <Route path="/tasks/scheduled" element={<TasksPage mode="scheduled" />} />
       <Route path="/memories" element={<MemoriesPage />} />
       <Route path="/models" element={<ModelsPage />} />
       <Route path="/work" element={<WorkPage />} />

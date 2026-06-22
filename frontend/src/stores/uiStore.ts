@@ -31,7 +31,7 @@ export const useUIStore = create<UIState>()(
       selectedNotebookId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
-      pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks', '/memories', '/models'],
+      pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks/background', '/tasks/scheduled', '/memories', '/models'],
       lastMoreItem: null,
       setAppName: (name) => set({ appName: name }),
       setTheme: (theme) => set({ theme }),
@@ -44,6 +44,16 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as { pinnedNavItems?: string[] } | null
+        if (state && Array.isArray(state.pinnedNavItems) && version < 2) {
+          state.pinnedNavItems = state.pinnedNavItems.flatMap((p) =>
+            p === '/tasks' ? ['/tasks/background', '/tasks/scheduled'] : [p]
+          )
+        }
+        return state as Partial<UIState>
+      },
       partialize: (state) => ({
         appName: state.appName,
         theme: state.theme,
