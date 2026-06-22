@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, Search } from 'lucide-react'
 
 export interface SelectOption {
   value: string
@@ -15,6 +15,9 @@ export interface SelectProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  /** 是否启用搜索过滤 */
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
 const TRIGGER_CLASS =
@@ -27,11 +30,15 @@ export default function Select({
   placeholder,
   className = '',
   disabled,
+  searchable = false,
+  searchPlaceholder = '搜索...',
 }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [search, setSearch] = useState('')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   const selectedOption = useMemo(
@@ -39,10 +46,29 @@ export default function Select({
     [options, value],
   )
 
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !search.trim()) return options
+    const q = search.trim().toLowerCase()
+    return options.filter((o) => o.label.toLowerCase().includes(q))
+  }, [options, searchable, search])
+
   const close = useCallback(() => {
     setOpen(false)
     setActiveIndex(-1)
+    setSearch('')
   }, [])
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (open && searchable) {
+      requestAnimationFrame(() => searchRef.current?.focus())
+    }
+  }, [open, searchable])
+
+  // Reset search when closed
+  useEffect(() => {
+    if (!open) setSearch('')
+  }, [open])
 
   // Click outside to close
   useEffect(() => {
@@ -64,13 +90,17 @@ export default function Select({
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
+      // 搜索框中的按键不触发选项导航（Enter 除外）
+      const inSearch = searchable && document.activeElement === searchRef.current
+      if (inSearch && e.key !== 'Enter' && e.key !== 'Escape') return
+
       switch (e.key) {
         case 'ArrowDown': {
           e.preventDefault()
           setActiveIndex((prev) => {
             let next = prev + 1
-            while (next < options.length && options[next].disabled) next++
-            return next < options.length ? next : prev
+            while (next < filteredOptions.length && filteredOptions[next].disabled) next++
+            return next < filteredOptions.length ? next : prev
           })
           break
         }
@@ -78,15 +108,15 @@ export default function Select({
           e.preventDefault()
           setActiveIndex((prev) => {
             let next = prev - 1
-            while (next >= 0 && options[next].disabled) next--
+            while (next >= 0 && filteredOptions[next].disabled) next--
             return next >= 0 ? next : prev
           })
           break
         }
         case 'Enter': {
           e.preventDefault()
-          if (activeIndex >= 0 && activeIndex < options.length) {
-            const opt = options[activeIndex]
+          if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
+            const opt = filteredOptions[activeIndex]
             if (!opt.disabled) {
               onChange(opt.value)
               close()
@@ -102,16 +132,21 @@ export default function Select({
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, activeIndex, options, onChange, close])
+  }, [open, activeIndex, filteredOptions, searchable, onChange, close])
 
   // Scroll active item into view
   useEffect(() => {
     if (!open || activeIndex < 0) return
-    const opt = options[activeIndex]
+    const opt = filteredOptions[activeIndex]
     if (!opt) return
     const el = itemRefs.current.get(opt.value)
     el?.scrollIntoView({ block: 'nearest' })
-  }, [open, activeIndex, options])
+  }, [open, activeIndex, filteredOptions])
+
+  // Reset active index when search changes
+  useEffect(() => {
+    if (open && searchable) setActiveIndex(-1)
+  }, [search, open, searchable])
 
   // Position dropdown
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
@@ -175,12 +210,29 @@ export default function Select({
             style={dropdownStyle}
             className="z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
           >
+            {searchable && (
+              <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-white/[0.06]">
+                <Search size={14} className="shrink-0 text-gray-400" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
+                />
+              </div>
+            )}
             <div className="max-h-60 overflow-y-auto">
-              {options.map((option) => {
+              {filteredOptions.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                  无匹配结果
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
                 const isSelected = option.value === value
                 const isActive =
                   activeIndex >= 0
-                    ? options[activeIndex]?.value === option.value
+                    ? filteredOptions[activeIndex]?.value === option.value
                     : isSelected
 
                 return (
@@ -198,7 +250,7 @@ export default function Select({
                       close()
                     }}
                     onMouseEnter={() => {
-                      setActiveIndex(options.indexOf(option))
+                      setActiveIndex(filteredOptions.indexOf(option))
                     }}
                     className={`flex w-full items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${
                       option.disabled
@@ -214,7 +266,8 @@ export default function Select({
                     )}
                   </button>
                 )
-              })}
+                })
+              )}
             </div>
           </div>,
           document.body,
