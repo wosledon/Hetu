@@ -18,6 +18,7 @@ public class AppSettingsSnapshotDto
     public string AppName { get; set; } = "Hetu";
     public string Theme { get; set; } = "system";
     public string GraphAutoExtract { get; set; } = "false";
+    public string AutoEmbedding { get; set; } = "false";
     /// <summary>默认对话模型 ID</summary>
     public string? DefaultChatModelId { get; set; }
     /// <summary>默认文档 Chunk 模型 ID（用于知识库分块总结）</summary>

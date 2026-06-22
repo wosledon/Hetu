@@ -300,6 +300,32 @@ function AppSettingsSection({
         </p>
       </div>
 
+      {/* Auto Embedding */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">向量索引</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">笔记保存时自动生成向量嵌入，用于语义搜索</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">自动生成 Embedding</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              保存笔记时自动调用 Embedding 模型生成向量索引，会消耗 Embedding 配额
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('AutoEmbedding', snapshot?.autoEmbedding === 'true' ? 'false' : 'true')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.autoEmbedding === 'true' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+      </div>
+
       {/* Context Window Size */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">

@@ -60,6 +60,7 @@ export interface IAppSettingsSnapshot {
   appName: string;
   theme: 'light' | 'dark' | 'system';
   graphAutoExtract: string;
+  autoEmbedding: string;
   defaultChatModelId?: string;
   defaultChunkModelId?: string;
   defaultFastModelId?: string;

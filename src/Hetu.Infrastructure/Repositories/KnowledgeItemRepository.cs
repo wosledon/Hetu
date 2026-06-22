@@ -56,7 +56,16 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
         var chunks = await Context.NoteChunks
             .Where(c => c.KnowledgeItemId == knowledgeItemId)
             .ToListAsync(cancellationToken);
-        Context.NoteChunks.RemoveRange(chunks);
+
+        if (chunks.Count > 0)
+        {
+            var chunkIds = chunks.Select(c => c.Id).ToList();
+            var embeddings = await Context.NoteChunkEmbeddings
+                .Where(e => chunkIds.Contains(e.ChunkId))
+                .ToListAsync(cancellationToken);
+            Context.NoteChunkEmbeddings.RemoveRange(embeddings);
+            Context.NoteChunks.RemoveRange(chunks);
+        }
     }
 
     public Task<NoteChunkEmbedding?> GetChunkEmbeddingAsync(Guid chunkId, CancellationToken cancellationToken = default)

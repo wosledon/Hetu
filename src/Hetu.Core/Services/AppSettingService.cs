@@ -21,6 +21,7 @@ public class AppSettingService : IAppSettingService
             AppName = await GetValueAsync("AppName", "Hetu", cancellationToken),
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
             GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken),
+            AutoEmbedding = await GetValueAsync("AutoEmbedding", "false", cancellationToken),
             DefaultChatModelId = await GetNullableValueAsync("DefaultChatModelId", cancellationToken),
             DefaultChunkModelId = await GetNullableValueAsync("DefaultChunkModelId", cancellationToken),
             DefaultFastModelId = await GetNullableValueAsync("DefaultFastModelId", cancellationToken),
