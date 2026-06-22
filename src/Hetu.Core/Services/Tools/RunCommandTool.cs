@@ -63,6 +63,14 @@ public class RunCommandTool : IToolExecutor
             var baseCommand = command.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
             var fileName = Path.GetFileNameWithoutExtension(baseCommand);
 
+            // Load extra denied commands from config before checking
+            var extraDenied = _configuration.GetSection("Tools:RunCommand:DeniedCommands").Get<string[]>();
+            if (extraDenied != null)
+            {
+                foreach (var cmd in extraDenied)
+                    DeniedCommands.Add(cmd);
+            }
+
             if (DeniedCommands.Contains(fileName))
                 return ToolExecutionResult.Error($"禁止执行该命令: {baseCommand}。");
 
@@ -79,36 +87,35 @@ public class RunCommandTool : IToolExecutor
             if (root.TryGetProperty("workingDir", out var wdProp) && wdProp.ValueKind == JsonValueKind.String)
                 workingDir = wdProp.GetString();
 
-            // Also allow additional denied commands from configuration
-            var extraDenied = _configuration.GetSection("Tools:RunCommand:DeniedCommands").Get<string[]>();
-            if (extraDenied != null)
-            {
-                foreach (var cmd in extraDenied)
-                    DeniedCommands.Add(cmd);
-            }
-
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
             const int maxOutput = 4000;
 
             using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = command,
-                Arguments = string.Join(" ", args.Select(a => $"\"{a}\"")),
-                WorkingDirectory = workingDir,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
 
-            // On Windows, try cmd.exe for built-in commands
-            if (OperatingSystem.IsWindows() && command is "dir" or "echo" or "ls" or "cat" or "pwd")
+            // Determine if we need a shell wrapper:
+            // - .exe files can run directly with UseShellExecute=false
+            // - .cmd/.bat/.ps1/.js/etc need cmd.exe /c on Windows
+            var isExe = baseCommand.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                || (string.IsNullOrEmpty(Path.GetExtension(baseCommand)) && File.Exists(baseCommand + ".exe"));
+
+            var fullArgs = string.Join(" ", args.Select(a => $"\"{a}\""));
+            if (OperatingSystem.IsWindows() && !isExe)
             {
                 process.StartInfo.FileName = "cmd.exe";
-                process.StartInfo.Arguments = $"/c {command} {string.Join(" ", args.Select(a => $"\"{a}\""))}";
+                process.StartInfo.Arguments = $"/c {command} {fullArgs}";
             }
+            else
+            {
+                process.StartInfo.FileName = command;
+                process.StartInfo.Arguments = fullArgs;
+            }
+
+            process.StartInfo.WorkingDirectory = workingDir;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
 
             process.OutputDataReceived += (_, e) =>
             {
