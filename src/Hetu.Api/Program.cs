@@ -16,12 +16,17 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 解析 Hetu 数据目录：优先 HETU_DATA_DIR / Hetu:DataDir，回退到 OS 本地数据目录
+var dataDir = ResolveDataDir(builder.Configuration);
+Directory.CreateDirectory(dataDir);
+Directory.CreateDirectory(Path.Combine(dataDir, "logs"));
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Information)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File("logs/hetu-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
+    .WriteTo.File(Path.Combine(dataDir, "logs", "hetu-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -43,6 +48,13 @@ builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=hetu.db";
 var databaseProvider = builder.Configuration.GetValue<string>("DatabaseProvider")?.ToLowerInvariant() ?? "sqlite";
+
+// 默认 SQLite 连接字符串改写到用户数据目录
+if (databaseProvider == "sqlite" &&
+    connectionString.Replace(" ", "").Equals("DataSource=hetu.db", StringComparison.OrdinalIgnoreCase))
+{
+    connectionString = $"Data Source={Path.Combine(dataDir, "hetu.db")}";
+}
 
 builder.Services.AddSingleton<SqliteVecInterceptor>();
 
@@ -145,6 +157,27 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 
+// 健康检查端点：供桌面外壳 (Tauri shell) 轮询确认就绪
+app.MapGet("/api/health", () => Results.Json(new
+{
+    status = "ok",
+    provider = databaseProvider,
+    dataDir,
+    version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0"
+}));
+
+// 生产环境托管 wwwroot SPA（dev 期前端走 Vite，不需要这里托管）
+if (!app.Environment.IsDevelopment())
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    var indexPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+    if (File.Exists(indexPath))
+    {
+        app.MapFallbackToFile("index.html");
+    }
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HetuDbContext>();
@@ -155,6 +188,29 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static string ResolveDataDir(IConfiguration config)
+{
+    var fromConfig = config["Hetu:DataDir"];
+    if (!string.IsNullOrWhiteSpace(fromConfig))
+    {
+        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(fromConfig));
+    }
+
+    var fromEnv = Environment.GetEnvironmentVariable("HETU_DATA_DIR");
+    if (!string.IsNullOrWhiteSpace(fromEnv))
+    {
+        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(fromEnv));
+    }
+
+    // 默认放到 OS 本地应用数据目录：Windows %LOCALAPPDATA%/Hetu，Linux ~/.local/share/Hetu，macOS ~/Library/Application Support/Hetu
+    var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    if (string.IsNullOrWhiteSpace(baseDir))
+    {
+        baseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".hetu");
+    }
+    return Path.Combine(baseDir, "Hetu");
+}
 
 static async Task SeedPromptPresetsAsync(HetuDbContext db)
 {

@@ -1,0 +1,5 @@
+# Tauri sidecar 发布产物 — 由 scripts/publish-backend.{ps1,sh} 生成，不入版本库
+Hetu.Api-*
+Hetu.Api-*.exe
+wwwroot/
+sqlite-vec/

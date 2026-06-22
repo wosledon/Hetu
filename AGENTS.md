@@ -284,6 +284,15 @@ Closes #42
 - 使用 `start.sh` 脚本同时启动前后端
 - 或使用 VS Code 的 launch.json 配置多项目启动
 
+#### 桌面外壳（Tauri 2，可选）
+- 位于 `shell/hetu-desktop/`，由 Rust 拉起 `Hetu.Api` 子进程并加载前端
+- 开发：`pwsh ./scripts/desktop-dev.ps1`（并行起 dotnet+vite+tauri）
+- 发布：`pwsh ./scripts/publish-backend.ps1` 生成 sidecar → `cd shell/hetu-desktop && npm run tauri:build`
+- 双渠道：SelfContained（默认，单文件，~120MB）/ FrameworkDependent（瘦版，需用户安装 .NET 10）
+- sidecar 命名约定：`Hetu.Api-<rust-target-triple>(.exe)`，例 `Hetu.Api-x86_64-pc-windows-msvc.exe`
+- 后端通过 `HETU_DATA_DIR` 环境变量接收 OS 用户数据目录（SQLite/日志均落于此）
+- dev 期 Tauri 检测 5000 端口已有后端则复用，避免与开发者自己跑的 `dotnet run` 冲突
+
 #### 数据库切换（SQLite / PostgreSQL）
 - 通过 `DatabaseProvider` 配置切换：`Sqlite`（默认）或 `Postgresql`
 - SQLite 连接字符串：`Data Source=hetu.db`

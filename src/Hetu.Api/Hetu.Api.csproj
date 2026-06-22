@@ -21,13 +21,47 @@
   <ItemGroup>
     <ProjectReference Include="../Hetu.Core/Hetu.Core.csproj" />
     <ProjectReference Include="../Hetu.Infrastructure/Hetu.Infrastructure.csproj" />
-    <ProjectReference Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
+    <ProjectReference
+      Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
     <ProjectReference Include="../Hetu.Shared/Hetu.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="../Hetu.Infrastructure/sqlite-vec/vec0.dll" Link="sqlite-vec/vec0.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!--
+    Release 构建时自动构建前端 SPA 并复制到 wwwroot，供 ASP.NET Core 托管。
+    可通过 /p:SkipFrontendBuild=true 跳过（CI/devloop 场景）。
+  -->
+  <PropertyGroup>
+    <FrontendProjectDir>$(MSBuildThisFileDirectory)..\..\frontend</FrontendProjectDir>
+    <FrontendDistDir>$(FrontendProjectDir)\dist</FrontendDistDir>
+    <FrontendWwwroot>$(MSBuildThisFileDirectory)wwwroot</FrontendWwwroot>
+  </PropertyGroup>
+
+  <Target Name="BuildFrontendSpa"
+    BeforeTargets="AssignTargetPaths;PrepareForBuild"
+    Condition="'$(Configuration)' == 'Release' AND '$(SkipFrontendBuild)' != 'true' AND Exists('$(FrontendProjectDir)\package.json')">
+    <Message Importance="high" Text="[Hetu] Building frontend SPA at $(FrontendProjectDir)" />
+    <Exec Command="npm ci" WorkingDirectory="$(FrontendProjectDir)"
+      Condition="!Exists('$(FrontendProjectDir)\node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="$(FrontendProjectDir)" />
+    <ItemGroup>
+      <_FrontendDistFiles Include="$(FrontendDistDir)\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_FrontendDistFiles)"
+      DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- 让构建出来的 wwwroot 在 publish 时随产物一起发布 -->
+  <ItemGroup Condition="Exists('$(FrontendWwwroot)\index.html')">
+    <Content Include="wwwroot\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 

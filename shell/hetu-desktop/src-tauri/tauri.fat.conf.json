@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hetu",
+  "bundle": {
+    "externalBin": ["binaries/Hetu.Api"],
+    "resources": ["binaries/wwwroot/**/*", "binaries/sqlite-vec/*"]
+  }
+}
