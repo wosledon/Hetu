@@ -42,9 +42,13 @@ public class GraphService : IGraphService
 
     public async Task StreamGraphAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        // Build graph data with a short timeout independent of the SSE cancellation token.
+        // The HTTP request's ct may be cancelled by client disconnect before the SSE write
+        // phase begins, but we still need to complete the DB query.
+        using var buildCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var dto = _cache.TryGetValue(GraphCacheKey, out GraphDataDto? cached) && cached != null
             ? cached
-            : await BuildGraphDataAsync(cancellationToken);
+            : await BuildGraphDataAsync(buildCts.Token);
 
         if (!_cache.TryGetValue(GraphCacheKey, out GraphDataDto? _))
         {
