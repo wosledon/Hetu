@@ -313,7 +313,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       await fetch('/api/chat-messages/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolCallId, answer: JSON.stringify(combined) }),
+        body: JSON.stringify({ sessionId: topic?.id, toolCallId, answer: JSON.stringify(combined) }),
       })
     } catch (e) {
       console.error('Failed to submit answers:', e)
@@ -519,7 +519,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       await fetch('/api/chat-messages/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolCallId, approve: approved }),
+        body: JSON.stringify({ sessionId: topic?.id, toolCallId, approve: approved }),
       })
     } catch {
       // Ignore — backend will timeout anyway

@@ -139,12 +139,14 @@ public class WebSearchResultDto
 
 public class AnswerRequest
 {
+    public string SessionId { get; set; } = string.Empty;
     public string ToolCallId { get; set; } = string.Empty;
     public string Answer { get; set; } = string.Empty;
 }
 
 public class ApprovalRequest
 {
+    public string SessionId { get; set; } = string.Empty;
     public string ToolCallId { get; set; } = string.Empty;
     public bool Approve { get; set; }
 }

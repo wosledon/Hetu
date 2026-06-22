@@ -80,7 +80,7 @@ public class ChatMessagesController : ControllerBase
     [HttpPost("answer")]
     public ApiResponse SubmitAnswer([FromBody] AnswerRequest request)
     {
-        if (_toolExecution.TrySetAnswer(request.ToolCallId, request.Answer))
+        if (_toolExecution.TrySetAnswer(request.SessionId, request.ToolCallId, request.Answer))
             return ApiResponse.Ok();
         return ApiResponse.Fail("未找到对应的提问请求");
     }
@@ -88,7 +88,7 @@ public class ChatMessagesController : ControllerBase
     [HttpPost("approve")]
     public ApiResponse SubmitApproval([FromBody] ApprovalRequest request)
     {
-        if (_toolExecution.TrySetApproval(request.ToolCallId, request.Approve))
+        if (_toolExecution.TrySetApproval(request.SessionId, request.ToolCallId, request.Approve))
             return ApiResponse.Ok();
         return ApiResponse.Fail("未找到对应的审批请求");
     }
@@ -155,6 +155,7 @@ public class ChatMessagesController : ControllerBase
             });
 
             var toolResults = await _toolExecution.ExecuteToolCallsAsync(
+                topicId.ToString(),
                 pendingToolCalls, approvalOverrides, sessionTodos,
                 data => writer.WriteEventAsync(data),
                 payload => writer.WriteJsonAsync(payload),

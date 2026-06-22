@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Hetu.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,17 +8,42 @@ using Microsoft.Extensions.Logging;
 namespace Hetu.Core.Services;
 
 /// <summary>
+/// Session-scoped dictionary that isolates state per session ID.
+/// Thread-safe, designed for singletons that need per-session state without
+/// cross-session interference.
+/// </summary>
+public class Session<T> where T : new()
+{
+    private readonly ConcurrentDictionary<string, T> _sessions = new();
+
+    public T GetOrCreate(string sessionId) => _sessions.GetOrAdd(sessionId, _ => new T());
+
+    public bool TryGet(string sessionId, [NotNullWhen(true)] out T? value) =>
+        _sessions.TryGetValue(sessionId, out value);
+
+    public bool TryRemove(string sessionId, [NotNullWhen(true)] out T? value) =>
+        _sessions.TryRemove(sessionId, out value);
+}
+
+/// <summary>Per-session state for pending interactive tool calls.</summary>
+public class SessionPendingState
+{
+    public ConcurrentDictionary<string, TaskCompletionSource<string>> Questions = new();
+    public ConcurrentDictionary<string, TaskCompletionSource<bool>> Approvals = new();
+}
+
+/// <summary>
 /// Orchestrates tool execution during the Agent Loop, including:
 /// approval flow, ask_question, todo state management, and generic tool execution.
-/// Registered as Singleton because it holds stateful pending-request dictionaries.
+/// Registered as Singleton. Uses Session&lt;SessionPendingState&gt; to isolate
+/// ask/answer and approve/deny across concurrent conversations.
 /// </summary>
 public class ToolExecutionService
 {
     private readonly ILogger<ToolExecutionService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
 
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingQuestions = new();
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingApprovals = new();
+    private readonly Session<SessionPendingState> _sessions = new();
 
     public ToolExecutionService(ILogger<ToolExecutionService> logger, IServiceScopeFactory scopeFactory)
     {
@@ -25,10 +51,11 @@ public class ToolExecutionService
         _scopeFactory = scopeFactory;
     }
 
-    /// <summary>Wait for and return the user's answer to a question.</summary>
-    public bool TrySetAnswer(string toolCallId, string answer)
+    /// <summary>Submit an answer to a pending ask_question in the given session.</summary>
+    public bool TrySetAnswer(string sessionId, string toolCallId, string answer)
     {
-        if (_pendingQuestions.TryRemove(toolCallId, out var tcs))
+        if (_sessions.TryGet(sessionId, out var state)
+            && state.Questions.TryRemove(toolCallId, out var tcs))
         {
             tcs.TrySetResult(answer);
             return true;
@@ -36,10 +63,11 @@ public class ToolExecutionService
         return false;
     }
 
-    /// <summary>Wait for and return the user's approval decision.</summary>
-    public bool TrySetApproval(string toolCallId, bool approved)
+    /// <summary>Submit an approval decision for a pending tool in the given session.</summary>
+    public bool TrySetApproval(string sessionId, string toolCallId, bool approved)
     {
-        if (_pendingApprovals.TryRemove(toolCallId, out var tcs))
+        if (_sessions.TryGet(sessionId, out var state)
+            && state.Approvals.TryRemove(toolCallId, out var tcs))
         {
             tcs.TrySetResult(approved);
             return true;
@@ -48,10 +76,11 @@ public class ToolExecutionService
     }
 
     /// <summary>
-    /// Execute a list of tool calls, handling approval, ask_question, and todo.
+    /// Execute a list of tool calls within a session, handling approval, ask_question, and todo.
     /// Returns the tool results so the caller can add them to the LLM chat history.
     /// </summary>
     public async Task<List<(string toolCallId, string content)>> ExecuteToolCallsAsync(
+        string sessionId,
         List<LlmToolCall> toolCalls,
         Dictionary<string, ToolApprovalMode> approvalOverrides,
         List<SessionTodo> sessionTodos,
@@ -60,8 +89,8 @@ public class ToolExecutionService
         CancellationToken cancellationToken)
     {
         var results = new List<(string toolCallId, string content)>();
+        var state = _sessions.GetOrCreate(sessionId);
 
-        // Resolve scoped ToolRegistry via scope factory (this service is singleton)
         await using var scope = _scopeFactory.CreateAsyncScope();
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
 
@@ -88,11 +117,11 @@ public class ToolExecutionService
 
             if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
             {
-                (resultContent, isError) = await ExecuteWithApprovalAsync(toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
+                (resultContent, isError) = await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
             }
             else if (executor != null)
             {
-                (resultContent, isError) = await ExecuteSingleToolAsync(toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
+                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
             }
             else
             {
@@ -100,7 +129,6 @@ public class ToolExecutionService
                 isError = true;
             }
 
-            // Emit tool_result
             await writeJsonAsync(new
             {
                 type = "tool_result",
@@ -119,23 +147,17 @@ public class ToolExecutionService
     }
 
     private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(
+        SessionPendingState state,
         LlmToolCall toolCall,
         IToolExecutor? executor,
         List<SessionTodo> sessionTodos,
         Func<object, Task> writeJsonAsync,
         CancellationToken ct)
     {
-        // Emit approval request
-        await writeJsonAsync(new
-        {
-            type = "approval_request",
-            id = toolCall.Id,
-            name = toolCall.Name,
-            arguments = toolCall.Arguments
-        });
+        await writeJsonAsync(new { type = "approval_request", id = toolCall.Id, name = toolCall.Name, arguments = toolCall.Arguments });
 
         var approvalTcs = new TaskCompletionSource<bool>();
-        _pendingApprovals[toolCall.Id] = approvalTcs;
+        state.Approvals[toolCall.Id] = approvalTcs;
 
         bool approved;
         try
@@ -148,19 +170,20 @@ public class ToolExecutionService
         }
         finally
         {
-            _pendingApprovals.TryRemove(toolCall.Id, out _);
+            state.Approvals.TryRemove(toolCall.Id, out _);
         }
 
         if (!approved)
             return ($"用户拒绝了工具 \"{toolCall.Name}\" 的执行。", true);
 
         if (executor != null)
-            return await ExecuteSingleToolAsync(toolCall, executor, sessionTodos, writeJsonAsync, ct);
+            return await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct);
 
         return ($"未找到工具: {toolCall.Name}", true);
     }
 
     private async Task<(string content, bool isError)> ExecuteSingleToolAsync(
+        SessionPendingState state,
         LlmToolCall toolCall,
         IToolExecutor executor,
         List<SessionTodo> sessionTodos,
@@ -170,7 +193,7 @@ public class ToolExecutionService
         try
         {
             if (toolCall.Name == "ask_question")
-                return await HandleAskQuestionAsync(toolCall, writeJsonAsync, ct);
+                return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct);
 
             if (toolCall.Name == "todo")
                 return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
@@ -185,19 +208,15 @@ public class ToolExecutionService
     }
 
     private async Task<(string content, bool isError)> HandleAskQuestionAsync(
+        SessionPendingState state,
         LlmToolCall toolCall,
         Func<object, Task> writeJsonAsync,
         CancellationToken ct)
     {
-        await writeJsonAsync(new
-        {
-            type = "question",
-            toolCallId = toolCall.Id,
-            data = toolCall.Arguments
-        });
+        await writeJsonAsync(new { type = "question", toolCallId = toolCall.Id, data = toolCall.Arguments });
 
         var tcs = new TaskCompletionSource<string>();
-        _pendingQuestions[toolCall.Id] = tcs;
+        state.Questions[toolCall.Id] = tcs;
 
         try
         {
@@ -210,7 +229,7 @@ public class ToolExecutionService
         }
         finally
         {
-            _pendingQuestions.TryRemove(toolCall.Id, out _);
+            state.Questions.TryRemove(toolCall.Id, out _);
         }
     }
 
