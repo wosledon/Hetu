@@ -217,17 +217,24 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
   }, [streamingThinking, showThinking])
 
-  // Clear streaming text/thinking display when messages are refreshed (after query invalidation).
-  // Auxiliary panels (todos, questions, tool calls) are preserved until the next send — they
-  // are not saved into messages and should remain visible after the stream ends.
+  // Clear streaming display when messages are refreshed (after query invalidation).
+  // The persisted message from the backend is the canonical response — once it arrives,
+  // the streaming preview block should fully disappear.
   useEffect(() => {
-    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0)) {
+    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0)) {
       /* eslint-disable react-hooks/set-state-in-effect */
       setStreamingContent('')
       setStreamingThinking('')
       setStreamingSearchResults([])
+      setStreamingKnowledgeResults([])
+      setStreamingMemoryResults([])
+      setStreamingToolResults([])
+      setStreamingQuestions([])
+      setStreamingTodos([])
       setShowThinking(false)
       setStreamWebSearch(false)
+      setStreamKnowledgeBase(false)
+      setStreamMemory(false)
       /* eslint-enable react-hooks/set-state-in-effect */
     }
     // Intentionally only react to messages list changes (post-stream refresh).
@@ -934,6 +941,66 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         )
                       } catch { return null }
                     })()}
+                    {/* Knowledge base results for saved messages */}
+                    {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
+                      try {
+                        const results = JSON.parse(message.knowledgeResultsJson) as Array<{ title: string; contentSnippet: string; id: string }>
+                        if (results.length === 0) return null
+                        return (
+                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                              <Database size={11} />
+                              知识库参考
+                            </div>
+                            <div className="space-y-1">
+                              {results.map((r, i) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                >
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-100 text-[9px] font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{i + 1}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
+                                    {r.contentSnippet && (
+                                      <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      } catch { return null }
+                    })()}
+                    {/* Memory results for saved messages */}
+                    {message.role === 'assistant' && message.memoryResultsJson && (() => {
+                      try {
+                        const results = JSON.parse(message.memoryResultsJson) as Array<{ id: string; content: string; category?: string; score?: number }>
+                        if (results.length === 0) return null
+                        return (
+                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                              <Atom size={11} />
+                              记忆参考
+                            </div>
+                            <div className="space-y-1">
+                              {results.map((r, i) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                >
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-violet-100 text-[9px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">{i + 1}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block text-gray-600 dark:text-gray-300">{r.content.slice(0, 100)}{r.content.length > 100 ? '...' : ''}</span>
+                                    {r.category && <span className="text-[10px] text-gray-400">{r.category}</span>}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      } catch { return null }
+                    })()}
                   </>
                 )}
                 {!editingMessageId && (
@@ -987,7 +1054,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />

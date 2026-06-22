@@ -132,6 +132,8 @@ export interface IChatMessage {
   latencyMs?: number;
   thinkingContent?: string;
   searchResultsJson?: string;
+  knowledgeResultsJson?: string;
+  memoryResultsJson?: string;
   createdAt: string;
 }
 

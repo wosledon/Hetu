@@ -73,6 +73,8 @@ public class ChatMessageDto
     public int? LatencyMs { get; set; }
     public string? ThinkingContent { get; set; }
     public string? SearchResultsJson { get; set; }
+    public string? KnowledgeResultsJson { get; set; }
+    public string? MemoryResultsJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 

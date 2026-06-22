@@ -84,7 +84,7 @@ public class ChatMessageService : IChatMessageService
         return ApiResponse.Ok();
     }
 
-    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, CancellationToken cancellationToken = default)
+    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, string? knowledgeResultsJson = null, string? memoryResultsJson = null, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
         if (topic == null) return null;
@@ -98,6 +98,8 @@ public class ChatMessageService : IChatMessageService
             ModelId = modelId,
             ThinkingContent = thinkingContent,
             SearchResultsJson = searchResultsJson,
+            KnowledgeResultsJson = knowledgeResultsJson,
+            MemoryResultsJson = memoryResultsJson,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -136,6 +138,8 @@ public class ChatMessageService : IChatMessageService
         LatencyMs = message.LatencyMs,
         ThinkingContent = message.ThinkingContent,
         SearchResultsJson = message.SearchResultsJson,
+        KnowledgeResultsJson = message.KnowledgeResultsJson,
+        MemoryResultsJson = message.MemoryResultsJson,
         CreatedAt = message.CreatedAt
     };
 

@@ -266,6 +266,8 @@ public class ChatMessagesController : ControllerBase
         var contentSb = new StringBuilder();
         var thinkingSb = new StringBuilder();
         string? searchResultsJson = null;
+        string? knowledgeResultsJson = null;
+        string? memoryResultsJson = null;
 
         // Web search: search the web and inject results into context
         if (request.WebSearch)
@@ -314,6 +316,11 @@ public class ChatMessagesController : ControllerBase
                     await Response.WriteAsync($"data: {kbEvent}\n\n", cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);
 
+                    // Save knowledge results JSON for persistence
+                    knowledgeResultsJson = System.Text.Json.JsonSerializer.Serialize(
+                        kbItems.Select(r => new { r.Title, r.ContentSnippet, r.Id }),
+                        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+
                     // Inject knowledge base results into context
                     var kbContext = "以下是从知识库中检索到的相关内容，请基于这些信息回答用户的问题：\n\n";
                     for (int i = 0; i < kbItems.Count; i++)
@@ -350,6 +357,11 @@ public class ChatMessagesController : ControllerBase
                     }, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
                     await Response.WriteAsync($"data: {memEvent}\n\n", cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);
+
+                    // Save memory results JSON for persistence
+                    memoryResultsJson = System.Text.Json.JsonSerializer.Serialize(
+                        retrievedMemories.Select(m => new { m.Id, m.Content, m.Category, m.Score }),
+                        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
 
                     // Inject memories into context
                     var memContext = "以下是从你的长期记忆中检索到的相关信息，请参考这些个人记忆来回答用户的问题：\n\n";
@@ -881,7 +893,7 @@ public class ChatMessagesController : ControllerBase
         var finalContent = contentSb.ToString().Trim();
         if (!string.IsNullOrEmpty(finalContent))
         {
-            await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, cancellationToken);
+            await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId, thinkingSb.Length > 0 ? thinkingSb.ToString() : null, searchResultsJson, knowledgeResultsJson, memoryResultsJson, cancellationToken);
         }
 
         // 记忆自动提取：当记忆功能开启时，每 N 条用户消息自动提取一次
