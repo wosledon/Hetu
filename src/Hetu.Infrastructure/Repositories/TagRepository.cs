@@ -17,7 +17,7 @@ public class TagRepository : EfRepository<Tag>, ITagRepository
         return await Context.NoteTags
             .AsNoTracking()
             .Where(nt => nt.NoteId == noteId)
-            .Select(nt => nt.Tag)
+            .Select(nt => nt.Tag!)
             .ToListAsync(cancellationToken);
     }
 

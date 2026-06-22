@@ -134,9 +134,9 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
         var allEmbeddings = await _unitOfWork.Notes.GetAllEmbeddingsAsync(cancellationToken);
         results.AddRange(allEmbeddings.Select(e => (
             e.NoteId,
-            e.Note.Title,
-            e.Note.Content,
-            e.Note.UpdatedAt,
+            e.Note!.Title,
+            e.Note!.Content,
+            e.Note!.UpdatedAt,
             Similarity: CosineSimilarity(queryEmbedding, BytesToFloatArray(e.Embedding))
         )));
 
@@ -146,9 +146,9 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
             var allChunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingsAsync(cancellationToken);
             results.AddRange(allChunkEmbeddings.Select(ce => (
                 ce.Chunk.KnowledgeItemId,
-                ce.Chunk.KnowledgeItem.Title,
+                ce.Chunk.KnowledgeItem!.Title,
                 !string.IsNullOrWhiteSpace(ce.Chunk.Summary) ? ce.Chunk.Summary : ce.Chunk.Content,
-                ce.Chunk.KnowledgeItem.UpdatedAt,
+                ce.Chunk.KnowledgeItem!.UpdatedAt,
                 Similarity: CosineSimilarity(queryEmbedding, BytesToFloatArray(ce.Embedding))
             )));
         }
