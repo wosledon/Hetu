@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use backend::{spawn_backend, BackendHandle};
 use serde::Serialize;
-use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder,
@@ -66,7 +66,6 @@ pub fn run() {
             open_main_window,
             open_data_dir,
         ])
-        .on_menu_event(|app, event| handle_menu_event(app, event.id().as_ref()))
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -96,10 +95,6 @@ pub fn run() {
 
             // 系统托盘
             build_tray(app.handle())?;
-
-            // 应用菜单
-            let menu = build_menu(app.handle())?;
-            app.set_menu(menu)?;
 
             Ok(())
         })
@@ -168,39 +163,16 @@ fn resolve_main_url<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<String> {
     Ok(DEV_FRONTEND_URL.to_string())
 }
 
-fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let about = MenuItemBuilder::with_id("about", "关于 Hetu").build(app)?;
-    let open_data = MenuItemBuilder::with_id("open-data-dir", "打开数据目录").build(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
-
-    let app_menu = SubmenuBuilder::new(app, "Hetu")
-        .item(&about)
-        .separator()
-        .item(&open_data)
-        .separator()
-        .item(&quit)
-        .build()?;
-
-    let menu = MenuBuilder::new(app).item(&app_menu).build()?;
-    Ok(menu)
-}
-
-/// 全局菜单事件分发（应用菜单 + 托盘菜单共用同一套 ID 命名空间）。
+/// 托盘菜单事件分发。
 fn handle_menu_event<R: Runtime>(handle: &AppHandle<R>, id: &str) {
     match id {
-        "quit" | "tray-quit" => {
+        "tray-quit" => {
             handle.exit(0);
         }
-        "open-data-dir" | "tray-open-data" => {
+        "tray-open-data" => {
             if let Err(err) = open_data_dir(handle.clone()) {
                 tracing::warn!("open data dir failed: {err}");
             }
-        }
-        "about" => {
-            let _ = handle.emit(
-                "show-about",
-                serde_json::json!({ "version": env!("CARGO_PKG_VERSION") }),
-            );
         }
         "tray-show" => {
             if let Some(window) = handle.get_webview_window("main") {
