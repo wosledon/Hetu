@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle,
   ListTodo, RefreshCw, Cpu, Network, CalendarClock, Plus, Sparkles,
-  Pencil, Play, History, Power, Timer, X, Bot,
+  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
@@ -429,6 +429,12 @@ function ScheduledTaskRow({
                 重试 {task.retryCount}/{task.maxRetries}
               </span>
             )}
+            {task.topicId && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-500/10 dark:text-blue-400" title="执行结果追加到会话">
+                <MessageSquare size={9} />
+                会话
+              </span>
+            )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
             <span className="inline-flex items-center gap-1">
@@ -526,6 +532,7 @@ const EMPTY_FORM: ICreateScheduledTaskRequest = {
   cronExpression: '',
   isEnabled: true,
   maxRetries: 0,
+  topicId: undefined,
 }
 
 const CRON_PRESETS = [
@@ -581,6 +588,7 @@ function ScheduledTaskEditor({
           cronExpression: task.cronExpression ?? '',
           isEnabled: task.isEnabled,
           maxRetries: task.maxRetries,
+          topicId: task.topicId,
         }
       : { ...EMPTY_FORM }
   )
@@ -861,6 +869,16 @@ function ScheduledTaskEditor({
               <span className="text-xs text-gray-400">失败后指数退避重试（0 = 不重试）</span>
             </div>
           </div>
+
+          {/* Bound conversation status */}
+          {form.topicId && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5 dark:border-blue-500/20 dark:bg-blue-500/[0.06]">
+              <MessageSquare size={14} className="shrink-0 text-blue-500" />
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                已绑定会话：执行结果将作为消息自动追加到该会话
+              </span>
+            </div>
+          )}
 
           {/* Enabled toggle */}
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]">

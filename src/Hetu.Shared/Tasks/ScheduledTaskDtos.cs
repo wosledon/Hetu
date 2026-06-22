@@ -41,6 +41,7 @@ public class ScheduledTaskDto
     public string? LastError { get; set; }
     public int MaxRetries { get; set; }
     public int RetryCount { get; set; }
+    public Guid? TopicId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -58,6 +59,8 @@ public class CreateScheduledTaskRequest
     public string? CronExpression { get; set; }
     public bool IsEnabled { get; set; } = true;
     public int MaxRetries { get; set; } = 0;
+    /// <summary>绑定会话 Topic ID：执行结果将作为 assistant 消息追加到该会话</summary>
+    public Guid? TopicId { get; set; }
 }
 
 public class UpdateScheduledTaskRequest : CreateScheduledTaskRequest { }

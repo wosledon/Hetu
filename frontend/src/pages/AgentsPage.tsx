@@ -22,6 +22,7 @@ import {
   HelpCircle,
   ClipboardList,
   Zap,
+  CalendarClock,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
@@ -53,6 +54,7 @@ const TOOL_ICON_MAP: Record<string, React.ComponentType<{ size?: number; classNa
   ask_question: HelpCircle,
   todo: ClipboardList,
   run_command: Zap,
+  create_scheduled_task: CalendarClock,
 }
 
 const renderToolIcon = (name: string, className = 'text-gray-500') => {
@@ -71,6 +73,7 @@ const AVAILABLE_TOOLS = [
   { name: 'create_memory', label: '保存记忆', category: '写入' },
   { name: 'ask_question', label: '向用户提问', category: '交互' },
   { name: 'todo', label: '任务管理', category: '交互' },
+  { name: 'create_scheduled_task', label: '创建定时任务', category: '执行' },
   { name: 'run_command', label: '执行命令', category: '执行' },
 ] as const
 

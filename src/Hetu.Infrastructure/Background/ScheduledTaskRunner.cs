@@ -58,6 +58,7 @@ public class ScheduledTaskRunner : BackgroundService
         await using var scope = _scopeFactory.CreateAsyncScope();
         var scheduledTaskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var chatMessageService = scope.ServiceProvider.GetRequiredService<IChatMessageService>();
         var executors = scope.ServiceProvider.GetRequiredService<IEnumerable<IScheduledTaskExecutor>>()
             .ToDictionary(e => e.Kind);
 
@@ -69,7 +70,7 @@ public class ScheduledTaskRunner : BackgroundService
         foreach (var task in dueTasks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, cancellationToken);
+            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, chatMessageService, cancellationToken);
         }
     }
 
@@ -78,6 +79,7 @@ public class ScheduledTaskRunner : BackgroundService
         Dictionary<string, IScheduledTaskExecutor> executors,
         IUnitOfWork unitOfWork,
         IScheduledTaskService scheduledTaskService,
+        IChatMessageService chatMessageService,
         CancellationToken cancellationToken)
     {
         // 标记为执行中，避免重复拾取
@@ -165,5 +167,43 @@ public class ScheduledTaskRunner : BackgroundService
 
         await unitOfWork.ScheduledTasks.UpdateAsync(task, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 绑定了会话的任务：把执行结果作为 assistant 消息追加到对应 Topic
+        if (task.TopicId.HasValue)
+        {
+            await AppendResultToTopicAsync(chatMessageService, task, succeeded, resultSummary, errorMessage, cancellationToken);
+        }
+    }
+
+    private async Task AppendResultToTopicAsync(
+        IChatMessageService chatMessageService,
+        ScheduledTask task,
+        bool succeeded,
+        string? resultSummary,
+        string? errorMessage,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var header = succeeded
+                ? $"✅ 定时任务「{task.Name}」执行完成"
+                : $"❌ 定时任务「{task.Name}」执行失败";
+
+            var body = succeeded
+                ? (string.IsNullOrWhiteSpace(resultSummary) ? "（无输出）" : resultSummary)
+                : (errorMessage ?? "未知错误");
+
+            var content = $"{header}\n\n{body}";
+
+            await chatMessageService.SaveAssistantMessageAsync(
+                task.TopicId!.Value,
+                content,
+                modelId: null,
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "定时任务 {TaskId} 结果追加到会话 {TopicId} 失败", task.Id, task.TopicId);
+        }
     }
 }

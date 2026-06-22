@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, AskQuestionTool>();
         services.AddScoped<IToolExecutor, TodoTool>();
         services.AddScoped<IToolExecutor, RunCommandTool>();
+        services.AddScoped<IToolExecutor, CreateScheduledTaskTool>();
         services.AddScoped<ToolRegistry>();
         services.AddScoped<PromptComposer>();
         return services;

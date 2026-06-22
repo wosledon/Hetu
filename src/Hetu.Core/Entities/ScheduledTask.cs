@@ -45,5 +45,8 @@ public class ScheduledTask : BaseEntity
     /// <summary>当前重试次数</summary>
     public int RetryCount { get; set; } = 0;
 
+    /// <summary>绑定会话 Topic ID：执行结果将作为 assistant 消息追加到该会话</summary>
+    public Guid? TopicId { get; set; }
+
     public bool IsDeleted { get; set; }
 }

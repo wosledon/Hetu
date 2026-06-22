@@ -302,6 +302,7 @@ export interface IScheduledTask {
   lastError?: string;
   maxRetries: number;
   retryCount: number;
+  topicId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -343,6 +344,7 @@ export interface ICreateScheduledTaskRequest {
   cronExpression?: string;
   isEnabled: boolean;
   maxRetries: number;
+  topicId?: string;
 }
 
 export type IUpdateScheduledTaskRequest = ICreateScheduledTaskRequest;

@@ -65,6 +65,7 @@ public class ScheduledTaskService : IScheduledTaskService
             IsEnabled = request.IsEnabled,
             MaxRetries = Math.Max(0, request.MaxRetries),
             RetryCount = 0,
+            TopicId = request.TopicId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -95,6 +96,7 @@ public class ScheduledTaskService : IScheduledTaskService
         task.CronExpression = request.CronExpression?.Trim();
         task.IsEnabled = request.IsEnabled;
         task.MaxRetries = Math.Max(0, request.MaxRetries);
+        task.TopicId = request.TopicId;
         task.UpdatedAt = DateTimeOffset.UtcNow;
 
         // 调度变更后重新计算下次运行；重试计数在配置变更时归零
@@ -282,6 +284,7 @@ public class ScheduledTaskService : IScheduledTaskService
         LastError = t.LastError,
         MaxRetries = t.MaxRetries,
         RetryCount = t.RetryCount,
+        TopicId = t.TopicId,
         CreatedAt = t.CreatedAt,
         UpdatedAt = t.UpdatedAt,
     };
