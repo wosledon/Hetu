@@ -10,9 +10,14 @@ public class RunCommandTool : IToolExecutor
 {
     private readonly IConfiguration _configuration;
 
-    private static readonly HashSet<string> AllowedCommands = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> DeniedCommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "python", "node", "npm", "npx", "dotnet", "git", "echo", "cat", "ls", "dir", "pwd", "curl"
+        // 禁止执行具有破坏性的命令
+        "rm", "rmdir", "del", "erase", "format", "diskpart", "reg", "regedit",
+        "shutdown", "reboot", "halt", "poweroff", "taskkill", "kill",
+        "dd", "mkfs", "fdisk", "chmod", "chown", "wget", "curl",
+        "sc", "net", "bcdedit", "icacls", "cacls", "takeown",
+        "rundll32", "mshta", "wmic", "wscript", "cscript",
     };
 
     public RunCommandTool(IConfiguration configuration)
@@ -54,12 +59,12 @@ public class RunCommandTool : IToolExecutor
             if (string.IsNullOrWhiteSpace(command))
                 return ToolExecutionResult.Error("command 参数不能为空");
 
-            // Extract the base command name for whitelist check
+            // Extract the base command name for blacklist check
             var baseCommand = command.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
             var fileName = Path.GetFileNameWithoutExtension(baseCommand);
 
-            if (!AllowedCommands.Contains(fileName))
-                return ToolExecutionResult.Error($"不允许执行该命令: {baseCommand}。允许的命令: {string.Join(", ", AllowedCommands)}");
+            if (DeniedCommands.Contains(fileName))
+                return ToolExecutionResult.Error($"禁止执行该命令: {baseCommand}。");
 
             string[] args = [];
             if (root.TryGetProperty("args", out var argsProp) && argsProp.ValueKind == JsonValueKind.Array)
@@ -74,12 +79,12 @@ public class RunCommandTool : IToolExecutor
             if (root.TryGetProperty("workingDir", out var wdProp) && wdProp.ValueKind == JsonValueKind.String)
                 workingDir = wdProp.GetString();
 
-            // Also allow additional commands from configuration
-            var extraAllowed = _configuration.GetSection("Tools:RunCommand:AllowedCommands").Get<string[]>();
-            if (extraAllowed != null)
+            // Also allow additional denied commands from configuration
+            var extraDenied = _configuration.GetSection("Tools:RunCommand:DeniedCommands").Get<string[]>();
+            if (extraDenied != null)
             {
-                foreach (var cmd in extraAllowed)
-                    AllowedCommands.Add(cmd);
+                foreach (var cmd in extraDenied)
+                    DeniedCommands.Add(cmd);
             }
 
             var stdout = new StringBuilder();
