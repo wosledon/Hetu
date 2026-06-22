@@ -11,6 +11,7 @@ interface UIState {
   selectedTagId?: string;
   searchQuery: string;
   pinnedNavItems: string[];
+  lastMoreItem: string | null;
   setAppName: (name: string) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
@@ -18,6 +19,7 @@ interface UIState {
   setSelectedTagId: (id?: string) => void;
   setSearchQuery: (query: string) => void;
   setPinnedNavItems: (items: string[]) => void;
+  setLastMoreItem: (path: string | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -30,6 +32,7 @@ export const useUIStore = create<UIState>()(
       selectedTagId: undefined,
       searchQuery: '',
       pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks', '/memories', '/models'],
+      lastMoreItem: null,
       setAppName: (name) => set({ appName: name }),
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -37,6 +40,7 @@ export const useUIStore = create<UIState>()(
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNotebookId: undefined }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setPinnedNavItems: (items) => set({ pinnedNavItems: items }),
+      setLastMoreItem: (path) => set({ lastMoreItem: path }),
     }),
     {
       name: 'hetu-ui',
