@@ -122,7 +122,16 @@ public class ChunkService : IChunkService
         if (string.IsNullOrWhiteSpace(content))
             return new List<NoteChunk>();
 
-        return await LlmChunkAsync(content, llm, cancellationToken);
+        try
+        {
+            return await LlmChunkAsync(content, llm, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // LLM chunking failed, fall back to structure chunking
+            System.Diagnostics.Debug.WriteLine($"[ChunkService] LLM chunking failed, falling back to structure: {ex.Message}");
+            return ChunkByStructure(note);
+        }
     }
 
     /// <summary>
@@ -164,12 +173,9 @@ public class ChunkService : IChunkService
 
         var result = await llm.ChatAsync(messages, options, cancellationToken);
         if (string.IsNullOrWhiteSpace(result))
-            throw new InvalidOperationException("LLM 返回空结果");
+            return new List<NoteChunk>();
 
         var chunks = ParseLlmChunks(result.Trim());
-        if (chunks.Count == 0)
-            throw new InvalidOperationException("LLM 返回的分块无法解析");
-
         return chunks;
     }
 
@@ -182,10 +188,21 @@ public class ChunkService : IChunkService
 
         try
         {
-            var jsonStr = json;
-            var match = Regex.Match(json, @"\[[\s\S]*\]");
-            if (match.Success)
-                jsonStr = match.Value;
+            var jsonStr = json.Trim();
+
+            // Strip markdown code fences: ```json ... ``` or ``` ... ```
+            var codeFenceMatch = Regex.Match(jsonStr, @"```(?:json)?\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+            if (codeFenceMatch.Success)
+            {
+                jsonStr = codeFenceMatch.Groups[1].Value.Trim();
+            }
+            else
+            {
+                // Try to extract just the JSON array with a greedy match
+                var arrayMatch = Regex.Match(jsonStr, @"\[[\s\S]*\]");
+                if (arrayMatch.Success)
+                    jsonStr = arrayMatch.Value;
+            }
 
             var items = JsonSerializer.Deserialize<List<LlmChunkResult>>(jsonStr, new JsonSerializerOptions
             {
