@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft,
   Check,
+  ChevronRight,
   GitMerge,
   Hash,
   Pencil,
@@ -156,31 +156,6 @@ export default function TagsPage() {
   return (
     <AppLayout showSidebar={false} mainContent={null}>
       <div className="flex w-full flex-col bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50/30 dark:from-gray-950 dark:via-gray-950 dark:to-indigo-950/20">
-        {/* 顶栏 */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200/70 bg-white/80 px-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-gray-900/80">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="rounded-xl p-2 text-gray-500 transition-all hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              title="返回笔记"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <h1 className="flex items-center gap-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25">
-                <TagIcon size={17} />
-              </span>
-              标签管理
-            </h1>
-          </div>
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl hover:shadow-blue-500/30 hover:brightness-110 active:scale-[0.97]"
-          >
-            <Plus size={16} />
-            新建标签
-          </button>
-        </header>
 
         {/* 统计卡片 */}
         <div className="grid grid-cols-2 gap-3 px-6 pt-5 sm:grid-cols-4">
@@ -210,7 +185,7 @@ export default function TagsPage() {
           />
         </div>
 
-        {/* 工具栏：搜索 */}
+        {/* 工具栏：搜索 + 新建 */}
         <div className="flex items-center justify-between gap-4 px-6 py-4">
           <div className="relative max-w-sm flex-1">
             <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -221,17 +196,24 @@ export default function TagsPage() {
               className="w-full rounded-xl border border-gray-200/80 bg-white/70 py-2.5 pl-10 pr-3 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:shadow-lg focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-100 dark:border-gray-700/50 dark:bg-gray-800/50 dark:focus:bg-gray-800 dark:focus:ring-blue-950/40"
             />
           </div>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl hover:shadow-blue-500/30 hover:brightness-110 active:scale-[0.97]"
+          >
+            <Plus size={16} />
+            新建标签
+          </button>
         </div>
 
         {/* 列表 */}
         <div className="flex-1 overflow-y-auto px-6 pb-8">
           {isAdding && (
-            <div className="mb-5 overflow-hidden rounded-2xl border border-blue-200/60 bg-white shadow-lg shadow-blue-500/5 dark:border-blue-900/40 dark:bg-gray-900">
-              <div className="flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/40 px-4 py-3 dark:border-gray-800 dark:from-blue-950/20 dark:to-indigo-950/10">
+            <div className="mb-5 overflow-hidden rounded-2xl border border-blue-200/60 bg-white shadow-lg shadow-blue-500/5 transition-all dark:border-blue-900/40 dark:bg-gray-900">
+              <div className="flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/40 px-5 py-3 dark:border-gray-800 dark:from-blue-950/20 dark:to-indigo-950/10">
                 <Plus size={16} className="text-blue-500" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">新建标签</span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 p-4">
+              <div className="flex flex-wrap items-center gap-3 p-5">
                 <input
                   autoFocus
                   value={newName}
@@ -241,20 +223,20 @@ export default function TagsPage() {
                     if (e.key === 'Escape') { setIsAdding(false); setNewName(''); setNewColor('') }
                   }}
                   placeholder="输入标签名称"
-                  className="min-w-[200px] flex-1 rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
+                  className="min-w-[200px] flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
                 />
                 <ColorPicker value={newColor} onChange={setNewColor} />
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCreate}
-                    className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:shadow-blue-500/30 hover:brightness-110 active:scale-[0.97]"
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-lg hover:shadow-blue-500/30 hover:brightness-110 active:scale-[0.97]"
                   >
                     <Check size={15} />
                     创建
                   </button>
                   <button
                     onClick={() => { setIsAdding(false); setNewName(''); setNewColor('') }}
-                    className="rounded-xl px-3.5 py-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                    className="rounded-xl px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                   >
                     取消
                   </button>
@@ -269,7 +251,7 @@ export default function TagsPage() {
                 <TagIcon size={36} className="opacity-50" />
               </div>
               <p className="text-sm font-medium">{search ? '没有匹配的标签' : '暂无标签'}</p>
-              <p className="mt-1 text-xs">{search ? '试试其他关键词' : '点击右上角「新建标签」开始创建'}</p>
+              <p className="mt-1 text-xs">{search ? '试试其他关键词' : '点击上方「新建标签」开始创建'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -280,7 +262,7 @@ export default function TagsPage() {
                 return (
                   <div
                     key={tag.id}
-                    className="group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-xl hover:shadow-gray-500/5 dark:border-gray-700/50 dark:bg-gray-900 dark:hover:border-gray-600"
+                    className="group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-xl hover:shadow-gray-500/5 dark:border-gray-700/50 dark:bg-gray-900 dark:hover:border-gray-600"
                     onContextMenu={(e) => {
                       e.preventDefault()
                       setMenu({ x: e.clientX, y: e.clientY, tag })
@@ -288,12 +270,12 @@ export default function TagsPage() {
                   >
                     {/* 左侧色条 */}
                     <div
-                      className="absolute inset-y-0 left-0 w-1 transition-all group-hover:w-1.5"
+                      className="absolute inset-y-0 left-0 w-1 rounded-l-2xl transition-all duration-200 group-hover:w-1.5"
                       style={{ background: palette.dot }}
                     />
                     {/* 顶部渐变光晕 */}
                     <div
-                      className="absolute inset-x-0 top-0 h-20 opacity-0 transition-opacity group-hover:opacity-100"
+                      className="absolute inset-x-0 top-0 h-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                       style={{ background: `linear-gradient(to bottom, ${palette.soft}, transparent)` }}
                     />
                     {isRenaming ? (
@@ -331,11 +313,11 @@ export default function TagsPage() {
                     ) : (
                       <button
                         onClick={() => handleViewNotes(tag)}
-                        className="relative flex w-full items-center gap-3 p-4 pl-5 text-left"
+                        className="relative flex w-full items-center gap-3.5 p-4 pl-5 text-left"
                         title="查看该标签下的笔记"
                       >
                         <span
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-transform group-hover:scale-110"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold shadow-sm transition-all duration-200 group-hover:scale-110 group-hover:shadow-md"
                           style={{ background: palette.soft, color: palette.text }}
                         >
                           <Hash size={17} />
@@ -344,13 +326,16 @@ export default function TagsPage() {
                           <span className="block truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
                             {tag.name}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                          <span className="mt-1 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
                             <span
                               className="inline-block h-1.5 w-1.5 rounded-full"
                               style={{ background: noteCount > 0 ? palette.dot : 'rgb(156 163 175)' }}
                             />
                             {noteCount} 篇笔记
                           </span>
+                        </span>
+                        <span className="shrink-0 text-gray-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600">
+                          <ChevronRight size={14} />
                         </span>
                       </button>
                     )}
@@ -511,13 +496,14 @@ function StatCard({
   gradient: string
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/70 px-4 py-3.5 shadow-sm backdrop-blur-sm transition-all hover:shadow-md dark:border-gray-700/40 dark:bg-gray-900/60">
-      <div className="flex items-center justify-between">
+    <div className="group relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/70 px-4 py-3.5 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700/40 dark:bg-gray-900/60">
+      <div className="absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity group-hover:opacity-[0.03] dark:group-hover:opacity-[0.06]" style={{ backgroundImage: `linear-gradient(to bottom right, var(--tw-gradient-stops))` }} />
+      <div className="relative flex items-center justify-between">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium text-gray-400 dark:text-gray-500">{label}</p>
-          <p className="mt-0.5 text-2xl font-bold text-gray-800 dark:text-gray-100">{value}</p>
+          <p className="mt-0.5 text-2xl font-bold tracking-tight text-gray-800 dark:text-gray-100">{value}</p>
         </div>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-md`}>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-md transition-transform group-hover:scale-110`}>
           {icon}
         </span>
       </div>
