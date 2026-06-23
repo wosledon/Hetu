@@ -1,5 +1,5 @@
 import { get, post, put, del } from './api';
-import type { IPromptPreset } from '../types';
+import type { IPromptPreset, ILocalPromptPreset } from '../types';
 
 export interface CreatePromptPresetRequest {
   category: string;
@@ -22,4 +22,7 @@ export const promptPresetService = {
   export: () => get<IPromptPreset[]>('/prompt-presets/export'),
   import: (data: { category: string; name: string; content: string; variables?: string }[]) =>
     post<number>('/prompt-presets/import', data),
+  getLocal: () => get<ILocalPromptPreset[]>('/prompt-presets/local'),
+  getDirectories: () => get<string[]>('/prompt-presets/directories'),
+  updateDirectories: (directories: string[]) => put<void>('/prompt-presets/directories', directories),
 };

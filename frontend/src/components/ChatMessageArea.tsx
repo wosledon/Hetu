@@ -152,6 +152,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     queryFn: () => promptPresetService.getAll(),
   })
 
+  const { data: localPresets = [] } = useQuery({
+    queryKey: ['localPromptPresets'],
+    queryFn: () => promptPresetService.getLocal(),
+  })
+
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
     queryFn: () => aiModelService.getAll(),
@@ -176,8 +181,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     for (const p of presets as Array<{ id: string; name: string; category: string }>) {
       items.push({ key: `agent:${p.id}`, label: `/${p.name}`, description: p.category, icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
     }
+    for (const p of localPresets as Array<{ id: string; name: string; category: string }>) {
+      items.push({ key: `agent-local:${p.id}`, label: `/${p.name}`, description: p.category || '本地', icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
+    }
     return items
-  }, [skills, localSkills, presets])
+  }, [skills, localSkills, presets, localPresets])
 
   const slashQuery = input.startsWith('/') && !input.includes(' ') ? input.slice(1).toLowerCase() : ''
   const showSlashMenu = !selectedSlashItem && slashQuery.length >= 0 && input.startsWith('/') && !input.includes(' ') && !isStreaming && slashItems.length > 0
@@ -398,13 +406,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     let detectedSkillName: string | undefined
     let detectedAgentId: string | undefined
+    let detectedPresetContent: string | undefined
     if (skillMatch) {
       const name = skillMatch[1]
       const skill = skills.find((s) => s.name === name && s.isEnabled)
       const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
       if (skill || localSkill) detectedSkillName = name
       const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
-      if (preset) detectedAgentId = preset.id
+      if (preset) {
+        detectedAgentId = preset.id
+        detectedPresetContent = preset.content
+      } else {
+        const localPreset = localPresets.find((p) => p.name.toLowerCase() === name.toLowerCase())
+        if (localPreset) detectedPresetContent = localPreset.content
+      }
     }
 
     try {
@@ -414,7 +429,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch, knowledgeBase, memory,
-        presetSystemPrompt: selectedPreset?.content || undefined,
+        presetSystemPrompt: detectedPresetContent || selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
         skillName: detectedSkillName,
         agentId: detectedAgentId || selectedPreset?.id,
@@ -1560,22 +1575,55 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 {showAgentPicker && (
                   <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                     <div className="max-h-56 overflow-y-auto p-1.5">
-                      {presets.length === 0 ? (
+                      {presets.length === 0 && localPresets.length === 0 ? (
                         <div className="p-3 text-center text-xs text-gray-500">暂无智能体</div>
                       ) : (
-                        presets.map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => { applyPreset(p); setShowAgentPicker(false) }}
-                            className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
-                              {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
-                            </div>
-                            <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
-                          </button>
-                        ))
+                        <>
+                          {presets.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => { applyPreset(p); setShowAgentPicker(false) }}
+                              className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
+                                {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
+                            </button>
+                          ))}
+                          {localPresets.length > 0 && presets.length > 0 && (
+                            <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                          )}
+                          {localPresets.map(p => {
+                            const pseudo: IPromptPreset = {
+                              id: p.id,
+                              category: p.category || '本地',
+                              name: p.name,
+                              content: p.content,
+                              variables: p.variables,
+                              toolsConfig: p.toolsConfig,
+                              isBuiltIn: false,
+                              sortOrder: 0,
+                              createdAt: '',
+                              updatedAt: '',
+                            }
+                            return (
+                              <button
+                                key={p.id}
+                                onClick={() => { applyPreset(pseudo); setShowAgentPicker(false) }}
+                                className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
+                                  <span className="rounded bg-amber-100 px-1 text-[9px] text-amber-600 dark:bg-amber-900/30">本地</span>
+                                  {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
+                              </button>
+                            )
+                          })}
+                        </>
                       )}
                     </div>
                   </div>

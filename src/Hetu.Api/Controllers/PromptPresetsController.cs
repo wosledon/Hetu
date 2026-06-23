@@ -10,15 +10,29 @@ namespace Hetu.Api.Controllers;
 public class PromptPresetsController : ControllerBase
 {
     private readonly IPromptPresetService _promptPresetService;
+    private readonly ILocalPromptPresetService _localPromptPresetService;
 
-    public PromptPresetsController(IPromptPresetService promptPresetService)
+    public PromptPresetsController(IPromptPresetService promptPresetService, ILocalPromptPresetService localPromptPresetService)
     {
         _promptPresetService = promptPresetService;
+        _localPromptPresetService = localPromptPresetService;
     }
 
     [HttpGet]
     public Task<ApiResponse<List<PromptPresetDto>>> GetAll(CancellationToken cancellationToken)
         => _promptPresetService.GetAllAsync(cancellationToken);
+
+    [HttpGet("local")]
+    public Task<ApiResponse<List<LocalPromptPresetDto>>> GetLocal(CancellationToken cancellationToken)
+        => _localPromptPresetService.ScanAllAsync(cancellationToken);
+
+    [HttpGet("directories")]
+    public Task<ApiResponse<List<string>>> GetDirectories(CancellationToken cancellationToken)
+        => _localPromptPresetService.GetDirectoriesAsync(cancellationToken);
+
+    [HttpPut("directories")]
+    public Task<ApiResponse> UpdateDirectories([FromBody] List<string> directories, CancellationToken cancellationToken)
+        => _localPromptPresetService.UpdateDirectoriesAsync(directories, cancellationToken);
 
     [HttpGet("{id:guid}")]
     public Task<ApiResponse<PromptPresetDto>> GetById(Guid id, CancellationToken cancellationToken)

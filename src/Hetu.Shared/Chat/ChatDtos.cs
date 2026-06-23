@@ -201,3 +201,17 @@ public class UpdatePromptPresetRequest
     public string? ToolsConfig { get; set; }
     public int SortOrder { get; set; }
 }
+
+public class LocalPromptPresetDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Variables { get; set; }
+    public string? ToolsConfig { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public string FilePath { get; set; } = string.Empty;
+    public string Source { get; set; } = "local";
+}

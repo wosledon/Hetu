@@ -1,33 +1,42 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertCircle,
   Bot,
+  BookOpen,
+  Brain,
+  CalendarClock,
+  ClipboardList,
   Download,
   Edit2,
-  Hash,
-  Import,
-  Lock,
-  Plus,
-  Search,
-  Sparkles,
-  Trash2,
-  X,
-  BookOpen,
+  FileEdit,
+  FolderOpen,
   Globe,
-  Brain,
+  Hash,
+  HelpCircle,
+  Import,
+  Loader2,
+  Lock,
   Network,
   PenLine,
-  FileEdit,
+  Plus,
+  RefreshCw,
   Save,
-  HelpCircle,
-  ClipboardList,
+  Search,
+  Settings,
+  Sparkles,
+  Terminal,
+  Trash2,
+  X,
   Zap,
-  CalendarClock,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import { promptPresetService } from '../services/promptPresetService'
+import type { ILocalPromptPreset } from '../types'
 import type { IPromptPreset } from '../types'
+
+type TabKey = 'database' | 'local'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -37,6 +46,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   创意: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
   自定义: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
   导入: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  本地: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 }
 
 const getCategoryColor = (category: string) =>
@@ -77,14 +87,9 @@ const AVAILABLE_TOOLS = [
   { name: 'run_command', label: '执行命令', category: '执行' },
 ] as const
 
-const TOOL_APPROVAL_LABELS: Record<string, string> = {
-  bypass: '静默',
-  auto: '自动',
-  ask: '询问',
-}
-
 export default function AgentsPage() {
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -92,11 +97,26 @@ export default function AgentsPage() {
   const [form, setForm] = useState({ category: '', name: '', content: '' })
   const [enabledTools, setEnabledTools] = useState<string[]>(AVAILABLE_TOOLS.map(t => t.name))
   const [toolApprovals, setToolApprovals] = useState<Record<string, string>>({})
+  const [showDirConfig, setShowDirConfig] = useState(false)
+  const [dirInput, setDirInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: presets = [] } = useQuery({
+  // Database presets
+  const { data: dbPresets = [] } = useQuery({
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
+  })
+  // Local presets
+  const { data: localPresets = [], isLoading: localLoading, refetch: refetchLocal } = useQuery({
+    queryKey: ['localPromptPresets'],
+    queryFn: () => promptPresetService.getLocal(),
+    enabled: tab === 'local',
+  })
+  // Directories
+  const { data: directories = [] } = useQuery({
+    queryKey: ['promptPresetDirectories'],
+    queryFn: () => promptPresetService.getDirectories(),
+    enabled: showDirConfig,
   })
 
   const createMutation = useMutation({
@@ -126,6 +146,13 @@ export default function AgentsPage() {
     mutationFn: promptPresetService.import,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['promptPresets'] }),
   })
+
+  const updateDirsMutation = useMutation({
+    mutationFn: (dirs: string[]) => promptPresetService.updateDirectories(dirs),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['promptPresetDirectories'] }),
+  })
+
+  const presets = tab === 'database' ? dbPresets : localPresets
 
   const categories = useMemo(() => {
     const map = new Map<string, number>()
@@ -162,7 +189,7 @@ export default function AgentsPage() {
     if (!form.name.trim() || !form.content.trim()) return
     const toolsConfigJson = JSON.stringify({ tools: enabledTools, toolApprovals })
     if (editingId) {
-      const preset = presets.find(p => p.id === editingId)
+      const preset = dbPresets.find(p => p.id === editingId)
       updateMutation.mutate({ id: editingId, data: { ...form, sortOrder: preset?.sortOrder ?? 0, toolsConfig: toolsConfigJson } })
     } else {
       createMutation.mutate({ ...form, toolsConfig: toolsConfigJson })
@@ -194,6 +221,85 @@ export default function AgentsPage() {
     e.target.value = ''
   }
 
+  const handleAddDir = () => {
+    const trimmed = dirInput.trim()
+    if (!trimmed || directories.includes(trimmed)) return
+    updateDirsMutation.mutate([...directories, trimmed])
+    setDirInput('')
+  }
+
+  const handleRemoveDir = (dir: string) => {
+    updateDirsMutation.mutate(directories.filter(d => d !== dir))
+  }
+
+  const getToolCount = (toolsConfig?: string) => {
+    if (!toolsConfig) return AVAILABLE_TOOLS.length
+    try {
+      const config = JSON.parse(toolsConfig)
+      return config.tools?.length ?? AVAILABLE_TOOLS.length
+    } catch {
+      return AVAILABLE_TOOLS.length
+    }
+  }
+
+  const renderPresetCard = (preset: IPromptPreset | ILocalPromptPreset, isLocal: boolean) => {
+    const p = preset
+    const toolCount = getToolCount(p.toolsConfig)
+    return (
+      <div
+        key={p.id}
+        className="group relative flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
+      >
+        <div className="mb-2 flex items-start justify-between">
+          <div className="flex items-start gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+              {isLocal ? <Terminal size={16} className="text-blue-500" /> : <Bot size={16} className="text-blue-500" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{p.name}</h3>
+              <span className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${getCategoryColor(p.category)}`}>{p.category}</span>
+            </div>
+          </div>
+          {!isLocal && (p as IPromptPreset).isBuiltIn && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-gray-700">内置</span>
+          )}
+          {isLocal && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/30">本地</span>
+          )}
+        </div>
+
+        <p className="mb-3 line-clamp-3 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{p.content}</p>
+
+        {toolCount > 0 && (
+          <div className="mb-1 flex items-center gap-1 text-[10px] text-gray-400">
+            <Zap size={11} />
+            <span>{toolCount} 个工具</span>
+          </div>
+        )}
+
+        {!isLocal && !(p as IPromptPreset).isBuiltIn && (
+          <div className="flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-gray-700">
+            <button onClick={() => openEditForm(p as IPromptPreset)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> 编辑</button>
+            <button onClick={() => { if (confirm('确认删除？')) deleteMutation.mutate(p.id) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20"><Trash2 size={11} /> 删除</button>
+          </div>
+        )}
+        {!isLocal && (p as IPromptPreset).isBuiltIn && (
+          <div className="flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-gray-700">
+            <Lock size={11} className="text-gray-300 dark:text-gray-600" />
+            <span className="text-[10px] text-gray-300 dark:text-gray-600">内置智能体</span>
+          </div>
+        )}
+        {isLocal && (
+          <div className="border-t border-gray-100 pt-2 dark:border-gray-700">
+            <span className="truncate text-[10px] text-gray-300 dark:text-gray-600" title={(p as ILocalPromptPreset).filePath}>
+              {(p as ILocalPromptPreset).filePath}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const mainContent = (
     <div className="flex flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* Left sidebar */}
@@ -202,6 +308,26 @@ export default function AgentsPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">智能体</h2>
           <p className="mt-1 text-[10px] text-gray-400">管理 AI 智能体（System Prompt）</p>
         </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100 dark:border-gray-800">
+          <button
+            onClick={() => { setTab('database'); setActiveCategory(null) }}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'database' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+          >
+            <Bot size={12} className="mr-1 inline" />
+            数据库
+          </button>
+          <button
+            onClick={() => { setTab('local'); setActiveCategory(null); refetchLocal() }}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'local' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+          >
+            <FolderOpen size={12} className="mr-1 inline" />
+            本地
+          </button>
+        </div>
+
+        {/* Category list */}
         <div className="flex-1 overflow-y-auto p-2">
           <button
             onClick={() => setActiveCategory(null)}
@@ -221,6 +347,19 @@ export default function AgentsPage() {
             </button>
           ))}
         </div>
+
+        {/* Directory config button for local tab */}
+        {tab === 'local' && (
+          <div className="border-t border-gray-100 p-2 dark:border-gray-800">
+            <button
+              onClick={() => setShowDirConfig(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-500 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800/50"
+            >
+              <Settings size={13} />
+              配置智能体目录
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -239,61 +378,45 @@ export default function AgentsPage() {
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <button onClick={handleExport} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" title="导出"><Download size={13} /></button>
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" title="导入"><Import size={13} /></button>
-            <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
-            <button onClick={openCreateForm} className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"><Plus size={13} /> 新建智能体</button>
+            {tab === 'local' && (
+              <button onClick={() => refetchLocal()} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" title="刷新本地智能体">
+                <RefreshCw size={13} />
+              </button>
+            )}
+            {tab === 'database' && (
+              <>
+                <button onClick={handleExport} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" title="导出"><Download size={13} /></button>
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" title="导入"><Import size={13} /></button>
+                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+                <button onClick={openCreateForm} className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"><Plus size={13} /> 新建智能体</button>
+              </>
+            )}
           </div>
         </div>
 
         {/* Cards grid */}
         <div className="flex-1 overflow-y-auto p-4">
-          {filteredPresets.length === 0 ? (
+          {tab === 'local' && localLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <Loader2 size={32} className="mb-3 animate-spin text-blue-400" />
+              <p className="text-sm">正在扫描本地智能体...</p>
+            </div>
+          ) : filteredPresets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <Sparkles size={36} className="mb-3 text-gray-300 dark:text-gray-600" />
-              <p className="text-sm">暂无智能体</p>
-              <button onClick={openCreateForm} className="mt-2 text-xs text-blue-500 hover:underline">创建第一个智能体</button>
+              <p className="text-sm">{tab === 'local' ? '未发现本地智能体' : '暂无智能体'}</p>
+              {tab === 'local' && (
+                <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-blue-500 hover:underline">
+                  配置智能体目录
+                </button>
+              )}
+              {tab === 'database' && (
+                <button onClick={openCreateForm} className="mt-2 text-xs text-blue-500 hover:underline">创建第一个智能体</button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredPresets.map((preset) => (
-                <div key={preset.id} className="group relative flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
-                  {preset.isBuiltIn && (
-                    <div className="absolute right-3 top-3"><Lock size={12} className="text-gray-300 dark:text-gray-600" /></div>
-                  )}
-                  <div className="mb-2 flex items-start gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                      <Bot size={16} className="text-blue-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{preset.name}</h3>
-                      <span className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${getCategoryColor(preset.category)}`}>{preset.category}</span>
-                    </div>
-                  </div>
-                  <p className="mb-3 line-clamp-3 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{preset.content}</p>
-                  {(() => {
-                    try {
-                      const config = preset.toolsConfig ? JSON.parse(preset.toolsConfig) : {}
-                      const toolCount = config.tools?.length ?? AVAILABLE_TOOLS.length
-                      return toolCount > 0 ? (
-                        <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
-                          <span>⚡</span>
-                          <span>{toolCount} 个工具</span>
-                        </div>
-                      ) : null
-                    } catch { return null }
-                  })()}
-                  {!preset.isBuiltIn && (
-                    <div className="flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-gray-700">
-                      <button onClick={() => openEditForm(preset)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> 编辑</button>
-                      <button onClick={() => { if (confirm('确认删除？')) deleteMutation.mutate(preset.id) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20"><Trash2 size={11} /> 删除</button>
-                    </div>
-                  )}
-                  {preset.isBuiltIn && (
-                    <div className="border-t border-gray-100 pt-2 dark:border-gray-700"><span className="text-[10px] text-gray-300 dark:text-gray-600">内置智能体</span></div>
-                  )}
-                </div>
-              ))}
+              {filteredPresets.map(p => renderPresetCard(p, tab === 'local'))}
             </div>
           )}
         </div>
@@ -380,6 +503,66 @@ export default function AgentsPage() {
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
               <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">取消</button>
               <button onClick={handleSave} disabled={!form.name.trim() || !form.content.trim()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{editingId ? '保存' : '创建'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Directory config modal */}
+      {showDirConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">配置智能体目录</h3>
+                  <p className="text-xs text-gray-500">添加包含智能体定义文件的目录路径</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div className="flex gap-2">
+                <input
+                  value={dirInput}
+                  onChange={(e) => setDirInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
+                  placeholder="输入目录路径，如 /home/user/agents"
+                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
+                />
+                <button onClick={handleAddDir} className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600">
+                  添加
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {directories.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-gray-400">
+                    <AlertCircle size={16} className="mx-auto mb-1" />
+                    暂未配置智能体目录
+                  </div>
+                ) : (
+                  directories.map(dir => (
+                    <div key={dir} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                      <span className="truncate text-xs text-gray-700 dark:text-gray-300" title={dir}>{dir}</span>
+                      <button onClick={() => handleRemoveDir(dir)} className="ml-2 shrink-0 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+                <p className="text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
+                  目录结构：每个子文件夹包含一个 <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">agent.json</code> 或 <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">AGENT.md</code> 文件。
+                  也支持根目录下的 <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">.json</code> 文件。
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
+              <button onClick={() => setShowDirConfig(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                完成
+              </button>
             </div>
           </div>
         </div>

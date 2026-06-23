@@ -152,6 +152,20 @@ export interface IPromptPreset {
   updatedAt: string;
 }
 
+export interface ILocalPromptPreset {
+  id: string;
+  category: string;
+  name: string;
+  content: string;
+  description?: string;
+  variables?: string;
+  /** JSON: { variables: string[], tools: string[], toolApprovals: Record<string, string> } */
+  toolsConfig?: string;
+  isEnabled: boolean;
+  filePath: string;
+  source: string;
+}
+
 export interface ISkill {
   id: string;
   name: string;

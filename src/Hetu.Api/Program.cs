@@ -105,6 +105,7 @@ builder.Services.AddScoped<IChatTopicService, ChatTopicService>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
 builder.Services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
 builder.Services.AddScoped<IPromptPresetService, PromptPresetService>();
+builder.Services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();
 builder.Services.AddScoped<INoteVersionService, NoteVersionService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<ILocalSkillService, LocalSkillService>();
