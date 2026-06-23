@@ -2,6 +2,7 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Workflows;
 using Hetu.Infrastructure.AI;
 using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
@@ -110,6 +111,22 @@ builder.Services.AddScoped<INoteVersionService, NoteVersionService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<ILocalSkillService, LocalSkillService>();
 builder.Services.AddScoped<IMcpService, McpService>();
+builder.Services.AddScoped<IAgentService, AgentService>();
+builder.Services.AddScoped<AgentLoopService>();
+builder.Services.AddScoped<IWorkflowService, WorkflowService>();
+
+// 工作流执行引擎
+builder.Services.AddSingleton<WorkflowApprovalService>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.WorkflowExecutionEngine>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.StartNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.AgentNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.ConditionNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.EndNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.LoopNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.ParallelNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.ToolNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.HumanNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.SubWorkflowNodeExecutor>();
 builder.Services.AddScoped<IExportService>(sp =>
 {
     var unitOfWork = sp.GetRequiredService<IUnitOfWork>();

@@ -22,6 +22,10 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<NoteVersion> NoteVersions { get; }
     public IRepository<Skill> Skills { get; }
     public IRepository<McpServer> McpServers { get; }
+    public IRepository<Agent> Agents { get; }
+    public IRepository<Workflow> Workflows { get; }
+    public IRepository<WorkflowRun> WorkflowRuns { get; }
+    public IRepository<WorkflowRunNode> WorkflowRunNodes { get; }
     public IRepository<GraphEntity> GraphEntities { get; }
     public IRepository<GraphRelation> GraphRelations { get; }
     public IRepository<ShareLink> ShareLinks { get; }
@@ -48,6 +52,10 @@ public class UnitOfWork : IUnitOfWork
         NoteVersions = new EfRepository<NoteVersion>(context);
         Skills = new EfRepository<Skill>(context);
         McpServers = new EfRepository<McpServer>(context);
+        Agents = new EfRepository<Agent>(context);
+        Workflows = new EfRepository<Workflow>(context);
+        WorkflowRuns = new EfRepository<WorkflowRun>(context);
+        WorkflowRunNodes = new EfRepository<WorkflowRunNode>(context);
         GraphEntities = new EfRepository<GraphEntity>(context);
         GraphRelations = new EfRepository<GraphRelation>(context);
         ShareLinks = new EfRepository<ShareLink>(context);

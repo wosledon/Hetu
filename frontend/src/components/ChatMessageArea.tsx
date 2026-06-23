@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send, Bot, FileText, Search, GitBranch, Copy, Check, Pencil, Trash2, X, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
+import { workflowService } from '../services/workflowService'
+import type { IWorkflow } from '../types/workflow'
+import RunDialog from './workflow/RunDialog'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -110,6 +113,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showApprovalPicker, setShowApprovalPicker] = useState(false)
   const approvalPickerRef = useRef<HTMLDivElement>(null)
   const [memory, setMemory] = useState(false)
+  const [showWorkflowPicker, setShowWorkflowPicker] = useState(false)
+  const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
+  const workflowPickerRef = useRef<HTMLDivElement>(null)
+  const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState('')
@@ -258,10 +265,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showApprovalPicker && approvalPickerRef.current && !approvalPickerRef.current.contains(target)) {
         setShowApprovalPicker(false)
       }
+      if (showWorkflowPicker && workflowPickerRef.current && !workflowPickerRef.current.contains(target)) {
+        setShowWorkflowPicker(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker, showWorkflowPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -1630,6 +1640,43 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
               </div>
 
+              {/* Workflow selector — 在对话中触发工作流 */}
+              <div className="relative" ref={workflowPickerRef}>
+                <button
+                  onClick={() => { setShowWorkflowPicker(!showWorkflowPicker); setShowAgentPicker(false); setShowModelPicker(false) }}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title="工作流"
+                  disabled={!topic}
+                >
+                  <GitBranch size={14} />
+                  工作流
+                  <ChevronDown size={10} />
+                </button>
+                {showWorkflowPicker && (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div className="max-h-56 overflow-y-auto p-1.5">
+                      {availableWorkflows.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-gray-500">暂无工作流</div>
+                      ) : (
+                        availableWorkflows.map((w) => (
+                          <button
+                            key={w.id}
+                            onClick={() => { setRunningWorkflow(w); setShowWorkflowPicker(false) }}
+                            className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <div className="flex items-center gap-2">
+                              <GitBranch size={12} className="text-blue-500" />
+                              <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{w.name}</span>
+                            </div>
+                            {w.description && <div className="mt-0.5 text-[10px] text-gray-400 truncate">{w.description}</div>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Model selector */}
               <div className="relative" ref={modelPickerRef}>
                 <button
@@ -1836,6 +1883,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         <p className="mt-1.5 text-center text-[10px] text-gray-400">Shift + Enter 换行 · 支持粘贴文件</p>
       </div>
+
+      {runningWorkflow && topic && (
+        <RunDialog
+          workflow={runningWorkflow}
+          topicId={topic.id}
+          onClose={() => setRunningWorkflow(null)}
+        />
+      )}
     </div>
   )
 }
