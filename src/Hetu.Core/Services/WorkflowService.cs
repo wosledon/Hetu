@@ -166,10 +166,10 @@ public class WorkflowService : IWorkflowService
         foreach (var orphan in orphans)
             errors.Add($"节点 {orphan.Label}({orphan.Id}) 未连接到任何边");
 
-        // Agent 节点应有 AgentId
+        // Agent 节点应有 AgentId（指向智能体页面的 PromptPreset）
         var noAgent = dto.Nodes.Where(n => n.Type == WorkflowNodeTypes.Agent && n.AgentId == null).ToList();
         foreach (var n in noAgent)
-            errors.Add($"Agent 节点 {n.Label}({n.Id}) 未配置 Agent");
+            errors.Add($"Agent 节点 {n.Label}({n.Id}) 未配置智能体");
 
         return new ValidationResultDto { Valid = errors.Count == 0, Errors = errors };
     }

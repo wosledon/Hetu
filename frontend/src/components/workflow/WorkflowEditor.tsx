@@ -17,7 +17,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Play, Save, Copy, CheckCircle, AlertTriangle, Layout, ChevronLeft, Bot } from 'lucide-react'
+import { Play, Save, Copy, CheckCircle, AlertTriangle, Layout, ChevronLeft } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { workflowService } from '../../services/workflowService'
 import type { IWorkflow, IWorkflowNode, IWorkflowEdge } from '../../types/workflow'
@@ -26,12 +26,11 @@ import { toFlowNode, fromFlowNode, type IWorkflowNodeData } from './WorkflowNode
 import WorkflowNodeComponent from './WorkflowNode'
 import NodePalette from './NodePalette'
 import NodeConfigPanel from './NodeConfigPanel'
-import { AgentListManager } from './AgentModal'
-import type { IAgent } from '../../types/agent'
+import type { IPromptPreset } from '../../types'
 
 interface WorkflowEditorProps {
   workflow: IWorkflow
-  agents: IAgent[]
+  agents: IPromptPreset[]
   workflows: IWorkflow[]
   availableTools: { name: string; label: string }[]
   onBack: () => void
@@ -56,7 +55,6 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [validation, setValidation] = useState<{ valid: boolean; errors: string[] } | null>(null)
   const [saved, setSaved] = useState(false)
-  const [showAgents, setShowAgents] = useState(false)
   const nodeIdCounter = useRef(0)
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
@@ -175,9 +173,6 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{workflow.name}</span>
         <span className="text-xs text-gray-400">v{workflow.version}</span>
         <div className="flex-1" />
-        <button onClick={() => setShowAgents((v) => !v)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs ${showAgents ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'}`}>
-          <Bot size={14} /> Agent
-        </button>
         <button onClick={autoLayout} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
           <Layout size={14} /> 自动布局
         </button>
@@ -209,14 +204,8 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 左侧：节点面板 / Agent 管理 */}
-        {showAgents ? (
-          <div className="w-48 border-r border-gray-200 bg-white p-2 dark:border-white/[0.08] dark:bg-gray-900/50">
-            <AgentListManager />
-          </div>
-        ) : (
-          <NodePalette onAddNode={addNode} />
-        )}
+        {/* 左侧：节点面板 */}
+        <NodePalette onAddNode={addNode} />
 
         {/* 画布 */}
         <div className="flex-1">

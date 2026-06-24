@@ -18,7 +18,6 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<NoteVersion> NoteVersions { get; }
     IRepository<Skill> Skills { get; }
     IRepository<McpServer> McpServers { get; }
-    IRepository<Agent> Agents { get; }
     IRepository<Workflow> Workflows { get; }
     IRepository<WorkflowRun> WorkflowRuns { get; }
     IRepository<WorkflowRunNode> WorkflowRunNodes { get; }

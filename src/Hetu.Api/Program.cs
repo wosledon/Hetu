@@ -111,7 +111,6 @@ builder.Services.AddScoped<INoteVersionService, NoteVersionService>();
 builder.Services.AddScoped<ISkillService, SkillService>();
 builder.Services.AddScoped<ILocalSkillService, LocalSkillService>();
 builder.Services.AddScoped<IMcpService, McpService>();
-builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<AgentLoopService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 

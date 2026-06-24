@@ -21,7 +21,7 @@ public class NodeDto
     public string Type { get; set; } = WorkflowNodeTypes.Agent;
     public string Label { get; set; } = string.Empty;
 
-    /// <summary>Agent 节点：引用的 Agent 实体 ID</summary>
+    /// <summary>Agent 节点：引用的 PromptPreset ID（智能体页面维护的智能体，仅取其提示词内容）</summary>
     public Guid? AgentId { get; set; }
 
     /// <summary>JSON: 节点类型相关配置（Condition 表达式 / Loop maxIterations / Tool 工具名 / SubWorkflow 子工作流 ID 等）</summary>

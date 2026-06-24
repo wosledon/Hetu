@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trash2, X } from 'lucide-react'
 import type { IWorkflowNode } from '../../types/workflow'
 import { WorkflowNodeTypes } from '../../types/workflow'
-import type { IAgent } from '../../types/agent'
+import type { IPromptPreset, IAiModel, IMcpServer } from '../../types'
 import type { IWorkflow } from '../../types/workflow'
+import { aiModelService } from '../../services/aiProviderService'
+import { mcpService } from '../../services/mcpService'
 import Select from '../Select'
 
 interface NodeConfigPanelProps {
   node: IWorkflowNode | null
-  agents: IAgent[]
+  agents: IPromptPreset[]
   workflows: IWorkflow[]
   availableTools: { name: string; label: string }[]
   onChange: (updates: Partial<IWorkflowNode>) => void
@@ -42,6 +45,11 @@ export default function NodeConfigPanel({
 }: NodeConfigPanelProps) {
   const [config, setConfig] = useState<Record<string, unknown>>({})
 
+  const { data: models = [] } = useQuery({ queryKey: ['aiModels'], queryFn: aiModelService.getAll })
+  const { data: mcpServers = [] } = useQuery({ queryKey: ['mcpServers'], queryFn: mcpService.getAll })
+  const chatModels = (models as IAiModel[]).filter((m) => m.purpose === 'chat')
+  const enabledMcpServers = (mcpServers as IMcpServer[]).filter((s) => s.isEnabled)
+
   useEffect(() => {
     setConfig(parseConfig(node?.config))
   }, [node?.id, node?.config])
@@ -59,6 +67,18 @@ export default function NodeConfigPanel({
     setConfig(next)
     onChange({ config: JSON.stringify(next) })
   }
+
+  const toggleTool = (name: string) => {
+    const cur = (config.toolNames as string[]) ?? []
+    updateConfig('toolNames', cur.includes(name) ? cur.filter((t) => t !== name) : [...cur, name])
+  }
+  const toggleMcp = (id: string) => {
+    const cur = (config.mcpServerIds as string[]) ?? []
+    updateConfig('mcpServerIds', cur.includes(id) ? cur.filter((t) => t !== id) : [...cur, id])
+  }
+  const toolNames = (config.toolNames as string[]) ?? []
+  const mcpServerIds = (config.mcpServerIds as string[]) ?? []
+  const agentRefInvalid = !!node.agentId && !agents.some((a) => a.id === node.agentId)
 
   return (
     <div className="flex w-80 flex-col border-l border-gray-200 bg-white dark:border-white/[0.08] dark:bg-gray-900/50">
@@ -99,10 +119,10 @@ export default function NodeConfigPanel({
           </div>
         </div>
 
-        {/* Agent 节点：选择 Agent */}
+        {/* Agent 节点：选择智能体（数据源为智能体页面的 PromptPreset，仅取提示词） */}
         {node.type === WorkflowNodeTypes.Agent && (
           <div>
-            <label className={labelClass}>Agent</label>
+            <label className={labelClass}>智能体</label>
             <Select
               value={node.agentId ?? ''}
               onChange={(v) => onChange({ agentId: v || undefined })}
@@ -111,11 +131,99 @@ export default function NodeConfigPanel({
                 ...agents.map((a) => ({ value: a.id, label: a.name })),
               ]}
               searchable
-              placeholder="选择 Agent"
+              placeholder="选择智能体（取其提示词）"
             />
-            {agents.length === 0 && (
-              <p className="mt-1 text-xs text-amber-500">暂无 Agent，请先创建</p>
+            {agentRefInvalid && (
+              <p className="mt-1 text-xs text-amber-500">该智能体引用已失效，请重新选择</p>
             )}
+            {agents.length === 0 && (
+              <p className="mt-1 text-xs text-amber-500">暂无智能体，请先在「智能体」页面创建</p>
+            )}
+          </div>
+        )}
+
+        {/* Agent 节点：对话模型（节点级配置） */}
+        {node.type === WorkflowNodeTypes.Agent && (
+          <div>
+            <label className={labelClass}>对话模型 *</label>
+            <Select
+              value={(config.modelId as string) ?? ''}
+              onChange={(v) => updateConfig('modelId', v || undefined)}
+              options={[{ value: '', label: '默认模型' }, ...chatModels.map((m) => ({ value: m.id, label: m.displayName }))]}
+              searchable
+              placeholder="选择模型"
+            />
+          </div>
+        )}
+
+        {/* Agent 节点：工具勾选（节点级配置） */}
+        {node.type === WorkflowNodeTypes.Agent && (
+          <div>
+            <label className={labelClass}>工具</label>
+            <div className="flex flex-wrap gap-1.5">
+              {availableTools.map((t) => (
+                <button
+                  key={t.name}
+                  onClick={() => toggleTool(t.name)}
+                  className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
+                    toolNames.includes(t.name)
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Agent 节点：MCP 服务器勾选（节点级配置） */}
+        {node.type === WorkflowNodeTypes.Agent && (
+          <div>
+            <label className={labelClass}>MCP 服务器</label>
+            <div className="flex flex-wrap gap-1.5">
+              {enabledMcpServers.length === 0 && (
+                <span className="text-xs text-gray-400">暂无已启用的 MCP 服务器</span>
+              )}
+              {enabledMcpServers.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => toggleMcp(s.id)}
+                  className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
+                    mcpServerIds.includes(s.id)
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
+                  }`}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Agent 节点：迭代参数（节点级配置） */}
+        {node.type === WorkflowNodeTypes.Agent && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>单轮工具上限</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={(config.maxToolCallsPerTurn as number) ?? 5}
+                onChange={(e) => updateConfig('maxToolCallsPerTurn', parseInt(e.target.value) || 5)}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>最大迭代</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={(config.maxIterations as number) ?? 15}
+                onChange={(e) => updateConfig('maxIterations', parseInt(e.target.value) || 15)}
+              />
+            </div>
           </div>
         )}
 

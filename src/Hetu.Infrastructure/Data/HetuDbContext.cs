@@ -23,7 +23,6 @@ public class HetuDbContext : DbContext
     public DbSet<PromptPreset> PromptPresets => Set<PromptPreset>();
     public DbSet<Skill> Skills => Set<Skill>();
     public DbSet<McpServer> McpServers => Set<McpServer>();
-    public DbSet<Agent> Agents => Set<Agent>();
     public DbSet<Workflow> Workflows => Set<Workflow>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<WorkflowRunNode> WorkflowRunNodes => Set<WorkflowRunNode>();
@@ -221,20 +220,6 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
-        });
-
-        modelBuilder.Entity<Agent>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.Category).HasMaxLength(100);
-            entity.Property(e => e.SystemPrompt).IsRequired();
-            entity.Property(e => e.ToolNames).HasMaxLength(4000);
-            entity.Property(e => e.McpServerIds).HasMaxLength(2000);
-            entity.Property(e => e.SkillIds).HasMaxLength(2000);
-            entity.Property(e => e.ToolApprovals).HasMaxLength(4000);
-            entity.HasIndex(e => e.Category);
         });
 
         modelBuilder.Entity<Workflow>(entity =>

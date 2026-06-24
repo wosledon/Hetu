@@ -7,8 +7,9 @@ using Hetu.Shared.Workflow;
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
 
 /// <summary>
-/// Agent 节点：加载 Agent 实体，用模板解析输入，调用 AgentLoopService 执行 LLM+工具循环，
-/// 输出 LLM 最终内容。
+/// Agent 节点：node.AgentId 引用智能体页面维护的 PromptPreset（仅取 Content 作系统提示词）,
+/// modelId/toolNames/mcpServerIds/toolApprovals/迭代次数等执行参数全部来自节点 config JSON。
+/// 调用 AgentLoopService 执行 LLM+工具循环，输出 LLM 最终内容。
 /// </summary>
 public class AgentNodeExecutor : INodeExecutor
 {
@@ -27,17 +28,17 @@ public class AgentNodeExecutor : INodeExecutor
     public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
     {
         if (node.AgentId == null)
-            return new NodeResult { Error = "Agent 节点未配置 AgentId" };
+            return new NodeResult { Error = "Agent 节点未配置智能体" };
 
-        var agent = await _unitOfWork.Agents.GetByIdAsync(node.AgentId.Value, ct);
-        if (agent == null)
-            return new NodeResult { Error = $"Agent {node.AgentId} 不存在" };
-        if (!agent.IsEnabled)
-            return new NodeResult { Error = $"Agent {agent.Name} 已禁用" };
+        var preset = await _unitOfWork.PromptPresets.GetByIdAsync(node.AgentId.Value, ct);
+        if (preset == null)
+            return new NodeResult { Error = $"智能体 {node.AgentId} 不存在" };
 
-        // 解析输入模板
+        // 解析节点配置
         var config = ParseConfig(node.Config);
-        var inputTemplate = config?.TryGetValue("inputTemplate", out var it) == true ? it?.ToString() : null;
+
+        // 输入模板
+        var inputTemplate = TryGetString(config, "inputTemplate");
         var userInput = TemplateResolver.Resolve(inputTemplate ?? "", ctx);
         if (string.IsNullOrWhiteSpace(userInput))
             userInput = ctx.Input ?? "";
@@ -48,21 +49,21 @@ public class AgentNodeExecutor : INodeExecutor
             new() { Role = "user", Content = userInput }
         };
 
-        // 解析 Agent 配置
-        var toolNames = AgentService.DeserializeList(agent.ToolNames);
-        var mcpServerIds = AgentService.DeserializeGuidList(agent.McpServerIds);
-        var toolApprovals = AgentService.DeserializeDict(agent.ToolApprovals)
+        // 节点级执行参数（全部来自 node.Config）
+        var toolNames = TryGetList<string>(config, "toolNames");
+        var mcpServerIds = TryGetList<string>(config, "mcpServerIds").Select(Guid.Parse).ToList();
+        var toolApprovals = TryGetDict(config, "toolApprovals")
             .ToDictionary(kv => kv.Key, kv => Enum.TryParse<ToolApprovalMode>(kv.Value, true, out var m) ? m : ToolApprovalMode.Auto);
 
         var request = new AgentLoopRequest
         {
-            ModelId = agent.ModelId,
-            SystemPrompt = agent.SystemPrompt,
+            ModelId = TryGetGuid(config, "modelId"),
+            SystemPrompt = preset.Content,
             Messages = messages,
             ToolNames = toolNames,
             McpServerIds = mcpServerIds,
-            MaxIterations = agent.MaxAgentIterations,
-            MaxToolCallsPerTurn = agent.MaxToolCallsPerTurn,
+            MaxIterations = TryGetInt(config, "maxIterations", 15),
+            MaxToolCallsPerTurn = TryGetInt(config, "maxToolCallsPerTurn", 5),
             ToolApprovals = toolApprovals,
             SessionId = $"workflow-{ctx.RunId}-{node.Id}",
             Sink = new CollectingAgentLoopSink()
@@ -83,6 +84,39 @@ public class AgentNodeExecutor : INodeExecutor
         if (string.IsNullOrWhiteSpace(configJson)) return null;
         try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonOptions); }
         catch { return null; }
+    }
+
+    private static string? TryGetString(Dictionary<string, object>? config, string key)
+        => config != null && config.TryGetValue(key, out var v) && v is JsonElement je
+            ? (je.ValueKind == JsonValueKind.String ? je.GetString() : je.GetRawText())
+            : null;
+
+    private static Guid? TryGetGuid(Dictionary<string, object>? config, string key)
+    {
+        var s = TryGetString(config, key);
+        return !string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out var g) ? g : null;
+    }
+
+    private static List<T> TryGetList<T>(Dictionary<string, object>? config, string key)
+    {
+        if (config == null || !config.TryGetValue(key, out var v) || v is not JsonElement je || je.ValueKind != JsonValueKind.Array)
+            return new List<T>();
+        try { return je.Deserialize<List<T>>(JsonOptions) ?? new List<T>(); }
+        catch { return new List<T>(); }
+    }
+
+    private static Dictionary<string, string> TryGetDict(Dictionary<string, object>? config, string key)
+    {
+        if (config == null || !config.TryGetValue(key, out var v) || v is not JsonElement je || je.ValueKind != JsonValueKind.Object)
+            return new Dictionary<string, string>();
+        try { return je.Deserialize<Dictionary<string, string>>(JsonOptions) ?? new(); }
+        catch { return new Dictionary<string, string>(); }
+    }
+
+    private static int TryGetInt(Dictionary<string, object>? config, string key, int defaultValue)
+    {
+        if (config == null || !config.TryGetValue(key, out var v) || v is not JsonElement je) return defaultValue;
+        return je.ValueKind == JsonValueKind.Number && je.TryGetInt32(out var i) ? i : defaultValue;
     }
 }
 

@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { GitBranch, Plus, Play, Pencil, Copy, Trash2, Workflow as WorkflowIcon } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { workflowService } from '../services/workflowService'
-import { agentService } from '../services/agentService'
+import { promptPresetService } from '../services/promptPresetService'
 import type { IWorkflow } from '../types/workflow'
-import type { IAgent } from '../types/agent'
+import type { IPromptPreset } from '../types'
 import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
 
@@ -30,7 +30,7 @@ export default function WorkflowsPage() {
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
 
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
-  const { data: agents = [] } = useQuery({ queryKey: ['agents'], queryFn: agentService.getAll })
+  const { data: promptPresets = [] } = useQuery({ queryKey: ['promptPresets'], queryFn: promptPresetService.getAll })
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -70,7 +70,7 @@ export default function WorkflowsPage() {
         mainContent={
           <WorkflowEditor
             workflow={editingWorkflow}
-            agents={agents as IAgent[]}
+            agents={promptPresets as IPromptPreset[]}
             workflows={workflows}
             availableTools={AVAILABLE_TOOLS}
             onBack={() => setEditingId(null)}
