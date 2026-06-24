@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trash2, X } from 'lucide-react'
 import type { IWorkflowNode } from '../../types/workflow'
@@ -43,16 +43,19 @@ export default function NodeConfigPanel({
   onDelete,
   onClose,
 }: NodeConfigPanelProps) {
-  const [config, setConfig] = useState<Record<string, unknown>>({})
+  const [config, setConfig] = useState<Record<string, unknown>>(() => parseConfig(node?.config))
+  const lastNodeId = useRef<string | undefined>(node?.id)
+
+  // 节点切换时重置 config（渲染期间 setState 是 React 允许的模式，避免 effect 级联渲染）
+  if (node?.id !== lastNodeId.current) {
+    lastNodeId.current = node?.id
+    setConfig(parseConfig(node?.config))
+  }
 
   const { data: models = [] } = useQuery({ queryKey: ['aiModels'], queryFn: aiModelService.getAll })
   const { data: mcpServers = [] } = useQuery({ queryKey: ['mcpServers'], queryFn: mcpService.getAll })
   const chatModels = (models as IAiModel[]).filter((m) => m.purpose === 'chat')
   const enabledMcpServers = (mcpServers as IMcpServer[]).filter((s) => s.isEnabled)
-
-  useEffect(() => {
-    setConfig(parseConfig(node?.config))
-  }, [node?.id, node?.config])
 
   if (!node) {
     return (
