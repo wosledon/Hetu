@@ -65,18 +65,13 @@ export default function WorkflowsPage() {
 
   if (editingWorkflow) {
     return (
-      <AppLayout
-        showSidebar={false}
-        mainContent={
-          <WorkflowEditor
-            workflow={editingWorkflow}
-            agents={promptPresets as IPromptPreset[]}
-            workflows={workflows}
-            availableTools={AVAILABLE_TOOLS}
-            onBack={() => setEditingId(null)}
-            onRun={(wf) => setRunningWorkflow(wf)}
-          />
-        }
+      <WorkflowEditor
+        workflow={editingWorkflow}
+        agents={promptPresets as IPromptPreset[]}
+        workflows={workflows}
+        availableTools={AVAILABLE_TOOLS}
+        onBack={() => setEditingId(null)}
+        onRun={(wf) => setRunningWorkflow(wf)}
       />
     )
   }
