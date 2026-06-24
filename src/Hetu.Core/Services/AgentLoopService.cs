@@ -148,10 +148,10 @@ public class AgentLoopService
         var mcpToolNames = await LoadMcpToolsAsync(request.McpServerIds, ct);
         var allToolNames = request.ToolNames.Concat(mcpToolNames).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-        // 3. 构建 ChatOptions
+        // 3. 构建 ChatOptions（ModelId 留空，由 provider 内置的真实模型名生效，避免误传 Guid）
         var options = new ChatOptions
         {
-            ModelId = result.ModelId ?? "",
+            ModelId = "",
             Stream = true,
             SystemPrompt = ComposeSystemPrompt(request.SystemPrompt, allToolNames, request.MaxToolCallsPerTurn),
             Tools = _toolRegistry.ToToolDefinitions(allToolNames),
