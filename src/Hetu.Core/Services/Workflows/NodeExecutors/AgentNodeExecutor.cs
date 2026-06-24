@@ -37,7 +37,10 @@ public class AgentNodeExecutor : INodeExecutor
         // 解析节点配置
         var config = ParseConfig(node.Config);
 
-        // 自动接棒：从入边收集上游节点输出作为输入
+        // 节点指令（用户告诉这个 Agent 要做什么）
+        var instruction = TryGetString(config, "instruction")?.Trim();
+
+        // 自动接棒：从入边收集上游节点输出
         var upstreamEdges = ctx.Edges.Where(e => e.Target == node.Id).ToList();
         var upstreamOutputs = new List<(string Label, string Output)>();
         foreach (var edge in upstreamEdges)
@@ -49,19 +52,18 @@ public class AgentNodeExecutor : INodeExecutor
                 upstreamOutputs.Add((label, output));
         }
 
-        string userInput;
-        if (upstreamOutputs.Count == 0)
-        {
-            userInput = ctx.Input ?? "";
-        }
-        else if (upstreamOutputs.Count == 1)
-        {
-            userInput = upstreamOutputs[0].Output;
-        }
-        else
-        {
-            userInput = string.Join("\n\n", upstreamOutputs.Select(u => $"[来自 {u.Label}]\n{u.Output}"));
-        }
+        // 组装用户消息：指令 + 上游输出
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(instruction))
+            parts.Add(instruction);
+        if (upstreamOutputs.Count == 1)
+            parts.Add(upstreamOutputs[0].Output);
+        else if (upstreamOutputs.Count > 1)
+            parts.Add(string.Join("\n\n", upstreamOutputs.Select(u => $"[来自 {u.Label}]\n{u.Output}")));
+        else if (parts.Count == 0)
+            parts.Add(ctx.Input ?? "");
+
+        string userInput = string.Join("\n\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
 
         // 构建 LLM 消息
         var messages = new List<LlmChatMessage>

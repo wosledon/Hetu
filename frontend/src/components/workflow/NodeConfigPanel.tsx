@@ -227,11 +227,22 @@ export default function NodeConfigPanel({
           </div>
         )}
 
-        {/* Agent 节点：输入说明（自动接棒，无需配置） */}
+        {/* Agent 节点：指令 + 自动接棒说明 */}
         {node.type === WorkflowNodeTypes.Agent && (
-          <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-            输入自动取上游节点输出；多上游时按来源分组拼接。
-          </p>
+          <>
+            <div>
+              <label className={labelClass}>指令</label>
+              <textarea
+                className={`${inputClass} h-20 resize-none`}
+                value={(config.instruction as string) ?? ''}
+                onChange={(e) => updateConfig('instruction', e.target.value)}
+                placeholder="告诉这个智能体要做什么，如：请根据以下内容整理一篇笔记"
+              />
+            </div>
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+              上游节点输出会自动拼接在指令后作为输入；多上游时按来源分组。
+            </p>
+          </>
         )}
 
         {/* Condition 节点：分支配置 */}
