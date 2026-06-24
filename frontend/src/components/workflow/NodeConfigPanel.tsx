@@ -227,17 +227,11 @@ export default function NodeConfigPanel({
           </div>
         )}
 
-        {/* Agent 节点：输入模板 */}
+        {/* Agent 节点：输入说明（自动接棒，无需配置） */}
         {node.type === WorkflowNodeTypes.Agent && (
-          <div>
-            <label className={labelClass}>输入模板</label>
-            <textarea
-              className={`${inputClass} h-20 resize-none font-mono text-xs`}
-              value={(config.inputTemplate as string) ?? ''}
-              onChange={(e) => updateConfig('inputTemplate', e.target.value)}
-              placeholder={'{{start.input}} — 引用上游节点输出'}
-            />
-          </div>
+          <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+            输入自动取上游节点输出；多上游时按来源分组拼接。
+          </p>
         )}
 
         {/* Condition 节点：分支配置 */}

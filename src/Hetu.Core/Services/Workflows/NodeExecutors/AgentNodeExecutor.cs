@@ -37,11 +37,31 @@ public class AgentNodeExecutor : INodeExecutor
         // 解析节点配置
         var config = ParseConfig(node.Config);
 
-        // 输入模板
-        var inputTemplate = TryGetString(config, "inputTemplate");
-        var userInput = TemplateResolver.Resolve(inputTemplate ?? "", ctx);
-        if (string.IsNullOrWhiteSpace(userInput))
+        // 自动接棒：从入边收集上游节点输出作为输入
+        var upstreamEdges = ctx.Edges.Where(e => e.Target == node.Id).ToList();
+        var upstreamOutputs = new List<(string Label, string Output)>();
+        foreach (var edge in upstreamEdges)
+        {
+            var upstreamNode = ctx.Nodes.FirstOrDefault(n => n.Id == edge.Source);
+            var label = upstreamNode?.Label ?? edge.Source;
+            var output = ctx.GetVariableText($"{edge.Source}.output");
+            if (!string.IsNullOrWhiteSpace(output))
+                upstreamOutputs.Add((label, output));
+        }
+
+        string userInput;
+        if (upstreamOutputs.Count == 0)
+        {
             userInput = ctx.Input ?? "";
+        }
+        else if (upstreamOutputs.Count == 1)
+        {
+            userInput = upstreamOutputs[0].Output;
+        }
+        else
+        {
+            userInput = string.Join("\n\n", upstreamOutputs.Select(u => $"[来自 {u.Label}]\n{u.Output}"));
+        }
 
         // 构建 LLM 消息
         var messages = new List<LlmChatMessage>
