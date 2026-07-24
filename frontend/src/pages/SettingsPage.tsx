@@ -36,7 +36,7 @@ type SecondaryMenuStyle = 'flat' | 'collapsed'
 
 const menuStyleOptions = [
   { key: 'flat' as SecondaryMenuStyle, label: '平铺', desc: '父子菜单两栏并排', icon: Columns2 },
-  { key: 'collapsed' as SecondaryMenuStyle, label: '折叠', desc: '单列显示，进入后切换', icon: PanelLeft },
+  { key: 'collapsed' as SecondaryMenuStyle, label: '树形', desc: '合并为一棵树，展开父级显示子项', icon: PanelLeft },
 ]
 
 const configurableNavItems = [
@@ -430,7 +430,7 @@ function AppSettingsSection({
             )
           })}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面中父子二级菜单的排列方式</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面的菜单结构：平铺为父子两栏并排，树形则合并为一棵树</p>
       </div>
 
       {/* Knowledge Graph */}

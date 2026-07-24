@@ -167,6 +167,8 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
+  const [isAddingGroup, setIsAddingGroup] = useState(false)
+  const [groupName, setGroupName] = useState('')
 
   const { data: groups = [] } = useQuery({
     queryKey: ['chatGroups'],
@@ -177,6 +179,21 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
   const filteredGroups = groups.filter((g) => !search || g.name.toLowerCase().includes(search))
 
   const closeTopicMenu = () => setTopicMenu(null)
+
+  const createGroup = useMutation({
+    mutationFn: chatGroupService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatGroups'] })
+      setIsAddingGroup(false)
+      setGroupName('')
+    },
+  })
+
+  const handleCreateGroup = () => {
+    const trimmed = groupName.trim()
+    if (trimmed) createGroup.mutate({ name: trimmed })
+    else { setIsAddingGroup(false); setGroupName('') }
+  }
 
   const deleteTopic = useMutation({
     mutationFn: chatTopicService.delete,
@@ -204,7 +221,16 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
   return (
     <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-        <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">会话</h2>
+        <div className="mb-2.5 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">会话</h2>
+          <button
+            onClick={() => setIsAddingGroup(true)}
+            title="新建会话组"
+            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -217,6 +243,23 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
+        {isAddingGroup && (
+          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
+            <Folder size={14} className="shrink-0 text-blue-500" />
+            <input
+              autoFocus
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateGroup()
+                if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
+              }}
+              onBlur={handleCreateGroup}
+              placeholder="会话组名称"
+              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
+            />
+          </div>
+        )}
         {filteredGroups.map((group) => (
           <GroupNode
             key={group.id}
