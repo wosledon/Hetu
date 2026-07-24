@@ -26,6 +26,7 @@ public class UsageService
         // 概览
         result.Overview.TotalMessages = messages.Count;
         result.Overview.TotalTokens = messages.Sum(m => (long)(m.TokensUsed ?? 0));
+        result.Overview.TotalCachedTokens = messages.Sum(m => (long)(m.CachedTokens ?? 0));
         var latencies = messages.Where(m => m.LatencyMs.HasValue).Select(m => (double)m.LatencyMs!.Value).ToList();
         result.Overview.AvgLatencyMs = latencies.Count > 0 ? latencies.Average() : 0;
         result.Overview.ActiveDays = messages.Select(m => m.CreatedAt.LocalDateTime.Date).Distinct().Count();
@@ -81,6 +82,7 @@ public class UsageService
                 ModelName = g.Key.HasValue && modelNames.TryGetValue(g.Key.Value, out var n) ? n : "默认模型",
                 Messages = g.Count(),
                 Tokens = g.Sum(m => (long)(m.TokensUsed ?? 0)),
+                CachedTokens = g.Sum(m => (long)(m.CachedTokens ?? 0)),
             })
             .OrderByDescending(m => m.Tokens)
             .ToList();

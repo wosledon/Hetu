@@ -139,7 +139,7 @@ public static class ChatStreamProcessor
     /// Streams from the provider, emitting content/thinking chunks and capturing tool calls.
     /// Returns the accumulated content/thinking buffers and any pending tool calls.
     /// </summary>
-    public static async Task<(StringBuilder content, StringBuilder thinking, List<Hetu.Core.Interfaces.LlmToolCall>? toolCalls)> ProcessStreamAsync(
+    public static async Task<(StringBuilder content, StringBuilder thinking, List<Hetu.Core.Interfaces.LlmToolCall>? toolCalls, Hetu.Core.Interfaces.LlmUsage? usage)> ProcessStreamAsync(
         Hetu.Core.Interfaces.ILLMProvider provider,
         List<Hetu.Core.Interfaces.LlmChatMessage> chatMessages,
         Hetu.Core.Interfaces.ChatOptions options,
@@ -149,6 +149,7 @@ public static class ChatStreamProcessor
         var contentSb = new StringBuilder();
         var thinkingSb = new StringBuilder();
         List<Hetu.Core.Interfaces.LlmToolCall>? pendingToolCalls = null;
+        Hetu.Core.Interfaces.LlmUsage? usage = null;
         var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
         async Task EmitChunk(string type, string text)
@@ -177,6 +178,13 @@ public static class ChatStreamProcessor
                             pendingToolCalls = System.Text.Json.JsonSerializer.Deserialize<List<Hetu.Core.Interfaces.LlmToolCall>>(tcArray.GetRawText(), jsonOptions);
                         }
                     }
+                    else if (typeStr == "usage")
+                    {
+                        if (doc.RootElement.TryGetProperty("usage", out var usageEl))
+                        {
+                            usage = System.Text.Json.JsonSerializer.Deserialize<Hetu.Core.Interfaces.LlmUsage>(usageEl.GetRawText(), jsonOptions);
+                        }
+                    }
                     else
                     {
                         await EmitChunk(typeStr ?? "content", text);
@@ -189,6 +197,6 @@ public static class ChatStreamProcessor
             await parser.ParseAsync(delta);
         }
 
-        return (contentSb, thinkingSb, pendingToolCalls);
+        return (contentSb, thinkingSb, pendingToolCalls, usage);
     }
 }

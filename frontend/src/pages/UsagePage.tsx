@@ -11,6 +11,7 @@ import {
   Calendar,
   CalendarClock,
   Cpu,
+  DatabaseZap,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService } from '../services/usageService'
@@ -88,13 +89,17 @@ export default function UsagePage() {
 
   // 模型分布环形图
   const PALETTE = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#6366f1']
+  const pieData = byModel.slice(0, 7)
   const pieOption = {
     tooltip: {
       backgroundColor: isDark ? '#1f2937' : '#fff',
       borderColor: isDark ? '#374151' : '#e5e7eb',
       textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12 },
-      formatter: (p: { name: string; value: number; percent: number }) =>
-        `${p.name}<br/><b>${fmtNum(p.value)} ${metric === 'messages' ? '条' : 'tokens'} (${p.percent}%)</b>`,
+      formatter: (p: { name: string; value: number; percent: number; dataIndex: number }) => {
+        const m = pieData[p.dataIndex]
+        const cached = m && m.cachedTokens > 0 ? `<br/>缓存 ${fmtNum(m.cachedTokens)} tokens` : ''
+        return `${p.name}<br/><b>${fmtNum(p.value)} ${metric === 'messages' ? '条' : 'tokens'} (${p.percent}%)</b>${cached}`
+      },
     },
     legend: {
       bottom: 0,
@@ -113,7 +118,7 @@ export default function UsagePage() {
         itemStyle: { borderColor: isDark ? '#0c0f1a' : '#fff', borderWidth: 2, borderRadius: 6 },
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 13, fontWeight: 600, color: isDark ? '#e5e7eb' : '#111827', formatter: '{b}\n{d}%' } },
-        data: byModel.slice(0, 7).map((m, i) => ({
+        data: pieData.map((m, i) => ({
           name: m.modelName,
           value: metric === 'messages' ? m.messages : m.tokens,
           itemStyle: { color: PALETTE[i % PALETTE.length] },
@@ -126,6 +131,7 @@ export default function UsagePage() {
     ? [
         { label: '总消息数', value: fmtNum(overview.totalMessages), icon: MessageSquare, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
         { label: '总 Tokens', value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+        { label: '缓存 Tokens', value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
         { label: '平均延迟', value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
         { label: '活跃天数', value: String(overview.activeDays), icon: CalendarDays, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { label: '今日消息', value: fmtNum(overview.todayMessages), icon: Activity, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-500/10' },
@@ -176,7 +182,7 @@ export default function UsagePage() {
             ) : (
               <div className="space-y-6">
                 {/* 概览卡片 */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
                   {cards.map((c) => {
                     const Icon = c.icon
                     return (

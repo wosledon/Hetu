@@ -114,24 +114,16 @@ public class WorkflowsController : ControllerBase
                 await _chatMessageService.SaveAssistantMessageAsync(
                     topicId,
                     result.Output,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    cancellationToken);
+                    modelId: null,
+                    cancellationToken: cancellationToken);
             }
             else if (result.Status == "Failed")
             {
                 await _chatMessageService.SaveAssistantMessageAsync(
                     topicId,
                     $"⚠️ 工作流执行失败：{result.Error}",
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    cancellationToken);
+                    modelId: null,
+                    cancellationToken: cancellationToken);
             }
 
             await writer.WriteJsonAsync(new { type = "run_result", result });

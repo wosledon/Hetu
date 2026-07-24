@@ -9,6 +9,7 @@ public class ChatMessage : BaseEntity
     public Guid? ParentId { get; set; }
     public Guid? ModelId { get; set; }
     public int? TokensUsed { get; set; }
+    public int? CachedTokens { get; set; }
     public int? LatencyMs { get; set; }
     public string? ThinkingContent { get; set; }
     public string? SearchResultsJson { get; set; }

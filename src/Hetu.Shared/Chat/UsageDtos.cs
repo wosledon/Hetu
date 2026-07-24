@@ -4,6 +4,7 @@ public class UsageOverviewDto
 {
     public long TotalMessages { get; set; }
     public long TotalTokens { get; set; }
+    public long TotalCachedTokens { get; set; }
     public double AvgLatencyMs { get; set; }
     public int ActiveDays { get; set; }
     public long TodayMessages { get; set; }
@@ -33,6 +34,7 @@ public class UsageModelStat
     public string ModelName { get; set; } = string.Empty;
     public long Messages { get; set; }
     public long Tokens { get; set; }
+    public long CachedTokens { get; set; }
 }
 
 public class UsageStatsDto

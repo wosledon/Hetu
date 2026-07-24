@@ -129,13 +129,23 @@ public class ChatMessagesController : ControllerBase
         var sessionTodos = new List<SessionTodo>();
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int totalTokens = 0, cachedTokens = 0;
+        bool hasUsage = false;
 
         for (int iter = 0; iter < maxIter; iter++)
         {
             await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
 
-            var (iterContent, iterThinking, pendingToolCalls) = await ChatStreamProcessor.ProcessStreamAsync(
+            var (iterContent, iterThinking, pendingToolCalls, iterUsage) = await ChatStreamProcessor.ProcessStreamAsync(
                 provider, chatMessages, options, writer, ct);
+
+            if (iterUsage != null)
+            {
+                hasUsage = true;
+                totalTokens += iterUsage.TotalTokens;
+                cachedTokens += iterUsage.CachedTokens;
+            }
 
             if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
             {
@@ -167,12 +177,18 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
+        sw.Stop();
+        var latencyMs = (int)sw.ElapsedMilliseconds;
+
         var finalContent = contentSb.ToString().Trim();
         if (!string.IsNullOrEmpty(finalContent))
         {
             await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId,
                 thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
-                searchJson, kbJson, memJson, ct);
+                searchJson, kbJson, memJson,
+                hasUsage ? totalTokens : null,
+                hasUsage ? cachedTokens : null,
+                latencyMs, ct);
         }
 
         if (request.Memory)

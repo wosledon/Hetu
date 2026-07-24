@@ -62,7 +62,7 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
 
   const textColor = isDark ? '#9ca3af' : '#6b7280'
   const option = {
-    grid: { left: 76, right: 16, top: 10, bottom: 56 },
+    grid: { left: 76, right: 16, top: 10, bottom: 28 },
     tooltip: {
       confine: true,
       appendToBody: true,
@@ -92,15 +92,9 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
       axisLabel: { color: textColor, fontSize: 10 },
     },
     visualMap: {
+      show: false,
       min: 0,
       max,
-      calculable: true,
-      orient: 'horizontal',
-      left: 'center',
-      bottom: 0,
-      itemWidth: 12,
-      itemHeight: 80,
-      textStyle: { color: textColor, fontSize: 10 },
       inRange: { color: heatColors(isDark) },
     },
     series: [
@@ -150,22 +144,16 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
         `${p.value[0]}<br/><b>${METRIC_LABEL[metric]}: ${fmt(p.value[1])}</b>`,
     },
     visualMap: {
+      show: false,
       min: 0,
       max,
-      calculable: true,
-      orient: 'horizontal',
-      left: 'center',
-      bottom: 0,
-      itemWidth: 12,
-      itemHeight: 80,
-      textStyle: { color: textColor, fontSize: 10 },
       inRange: { color: heatColors(isDark) },
     },
     calendar: {
       top: 30,
       left: 50,
       right: 16,
-      bottom: 56,
+      bottom: 24,
       range: [toIso(start), toIso(today)],
       cellSize: ['auto', 14],
       splitLine: { show: false },

@@ -3,6 +3,7 @@ import { get } from './api'
 export interface IUsageOverview {
   totalMessages: number
   totalTokens: number
+  totalCachedTokens: number
   avgLatencyMs: number
   activeDays: number
   todayMessages: number
@@ -26,6 +27,7 @@ export interface IUsageModelStat {
   modelName: string
   messages: number
   tokens: number
+  cachedTokens: number
 }
 
 export interface IUsageStats {

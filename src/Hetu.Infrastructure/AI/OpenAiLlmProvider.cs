@@ -58,6 +58,7 @@ public class OpenAiLlmProvider : ILLMProvider
 
         // Accumulate tool calls across stream chunks
         var toolCallAccumulators = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+        OpenAiUsage? lastUsage = null;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -81,6 +82,12 @@ public class OpenAiLlmProvider : ILLMProvider
 
             var choice = chunk?.Choices?.FirstOrDefault();
             var delta = choice?.Delta;
+
+            // Capture usage (sent on the final frame by most providers)
+            if (chunk?.Usage != null)
+            {
+                lastUsage = chunk.Usage;
+            }
 
             // Content / thinking
             var content = delta?.Content;
@@ -136,11 +143,15 @@ public class OpenAiLlmProvider : ILLMProvider
 
                     yield return JsonSerializer.Serialize(new { type = "tool_calls", toolCalls }, JsonOptionsOut);
                 }
+                if (lastUsage != null)
+                {
+                    yield return JsonSerializer.Serialize(new { type = "usage", usage = ToUsage(lastUsage) }, JsonOptionsOut);
+                }
                 yield break;
             }
         }
 
-        // Stream ended without explicit finish_reason — emit any accumulated tool calls
+        // Stream ended without explicit finish_reason — emit any accumulated tool calls / usage
         if (toolCallAccumulators.Count > 0)
         {
             var toolCalls = toolCallAccumulators.Values.Select((tc, i) => new LlmToolCall
@@ -152,7 +163,20 @@ public class OpenAiLlmProvider : ILLMProvider
 
             yield return JsonSerializer.Serialize(new { type = "tool_calls", toolCalls }, JsonOptionsOut);
         }
+        if (lastUsage != null)
+        {
+            yield return JsonSerializer.Serialize(new { type = "usage", usage = ToUsage(lastUsage) }, JsonOptionsOut);
+        }
     }
+
+    /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>
+    private static LlmUsage ToUsage(OpenAiUsage u) => new()
+    {
+        PromptTokens = u.PromptTokens ?? 0,
+        CompletionTokens = u.CompletionTokens ?? 0,
+        TotalTokens = u.TotalTokens ?? (u.PromptTokens ?? 0) + (u.CompletionTokens ?? 0),
+        CachedTokens = u.CachedTokens ?? u.PromptTokensDetails?.CachedTokens ?? 0,
+    };
 
     public async Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default)
     {
@@ -337,5 +361,20 @@ public class OpenAiLlmProvider : ILLMProvider
     private class OpenAiStreamChunk
     {
         public List<OpenAiChoice>? Choices { get; set; }
+        public OpenAiUsage? Usage { get; set; }
+    }
+
+    private class OpenAiUsage
+    {
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+        public int? TotalTokens { get; set; }
+        public int? CachedTokens { get; set; }
+        public OpenAiPromptTokenDetails? PromptTokensDetails { get; set; }
+    }
+
+    private class OpenAiPromptTokenDetails
+    {
+        public int? CachedTokens { get; set; }
     }
 }
