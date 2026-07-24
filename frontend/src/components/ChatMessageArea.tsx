@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send, Bot, FileText, Search, GitBranch, Copy, Check, Pencil, Trash2, X, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
+import { workflowService } from '../services/workflowService'
+import type { IWorkflow } from '../types/workflow'
+import RunDialog from './workflow/RunDialog'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -11,7 +14,7 @@ import Select from './Select'
 import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
 import { useStreaming } from '../hooks/useStreaming'
-import { renderToolName, renderToolResult } from '../utils/toolRendering'
+import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -29,6 +32,15 @@ function findNotebookName(notebooks: INotebook[], id: string): string {
     }
   }
   return '默认笔记本'
+}
+
+// Older messages persisted RAG results with PascalCase keys; normalize to camelCase.
+function toCamelKeys<T>(obj: Record<string, unknown>): T {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    out[k.charAt(0).toLowerCase() + k.slice(1)] = v
+  }
+  return out as T
 }
 
 function renderNotebookTree(
@@ -64,6 +76,7 @@ function renderNotebookTree(
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
+  const assistantName = useUIStore((state) => state.assistantName)
   const [input, setInput] = useState('')
   const {
     streamingContent, setStreamingContent,
@@ -80,7 +93,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingTodos, setStreamingTodos,
     todoPanelCollapsed, setTodoPanelCollapsed,
     approvalRequests, setApprovalRequests,
-    resetStreaming, startStreaming, stopStreaming, handleSseChunk,
+    startStreaming, stopStreaming, handleSseChunk,
   } = useStreaming()
 
   const [streamWebSearch, setStreamWebSearch] = useState(false)
@@ -110,6 +123,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showApprovalPicker, setShowApprovalPicker] = useState(false)
   const approvalPickerRef = useRef<HTMLDivElement>(null)
   const [memory, setMemory] = useState(false)
+  const [showWorkflowPicker, setShowWorkflowPicker] = useState(false)
+  const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
+  const workflowPickerRef = useRef<HTMLDivElement>(null)
+  const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState('')
@@ -258,10 +275,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showApprovalPicker && approvalPickerRef.current && !approvalPickerRef.current.contains(target)) {
         setShowApprovalPicker(false)
       }
+      if (showWorkflowPicker && workflowPickerRef.current && !workflowPickerRef.current.contains(target)) {
+        setShowWorkflowPicker(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker, showWorkflowPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -767,7 +787,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <div className={`flex min-w-0 max-w-[80%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className="mb-1.5 flex items-center gap-2">
                 {message.role === 'assistant' && (
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
                 )}
                 <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
 
@@ -825,7 +845,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Search results for saved messages */}
                     {message.role === 'assistant' && message.searchResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.searchResultsJson) as Array<{ title: string; url: string; snippet: string }>
+                        const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -857,7 +877,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Knowledge base results for saved messages */}
                     {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.knowledgeResultsJson) as Array<{ title: string; contentSnippet: string; id: string }>
+                        const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -888,7 +908,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Memory results for saved messages */}
                     {message.role === 'assistant' && message.memoryResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.memoryResultsJson) as Array<{ id: string; content: string; category?: string; score?: number }>
+                        const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -967,14 +987,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
             </div>
             <div className="max-w-[80%] flex flex-col items-start">
               <div className="mb-1.5">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
                 {/* Thinking block - show whenever thinking content exists */}
@@ -1630,6 +1650,43 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
               </div>
 
+              {/* Workflow selector — 在对话中触发工作流 */}
+              <div className="relative" ref={workflowPickerRef}>
+                <button
+                  onClick={() => { setShowWorkflowPicker(!showWorkflowPicker); setShowAgentPicker(false); setShowModelPicker(false) }}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title="工作流"
+                  disabled={!topic}
+                >
+                  <GitBranch size={14} />
+                  工作流
+                  <ChevronDown size={10} />
+                </button>
+                {showWorkflowPicker && (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div className="max-h-56 overflow-y-auto p-1.5">
+                      {availableWorkflows.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-gray-500">暂无工作流</div>
+                      ) : (
+                        availableWorkflows.map((w) => (
+                          <button
+                            key={w.id}
+                            onClick={() => { setRunningWorkflow(w); setShowWorkflowPicker(false) }}
+                            className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <div className="flex items-center gap-2">
+                              <GitBranch size={12} className="text-blue-500" />
+                              <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{w.name}</span>
+                            </div>
+                            {w.description && <div className="mt-0.5 text-[10px] text-gray-400 truncate">{w.description}</div>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Model selector */}
               <div className="relative" ref={modelPickerRef}>
                 <button
@@ -1836,6 +1893,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         <p className="mt-1.5 text-center text-[10px] text-gray-400">Shift + Enter 换行 · 支持粘贴文件</p>
       </div>
+
+      {runningWorkflow && topic && (
+        <RunDialog
+          workflow={runningWorkflow}
+          topicId={topic.id}
+          onClose={() => setRunningWorkflow(null)}
+        />
+      )}
     </div>
   )
 }

@@ -36,12 +36,18 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("Dimensions")
+                        .HasColumnType("integer");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVisible")
                         .HasColumnType("boolean");
 
                     b.Property<string>("ModelId")
@@ -56,6 +62,23 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ReasoningEffort")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReasoningMode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("SupportsReasoning")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SupportsTools")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SupportsVision")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -174,8 +197,14 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("KnowledgeResultsJson")
+                        .HasColumnType("text");
+
                     b.Property<int?>("LatencyMs")
                         .HasColumnType("integer");
+
+                    b.Property<string>("MemoryResultsJson")
+                        .HasColumnType("text");
 
                     b.Property<Guid?>("ModelId")
                         .HasColumnType("uuid");
@@ -187,6 +216,12 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("SearchResultsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ThinkingContent")
+                        .HasColumnType("text");
 
                     b.Property<int?>("TokensUsed")
                         .HasColumnType("integer");
@@ -213,8 +248,8 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid?>("AutoOrganizeNotebookId")
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("ContextWindowSize")
-                        .HasColumnType("integer");
+                    b.Property<Guid?>("BranchMessageId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -225,13 +260,16 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsAutoOrganizeEnabled")
                         .HasColumnType("boolean");
 
                     b.Property<Guid?>("ModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("NoteSyncStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ParentTopicId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Title")
@@ -247,6 +285,161 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasIndex("GroupId");
 
                     b.ToTable("ChatTopics");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.GraphEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name");
+
+                    b.ToTable("GraphEntities");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.GraphRelation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RelationType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("SourceEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SourceNoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("SourceEntityId");
+
+                    b.HasIndex("TargetEntityId");
+
+                    b.ToTable("GraphRelations");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.KnowledgeItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("NoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("NoteId");
+
+                    b.HasIndex("Type");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("KnowledgeItems");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.McpServer", b =>
@@ -289,6 +482,96 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("McpServers");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.Memory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AccessCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<float>("Importance")
+                        .HasColumnType("real");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("LastAccessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("TopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("Importance");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastAccessedAt");
+
+                    b.HasIndex("Source");
+
+                    b.ToTable("Memories");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.MemoryEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MemoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Vector>("Vector")
+                        .IsRequired()
+                        .HasColumnType("vector");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemoryId");
+
+                    b.HasIndex("Vector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Vector"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Vector"), new[] { "vector_cosine_ops" });
+
+                    b.ToTable("MemoryEmbeddings");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.Note", b =>
@@ -340,6 +623,77 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.NoteChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ChunkIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChunkMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("KnowledgeItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KnowledgeItemId");
+
+                    b.HasIndex("KnowledgeItemId", "ChunkIndex")
+                        .IsUnique();
+
+                    b.ToTable("NoteChunks");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.NoteChunkEmbedding", b =>
+                {
+                    b.Property<Guid>("ChunkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Dimensions")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Vector>("Vector")
+                        .IsRequired()
+                        .HasColumnType("vector");
+
+                    b.HasKey("ChunkId");
+
+                    b.HasIndex("Vector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Vector"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Vector"), new[] { "vector_cosine_ops" });
+
+                    b.ToTable("NoteChunkEmbeddings");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.NoteEmbedding", b =>
                 {
                     b.Property<Guid>("NoteId")
@@ -361,6 +715,11 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasColumnType("vector");
 
                     b.HasKey("NoteId");
+
+                    b.HasIndex("Vector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Vector"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Vector"), new[] { "vector_cosine_ops" });
 
                     b.ToTable("NoteEmbeddings");
                 });
@@ -470,6 +829,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ToolsConfig")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -479,6 +841,183 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PromptPresets");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ScheduledTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CronExpression")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("IntervalMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("LastRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("MaxRetries")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("NextRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Parameters")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScheduleType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TargetName")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TaskKind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("TopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("IsEnabled");
+
+                    b.HasIndex("NextRunAt");
+
+                    b.ToTable("ScheduledTasks");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ScheduledTaskExecution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsManual")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("RetryAttempt")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ScheduledTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduledTaskId");
+
+                    b.HasIndex("StartedAt");
+
+                    b.ToTable("ScheduledTaskExecutions");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ShareLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("NoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ShareCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.HasIndex("ShareCode")
+                        .IsUnique();
+
+                    b.ToTable("ShareLinks");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.Skill", b =>
@@ -553,6 +1092,219 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.ToTable("Tags");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.TaskItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TaskType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TaskType");
+
+                    b.ToTable("TaskItems");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.Workflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Edges")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("InputSchema")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Nodes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Variables")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsEnabled");
+
+                    b.ToTable("Workflows");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkflowRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChatTopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GraphSnapshot")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Input")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("TotalIterations")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatTopicId");
+
+                    b.HasIndex("WorkflowId");
+
+                    b.ToTable("WorkflowRuns");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkflowRunNode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Input")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Iterations")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NodeId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NodeType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.ToTable("WorkflowRunNodes");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.AiModel", b =>
                 {
                     b.HasOne("Hetu.Core.Entities.AiProvider", "Provider")
@@ -586,6 +1338,45 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Navigation("Group");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.GraphRelation", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.GraphEntity", "SourceEntity")
+                        .WithMany("OutgoingRelations")
+                        .HasForeignKey("SourceEntityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hetu.Core.Entities.GraphEntity", "TargetEntity")
+                        .WithMany("IncomingRelations")
+                        .HasForeignKey("TargetEntityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SourceEntity");
+
+                    b.Navigation("TargetEntity");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.KnowledgeItem", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.Note", "Note")
+                        .WithMany("KnowledgeItems")
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Note");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.MemoryEmbedding", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.Memory", "Memory")
+                        .WithMany()
+                        .HasForeignKey("MemoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Memory");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.Note", b =>
                 {
                     b.HasOne("Hetu.Core.Entities.Notebook", "Notebook")
@@ -596,13 +1387,33 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Navigation("Notebook");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.NoteChunk", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.KnowledgeItem", "KnowledgeItem")
+                        .WithMany("Chunks")
+                        .HasForeignKey("KnowledgeItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("KnowledgeItem");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.NoteChunkEmbedding", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.NoteChunk", "Chunk")
+                        .WithOne()
+                        .HasForeignKey("Hetu.Core.Entities.NoteChunkEmbedding", "ChunkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chunk");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.NoteEmbedding", b =>
                 {
                     b.HasOne("Hetu.Core.Entities.Note", "Note")
                         .WithOne()
                         .HasForeignKey("Hetu.Core.Entities.NoteEmbedding", "NoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Note");
                 });
@@ -612,8 +1423,7 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasOne("Hetu.Core.Entities.Note", "Note")
                         .WithMany("NoteTags")
                         .HasForeignKey("NoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Hetu.Core.Entities.Tag", "Tag")
                         .WithMany("NoteTags")
@@ -631,8 +1441,7 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasOne("Hetu.Core.Entities.Note", "Note")
                         .WithMany()
                         .HasForeignKey("NoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Note");
                 });
@@ -645,6 +1454,16 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ShareLink", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.Note", "Note")
+                        .WithMany()
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Note");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.AiProvider", b =>
@@ -662,8 +1481,22 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Navigation("Messages");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.GraphEntity", b =>
+                {
+                    b.Navigation("IncomingRelations");
+
+                    b.Navigation("OutgoingRelations");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.KnowledgeItem", b =>
+                {
+                    b.Navigation("Chunks");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.Note", b =>
                 {
+                    b.Navigation("KnowledgeItems");
+
                     b.Navigation("NoteTags");
                 });
 

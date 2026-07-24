@@ -251,12 +251,17 @@ public class ChatMessagesController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.SkillName))
             skillPrompt = await ResolveSkillPromptAsync(request.SkillName, ct);
 
+        var assistantName = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantName", ct))?.Value;
+        var assistantPersona = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantPersona", ct))?.Value;
+
         options.SystemPrompt = _promptComposer.Compose(new PromptComposeContext
         {
             Profile = profile,
             AgentPresetPrompt = request.PresetSystemPrompt,
             SkillPrompt = skillPrompt,
             TopicCustomPrompt = topic.CustomSystemPrompt,
+            AssistantName = assistantName,
+            AssistantPersona = assistantPersona,
             EnabledTools = request.EnableTools ? request.EnabledTools : null,
             Now = DateTimeOffset.Now,
             TopicTitle = topic.Title,
@@ -319,6 +324,8 @@ public class ChatMessagesController : ControllerBase
         SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
+        // Persist with camelCase so the frontend can parse saved results the same way as SSE payloads.
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
         if (request.WebSearch)
         {
@@ -326,7 +333,7 @@ public class ChatMessagesController : ControllerBase
             if (results.Count > 0)
             {
                 await writer.WriteJsonAsync(new { type = "search_results", results });
-                searchJson = System.Text.Json.JsonSerializer.Serialize(results);
+                searchJson = System.Text.Json.JsonSerializer.Serialize(results, jsonOptions);
                 messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildSearchContext(results) });
             }
         }
@@ -340,7 +347,7 @@ public class ChatMessagesController : ControllerBase
                 {
                     var items = kbResult.Data.Items;
                     await writer.WriteJsonAsync(new { type = "knowledge_results", results = items.Select(r => new { r.Title, r.ContentSnippet, r.Id }) });
-                    kbJson = System.Text.Json.JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }));
+                    kbJson = System.Text.Json.JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }), jsonOptions);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildKnowledgeContext(items) });
                 }
             }
@@ -355,7 +362,7 @@ public class ChatMessagesController : ControllerBase
                 if (memories.Count > 0)
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });
-                    memJson = System.Text.Json.JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }));
+                    memJson = System.Text.Json.JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }), jsonOptions);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildMemoryContext(memories) });
                 }
             }

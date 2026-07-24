@@ -23,6 +23,9 @@ public class HetuDbContext : DbContext
     public DbSet<PromptPreset> PromptPresets => Set<PromptPreset>();
     public DbSet<Skill> Skills => Set<Skill>();
     public DbSet<McpServer> McpServers => Set<McpServer>();
+    public DbSet<Workflow> Workflows => Set<Workflow>();
+    public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
+    public DbSet<WorkflowRunNode> WorkflowRunNodes => Set<WorkflowRunNode>();
     public DbSet<GraphEntity> GraphEntities => Set<GraphEntity>();
     public DbSet<GraphRelation> GraphRelations => Set<GraphRelation>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
@@ -217,6 +220,33 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Workflow>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Nodes).IsRequired();
+            entity.Property(e => e.Edges).IsRequired();
+            entity.HasIndex(e => e.IsEnabled);
+        });
+
+        modelBuilder.Entity<WorkflowRun>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.WorkflowId);
+            entity.HasIndex(e => e.ChatTopicId);
+        });
+
+        modelBuilder.Entity<WorkflowRunNode>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.NodeId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.NodeType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.RunId);
         });
 
         modelBuilder.Entity<GraphEntity>(entity =>

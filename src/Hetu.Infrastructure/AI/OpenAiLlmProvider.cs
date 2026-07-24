@@ -86,11 +86,14 @@ public class OpenAiLlmProvider : ILLMProvider
             var content = delta?.Content;
             var reasoning = delta?.ReasoningContent;
 
+            // Content / thinking — emit each independently. Some providers (e.g. stepfun)
+            // return reasoning and content in the SAME chunk, so they must not be mutually
+            // exclusive (an else-if here would drop the content whenever reasoning is present).
             if (!string.IsNullOrEmpty(reasoning))
             {
                 yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
             }
-            else if (!string.IsNullOrEmpty(content))
+            if (!string.IsNullOrEmpty(content))
             {
                 yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(content)}}}";
             }

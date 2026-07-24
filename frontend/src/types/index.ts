@@ -58,6 +58,8 @@ export interface INoteSearchResult {
 
 export interface IAppSettingsSnapshot {
   appName: string;
+  assistantName: string;
+  assistantPersona: string;
   theme: 'light' | 'dark' | 'system';
   graphAutoExtract: string;
   autoEmbedding: string;

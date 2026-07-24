@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -32,6 +32,13 @@ const themeOptions = [
   { key: 'dark' as Theme, label: '暗色', desc: '护眼深色', icon: Moon },
 ]
 
+type SecondaryMenuStyle = 'flat' | 'collapsed'
+
+const menuStyleOptions = [
+  { key: 'flat' as SecondaryMenuStyle, label: '平铺', desc: '父子菜单两栏并排', icon: Columns2 },
+  { key: 'collapsed' as SecondaryMenuStyle, label: '树形', desc: '合并为一棵树，展开父级显示子项', icon: PanelLeft },
+]
+
 const configurableNavItems = [
   { path: '/tags', label: '标签', icon: Tag },
   { path: '/agents', label: '智能体', icon: Bot },
@@ -49,10 +56,16 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const [activeSection, setActiveSection] = useState<SettingsSection>('app')
   const appName = useUIStore((state) => state.appName)
+  const assistantName = useUIStore((state) => state.assistantName)
+  const assistantPersona = useUIStore((state) => state.assistantPersona)
   const theme = useUIStore((state) => state.theme)
+  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
   const setAppName = useUIStore((state) => state.setAppName)
+  const setAssistantName = useUIStore((state) => state.setAssistantName)
+  const setAssistantPersona = useUIStore((state) => state.setAssistantPersona)
   const setTheme = useUIStore((state) => state.setTheme)
+  const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
 
   const { data: snapshot } = useQuery({
@@ -77,9 +90,11 @@ export default function SettingsPage() {
   useEffect(() => {
     if (snapshot && !setSetting.isPending) {
       setAppName(snapshot.appName)
+      setAssistantName(snapshot.assistantName)
+      setAssistantPersona(snapshot.assistantPersona)
       setTheme(snapshot.theme as Theme)
     }
-  }, [snapshot, setAppName, setSetting.isPending, setTheme])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setSetting.isPending, setTheme])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -87,6 +102,22 @@ export default function SettingsPage() {
 
   const handleAppNameSave = () => {
     setSetting.mutate({ key: 'AppName', value: appName })
+  }
+
+  const handleAssistantNameChange = (value: string) => {
+    setAssistantName(value)
+  }
+
+  const handleAssistantNameSave = () => {
+    setSetting.mutate({ key: 'AssistantName', value: assistantName })
+  }
+
+  const handleAssistantPersonaChange = (value: string) => {
+    setAssistantPersona(value)
+  }
+
+  const handleAssistantPersonaSave = () => {
+    setSetting.mutate({ key: 'AssistantPersona', value: assistantPersona })
   }
 
   const handleThemeChange = (value: Theme) => {
@@ -153,11 +184,19 @@ export default function SettingsPage() {
                 <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
+                    assistantName={assistantName}
+                    assistantPersona={assistantPersona}
                     theme={theme}
+                    secondaryMenuStyle={secondaryMenuStyle}
                     snapshot={snapshot}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
+                    onAssistantNameChange={handleAssistantNameChange}
+                    onAssistantNameSave={handleAssistantNameSave}
+                    onAssistantPersonaChange={handleAssistantPersonaChange}
+                    onAssistantPersonaSave={handleAssistantPersonaSave}
                     onThemeChange={handleThemeChange}
+                    onMenuStyleChange={setSecondaryMenuStyle}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
                   />}
@@ -204,20 +243,36 @@ export default function SettingsPage() {
 
 function AppSettingsSection({
   appName,
+  assistantName,
+  assistantPersona,
   theme,
+  secondaryMenuStyle,
   snapshot,
   onAppNameChange,
   onAppNameSave,
+  onAssistantNameChange,
+  onAssistantNameSave,
+  onAssistantPersonaChange,
+  onAssistantPersonaSave,
   onThemeChange,
+  onMenuStyleChange,
   onSettingChange,
   onNavigate,
 }: {
   appName: string
+  assistantName: string
+  assistantPersona: string
   theme: Theme
+  secondaryMenuStyle: SecondaryMenuStyle
   snapshot: IAppSettingsSnapshot | undefined
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
+  onAssistantNameChange: (v: string) => void
+  onAssistantNameSave: () => void
+  onAssistantPersonaChange: (v: string) => void
+  onAssistantPersonaSave: () => void
   onThemeChange: (v: Theme) => void
+  onMenuStyleChange: (v: SecondaryMenuStyle) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
@@ -248,6 +303,51 @@ function AppSettingsSection({
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
+      </div>
+
+      {/* Assistant Name */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">助手名称</label>
+        <div className="flex max-w-sm items-center gap-2">
+          <input
+            type="text"
+            value={assistantName}
+            onChange={(e) => onAssistantNameChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
+            className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            placeholder="AI 助手"
+          />
+          <button
+            onClick={onAssistantNameSave}
+            className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
+          >
+            保存
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500">对话页面中 AI 助手显示的名字，同时用于身份认知</p>
+      </div>
+
+      {/* Assistant Persona */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">助手人设</label>
+        <div className="max-w-xl">
+          <textarea
+            value={assistantPersona}
+            onChange={(e) => onAssistantPersonaChange(e.target.value)}
+            rows={4}
+            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            placeholder="描述助手的性格、说话风格、专长等，例如：温和耐心的学习伙伴，善用比喻解释复杂概念，回答简洁有条理。"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-xs text-gray-400 dark:text-gray-500">定义助手的性格与风格，会拼入 system prompt 用于身份认知</p>
+            <button
+              onClick={onAssistantPersonaSave}
+              className="shrink-0 rounded-xl bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
+            >
+              保存
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Theme Selector */}
@@ -289,6 +389,48 @@ function AppSettingsSection({
             )
           })}
         </div>
+      </div>
+
+      {/* Secondary Menu Style Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">菜单样式</label>
+        <div className="grid grid-cols-2 gap-3">
+          {menuStyleOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = secondaryMenuStyle === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onMenuStyleChange(opt.key)}
+                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    当前
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面的菜单结构：平铺为父子两栏并排，树形则合并为一棵树</p>
       </div>
 
       {/* Knowledge Graph */}

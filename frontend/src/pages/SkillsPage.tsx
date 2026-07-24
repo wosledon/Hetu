@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
   Bot,
-  Check,
   FolderOpen,
   Hash,
   Loader2,

@@ -6,7 +6,7 @@ import Sidebar from './Sidebar'
 import { useUIStore } from '../stores/uiStore'
 
 interface AppLayoutProps {
-  children: ReactNode
+  children?: ReactNode
   mainContent: ReactNode
   showSidebar?: boolean
 }

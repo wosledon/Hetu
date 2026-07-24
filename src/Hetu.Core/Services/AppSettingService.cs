@@ -19,6 +19,8 @@ public class AppSettingService : IAppSettingService
         var snapshot = new AppSettingsSnapshotDto
         {
             AppName = await GetValueAsync("AppName", "Hetu", cancellationToken),
+            AssistantName = await GetValueAsync("AssistantName", "AI 助手", cancellationToken),
+            AssistantPersona = await GetValueAsync("AssistantPersona", "", cancellationToken),
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
             GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken),
             AutoEmbedding = await GetValueAsync("AutoEmbedding", "false", cancellationToken),

@@ -16,6 +16,9 @@ public class UpdateAppSettingRequest
 public class AppSettingsSnapshotDto
 {
     public string AppName { get; set; } = "Hetu";
+    public string AssistantName { get; set; } = "AI 助手";
+    /// <summary>助手人设/性格描述，拼入 system prompt 用于身份认知</summary>
+    public string AssistantPersona { get; set; } = string.Empty;
     public string Theme { get; set; } = "system";
     public string GraphAutoExtract { get; set; } = "false";
     public string AutoEmbedding { get; set; } = "false";
