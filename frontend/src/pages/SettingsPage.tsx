@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -32,6 +32,13 @@ const themeOptions = [
   { key: 'dark' as Theme, label: '暗色', desc: '护眼深色', icon: Moon },
 ]
 
+type SecondaryMenuStyle = 'flat' | 'collapsed'
+
+const menuStyleOptions = [
+  { key: 'flat' as SecondaryMenuStyle, label: '平铺', desc: '父子菜单两栏并排', icon: Columns2 },
+  { key: 'collapsed' as SecondaryMenuStyle, label: '折叠', desc: '单列显示，进入后切换', icon: PanelLeft },
+]
+
 const configurableNavItems = [
   { path: '/tags', label: '标签', icon: Tag },
   { path: '/agents', label: '智能体', icon: Bot },
@@ -50,9 +57,11 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('app')
   const appName = useUIStore((state) => state.appName)
   const theme = useUIStore((state) => state.theme)
+  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
   const setAppName = useUIStore((state) => state.setAppName)
   const setTheme = useUIStore((state) => state.setTheme)
+  const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
 
   const { data: snapshot } = useQuery({
@@ -154,10 +163,12 @@ export default function SettingsPage() {
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
                     theme={theme}
+                    secondaryMenuStyle={secondaryMenuStyle}
                     snapshot={snapshot}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
                     onThemeChange={handleThemeChange}
+                    onMenuStyleChange={setSecondaryMenuStyle}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
                   />}
@@ -205,19 +216,23 @@ export default function SettingsPage() {
 function AppSettingsSection({
   appName,
   theme,
+  secondaryMenuStyle,
   snapshot,
   onAppNameChange,
   onAppNameSave,
   onThemeChange,
+  onMenuStyleChange,
   onSettingChange,
   onNavigate,
 }: {
   appName: string
   theme: Theme
+  secondaryMenuStyle: SecondaryMenuStyle
   snapshot: IAppSettingsSnapshot | undefined
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
   onThemeChange: (v: Theme) => void
+  onMenuStyleChange: (v: SecondaryMenuStyle) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
@@ -289,6 +304,48 @@ function AppSettingsSection({
             )
           })}
         </div>
+      </div>
+
+      {/* Secondary Menu Style Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">菜单样式</label>
+        <div className="grid grid-cols-2 gap-3">
+          {menuStyleOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = secondaryMenuStyle === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onMenuStyleChange(opt.key)}
+                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    当前
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面中父子二级菜单的排列方式</p>
       </div>
 
       {/* Knowledge Graph */}

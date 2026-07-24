@@ -3,13 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import ChatSidebar from '../components/ChatSidebar'
 import ChatTopicList from '../components/ChatTopicList'
+import ChatTree from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
 import { chatGroupService } from '../services/chatService'
+import { useUIStore } from '../stores/uiStore'
 import type { IChatGroup, IChatTopic } from '../types'
 
 export default function ChatPage() {
   const [selectedGroup, setSelectedGroup] = useState<IChatGroup | null>(null)
   const [selectedTopic, setSelectedTopic] = useState<IChatTopic | null>(null)
+  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
+  const collapsed = secondaryMenuStyle === 'collapsed'
 
   // 获取分组列表，用于自动选择默认分组
   const { data: groups = [] } = useQuery({
@@ -26,19 +30,31 @@ export default function ChatPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={<ChatMessageArea topic={selectedTopic ?? undefined} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />}>
-      <ChatSidebar
-        selectedGroupId={selectedGroup?.id}
-        onSelectGroup={(group) => {
-          setSelectedGroup(group)
-          setSelectedTopic(null)
-        }}
-      />
-      <ChatTopicList
-        groupId={selectedGroup?.id}
-        selectedTopicId={selectedTopic?.id}
-        onSelectTopic={setSelectedTopic}
-        onDeleteTopic={() => setSelectedTopic(null)}
-      />
+      {collapsed ? (
+        <ChatTree
+          selectedGroupId={selectedGroup?.id}
+          selectedTopicId={selectedTopic?.id}
+          onSelectGroup={setSelectedGroup}
+          onSelectTopic={setSelectedTopic}
+          onDeleteTopic={() => setSelectedTopic(null)}
+        />
+      ) : (
+        <>
+          <ChatSidebar
+            selectedGroupId={selectedGroup?.id}
+            onSelectGroup={(group) => {
+              setSelectedGroup(group)
+              setSelectedTopic(null)
+            }}
+          />
+          <ChatTopicList
+            groupId={selectedGroup?.id}
+            selectedTopicId={selectedTopic?.id}
+            onSelectTopic={setSelectedTopic}
+            onDeleteTopic={() => setSelectedTopic(null)}
+          />
+        </>
+      )}
     </AppLayout>
   )
 }
