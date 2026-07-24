@@ -6,6 +6,8 @@ type SecondaryMenuStyle = 'flat' | 'collapsed';
 
 interface UIState {
   appName: string;
+  assistantName: string;
+  assistantPersona: string;
   theme: Theme;
   sidebarCollapsed: boolean;
   secondaryMenuStyle: SecondaryMenuStyle;
@@ -15,6 +17,8 @@ interface UIState {
   pinnedNavItems: string[];
   lastMoreItem: string | null;
   setAppName: (name: string) => void;
+  setAssistantName: (name: string) => void;
+  setAssistantPersona: (persona: string) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSecondaryMenuStyle: (style: SecondaryMenuStyle) => void;
@@ -29,6 +33,8 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       appName: 'Hetu',
+      assistantName: 'AI 助手',
+      assistantPersona: '',
       theme: 'light',
       sidebarCollapsed: false,
       secondaryMenuStyle: 'flat',
@@ -38,6 +44,8 @@ export const useUIStore = create<UIState>()(
       pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks/background', '/tasks/scheduled', '/memories', '/models'],
       lastMoreItem: null,
       setAppName: (name) => set({ appName: name }),
+      setAssistantName: (name) => set({ assistantName: name }),
+      setAssistantPersona: (persona) => set({ assistantPersona: persona }),
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSecondaryMenuStyle: (style) => set({ secondaryMenuStyle: style }),

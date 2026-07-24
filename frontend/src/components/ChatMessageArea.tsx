@@ -15,6 +15,7 @@ import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
 import { useStreaming } from '../hooks/useStreaming'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
+import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -76,6 +77,7 @@ function renderNotebookTree(
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
+  const assistantName = useUIStore((state) => state.assistantName)
   const [input, setInput] = useState('')
   const {
     streamingContent, setStreamingContent,
@@ -786,7 +788,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <div className={`flex min-w-0 max-w-[80%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className="mb-1.5 flex items-center gap-2">
                 {message.role === 'assistant' && (
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
                 )}
                 <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
 
@@ -993,7 +995,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             </div>
             <div className="max-w-[80%] flex flex-col items-start">
               <div className="mb-1.5">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">AI 助手</span>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
               </div>
               <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
                 {/* Thinking block - show whenever thinking content exists */}

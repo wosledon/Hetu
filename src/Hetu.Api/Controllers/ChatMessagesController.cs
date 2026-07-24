@@ -251,12 +251,17 @@ public class ChatMessagesController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.SkillName))
             skillPrompt = await ResolveSkillPromptAsync(request.SkillName, ct);
 
+        var assistantName = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantName", ct))?.Value;
+        var assistantPersona = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantPersona", ct))?.Value;
+
         options.SystemPrompt = _promptComposer.Compose(new PromptComposeContext
         {
             Profile = profile,
             AgentPresetPrompt = request.PresetSystemPrompt,
             SkillPrompt = skillPrompt,
             TopicCustomPrompt = topic.CustomSystemPrompt,
+            AssistantName = assistantName,
+            AssistantPersona = assistantPersona,
             EnabledTools = request.EnableTools ? request.EnabledTools : null,
             Now = DateTimeOffset.Now,
             TopicTitle = topic.Title,

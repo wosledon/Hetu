@@ -31,6 +31,11 @@ public class PromptComposer
         AppendSection(sb, "输出格式", profile.FormatPrompt);
         AppendSection(sb, "安全约束", profile.SafetyPrompt);
 
+        // [1.5] 助手身份认知（名称 + 人设，告诉模型"你是谁"）
+        var identityBody = BuildAssistantIdentity(ctx);
+        if (identityBody != null)
+            AppendSection(sb, "助手身份", identityBody);
+
         // [2] Agent 预设（用户选的智能体人设，叠加在 profile 上）
         if (!string.IsNullOrWhiteSpace(ctx.AgentPresetPrompt))
         {
@@ -123,6 +128,23 @@ public class PromptComposer
         return lines;
     }
 
+    /// <summary>组装助手的身份认知段：名字 + 人设描述。两者都为空时返回 null。</summary>
+    private static string? BuildAssistantIdentity(PromptComposeContext ctx)
+    {
+        var name = ctx.AssistantName?.Trim();
+        var persona = ctx.AssistantPersona?.Trim();
+        if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(persona))
+            return null;
+
+        var sb = new StringBuilder();
+        if (!string.IsNullOrEmpty(name))
+            sb.AppendLine($"你的名字是「{name}」。当用户询问你是谁、你的名字时，以此自称。");
+        if (!string.IsNullOrEmpty(persona))
+            sb.AppendLine($"你的性格与人设：{persona}");
+        sb.AppendLine("请始终保持这一身份与人设，语气、风格和自我认知都要与之相符。");
+        return sb.ToString().TrimEnd();
+    }
+
     private static void AppendSection(StringBuilder sb, string title, string body)
     {
         if (string.IsNullOrWhiteSpace(body)) return;
@@ -139,6 +161,8 @@ public class PromptComposeContext
     public string? AgentPresetPrompt { get; init; }
     public string? SkillPrompt { get; init; }
     public string? TopicCustomPrompt { get; init; }
+    public string? AssistantName { get; init; }
+    public string? AssistantPersona { get; init; }
     public IReadOnlyList<string>? EnabledTools { get; init; }
     public DateTimeOffset? Now { get; init; }
     public string? TopicTitle { get; init; }
