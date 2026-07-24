@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Hetu.Core.Interfaces;
-using Serilog;
 
 namespace Hetu.Infrastructure.AI;
 
@@ -80,13 +79,6 @@ public class OpenAiLlmProvider : ILLMProvider
                 continue;
             }
 
-            // Temporary diagnostic: log raw delta shape to see exactly what stepfun returns.
-            var _choiceDbg = chunk?.Choices?.FirstOrDefault();
-            if (_choiceDbg?.Delta != null && data.Length < 4000)
-            {
-                Log.Debug("[LLM raw] {Data}", data);
-            }
-
             var choice = chunk?.Choices?.FirstOrDefault();
             var delta = choice?.Delta;
 
@@ -94,11 +86,14 @@ public class OpenAiLlmProvider : ILLMProvider
             var content = delta?.Content;
             var reasoning = delta?.ReasoningContent;
 
+            // Content / thinking — emit each independently. Some providers (e.g. stepfun)
+            // return reasoning and content in the SAME chunk, so they must not be mutually
+            // exclusive (an else-if here would drop the content whenever reasoning is present).
             if (!string.IsNullOrEmpty(reasoning))
             {
                 yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
             }
-            else if (!string.IsNullOrEmpty(content))
+            if (!string.IsNullOrEmpty(content))
             {
                 yield return $"{{\"type\":\"content\",\"text\":{JsonSerializer.Serialize(content)}}}";
             }
@@ -317,8 +312,6 @@ public class OpenAiLlmProvider : ILLMProvider
         public string? Content { get; set; }
         public string? ReasoningContent { get; set; }
         public List<OpenAiToolCallDelta>? ToolCalls { get; set; }
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? Extra { get; set; }
     }
 
     private class OpenAiToolCall

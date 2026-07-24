@@ -137,9 +137,6 @@ public class ChatMessagesController : ControllerBase
             var (iterContent, iterThinking, pendingToolCalls) = await ChatStreamProcessor.ProcessStreamAsync(
                 provider, chatMessages, options, writer, ct);
 
-            Log.Debug("[Stream] iter={Iter} contentLen={Len} thinkingLen={TLen} toolCalls={TC}",
-                iter + 1, iterContent.Length, iterThinking.Length, pendingToolCalls?.Count ?? 0);
-
             if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
             {
                 contentSb.Append(iterContent);
@@ -171,24 +168,10 @@ public class ChatMessagesController : ControllerBase
         }
 
         var finalContent = contentSb.ToString().Trim();
-        var hasThinking = thinkingSb.Length > 0;
-        var hadToolActivity = searchJson != null || kbJson != null || memJson != null || sessionTodos.Count > 0;
-        Log.Debug("[Stream] finished. finalContentLen={Len} thinkingLen={TLen} hasRetrieval={HR} todos={TD}",
-            finalContent.Length, thinkingSb.Length, searchJson != null || kbJson != null || memJson != null, sessionTodos.Count);
-        // Persist whenever the model produced any visible output. Reasoning models (e.g. stepfun)
-        // sometimes write the whole answer into ReasoningContent and leave Content empty — in that
-        // case fall back to the thinking text so the reply is not lost.
         if (!string.IsNullOrEmpty(finalContent))
         {
             await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId,
-                hasThinking ? thinkingSb.ToString() : null,
-                searchJson, kbJson, memJson, ct);
-        }
-        else if (hasThinking || hadToolActivity)
-        {
-            var fallback = hasThinking ? thinkingSb.ToString().Trim() : "（已完成检索，但未生成文字回复，请重试）";
-            await _chatMessageService.SaveAssistantMessageAsync(topicId, fallback, modelId,
-                hasThinking ? thinkingSb.ToString() : null,
+                thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
                 searchJson, kbJson, memJson, ct);
         }
 
