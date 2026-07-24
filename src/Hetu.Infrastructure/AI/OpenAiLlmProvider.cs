@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Hetu.Core.Interfaces;
+using Serilog;
 
 namespace Hetu.Infrastructure.AI;
 
@@ -77,6 +78,13 @@ public class OpenAiLlmProvider : ILLMProvider
             catch
             {
                 continue;
+            }
+
+            // Temporary diagnostic: log raw delta shape to see exactly what stepfun returns.
+            var _choiceDbg = chunk?.Choices?.FirstOrDefault();
+            if (_choiceDbg?.Delta != null && data.Length < 4000)
+            {
+                Log.Debug("[LLM raw] {Data}", data);
             }
 
             var choice = chunk?.Choices?.FirstOrDefault();
@@ -309,6 +317,8 @@ public class OpenAiLlmProvider : ILLMProvider
         public string? Content { get; set; }
         public string? ReasoningContent { get; set; }
         public List<OpenAiToolCallDelta>? ToolCalls { get; set; }
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? Extra { get; set; }
     }
 
     private class OpenAiToolCall
