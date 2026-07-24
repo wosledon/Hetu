@@ -260,7 +260,9 @@ public class ChatMessagesController : ControllerBase
     private async Task<ChatOptions> BuildChatOptionsAsync(
         SendMessageRequest request, ChatTopicDto topic, Guid? modelId, CancellationToken ct)
     {
-        var options = new ChatOptions { ModelId = modelId?.ToString() ?? "", Stream = true };
+        // ModelId 留空：provider 创建时已注入正确的模型名（_modelId），
+        // 这里的 modelId 是数据库主键 Guid，绝不能当模型名发给 LLM。
+        var options = new ChatOptions { Stream = true };
         var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
 
         string? skillPrompt = null;
