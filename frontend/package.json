@@ -30,6 +30,8 @@
     "dagre": "^0.8.5",
     "date-fns": "^4.4.0",
     "dompurify": "^3.4.11",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
     "katex": "^0.17.0",
     "lucide-react": "^1.21.0",
     "mermaid": "^11.15.0",

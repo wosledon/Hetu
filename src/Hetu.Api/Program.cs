@@ -104,6 +104,7 @@ builder.Services.AddScoped<ISemanticSearchService, SemanticSearchService>();
 builder.Services.AddScoped<IChatGroupService, ChatGroupService>();
 builder.Services.AddScoped<IChatTopicService, ChatTopicService>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
+builder.Services.AddScoped<UsageService>();
 builder.Services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
 builder.Services.AddScoped<IPromptPresetService, PromptPresetService>();
 builder.Services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();
