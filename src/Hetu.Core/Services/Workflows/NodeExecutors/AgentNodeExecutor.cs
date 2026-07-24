@@ -93,11 +93,18 @@ public class AgentNodeExecutor : INodeExecutor
 
         var result = await _agentLoopService.RunAsync(request, ct);
 
-        var nodeResult = new NodeResult { Output = result.Content };
+        var agentOutput = result.Content;
+        // 若 LLM 只返回了 thinking 没有 content，用 thinking 作为输出
+        if (string.IsNullOrWhiteSpace(agentOutput) && !string.IsNullOrEmpty(result.Thinking))
+            agentOutput = result.Thinking!;
+
+        var nodeResult = new NodeResult { Output = agentOutput };
         if (!string.IsNullOrEmpty(result.Thinking))
             nodeResult.ExtraVariables["thinking"] = result.Thinking!;
         if (result.ToolCalls.Count > 0)
             nodeResult.ExtraVariables["toolCalls"] = JsonSerializer.Serialize(result.ToolCalls);
+        if (string.IsNullOrWhiteSpace(agentOutput))
+            nodeResult.Error = "Agent 未返回任何内容，请检查模型配置";
         return nodeResult;
     }
 

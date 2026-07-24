@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send, Bot, FileText, Search, GitBranch, Copy, Check, Pencil, Trash2, X, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
-import { workflowService } from '../services/workflowService'
-import type { IWorkflow } from '../types/workflow'
-import RunDialog from './workflow/RunDialog'
+import { workflowService, streamWorkflowRun } from '../services/workflowService'
+import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { notebookService } from '../services/notebookService'
@@ -123,9 +122,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showApprovalPicker, setShowApprovalPicker] = useState(false)
   const approvalPickerRef = useRef<HTMLDivElement>(null)
   const [memory, setMemory] = useState(false)
-  const [showWorkflowPicker, setShowWorkflowPicker] = useState(false)
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
-  const workflowPickerRef = useRef<HTMLDivElement>(null)
+  const [workflowNodes, setWorkflowNodes] = useState<Array<{ nodeId: string; label?: string; nodeType?: string; status: 'running' | 'success' | 'failed'; output?: string }>>([])
   const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
@@ -275,13 +273,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showApprovalPicker && approvalPickerRef.current && !approvalPickerRef.current.contains(target)) {
         setShowApprovalPicker(false)
       }
-      if (showWorkflowPicker && workflowPickerRef.current && !workflowPickerRef.current.contains(target)) {
-        setShowWorkflowPicker(false)
-      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker, showWorkflowPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
 
@@ -422,6 +417,30 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       }
     }
     setAttachedFiles([])
+
+    // 如果选中了工作流，走工作流流式执行
+    if (runningWorkflow) {
+      setWorkflowNodes([])
+      const controller = new AbortController()
+      try {
+        await streamWorkflowRun(runningWorkflow.id, content, topic.id,
+          (evt: IWorkflowEvent) => {
+            switch (evt.type) {
+              case 'node_started': setWorkflowNodes((prev) => [...prev, { nodeId: evt.nodeId!, label: evt.label, nodeType: evt.nodeType, status: 'running' }]); break
+              case 'node_completed': setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'success', output: evt.output } : n)); break
+              case 'node_failed': setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'failed', output: evt.error } : n)); break
+              case 'run_completed': setStreamingContent(evt.output ?? '工作流执行完成'); break
+              case 'run_failed': setStreamingContent('工作流执行失败：' + (evt.error ?? '')); break
+              case 'run_result': setStreamingContent(evt.result?.output ?? evt.result?.error ?? '工作流执行完成'); break
+            }
+          },
+          (err) => { setStreamingContent('工作流执行失败：' + err) },
+          controller.signal)
+      } catch { setStreamingContent('工作流执行异常') }
+      finally { stopStreaming() }
+      queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
+      return
+    }
 
     const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
     let detectedSkillName: string | undefined
@@ -987,7 +1006,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0 || workflowNodes.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
@@ -1024,6 +1043,38 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
                 {/* Tool calls and results during streaming */}
                 <ToolCallsPanel toolCalls={streamingToolCalls} toolResults={streamingToolResults} />
+                {/* Workflow nodes during inline execution */}
+                {workflowNodes.length > 0 && (
+                  <div className="mt-3 overflow-x-auto pb-1">
+                    <div className="flex items-center gap-0 min-w-min">
+                      {workflowNodes.map((n, i) => {
+                        const statusColor = n.status === 'running' ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20' :
+                          n.status === 'success' ? 'border-green-400 bg-green-50 dark:border-green-500 dark:bg-green-900/20' :
+                          'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20'
+                        const icon = n.status === 'running' ? <Loader2 size={11} className="animate-spin text-blue-500" /> :
+                          n.status === 'success' ? <CircleCheckBig size={11} className="text-green-500" /> :
+                          <Circle size={11} className="text-red-500" />
+                        const label = n.nodeType === 'start' ? '开始' : n.nodeType === 'end' ? '结束' : n.label || n.nodeType || n.nodeId
+                        return (
+                          <div key={n.nodeId || i} className="flex items-center gap-0 shrink-0">
+                            <div className={`flex flex-col items-center rounded-lg border-2 px-2.5 py-1.5 min-w-[60px] ${statusColor}`}>
+                              <div className="flex items-center gap-1">
+                                {icon}
+                                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{label}</span>
+                              </div>
+                              {n.status === 'running' && <span className="mt-0.5 text-[10px] text-blue-500">执行中</span>}
+                              {n.status === 'success' && n.output && <span className="mt-0.5 max-w-[80px] truncate text-[10px] text-green-600 dark:text-green-400">{n.output.slice(0, 30)}</span>}
+                              {n.status === 'failed' && <span className="mt-0.5 text-[10px] text-red-500">{n.output?.slice(0, 30) || '失败'}</span>}
+                            </div>
+                            {i < workflowNodes.length - 1 && (
+                              <ChevronRight size={14} className="shrink-0 text-gray-300 dark:text-gray-600 mx-0.5" />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -1122,6 +1173,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <Bot size={14} className="text-indigo-500" />
             <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">智能体：{selectedPreset.name}</span>
             <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
+          </div>
+        )}
+        {runningWorkflow && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20">
+            <GitBranch size={14} className="text-blue-500" />
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{runningWorkflow.name}</span>
+            <button onClick={() => setRunningWorkflow(null)} className="ml-auto text-blue-400 hover:text-blue-600"><X size={14} /></button>
           </div>
         )}
         {/* Approval request panel */}
@@ -1577,24 +1635,26 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               )}
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
-              {/* Agent selector */}
+              {/* Agent selector — 智能体 + 工作流合并 */}
               <div className="relative" ref={agentPickerRef}>
                 <button
                   onClick={() => { setShowAgentPicker(!showAgentPicker); setShowModelPicker(false) }}
                   className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    selectedPreset
+                    selectedPreset || runningWorkflow
                       ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
                       : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                   }`}
-                  title="智能体"
+                  title="智能体 / 工作流"
                 >
-                  <Bot size={14} />
-                  {selectedPreset ? selectedPreset.name : '智能体'}
+                  {runningWorkflow ? <GitBranch size={14} /> : <Bot size={14} />}
+                  {runningWorkflow ? runningWorkflow.name : selectedPreset ? selectedPreset.name : '智能体'}
                   <ChevronDown size={10} />
                 </button>
                 {showAgentPicker && (
-                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <div className="max-h-56 overflow-y-auto p-1.5">
+                  <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div className="max-h-72 overflow-y-auto p-1.5">
+                      {/* 智能体分组 */}
+                      <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">智能体</div>
                       {presets.length === 0 && localPresets.length === 0 ? (
                         <div className="p-3 text-center text-xs text-gray-500">暂无智能体</div>
                       ) : (
@@ -1602,14 +1662,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                           {presets.map(p => (
                             <button
                               key={p.id}
-                              onClick={() => { applyPreset(p); setShowAgentPicker(false) }}
-                              className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                              onClick={() => { setRunningWorkflow(null); applyPreset(p); setShowAgentPicker(false) }}
+                              title={p.content.slice(0, 120)}
+                              className={`w-full rounded-lg px-3 py-1.5 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             >
                               <div className="flex items-center gap-2">
+                                <Bot size={12} className="shrink-0 text-indigo-400" />
                                 <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
                                 {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
                               </div>
-                              <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
                             </button>
                           ))}
                           {localPresets.length > 0 && presets.length > 0 && (
@@ -1631,54 +1692,41 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                             return (
                               <button
                                 key={p.id}
-                                onClick={() => { applyPreset(pseudo); setShowAgentPicker(false) }}
-                                className={`w-full rounded-lg px-3 py-2 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                onClick={() => { setRunningWorkflow(null); applyPreset(pseudo); setShowAgentPicker(false) }}
+                                title={p.content.slice(0, 120)}
+                                className={`w-full rounded-lg px-3 py-1.5 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                               >
                                 <div className="flex items-center gap-2">
+                                  <Bot size={12} className="shrink-0 text-indigo-400" />
                                   <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
                                   <span className="rounded bg-amber-100 px-1 text-[9px] text-amber-600 dark:bg-amber-900/30">本地</span>
                                   {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
                                 </div>
-                                <div className="mt-0.5 text-[10px] text-gray-400 truncate">{p.content.slice(0, 60)}</div>
                               </button>
                             )
                           })}
                         </>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Workflow selector — 在对话中触发工作流 */}
-              <div className="relative" ref={workflowPickerRef}>
-                <button
-                  onClick={() => { setShowWorkflowPicker(!showWorkflowPicker); setShowAgentPicker(false); setShowModelPicker(false) }}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                  title="工作流"
-                  disabled={!topic}
-                >
-                  <GitBranch size={14} />
-                  工作流
-                  <ChevronDown size={10} />
-                </button>
-                {showWorkflowPicker && (
-                  <div className="absolute bottom-full left-0 mb-2 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <div className="max-h-56 overflow-y-auto p-1.5">
+                      {/* 工作流分组 */}
+                      {(presets.length > 0 || localPresets.length > 0) && (
+                        <div className="mb-1 mt-2 border-t border-gray-100 pt-2 dark:border-gray-700" />
+                      )}
+                      <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">工作流</div>
                       {availableWorkflows.length === 0 ? (
                         <div className="p-3 text-center text-xs text-gray-500">暂无工作流</div>
                       ) : (
                         availableWorkflows.map((w) => (
                           <button
                             key={w.id}
-                            onClick={() => { setRunningWorkflow(w); setShowWorkflowPicker(false) }}
-                            className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={() => { setSelectedPreset(null); setRunningWorkflow(w); setShowAgentPicker(false) }}
+                            title={w.description}
+                            className={`w-full rounded-lg px-3 py-1.5 text-left ${runningWorkflow?.id === w.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                           >
                             <div className="flex items-center gap-2">
-                              <GitBranch size={12} className="text-blue-500" />
-                              <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{w.name}</span>
+                              <GitBranch size={12} className="shrink-0 text-blue-500" />
+                              <span className={`text-xs font-medium ${runningWorkflow?.id === w.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{w.name}</span>
+                              {runningWorkflow?.id === w.id && <Check size={12} className="text-indigo-500" />}
                             </div>
-                            {w.description && <div className="mt-0.5 text-[10px] text-gray-400 truncate">{w.description}</div>}
                           </button>
                         ))
                       )}
@@ -1893,14 +1941,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         <p className="mt-1.5 text-center text-[10px] text-gray-400">Shift + Enter 换行 · 支持粘贴文件</p>
       </div>
-
-      {runningWorkflow && topic && (
-        <RunDialog
-          workflow={runningWorkflow}
-          topicId={topic.id}
-          onClose={() => setRunningWorkflow(null)}
-        />
-      )}
     </div>
   )
 }

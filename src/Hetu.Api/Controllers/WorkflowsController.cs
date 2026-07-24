@@ -106,6 +106,12 @@ public class WorkflowsController : ControllerBase
 
         try
         {
+            // 保存用户消息
+            if (!string.IsNullOrWhiteSpace(request?.Input))
+            {
+                await _chatMessageService.CreateUserMessageAsync(topicId, request.Input, cancellationToken);
+            }
+
             var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, topicId);
 
             // 将工作流输出保存为对话的助手消息
