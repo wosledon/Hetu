@@ -94,7 +94,7 @@ export default function UsagePage() {
       borderColor: isDark ? '#374151' : '#e5e7eb',
       textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12 },
       formatter: (p: { name: string; value: number; percent: number }) =>
-        `${p.name}<br/><b>${fmtNum(p.value)} tokens (${p.percent}%)</b>`,
+        `${p.name}<br/><b>${fmtNum(p.value)} ${metric === 'messages' ? '条' : 'tokens'} (${p.percent}%)</b>`,
     },
     legend: {
       bottom: 0,
@@ -115,7 +115,7 @@ export default function UsagePage() {
         emphasis: { label: { show: true, fontSize: 13, fontWeight: 600, color: isDark ? '#e5e7eb' : '#111827', formatter: '{b}\n{d}%' } },
         data: byModel.slice(0, 7).map((m, i) => ({
           name: m.modelName,
-          value: m.tokens,
+          value: metric === 'messages' ? m.messages : m.tokens,
           itemStyle: { color: PALETTE[i % PALETTE.length] },
         })),
       },
