@@ -32,24 +32,8 @@ export default function WorkflowsPage() {
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const { data: promptPresets = [] } = useQuery({ queryKey: ['promptPresets'], queryFn: promptPresetService.getAll })
 
-  const createMut = useMutation({
-    mutationFn: () =>
-      workflowService.create({
-        name: '新工作流',
-        description: '',
-        nodes: [
-          { id: 'start_1', type: 'start', label: '开始', x: 100, y: 200 },
-          { id: 'end_1', type: 'end', label: '结束', x: 500, y: 200 },
-        ],
-        edges: [{ id: 'e1', source: 'start_1', target: 'end_1' }],
-        isEnabled: true,
-        sortOrder: 0,
-      }),
-    onSuccess: (wf) => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      setEditingId(wf.id)
-    },
-  })
+  // 新建：仅创建本地草稿（id='new'），点保存才真正落库
+  const handleCreate = () => setEditingId('new')
 
   const duplicateMut = useMutation({
     mutationFn: (id: string) => workflowService.duplicate(id),
@@ -61,7 +45,23 @@ export default function WorkflowsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workflows'] }),
   })
 
-  const editingWorkflow = workflows.find((w) => w.id === editingId)
+  const editingWorkflow: IWorkflow | undefined = editingId === 'new'
+    ? {
+        id: 'new',
+        name: '新工作流',
+        description: '',
+        nodes: [
+          { id: 'start_1', type: 'start', label: '开始', x: 100, y: 200 },
+          { id: 'end_1', type: 'end', label: '结束', x: 500, y: 200 },
+        ],
+        edges: [{ id: 'e1', source: 'start_1', target: 'end_1' }],
+        version: 1,
+        isEnabled: true,
+        sortOrder: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    : workflows.find((w) => w.id === editingId)
 
   if (editingWorkflow) {
     return (
@@ -93,7 +93,7 @@ export default function WorkflowsPage() {
               <span className="text-xs text-gray-400">编排 Agent 的可视化流程</span>
             </div>
             <button
-              onClick={() => createMut.mutate()}
+              onClick={handleCreate}
               className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
             >
               <Plus size={15} /> 新建工作流
@@ -109,7 +109,7 @@ export default function WorkflowsPage() {
                 <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">还没有工作流</h2>
                 <p className="mt-1 text-sm text-gray-400">创建一个工作流，编排 Agent 完成多步骤任务</p>
                 <button
-                  onClick={() => createMut.mutate()}
+                  onClick={handleCreate}
                   className="mt-4 flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                 >
                   <Plus size={16} /> 新建工作流
@@ -166,6 +166,8 @@ export default function WorkflowsPage() {
           )}
         </div>
       }
-    />
+    >
+      {null}
+    </AppLayout>
   )
 }

@@ -17,7 +17,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Play, Save, Copy, CheckCircle, AlertTriangle, Layout, ChevronLeft } from 'lucide-react'
+import { Play, Save, Copy, CheckCircle, AlertTriangle, Layout, ChevronLeft, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { workflowService } from '../../services/workflowService'
 import type { IWorkflow, IWorkflowNode, IWorkflowEdge } from '../../types/workflow'
@@ -55,7 +55,12 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [validation, setValidation] = useState<{ valid: boolean; errors: string[] } | null>(null)
   const [saved, setSaved] = useState(false)
+  const [name, setName] = useState(workflow.name)
+  const [description, setDescription] = useState(workflow.description)
+  const [isEnabled, setIsEnabled] = useState(workflow.isEnabled)
+  const [showMeta, setShowMeta] = useState(false)
   const nodeIdCounter = useRef(0)
+  const isNew = workflow.id === 'new'
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const selectedWorkflowNode: IWorkflowNode | null = selectedNode
@@ -137,21 +142,24 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   const collectEdges = (): IWorkflowEdge[] => edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined }))
 
   const saveMut = useMutation({
-    mutationFn: (data: { nodes: IWorkflowNode[]; edges: IWorkflowEdge[] }) =>
-      workflowService.update(workflow.id, {
-        name: workflow.name,
-        description: workflow.description,
+    mutationFn: (data: { nodes: IWorkflowNode[]; edges: IWorkflowEdge[] }) => {
+      const payload = {
+        name: name.trim() || '未命名工作流',
+        description,
         nodes: data.nodes,
         edges: data.edges,
         inputSchema: workflow.inputSchema,
         variables: workflow.variables,
-        isEnabled: workflow.isEnabled,
+        isEnabled,
         sortOrder: workflow.sortOrder,
-      }),
+      }
+      return isNew ? workflowService.create(payload) : workflowService.update(workflow.id, payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      if (isNew) onBack()
     },
   })
 
@@ -170,22 +178,82 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           <ChevronLeft size={16} /> 返回
         </button>
         <div className="h-4 w-px bg-gray-200 dark:bg-white/[0.08]" />
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{workflow.name}</span>
-        <span className="text-xs text-gray-400">v{workflow.version}</span>
+        {/* 名称/描述 可编辑 */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMeta((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+            title="编辑名称/描述"
+          >
+            {name || '未命名工作流'}
+            <Pencil size={12} className="text-gray-400" />
+          </button>
+          {showMeta && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMeta(false)} />
+              <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-400">名称</label>
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="工作流名称"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-400">描述</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="这个工作流做什么？"
+                    rows={3}
+                    className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowMeta(false)}
+                  className="w-full rounded-lg bg-blue-500 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
+                >
+                  完成
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        <span className="text-xs text-gray-400">{isNew ? '未保存' : `v${workflow.version}`}</span>
+        {/* 启用/禁用开关 */}
+        <button
+          onClick={() => { setIsEnabled((v) => !v); setSaved(false) }}
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+            isEnabled
+              ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+              : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06] dark:text-gray-500'
+          }`}
+          title={isEnabled ? '点击禁用' : '点击启用'}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+          {isEnabled ? '启用' : '禁用'}
+        </button>
         <div className="flex-1" />
         <button onClick={autoLayout} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
           <Layout size={14} /> 自动布局
         </button>
-        <button onClick={handleValidate} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
-          <CheckCircle size={14} /> 校验
-        </button>
+        {!isNew && (
+          <button onClick={handleValidate} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
+            <CheckCircle size={14} /> 校验
+          </button>
+        )}
         <button
-          onClick={() => onRun({ ...workflow, nodes: collectNodes(), edges: collectEdges() })}
-          className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+          onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
+          disabled={isNew}
+          className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-40"
+          title={isNew ? '保存后才能运行' : '运行'}
         >
           <Play size={14} /> 运行
         </button>
-        <button onClick={handleSave} className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600">
+        <button onClick={handleSave} disabled={saveMut.isPending} className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50">
           {saved ? <CheckCircle size={14} /> : <Save size={14} />} {saved ? '已保存' : '保存'}
         </button>
       </div>
