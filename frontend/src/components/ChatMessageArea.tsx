@@ -34,6 +34,15 @@ function findNotebookName(notebooks: INotebook[], id: string): string {
   return '默认笔记本'
 }
 
+// Older messages persisted RAG results with PascalCase keys; normalize to camelCase.
+function toCamelKeys<T>(obj: Record<string, unknown>): T {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    out[k.charAt(0).toLowerCase() + k.slice(1)] = v
+  }
+  return out as T
+}
+
 function renderNotebookTree(
   notebooks: INotebook[],
   depth: number,
@@ -835,7 +844,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Search results for saved messages */}
                     {message.role === 'assistant' && message.searchResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.searchResultsJson) as Array<{ title: string; url: string; snippet: string }>
+                        const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -867,7 +876,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Knowledge base results for saved messages */}
                     {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.knowledgeResultsJson) as Array<{ title: string; contentSnippet: string; id: string }>
+                        const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -898,7 +907,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     {/* Memory results for saved messages */}
                     {message.role === 'assistant' && message.memoryResultsJson && (() => {
                       try {
-                        const results = JSON.parse(message.memoryResultsJson) as Array<{ id: string; content: string; category?: string; score?: number }>
+                        const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                         if (results.length === 0) return null
                         return (
                           <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -977,7 +986,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />

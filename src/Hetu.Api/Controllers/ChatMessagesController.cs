@@ -137,6 +137,9 @@ public class ChatMessagesController : ControllerBase
             var (iterContent, iterThinking, pendingToolCalls) = await ChatStreamProcessor.ProcessStreamAsync(
                 provider, chatMessages, options, writer, ct);
 
+            Log.Debug("[Stream] iter={Iter} contentLen={Len} thinkingLen={TLen} toolCalls={TC}",
+                iter + 1, iterContent.Length, iterThinking.Length, pendingToolCalls?.Count ?? 0);
+
             if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
             {
                 contentSb.Append(iterContent);
@@ -168,9 +171,21 @@ public class ChatMessagesController : ControllerBase
         }
 
         var finalContent = contentSb.ToString().Trim();
+        Log.Debug("[Stream] finished. finalContentLen={Len} thinkingLen={TLen} hasRetrieval={HR} todos={TD}",
+            finalContent.Length, thinkingSb.Length, searchJson != null || kbJson != null || memJson != null, sessionTodos.Count);
+        var hasRetrieval = searchJson != null || kbJson != null || memJson != null || sessionTodos.Count > 0;
+        // Persist whenever we produced visible output. If the model spent all iterations on
+        // tool calls (e.g. repeated memory search) and never emitted a clean text turn, fall
+        // back to a placeholder so the assistant reply (and its retrieval citations) is not lost.
         if (!string.IsNullOrEmpty(finalContent))
         {
             await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId,
+                thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
+                searchJson, kbJson, memJson, ct);
+        }
+        else if (hasRetrieval)
+        {
+            await _chatMessageService.SaveAssistantMessageAsync(topicId, "（已完成检索，但未生成文字回复，请重试）", modelId,
                 thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
                 searchJson, kbJson, memJson, ct);
         }
@@ -319,6 +334,8 @@ public class ChatMessagesController : ControllerBase
         SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
+        // Persist with camelCase so the frontend can parse saved results the same way as SSE payloads.
+        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
         if (request.WebSearch)
         {
@@ -326,7 +343,7 @@ public class ChatMessagesController : ControllerBase
             if (results.Count > 0)
             {
                 await writer.WriteJsonAsync(new { type = "search_results", results });
-                searchJson = System.Text.Json.JsonSerializer.Serialize(results);
+                searchJson = System.Text.Json.JsonSerializer.Serialize(results, jsonOptions);
                 messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildSearchContext(results) });
             }
         }
@@ -340,7 +357,7 @@ public class ChatMessagesController : ControllerBase
                 {
                     var items = kbResult.Data.Items;
                     await writer.WriteJsonAsync(new { type = "knowledge_results", results = items.Select(r => new { r.Title, r.ContentSnippet, r.Id }) });
-                    kbJson = System.Text.Json.JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }));
+                    kbJson = System.Text.Json.JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }), jsonOptions);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildKnowledgeContext(items) });
                 }
             }
@@ -355,7 +372,7 @@ public class ChatMessagesController : ControllerBase
                 if (memories.Count > 0)
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });
-                    memJson = System.Text.Json.JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }));
+                    memJson = System.Text.Json.JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }), jsonOptions);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildMemoryContext(memories) });
                 }
             }
