@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useUIStore } from '../stores/uiStore'
 
@@ -29,6 +29,12 @@ const allConfigurableItems = [
   { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
+] as const
+
+// 右侧独立分组：代理与用量
+const secondaryNavItems = [
+  { path: '/proxy', label: '代理服务', icon: Waypoints },
+  { path: '/usage', label: '用量统计', icon: Gauge },
 ] as const
 
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
@@ -77,7 +83,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
         </div>
-        <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -146,6 +153,12 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               )}
             </div>
           )}
+          </div>
+
+          {/* 右侧独立分组：代理服务 / 用量统计 */}
+          <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            {secondaryNavItems.map(renderNavButton)}
+          </div>
         </div>
         <div className="flex items-center justify-end gap-2">
           <button

@@ -15,6 +15,8 @@ import MemoriesPage from './pages/MemoriesPage'
 import ModelsPage from './pages/ModelsPage'
 import WorkPage from './pages/WorkPage'
 import WorkflowsPage from './pages/WorkflowsPage'
+import ProxyPage from './pages/ProxyPage'
+import UsagePage from './pages/UsagePage'
 
 function App() {
   return (
@@ -34,6 +36,8 @@ function App() {
       <Route path="/models" element={<ModelsPage />} />
       <Route path="/work" element={<WorkPage />} />
       <Route path="/workflows" element={<WorkflowsPage />} />
+      <Route path="/proxy" element={<ProxyPage />} />
+      <Route path="/usage" element={<UsagePage />} />
       <Route path="/trash" element={<TrashPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/share/:shareCode" element={<SharedNotePage />} />
