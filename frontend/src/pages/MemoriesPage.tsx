@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Atom, Plus, Search, Trash2, Pencil, Save, X, Tag, Star, Brain } from 'lucide-react'
+import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Star, Brain } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { memoryService } from '../services/memoryService'
 import type { IMemory } from '../types'

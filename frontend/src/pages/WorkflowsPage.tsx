@@ -45,6 +45,21 @@ export default function WorkflowsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workflows'] }),
   })
 
+  const toggleMut = useMutation({
+    mutationFn: (wf: IWorkflow) =>
+      workflowService.update(wf.id, {
+        name: wf.name,
+        description: wf.description,
+        nodes: wf.nodes,
+        edges: wf.edges,
+        inputSchema: wf.inputSchema,
+        variables: wf.variables,
+        isEnabled: !wf.isEnabled,
+        sortOrder: wf.sortOrder,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workflows'] }),
+  })
+
   const editingWorkflow: IWorkflow | undefined = editingId === 'new'
     ? {
         id: 'new',
@@ -126,9 +141,15 @@ export default function WorkflowsPage() {
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
                         <WorkflowIcon size={18} className="text-blue-500" />
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] ${wf.isEnabled ? 'bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06]'}`}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleMut.mutate(wf) }}
+                        disabled={toggleMut.isPending}
+                        title={wf.isEnabled ? '点击禁用' : '点击启用'}
+                        className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-white/[0.06] dark:hover:bg-white/10'}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${wf.isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
                         {wf.isEnabled ? '启用' : '禁用'}
-                      </span>
+                      </button>
                     </div>
                     <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{wf.name}</h3>
                     <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{wf.description || '暂无描述'}</p>

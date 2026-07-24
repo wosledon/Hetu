@@ -18,7 +18,7 @@ export function renderToolName(name: string): string {
   return TOOL_LABELS[name] || name
 }
 
-export function renderToolResult(name: string, content: string, isError?: boolean): React.ReactNode {
+export function renderToolResult(_name: string, content: string, isError?: boolean): React.ReactNode {
   if (isError) {
     return <span className="text-[11px]">{content}</span>
   }
@@ -28,16 +28,23 @@ export function renderToolResult(name: string, content: string, isError?: boolea
       if (parsed.length === 0) return <span className="text-[11px]">无结果</span>
       return (
         <div className="space-y-1">
-          {parsed.slice(0, 5).map((item: Record<string, unknown>, idx: number) => (
-            <div key={idx} className="text-[11px] leading-relaxed">
-              <span className="font-medium">{idx + 1}. </span>
-              {item.title && <span className="font-medium">{String(item.title)}</span>}
-              {item.name && !item.title && <span className="font-medium">{String(item.name)}</span>}
-              {item.content && <span> — {String(item.content).slice(0, 80)}{String(item.content).length > 80 ? '...' : ''}</span>}
-              {item.snippet && !item.content && <span className="text-gray-500 dark:text-gray-400"> — {String(item.snippet).slice(0, 80)}</span>}
-              {item.id && !item.title && !item.name && !item.content && <span>{String(item.id)}</span>}
-            </div>
-          ))}
+          {parsed.slice(0, 5).map((item: Record<string, unknown>, idx: number) => {
+            const title = item.title ? String(item.title) : ''
+            const name = item.name ? String(item.name) : ''
+            const content = item.content ? String(item.content) : ''
+            const snippet = item.snippet ? String(item.snippet) : ''
+            const id = item.id ? String(item.id) : ''
+            return (
+              <div key={idx} className="text-[11px] leading-relaxed">
+                <span className="font-medium">{idx + 1}. </span>
+                {title && <span className="font-medium">{title}</span>}
+                {!title && name && <span className="font-medium">{name}</span>}
+                {content && <span> — {content.slice(0, 80)}{content.length > 80 ? '...' : ''}</span>}
+                {!content && snippet && <span className="text-gray-500 dark:text-gray-400"> — {snippet.slice(0, 80)}</span>}
+                {!title && !name && !content && id && <span>{id}</span>}
+              </div>
+            )
+          })}
           {parsed.length > 5 && <span className="text-[10px] text-gray-400">...共 {parsed.length} 条结果</span>}
         </div>
       )

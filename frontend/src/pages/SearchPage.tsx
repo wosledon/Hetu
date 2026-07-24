@@ -176,7 +176,7 @@ export default function SearchPage() {
                   <p className="mt-1 text-xs text-gray-300 dark:text-gray-600">试试其他关键词或切换搜索模式</p>
                 </div>
               ) : (
-                data.items.map((result, index) => (
+                data?.items.map((result, index) => (
                   <div
                     key={result.id}
                     onClick={() => handleResultClick(result)}

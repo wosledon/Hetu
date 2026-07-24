@@ -17,7 +17,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Play, Save, Copy, CheckCircle, AlertTriangle, Layout, ChevronLeft, Pencil } from 'lucide-react'
+import { Play, Save, CheckCircle, AlertTriangle, Layout, ChevronLeft, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { workflowService } from '../../services/workflowService'
 import type { IWorkflow, IWorkflowNode, IWorkflowEdge } from '../../types/workflow'
@@ -27,6 +27,7 @@ import WorkflowNodeComponent from './WorkflowNode'
 import NodePalette from './NodePalette'
 import NodeConfigPanel from './NodeConfigPanel'
 import type { IPromptPreset } from '../../types'
+import type { NodeTypes } from '@xyflow/react'
 
 interface WorkflowEditorProps {
   workflow: IWorkflow
@@ -37,7 +38,7 @@ interface WorkflowEditorProps {
   onRun: (workflow: IWorkflow) => void
 }
 
-const nodeTypes = { workflowNode: WorkflowNodeComponent as unknown as React.ComponentType<never> }
+const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
 function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, onRun }: WorkflowEditorProps) {
   const queryClient = useQueryClient()

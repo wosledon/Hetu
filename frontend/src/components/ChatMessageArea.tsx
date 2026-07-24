@@ -14,7 +14,6 @@ import Select from './Select'
 import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
 import { useStreaming } from '../hooks/useStreaming'
-import { renderToolName, renderToolResult } from '../utils/toolRendering'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
@@ -94,7 +93,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingTodos, setStreamingTodos,
     todoPanelCollapsed, setTodoPanelCollapsed,
     approvalRequests, setApprovalRequests,
-    resetStreaming, startStreaming, stopStreaming, handleSseChunk,
+    startStreaming, stopStreaming, handleSseChunk,
   } = useStreaming()
 
   const [streamWebSearch, setStreamWebSearch] = useState(false)

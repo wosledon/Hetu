@@ -17,7 +17,6 @@ import {
   Brain,
   Clock,
   Hash,
-  Link,
   Upload,
   Globe,
   Plus,
@@ -43,9 +42,7 @@ import {
   knowledgeItemService,
 } from '../services/knowledgeBaseService'
 import type {
-  IKnowledgeItemEmbeddingStatus,
   INoteChunk,
-  IKnowledgeItem,
 } from '../services/knowledgeBaseService'
 
 type TabKey = 'overview' | 'manage' | 'search'
@@ -70,7 +67,7 @@ export default function KnowledgeBasePage() {
   const [manageFilter, setManageFilter] = useState<ManageFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchTopK, setSearchTopK] = useState(10)
-  const [searchResults, setSearchResults] = useState<{ id: string; title: string; contentSnippet: string; updatedAt: string }[] | null>(null)
+  const [searchResults, setSearchResults] = useState<{ id: string; title: string; contentSnippet?: string; updatedAt: string }[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [chunkDetailId, setChunkDetailId] = useState<string | null>(null)
@@ -100,7 +97,7 @@ export default function KnowledgeBasePage() {
   })
 
   // Knowledge items for manage tab
-  const { data: knowledgeItems = [] } = useQuery({
+  useQuery({
     queryKey: ['knowledgeItems', manageFilter],
     queryFn: () => knowledgeItemService.getList(manageFilter === 'all' ? undefined : manageFilter),
     enabled: activeTab === 'manage',
@@ -189,7 +186,6 @@ export default function KnowledgeBasePage() {
   }
 
   const indexedPercent = status ? (status.totalItems > 0 ? Math.round((status.indexedItems / status.totalItems) * 100) : 0) : 0
-  const totalChunks = embeddingStatuses.reduce((sum, s) => sum + s.chunkCount, 0)
 
   const openChunkDetail = (id: string, title: string) => {
     setChunkDetailId(id)
