@@ -19,7 +19,7 @@ import { usageService } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap, useIsDark } from '../components/UsageHeatmap'
 
 type HeatTab = 'week' | 'year'
-type Metric = 'messages' | 'tokens'
+type Metric = 'messages' | 'tokens' | 'logs'
 
 function fmtNum(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
@@ -158,7 +158,7 @@ export default function UsagePage() {
               </div>
               {/* 指标切换 */}
               <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
-                {(['tokens', 'messages'] as Metric[]).map((m) => (
+                {(['tokens', 'messages', 'logs'] as Metric[]).map((m) => (
                   <button
                     key={m}
                     onClick={() => setMetric(m)}
@@ -168,7 +168,7 @@ export default function UsagePage() {
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
-                    {m === 'tokens' ? 'Tokens' : '消息数'}
+                    {m === 'tokens' ? 'Tokens' : m === 'messages' ? '消息数' : '请求日志'}
                   </button>
                 ))}
               </div>
@@ -199,71 +199,134 @@ export default function UsagePage() {
                   })}
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  {/* 近 7 天趋势 */}
-                  <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] lg:col-span-2">
-                    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      <CalendarClock size={15} className="text-blue-500" />
-                      近 7 天趋势
-                    </h3>
-                    <ReactECharts option={trendOption} style={{ height: 220, width: '100%' }} notMerge />
-                  </div>
+                {metric === 'logs' ? (
+                  <UsageLogs />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                      {/* 近 7 天趋势 */}
+                      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] lg:col-span-2">
+                        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <CalendarClock size={15} className="text-blue-500" />
+                          近 7 天趋势
+                        </h3>
+                        <ReactECharts option={trendOption} style={{ height: 220, width: '100%' }} notMerge />
+                      </div>
 
-                  {/* 模型分布 */}
-                  <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
-                    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      <Cpu size={15} className="text-violet-500" />
-                      模型分布
-                    </h3>
-                    {byModel.length === 0 ? (
-                      <p className="flex h-[220px] items-center justify-center text-xs text-gray-400">暂无数据</p>
-                    ) : (
-                      <ReactECharts option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
-                    )}
-                  </div>
-                </div>
-
-                {/* 热力图 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      <Calendar size={15} className="text-emerald-500" />
-                      活跃热力
-                    </h3>
-                    <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
-                      <button
-                        onClick={() => setHeatTab('week')}
-                        className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                          heatTab === 'week'
-                            ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        周 × 时
-                      </button>
-                      <button
-                        onClick={() => setHeatTab('year')}
-                        className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                          heatTab === 'year'
-                            ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        年 × 日
-                      </button>
+                      {/* 模型分布 */}
+                      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
+                        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <Cpu size={15} className="text-violet-500" />
+                          模型分布
+                        </h3>
+                        {byModel.length === 0 ? (
+                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400">暂无数据</p>
+                        ) : (
+                          <ReactECharts option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {heatTab === 'week' ? (
-                    <WeekHourHeatmap data={stats.weekHourly} metric={metric} />
-                  ) : (
-                    <YearHeatmap data={stats.yearDaily} metric={metric} />
-                  )}
-                </div>
+
+                    {/* 热力图 */}
+                    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <Calendar size={15} className="text-emerald-500" />
+                          活跃热力
+                        </h3>
+                        <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
+                          <button
+                            onClick={() => setHeatTab('week')}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                              heatTab === 'week'
+                                ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            周 × 时
+                          </button>
+                          <button
+                            onClick={() => setHeatTab('year')}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                              heatTab === 'year'
+                                ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            年 × 日
+                          </button>
+                        </div>
+                      </div>
+                      {heatTab === 'week' ? (
+                        <WeekHourHeatmap data={stats.weekHourly} metric={metric} />
+                      ) : (
+                        <YearHeatmap data={stats.yearDaily} metric={metric} />
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
         </div>
       }
     />
+  )
+}
+
+function UsageLogs() {
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ['usageLogs'],
+    queryFn: () => usageService.getLogs(1, 50),
+  })
+
+  const fmtTime = (s: string) => {
+    const d = new Date(s)
+    return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+        <CalendarClock size={15} className="text-blue-500" />
+        请求日志
+      </h3>
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center text-sm text-gray-400">加载中...</div>
+      ) : logs.length === 0 ? (
+        <div className="flex h-32 items-center justify-center text-sm text-gray-400">暂无日志</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-gray-400 dark:border-gray-700">
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">时间</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">模型</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输入</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">压缩后</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输出</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">总计</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">延迟</th>
+                <th className="whitespace-nowrap pb-2 font-medium">内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.messageId} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700/50 dark:hover:bg-white/[0.02]">
+                  <td className="whitespace-nowrap py-2 pr-3 text-gray-500">{fmtTime(log.createdAt)}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-gray-600 dark:text-gray-300">{log.modelName}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right text-blue-600 dark:text-blue-400">{log.inputTokens ?? '—'}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right text-violet-600 dark:text-violet-400">{log.compressedTokens ?? '—'}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right text-emerald-600 dark:text-emerald-400">{log.outputTokens ?? '—'}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right font-medium text-gray-700 dark:text-gray-200">{log.tokensUsed ?? '—'}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right text-gray-500">{log.latencyMs != null ? `${(log.latencyMs / 1000).toFixed(1)}s` : '—'}</td>
+                  <td className="max-w-[200px] truncate py-2 text-gray-400">{log.contentPreview}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }

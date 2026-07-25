@@ -55,3 +55,18 @@ public class UsageStatsDto
     /// <summary>按模型聚合</summary>
     public List<UsageModelStat> ByModel { get; set; } = new();
 }
+
+public class UsageLogDto
+{
+    public Guid MessageId { get; set; }
+    public Guid TopicId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public string ModelName { get; set; } = string.Empty;
+    public int? InputTokens { get; set; }
+    public int? CompressedTokens { get; set; }
+    public int? OutputTokens { get; set; }
+    public int? TokensUsed { get; set; }
+    public int? CachedTokens { get; set; }
+    public int? LatencyMs { get; set; }
+    public string ContentPreview { get; set; } = string.Empty;
+}

@@ -92,4 +92,32 @@ public class UsageService
 
         return result;
     }
+
+    /// <summary>获取请求日志明细（分页）</summary>
+    public async Task<List<UsageLogDto>> GetLogsAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
+    {
+        var messages = await _unitOfWork.ChatMessages.FindAsync(m => m.Role == "assistant", ct);
+        var models = await _unitOfWork.AiModels.GetAllAsync(ct);
+        var modelNames = models.ToDictionary(m => m.Id, m => string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName);
+
+        return messages
+            .OrderByDescending(m => m.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(m => new UsageLogDto
+            {
+                MessageId = m.Id,
+                TopicId = m.TopicId,
+                CreatedAt = m.CreatedAt,
+                ModelName = m.ModelId.HasValue && modelNames.TryGetValue(m.ModelId.Value, out var n) ? n : "默认模型",
+                InputTokens = m.InputTokens,
+                CompressedTokens = m.CompressedTokens,
+                OutputTokens = m.OutputTokens,
+                TokensUsed = m.TokensUsed,
+                CachedTokens = m.CachedTokens,
+                LatencyMs = m.LatencyMs,
+                ContentPreview = m.Content?.Length > 80 ? m.Content[..80] + "..." : m.Content ?? "",
+            })
+            .ToList();
+    }
 }
