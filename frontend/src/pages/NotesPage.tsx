@@ -9,6 +9,7 @@ import type { INote } from '../types'
 export default function NotesPage() {
   const [selectedNote, setSelectedNote] = useState<INote | null>(null)
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
+  const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
   const collapsed = secondaryMenuStyle === 'collapsed'
 
   return (
@@ -20,6 +21,8 @@ export default function NotesPage() {
         <NotesTree
           selectedNoteId={selectedNote?.id}
           onSelectNote={(note) => setSelectedNote(note)}
+          onSelectNotebook={() => setSelectedNote(null)}
+          onClearNotebook={() => setSelectedNotebookId(undefined)}
         />
       ) : (
         <NoteList

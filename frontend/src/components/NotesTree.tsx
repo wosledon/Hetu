@@ -25,6 +25,8 @@ import type { INote, INotebook } from '../types'
 interface NotesTreeProps {
   selectedNoteId?: string
   onSelectNote: (note: INote) => void
+  onSelectNotebook?: () => void
+  onClearNotebook?: () => void
 }
 
 interface LeafMenuState {
@@ -80,6 +82,8 @@ function NotebookNode({
   search,
   selectedNoteId,
   onSelectNote,
+  onSelectNotebook,
+  onClearNotebook,
   onOpenLeafMenu,
 }: {
   notebook: INotebook
@@ -87,6 +91,8 @@ function NotebookNode({
   search: string
   selectedNoteId?: string
   onSelectNote: (note: INote) => void
+  onSelectNotebook?: () => void
+  onClearNotebook?: () => void
   onOpenLeafMenu: (e: React.MouseEvent, note: INote) => void
 }) {
   const navigate = useNavigate()
@@ -140,7 +146,7 @@ function NotebookNode({
           isSelected ? 'bg-blue-50/80 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
         }`}
         style={{ paddingLeft: `${8 + level * 14}px` }}
-        onClick={() => setSelectedNotebookId(notebook.id)}
+        onClick={() => { setSelectedNotebookId(notebook.id); setExpanded((v) => !v); onSelectNotebook?.() }}
       >
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
@@ -148,9 +154,9 @@ function NotebookNode({
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        {isSelected
-          ? <FolderOpen size={15} className="shrink-0 text-blue-500" />
-          : <Folder size={15} className="shrink-0 text-blue-500" />}
+        {expanded
+          ? <FolderOpen size={15} className={`shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+          : <Folder size={15} className={`shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />}
         <span
           className={`min-w-0 flex-1 truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}
           onDoubleClick={() => navigate('/')}
@@ -209,6 +215,8 @@ function NotebookNode({
               search={search}
               selectedNoteId={selectedNoteId}
               onSelectNote={onSelectNote}
+              onSelectNotebook={onSelectNotebook}
+              onClearNotebook={onClearNotebook}
               onOpenLeafMenu={onOpenLeafMenu}
             />
           ))}
@@ -217,7 +225,7 @@ function NotebookNode({
             return (
               <div
                 key={note.id}
-                onClick={() => onSelectNote(note)}
+                onClick={() => { setSelectedNotebookId(notebook.id); onSelectNote(note); onClearNotebook?.() }}
                 onContextMenu={(e) => { e.preventDefault(); onOpenLeafMenu(e, note) }}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
                   active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
@@ -248,8 +256,9 @@ function NotebookNode({
 }
 
 /** 折叠模式：笔记本→笔记 一棵树 */
-export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreeProps) {
+export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebook, onClearNotebook }: NotesTreeProps) {
   const queryClient = useQueryClient()
+  const setSelectedNotebookId = useUIStore((s) => s.setSelectedNotebookId)
   const [searchTerm, setSearchTerm] = useState('')
   const [leafMenu, setLeafMenu] = useState<LeafMenuState | null>(null)
   const [addMenu, setAddMenu] = useState<AddMenuState | null>(null)
@@ -397,7 +406,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
                 return (
                   <div
                     key={note.id}
-                    onClick={() => onSelectNote(note)}
+                    onClick={() => { setSelectedNotebookId(undefined); onSelectNote(note); onClearNotebook?.() }}
                     onContextMenu={(e) => { e.preventDefault(); handleOpenLeafMenu(e, note) }}
                     className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
                       active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
@@ -426,6 +435,8 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
             search={search}
             selectedNoteId={selectedNoteId}
             onSelectNote={onSelectNote}
+            onSelectNotebook={onSelectNotebook}
+            onClearNotebook={onClearNotebook}
             onOpenLeafMenu={handleOpenLeafMenu}
           />
         ))}
