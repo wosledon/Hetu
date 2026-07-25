@@ -7,7 +7,6 @@ import {
   Hash,
   Loader2,
   Pencil,
-  Play,
   Plus,
   RefreshCw,
   Settings,
@@ -45,9 +44,6 @@ export default function SkillsPage() {
   const [form, setForm] = useState({ category: '', name: '', description: '', config: defaultConfig, isEnabled: true })
   const [showDirConfig, setShowDirConfig] = useState(false)
   const [dirInput, setDirInput] = useState('')
-  const [invokeResult, setInvokeResult] = useState<{ id: string; result?: string; error?: string } | null>(null)
-  const [invokeInputs, setInvokeInputs] = useState<Record<string, string>>({})
-  const [invokingId, setInvokingId] = useState<string | null>(null)
 
   // Database skills
   const { data: dbSkills = [] } = useQuery({ queryKey: ['skills'], queryFn: () => skillService.getAll() })
@@ -79,10 +75,6 @@ export default function SkillsPage() {
   const updateDirsMutation = useMutation({
     mutationFn: (dirs: string[]) => skillService.updateSkillDirectories(dirs),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skillDirectories'] }),
-  })
-  const invokeMutation = useMutation({
-    mutationFn: ({ nameOrId, input }: { nameOrId: string; input: string }) => skillService.invoke(nameOrId, { input }),
-    onMutate: ({ nameOrId }) => { setInvokingId(nameOrId); setInvokeResult(null) },
   })
 
   const skills = tab === 'database' ? dbSkills : localSkills
@@ -125,15 +117,6 @@ export default function SkillsPage() {
     updateDirsMutation.mutate(directories.filter(d => d !== dir))
   }
 
-  const handleInvoke = (skillId: string, nameOrId: string) => {
-    const input = invokeInputs[skillId]?.trim()
-    if (!input) return
-    invokeMutation.mutate({ nameOrId, input }, {
-      onSuccess: (result) => { setInvokeResult({ id: skillId, result }); setInvokingId(null) },
-      onError: (err: Error) => { setInvokeResult({ id: skillId, error: err.message }); setInvokingId(null) },
-    })
-  }
-
   const renderSkillCard = (skill: ISkill | ILocalSkill, isLocal: boolean) => {
     const s = skill
     const isDb = !isLocal
@@ -170,32 +153,6 @@ export default function SkillsPage() {
         <p className="mb-3 line-clamp-2 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
           {s.description}
         </p>
-
-        {/* Invoke area */}
-        <div className="mb-2 flex items-center gap-1.5">
-          <input
-            value={invokeInputs[s.id] ?? ''}
-            onChange={(e) => setInvokeInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleInvoke(s.id, s.name) }}
-            placeholder="输入内容测试..."
-            className="h-7 flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
-          />
-          <button
-            onClick={() => handleInvoke(s.id, s.name)}
-            disabled={invokingId === s.name}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition-colors hover:bg-violet-50 hover:text-violet-600 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-violet-900/20"
-            title="测试运行"
-          >
-            {invokingId === s.name ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-          </button>
-        </div>
-
-        {/* Invoke result */}
-        {invokeResult?.id === s.id && (
-          <div className={`mb-2 rounded-md p-2 text-xs ${invokeResult.error ? 'bg-red-50 text-red-600 dark:bg-red-900/20' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20'}`}>
-            {invokeResult.error || invokeResult.result}
-          </div>
-        )}
 
         {/* Actions */}
         {isDb && !(s as ISkill).isBuiltIn && (
