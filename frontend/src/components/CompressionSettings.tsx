@@ -1,9 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+        checked ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+        checked ? 'translate-x-5' : 'translate-x-0.5'
+      }`} style={{ marginTop: '2px' }} />
+    </button>
+  )
+}
 
 const MODE_LABELS: Record<string, { label: string; desc: string }> = {
   algorithmic: { label: '算法压缩', desc: '使用内置算法去重、归一化、停用词过滤等' },
@@ -40,18 +55,13 @@ export default function CompressionSettings() {
 
   const chatModels = models.filter(m => m.purpose === 'chat' && m.providerId)
   const toggleNode = (key: string) => {
-    setDraft(prev => prev ? {
-      ...prev,
-      nodes: prev.nodes.map(n => n.key === key ? { ...n, enabled: !n.enabled } : n)
-    } : prev)
+    setDraft(prev => prev ? { ...prev, nodes: prev.nodes.map(n => n.key === key ? { ...n, enabled: !n.enabled } : n) } : prev)
   }
   const handleSave = () => { if (draft) saveMutation.mutate(draft) }
-
   const enabledCount = draft?.nodes.filter(n => n.enabled).length ?? 0
 
   return (
     <div className="space-y-6">
-      {/* 总开关 */}
       <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">压缩管道</div>
@@ -61,14 +71,9 @@ export default function CompressionSettings() {
               : '关闭后消息将原样发送'}
           </div>
         </div>
-        <button onClick={() => setDraft(prev => prev ? { ...prev, enabled: !prev.enabled } : prev)} className="transition-transform active:scale-95">
-          {draft.enabled
-            ? <ToggleRight size={36} className="text-emerald-500" />
-            : <ToggleLeft size={36} className="text-gray-300" />}
-        </button>
+        <Toggle checked={draft.enabled} onChange={() => setDraft(prev => prev ? { ...prev, enabled: !prev.enabled } : prev)} />
       </div>
 
-      {/* 压缩模式 */}
       <div>
         <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模式</label>
         <div className="grid grid-cols-3 gap-2">
@@ -89,7 +94,6 @@ export default function CompressionSettings() {
         </div>
       </div>
 
-      {/* LLM 配置（llm / hybrid 模式下显示） */}
       {(draft.mode === 'llm' || draft.mode === 'hybrid') && (
         <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/30">
           <div>
@@ -114,7 +118,6 @@ export default function CompressionSettings() {
         </div>
       )}
 
-      {/* 压缩节点列表 */}
       <div>
         <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩节点</label>
         <div className="space-y-1.5">
@@ -128,17 +131,12 @@ export default function CompressionSettings() {
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{node.label}</div>
                 <div className="mt-0.5 text-[10px] text-gray-400 truncate">{node.description}</div>
               </div>
-              <button onClick={() => toggleNode(node.key)} className="transition-transform active:scale-95 shrink-0">
-                {node.enabled
-                  ? <ToggleRight size={32} className="text-emerald-500" />
-                  : <ToggleLeft size={32} className="text-gray-300" />}
-              </button>
+              <Toggle checked={node.enabled} onChange={() => toggleNode(node.key)} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* 保存按钮 */}
       <button
         onClick={handleSave}
         disabled={saveMutation.isPending}
