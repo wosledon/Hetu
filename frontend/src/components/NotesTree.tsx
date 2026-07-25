@@ -491,7 +491,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
             <button
-              onClick={() => { confirm({ message: '确定删除这条笔记吗？', onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}
+              onClick={() => { setLeafMenu(null); confirm({ message: '确定删除这条笔记吗？', onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               <Trash2 size={13} />
