@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ShieldAlert, Loader2, Save, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Loader2, Save, ToggleLeft, ToggleRight } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
@@ -51,12 +51,21 @@ export default function CompressionSettings() {
 
   return (
     <div className="space-y-6">
-      {/* 状态栏 */}
-      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400">
-        <ShieldAlert size={14} className={enabledCount > 0 ? 'text-emerald-500' : 'text-gray-400'} />
-        {enabledCount === 0
-          ? '未启用任何压缩节点，消息将原样发送'
-          : `已启用 ${enabledCount} 个压缩节点，节省预计 Token 成本`}
+      {/* 总开关 */}
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div>
+          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">压缩管道</div>
+          <div className="mt-0.5 text-xs text-gray-500">
+            {draft.enabled
+              ? enabledCount === 0 ? '已开启，请至少启用一个节点' : `已启用 ${enabledCount} 个节点`
+              : '关闭后消息将原样发送'}
+          </div>
+        </div>
+        <button onClick={() => setDraft(prev => prev ? { ...prev, enabled: !prev.enabled } : prev)} className="transition-transform active:scale-95">
+          {draft.enabled
+            ? <ToggleRight size={36} className="text-emerald-500" />
+            : <ToggleLeft size={36} className="text-gray-300" />}
+        </button>
       </div>
 
       {/* 压缩模式 */}

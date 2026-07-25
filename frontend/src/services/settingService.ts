@@ -26,6 +26,7 @@ export const settingService = {
 };
 
 export interface CompressionPipelineConfig {
+  enabled: boolean;
   mode: string; // algorithmic | llm | hybrid
   llmModelId?: string;
   llmSystemPrompt?: string;

@@ -60,7 +60,8 @@ public class CompressionPipelineService
         var config = await GetConfigAsync(ct);
         if (string.IsNullOrWhiteSpace(input)) return input;
 
-        // 无任何节点启用则跳过
+        // 总开关关闭或无任何节点启用则跳过
+        if (!config.Enabled) return input;
         var enabledNodes = config.Nodes.Where(n => n.Enabled).ToList();
         if (enabledNodes.Count == 0) return input;
 

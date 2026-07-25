@@ -64,6 +64,7 @@ public class AgentLoopService
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ToolRegistry _toolRegistry;
     private readonly ToolExecutionService _toolExecution;
+    private readonly CompressionPipelineService _compressionPipeline;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AgentLoopService> _logger;
 
@@ -76,12 +77,14 @@ public class AgentLoopService
         ILLMProviderFactory llmProviderFactory,
         ToolRegistry toolRegistry,
         ToolExecutionService toolExecution,
+        CompressionPipelineService compressionPipeline,
         IUnitOfWork unitOfWork,
         ILogger<AgentLoopService> logger)
     {
         _llmProviderFactory = llmProviderFactory;
         _toolRegistry = toolRegistry;
         _toolExecution = toolExecution;
+        _compressionPipeline = compressionPipeline;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -164,6 +167,18 @@ public class AgentLoopService
         var chatMessages = new List<LlmChatMessage>(request.Messages);
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : 15;
+
+        // 压缩管道：压缩用户输入
+        for (int i = 0; i < chatMessages.Count; i++)
+        {
+            var msg = chatMessages[i];
+            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < 100) continue;
+            var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
+            if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
+            {
+                chatMessages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
+            }
+        }
 
         // 4. Agent Loop
         for (int iter = 0; iter < maxIter; iter++)

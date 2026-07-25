@@ -2,6 +2,7 @@ namespace Hetu.Shared.Settings;
 
 public class CompressionPipelineDto
 {
+    public bool Enabled { get; set; }
     public string Mode { get; set; } = "algorithmic"; // algorithmic | llm | hybrid
     public string? LlmModelId { get; set; }
     public string? LlmSystemPrompt { get; set; } = "压缩以下文本，保留所有关键信息，尽可能减少 token 数量：";
@@ -21,6 +22,7 @@ public static class CompressionDefaults
 {
     public static CompressionPipelineDto GetDefault() => new()
     {
+        Enabled = false,
         Mode = "algorithmic",
         Nodes = new List<CompressionNodeDto>
         {

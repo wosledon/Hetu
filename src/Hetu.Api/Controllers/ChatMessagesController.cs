@@ -26,6 +26,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ToolRegistry _toolRegistry;
     private readonly PromptComposer _promptComposer;
     private readonly ToolExecutionService _toolExecution;
+    private readonly CompressionPipelineService _compressionPipeline;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -38,7 +39,8 @@ public class ChatMessagesController : ControllerBase
         ILocalSkillService localSkillService,
         ToolRegistry toolRegistry,
         PromptComposer promptComposer,
-        ToolExecutionService toolExecution)
+        ToolExecutionService toolExecution,
+        CompressionPipelineService compressionPipeline)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -51,6 +53,7 @@ public class ChatMessagesController : ControllerBase
         _toolRegistry = toolRegistry;
         _promptComposer = promptComposer;
         _toolExecution = toolExecution;
+        _compressionPipeline = compressionPipeline;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -120,6 +123,9 @@ public class ChatMessagesController : ControllerBase
         var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);
         var options = await BuildChatOptionsAsync(request, topic, modelId, ct);
         var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, ct);
+
+        // 压缩管道：压缩发送给 LLM 的消息内容
+        await CompressChatHistoryAsync(chatMessages, options, ct);
 
         var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
@@ -432,5 +438,25 @@ public class ChatMessagesController : ControllerBase
         for (int i = 0; i < memories.Count; i++)
             sb.AppendLine($"{i + 1}. {(string.IsNullOrEmpty(memories[i].Category) ? "" : $"[{memories[i].Category}] ")}{memories[i].Content}");
         return sb.ToString();
+    }
+
+    /// <summary>压缩聊天历史中的每条消息内容，节省发送给 LLM 的 token</summary>
+    private async Task CompressChatHistoryAsync(List<LlmChatMessage> messages, ChatOptions options, CancellationToken ct)
+    {
+        for (int i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < 100) continue;
+            var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
+            if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
+                messages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
+        }
+
+        // 也压缩 system prompt
+        if (!string.IsNullOrWhiteSpace(options.SystemPrompt) && options.SystemPrompt.Length > 200)
+        {
+            var compressed = await _compressionPipeline.CompressAsync(options.SystemPrompt, ct);
+            if (!string.IsNullOrWhiteSpace(compressed)) options.SystemPrompt = compressed;
+        }
     }
 }
