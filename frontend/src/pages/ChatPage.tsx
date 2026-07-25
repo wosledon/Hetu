@@ -5,7 +5,7 @@ import ChatSidebar from '../components/ChatSidebar'
 import ChatTopicList from '../components/ChatTopicList'
 import ChatTree from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
-import { chatGroupService } from '../services/chatService'
+import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatGroup, IChatTopic } from '../types'
 
@@ -21,6 +21,13 @@ export default function ChatPage() {
     queryFn: chatGroupService.getAll,
   })
 
+  // 当前分组下的话题列表，用于渲染常驻 ChatMessageArea
+  const { data: topics = [] } = useQuery({
+    queryKey: ['chatTopics', selectedGroup?.id],
+    queryFn: () => (selectedGroup ? chatTopicService.getByGroup(selectedGroup.id) : Promise.resolve([])),
+    enabled: !!selectedGroup,
+  })
+
   // 当分组列表加载完成且没有选择分组时，自动选择第一个分组
   useEffect(() => {
     if (groups.length > 0 && !selectedGroup) {
@@ -28,8 +35,26 @@ export default function ChatPage() {
     }
   }, [groups, selectedGroup])
 
+  // 话题列表加载后自动选第一个
+  useEffect(() => {
+    if (topics.length > 0 && !selectedTopic) {
+      setSelectedTopic(topics[0])
+    }
+  }, [topics, selectedTopic])
+
   return (
-    <AppLayout showSidebar={false} mainContent={<ChatMessageArea topic={selectedTopic ?? undefined} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />}>
+    <AppLayout showSidebar={false} mainContent={
+      <>
+        {topics.map((t) => (
+          <div key={t.id} style={{ display: t.id === selectedTopic?.id ? 'contents' : 'none' }}>
+            <ChatMessageArea topic={t} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />
+          </div>
+        ))}
+        {topics.length === 0 && (
+          <ChatMessageArea topic={undefined} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />
+        )}
+      </>
+    }>
       {collapsed ? (
         <ChatTree
           selectedGroupId={selectedGroup?.id}
