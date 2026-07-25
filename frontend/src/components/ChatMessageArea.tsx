@@ -130,7 +130,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [pendingApproval, setPendingApproval] = useState<{ nodeId: string; prompt: string; runId: string } | null>(null)
   // 统一工作流工具交互：toolCallId/name/arguments，name=ask_question 时显示提问面板，否则显示审批面板
   const [workflowToolCall, setWorkflowToolCall] = useState<{ toolCallId: string; name: string; arguments: string } | null>(null)
-  const [workflowFinalOutput, setWorkflowFinalOutput] = useState<string>('')
   const [workflowError, setWorkflowError] = useState<string>('')
   const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -432,7 +431,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       setWorkflowRunId('')
       setPendingApproval(null)
       setWorkflowToolCall(null)
-      setWorkflowFinalOutput('')
       setWorkflowError('')
       const controller = new AbortController()
       try {
@@ -462,7 +460,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 setWorkflowToolCall({ toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
                 break
               case 'run_completed':
-                setWorkflowFinalOutput(evt.output ?? '')
                 setStreamingContent(evt.output ?? '工作流执行完成')
                 break
               case 'run_failed':
@@ -470,7 +467,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 setStreamingContent('工作流执行失败：' + (evt.error ?? ''))
                 break
               case 'run_result':
-                setWorkflowFinalOutput(evt.result?.output ?? '')
                 if (evt.result?.error) setWorkflowError(evt.result.error)
                 setStreamingContent(evt.result?.output ?? evt.result?.error ?? '工作流执行完成')
                 break
@@ -1086,7 +1082,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0 || workflowNodes.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
@@ -1241,7 +1237,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               onApprove={handleWorkflowApprove}
               onToolApprove={handleWorkflowToolApprove}
               isStreaming={isStreaming}
-              finalOutput={workflowFinalOutput}
               error={workflowError}
             />
           </div>

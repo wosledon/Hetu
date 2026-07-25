@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ReactFlow, Background, Controls, MiniMap, MarkerType, type Node, type Edge, type NodeTypes } from '@xyflow/react'
+import { ReactFlow, Background, Controls, MarkerType, type Node, type Edge, type NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck } from 'lucide-react'
 import WorkflowNodeComponent, { toFlowNode } from './WorkflowNode'
@@ -24,12 +24,11 @@ interface InlineWorkflowPanelProps {
   onApprove: (runId: string, nodeId: string, approve: boolean) => void
   onToolApprove: (approved: boolean) => void
   isStreaming: boolean
-  finalOutput?: string
   error?: string
 }
 
 export default function InlineWorkflowPanel({
-  workflow, nodeStates, pendingApproval, workflowToolCall, onApprove, onToolApprove, isStreaming, finalOutput, error,
+  workflow, nodeStates, pendingApproval, workflowToolCall, onApprove, onToolApprove, isStreaming, error,
 }: InlineWorkflowPanelProps) {
   const stateMap = useMemo(() => {
     const map = new Map<string, WorkflowNodeState>()
@@ -90,13 +89,6 @@ export default function InlineWorkflowPanel({
         >
           <Background gap={12} size={1} />
           <Controls showInteractive={false} className="!shadow-none" />
-          <MiniMap
-            className="!bg-gray-50 dark:!bg-gray-800"
-            nodeColor={n => {
-              const d = n.data as IWorkflowNodeData
-              return d.status === 'running' ? '#3b82f6' : d.status === 'success' ? '#22c55e' : d.status === 'failed' ? '#ef4444' : '#9ca3af'
-            }}
-          />
         </ReactFlow>
       </div>
 
@@ -152,15 +144,6 @@ export default function InlineWorkflowPanel({
         )
       })()}
 
-      {/* Final output */}
-      {finalOutput && (
-        <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
-          <div className="mb-1 text-[10px] font-medium text-gray-400 uppercase tracking-wider">执行结果</div>
-          <div className="prose prose-sm dark:prose-invert max-w-none max-h-32 overflow-y-auto text-xs text-gray-700 dark:text-gray-300">
-            {finalOutput}
-          </div>
-        </div>
-      )}
       {error && (
         <div className="border-t border-red-100 bg-red-50 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/20">
           <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
