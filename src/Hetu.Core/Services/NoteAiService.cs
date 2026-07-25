@@ -70,6 +70,9 @@ public class NoteAiService : INoteAiService
             ? request.SystemPrompt
             : "你是写作助手，擅长根据上下文续写内容。";
 
+        // 强制模型只输出结果文本，不输出任何对话性前缀/后缀，避免替换/插入时混入 AI 的客套话
+        systemPrompt += "\n\n【输出要求】只输出最终文本内容本身，不要输出任何解释、前言、引导语（如“好的”“以下是”“润色后：”等），不要使用代码块包裹，不要附加评论或建议。";
+
         string prompt;
         if (hasCustomPrompt)
         {

@@ -42,6 +42,20 @@ interface MarkdownEditorProps {
   note: INote | null
 }
 
+/** 剥离 AI 输出中的对话性前后缀与代码块包裹，保留正文 */
+function sanitizeAiResult(raw: string): string {
+  let text = raw.trim()
+  // 去掉整体代码块包裹
+  const fenceMatch = text.match(/^```[\w-]*\n([\s\S]*?)\n```$/)
+  if (fenceMatch) text = fenceMatch[1].trim()
+  const lines = text.split('\n')
+  const prefixRe = /^\s*(?:[#>*\s-]*)(?:好的[，,。!！]?|没问题[，,。!！]?|当然[，,。!！]?|以下是[^：:]*|这是[^：:]*|已为您[^：:]*|我将[^：:]*|我来[^：:]*|润色后|翻译后|简化后|扩展后|续写后|结果|修改后)\s*[：:，,。]?\s*$/
+  while (lines.length > 1 && prefixRe.test(lines[0])) lines.shift()
+  const suffixRe = /^\s*(?:[#>*\s-]*)(?:希望|如需|如果|若|以上[。！!]?|如需调整|欢迎提出|请告诉我|可以告诉我)[^\n]{0,40}$/
+  while (lines.length > 1 && suffixRe.test(lines[lines.length - 1])) lines.pop()
+  return lines.join('\n').trim()
+}
+
 export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
@@ -258,7 +272,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   const handleReplaceSelection = () => {
     if (!inlineAiResult || inlineAiResult.startsWith('[ERROR]')) return
-    milkdownRef.current?.replaceSelection(inlineAiResult)
+    const cleaned = sanitizeAiResult(inlineAiResult)
+    if (!cleaned) return
+    milkdownRef.current?.replaceSelection(cleaned)
     setInlineAiResult('')
     setAiSelection('')
     closeInlineAi()
@@ -267,7 +283,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const handleInsertAiResult = () => {
     const result = inlineAiResult || assistantResult
     if (!result || result.startsWith('[ERROR]')) return
-    milkdownRef.current?.appendContent(result)
+    const cleaned = sanitizeAiResult(result)
+    if (!cleaned) return
+    milkdownRef.current?.appendContent(cleaned)
     setInlineAiResult('')
     setAssistantResult('')
   }
