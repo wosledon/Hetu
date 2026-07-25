@@ -14,11 +14,13 @@ public class OpenAiProxyController : ControllerBase
 {
     private readonly ProxyService _proxyService;
     private readonly ProxyForwarder _forwarder;
+    private readonly CompressionPipelineService _compression;
 
-    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder)
+    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression)
     {
         _proxyService = proxyService;
         _forwarder = forwarder;
+        _compression = compression;
     }
 
     [HttpPost("chat/completions")]
@@ -50,9 +52,10 @@ public class OpenAiProxyController : ControllerBase
             return;
         }
 
-        // 重写 model 为真实模型，其余字段原样透传
-        var payload = RewriteModel(root, target.ModelId);
-        using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payload, ct);
+        // 重写 model 为真实模型，压缩消息后转发
+        var payloadJson = RewriteModel(root, target.ModelId);
+        payloadJson = await CompressMessagesInPayload(payloadJson, ct);
+        using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payloadJson, ct);
         await CopyUpstreamAsync(upstream, Response, ct);
     }
 
@@ -106,9 +109,51 @@ public class OpenAiProxyController : ControllerBase
 
     private static string RewriteModel(JsonElement root, string modelId)
     {
+        using var doc = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(new { model = modelId }));
         var dict = new Dictionary<string, JsonElement>();
         foreach (var p in root.EnumerateObject()) dict[p.Name] = p.Value.Clone();
-        dict["model"] = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(modelId)).RootElement;
+        dict["model"] = doc.RootElement.GetProperty("model").Clone();
         return JsonSerializer.Serialize(dict);
+    }
+
+    private async Task<string> CompressMessagesInPayload(string json, CancellationToken ct)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("messages", out var msgsEl) || msgsEl.ValueKind != JsonValueKind.Array)
+            return json;
+
+        var messages = new List<Dictionary<string, object>>();
+        foreach (var m in msgsEl.EnumerateArray())
+        {
+            var msg = new Dictionary<string, object>();
+            foreach (var p in m.EnumerateObject())
+                msg[p.Name] = p.Value.ValueKind switch
+                {
+                    JsonValueKind.String => p.Value.GetString() ?? "",
+                    JsonValueKind.Number => p.Value.GetDouble(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    _ => p.Value.ToString()
+                };
+
+            if (msg.TryGetValue("content", out var c) && c is string s && s.Length > 100)
+                msg["content"] = await _compression.CompressAsync(s, ct);
+
+            messages.Add(msg);
+        }
+
+        var payload = new Dictionary<string, object>();
+        foreach (var p in root.EnumerateObject())
+            payload[p.Name] = p.Name == "messages" ? messages : p.Value.ValueKind switch
+            {
+                JsonValueKind.String => p.Value.GetString() ?? "",
+                JsonValueKind.Number => p.Value.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => p.Value.ToString()
+            };
+
+        return JsonSerializer.Serialize(payload);
     }
 }
