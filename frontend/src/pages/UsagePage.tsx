@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReactECharts from 'echarts-for-react'
 import {
@@ -10,13 +10,13 @@ import {
   CalendarClock,
   Cpu,
   DatabaseZap,
-  Import,
   Minimize2,
   Bot,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap, useIsDark } from '../components/UsageHeatmap'
+import Select from '../components/Select'
 
 type HeatTab = 'week' | 'year'
 type Metric = 'messages' | 'tokens' | 'logs'
@@ -131,8 +131,7 @@ export default function UsagePage() {
   const cards = overview
     ? [
         { label: '总 Tokens', value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-        { label: '输入 Tokens', value: fmtNum(overview.totalInputTokens || 0), icon: Import, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-        { label: '压缩后', value: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
+        { label: '输入 / 压缩后', value: fmtNum(overview.totalInputTokens || 0), subValue: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
         { label: '输出 Tokens', value: fmtNum(overview.totalOutputTokens || 0), icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { label: '缓存 Tokens', value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
         { label: '平均延迟', value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
@@ -185,14 +184,14 @@ export default function UsagePage() {
               <div className="space-y-6">
                 {/* 概览卡片 */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-                  {cards.map((c) => {
+                  {cards.map((c: typeof cards[number] & { subValue?: string }) => {
                     const Icon = c.icon
                     return (
                       <div key={c.label} className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
                         <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${c.bg}`}>
                           <Icon size={15} className={c.color} />
                         </div>
-                        <div className="text-xl font-bold text-gray-900 dark:text-gray-50">{c.value}</div>
+                        <div className="text-xl font-bold text-gray-900 dark:text-gray-50">{c.value}{c.subValue ? <span className="text-xs font-normal text-gray-400">/{c.subValue}</span> : null}</div>
                         <div className="mt-0.5 text-[11px] text-gray-400">{c.label}</div>
                       </div>
                     )
@@ -275,14 +274,19 @@ export default function UsagePage() {
 }
 
 function UsageLogs() {
+  const [modelFilter, setModelFilter] = useState('')
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['usageLogs'],
-    queryFn: () => usageService.getLogs(1, 50),
+    queryFn: () => usageService.getLogs(1, 100),
   })
+
+  const models = useMemo(() => [...new Set(logs.map(l => l.modelName))].sort(), [logs])
+  const filtered = modelFilter ? logs.filter(l => l.modelName === modelFilter) : logs
 
   const fmtTime = (s: string) => {
     const d = new Date(s)
-    return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
   }
 
   return (
@@ -290,10 +294,17 @@ function UsageLogs() {
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         请求日志
+        <div className="ml-auto">
+          <Select
+            value={modelFilter}
+            onChange={setModelFilter}
+            options={[{ value: '', label: '全部模型' }, ...models.map(m => ({ value: m, label: m }))]}
+          />
+        </div>
       </h3>
       {isLoading ? (
         <div className="flex h-32 items-center justify-center text-sm text-gray-400">加载中...</div>
-      ) : logs.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-sm text-gray-400">暂无日志</div>
       ) : (
         <div className="overflow-x-auto">
@@ -311,7 +322,7 @@ function UsageLogs() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
+              {filtered.map((log) => (
                 <tr key={log.messageId} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700/50 dark:hover:bg-white/[0.02]">
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-500">{fmtTime(log.createdAt)}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-600 dark:text-gray-300">{log.modelName}</td>
