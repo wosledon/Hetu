@@ -26,6 +26,7 @@ Directory.CreateDirectory(Path.Combine(dataDir, "logs"));
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console()
     .WriteTo.File(Path.Combine(dataDir, "logs", "hetu-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)

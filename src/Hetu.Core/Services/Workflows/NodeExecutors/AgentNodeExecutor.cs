@@ -3,6 +3,7 @@ using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Workflow;
+using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
 
@@ -15,12 +16,14 @@ public class AgentNodeExecutor : INodeExecutor
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly AgentLoopService _agentLoopService;
+    private readonly ILogger<AgentNodeExecutor> _logger;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService)
+    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILogger<AgentNodeExecutor> logger)
     {
         _unitOfWork = unitOfWork;
         _agentLoopService = agentLoopService;
+        _logger = logger;
     }
 
     public string NodeType => WorkflowNodeTypes.Agent;
@@ -76,6 +79,9 @@ public class AgentNodeExecutor : INodeExecutor
         var mcpServerIds = TryGetList<string>(config, "mcpServerIds").Select(Guid.Parse).ToList();
         var toolApprovals = TryGetDict(config, "toolApprovals")
             .ToDictionary(kv => kv.Key, kv => Enum.TryParse<ToolApprovalMode>(kv.Value, true, out var m) ? m : ToolApprovalMode.Auto);
+
+        _logger.LogInformation("[AgentNode] node={NodeId} label={Label} config={Config} toolNames={ToolNames}",
+            node.Id, node.Label, node.Config ?? "null", string.Join(",", toolNames));
 
         var request = new AgentLoopRequest
         {
@@ -170,7 +176,10 @@ internal class CollectingAgentLoopSink : IAgentLoopSink
     public Task OnToolCallAsync(LlmToolCall toolCall)
     {
         if (_workflowSink != null)
+        {
+            // 日志由 AgentNodeExecutor 的 _logger 记录
             return _workflowSink.OnAgentToolCallAsync(_runId, _nodeId, toolCall.Id, toolCall.Name, toolCall.Arguments);
+        }
         return Task.CompletedTask;
     }
 

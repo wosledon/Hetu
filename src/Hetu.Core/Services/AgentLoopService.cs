@@ -158,6 +158,9 @@ public class AgentLoopService
             ToolChoice = allToolNames.Count > 0 ? "auto" : "none"
         };
 
+        _logger.LogInformation("[AgentLoop] tools={ToolCount} names={ToolNames} toolChoice={ToolChoice} systemPrompt={SystemPrompt}",
+            options.Tools?.Count ?? 0, string.Join(",", allToolNames), options.ToolChoice, options.SystemPrompt?.Length > 200 ? options.SystemPrompt[..200] : options.SystemPrompt);
+
         var chatMessages = new List<LlmChatMessage>(request.Messages);
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : 15;
@@ -168,6 +171,9 @@ public class AgentLoopService
             await sink.OnDebugAsync($"Agent 迭代 {iter + 1}，工具数={options.Tools?.Count ?? 0}");
 
             var (content, thinking, pendingToolCalls) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+
+            _logger.LogInformation("[AgentLoop] iter={Iter} contentLen={ContentLen} thinkingLen={ThinkingLen} toolCalls={ToolCallCount}",
+                iter, content.Length, thinking?.Length ?? 0, pendingToolCalls?.Count ?? 0);
 
             result.Content += content;
             if (!string.IsNullOrEmpty(thinking)) result.Thinking += thinking;
@@ -191,12 +197,28 @@ public class AgentLoopService
                 _ => Task.CompletedTask,
                 async payload =>
                 {
-                    if (payload is JsonElement je && je.TryGetProperty("type", out var tEl) && tEl.GetString() == "tool_call")
+                    // ToolExecutionService 传的是匿名对象，需要先序列化再解析
+                    JsonElement je;
+                    if (payload is JsonElement directJe)
+                    {
+                        je = directJe;
+                    }
+                    else
+                    {
+                        je = JsonSerializer.SerializeToElement(payload, JsonOptions);
+                    }
+
+                    if (je.TryGetProperty("type", out var tEl) && tEl.GetString() == "tool_call")
                     {
                         var id = je.TryGetProperty("id", out var iEl) ? iEl.GetString() ?? "" : "";
                         var name = je.TryGetProperty("name", out var nEl) ? nEl.GetString() ?? "" : "";
                         var args = je.TryGetProperty("arguments", out var aEl) ? aEl.GetRawText() : "{}";
+                        _logger.LogInformation("[AgentLoop] forwarding tool_call id={Id} name={Name} session={SessionId}", id, name, request.SessionId);
                         await sink.OnToolCallAsync(new LlmToolCall { Id = id, Name = name, Arguments = args });
+                    }
+                    else if (je.TryGetProperty("type", out var tEl2))
+                    {
+                        _logger.LogInformation("[AgentLoop] ignoring event type={EventType}", tEl2.GetString());
                     }
                 },
                 ct);
@@ -224,7 +246,7 @@ public class AgentLoopService
     }
 
     /// <summary>消费 LLM 流，累积 content/thinking/toolcalls，转发到 sink。不依赖 HttpResponse。</summary>
-    private static async Task<(string content, string thinking, List<LlmToolCall>? toolCalls)> ProcessStreamAsync(
+    private async Task<(string content, string thinking, List<LlmToolCall>? toolCalls)> ProcessStreamAsync(
         ILLMProvider provider,
         List<LlmChatMessage> chatMessages,
         ChatOptions options,
@@ -251,7 +273,11 @@ public class AgentLoopService
                     if (typeStr == "tool_calls")
                     {
                         if (doc.RootElement.TryGetProperty("toolCalls", out var tcArray))
+                        {
                             pendingToolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(tcArray.GetRawText(), JsonOptions);
+                            _logger.LogInformation("[AgentLoop] parsed tool_calls count={Count} names={Names}",
+                                pendingToolCalls?.Count ?? 0, pendingToolCalls != null ? string.Join(",", pendingToolCalls.Select(t => t.Name)) : "null");
+                        }
                     }
                     else
                     {

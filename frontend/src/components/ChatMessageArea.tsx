@@ -633,7 +633,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   // 工作流 Agent 工具交互提交（复用 chat-messages 的 answer/approve 端点）
-  const handleWorkflowToolApprove = async (approved: boolean) => {
+  const handleWorkflowToolApprove = async (approved: boolean, answer?: string) => {
     if (!workflowToolCall || !topic) return
     const sessionId = `workflow-${workflowRunId}-${workflowToolCall.nodeId}`
     setWorkflowToolCall(null)
@@ -642,7 +642,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         await fetch('/api/chat-messages/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, answer: '' }),
+          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, answer: answer ?? '' }),
         })
       } else {
         await fetch('/api/chat-messages/approve', {

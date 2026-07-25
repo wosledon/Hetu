@@ -105,6 +105,7 @@ public class ToolExecutionService
         {
             bool isSilentTool = toolCall.Name is "todo" or "ask_question";
 
+            _logger.LogInformation("[ToolExec] writeJsonAsync tool_call id={Id} name={Name} session={SessionId}", toolCall.Id, toolCall.Name, sessionId);
             await writeJsonAsync(new
             {
                 type = "tool_call",
@@ -220,6 +221,7 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken ct)
     {
+        _logger.LogInformation("[ToolExec] ask_question pending toolCallId={ToolCallId}", toolCall.Id);
         await writeJsonAsync(new { type = "question", toolCallId = toolCall.Id, data = toolCall.Arguments });
 
         var tcs = new TaskCompletionSource<string>();
