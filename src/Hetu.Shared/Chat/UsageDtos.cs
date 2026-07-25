@@ -9,6 +9,12 @@ public class UsageOverviewDto
     public int ActiveDays { get; set; }
     public long TodayMessages { get; set; }
     public long TodayTokens { get; set; }
+    /// <summary>原始输入 Token（压缩前估算）</summary>
+    public long TotalInputTokens { get; set; }
+    /// <summary>压缩后实际发送的 Prompt Token</summary>
+    public long TotalCompressedTokens { get; set; }
+    /// <summary>LLM 输出的 Completion Token</summary>
+    public long TotalOutputTokens { get; set; }
 }
 
 public class UsageDayStat

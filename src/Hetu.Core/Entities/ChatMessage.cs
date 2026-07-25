@@ -15,4 +15,10 @@ public class ChatMessage : BaseEntity
     public string? SearchResultsJson { get; set; }
     public string? KnowledgeResultsJson { get; set; }
     public string? MemoryResultsJson { get; set; }
+    /// <summary>原始输入 Token 数（压缩前估算）</summary>
+    public int? InputTokens { get; set; }
+    /// <summary>压缩后实际发送的 Prompt Token 数</summary>
+    public int? CompressedTokens { get; set; }
+    /// <summary>LLM 输出的 Completion Token 数</summary>
+    public int? OutputTokens { get; set; }
 }

@@ -84,7 +84,7 @@ public class ChatMessageService : IChatMessageService
         return ApiResponse.Ok();
     }
 
-    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, string? knowledgeResultsJson = null, string? memoryResultsJson = null, int? tokensUsed = null, int? cachedTokens = null, int? latencyMs = null, CancellationToken cancellationToken = default)
+    public async Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, string? knowledgeResultsJson = null, string? memoryResultsJson = null, int? tokensUsed = null, int? cachedTokens = null, int? latencyMs = null, int? inputTokens = null, int? compressedTokens = null, int? outputTokens = null, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
         if (topic == null) return null;
@@ -103,6 +103,9 @@ public class ChatMessageService : IChatMessageService
             TokensUsed = tokensUsed,
             CachedTokens = cachedTokens,
             LatencyMs = latencyMs,
+            InputTokens = inputTokens,
+            CompressedTokens = compressedTokens,
+            OutputTokens = outputTokens,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };

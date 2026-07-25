@@ -8,6 +8,9 @@ export interface IUsageOverview {
   activeDays: number
   todayMessages: number
   todayTokens: number
+  totalInputTokens: number
+  totalCompressedTokens: number
+  totalOutputTokens: number
 }
 
 export interface IUsageDayStat {

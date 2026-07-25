@@ -10,7 +10,7 @@ public interface IChatMessageService
     Task<ApiResponse<ChatMessageDto>> CreateUserMessageAsync(Guid topicId, string content, CancellationToken cancellationToken = default);
     Task<ApiResponse<ChatMessageDto>> UpdateAsync(Guid id, UpdateChatMessageRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, string? knowledgeResultsJson = null, string? memoryResultsJson = null, int? tokensUsed = null, int? cachedTokens = null, int? latencyMs = null, CancellationToken cancellationToken = default);
+    Task<ChatMessage?> SaveAssistantMessageAsync(Guid topicId, string content, Guid? modelId, string? thinkingContent = null, string? searchResultsJson = null, string? knowledgeResultsJson = null, string? memoryResultsJson = null, int? tokensUsed = null, int? cachedTokens = null, int? latencyMs = null, int? inputTokens = null, int? compressedTokens = null, int? outputTokens = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ChatMessage>> BuildHistoryAsync(Guid topicId, int? contextWindowSize, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<ChatMessageSearchResultDto>>> SearchAsync(string keyword, Guid? topicId = null, Guid? groupId = null, CancellationToken cancellationToken = default);
 }

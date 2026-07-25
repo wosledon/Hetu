@@ -136,8 +136,11 @@ public class ChatMessagesController : ControllerBase
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        int totalTokens = 0, cachedTokens = 0;
+        int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0;
         bool hasUsage = false;
+
+        // 估算压缩前的原始输入 Token
+        int? estimatedInputTokens = chatMessages.Sum(m => m.Content?.Length > 0 ? (m.Content.Length / 2) : 0);
 
         for (int iter = 0; iter < maxIter; iter++)
         {
@@ -150,6 +153,8 @@ public class ChatMessagesController : ControllerBase
             {
                 hasUsage = true;
                 totalTokens += iterUsage.TotalTokens;
+                totalPrompt += iterUsage.PromptTokens;
+                totalCompletion += iterUsage.CompletionTokens;
                 cachedTokens += iterUsage.CachedTokens;
             }
 
@@ -194,7 +199,11 @@ public class ChatMessagesController : ControllerBase
                 searchJson, kbJson, memJson,
                 hasUsage ? totalTokens : null,
                 hasUsage ? cachedTokens : null,
-                latencyMs, ct);
+                latencyMs,
+                inputTokens: estimatedInputTokens,
+                compressedTokens: hasUsage ? totalPrompt : null,
+                outputTokens: hasUsage ? totalCompletion : null,
+                cancellationToken: ct);
         }
 
         if (request.Memory)

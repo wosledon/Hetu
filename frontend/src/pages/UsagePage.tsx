@@ -3,15 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import ReactECharts from 'echarts-for-react'
 import {
   Gauge,
-  MessageSquare,
   Zap,
   Clock,
   CalendarDays,
-  Activity,
   Calendar,
   CalendarClock,
   Cpu,
   DatabaseZap,
+  Import,
+  Minimize2,
+  Bot,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService } from '../services/usageService'
@@ -129,12 +130,13 @@ export default function UsagePage() {
 
   const cards = overview
     ? [
-        { label: '总消息数', value: fmtNum(overview.totalMessages), icon: MessageSquare, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
         { label: '总 Tokens', value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+        { label: '输入 Tokens', value: fmtNum(overview.totalInputTokens || 0), icon: Import, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+        { label: '压缩后', value: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
+        { label: '输出 Tokens', value: fmtNum(overview.totalOutputTokens || 0), icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { label: '缓存 Tokens', value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
         { label: '平均延迟', value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
         { label: '活跃天数', value: String(overview.activeDays), icon: CalendarDays, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-        { label: '今日消息', value: fmtNum(overview.todayMessages), icon: Activity, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-500/10' },
         { label: '今日 Tokens', value: fmtNum(overview.todayTokens), icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-500/10' },
       ]
     : []

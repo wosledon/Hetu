@@ -27,6 +27,9 @@ public class UsageService
         result.Overview.TotalMessages = messages.Count;
         result.Overview.TotalTokens = messages.Sum(m => (long)(m.TokensUsed ?? 0));
         result.Overview.TotalCachedTokens = messages.Sum(m => (long)(m.CachedTokens ?? 0));
+        result.Overview.TotalInputTokens = messages.Sum(m => (long)(m.InputTokens ?? 0));
+        result.Overview.TotalCompressedTokens = messages.Sum(m => (long)(m.CompressedTokens ?? 0));
+        result.Overview.TotalOutputTokens = messages.Sum(m => (long)(m.OutputTokens ?? 0));
         var latencies = messages.Where(m => m.LatencyMs.HasValue).Select(m => (double)m.LatencyMs!.Value).ToList();
         result.Overview.AvgLatencyMs = latencies.Count > 0 ? latencies.Average() : 0;
         result.Overview.ActiveDays = messages.Select(m => m.CreatedAt.LocalDateTime.Date).Distinct().Count();
