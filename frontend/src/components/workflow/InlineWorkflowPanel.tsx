@@ -5,6 +5,7 @@ import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck, HelpCircle, Chevr
 import WorkflowNodeComponent, { toFlowNode } from './WorkflowNode'
 import type { IWorkflow, IWorkflowNode } from '../../types/workflow'
 import type { IWorkflowNodeData } from './WorkflowNode'
+import { renderToolName } from '../../utils/toolRendering'
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
@@ -30,6 +31,11 @@ interface InlineWorkflowPanelProps {
 export default function InlineWorkflowPanel({
   workflow, nodeStates, pendingApproval, workflowToolCall, onApprove, onToolApprove, isStreaming, error,
 }: InlineWorkflowPanelProps) {
+  const [graphCollapsed, setGraphCollapsed] = useState(true)
+  const hasInteraction = !!pendingApproval || !!workflowToolCall
+  // 有交互面板时默认折叠流程图
+  const showGraph = !hasInteraction || !graphCollapsed
+
   const stateMap = useMemo(() => {
     const map = new Map<string, WorkflowNodeState>()
     for (const s of nodeStates) map.set(s.nodeId, s)
@@ -70,27 +76,38 @@ export default function InlineWorkflowPanel({
       <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
         <CircleCheckBig size={14} className="text-blue-500" />
         <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">工作流：{workflow.name}</span>
+        {hasInteraction && (
+          <button
+            onClick={() => setGraphCollapsed(v => !v)}
+            className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600"
+          >
+            {graphCollapsed ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
+            {graphCollapsed ? '展开流程图' : '收起流程图'}
+          </button>
+        )}
         {isStreaming && <Loader2 size={12} className="animate-spin text-blue-400 ml-auto" />}
       </div>
 
-      {/* Flow graph */}
-      <div style={{ height: 260 }} className="w-full">
-        <ReactFlow
-          nodes={flowNodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          fitView
-          proOptions={{ hideAttribution: true }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          zoomOnScroll={false}
-          panOnScroll
-        >
-          <Background gap={12} size={1} />
-          <Controls showInteractive={false} className="!shadow-none" />
-        </ReactFlow>
-      </div>
+      {/* Flow graph - 有交互时默认折叠 */}
+      {showGraph && (
+        <div style={{ height: hasInteraction ? 120 : 260 }} className="w-full transition-all">
+          <ReactFlow
+            nodes={flowNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            fitView
+            proOptions={{ hideAttribution: true }}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            zoomOnScroll={false}
+            panOnScroll
+          >
+            <Background gap={12} size={1} />
+            <Controls showInteractive={false} className="!shadow-none" />
+          </ReactFlow>
+        </div>
+      )}
 
       {/* Human approval panel */}
       {pendingApproval && (
@@ -121,10 +138,18 @@ export default function InlineWorkflowPanel({
           <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
             <Circle size={14} className="text-amber-500 shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{workflowToolCall.name}</div>
-              {workflowToolCall.arguments !== '{}' && (
-                <div className="text-[11px] text-gray-400 truncate">{workflowToolCall.arguments.slice(0, 120)}</div>
-              )}
+              <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{renderToolName(workflowToolCall.name)}</div>
+              {workflowToolCall.arguments !== '{}' && (() => {
+                try {
+                  const parsed = JSON.parse(workflowToolCall.arguments) as Record<string, unknown>
+                  const title = parsed.title ? String(parsed.title) : ''
+                  const content = parsed.content ? String(parsed.content) : ''
+                  const display = title ? `${title}${content ? `：${content.slice(0, 60)}` : ''}` : content.slice(0, 80)
+                  return display ? <div className="text-[11px] text-gray-400 truncate">{display}</div> : null
+                } catch {
+                  return <div className="text-[11px] text-gray-400 truncate">{workflowToolCall.arguments.slice(0, 120)}</div>
+                }
+              })()}
             </div>
             <button
               onClick={() => onToolApprove(true)}
