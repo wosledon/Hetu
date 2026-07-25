@@ -117,6 +117,7 @@ public class UsageService
                 CachedTokens = m.CachedTokens,
                 LatencyMs = m.LatencyMs,
                 ContentPreview = m.Content?.Length > 80 ? m.Content[..80] + "..." : m.Content ?? "",
+                Source = m.TopicId == Guid.Empty ? "proxy" : "chat",
             })
             .ToList();
     }

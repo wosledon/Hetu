@@ -69,4 +69,6 @@ public class UsageLogDto
     public int? CachedTokens { get; set; }
     public int? LatencyMs { get; set; }
     public string ContentPreview { get; set; } = string.Empty;
+    /// <summary>"chat" | "proxy"</summary>
+    public string Source { get; set; } = "chat";
 }

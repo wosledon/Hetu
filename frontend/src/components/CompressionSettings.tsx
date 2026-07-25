@@ -54,8 +54,9 @@ export default function CompressionSettings() {
   }
 
   const chatModels = models.filter(m => m.purpose === 'chat' && m.providerId)
-  const toggleNode = (key: string) => {
-    setDraft(prev => prev ? { ...prev, nodes: prev.nodes.map(n => n.key === key ? { ...n, enabled: !n.enabled } : n) } : prev)
+  const saveNow = (next: CompressionPipelineConfig) => {
+    setDraft(next)
+    saveMutation.mutate(next)
   }
   const handleSave = () => { if (draft) saveMutation.mutate(draft) }
   const enabledCount = draft?.nodes.filter(n => n.enabled).length ?? 0
@@ -71,7 +72,7 @@ export default function CompressionSettings() {
               : '关闭后消息将原样发送'}
           </div>
         </div>
-        <Toggle checked={draft.enabled} onChange={() => setDraft(prev => prev ? { ...prev, enabled: !prev.enabled } : prev)} />
+        <Toggle checked={draft.enabled} onChange={() => saveNow({ ...draft, enabled: !draft.enabled })} />
       </div>
 
       <div>

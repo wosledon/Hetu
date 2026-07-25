@@ -275,13 +275,19 @@ export default function UsagePage() {
 
 function UsageLogs() {
   const [modelFilter, setModelFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['usageLogs'],
     queryFn: () => usageService.getLogs(1, 100),
   })
 
   const models = useMemo(() => [...new Set(logs.map(l => l.modelName))].sort(), [logs])
-  const filtered = modelFilter ? logs.filter(l => l.modelName === modelFilter) : logs
+  const filtered = logs.filter(l => {
+    if (modelFilter && l.modelName !== modelFilter) return false
+    if (sourceFilter === 'chat' && l.source !== 'chat') return false
+    if (sourceFilter === 'proxy' && l.source !== 'proxy') return false
+    return true
+  })
 
   const fmtTime = (s: string) => {
     const d = new Date(s)
@@ -294,7 +300,12 @@ function UsageLogs() {
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         请求日志
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Select
+            value={sourceFilter}
+            onChange={setSourceFilter}
+            options={[{ value: '', label: '全部来源' }, { value: 'chat', label: '对话' }, { value: 'proxy', label: '代理' }]}
+          />
           <Select
             value={modelFilter}
             onChange={setModelFilter}
@@ -312,6 +323,7 @@ function UsageLogs() {
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-400 dark:border-gray-700">
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium">时间</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">来源</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium">模型</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输入</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">压缩后</th>
@@ -325,13 +337,22 @@ function UsageLogs() {
               {filtered.map((log) => (
                 <tr key={log.messageId} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-700/50 dark:hover:bg-white/[0.02]">
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-500">{fmtTime(log.createdAt)}</td>
+                  <td className="whitespace-nowrap py-2 pr-3">
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      log.source === 'proxy'
+                        ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
+                        : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                    }`}>
+                      {log.source === 'proxy' ? '代理' : '对话'}
+                    </span>
+                  </td>
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-600 dark:text-gray-300">{log.modelName}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-blue-600 dark:text-blue-400">{log.inputTokens ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-violet-600 dark:text-violet-400">{log.compressedTokens ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-emerald-600 dark:text-emerald-400">{log.outputTokens ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right font-medium text-gray-700 dark:text-gray-200">{log.tokensUsed ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-gray-500">{log.latencyMs != null ? `${(log.latencyMs / 1000).toFixed(1)}s` : '—'}</td>
-                  <td className="max-w-[200px] truncate py-2 text-gray-400">{log.contentPreview}</td>
+                  <td className="max-w-[160px] truncate py-2 text-gray-400">{log.contentPreview}</td>
                 </tr>
               ))}
             </tbody>

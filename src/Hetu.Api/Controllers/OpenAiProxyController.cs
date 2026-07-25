@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,12 +16,14 @@ public class OpenAiProxyController : ControllerBase
     private readonly ProxyService _proxyService;
     private readonly ProxyForwarder _forwarder;
     private readonly CompressionPipelineService _compression;
+    private readonly IChatMessageService _chatMsgService;
 
-    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression)
+    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression, IChatMessageService chatMsgService)
     {
         _proxyService = proxyService;
         _forwarder = forwarder;
         _compression = compression;
+        _chatMsgService = chatMsgService;
     }
 
     [HttpPost("chat/completions")]
@@ -55,6 +58,19 @@ public class OpenAiProxyController : ControllerBase
         // 重写 model 为真实模型，压缩消息后转发
         var payloadJson = RewriteModel(root, target.ModelId);
         payloadJson = await CompressMessagesInPayload(payloadJson, ct);
+
+        // 记录用量到 ChatMessages（与对话共用统计）
+        var inputLen = ExtractMessagesLength(root);
+        var compressedLen = ExtractMessagesLength(payloadJson);
+        await _chatMsgService.SaveAssistantMessageAsync(
+            Guid.Empty, // proxy 无 Topic，用 Guid.Empty 标记
+            $"[proxy:{modelKey}]",
+            null, null, null, null, null,
+            inputTokens: inputLen > 0 ? (int)Math.Ceiling(inputLen / 3.0) : null,
+            compressedTokens: compressedLen > 0 ? (int)Math.Ceiling(compressedLen / 3.0) : null,
+            outputTokens: null,
+            cancellationToken: ct);
+
         using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payloadJson, ct);
         await CopyUpstreamAsync(upstream, Response, ct);
     }
@@ -155,5 +171,20 @@ public class OpenAiProxyController : ControllerBase
             };
 
         return JsonSerializer.Serialize(payload);
+    }
+
+    private static int ExtractMessagesLength(string json)
+    {
+        try { using var doc = JsonDocument.Parse(json); return ExtractMessagesLength(doc.RootElement); }
+        catch { return 0; }
+    }
+
+    private static int ExtractMessagesLength(JsonElement root)
+    {
+        if (!root.TryGetProperty("messages", out var msgs) || msgs.ValueKind != JsonValueKind.Array)
+            return 0;
+        return msgs.EnumerateArray()
+            .Where(m => m.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+            .Sum(m => m.GetProperty("content").GetString()?.Length ?? 0);
     }
 }

@@ -53,6 +53,7 @@ export interface IUsageLog {
   cachedTokens: number | null
   latencyMs: number | null
   contentPreview: string
+  source: string // "chat" | "proxy"
 }
 
 export const usageService = {
