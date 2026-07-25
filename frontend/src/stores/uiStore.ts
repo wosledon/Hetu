@@ -69,6 +69,8 @@ export const useUIStore = create<UIState>()(
       },
       partialize: (state) => ({
         appName: state.appName,
+        assistantName: state.assistantName,
+        assistantPersona: state.assistantPersona,
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
         secondaryMenuStyle: state.secondaryMenuStyle,
