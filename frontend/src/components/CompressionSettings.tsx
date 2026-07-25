@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
@@ -58,7 +58,6 @@ export default function CompressionSettings() {
     setDraft(next)
     saveMutation.mutate(next)
   }
-  const handleSave = () => { if (draft) saveMutation.mutate(draft) }
   const enabledCount = draft?.nodes.filter(n => n.enabled).length ?? 0
 
   return (
@@ -81,7 +80,7 @@ export default function CompressionSettings() {
           {Object.entries(MODE_LABELS).map(([key, { label, desc }]) => (
             <button
               key={key}
-              onClick={() => setDraft(prev => prev ? { ...prev, mode: key } : prev)}
+              onClick={() => saveNow({ ...draft, mode: key })}
               className={`rounded-lg border p-3 text-left transition-colors ${
                 draft.mode === key
                   ? 'border-violet-500 bg-violet-50 dark:border-violet-600 dark:bg-violet-950/30'
@@ -101,19 +100,10 @@ export default function CompressionSettings() {
             <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模型</label>
             <Select
               value={draft.llmModelId ?? ''}
-              onChange={(v) => setDraft(prev => prev ? { ...prev, llmModelId: v || undefined } : prev)}
+              onChange={(v) => saveNow({ ...draft, llmModelId: v || undefined })}
               options={[{ value: '', label: '默认模型' }, ...chatModels.map(m => ({ value: m.id, label: m.displayName }))]}
               searchable
               placeholder="选择模型"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">LLM 压缩提示词</label>
-            <textarea
-              value={draft.llmSystemPrompt ?? ''}
-              onChange={(e) => setDraft(prev => prev ? { ...prev, llmSystemPrompt: e.target.value } : prev)}
-              rows={3}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-violet-400 dark:border-gray-600 dark:bg-gray-800"
             />
           </div>
         </div>
@@ -132,20 +122,11 @@ export default function CompressionSettings() {
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{node.label}</div>
                 <div className="mt-0.5 text-[10px] text-gray-400 truncate">{node.description}</div>
               </div>
-              <Toggle checked={node.enabled} onChange={() => toggleNode(node.key)} />
+              <Toggle checked={node.enabled} onChange={() => saveNow({ ...draft, nodes: draft.nodes.map(n => n.key === node.key ? { ...n, enabled: !n.enabled } : n) })} />
             </div>
           ))}
         </div>
       </div>
-
-      <button
-        onClick={handleSave}
-        disabled={saveMutation.isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-      >
-        {saveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        保存配置
-      </button>
     </div>
   )
 }
