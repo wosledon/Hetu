@@ -147,8 +147,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const agentPickerRef = useRef<HTMLDivElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
   const reasoningPickerRef = useRef<HTMLDivElement>(null)
+  // 跟踪消息加载状态：首次加载无动画滚到底部
+  const prevTopicIdRef = useRef<string | undefined>(undefined)
+  const isInitialLoadRef = useRef(true)
 
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chatMessages', topic?.id],
     queryFn: () => (topic ? chatMessageService.getByTopic(topic.id) : Promise.resolve([])),
     enabled: !!topic,
@@ -229,9 +232,94 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     slashItemRefs.current[slashMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [slashMenuIndex])
 
+  // 按会话隔离流式状态：切换时保存当前、恢复目标
+  interface SessionState {
+    input: string
+    streamingContent: string
+    streamingThinking: string
+    showThinking: boolean
+    streamingSearchResults: typeof streamingSearchResults
+    streamingKnowledgeResults: typeof streamingKnowledgeResults
+    streamingMemoryResults: typeof streamingMemoryResults
+    streamingToolResults: typeof streamingToolResults
+    streamingQuestions: typeof streamingQuestions
+    streamingTodos: typeof streamingTodos
+    pendingUserMessage: string | null
+    streamWebSearch: boolean
+    streamKnowledgeBase: boolean
+    streamMemory: boolean
+    workflowNodes: WorkflowNodeState[]
+    workflowRunId: string
+    pendingApproval: typeof pendingApproval
+    workflowToolCall: typeof workflowToolCall
+    workflowError: string
+    selectedPreset: IPromptPreset | null
+    runningWorkflow: IWorkflow | null
+    attachedFiles: File[]
+    selectedSlashItem: typeof selectedSlashItem
+  }
+  const sessionCacheRef = useRef<Map<string, SessionState>>(new Map())
+
+  // 切换会话时保存当前状态、恢复目标状态
   useEffect(() => {
+    if (!topic?.id) return
+    const prevId = prevTopicIdRef.current
+    if (prevId === topic.id) return
+
+    // 保存上一个会话状态
+    if (prevId) {
+      sessionCacheRef.current.set(prevId, {
+        input, streamingContent, streamingThinking, showThinking,
+        streamingSearchResults, streamingKnowledgeResults, streamingMemoryResults,
+        streamingToolResults, streamingQuestions, streamingTodos, pendingUserMessage,
+        streamWebSearch, streamKnowledgeBase, streamMemory,
+        workflowNodes, workflowRunId, pendingApproval, workflowToolCall, workflowError,
+        selectedPreset, runningWorkflow, attachedFiles, selectedSlashItem,
+      })
+    }
+
+    prevTopicIdRef.current = topic.id
+    isInitialLoadRef.current = true
+
+    // 恢复目标会话状态（无缓存则用默认值）
+    const cached = sessionCacheRef.current.get(topic.id)
+    setInput(cached?.input ?? '')
+    setStreamingContent(cached?.streamingContent ?? '')
+    setStreamingThinking(cached?.streamingThinking ?? '')
+    setShowThinking(cached?.showThinking ?? false)
+    setStreamingSearchResults(cached?.streamingSearchResults ?? [])
+    setStreamingKnowledgeResults(cached?.streamingKnowledgeResults ?? [])
+    setStreamingMemoryResults(cached?.streamingMemoryResults ?? [])
+    setStreamingToolResults(cached?.streamingToolResults ?? [])
+    setStreamingQuestions(cached?.streamingQuestions ?? [])
+    setStreamingTodos(cached?.streamingTodos ?? [])
+    setPendingUserMessage(cached?.pendingUserMessage ?? null)
+    setStreamWebSearch(cached?.streamWebSearch ?? false)
+    setStreamKnowledgeBase(cached?.streamKnowledgeBase ?? false)
+    setStreamMemory(cached?.streamMemory ?? false)
+    setWorkflowNodes(cached?.workflowNodes ?? [])
+    setWorkflowRunId(cached?.workflowRunId ?? '')
+    setPendingApproval(cached?.pendingApproval ?? null)
+    setWorkflowToolCall(cached?.workflowToolCall ?? null)
+    setWorkflowError(cached?.workflowError ?? '')
+    setSelectedPreset(cached?.selectedPreset ?? null)
+    setRunningWorkflow(cached?.runningWorkflow ?? null)
+    setEditingMessageId(null)
+    setEditingContent('')
+    setAttachedFiles(cached?.attachedFiles ?? [])
+    setSelectedSlashItem(cached?.selectedSlashItem ?? null)
+  }, [topic?.id])
+
+  // 首次加载消息后直接滚到底部（无动画），后续新消息平滑滚动
+  useEffect(() => {
+    if (messagesLoading) return
+    if (isInitialLoadRef.current && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+      isInitialLoadRef.current = false
+      return
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pendingUserMessage, streamingContent, streamingThinking, streamingQuestions, streamingTodos, isOrganizing, organizeResult])
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, streamingQuestions, streamingTodos, isOrganizing, organizeResult, messagesLoading])
 
   // Auto-scroll thinking block to bottom as thinking content streams in
   useEffect(() => {
