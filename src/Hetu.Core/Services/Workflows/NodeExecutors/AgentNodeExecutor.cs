@@ -25,7 +25,7 @@ public class AgentNodeExecutor : INodeExecutor
 
     public string NodeType => WorkflowNodeTypes.Agent;
 
-    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         if (node.AgentId == null)
             return new NodeResult { Error = "Agent 节点未配置智能体" };
@@ -88,7 +88,7 @@ public class AgentNodeExecutor : INodeExecutor
             MaxToolCallsPerTurn = TryGetInt(config, "maxToolCallsPerTurn", 5),
             ToolApprovals = toolApprovals,
             SessionId = $"workflow-{ctx.RunId}-{node.Id}",
-            Sink = new CollectingAgentLoopSink()
+            Sink = new CollectingAgentLoopSink(sink, ctx.RunId, node.Id)
         };
 
         var result = await _agentLoopService.RunAsync(request, ct);
@@ -149,14 +149,33 @@ public class AgentNodeExecutor : INodeExecutor
     }
 }
 
-/// <summary>收集 Agent Loop 事件（MVP 实现：静默，可扩展为转发到 SSE）</summary>
+/// <summary>收集 Agent Loop 事件并转发交互事件到工作流 SSE sink</summary>
 internal class CollectingAgentLoopSink : IAgentLoopSink
 {
+    private readonly IWorkflowEventSink? _workflowSink;
+    private readonly Guid _runId;
+    private readonly string _nodeId;
+
+    public CollectingAgentLoopSink(IWorkflowEventSink? workflowSink, Guid runId, string nodeId)
+    {
+        _workflowSink = workflowSink;
+        _runId = runId;
+        _nodeId = nodeId;
+    }
+
     public StringBuilderLite Content { get; } = new();
     public Task OnContentAsync(string text) { Content.Append(text); return Task.CompletedTask; }
     public Task OnThinkingAsync(string text) => Task.CompletedTask;
-    public Task OnToolCallAsync(LlmToolCall toolCall) => Task.CompletedTask;
+
+    public Task OnToolCallAsync(LlmToolCall toolCall)
+    {
+        if (_workflowSink != null)
+            return _workflowSink.OnAgentToolCallAsync(_runId, _nodeId, toolCall.Id, toolCall.Name, toolCall.Arguments);
+        return Task.CompletedTask;
+    }
+
     public Task OnToolResultAsync(string toolCallId, string content, bool isError) => Task.CompletedTask;
+
     public Task OnDebugAsync(string text) => Task.CompletedTask;
 }
 

@@ -8,7 +8,7 @@ public class EndNodeExecutor : INodeExecutor
 {
     public string NodeType => WorkflowNodeTypes.End;
 
-    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         var config = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(node.Config ?? "{}");
         var outputTemplate = config?.TryGetValue("outputTemplate", out var ot) == true ? ot?.ToString() : null;

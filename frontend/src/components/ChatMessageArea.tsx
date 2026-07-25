@@ -12,6 +12,8 @@ import ThemedMarkdown from './ThemedMarkdown'
 import Select from './Select'
 import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
+import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
+import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
@@ -123,7 +125,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const approvalPickerRef = useRef<HTMLDivElement>(null)
   const [memory, setMemory] = useState(false)
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
-  const [workflowNodes, setWorkflowNodes] = useState<Array<{ nodeId: string; label?: string; nodeType?: string; status: 'running' | 'success' | 'failed'; output?: string }>>([])
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeState[]>([])
+  const [workflowRunId, setWorkflowRunId] = useState<string>('')
+  const [pendingApproval, setPendingApproval] = useState<{ nodeId: string; prompt: string; runId: string } | null>(null)
+  // 统一工作流工具交互：toolCallId/name/arguments，name=ask_question 时显示提问面板，否则显示审批面板
+  const [workflowToolCall, setWorkflowToolCall] = useState<{ toolCallId: string; name: string; arguments: string } | null>(null)
+  const [workflowFinalOutput, setWorkflowFinalOutput] = useState<string>('')
+  const [workflowError, setWorkflowError] = useState<string>('')
   const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
@@ -421,17 +429,51 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     // 如果选中了工作流，走工作流流式执行
     if (runningWorkflow) {
       setWorkflowNodes([])
+      setWorkflowRunId('')
+      setPendingApproval(null)
+      setWorkflowToolCall(null)
+      setWorkflowFinalOutput('')
+      setWorkflowError('')
       const controller = new AbortController()
       try {
         await streamWorkflowRun(runningWorkflow.id, content, topic.id,
           (evt: IWorkflowEvent) => {
             switch (evt.type) {
-              case 'node_started': setWorkflowNodes((prev) => [...prev, { nodeId: evt.nodeId!, label: evt.label, nodeType: evt.nodeType, status: 'running' }]); break
-              case 'node_completed': setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'success', output: evt.output } : n)); break
-              case 'node_failed': setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'failed', output: evt.error } : n)); break
-              case 'run_completed': setStreamingContent(evt.output ?? '工作流执行完成'); break
-              case 'run_failed': setStreamingContent('工作流执行失败：' + (evt.error ?? '')); break
-              case 'run_result': setStreamingContent(evt.result?.output ?? evt.result?.error ?? '工作流执行完成'); break
+              case 'run_started':
+                if (evt.runId) setWorkflowRunId(evt.runId)
+                break
+              case 'node_started':
+                setWorkflowNodes((prev) => {
+                  const existing = prev.find(n => n.nodeId === evt.nodeId)
+                  if (existing) return prev.map(n => n.nodeId === evt.nodeId ? { ...n, status: 'running' } : n)
+                  return [...prev, { nodeId: evt.nodeId!, label: evt.label, nodeType: evt.nodeType, status: 'running' }]
+                })
+                break
+              case 'node_completed':
+                setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'success', output: evt.output } : n))
+                break
+              case 'node_failed':
+                setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'failed', output: evt.error } : n))
+                break
+              case 'human_approval_required':
+                setPendingApproval({ nodeId: evt.nodeId!, prompt: evt.prompt ?? '请确认是否继续执行', runId: evt.runId ?? workflowRunId })
+                break
+              case 'agent_tool_call':
+                setWorkflowToolCall({ toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
+                break
+              case 'run_completed':
+                setWorkflowFinalOutput(evt.output ?? '')
+                setStreamingContent(evt.output ?? '工作流执行完成')
+                break
+              case 'run_failed':
+                setWorkflowError(evt.error ?? '')
+                setStreamingContent('工作流执行失败：' + (evt.error ?? ''))
+                break
+              case 'run_result':
+                setWorkflowFinalOutput(evt.result?.output ?? '')
+                if (evt.result?.error) setWorkflowError(evt.result.error)
+                setStreamingContent(evt.result?.output ?? evt.result?.error ?? '工作流执行完成')
+                break
             }
           },
           (err) => { setStreamingContent('工作流执行失败：' + err) },
@@ -577,6 +619,44 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       })
     } catch {
       // Ignore — backend will timeout anyway
+    }
+  }
+
+  // 工作流 Human 节点审批
+  const handleWorkflowApprove = async (runId: string, nodeId: string, approve: boolean) => {
+    setPendingApproval(null)
+    try {
+      await fetch(`/api/workflows/runs/${runId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId, approve }),
+      })
+    } catch {
+      // Ignore
+    }
+  }
+
+  // 工作流 Agent 工具交互提交（复用 chat-messages 的 answer/approve 端点）
+  const handleWorkflowToolApprove = async (approved: boolean) => {
+    if (!workflowToolCall || !topic) return
+    const sessionId = `workflow-${workflowRunId}-${workflowToolCall.toolCallId}`
+    setWorkflowToolCall(null)
+    try {
+      if (workflowToolCall.name === 'ask_question') {
+        await fetch('/api/chat-messages/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, answer: '' }),
+        })
+      } else {
+        await fetch('/api/chat-messages/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, approve: approved }),
+        })
+      }
+    } catch {
+      // Ignore
     }
   }
 
@@ -1043,38 +1123,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
                 {/* Tool calls and results during streaming */}
                 <ToolCallsPanel toolCalls={streamingToolCalls} toolResults={streamingToolResults} />
-                {/* Workflow nodes during inline execution */}
-                {workflowNodes.length > 0 && (
-                  <div className="mt-3 overflow-x-auto pb-1">
-                    <div className="flex items-center gap-0 min-w-min">
-                      {workflowNodes.map((n, i) => {
-                        const statusColor = n.status === 'running' ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20' :
-                          n.status === 'success' ? 'border-green-400 bg-green-50 dark:border-green-500 dark:bg-green-900/20' :
-                          'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20'
-                        const icon = n.status === 'running' ? <Loader2 size={11} className="animate-spin text-blue-500" /> :
-                          n.status === 'success' ? <CircleCheckBig size={11} className="text-green-500" /> :
-                          <Circle size={11} className="text-red-500" />
-                        const label = n.nodeType === 'start' ? '开始' : n.nodeType === 'end' ? '结束' : n.label || n.nodeType || n.nodeId
-                        return (
-                          <div key={n.nodeId || i} className="flex items-center gap-0 shrink-0">
-                            <div className={`flex flex-col items-center rounded-lg border-2 px-2.5 py-1.5 min-w-[60px] ${statusColor}`}>
-                              <div className="flex items-center gap-1">
-                                {icon}
-                                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{label}</span>
-                              </div>
-                              {n.status === 'running' && <span className="mt-0.5 text-[10px] text-blue-500">执行中</span>}
-                              {n.status === 'success' && n.output && <span className="mt-0.5 max-w-[80px] truncate text-[10px] text-green-600 dark:text-green-400">{n.output.slice(0, 30)}</span>}
-                              {n.status === 'failed' && <span className="mt-0.5 text-[10px] text-red-500">{n.output?.slice(0, 30) || '失败'}</span>}
-                            </div>
-                            {i < workflowNodes.length - 1 && (
-                              <ChevronRight size={14} className="shrink-0 text-gray-300 dark:text-gray-600 mx-0.5" />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
@@ -1180,6 +1228,22 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <GitBranch size={14} className="text-blue-500" />
             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{runningWorkflow.name}</span>
             <button onClick={() => setRunningWorkflow(null)} className="ml-auto text-blue-400 hover:text-blue-600"><X size={14} /></button>
+          </div>
+        )}
+        {/* 工作流独立面板：流程图 + 状态 + 交互 */}
+        {runningWorkflow && workflowNodes.length > 0 && (
+          <div className="mb-3">
+            <InlineWorkflowPanel
+              workflow={runningWorkflow}
+              nodeStates={workflowNodes}
+              pendingApproval={pendingApproval}
+              workflowToolCall={workflowToolCall}
+              onApprove={handleWorkflowApprove}
+              onToolApprove={handleWorkflowToolApprove}
+              isStreaming={isStreaming}
+              finalOutput={workflowFinalOutput}
+              error={workflowError}
+            />
           </div>
         )}
         {/* Approval request panel */}

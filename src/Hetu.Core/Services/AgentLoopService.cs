@@ -191,11 +191,10 @@ public class AgentLoopService
                 _ => Task.CompletedTask,
                 async payload =>
                 {
-                    // 转发 tool_call 事件到 sink
                     if (payload is JsonElement je && je.TryGetProperty("type", out var tEl) && tEl.GetString() == "tool_call")
                     {
-                        var name = je.TryGetProperty("name", out var nEl) ? nEl.GetString() ?? "" : "";
                         var id = je.TryGetProperty("id", out var iEl) ? iEl.GetString() ?? "" : "";
+                        var name = je.TryGetProperty("name", out var nEl) ? nEl.GetString() ?? "" : "";
                         var args = je.TryGetProperty("arguments", out var aEl) ? aEl.GetRawText() : "{}";
                         await sink.OnToolCallAsync(new LlmToolCall { Id = id, Name = name, Arguments = args });
                     }

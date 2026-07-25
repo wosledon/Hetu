@@ -20,13 +20,17 @@ public class HumanNodeExecutor : INodeExecutor
 
     public string NodeType => WorkflowNodeTypes.Human;
 
-    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         var config = ParseConfig(node.Config);
         var prompt = config?.TryGetValue("prompt", out var p) == true ? p?.ToString() : "请确认是否继续执行";
         var timeoutSeconds = 300;
         if (config?.TryGetValue("timeoutSeconds", out var ts) == true && int.TryParse(ts?.ToString(), out var t))
             timeoutSeconds = t;
+
+        // 通知前端需要人工审批
+        if (sink != null)
+            await sink.OnHumanApprovalRequiredAsync(ctx.RunId, node.Id, prompt ?? "");
 
         var pending = await _approvalService.WaitForApprovalAsync(ctx.RunId.ToString(), node.Id, prompt ?? "", TimeSpan.FromSeconds(timeoutSeconds));
 

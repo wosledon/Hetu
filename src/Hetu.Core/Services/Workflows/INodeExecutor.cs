@@ -18,8 +18,9 @@ public interface INodeExecutor
     /// <param name="node">节点定义</param>
     /// <param name="ctx">执行上下文（可读写变量）</param>
     /// <param name="ct">取消令牌</param>
+    /// <param name="sink">可选事件接收器（Human 节点用于通知前端）</param>
     /// <returns>执行结果，含输出值与（条件/循环节点的）分支选择</returns>
-    Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct);
+    Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null);
 }
 
 /// <summary>节点执行结果</summary>

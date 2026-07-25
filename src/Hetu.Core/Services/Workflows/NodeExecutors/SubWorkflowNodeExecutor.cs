@@ -21,7 +21,7 @@ public class SubWorkflowNodeExecutor : INodeExecutor
 
     public string NodeType => WorkflowNodeTypes.SubWorkflow;
 
-    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         var config = ParseConfig(node.Config);
         if (config == null || !config.TryGetValue("subWorkflowId", out var swid) || swid == null)

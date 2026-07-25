@@ -14,7 +14,7 @@ public class LoopNodeExecutor : INodeExecutor
 
     public string NodeType => WorkflowNodeTypes.Loop;
 
-    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         var visitCount = ctx.GetVisitCount(node.Id); // 引擎在执行前已 +1，此处为当前轮次
 

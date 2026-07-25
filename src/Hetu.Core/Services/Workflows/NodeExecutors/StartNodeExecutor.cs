@@ -8,7 +8,7 @@ public class StartNodeExecutor : INodeExecutor
 {
     public string NodeType => WorkflowNodeTypes.Start;
 
-    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         // 将原始输入存为 start.input
         ctx.SetVariable(node.Id, "input", ctx.Input ?? "");

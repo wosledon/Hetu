@@ -112,6 +112,11 @@ export interface IWorkflowEvent {
   label?: string
   output?: string
   error?: string
+  prompt?: string
+  toolCallId?: string
+  name?: string
+  arguments?: string
+  data?: string
   result?: {
     runId: string
     status: string

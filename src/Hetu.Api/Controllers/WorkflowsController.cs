@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
 using Hetu.Core.Services.Workflows;
 using Hetu.Api.Streaming;
 using Hetu.Shared.Common;
@@ -18,6 +19,7 @@ public class WorkflowsController : ControllerBase
     private readonly WorkflowApprovalService _approvalService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatMessageService _chatMessageService;
+    private readonly ToolExecutionService _toolExecution;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -26,13 +28,15 @@ public class WorkflowsController : ControllerBase
         WorkflowExecutionEngine engine,
         WorkflowApprovalService approvalService,
         IUnitOfWork unitOfWork,
-        IChatMessageService chatMessageService)
+        IChatMessageService chatMessageService,
+        ToolExecutionService toolExecution)
     {
         _workflowService = workflowService;
         _engine = engine;
         _approvalService = approvalService;
         _unitOfWork = unitOfWork;
         _chatMessageService = chatMessageService;
+        _toolExecution = toolExecution;
     }
 
     [HttpGet]
@@ -235,6 +239,12 @@ internal class SseWorkflowEventSink : IWorkflowEventSink
 
     public Task OnNodeFailedAsync(Guid runId, string nodeId, string error)
         => _writer.WriteJsonAsync(new { type = "node_failed", runId, nodeId, error });
+
+    public Task OnHumanApprovalRequiredAsync(Guid runId, string nodeId, string prompt)
+        => _writer.WriteJsonAsync(new { type = "human_approval_required", runId, nodeId, prompt });
+
+    public Task OnAgentToolCallAsync(Guid runId, string nodeId, string toolCallId, string name, string arguments)
+        => _writer.WriteJsonAsync(new { type = "agent_tool_call", runId, nodeId, toolCallId, name, arguments });
 
     public Task OnRunCompletedAsync(Guid runId, string? output)
         => _writer.WriteJsonAsync(new { type = "run_completed", runId, output });

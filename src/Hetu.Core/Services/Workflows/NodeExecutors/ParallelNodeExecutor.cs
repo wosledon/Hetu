@@ -10,7 +10,7 @@ public class ParallelNodeExecutor : INodeExecutor
 {
     public string NodeType => WorkflowNodeTypes.Parallel;
 
-    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         return Task.FromResult(new NodeResult { Output = "并行分支开始", BranchHandle = "__parallel_fanout__" });
     }

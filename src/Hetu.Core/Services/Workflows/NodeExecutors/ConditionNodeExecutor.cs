@@ -14,7 +14,7 @@ public class ConditionNodeExecutor : INodeExecutor
 
     public string NodeType => WorkflowNodeTypes.Condition;
 
-    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct)
+    public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         string defaultHandle = "default";
         List<JsonElement>? branches = null;

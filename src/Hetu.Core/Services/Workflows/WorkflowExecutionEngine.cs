@@ -27,6 +27,8 @@ public interface IWorkflowEventSink
     Task OnHumanApprovalRequiredAsync(Guid runId, string nodeId, string prompt) => Task.CompletedTask;
     Task OnRunCompletedAsync(Guid runId, string? output) => Task.CompletedTask;
     Task OnRunFailedAsync(Guid runId, string error) => Task.CompletedTask;
+    // Agent 节点内部工具调用事件（ask_question / 工具审批 / 普通工具）
+    Task OnAgentToolCallAsync(Guid runId, string nodeId, string toolCallId, string name, string arguments) => Task.CompletedTask;
 }
 
 /// <summary>
@@ -149,7 +151,7 @@ public class WorkflowExecutionEngine
                 else
                 {
                     var executor = GetExecutor(node.Type);
-                    nodeResult = await executor.ExecuteAsync(node, ctx, ct);
+                    nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
                 }
 
                 // 存储输出到上下文
