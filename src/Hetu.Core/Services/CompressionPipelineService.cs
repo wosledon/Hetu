@@ -113,13 +113,13 @@ public class CompressionPipelineService
 
         if (provider == null) return input;
 
-        var prompt = (config.LlmSystemPrompt ?? "压缩以下文本：") + "\n\n" + input;
+        var prompt = config.LlmSystemPrompt ?? "压缩以下文本，保留所有关键信息：";
 
         try
         {
             var compressed = await provider.ChatAsync(
-                [new LlmChatMessage { Role = "user", Content = prompt }],
-                new ChatOptions { ModelId = string.Empty, MaxTokens = Math.Min(input.Length / 2, 4096) },
+                [new LlmChatMessage { Role = "user", Content = input }],
+                new ChatOptions { ModelId = string.Empty, SystemPrompt = prompt, MaxTokens = Math.Min(input.Length / 2, 4096) },
                 ct);
             return string.IsNullOrWhiteSpace(compressed) ? input : compressed;
         }

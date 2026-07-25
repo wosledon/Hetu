@@ -461,7 +461,7 @@ public class ChatMessagesController : ControllerBase
         for (int i = 0; i < messages.Count; i++)
         {
             var msg = messages[i];
-            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < 100) continue;
+            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < 500) continue;
             var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
             if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
                 messages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
