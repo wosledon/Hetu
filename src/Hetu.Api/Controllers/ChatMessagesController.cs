@@ -124,9 +124,6 @@ public class ChatMessagesController : ControllerBase
         var options = await BuildChatOptionsAsync(request, topic, modelId, ct);
         var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, ct);
 
-        // 压缩管道：压缩发送给 LLM 的消息内容
-        await CompressChatHistoryAsync(chatMessages, options, ct);
-
         var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
 
@@ -136,14 +133,27 @@ public class ChatMessagesController : ControllerBase
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0;
+        int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0, estimatedInput = 0, estimatedCompressed = 0;
         bool hasUsage = false;
-
-        // 估算压缩前的原始输入 Token
-        int? estimatedInputTokens = chatMessages.Sum(m => m.Content?.Length > 0 ? (m.Content.Length / 2) : 0);
 
         for (int iter = 0; iter < maxIter; iter++)
         {
+            // 1. 压缩前估算原始 Token
+            estimatedInput += (int)Math.Ceiling(
+                (chatMessages.Sum(m => m.Content?.Length ?? 0)
+                    + (options.SystemPrompt?.Length ?? 0)
+                    + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
+                ) / 3.0);
+
+            // 2. 压缩本轮消息并估算压缩后 Token
+            await CompressChatHistoryAsync(chatMessages, options, ct);
+            estimatedCompressed += (int)Math.Ceiling(
+                (chatMessages.Sum(m => m.Content?.Length ?? 0)
+                    + (options.SystemPrompt?.Length ?? 0)
+                    + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
+                ) / 3.0);
+
+            // 3. LLM 调用
             await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
 
             var (iterContent, iterThinking, pendingToolCalls, iterUsage) = await ChatStreamProcessor.ProcessStreamAsync(
@@ -168,12 +178,8 @@ public class ChatMessagesController : ControllerBase
             contentSb.Append(iterContent);
             thinkingSb.Append(iterThinking);
 
-            chatMessages.Add(new LlmChatMessage
-            {
-                Role = "assistant",
-                Content = iterContent.ToString(),
-                ToolCalls = pendingToolCalls
-            });
+            // 4. 追加新消息（下一轮会压缩）
+            chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
 
             var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                 topicId.ToString(),
@@ -200,8 +206,8 @@ public class ChatMessagesController : ControllerBase
                 hasUsage ? totalTokens : null,
                 hasUsage ? cachedTokens : null,
                 latencyMs,
-                inputTokens: estimatedInputTokens,
-                compressedTokens: hasUsage ? totalPrompt : null,
+                inputTokens: estimatedInput,
+                compressedTokens: estimatedCompressed,
                 outputTokens: hasUsage ? totalCompletion : null,
                 cancellationToken: ct);
         }
