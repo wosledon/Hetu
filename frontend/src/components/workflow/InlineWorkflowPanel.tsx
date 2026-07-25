@@ -20,7 +20,7 @@ interface InlineWorkflowPanelProps {
   workflow: IWorkflow
   nodeStates: WorkflowNodeState[]
   pendingApproval: { nodeId: string; prompt: string; runId: string } | null
-  workflowToolCall: { toolCallId: string; name: string; arguments: string } | null
+  workflowToolCall: { nodeId: string; toolCallId: string; name: string; arguments: string } | null
   onApprove: (runId: string, nodeId: string, approve: boolean) => void
   onToolApprove: (approved: boolean) => void
   isStreaming: boolean

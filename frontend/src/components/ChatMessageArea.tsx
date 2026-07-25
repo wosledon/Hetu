@@ -128,8 +128,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeState[]>([])
   const [workflowRunId, setWorkflowRunId] = useState<string>('')
   const [pendingApproval, setPendingApproval] = useState<{ nodeId: string; prompt: string; runId: string } | null>(null)
-  // 统一工作流工具交互：toolCallId/name/arguments，name=ask_question 时显示提问面板，否则显示审批面板
-  const [workflowToolCall, setWorkflowToolCall] = useState<{ toolCallId: string; name: string; arguments: string } | null>(null)
+  // 统一工作流工具交互：nodeId/toolCallId/name/arguments，name=ask_question 时显示提问面板，否则显示审批面板
+  const [workflowToolCall, setWorkflowToolCall] = useState<{ nodeId: string; toolCallId: string; name: string; arguments: string } | null>(null)
   const [workflowError, setWorkflowError] = useState<string>('')
   const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -457,7 +457,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 setPendingApproval({ nodeId: evt.nodeId!, prompt: evt.prompt ?? '请确认是否继续执行', runId: evt.runId ?? workflowRunId })
                 break
               case 'agent_tool_call':
-                setWorkflowToolCall({ toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
+                setWorkflowToolCall({ nodeId: evt.nodeId!, toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
                 break
               case 'run_completed':
                 setStreamingContent(evt.output ?? '工作流执行完成')
@@ -635,7 +635,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   // 工作流 Agent 工具交互提交（复用 chat-messages 的 answer/approve 端点）
   const handleWorkflowToolApprove = async (approved: boolean) => {
     if (!workflowToolCall || !topic) return
-    const sessionId = `workflow-${workflowRunId}-${workflowToolCall.toolCallId}`
+    const sessionId = `workflow-${workflowRunId}-${workflowToolCall.nodeId}`
     setWorkflowToolCall(null)
     try {
       if (workflowToolCall.name === 'ask_question') {
