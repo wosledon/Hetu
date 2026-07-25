@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -7,6 +7,7 @@ import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
 import McpServerManager from '../components/McpServerManager'
+import CompressionSettings from '../components/CompressionSettings'
 import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
@@ -14,13 +15,14 @@ import { aiProviderService } from '../services/aiProviderService'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash'
+type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
   { key: 'navigation', label: '导航菜单', description: '顶部功能入口', icon: Menu },
   { key: 'models', label: '默认模型', description: '场景模型分配', icon: Cpu },
   { key: 'ai', label: '供应商配置', description: 'AI 供应商与模型管理', icon: Bot },
+  { key: 'cost', label: '成本控制', description: '压缩管道节省 Token', icon: Coins },
   { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
   { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
   { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
@@ -223,6 +225,8 @@ export default function SettingsPage() {
                   )}
 
                   {activeSection === 'ai' && <AiSettings />}
+
+                  {activeSection === 'cost' && <CompressionSettings />}
 
                   {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
 

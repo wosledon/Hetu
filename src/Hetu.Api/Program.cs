@@ -111,6 +111,7 @@ builder.Services.AddScoped<ProxyRouteClassifier>();
 builder.Services.AddScoped<ProxyForwarder>();
 builder.Services.AddScoped<ProxyConfigService>();
 builder.Services.AddScoped<ProxyService>();
+builder.Services.AddScoped<CompressionPipelineService>();
 builder.Services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
 builder.Services.AddScoped<IPromptPresetService, PromptPresetService>();
 builder.Services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();

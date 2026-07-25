@@ -1,4 +1,5 @@
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
 using Hetu.Shared.Common;
 using Hetu.Shared.Settings;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,12 @@ namespace Hetu.Api.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly IAppSettingService _appSettingService;
+    private readonly CompressionPipelineService _compressionService;
 
-    public SettingsController(IAppSettingService appSettingService)
+    public SettingsController(IAppSettingService appSettingService, CompressionPipelineService compressionService)
     {
         _appSettingService = appSettingService;
+        _compressionService = compressionService;
     }
 
     [HttpGet]
@@ -29,6 +32,20 @@ public class SettingsController : ControllerBase
     [HttpPut]
     public Task<ApiResponse> Set([FromBody] UpdateAppSettingRequest request, CancellationToken cancellationToken)
         => _appSettingService.SetAsync(request, cancellationToken);
+
+    [HttpGet("compression")]
+    public async Task<ApiResponse<CompressionPipelineDto>> GetCompressionConfig(CancellationToken ct)
+    {
+        var config = await _compressionService.GetConfigAsync(ct);
+        return ApiResponse<CompressionPipelineDto>.Ok(config);
+    }
+
+    [HttpPut("compression")]
+    public async Task<ApiResponse> SetCompressionConfig([FromBody] CompressionPipelineDto config, CancellationToken ct)
+    {
+        await _compressionService.SaveConfigAsync(config, ct);
+        return ApiResponse.Ok();
+    }
 
     [HttpPost("test-database")]
     public async Task<ApiResponse<DatabaseConnectionTestResult>> TestDatabase([FromBody] DatabaseConnectionRequest request, CancellationToken cancellationToken)

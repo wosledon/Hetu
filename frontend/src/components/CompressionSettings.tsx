@@ -1,0 +1,143 @@
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ShieldAlert, Loader2, Save, ToggleLeft, ToggleRight } from 'lucide-react'
+import { settingService, type CompressionPipelineConfig } from '../services/settingService'
+import { aiModelService } from '../services/aiProviderService'
+import Select from './Select'
+
+const MODE_LABELS: Record<string, { label: string; desc: string }> = {
+  algorithmic: { label: '算法压缩', desc: '使用内置算法去重、归一化、停用词过滤等' },
+  llm: { label: 'LLM 压缩', desc: '使用 AI 模型智能摘要压缩文本' },
+  hybrid: { label: '混合压缩', desc: '先算法压缩、再 LLM 摘要，兼顾速度和效果' },
+}
+
+export default function CompressionSettings() {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<CompressionPipelineConfig | null>(null)
+
+  const { data: config, isLoading } = useQuery({
+    queryKey: ['compressionConfig'],
+    queryFn: () => settingService.getCompressionConfig(),
+  })
+
+  const { data: models = [] } = useQuery({
+    queryKey: ['aiModels'],
+    queryFn: () => aiModelService.getAll(),
+  })
+
+  useEffect(() => {
+    if (config && !draft) setDraft(JSON.parse(JSON.stringify(config)))
+  }, [config])
+
+  const saveMutation = useMutation({
+    mutationFn: (data: CompressionPipelineConfig) => settingService.setCompressionConfig(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compressionConfig'] }),
+  })
+
+  if (isLoading || !draft) {
+    return <div className="flex items-center gap-2 p-6"><Loader2 size={16} className="animate-spin text-gray-400" /><span className="text-sm text-gray-500">加载中...</span></div>
+  }
+
+  const chatModels = models.filter(m => m.purpose === 'chat' && m.providerId)
+  const toggleNode = (key: string) => {
+    setDraft(prev => prev ? {
+      ...prev,
+      nodes: prev.nodes.map(n => n.key === key ? { ...n, enabled: !n.enabled } : n)
+    } : prev)
+  }
+  const handleSave = () => { if (draft) saveMutation.mutate(draft) }
+
+  const enabledCount = draft?.nodes.filter(n => n.enabled).length ?? 0
+
+  return (
+    <div className="space-y-6">
+      {/* 状态栏 */}
+      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400">
+        <ShieldAlert size={14} className={enabledCount > 0 ? 'text-emerald-500' : 'text-gray-400'} />
+        {enabledCount === 0
+          ? '未启用任何压缩节点，消息将原样发送'
+          : `已启用 ${enabledCount} 个压缩节点，节省预计 Token 成本`}
+      </div>
+
+      {/* 压缩模式 */}
+      <div>
+        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模式</label>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(MODE_LABELS).map(([key, { label, desc }]) => (
+            <button
+              key={key}
+              onClick={() => setDraft(prev => prev ? { ...prev, mode: key } : prev)}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                draft.mode === key
+                  ? 'border-violet-500 bg-violet-50 dark:border-violet-600 dark:bg-violet-950/30'
+                  : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
+              }`}
+            >
+              <div className={`text-xs font-semibold ${draft.mode === key ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{label}</div>
+              <div className="mt-0.5 text-[10px] text-gray-400">{desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* LLM 配置（llm / hybrid 模式下显示） */}
+      {(draft.mode === 'llm' || draft.mode === 'hybrid') && (
+        <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/30">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模型</label>
+            <Select
+              value={draft.llmModelId ?? ''}
+              onChange={(v) => setDraft(prev => prev ? { ...prev, llmModelId: v || undefined } : prev)}
+              options={[{ value: '', label: '默认模型' }, ...chatModels.map(m => ({ value: m.id, label: m.displayName }))]}
+              searchable
+              placeholder="选择模型"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">LLM 压缩提示词</label>
+            <textarea
+              value={draft.llmSystemPrompt ?? ''}
+              onChange={(e) => setDraft(prev => prev ? { ...prev, llmSystemPrompt: e.target.value } : prev)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-violet-400 dark:border-gray-600 dark:bg-gray-800"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 压缩节点列表 */}
+      <div>
+        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩节点</label>
+        <div className="space-y-1.5">
+          {[...draft.nodes].sort((a, b) => a.order - b.order).map((node, idx) => (
+            <div
+              key={node.key}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800"
+            >
+              <span className="text-[10px] text-gray-300 tabular-nums w-4">{idx + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{node.label}</div>
+                <div className="mt-0.5 text-[10px] text-gray-400 truncate">{node.description}</div>
+              </div>
+              <button onClick={() => toggleNode(node.key)} className="transition-transform active:scale-95 shrink-0">
+                {node.enabled
+                  ? <ToggleRight size={32} className="text-emerald-500" />
+                  : <ToggleLeft size={32} className="text-gray-300" />}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 保存按钮 */}
+      <button
+        onClick={handleSave}
+        disabled={saveMutation.isPending}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+      >
+        {saveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        保存配置
+      </button>
+    </div>
+  )
+}
