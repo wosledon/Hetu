@@ -30,6 +30,7 @@ interface LeafMenuState {
   x: number
   y: number
   note: INote
+  showMove?: boolean
 }
 
 interface AddMenuState {
@@ -321,6 +322,15 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
     },
   })
 
+  const moveNote = useMutation({
+    mutationFn: ({ id, notebookId }: { id: string; notebookId?: string }) => noteService.move(id, { notebookId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      closeLeafMenu()
+    },
+  })
+
   const handleOpenLeafMenu = (e: React.MouseEvent, note: INote) => {
     setLeafMenu({ x: e.clientX, y: e.clientY, note })
   }
@@ -367,19 +377,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
             />
           </div>
         )}
-        {filteredNotebooks.map((nb) => (
-          <NotebookNode
-            key={nb.id}
-            notebook={nb}
-            level={0}
-            search={search}
-            selectedNoteId={selectedNoteId}
-            onSelectNote={onSelectNote}
-            onOpenLeafMenu={handleOpenLeafMenu}
-          />
-        ))}
-
-        {/* 未分类 */}
+        {/* 未分类 - 始终在最前 */}
         <div>
           <div
             className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
@@ -418,6 +416,18 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
             </div>
           )}
         </div>
+
+        {filteredNotebooks.map((nb) => (
+          <NotebookNode
+            key={nb.id}
+            notebook={nb}
+            level={0}
+            search={search}
+            selectedNoteId={selectedNoteId}
+            onSelectNote={onSelectNote}
+            onOpenLeafMenu={handleOpenLeafMenu}
+          />
+        ))}
       </div>
 
       {addMenu && (
@@ -450,6 +460,34 @@ export default function NotesTree({ selectedNoteId, onSelectNote }: NotesTreePro
               <Star size={13} />
               {leafMenu.note.isFavorite ? '取消收藏' : '收藏'}
             </button>
+            <button
+              onClick={() => setLeafMenu(prev => prev ? { ...prev, showMove: !prev.showMove } : null)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <FolderPlus size={13} />
+              移动到
+            </button>
+            {leafMenu.showMove && (
+              <div className="max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <Inbox size={12} />
+                  未分类
+                </button>
+                {notebooks.map(nb => (
+                  <button
+                    key={nb.id}
+                    onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id })}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <Folder size={12} />
+                    {nb.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
             <button
               onClick={() => { if (confirm('确定删除这条笔记吗？')) deleteNote.mutate(leafMenu.note.id) }}

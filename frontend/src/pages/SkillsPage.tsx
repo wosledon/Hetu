@@ -127,8 +127,8 @@ export default function SkillsPage() {
     updateDirsMutation.mutate(directories.filter(d => d !== dir))
   }
 
-  const handleInvoke = (nameOrId: string) => {
-    const input = invokeInputs[nameOrId]?.trim()
+  const handleInvoke = (skillId: string, nameOrId: string) => {
+    const input = invokeInputs[skillId]?.trim()
     if (!input) return
     invokeMutation.mutate({ nameOrId, input })
   }
@@ -175,12 +175,12 @@ export default function SkillsPage() {
           <input
             value={invokeInputs[s.id] ?? ''}
             onChange={(e) => setInvokeInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleInvoke(s.name) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleInvoke(s.id, s.name) }}
             placeholder="输入内容测试..."
             className="h-7 flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
           />
           <button
-            onClick={() => handleInvoke(s.name)}
+            onClick={() => handleInvoke(s.id, s.name)}
             disabled={invokingId === s.name}
             className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition-colors hover:bg-violet-50 hover:text-violet-600 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-violet-900/20"
             title="测试运行"
