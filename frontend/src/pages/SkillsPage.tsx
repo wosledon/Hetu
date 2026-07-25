@@ -46,7 +46,7 @@ export default function SkillsPage() {
   const [showDirConfig, setShowDirConfig] = useState(false)
   const [dirInput, setDirInput] = useState('')
   const [invokeResult, setInvokeResult] = useState<{ id: string; result?: string; error?: string } | null>(null)
-  const [invokeInput, setInvokeInput] = useState('')
+  const [invokeInputs, setInvokeInputs] = useState<Record<string, string>>({})
   const [invokingId, setInvokingId] = useState<string | null>(null)
 
   // Database skills
@@ -128,8 +128,9 @@ export default function SkillsPage() {
   }
 
   const handleInvoke = (nameOrId: string) => {
-    if (!invokeInput.trim()) return
-    invokeMutation.mutate({ nameOrId, input: invokeInput })
+    const input = invokeInputs[nameOrId]?.trim()
+    if (!input) return
+    invokeMutation.mutate({ nameOrId, input })
   }
 
   const renderSkillCard = (skill: ISkill | ILocalSkill, isLocal: boolean) => {
@@ -172,8 +173,8 @@ export default function SkillsPage() {
         {/* Invoke area */}
         <div className="mb-2 flex items-center gap-1.5">
           <input
-            value={invokeResult?.id === s.id ? invokeInput : ''}
-            onChange={(e) => setInvokeInput(e.target.value)}
+            value={invokeInputs[s.id] ?? ''}
+            onChange={(e) => setInvokeInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
             onKeyDown={(e) => { if (e.key === 'Enter') handleInvoke(s.name) }}
             placeholder="输入内容测试..."
             className="h-7 flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
