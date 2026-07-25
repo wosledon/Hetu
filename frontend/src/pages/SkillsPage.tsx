@@ -83,8 +83,6 @@ export default function SkillsPage() {
   const invokeMutation = useMutation({
     mutationFn: ({ nameOrId, input }: { nameOrId: string; input: string }) => skillService.invoke(nameOrId, { input }),
     onMutate: ({ nameOrId }) => { setInvokingId(nameOrId); setInvokeResult(null) },
-    onSuccess: (result, { nameOrId }) => { setInvokeResult({ id: nameOrId, result }); setInvokingId(null) },
-    onError: (err: Error, { nameOrId }) => { setInvokeResult({ id: nameOrId, error: err.message }); setInvokingId(null) },
   })
 
   const skills = tab === 'database' ? dbSkills : localSkills
@@ -130,7 +128,10 @@ export default function SkillsPage() {
   const handleInvoke = (skillId: string, nameOrId: string) => {
     const input = invokeInputs[skillId]?.trim()
     if (!input) return
-    invokeMutation.mutate({ nameOrId, input })
+    invokeMutation.mutate({ nameOrId, input }, {
+      onSuccess: (result) => { setInvokeResult({ id: skillId, result }); setInvokingId(null) },
+      onError: (err: Error) => { setInvokeResult({ id: skillId, error: err.message }); setInvokingId(null) },
+    })
   }
 
   const renderSkillCard = (skill: ISkill | ILocalSkill, isLocal: boolean) => {
