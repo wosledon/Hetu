@@ -149,6 +149,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const reasoningPickerRef = useRef<HTMLDivElement>(null)
   // 跟踪消息加载状态：首次加载无动画滚到底部
   const isInitialLoadRef = useRef(true)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chatMessages', topic?.id],
@@ -230,6 +231,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     slashItemRefs.current[slashMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [slashMenuIndex])
+
+  // 监听组件可见性，切换回此会话时滚到底部
+  useEffect(() => {
+    if (!containerRef.current) return
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && messages.length > 0) {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+        }
+      }
+    }, { threshold: 0.1 })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [messages.length])
 
   // 首次加载消息后直接滚到底部（无动画），后续新消息平滑滚动
   useEffect(() => {
@@ -728,7 +743,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
+    <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
       <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{topic.title}</h2>
