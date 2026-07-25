@@ -132,7 +132,7 @@ export default function InlineWorkflowPanel({
       {/* Agent tool call interaction panel */}
       {workflowToolCall && (() => {
         if (workflowToolCall.name === 'ask_question') {
-          return <AskQuestionPanel arguments={workflowToolCall.arguments} onSubmit={(answer) => onToolApprove(true, answer)} onSkip={() => onToolApprove(false)} />
+          return <AskQuestionPanel arguments={workflowToolCall.arguments} onSubmit={(answer) => onToolApprove(true, answer)} />
         }
         return (
           <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
@@ -180,10 +180,9 @@ export default function InlineWorkflowPanel({
 }
 
 // AskQuestion 面板：解析 arguments 中的 questions，渲染选项按钮
-function AskQuestionPanel({ arguments: argsJson, onSubmit, onSkip }: {
+function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
   arguments: string
   onSubmit: (answer: string) => void
-  onSkip: () => void
 }) {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -207,7 +206,6 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit, onSkip }: {
           <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
         </div>
         <button onClick={() => onSubmit('')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> 提交</button>
-        <button onClick={onSkip} className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"><X size={11} /> 跳过</button>
       </div>
     )
   }
@@ -392,12 +390,6 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit, onSkip }: {
                   <Check size={14} /> 提交全部
                 </button>
               )}
-              <button
-                onClick={onSkip}
-                className="flex items-center gap-1 rounded-md bg-gray-400 px-2 py-1 text-xs text-white hover:bg-gray-500"
-              >
-                <X size={11} /> 跳过
-              </button>
             </div>
           </div>
         )
