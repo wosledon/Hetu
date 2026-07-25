@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Star, Brain } from 'lucide-react'
@@ -319,7 +320,7 @@ export default function MemoriesPage() {
                             </button>
                             <button
                               onClick={() => {
-                                if (confirm('确定删除这条记忆？')) deleteMutation.mutate(memory.id)
+                                confirm({ message: '确定删除这条记忆？', onConfirm: () => deleteMutation.mutate(memory.id) })
                               }}
                               className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                             >

@@ -15,6 +15,7 @@ import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
+import { useConfirm } from './ConfirmDialog'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
@@ -78,6 +79,7 @@ function renderNotebookTree(
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
   const assistantName = useUIStore((state) => state.assistantName)
+  const confirm = useConfirm()
   const [input, setInput] = useState('')
   const {
     streamingContent, setStreamingContent,
@@ -597,8 +599,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const deleteMessage = (messageId: string) => {
-    if (!window.confirm('确定删除这条消息吗？')) return
-    deleteMessageMutation.mutate(messageId)
+    confirm({ message: '确定删除这条消息吗？', onConfirm: () => deleteMessageMutation.mutate(messageId) })
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -349,7 +350,7 @@ function ScheduledTasksView() {
               onEdit={() => handleEdit(task)}
               onHistory={() => setHistoryTaskId(task.id)}
               onDelete={() => {
-                if (confirm(`确定删除定时任务「${task.name}」吗？`)) deleteMutation.mutate(task.id)
+                confirm({ message: `确定删除定时任务「${task.name}」吗？`, onConfirm: () => deleteMutation.mutate(task.id) })
               }}
             />
           ))}

@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -137,9 +138,7 @@ export default function TagsPage() {
   }
 
   const handleDelete = (tag: ITag) => {
-    if (confirm(`确定删除标签「${tag.name}」吗？相关笔记将不再关联此标签。`)) {
-      deleteMutation.mutate(tag.id)
-    }
+    confirm({ message: `确定删除标签「${tag.name}」吗？相关笔记将不再关联此标签。`, onConfirm: () => deleteMutation.mutate(tag.id) })
   }
 
   const handleViewNotes = (tag: ITag) => {

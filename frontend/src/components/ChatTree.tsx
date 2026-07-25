@@ -1,3 +1,4 @@
+import { confirm } from './ConfirmDialog'
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
@@ -307,7 +308,7 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
             <button
-              onClick={() => { if (confirm('确定删除这个话题吗？')) deleteTopic.mutate(topicMenu.topic.id) }}
+              onClick={() => { confirm({ message: '确定删除这个话题吗？', onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               <Trash2 size={13} />

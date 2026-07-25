@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -280,7 +281,7 @@ export default function AgentsPage() {
         {!isLocal && !(p as IPromptPreset).isBuiltIn && (
           <div className="flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-gray-700">
             <button onClick={() => openEditForm(p as IPromptPreset)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> 编辑</button>
-            <button onClick={() => { if (confirm('确认删除？')) deleteMutation.mutate(p.id) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20"><Trash2 size={11} /> 删除</button>
+            <button onClick={() => { confirm({ message: '确认删除？', onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20"><Trash2 size={11} /> 删除</button>
           </div>
         )}
         {!isLocal && (p as IPromptPreset).isBuiltIn && (

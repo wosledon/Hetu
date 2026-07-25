@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { GitBranch, Plus, Play, Pencil, Copy, Trash2, Workflow as WorkflowIcon } from 'lucide-react'
@@ -169,7 +170,7 @@ export default function WorkflowsPage() {
                       </button>
                       <div className="flex-1" />
                       <button
-                        onClick={() => confirm(`删除工作流 "${wf.name}"？`) && deleteMut.mutate(wf.id)}
+                        onClick={() => confirm({ message: `删除工作流 "${wf.name}"？`, onConfirm: () => deleteMut.mutate(wf.id) })}
                         className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                         title="删除"
                       >

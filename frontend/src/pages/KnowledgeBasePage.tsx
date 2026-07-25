@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -621,7 +622,7 @@ export default function KnowledgeBasePage() {
                           {item.type !== 'note' && (
                             <button
                               onClick={() => {
-                                if (confirm('确定删除该知识项？')) deleteMutation.mutate(item.id)
+                                confirm({ message: '确定删除该知识项？', onConfirm: () => deleteMutation.mutate(item.id) })
                               }}
                               className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-all hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
                             >

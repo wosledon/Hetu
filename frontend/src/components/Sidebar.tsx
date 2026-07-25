@@ -1,3 +1,4 @@
+import { confirm } from './ConfirmDialog'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -97,9 +98,7 @@ function NotebookTreeItem({
   }
 
   const handleDelete = () => {
-    if (confirm(`确定删除笔记本「${notebook.name}」吗？其中的笔记将变为未分类。`)) {
-      deleteMutation.mutate(notebook.id)
-    }
+    confirm({ message: `确定删除笔记本「${notebook.name}」吗？其中的笔记将变为未分类。`, onConfirm: () => deleteMutation.mutate(notebook.id) })
   }
 
   return (

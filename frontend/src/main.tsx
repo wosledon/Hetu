@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { queryClient } from './utils/queryClient'
 import { useTheme } from './utils/theme'
 import App from './App'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import './index.css'
 import 'katex/dist/katex.min.css'
 
@@ -30,7 +31,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ThemedApp />
+        <ConfirmProvider>
+          <ThemedApp />
+        </ConfirmProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

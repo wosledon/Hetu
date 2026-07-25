@@ -1,3 +1,4 @@
+import { confirm } from '../components/ConfirmDialog'
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -160,7 +161,7 @@ export default function SkillsPage() {
             <button onClick={() => openEditForm(s as ISkill)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700">
               <Pencil size={11} /> 编辑
             </button>
-            <button onClick={() => { if (confirm('确认删除？')) deleteMutation.mutate(s.id) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20">
+            <button onClick={() => { confirm({ message: '确认删除？', onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-gray-500 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20">
               <Trash2 size={11} /> 删除
             </button>
           </div>
