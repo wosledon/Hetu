@@ -191,6 +191,7 @@ fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("hetu-tray")
         .tooltip("Hetu")
+        .icon(app.default_window_icon().expect("default window icon").clone())
         .menu(&tray_menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|handle, event| handle_menu_event(handle, event.id().as_ref()))

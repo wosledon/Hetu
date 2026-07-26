@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#101528" />
+            <stop offset="1" stop-color="#0a0e1c" />
+        </linearGradient>
+        <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f0c453" />
+            <stop offset="1" stop-color="#d99a26" />
+        </linearGradient>
+        <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#5fdbe8" />
+            <stop offset="1" stop-color="#27a9bd" />
+        </linearGradient>
+    </defs>
+
+    <!-- 圆角底板 -->
+    <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)" />
+
+    <!-- 虚线天轨 -->
+    <circle cx="256" cy="256" r="176" fill="none" stroke="url(#gold)" stroke-width="7"
+        stroke-dasharray="2 26" stroke-linecap="round" opacity="0.9" />
+
+    <!-- 八边形阵基 -->
+    <polygon points="256,96 369,143 416,256 369,369 256,416 143,369 96,256 143,143"
+        fill="none" stroke="#8ea0c8" stroke-opacity="0.45" stroke-width="7" stroke-linejoin="round" />
+
+    <!-- 巡轨光珠 -->
+    <circle cx="256" cy="80" r="14" fill="url(#gold)" />
+    <circle cx="256" cy="432" r="10" fill="url(#cyan)" />
+
+    <!-- 太极核心：标准黑白太极（r=66，鱼身小圆 r=33） -->
+    <g>
+        <!-- 整圆白底（右半会被黑色覆盖） -->
+        <circle cx="256" cy="256" r="66" fill="#f5f7fa" />
+        <!-- 黑鱼：左大半圆 + 上凸小半圆 - 下凹小半圆（用 path 一次成型） -->
+        <path
+            d="M256,190
+               A33,33 0 0 1 256,256
+               A33,33 0 0 0 256,322
+               A66,66 0 0 1 256,190 Z"
+            fill="#14181f" />
+        <!-- 鱼眼：黑鱼头（上鼓）含白点，白鱼身（下凹）含黑点 -->
+        <circle cx="256" cy="223" r="11" fill="#f5f7fa" />
+        <circle cx="256" cy="289" r="11" fill="#14181f" />
+        <!-- 外环描边 -->
+        <circle cx="256" cy="256" r="66" fill="none" stroke="#f5f7fa" stroke-width="2" opacity="0.6" />
+    </g>
+</svg>

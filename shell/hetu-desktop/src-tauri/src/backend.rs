@@ -31,6 +31,8 @@ pub struct BackendHandle {
     pub base_url: String,
     pub data_dir: PathBuf,
     child: Mutex<Option<CommandChild>>,
+    /// 是否由本应用启动（dev 复用外部后端时为 false，不 kill）
+    owned: bool,
 }
 
 impl BackendHandle {
@@ -40,6 +42,7 @@ impl BackendHandle {
             base_url: format!("http://127.0.0.1:{port}"),
             data_dir,
             child: Mutex::new(Some(child)),
+            owned: true,
         }
     }
 
@@ -50,17 +53,52 @@ impl BackendHandle {
             base_url: format!("http://127.0.0.1:{port}"),
             data_dir,
             child: Mutex::new(None),
+            owned: false,
         }
     }
 
     /// 优雅关闭后端子进程；调用多次安全。
     pub async fn shutdown(&self) {
+        // dev 复用的外部后端不归本应用管，不杀
+        if !self.owned {
+            return;
+        }
         let mut guard = self.child.lock().await;
         if let Some(child) = guard.take() {
             if let Err(err) = child.kill() {
                 tracing::warn!("kill backend child failed: {err:?}");
             } else {
                 tracing::info!("backend child killed");
+            }
+        }
+        // `dotnet run` 的孙进程 Hetu.Api 不会因 kill 宿主而退出，按端口兜底杀掉
+        kill_process_on_port(self.port).await;
+    }
+}
+
+/// 按端口杀掉监听进程（Windows: netstat 找 PID 再 taskkill /T 杀进程树）。
+async fn kill_process_on_port(port: u16) {
+    #[cfg(target_os = "windows")]
+    {
+        use tokio::process::Command;
+        // 找 LISTENING 的 PID
+        let output = match Command::new("netstat").args(["-ano", "-p", "tcp"]).output().await {
+            Ok(o) => o,
+            Err(_) => return,
+        };
+        let text = String::from_utf8_lossy(&output.stdout);
+        let needle = format!(":{port}");
+        for line in text.lines() {
+            let cols: Vec<&str> = line.split_whitespace().collect();
+            // Proto Local Foreign State PID
+            if cols.len() >= 5 && cols[3].eq_ignore_ascii_case("LISTENING") && cols[1].ends_with(&needle) {
+                if let Ok(pid) = cols[4].parse::<u32>() {
+                    let _ = Command::new("taskkill")
+                        .args(["/PID", &pid.to_string(), "/T", "/F"])
+                        .output()
+                        .await;
+                    tracing::info!("killed backend process tree pid={pid} on port {port}");
+                }
             }
         }
     }
