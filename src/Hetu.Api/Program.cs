@@ -406,25 +406,29 @@ static async Task SyncVecTablesAsync(HetuDbContext db)
         var exists = await checkCmd.ExecuteScalarAsync();
         if (exists is not long count || count == 0) return;
 
-        // 同步 NoteEmbeddings → vec_note_embeddings
-        var embeddings = await db.NoteEmbeddings.AsNoTracking().ToListAsync();
-        foreach (var emb in embeddings)
+        // 同步 NoteEmbeddings → vec_note_embeddings（事务批量写入，避免逐条提交）
+        await using (var tx = await connection.BeginTransactionAsync())
         {
-            try
+            await foreach (var emb in db.NoteEmbeddings.AsNoTracking().AsAsyncEnumerable())
             {
-                var floats = new float[emb.Embedding.Length / 4];
-                for (int i = 0; i < floats.Length; i++)
-                    floats[i] = BitConverter.ToSingle(emb.Embedding, i * 4);
+                try
+                {
+                    var floats = new float[emb.Embedding.Length / 4];
+                    for (int i = 0; i < floats.Length; i++)
+                        floats[i] = BitConverter.ToSingle(emb.Embedding, i * 4);
 
-                var vectorText = $"[{string.Join(",", floats)}]";
-                await using var cmd = connection.CreateCommand();
-                cmd.CommandText = $"INSERT OR REPLACE INTO vec_note_embeddings (note_id, embedding) VALUES ('{emb.NoteId}', '{vectorText}')";
-                await cmd.ExecuteNonQueryAsync();
+                    var vectorText = $"[{string.Join(",", floats)}]";
+                    await using var cmd = connection.CreateCommand();
+                    cmd.Transaction = (System.Data.Common.DbTransaction)tx;
+                    cmd.CommandText = $"INSERT OR REPLACE INTO vec_note_embeddings (note_id, embedding) VALUES ('{emb.NoteId}', '{vectorText}')";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                    // 单条失败不影响其他
+                }
             }
-            catch
-            {
-                // 单条失败不影响其他
-            }
+            await tx.CommitAsync();
         }
 
         // 同步 NoteChunkEmbeddings → vec_chunk_embeddings
@@ -433,8 +437,8 @@ static async Task SyncVecTablesAsync(HetuDbContext db)
         var chunkExists = await chunkCheckCmd.ExecuteScalarAsync();
         if (chunkExists is long cc && cc > 0)
         {
-            var chunkEmbeddings = await db.NoteChunkEmbeddings.AsNoTracking().ToListAsync();
-            foreach (var cemb in chunkEmbeddings)
+            await using var tx = await connection.BeginTransactionAsync();
+            await foreach (var cemb in db.NoteChunkEmbeddings.AsNoTracking().AsAsyncEnumerable())
             {
                 try
                 {
@@ -444,6 +448,7 @@ static async Task SyncVecTablesAsync(HetuDbContext db)
 
                     var vectorText = $"[{string.Join(",", floats)}]";
                     await using var cmd = connection.CreateCommand();
+                    cmd.Transaction = (System.Data.Common.DbTransaction)tx;
                     cmd.CommandText = $"INSERT OR REPLACE INTO vec_chunk_embeddings (chunk_id, embedding) VALUES ('{cemb.ChunkId}', '{vectorText}')";
                     await cmd.ExecuteNonQueryAsync();
                 }
@@ -452,6 +457,7 @@ static async Task SyncVecTablesAsync(HetuDbContext db)
                     // 单条失败不影响其他
                 }
             }
+            await tx.CommitAsync();
         }
     }
     catch

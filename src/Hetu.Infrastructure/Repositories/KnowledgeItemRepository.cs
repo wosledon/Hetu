@@ -92,6 +92,21 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ChunkEmbeddingMetadata>> GetAllChunkEmbeddingMetadataAsync(CancellationToken cancellationToken = default)
+    {
+        return await Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            .Select(e => new ChunkEmbeddingMetadata
+            {
+                ChunkId = e.ChunkId,
+                KnowledgeItemId = e.Chunk.KnowledgeItemId,
+                Model = e.Model,
+                Dimensions = e.Dimensions,
+                UpdatedAt = e.UpdatedAt,
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task SyncChunkEmbeddingToVecTableAsync(Guid chunkId, float[] embedding, CancellationToken cancellationToken = default)
     {
         if (!Context.Database.IsSqlite()) return;

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Copy, Check, Pencil, Trash2, X, Plus, Brain, Globe, Database, ChevronDown, ChevronLeft, ChevronRight, Loader2, Atom, Zap, ClipboardList, CircleCheckBig, Circle, HelpCircle } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
@@ -9,6 +9,8 @@ import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
+import ChatMessageItem from './ChatMessageItem'
+import { TodoPanel, QuestionPanel } from './ChatStreamPanels'
 import Select from './Select'
 import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
@@ -35,15 +37,6 @@ function findNotebookName(notebooks: INotebook[], id: string): string {
     }
   }
   return '默认笔记本'
-}
-
-// Older messages persisted RAG results with PascalCase keys; normalize to camelCase.
-function toCamelKeys<T>(obj: Record<string, unknown>): T {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(obj)) {
-    out[k.charAt(0).toLowerCase() + k.slice(1)] = v
-  }
-  return out as T
 }
 
 function renderNotebookTree(
@@ -356,16 +349,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
 
-  const toggleSavedThinking = (messageId: string) => {
+  const toggleSavedThinking = useCallback((messageId: string) => {
     setExpandedThinking(prev => {
       const next = new Set(prev)
       if (next.has(messageId)) next.delete(messageId)
       else next.add(messageId)
       return next
     })
-  }
+  }, [])
 
-  const copyMessage = async (messageId: string, content: string) => {
+  const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
       await navigator.clipboard.writeText(content)
     } catch {
@@ -378,7 +371,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     setCopiedMessageId(messageId)
     window.setTimeout(() => setCopiedMessageId(null), 1500)
-  }
+  }, [])
 
   const submitAllAnswers = async () => {
     const toolCallId = streamingQuestions[0]?.toolCallId || ''
@@ -601,19 +594,26 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     },
   })
 
-  const startEditingMessage = (messageId: string, content: string) => {
+  const startEditingMessage = useCallback((messageId: string, content: string) => {
     setEditingMessageId(messageId)
     setEditingContent(content)
-  }
+  }, [])
 
-  const saveEditingMessage = () => {
+  const cancelEditingMessage = useCallback(() => {
+    setEditingMessageId(null)
+    setEditingContent('')
+  }, [])
+
+  const updateMessageMutate = updateMessageMutation.mutate
+  const saveEditingMessage = useCallback(() => {
     if (!editingMessageId || !editingContent.trim()) return
-    updateMessageMutation.mutate({ id: editingMessageId, content: editingContent.trim() })
-  }
+    updateMessageMutate({ id: editingMessageId, content: editingContent.trim() })
+  }, [editingMessageId, editingContent, updateMessageMutate])
 
-  const deleteMessage = (messageId: string) => {
-    confirm({ message: '确定删除这条消息吗？', onConfirm: () => deleteMessageMutation.mutate(messageId) })
-  }
+  const deleteMessageMutate = deleteMessageMutation.mutate
+  const deleteMessage = useCallback((messageId: string) => {
+    confirm({ message: '确定删除这条消息吗？', onConfirm: () => deleteMessageMutate(messageId) })
+  }, [confirm, deleteMessageMutate])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -913,193 +913,24 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
         <div className="space-y-5">
           {messages.map((message) => (
-          <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}`}>
-              {message.role === 'user' ? <span className="text-xs font-bold">U</span> : <Bot size={15} />}
-            </div>
-            <div className={`flex min-w-0 max-w-[80%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className="mb-1.5 flex items-center gap-2">
-                {message.role === 'assistant' && (
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
-                )}
-                <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-
-                {message.role === 'user' && (
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
-                )}
-              </div>
-              <div className={`group relative rounded-2xl px-4 py-3 ${message.role === 'user' ? 'rounded-tr-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm' : 'rounded-tl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'}`}>
-                {editingMessageId === message.id ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={editingContent}
-                      onChange={(e) => setEditingContent(e.target.value)}
-                      className="w-full min-h-28 rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => { setEditingMessageId(null); setEditingContent('') }}
-                        className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <X size={14} />
-                      </button>
-                      <button
-                        onClick={saveEditingMessage}
-                        disabled={!editingContent.trim() || updateMessageMutation.isPending}
-                        className="rounded bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
-                      >
-                        保存
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Thinking block for saved messages */}
-                    {message.role === 'assistant' && message.thinkingContent && (
-                      <div className="mb-3">
-                        <button
-                          onClick={() => toggleSavedThinking(message.id)}
-                          className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        >
-                          <Brain size={12} />
-                          <span>深度思考</span>
-                          <ChevronDown size={10} className={`transition-transform ${expandedThinking.has(message.id) ? 'rotate-180' : ''}`} />
-                        </button>
-                        {expandedThinking.has(message.id) && (
-                          <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
-                            <ThemedMarkdown source={message.thinkingContent} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ThemedMarkdown source={message.content} />
-                    </div>
-                    {/* Search results for saved messages */}
-                    {message.role === 'assistant' && message.searchResultsJson && (() => {
-                      try {
-                        const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
-                        if (results.length === 0) return null
-                        return (
-                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                              <Search size={11} />
-                              参考来源
-                            </div>
-                            <div className="space-y-1">
-                              {results.map((r, i) => (
-                                <a
-                                  key={i}
-                                  href={r.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                >
-                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
-                                    <span className="block truncate text-gray-400">{r.url}</span>
-                                  </span>
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      } catch { return null }
-                    })()}
-                    {/* Knowledge base results for saved messages */}
-                    {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
-                      try {
-                        const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
-                        if (results.length === 0) return null
-                        return (
-                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                              <Database size={11} />
-                              知识库参考
-                            </div>
-                            <div className="space-y-1">
-                              {results.map((r, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                >
-                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-100 text-[9px] font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{i + 1}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
-                                    {r.contentSnippet && (
-                                      <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
-                                    )}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      } catch { return null }
-                    })()}
-                    {/* Memory results for saved messages */}
-                    {message.role === 'assistant' && message.memoryResultsJson && (() => {
-                      try {
-                        const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
-                        if (results.length === 0) return null
-                        return (
-                          <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                            <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                              <Atom size={11} />
-                              记忆参考
-                            </div>
-                            <div className="space-y-1">
-                              {results.map((r, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                >
-                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-violet-100 text-[9px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">{i + 1}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block text-gray-600 dark:text-gray-300">{r.content.slice(0, 100)}{r.content.length > 100 ? '...' : ''}</span>
-                                    {r.category && <span className="text-[10px] text-gray-400">{r.category}</span>}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      } catch { return null }
-                    })()}
-                  </>
-                )}
-                {!editingMessageId && (
-                  <div className={`absolute -top-3 ${message.role === 'user' ? 'left-0' : 'right-0'} opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white px-1 py-0.5 shadow-sm dark:border-gray-700 dark:bg-gray-800`}>
-                    <button
-                      onClick={() => copyMessage(message.id, message.content)}
-                      className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      title="复制"
-                    >
-                      {copiedMessageId === message.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                    </button>
-                    <button
-                      onClick={() => startEditingMessage(message.id, message.content)}
-                      disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-                      className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-50 dark:hover:text-gray-300"
-                      title="编辑"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      onClick={() => deleteMessage(message.id)}
-                      disabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-                      className="p-1 rounded text-gray-400 hover:text-red-500 disabled:opacity-50"
-                      title="删除"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+            <ChatMessageItem
+              key={message.id}
+              message={message}
+              assistantName={assistantName}
+              isEditing={editingMessageId === message.id}
+              editingContent={editingMessageId === message.id ? editingContent : ''}
+              isCopied={copiedMessageId === message.id}
+              thinkingExpanded={expandedThinking.has(message.id)}
+              actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+              onToggleThinking={toggleSavedThinking}
+              onCopy={copyMessage}
+              onStartEdit={startEditingMessage}
+              onSaveEdit={saveEditingMessage}
+              onCancelEdit={cancelEditingMessage}
+              onDelete={deleteMessage}
+              onEditContentChange={setEditingContent}
+            />
+          ))}
         </div>
 
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
@@ -1282,307 +1113,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         {/* Approval request panel */}
         <ApprovalPanel requests={approvalRequests} onApprove={handleApprove} />
         {/* Todo progress panel - fixed above input */}
-        {streamingTodos.length > 0 && (() => {
-          const total = streamingTodos.length
-          const completed = streamingTodos.filter(t => t.status === 'completed').length
-          const inProgress = streamingTodos.find(t => t.status === 'in-progress')
-          const allDone = completed === total
-          const percent = total === 0 ? 0 : Math.round((completed / total) * 100)
-          return (
-            <div className="mb-2 overflow-hidden rounded-xl border border-gray-200 bg-white/80 shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/80">
-              {/* Header (clickable to collapse) */}
-              <button
-                type="button"
-                onClick={() => setTodoPanelCollapsed(v => !v)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-              >
-                <div className={`flex h-6 w-6 items-center justify-center rounded-md ${
-                  allDone
-                    ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400'
-                    : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400'
-                }`}>
-                  {allDone ? <CircleCheckBig size={14} /> : <ClipboardList size={14} />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                      工作计划
-                    </span>
-                    <span className="text-[11px] text-gray-400">
-                      {completed} / {total}
-                    </span>
-                    {!allDone && inProgress && (
-                      <span className="ml-1 truncate text-[11px] text-gray-500 dark:text-gray-400">
-                        · {inProgress.title}
-                      </span>
-                    )}
-                    {allDone && (
-                      <span className="ml-1 text-[11px] font-medium text-green-600 dark:text-green-400">
-                        · 已全部完成
-                      </span>
-                    )}
-                  </div>
-                  {/* Progress bar */}
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        allDone ? 'bg-green-500' : 'bg-gradient-to-r from-indigo-400 to-blue-500'
-                      }`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-                <ChevronDown
-                  size={14}
-                  className={`flex-shrink-0 text-gray-400 transition-transform ${todoPanelCollapsed ? '-rotate-90' : ''}`}
-                />
-              </button>
-
-              {/* Todo list (collapsible) */}
-              {!todoPanelCollapsed && (
-                <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-700/60">
-                  <ul className="space-y-1">
-                    {streamingTodos.map((t, idx) => {
-                      const isCompleted = t.status === 'completed'
-                      const isInProgress = t.status === 'in-progress'
-                      return (
-                        <li key={t.id} className="flex items-start gap-2 text-xs">
-                          <span className="mt-0.5 flex-shrink-0">
-                            {isCompleted ? (
-                              <CircleCheckBig size={13} className="text-green-500" />
-                            ) : isInProgress ? (
-                              <Loader2 size={13} className="animate-spin text-blue-500" />
-                            ) : (
-                              <Circle size={13} className="text-gray-300 dark:text-gray-600" />
-                            )}
-                          </span>
-                          <span className={`flex-1 leading-relaxed ${
-                            isCompleted
-                              ? 'text-gray-400 line-through dark:text-gray-500'
-                              : isInProgress
-                                ? 'font-medium text-blue-700 dark:text-blue-300'
-                                : 'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {t.title}
-                          </span>
-                          <span className="flex-shrink-0 text-[10px] text-gray-300 tabular-nums dark:text-gray-600">
-                            {String(idx + 1).padStart(2, '0')}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )
-        })()}
+        <TodoPanel todos={streamingTodos} collapsed={todoPanelCollapsed} onToggleCollapsed={setTodoPanelCollapsed} />
 
         {/* Ask question panel - sequential one-at-a-time mode */}
-        {streamingQuestions.length > 0 && (() => {
-          const total = streamingQuestions.length
-          const idx = Math.min(currentQuestionIndex, total - 1)
-          const q = streamingQuestions[idx]
-          if (!q) return null
-          const currentAnswer = questionAnswers[q.id]
-          const hasAnswer = !!currentAnswer
-          const answeredCount = streamingQuestions.filter(qq => questionAnswers[qq.id]).length
-          const allAnswered = streamingQuestions.every(qq => questionAnswers[qq.id])
-          const isFirst = idx === 0
-          const isLast = idx === total - 1
-          const goNext = () => setCurrentQuestionIndex(i => Math.min(total - 1, i + 1))
-          const goPrev = () => setCurrentQuestionIndex(i => Math.max(0, i - 1))
-          return (
-            <div className="mb-2 overflow-hidden rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-indigo-50/60 shadow-sm backdrop-blur-sm dark:border-blue-800/50 dark:from-blue-950/40 dark:to-indigo-950/30">
-              {/* Header strip with progress dots */}
-              <div className="flex items-center gap-2 border-b border-blue-100/80 bg-white/40 px-4 py-2.5 dark:border-blue-900/30 dark:bg-gray-900/20">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
-                  <HelpCircle size={14} />
-                </div>
-                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                  {q.header || '请回答'}
-                </span>
-                <div className="ml-auto flex items-center gap-1.5">
-                  {/* Progress dots */}
-                  <div className="flex items-center gap-1">
-                    {streamingQuestions.map((qq, i) => {
-                      const answered = !!questionAnswers[qq.id]
-                      const isCurrent = i === idx
-                      return (
-                        <button
-                          key={qq.id}
-                          type="button"
-                          onClick={() => setCurrentQuestionIndex(i)}
-                          title={qq.question}
-                          className={`h-1.5 rounded-full transition-all ${
-                            isCurrent
-                              ? 'w-5 bg-blue-500'
-                              : answered
-                                ? 'w-1.5 bg-blue-400 hover:w-3'
-                                : 'w-1.5 bg-gray-300 hover:w-3 dark:bg-gray-600'
-                          }`}
-                        />
-                      )
-                    })}
-                  </div>
-                  <span className="ml-1 text-[10px] text-gray-500 tabular-nums dark:text-gray-400">
-                    {answeredCount} / {total}
-                  </span>
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="px-4 py-3">
-                <p className="mb-3 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                  {q.question}
-                </p>
-
-                {/* Options - auto layout: chips for short, list for long */}
-                {q.options && q.options.length > 0 && (() => {
-                  const maxLabelLen = Math.max(...q.options.map(o => (o.label || '').length))
-                  const hasDescription = q.options.some(o => o.description)
-                  const useListLayout = maxLabelLen > 8 || q.options.length > 4 || hasDescription
-                  if (useListLayout) {
-                    return (
-                      <div className="mb-3 flex flex-col gap-1.5">
-                        {q.options.map((opt, i) => {
-                          const selected = currentAnswer === opt.label
-                          return (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                setQuestionAnswers(prev => ({ ...prev, [q.id]: opt.label }))
-                                if (!isLast) setTimeout(goNext, 150)
-                              }}
-                              className={`group flex items-start gap-2.5 rounded-lg border px-3 py-2 text-left text-xs transition-all ${
-                                selected
-                                  ? 'border-blue-500 bg-blue-50 shadow-sm dark:bg-blue-950/40'
-                                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-blue-700 dark:hover:bg-blue-900/20'
-                              }`}
-                            >
-                              <span className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                                selected
-                                  ? 'border-blue-500 bg-blue-500'
-                                  : 'border-gray-300 group-hover:border-blue-400 dark:border-gray-600'
-                              }`}>
-                                {selected && <Check size={10} className="text-white" />}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className={`font-medium leading-relaxed ${
-                                  selected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
-                                }`}>
-                                  {opt.label}
-                                </div>
-                                {opt.description && (
-                                  <div className="mt-0.5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                                    {opt.description}
-                                  </div>
-                                )}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )
-                  }
-                  // Chips layout for short options
-                  return (
-                    <div className="mb-3 flex flex-wrap gap-1.5">
-                      {q.options.map((opt, i) => {
-                        const selected = currentAnswer === opt.label
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => {
-                              setQuestionAnswers(prev => ({ ...prev, [q.id]: opt.label }))
-                              if (!isLast) setTimeout(goNext, 150)
-                            }}
-                            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                              selected
-                                ? 'border-blue-500 bg-blue-500 text-white shadow-sm'
-                                : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:border-blue-700 dark:hover:bg-blue-900/30'
-                            }`}
-                          >
-                            {selected && <Check size={12} />}
-                            <span>{opt.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })()}
-
-                {/* Custom input — do not reveal previous answer content when navigating back */}
-                {q.allowCustom !== false && (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder={hasAnswer && q.options?.some(o => o.label === currentAnswer) ? '或输入自定义回答（回车下一题）' : '输入回答...（回车下一题）'}
-                      value={q.options?.some(o => o.label === currentAnswer) ? '' : (currentAnswer || '')}
-                      onChange={(e) => {
-                        setQuestionAnswers(prev => ({ ...prev, [q.id]: e.target.value }))
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && currentAnswer) {
-                          e.preventDefault()
-                          if (isLast && allAnswered) {
-                            submitAllAnswers()
-                          } else if (!isLast) {
-                            goNext()
-                          }
-                        }
-                      }}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-200/50 dark:border-gray-700 dark:bg-gray-800/60 dark:placeholder:text-gray-500 dark:focus:ring-blue-900/40"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Footer: navigation */}
-              <div className="flex items-center justify-between border-t border-blue-100/80 bg-white/40 px-3 py-2 dark:border-blue-900/30 dark:bg-gray-900/20">
-                <button
-                  onClick={goPrev}
-                  disabled={isFirst}
-                  className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                    isFirst
-                      ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'
-                      : 'text-gray-600 hover:bg-blue-100/50 dark:text-gray-300 dark:hover:bg-blue-900/30'
-                  }`}
-                >
-                  <ChevronLeft size={14} /> 上一题
-                </button>
-                <span className="text-[10px] text-gray-400">
-                  {idx + 1} / {total}
-                </span>
-                {!isLast ? (
-                  <button
-                    onClick={goNext}
-                    disabled={!hasAnswer}
-                    className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                      hasAnswer
-                        ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
-                        : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                    }`}
-                  >
-                    下一题 <ChevronRight size={14} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={submitAllAnswers}
-                    disabled={!allAnswered}
-                    className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                      allAnswered
-                        ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
-                        : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                    }`}
-                  >
-                    <Check size={14} /> 提交全部
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })()}
+        <QuestionPanel
+          questions={streamingQuestions}
+          answers={questionAnswers}
+          currentIndex={currentQuestionIndex}
+          onAnswer={setQuestionAnswers}
+          onIndexChange={setCurrentQuestionIndex}
+          onSubmitAll={submitAllAnswers}
+        />
 
         {/* Attached files */}
         {attachedFiles.length > 0 && (

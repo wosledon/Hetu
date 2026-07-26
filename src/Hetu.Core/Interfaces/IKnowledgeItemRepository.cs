@@ -23,5 +23,9 @@ public interface IKnowledgeItemRepository : IRepository<KnowledgeItem>
     Task AddChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default);
     Task UpdateChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NoteChunkEmbedding>> GetAllChunkEmbeddingsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>获取所有 chunk embedding 的元数据（不加载向量字节），用于状态统计</summary>
+    Task<IReadOnlyList<ChunkEmbeddingMetadata>> GetAllChunkEmbeddingMetadataAsync(CancellationToken cancellationToken = default);
+
     Task SyncChunkEmbeddingToVecTableAsync(Guid chunkId, float[] embedding, CancellationToken cancellationToken = default);
 }

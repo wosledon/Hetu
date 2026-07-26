@@ -48,3 +48,15 @@ public class NoteChunkEmbedding
     public int Dimensions { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// ChunkEmbedding 的轻量元数据（不含向量字节），用于状态统计场景
+/// </summary>
+public class ChunkEmbeddingMetadata
+{
+    public Guid ChunkId { get; set; }
+    public Guid KnowledgeItemId { get; set; }
+    public string Model { get; set; } = string.Empty;
+    public int Dimensions { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}

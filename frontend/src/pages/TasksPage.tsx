@@ -40,13 +40,18 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
   const { data: tasks = [], isLoading, isRefetching } = useQuery({
     queryKey: ['task-items', typeFilter],
     queryFn: () => taskService.getAll(typeFilter ? { type: typeFilter } : undefined),
-    refetchInterval: 5000,
+    // 仅在有排队/运行中任务时轮询，空闲时停止
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => t.status === 0 || t.status === 1) ? 3000 : false,
   })
 
   const { data: stats } = useQuery({
     queryKey: ['task-items', 'stats'],
     queryFn: taskService.getStats,
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const d = query.state.data
+      return d && (d.queued > 0 || d.running > 0) ? 3000 : false
+    },
   })
 
   const clearMutation = useMutation({
@@ -280,7 +285,9 @@ function ScheduledTasksView() {
   const { data: tasks = [], isLoading, isRefetching } = useQuery({
     queryKey: ['scheduled-tasks'],
     queryFn: scheduledTaskService.getAll,
-    refetchInterval: 10000,
+    // 仅有任务正在运行时加快轮询，平时 30s 慢速刷新
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => t.lastStatus === 'Running') ? 5000 : 30000,
   })
 
   const { data: targetOptions } = useQuery({
@@ -937,7 +944,9 @@ function ScheduledTaskHistoryModal({
   const { data: executions = [], isLoading } = useQuery({
     queryKey: ['scheduled-tasks', 'executions', taskId],
     queryFn: () => scheduledTaskService.getExecutions(taskId, 50),
-    refetchInterval: 5000,
+    // 仅有运行中/排队执行记录时轮询
+    refetchInterval: (query) =>
+      query.state.data?.some((e) => e.status === 'Running' || e.status === 'Queued') ? 3000 : false,
   })
 
   return (

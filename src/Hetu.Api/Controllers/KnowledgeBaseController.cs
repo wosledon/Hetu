@@ -34,10 +34,10 @@ public class KnowledgeBaseController : ControllerBase
     public async Task<ApiResponse<KnowledgeBaseStatusDto>> GetStatus(CancellationToken cancellationToken)
     {
         var allItems = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingsAsync(cancellationToken);
+        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
 
         var indexedItemIds = chunkEmbeddings
-            .Select(ce => ce.Chunk.KnowledgeItemId)
+            .Select(ce => ce.KnowledgeItemId)
             .Distinct()
             .ToHashSet();
 
@@ -84,11 +84,11 @@ public class KnowledgeBaseController : ControllerBase
             items = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
         }
 
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingsAsync(cancellationToken);
+        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
 
         // 按知识项分组 chunk embeddings
         var chunkMap = chunkEmbeddings
-            .GroupBy(ce => ce.Chunk.KnowledgeItemId)
+            .GroupBy(ce => ce.KnowledgeItemId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // 查询所有正在运行/排队的任务
@@ -179,10 +179,10 @@ public class KnowledgeBaseController : ControllerBase
     public async Task<ApiResponse<BatchEmbeddingResultDto>> BatchGenerateEmbeddings(CancellationToken cancellationToken)
     {
         var allItems = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingsAsync(cancellationToken);
+        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
 
         var indexedItemIds = chunkEmbeddings
-            .Select(ce => ce.Chunk.KnowledgeItemId)
+            .Select(ce => ce.KnowledgeItemId)
             .Distinct()
             .ToHashSet();
 
