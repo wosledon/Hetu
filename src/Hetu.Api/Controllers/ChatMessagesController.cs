@@ -135,72 +135,83 @@ public class ChatMessagesController : ControllerBase
         var sw = System.Diagnostics.Stopwatch.StartNew();
         int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0, estimatedInput = 0, estimatedCompressed = 0;
         bool hasUsage = false;
+        var cancelled = false;
 
-        for (int iter = 0; iter < maxIter; iter++)
+        try
         {
-            // 1. 压缩前估算原始 Token
-            estimatedInput += (int)Math.Ceiling(
-                (chatMessages.Sum(m => m.Content?.Length ?? 0)
-                    + (options.SystemPrompt?.Length ?? 0)
-                    + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
-                ) / 3.0);
-
-            // 2. 压缩本轮消息并估算压缩后 Token
-            await CompressChatHistoryAsync(chatMessages, options, ct);
-            estimatedCompressed += (int)Math.Ceiling(
-                (chatMessages.Sum(m => m.Content?.Length ?? 0)
-                    + (options.SystemPrompt?.Length ?? 0)
-                    + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
-                ) / 3.0);
-
-            // 3. LLM 调用
-            await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
-
-            var (iterContent, iterThinking, pendingToolCalls, iterUsage) = await ChatStreamProcessor.ProcessStreamAsync(
-                provider, chatMessages, options, writer, ct);
-
-            if (iterUsage != null)
+            for (int iter = 0; iter < maxIter; iter++)
             {
-                hasUsage = true;
-                totalTokens += iterUsage.TotalTokens;
-                totalPrompt += iterUsage.PromptTokens;
-                totalCompletion += iterUsage.CompletionTokens;
-                cachedTokens += iterUsage.CachedTokens;
-            }
+                // 1. 压缩前估算原始 Token
+                estimatedInput += (int)Math.Ceiling(
+                    (chatMessages.Sum(m => m.Content?.Length ?? 0)
+                        + (options.SystemPrompt?.Length ?? 0)
+                        + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
+                    ) / 3.0);
 
-            if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
-            {
+                // 2. 压缩本轮消息并估算压缩后 Token
+                await CompressChatHistoryAsync(chatMessages, options, ct);
+                estimatedCompressed += (int)Math.Ceiling(
+                    (chatMessages.Sum(m => m.Content?.Length ?? 0)
+                        + (options.SystemPrompt?.Length ?? 0)
+                        + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
+                    ) / 3.0);
+
+                // 3. LLM 调用
+                await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
+
+                var (iterContent, iterThinking, pendingToolCalls, iterUsage) = await ChatStreamProcessor.ProcessStreamAsync(
+                    provider, chatMessages, options, writer, ct);
+
+                if (iterUsage != null)
+                {
+                    hasUsage = true;
+                    totalTokens += iterUsage.TotalTokens;
+                    totalPrompt += iterUsage.PromptTokens;
+                    totalCompletion += iterUsage.CompletionTokens;
+                    cachedTokens += iterUsage.CachedTokens;
+                }
+
+                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
+                {
+                    contentSb.Append(iterContent);
+                    thinkingSb.Append(iterThinking);
+                    break;
+                }
+
                 contentSb.Append(iterContent);
                 thinkingSb.Append(iterThinking);
-                break;
+
+                // 4. 追加新消息（下一轮会压缩）
+                chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
+
+                var toolResults = await _toolExecution.ExecuteToolCallsAsync(
+                    topicId.ToString(),
+                    pendingToolCalls, approvalOverrides, sessionTodos,
+                    data => writer.WriteEventAsync(data),
+                    payload => writer.WriteJsonAsync(payload),
+                    ct);
+
+                foreach (var (toolCallId, content) in toolResults)
+                {
+                    chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
+                }
             }
-
-            contentSb.Append(iterContent);
-            thinkingSb.Append(iterThinking);
-
-            // 4. 追加新消息（下一轮会压缩）
-            chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
-
-            var toolResults = await _toolExecution.ExecuteToolCallsAsync(
-                topicId.ToString(),
-                pendingToolCalls, approvalOverrides, sessionTodos,
-                data => writer.WriteEventAsync(data),
-                payload => writer.WriteJsonAsync(payload),
-                ct);
-
-            foreach (var (toolCallId, content) in toolResults)
-            {
-                chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+            Log.Information("[Stream] 用户中断生成 topicId={TopicId}", topicId);
         }
 
         sw.Stop();
         var latencyMs = (int)sw.ElapsedMilliseconds;
 
+        // 中断或正常完成都保存已生成的部分内容
         var finalContent = contentSb.ToString().Trim();
         if (!string.IsNullOrEmpty(finalContent))
         {
-            await _chatMessageService.SaveAssistantMessageAsync(topicId, contentSb.ToString(), modelId,
+            await _chatMessageService.SaveAssistantMessageAsync(topicId,
+                cancelled ? contentSb + "\n\n*（已停止生成）*" : contentSb.ToString(), modelId,
                 thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
                 searchJson, kbJson, memJson,
                 hasUsage ? totalTokens : null,
@@ -209,10 +220,10 @@ public class ChatMessagesController : ControllerBase
                 inputTokens: estimatedInput,
                 compressedTokens: estimatedCompressed,
                 outputTokens: hasUsage ? totalCompletion : null,
-                cancellationToken: ct);
+                cancellationToken: CancellationToken.None);
         }
 
-        if (request.Memory)
+        if (!cancelled && request.Memory)
         {
             try { await _memoryService.TryAutoExtractAsync(topicId, ct); } catch { }
         }

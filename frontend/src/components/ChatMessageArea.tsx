@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
@@ -17,7 +17,7 @@ import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
-import { useChatStreamStore } from '../stores/chatStreamStore'
+import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './ConfirmDialog'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
@@ -72,40 +72,56 @@ function renderNotebookTree(
 
 /**
  * 在后台消费某个话题的聊天 SSE 流，写入全局 store（按 topicId 隔离）。
- * 与组件挂载解耦：切换话题不会中断流，支持多话题同时流式。
+ * 与组件挂载解耦：切换话题不会中断流，支持多话题同时流式，可随时中断。
  */
-async function consumeChatStream(topicId: string, startRequest: () => Promise<Response>): Promise<void> {
+async function consumeChatStream(topicId: string, startRequest: (signal: AbortSignal) => Promise<Response>): Promise<void> {
   const store = useChatStreamStore.getState()
+  const controller = new AbortController()
+  chatStreamControl.register(topicId, controller)
+  let cancelled = false
   try {
-    const response = await startRequest()
+    const response = await startRequest(controller.signal)
     if (!response.body) return
     const reader = response.body.getReader()
+    // 中断时取消 reader，使后端 ct 触发取消
+    const onAbort = () => { cancelled = true; reader.cancel().catch(() => {}) }
+    controller.signal.addEventListener('abort', onAbort)
     const decoder = new TextDecoder()
     let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const data = line.slice(6)
-        if (data.startsWith('[ERROR]')) {
-          store.appendContent(topicId, '\n' + data)
-          continue
-        }
-        try {
-          store.handleChunk(topicId, JSON.parse(data))
-        } catch {
-          store.appendContent(topicId, data)
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data.startsWith('[ERROR]')) {
+            store.appendContent(topicId, '\n' + data)
+            continue
+          }
+          try {
+            store.handleChunk(topicId, JSON.parse(data))
+          } catch {
+            store.appendContent(topicId, data)
+          }
         }
       }
+    } finally {
+      controller.signal.removeEventListener('abort', onAbort)
+      reader.releaseLock()
     }
   } catch (error) {
-    console.error('Stream error:', error)
-    store.appendContent(topicId, '流式输出失败，请检查模型配置。')
+    if (cancelled || controller.signal.aborted) {
+      // 用户主动中断，不视为错误
+    } else {
+      console.error('Stream error:', error)
+      store.appendContent(topicId, '流式输出失败，请检查模型配置。')
+    }
   } finally {
+    chatStreamControl.unregister(topicId)
     store.stop(topicId)
   }
 }
@@ -547,7 +563,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
 
     // 发起流并在后台消费；切换话题不中断（按 topicId 写入全局 store）
-    void consumeChatStream(topic.id, () =>
+    void consumeChatStream(topic.id, (signal) =>
       chatMessageService.stream(topic.id, {
         content,
         modelId: selectedModelId || undefined,
@@ -560,11 +576,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         agentId: detectedAgentId || selectedPreset?.id,
         enableTools: toolCalling,
         toolApprovalOverrides: toolApprovalMode !== 'auto' ? { '*': toolApprovalMode } : undefined,
-      }),
+      }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
     })
   }
+
+  const handleStop = useCallback(() => {
+    if (topicId) chatStreamControl.cancel(topicId)
+  }, [topicId])
 
   const forkMutation = useMutation({
     mutationFn: ({ topicId, branchMessageId }: { topicId: string; branchMessageId?: string }) =>
@@ -1566,14 +1586,24 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               </button>
             </div>
 
-            {/* Send button */}
-            <button
-              onClick={handleSend}
-              disabled={isStreaming || (!input.trim() && attachedFiles.length === 0)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
-            >
-              <Send size={14} />
-            </button>
+            {/* Send / Stop button */}
+            {isStreaming ? (
+              <button
+                onClick={handleStop}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500 text-white shadow-sm transition-all hover:bg-red-600"
+                title="停止生成"
+              >
+                <Square size={13} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() && attachedFiles.length === 0}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+              >
+                <Send size={14} />
+              </button>
+            )}
           </div>
         </div>
 

@@ -111,11 +111,12 @@ export const chatMessageService = {
   send: (topicId: string, data: SendMessageRequest) => post<IChatMessage>(`/chat-messages/topic/${topicId}`, data),
   update: (id: string, data: UpdateChatMessageRequest) => put<IChatMessage>(`/chat-messages/${id}`, data),
   delete: (id: string) => del<void>(`/chat-messages/${id}`),
-  stream: (topicId: string, data: SendMessageRequest): Promise<Response> =>
+  stream: (topicId: string, data: SendMessageRequest, signal?: AbortSignal): Promise<Response> =>
     fetch(`/api/chat-messages/topic/${topicId}/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify(data),
+      signal,
     }),
   search: (keyword: string, topicId?: string, groupId?: string) => {
     const params = new URLSearchParams({ keyword });

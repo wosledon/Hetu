@@ -120,6 +120,18 @@ interface ChatStreamStore {
   setTodoCollapsed: (topicId: string, v: boolean) => void
 }
 
+/** 每个话题进行中的流 AbortController（模块级，不进 zustand state） */
+const streamControllers = new Map<string, AbortController>()
+
+export const chatStreamControl = {
+  register: (topicId: string, controller: AbortController) => streamControllers.set(topicId, controller),
+  unregister: (topicId: string) => streamControllers.delete(topicId),
+  cancel: (topicId: string) => {
+    streamControllers.get(topicId)?.abort()
+    streamControllers.delete(topicId)
+  },
+}
+
 export const useChatStreamStore = create<ChatStreamStore>((set) => {
   const patch = (topicId: string, partial: Partial<TopicStreamState>) =>
     set((st) => ({
