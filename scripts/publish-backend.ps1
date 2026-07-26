@@ -66,10 +66,11 @@ $publishArgs = @(
     '-r', $Rid,
     "--self-contained=$($selfContained.ToString().ToLower())",
     '-o', $publishDir,
-    '/p:PublishSingleFile=true'
+    '/p:PublishSingleFile=true',
+    # 原生库（e_sqlite3 等）打进 exe 并自解压，否则 slim 缺原生 sqlite
+    '/p:IncludeNativeLibrariesForSelfExtract=true'
 )
 if ($selfContained) {
-    $publishArgs += '/p:IncludeNativeLibrariesForSelfExtract=true'
     $publishArgs += '/p:EnableCompressionInSingleFile=true'
 }
 & dotnet @publishArgs

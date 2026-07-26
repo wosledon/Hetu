@@ -57,9 +57,10 @@
       SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- 让构建出来的 wwwroot 在 publish 时随产物一起发布 -->
+  <!-- 让构建出来的 wwwroot 在 publish 时随产物一起发布。
+       用 Update 而非 Include：SDK 已默认包含 wwwroot 的 Content，避免 NETSDK1022 重复。 -->
   <ItemGroup Condition="Exists('$(FrontendWwwroot)\index.html')">
-    <Content Include="wwwroot\**\*.*">
+    <Content Update="wwwroot\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
