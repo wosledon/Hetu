@@ -57,13 +57,16 @@ if (Test-Path $publishDir) {
 Write-Host "[publish-backend] Mode=$Mode  Rid=$Rid  Triple=$triple"
 Write-Host "[publish-backend] Output: $publishDir"
 
+# slim（FrameworkDependent）也单文件打包：把所有托管 dll 打进 exe，
+# apphost 才能独立运行（否则同目录缺 Hetu.Api.dll 会启动失败）。
+# self-contained=false 仍表示不含 .NET 运行时，需用户安装 .NET 10 Runtime。
 $publishArgs = @(
     'publish', $apiProj,
     '-c', 'Release',
     '-r', $Rid,
     "--self-contained=$($selfContained.ToString().ToLower())",
     '-o', $publishDir,
-    "/p:PublishSingleFile=$($selfContained.ToString().ToLower())"
+    '/p:PublishSingleFile=true'
 )
 if ($selfContained) {
     $publishArgs += '/p:IncludeNativeLibrariesForSelfExtract=true'

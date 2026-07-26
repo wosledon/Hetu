@@ -64,8 +64,9 @@ jobs:
           SC="false"; [ "$MODE" = "SelfContained" ] && SC="true"
           OUT="artifacts/publish/$MODE-$RID"
           rm -rf "$OUT"
+          # slim 也单文件打包（含托管 dll），仅不含 .NET 运行时
           dotnet publish src/Hetu.Api/Hetu.Api.csproj -c Release -r "$RID" \
-            --self-contained="$SC" -o "$OUT" /p:PublishSingleFile="$SC"
+            --self-contained="$SC" -o "$OUT" /p:PublishSingleFile=true
           mkdir -p shell/hetu-desktop/src-tauri/binaries
           cp "$OUT/Hetu.Api" "shell/hetu-desktop/src-tauri/binaries/Hetu.Api-x86_64-unknown-linux-gnu"
           chmod +x "shell/hetu-desktop/src-tauri/binaries/Hetu.Api-x86_64-unknown-linux-gnu"
