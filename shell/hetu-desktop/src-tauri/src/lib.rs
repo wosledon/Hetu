@@ -81,8 +81,8 @@ pub fn run() {
                             data_dir: backend.data_dir.to_string_lossy().to_string(),
                         };
                         let _ = handle.emit("backend-ready", payload);
-                        // 强制加载动画至少展示 2s，避免后端秒开导致一闪而过。
-                        let min_splash = std::time::Duration::from_millis(2000);
+                        // 强制加载动画至少展示 3.6s：法阵分幕点亮约 2.6s 成图，再留 1s 观赏太极与能量流。
+                        let min_splash = std::time::Duration::from_millis(3600);
                         let elapsed = splash_start.elapsed();
                         if elapsed < min_splash {
                             tokio::time::sleep(min_splash - elapsed).await;

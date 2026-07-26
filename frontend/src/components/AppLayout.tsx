@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge } from 'lucide-react'
 import Sidebar from './Sidebar'
+import BrandMark from './BrandMark'
 import { useUIStore } from '../stores/uiStore'
 
 interface AppLayoutProps {
@@ -77,9 +78,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <nav className="glass-nav grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-6">
         <div className="flex items-center justify-start">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-              <BookOpen size={16} className="text-white" />
-            </div>
+            <BrandMark size={24} />
             <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
         </div>

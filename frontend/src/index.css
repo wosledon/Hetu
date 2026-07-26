@@ -141,6 +141,64 @@ body {
   animation: pulseSoft 2.5s ease-in-out infinite;
 }
 
+/* ===== 品牌法阵 logo（与启动页同套图形） ===== */
+:root {
+  --gold: #9a7b24;
+  --cyan: #1d7a8c;
+}
+
+.dark {
+  --gold: #e3b341;
+  --cyan: #4fd1e0;
+}
+
+.brandmark-spin-cw {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: brandmarkSpin 90s linear infinite;
+}
+
+.brandmark-spin-rev {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: brandmarkSpin 140s linear infinite reverse;
+}
+
+.brandmark-taiji {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: brandmarkSpin 20s linear infinite;
+}
+
+@keyframes brandmarkSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* 巡轨光珠 */
+.brandmark-orb {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: brandmarkSpin 8s linear infinite;
+}
+
+.brandmark-orb2 {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: brandmarkSpin 13s linear infinite reverse;
+}
+
+/* 太极脉冲 */
+.brandmark-core {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: brandmarkCore 3.2s ease-out infinite;
+}
+
+@keyframes brandmarkCore {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+
 /* ===== Glass morphism nav ===== */
 .glass-nav {
   background: rgba(255, 255, 255, 0.78);

@@ -5,6 +5,36 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hetu</title>
+    <script>
+      // 首帧前应用主题（与 zustand persist: hetu-ui 同一存储），避免 React 挂载前白闪。
+      (function () {
+        try {
+          var stored = JSON.parse(localStorage.getItem('hetu-ui') || 'null');
+          var t = stored && stored.state && stored.state.theme;
+          var dark = t === 'dark' ||
+            ((!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+          }
+        }
+      })();
+    </script>
+    <style>
+      /* 与 index.css 一致的关键底色，保证挂载前后无跳变 */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background-color: #f8f9fb;
+        color: #111827;
+      }
+      html.dark body {
+        background-color: #0c0f1a;
+        color: #f1f3f9;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
