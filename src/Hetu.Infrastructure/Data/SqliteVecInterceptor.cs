@@ -20,8 +20,15 @@ public class SqliteVecInterceptor : DbConnectionInterceptor
         var configuredPath = configuration["Sqlite:VecExtensionPath"];
         _extensionPath = !string.IsNullOrWhiteSpace(configuredPath)
             ? configuredPath
-            : Path.Combine(AppContext.BaseDirectory, "sqlite-vec", "vec0.dll");
+            : Path.Combine(AppContext.BaseDirectory, "sqlite-vec", DefaultVecFileName());
         _fallbackDimensions = configuration.GetValue<int?>("Embedding:Dimensions") ?? 1536;
+    }
+
+    private static string DefaultVecFileName()
+    {
+        if (OperatingSystem.IsWindows()) return "vec0.dll";
+        if (OperatingSystem.IsMacOS()) return "vec0.dylib";
+        return "vec0.so";
     }
 
     public override async Task ConnectionOpenedAsync(

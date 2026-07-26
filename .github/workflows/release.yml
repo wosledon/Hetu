@@ -1,0 +1,142 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 带 .NET 运行时（SelfContained / fat）
+          - { os: windows-latest, rid: win-x64,   mode: SelfContained,       channel: fat,  label: windows-fat  }
+          - { os: ubuntu-latest,  rid: linux-x64, mode: SelfContained,       channel: fat,  label: linux-fat    }
+          # 不带 .NET 运行时（FrameworkDependent / slim）
+          - { os: windows-latest, rid: win-x64,   mode: FrameworkDependent,  channel: slim, label: windows-slim }
+          - { os: ubuntu-latest,  rid: linux-x64, mode: FrameworkDependent,  channel: slim, label: linux-slim   }
+
+    env:
+      TAURI_CHANNEL: ${{ matrix.channel }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shell/hetu-desktop/src-tauri
+
+      # ---------- 后端 sidecar（含前端 SPA，由 csproj Release 目标自动构建） ----------
+      - name: Publish backend sidecar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/publish-backend.ps1 -Mode ${{ matrix.mode }} -Rid ${{ matrix.rid }}
+
+      - name: Publish backend sidecar (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="${{ matrix.mode }}"; RID="${{ matrix.rid }}"
+          SC="false"; [ "$MODE" = "SelfContained" ] && SC="true"
+          OUT="artifacts/publish/$MODE-$RID"
+          rm -rf "$OUT"
+          dotnet publish src/Hetu.Api/Hetu.Api.csproj -c Release -r "$RID" \
+            --self-contained="$SC" -o "$OUT" /p:PublishSingleFile="$SC"
+          mkdir -p shell/hetu-desktop/src-tauri/binaries
+          cp "$OUT/Hetu.Api" "shell/hetu-desktop/src-tauri/binaries/Hetu.Api-x86_64-unknown-linux-gnu"
+          chmod +x "shell/hetu-desktop/src-tauri/binaries/Hetu.Api-x86_64-unknown-linux-gnu"
+          rm -rf shell/hetu-desktop/src-tauri/binaries/wwwroot
+          cp -r "$OUT/wwwroot" shell/hetu-desktop/src-tauri/binaries/wwwroot
+
+      - name: Build sqlite-vec (Linux native)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl unzip gettext
+          TMP=$(mktemp -d)
+          git clone --depth 1 https://github.com/asg017/sqlite-vec.git "$TMP/sqlite-vec"
+          cd "$TMP/sqlite-vec"
+          ./scripts/vendor.sh
+          make loadable
+          mkdir -p "$GITHUB_WORKSPACE/shell/hetu-desktop/src-tauri/binaries/sqlite-vec"
+          cp dist/vec0.so "$GITHUB_WORKSPACE/shell/hetu-desktop/src-tauri/binaries/sqlite-vec/vec0.so"
+          ls -la "$GITHUB_WORKSPACE/shell/hetu-desktop/src-tauri/binaries/sqlite-vec"
+
+      # ---------- 桌面前端 & Tauri 打包 ----------
+      - name: Install desktop deps
+        working-directory: shell/hetu-desktop
+        run: npm ci
+
+      - name: Linux system deps (Tauri)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Tauri build
+        working-directory: shell/hetu-desktop
+        run: npx tauri build --config src-tauri/tauri.${{ matrix.channel }}.conf.json
+
+      # ---------- 收集产物 ----------
+      - name: Upload Windows bundle
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hetu-${{ matrix.label }}
+          path: |
+            shell/hetu-desktop/src-tauri/target/release/bundle/nsis/*.exe
+            shell/hetu-desktop/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: ignore
+
+      - name: Upload Linux bundle
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hetu-${{ matrix.label }}
+          path: |
+            shell/hetu-desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            shell/hetu-desktop/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: ignore
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
