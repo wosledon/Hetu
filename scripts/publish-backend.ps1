@@ -96,9 +96,15 @@ if (Test-Path $wwwrootSrc) {
     Write-Host "[publish-backend] wwwroot -> $wwwrootDst"
 }
 
+# sqlite-vec：优先用 publish 输出；单文件打包时会被嵌进 bundle 不落盘，此时回退到源码目录
+$sqliteVecDst = Join-Path $binariesDir 'sqlite-vec'
 $sqliteVecSrc = Join-Path $publishDir 'sqlite-vec'
+$fallbackDll = Join-Path $repoRoot 'src/Hetu.Infrastructure/sqlite-vec/vec0.dll'
+if (-not (Test-Path $sqliteVecSrc) -and (Test-Path $fallbackDll) -and $Rid -like 'win-*') {
+    New-Item -ItemType Directory -Force -Path $sqliteVecSrc | Out-Null
+    Copy-Item $fallbackDll (Join-Path $sqliteVecSrc 'vec0.dll') -Force
+}
 if (Test-Path $sqliteVecSrc) {
-    $sqliteVecDst = Join-Path $binariesDir 'sqlite-vec'
     if (Test-Path $sqliteVecDst) { Remove-Item $sqliteVecDst -Recurse -Force }
     Copy-Item $sqliteVecSrc $sqliteVecDst -Recurse -Force
     Write-Host "[publish-backend] sqlite-vec -> $sqliteVecDst"
