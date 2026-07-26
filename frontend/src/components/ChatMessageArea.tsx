@@ -15,6 +15,7 @@ import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
+import { useChatStreamStore } from '../stores/chatStreamStore'
 import { useConfirm } from './ConfirmDialog'
 import { useUIStore } from '../stores/uiStore'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
@@ -76,32 +77,74 @@ function renderNotebookTree(
   return result
 }
 
+/**
+ * 在后台消费某个话题的聊天 SSE 流，写入全局 store（按 topicId 隔离）。
+ * 与组件挂载解耦：切换话题不会中断流，支持多话题同时流式。
+ */
+async function consumeChatStream(topicId: string, startRequest: () => Promise<Response>): Promise<void> {
+  const store = useChatStreamStore.getState()
+  try {
+    const response = await startRequest()
+    if (!response.body) return
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data.startsWith('[ERROR]')) {
+          store.appendContent(topicId, '\n' + data)
+          continue
+        }
+        try {
+          store.handleChunk(topicId, JSON.parse(data))
+        } catch {
+          store.appendContent(topicId, data)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Stream error:', error)
+    store.appendContent(topicId, '流式输出失败，请检查模型配置。')
+  } finally {
+    store.stop(topicId)
+  }
+}
+
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
   const assistantName = useUIStore((state) => state.assistantName)
   const confirm = useConfirm()
   const [input, setInput] = useState('')
+  const topicId = topic?.id
   const {
     streamingContent, setStreamingContent,
-    streamingThinking, setStreamingThinking,
+    streamingThinking,
     showThinking, setShowThinking,
-    isStreaming, pendingUserMessage, setPendingUserMessage,
-    streamingSearchResults, setStreamingSearchResults,
-    streamingKnowledgeResults, setStreamingKnowledgeResults,
-    streamingMemoryResults, setStreamingMemoryResults,
-    streamingToolCalls, streamingToolResults, setStreamingToolResults,
+    isStreaming, pendingUserMessage,
+    streamingSearchResults,
+    streamingKnowledgeResults,
+    streamingMemoryResults,
+    streamingToolCalls, streamingToolResults,
     streamingQuestions, setStreamingQuestions,
     questionAnswers, setQuestionAnswers,
     currentQuestionIndex, setCurrentQuestionIndex,
-    streamingTodos, setStreamingTodos,
+    streamingTodos,
     todoPanelCollapsed, setTodoPanelCollapsed,
-    approvalRequests, setApprovalRequests,
-    startStreaming, stopStreaming, handleSseChunk,
-  } = useStreaming()
+    approvalRequests,
+    startStreaming, stopStreaming,
+  } = useStreaming(topicId)
 
-  const [streamWebSearch, setStreamWebSearch] = useState(false)
-  const [streamKnowledgeBase, setStreamKnowledgeBase] = useState(false)
-  const [streamMemory, setStreamMemory] = useState(false)
+  const streamWebSearch = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedWebSearch : false) ?? false)
+  const streamKnowledgeBase = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedKnowledgeBase : false) ?? false)
+  const streamMemory = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedMemory : false) ?? false)
+  const streamStartedAt = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.startedAt : 0) ?? 0)
   const [isOrganizing, setIsOrganizing] = useState(false)
   const [organizeStyle, setOrganizeStyle] = useState<'summary' | 'detailed' | 'qna'>('summary')
   const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
@@ -270,21 +313,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   // The persisted message from the backend is the canonical response — once it arrives,
   // the streaming preview block should fully disappear.
   useEffect(() => {
-    if (!isStreaming && (streamingContent || streamingThinking || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0)) {
-      /* eslint-disable react-hooks/set-state-in-effect */
-      setStreamingContent('')
-      setStreamingThinking('')
-      setStreamingSearchResults([])
-      setStreamingKnowledgeResults([])
-      setStreamingMemoryResults([])
-      setStreamingToolResults([])
-      setStreamingQuestions([])
-      setStreamingTodos([])
-      setShowThinking(false)
-      setStreamWebSearch(false)
-      setStreamKnowledgeBase(false)
-      setStreamMemory(false)
-      /* eslint-enable react-hooks/set-state-in-effect */
+    if (!topicId) return
+    const s = useChatStreamStore.getState().streams[topicId]
+    if (s && !s.isStreaming && (s.streamingContent || s.streamingThinking || s.searchResults.length > 0 || s.knowledgeResults.length > 0 || s.memoryResults.length > 0 || s.toolResults.length > 0 || s.questions.length > 0 || s.todos.length > 0)) {
+      useChatStreamStore.getState().clearAfterPersist(topicId)
     }
     // Intentionally only react to messages list changes (post-stream refresh).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,11 +466,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     const content = (slashPrefix + input.trim()).trim()
     setInput('')
     setSelectedSlashItem(null)
-    startStreaming()
-    setPendingUserMessage(content)
-    setStreamWebSearch(webSearch)
-    setStreamKnowledgeBase(knowledgeBase)
-    setStreamMemory(memory)
+    startStreaming(topic.id, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
     if (attachedFiles.length > 0) {
@@ -501,7 +529,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           (err) => { setStreamingContent('工作流执行失败：' + err) },
           controller.signal)
       } catch { setStreamingContent('工作流执行异常') }
-      finally { stopStreaming() }
+      finally { stopStreaming(topic.id) }
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
       return
     }
@@ -525,8 +553,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       }
     }
 
-    try {
-      const response = await chatMessageService.stream(topic.id, {
+    // 发起流并在后台消费；切换话题不中断（按 topicId 写入全局 store）
+    void consumeChatStream(topic.id, () =>
+      chatMessageService.stream(topic.id, {
         content,
         modelId: selectedModelId || undefined,
         deepThinking,
@@ -538,26 +567,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         agentId: detectedAgentId || selectedPreset?.id,
         enableTools: toolCalling,
         toolApprovalOverrides: toolApprovalMode !== 'auto' ? { '*': toolApprovalMode } : undefined,
-      })
-      await readSseStream(response, (data) => {
-        if (data.startsWith('[ERROR]')) {
-          setStreamingContent(prev => prev + '\n' + data)
-          return
-        }
-        try {
-          handleSseChunk(JSON.parse(data))
-        } catch {
-          // Fallback: treat as plain text
-          setStreamingContent(prev => prev + data)
-        }
-      })
+      }),
+    ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
-    } catch (error) {
-      console.error('Stream error:', error)
-      setStreamingContent('流式输出失败，请检查模型配置。')
-    } finally {
-      stopStreaming()
-    }
+    })
   }
 
   const forkMutation = useMutation({
@@ -631,7 +644,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const handleApprove = async (toolCallId: string, approved: boolean) => {
-    setApprovalRequests(prev => prev.filter(r => r.id !== toolCallId))
+    if (topicId) useChatStreamStore.getState().removeApproval(topicId, toolCallId)
     try {
       await fetch('/api/chat-messages/approve', {
         method: 'POST',
@@ -1089,8 +1102,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         ))}
         </div>
 
-        {/* Pending user message (shown immediately while streaming) */}
-        {pendingUserMessage && (
+        {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
+        {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt - 2000) && (
           <div className="flex gap-3 flex-row-reverse">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
               <span className="text-xs font-bold">U</span>

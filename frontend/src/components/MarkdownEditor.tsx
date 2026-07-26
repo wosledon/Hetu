@@ -160,7 +160,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     queryKey: ['embeddingStatuses'],
     queryFn: () => knowledgeBaseService.getEmbeddingStatuses('note'),
     enabled: !!note,
-    refetchInterval: 5000,
+    refetchInterval: (query) =>
+      query.state.data?.some((s) => s.hasRunningTask) ? 3000 : false,
   })
 
   const currentEmbedding = useMemo(

@@ -1,234 +1,140 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useChatStreamStore, getTopicStream } from '../stores/chatStreamStore'
+import type {
+  StreamingQuestion,
+  StreamingTodo,
+  StreamingToolResult,
+  ApprovalRequest,
+  SearchResult,
+  KnowledgeResult,
+  MemoryResult,
+} from '../stores/chatStreamStore'
 
-export interface StreamingQuestion {
-  id: string
-  toolCallId: string
-  header: string
-  question: string
-  options?: Array<{ label: string; description?: string }>
-  allowCustom?: boolean
-  answered: boolean
-  answer?: string
-}
+export type {
+  StreamingQuestion,
+  StreamingTodo,
+  StreamingToolCall,
+  StreamingToolResult,
+  ApprovalRequest,
+  SearchResult,
+  KnowledgeResult,
+  MemoryResult,
+} from '../stores/chatStreamStore'
 
-export interface StreamingTodo {
-  id: string
-  title: string
-  description?: string
-  status: 'not-started' | 'in-progress' | 'completed'
-}
+/**
+ * 订阅某个话题的全局流式状态。状态保存在全局 store（按 topicId 隔离），
+ * 组件卸载/切换话题不会丢失，支持多话题同时流式。
+ */
+export function useStreaming(topicId: string | undefined) {
+  const id = topicId ?? ''
+  const raw = useChatStreamStore((st) => st.streams[id])
+  // 缓存空对象，避免 selector 每次返回新引用导致 useSyncExternalStore 无限重渲染
+  const s = useMemo(() => raw ?? getTopicStream({}, ''), [raw])
+  const store = useChatStreamStore.getState()
 
-export interface StreamingToolCall {
-  id: string
-  name: string
-  arguments: string
-}
-
-export interface StreamingToolResult {
-  id: string
-  name: string
-  content: string
-  isError?: boolean
-  collapsed?: boolean
-}
-
-export interface ApprovalRequest {
-  id: string
-  name: string
-  arguments: string
-}
-
-export interface SearchResult {
-  title: string
-  url: string
-  snippet: string
-}
-
-export interface KnowledgeResult {
-  title: string
-  contentSnippet: string
-  id: string
-}
-
-export interface MemoryResult {
-  id: string
-  content: string
-  category?: string
-  score?: number
-}
-
-export function useStreaming() {
-  const [streamingContent, setStreamingContent] = useState('')
-  const [streamingThinking, setStreamingThinking] = useState('')
-  const [showThinking, setShowThinking] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null)
-
-  // Search / knowledge / memory results
-  const [streamingSearchResults, setStreamingSearchResults] = useState<SearchResult[]>([])
-  const [streamingKnowledgeResults, setStreamingKnowledgeResults] = useState<KnowledgeResult[]>([])
-  const [streamingMemoryResults, setStreamingMemoryResults] = useState<MemoryResult[]>([])
-
-  // Tool calls
-  const [streamingToolCalls, setStreamingToolCalls] = useState<StreamingToolCall[]>([])
-  const [streamingToolResults, setStreamingToolResults] = useState<StreamingToolResult[]>([])
-
-  // Questions
-  const [streamingQuestions, setStreamingQuestions] = useState<StreamingQuestion[]>([])
-  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({})
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-
-  // Todos
-  const [streamingTodos, setStreamingTodos] = useState<StreamingTodo[]>([])
-  const [todoPanelCollapsed, setTodoPanelCollapsed] = useState(false)
-
-  // Approval
-  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequest[]>([])
-
-  const resetStreaming = useCallback(() => {
-    setStreamingContent('')
-    setStreamingThinking('')
-    setStreamingSearchResults([])
-    setStreamingKnowledgeResults([])
-    setStreamingMemoryResults([])
-    setStreamingToolCalls([])
-    setStreamingToolResults([])
-    setStreamingQuestions([])
-    setStreamingTodos([])
-    setApprovalRequests([])
-    setQuestionAnswers({})
-    setCurrentQuestionIndex(0)
-    setShowThinking(false)
-  }, [])
-
-  const startStreaming = useCallback(() => {
-    resetStreaming()
-    setIsStreaming(true)
-  }, [resetStreaming])
-
-  const stopStreaming = useCallback(() => {
-    setIsStreaming(false)
-    setPendingUserMessage(null)
-    setStreamingToolCalls([])
-    setStreamingToolResults([])
-  }, [])
-
-  const handleSseChunk = useCallback((chunk: Record<string, unknown>) => {
-    switch (chunk.type) {
-      case 'content':
-        setStreamingContent((prev: string) => prev + (chunk.text as string || ''))
-        break
-      case 'thinking':
-        setStreamingThinking((prev: string) => prev + (chunk.text as string || ''))
-        setShowThinking(true)
-        break
-      case 'search_results':
-        setStreamingSearchResults((chunk.results as SearchResult[]) || [])
-        break
-      case 'knowledge_results':
-        setStreamingKnowledgeResults((chunk.results as KnowledgeResult[]) || [])
-        break
-      case 'memory_results':
-        setStreamingMemoryResults((chunk.results as MemoryResult[]) || [])
-        break
-      case 'tool_call':
-        if (!chunk.hidden) {
-          setStreamingToolCalls((prev: StreamingToolCall[]) => [...prev, {
-            id: chunk.id as string,
-            name: chunk.name as string,
-            arguments: chunk.arguments as string,
-          }])
-        }
-        break
-      case 'tool_result':
-        if (!chunk.hidden) {
-          setStreamingToolResults((prev: StreamingToolResult[]) => [...prev, {
-            id: chunk.id as string,
-            name: chunk.name as string,
-            content: chunk.content as string,
-            isError: chunk.isError as boolean,
-            collapsed: chunk.collapsed as boolean,
-          }])
-        }
-        break
-      case 'approval_request':
-        setApprovalRequests((prev: ApprovalRequest[]) => [...prev, {
-          id: chunk.id as string,
-          name: chunk.name as string,
-          arguments: chunk.arguments as string,
-        }])
-        break
-      case 'question': {
-        try {
-          const qData = typeof chunk.data === 'string' ? JSON.parse(chunk.data as string) : chunk.data
-          if (qData?.questions) {
-            const newQuestions = (qData.questions as Array<{
-              header?: string; question?: string;
-              options?: Array<{ label: string; description?: string }>; allowCustom?: boolean
-            }>).map((q, i) => ({
-              id: `${chunk.toolCallId || 'q'}_${i}`,
-              toolCallId: (chunk.toolCallId as string) || '',
-              header: q.header || '问题',
-              question: q.question || '',
-              options: q.options,
-              allowCustom: q.allowCustom !== false,
-              answered: false,
-              answer: undefined,
-            }))
-            setStreamingQuestions((prev: StreamingQuestion[]) => [...prev, ...newQuestions])
-          }
-        } catch { /* ignore */ }
-        break
-      }
-      case 'todo': {
-        try {
-          const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data as string) : chunk.data
-          if (Array.isArray(todoData?.todos) && todoData.todos.length > 0) {
-            setStreamingTodos((todoData.todos as Array<{
-              id?: string; title?: string; description?: string; status?: 'not-started' | 'in-progress' | 'completed'
-            }>).map((t) => ({
-              id: t.id || `t${Math.random().toString(36).slice(2)}`,
-              title: t.title || '',
-              description: t.description,
-              status: t.status || 'not-started',
-            })))
-          } else if (todoData?.action === 'create' && todoData?.title) {
-            setStreamingTodos((prev: StreamingTodo[]) => [...prev, {
-              id: todoData.id || `t${prev.length + 1}`,
-              title: todoData.title,
-              description: todoData.description,
-              status: todoData.status || 'not-started',
-            }])
-          } else if (todoData?.action === 'update' && todoData?.id) {
-            setStreamingTodos((prev: StreamingTodo[]) => prev.map((t) =>
-              t.id === todoData.id ? { ...t, status: todoData.status || t.status } : t
-            ))
-          } else if (todoData?.action === 'complete' && todoData?.id) {
-            setStreamingTodos((prev: StreamingTodo[]) => prev.map((t) =>
-              t.id === todoData.id ? { ...t, status: 'completed' } : t
-            ))
-          }
-        } catch { /* ignore */ }
-        break
-      }
-    }
-  }, [])
+  const setStreamingContent = useCallback(
+    (v: string | ((p: string) => string)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        streamingContent: typeof v === 'function' ? v(cur.streamingContent) : v,
+      })),
+    [id],
+  )
+  const setStreamingThinking = useCallback(
+    (v: string | ((p: string) => string)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        streamingThinking: typeof v === 'function' ? v(cur.streamingThinking) : v,
+      })),
+    [id],
+  )
+  const setShowThinking = useCallback(
+    (v: boolean | ((p: boolean) => boolean)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        showThinking: typeof v === 'function' ? v(cur.showThinking) : v,
+      })),
+    [id],
+  )
+  const setPendingUserMessage = useCallback(
+    (v: string | null) => useChatStreamStore.getState().update(id, () => ({ pendingUserMessage: v })),
+    [id],
+  )
+  const setStreamingSearchResults = useCallback(
+    (v: SearchResult[]) => useChatStreamStore.getState().update(id, () => ({ searchResults: v })),
+    [id],
+  )
+  const setStreamingKnowledgeResults = useCallback(
+    (v: KnowledgeResult[]) => useChatStreamStore.getState().update(id, () => ({ knowledgeResults: v })),
+    [id],
+  )
+  const setStreamingMemoryResults = useCallback(
+    (v: MemoryResult[]) => useChatStreamStore.getState().update(id, () => ({ memoryResults: v })),
+    [id],
+  )
+  const setStreamingToolResults = useCallback(
+    (v: StreamingToolResult[]) => useChatStreamStore.getState().update(id, () => ({ toolResults: v })),
+    [id],
+  )
+  const setStreamingQuestions = useCallback(
+    (v: StreamingQuestion[]) => useChatStreamStore.getState().update(id, () => ({ questions: v })),
+    [id],
+  )
+  const setQuestionAnswers = useCallback(
+    (v: Record<string, string> | ((p: Record<string, string>) => Record<string, string>)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        questionAnswers: typeof v === 'function' ? v(cur.questionAnswers) : v,
+      })),
+    [id],
+  )
+  const setCurrentQuestionIndex = useCallback(
+    (v: number | ((p: number) => number)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        currentQuestionIndex: typeof v === 'function' ? v(cur.currentQuestionIndex) : v,
+      })),
+    [id],
+  )
+  const setStreamingTodos = useCallback(
+    (v: StreamingTodo[]) => useChatStreamStore.getState().update(id, () => ({ todos: v })),
+    [id],
+  )
+  const setTodoPanelCollapsed = useCallback(
+    (v: boolean | ((p: boolean) => boolean)) =>
+      useChatStreamStore.getState().update(id, (cur) => ({
+        todoPanelCollapsed: typeof v === 'function' ? v(cur.todoPanelCollapsed) : v,
+      })),
+    [id],
+  )
 
   return {
-    streamingContent, setStreamingContent,
-    streamingThinking, setStreamingThinking,
-    showThinking, setShowThinking,
-    isStreaming, pendingUserMessage, setPendingUserMessage,
-    streamingSearchResults, setStreamingSearchResults,
-    streamingKnowledgeResults, setStreamingKnowledgeResults,
-    streamingMemoryResults, setStreamingMemoryResults,
-    streamingToolCalls, streamingToolResults, setStreamingToolResults,
-    streamingQuestions, setStreamingQuestions,
-    questionAnswers, setQuestionAnswers,
-    currentQuestionIndex, setCurrentQuestionIndex,
-    streamingTodos, setStreamingTodos,
-    todoPanelCollapsed, setTodoPanelCollapsed,
-    approvalRequests, setApprovalRequests,
-    resetStreaming, startStreaming, stopStreaming, handleSseChunk,
+    streamingContent: s.streamingContent,
+    setStreamingContent,
+    streamingThinking: s.streamingThinking,
+    setStreamingThinking,
+    showThinking: s.showThinking,
+    setShowThinking,
+    isStreaming: s.isStreaming,
+    pendingUserMessage: s.pendingUserMessage,
+    setPendingUserMessage,
+    streamingSearchResults: s.searchResults,
+    setStreamingSearchResults,
+    streamingKnowledgeResults: s.knowledgeResults,
+    setStreamingKnowledgeResults,
+    streamingMemoryResults: s.memoryResults,
+    setStreamingMemoryResults,
+    streamingToolCalls: s.toolCalls,
+    streamingToolResults: s.toolResults,
+    setStreamingToolResults,
+    streamingQuestions: s.questions,
+    setStreamingQuestions,
+    questionAnswers: s.questionAnswers,
+    setQuestionAnswers,
+    currentQuestionIndex: s.currentQuestionIndex,
+    setCurrentQuestionIndex,
+    streamingTodos: s.todos,
+    setStreamingTodos,
+    todoPanelCollapsed: s.todoPanelCollapsed,
+    setTodoPanelCollapsed,
+    approvalRequests: s.approvalRequests as ApprovalRequest[],
+    startStreaming: store.start,
+    stopStreaming: store.stop,
+    handleSseChunk: store.handleChunk,
   }
 }

@@ -44,16 +44,16 @@ export default function ChatPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <>
-        {topics.map((t) => (
-          <div key={t.id} style={{ display: t.id === selectedTopic?.id ? 'contents' : 'none' }}>
-            <ChatMessageArea topic={t} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />
-          </div>
-        ))}
-        {topics.length === 0 && (
-          <ChatMessageArea topic={undefined} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />
-        )}
-      </>
+      selectedTopic ? (
+        <ChatMessageArea
+          key={selectedTopic.id}
+          topic={selectedTopic}
+          group={selectedGroup ?? undefined}
+          onTopicUpdated={setSelectedTopic}
+        />
+      ) : (
+        <ChatMessageArea topic={undefined} group={selectedGroup ?? undefined} onTopicUpdated={setSelectedTopic} />
+      )
     }>
       {collapsed ? (
         <ChatTree

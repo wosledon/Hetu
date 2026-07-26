@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -19,7 +19,7 @@ interface ThemedMarkdownProps {
  * - HTML 嵌入（details、kbd 等，经 DOMPurify 消毒）
  * - Mermaid 图表
  */
-export default function ThemedMarkdown({ source, className }: ThemedMarkdownProps) {
+export default memo(function ThemedMarkdown({ source, className }: ThemedMarkdownProps) {
   const theme = useUIStore((state) => state.theme)
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -91,4 +91,4 @@ export default function ThemedMarkdown({ source, className }: ThemedMarkdownProp
       </ReactMarkdown>
     </div>
   )
-}
+})
