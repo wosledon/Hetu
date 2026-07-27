@@ -123,6 +123,8 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   } finally {
     chatStreamControl.unregister(topicId)
     store.stop(topicId)
+    // 延迟清除流式状态，等消息列表刷新后再清理，避免闪烁
+    setTimeout(() => store.clearAfterPersist(topicId), 500)
   }
 }
 

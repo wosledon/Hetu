@@ -161,7 +161,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
       }),
 
     stop: (topicId) =>
-      patch(topicId, { isStreaming: false, pendingUserMessage: null, toolCalls: [], toolResults: [], startedAt: 0 }),
+      patch(topicId, { isStreaming: false, pendingUserMessage: null, startedAt: 0 }),
 
     appendContent: (topicId, text) =>
       set((st) => {

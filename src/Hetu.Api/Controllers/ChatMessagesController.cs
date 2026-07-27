@@ -136,6 +136,7 @@ public class ChatMessagesController : ControllerBase
         int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0, estimatedInput = 0, estimatedCompressed = 0;
         bool hasUsage = false;
         var cancelled = false;
+        string? loopError = null;
 
         try
         {
@@ -202,12 +203,20 @@ public class ChatMessagesController : ControllerBase
             cancelled = true;
             Log.Information("[Stream] 用户中断生成 topicId={TopicId}", topicId);
         }
+        catch (Exception ex)
+        {
+            loopError = ex.Message;
+            Log.Error(ex, "[Stream] Agent循环异常 topicId={TopicId}", topicId);
+            try { await writer.WriteErrorAsync($"处理请求时出错: {ex.Message}"); } catch { }
+        }
 
         sw.Stop();
         var latencyMs = (int)sw.ElapsedMilliseconds;
 
         // 中断或正常完成都保存已生成的部分内容
         var finalContent = contentSb.ToString().Trim();
+        if (loopError != null && string.IsNullOrEmpty(finalContent))
+            finalContent = $"处理请求时出错: {loopError}";
         if (!string.IsNullOrEmpty(finalContent))
         {
             await _chatMessageService.SaveAssistantMessageAsync(topicId,
