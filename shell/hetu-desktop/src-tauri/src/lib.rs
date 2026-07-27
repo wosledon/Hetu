@@ -140,12 +140,8 @@ fn navigate_main_window<R: Runtime>(app: &AppHandle<R>, backend_base_url: &str) 
         .get_webview_window("main")
         .ok_or_else(|| anyhow::anyhow!("main window not found"))?;
     tracing::info!("navigating main window to {target_url}");
-    // 用 location.replace 导航，不留历史记录，避免用户后退回加载页。
-    let js = format!(
-        "window.location.replace({})",
-        serde_json::to_string(&target_url)?
-    );
-    main.eval(&js)?;
+    let url: url::Url = target_url.parse()?;
+    main.navigate(url)?;
     Ok(())
 }
 
