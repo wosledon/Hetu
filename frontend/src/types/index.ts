@@ -68,6 +68,8 @@ export interface IAppSettingsSnapshot {
   defaultFastModelId?: string;
   defaultEmbeddingModelId?: string;
   contextWindowSize?: number;
+  pinnedNavItems: string;
+  secondaryMenuStyle: string;
 }
 
 export interface IAiProvider {

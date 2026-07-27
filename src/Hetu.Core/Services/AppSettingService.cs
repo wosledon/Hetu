@@ -29,6 +29,8 @@ public class AppSettingService : IAppSettingService
             DefaultFastModelId = await GetNullableValueAsync("DefaultFastModelId", cancellationToken),
             DefaultEmbeddingModelId = await GetNullableValueAsync("DefaultEmbeddingModelId", cancellationToken),
             ContextWindowSize = await GetNullableIntValueAsync("ContextWindowSize", cancellationToken),
+            PinnedNavItems = await GetValueAsync("PinnedNavItems", "[]", cancellationToken),
+            SecondaryMenuStyle = await GetValueAsync("SecondaryMenuStyle", "flat", cancellationToken),
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }

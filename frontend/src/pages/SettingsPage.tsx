@@ -95,8 +95,14 @@ export default function SettingsPage() {
       setAssistantName(snapshot.assistantName)
       setAssistantPersona(snapshot.assistantPersona)
       setTheme(snapshot.theme as Theme)
+      if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
+        setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
+      try {
+        const items = JSON.parse(snapshot.pinnedNavItems)
+        if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
+      } catch { /* keep current value if parse fails */ }
     }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setSetting.isPending, setTheme])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setSetting.isPending, setTheme, setSecondaryMenuStyle, setPinnedNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -125,6 +131,16 @@ export default function SettingsPage() {
   const handleThemeChange = (value: Theme) => {
     setTheme(value)
     setSetting.mutate({ key: 'Theme', value })
+  }
+
+  const handleMenuStyleChange = (value: SecondaryMenuStyle) => {
+    setSecondaryMenuStyle(value)
+    setSetting.mutate({ key: 'SecondaryMenuStyle', value })
+  }
+
+  const handlePinnedNavItemsChange = (items: string[]) => {
+    setPinnedNavItems(items)
+    setSetting.mutate({ key: 'PinnedNavItems', value: JSON.stringify(items) })
   }
 
   return (
@@ -198,14 +214,14 @@ export default function SettingsPage() {
                     onAssistantPersonaChange={handleAssistantPersonaChange}
                     onAssistantPersonaSave={handleAssistantPersonaSave}
                     onThemeChange={handleThemeChange}
-                    onMenuStyleChange={setSecondaryMenuStyle}
+                    onMenuStyleChange={handleMenuStyleChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
                   />}
 
                   {activeSection === 'navigation' && <NavigationSettingsSection
                     pinnedNavItems={pinnedNavItems}
-                    setPinnedNavItems={setPinnedNavItems}
+                    setPinnedNavItems={handlePinnedNavItemsChange}
                     onNavigate={navigate}
                   />}
 

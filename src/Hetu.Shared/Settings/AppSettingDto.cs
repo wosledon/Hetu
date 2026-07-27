@@ -32,6 +32,10 @@ public class AppSettingsSnapshotDto
     public string? DefaultEmbeddingModelId { get; set; }
     /// <summary>上下文窗口消息数（null 表示不限制）</summary>
     public int? ContextWindowSize { get; set; }
+    /// <summary>导航菜单项（JSON 数组字符串，如 '["/tags","/graph"]'）</summary>
+    public string PinnedNavItems { get; set; } = "[]";
+    /// <summary>二级菜单样式：flat 或 collapsed</summary>
+    public string SecondaryMenuStyle { get; set; } = "flat";
 }
 
 public class DatabaseConnectionRequest
