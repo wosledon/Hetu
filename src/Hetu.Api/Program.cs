@@ -231,16 +231,13 @@ app.MapGet("/api/health", () => Results.Json(new
     version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0"
 }));
 
-// 生产环境托管 wwwroot SPA（dev 期前端走 Vite，不需要这里托管）
-if (!app.Environment.IsDevelopment())
+// 只要检测到 index.html 就托管 SPA，避免环境变量异常导致桌面端黑屏。
+var indexPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+if (File.Exists(indexPath))
 {
     app.UseDefaultFiles();
     app.UseStaticFiles();
-    var indexPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
-    if (File.Exists(indexPath))
-    {
-        app.MapFallbackToFile("index.html");
-    }
+    app.MapFallbackToFile("index.html");
 }
 
 using (var scope = app.Services.CreateScope())
