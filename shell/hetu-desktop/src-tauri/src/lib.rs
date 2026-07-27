@@ -87,7 +87,7 @@ pub fn run() {
                         if elapsed < min_splash {
                             tokio::time::sleep(min_splash - elapsed).await;
                         }
-                        if let Err(err) = navigate_main_window(&handle) {
+                        if let Err(err) = navigate_main_window(&handle, &backend.base_url) {
                             tracing::error!("navigate main window failed: {err:?}");
                             let _ = handle.emit("backend-error", err.to_string());
                         }
@@ -130,8 +130,12 @@ pub fn run() {
 ///
 /// main 窗口由 `tauri.conf.json` 在启动时直接创建并显示加载动画，
 /// 此处仅做 URL 导航，避免窗口创建/销毁带来的切换闪烁。
-fn navigate_main_window<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<()> {
-    let target_url = resolve_main_url(app)?;
+fn navigate_main_window<R: Runtime>(app: &AppHandle<R>, backend_base_url: &str) -> anyhow::Result<()> {
+    let target_url = if cfg!(debug_assertions) {
+        DEV_FRONTEND_URL.to_string()
+    } else {
+        format!("{}/", backend_base_url.trim_end_matches('/'))
+    };
     let main = app
         .get_webview_window("main")
         .ok_or_else(|| anyhow::anyhow!("main window not found"))?;
@@ -143,17 +147,6 @@ fn navigate_main_window<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<()> {
     );
     main.eval(&js)?;
     Ok(())
-}
-
-fn resolve_main_url<R: Runtime>(app: &AppHandle<R>) -> anyhow::Result<String> {
-    // dev：直接指向 Vite，享受 HMR；prod：指向后端 sidecar 同源 wwwroot。
-    if cfg!(debug_assertions) {
-        return Ok(DEV_FRONTEND_URL.to_string());
-    }
-    if let Some(handle) = app.try_state::<Arc<BackendHandle>>() {
-        return Ok(format!("{}/", handle.base_url.trim_end_matches('/')));
-    }
-    Ok(DEV_FRONTEND_URL.to_string())
 }
 
 /// 托盘菜单事件分发。
