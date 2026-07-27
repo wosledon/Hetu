@@ -16,7 +16,36 @@ using Pgvector.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// sidecar 单文件部署时，wwwroot 物理文件由 Tauri resources 安装，
+// 位置因打包器而异（exe 同目录 / exe 上一级的 resources 子目录等）。
+// 默认 ContentRoot 是进程工作目录，不一定等于 exe 目录 → 探测候选位置定位 wwwroot。
+var exeDir = AppContext.BaseDirectory;
+var webRootCandidates = new[]
+{
+    Path.Combine(exeDir, "wwwroot"),
+    Path.Combine(exeDir, "binaries", "wwwroot"),
+    Path.Combine(exeDir, "..", "wwwroot"),
+    Path.Combine(exeDir, "..", "binaries", "wwwroot"),
+    Path.Combine(exeDir, "..", "resources", "wwwroot"),
+    Path.Combine(exeDir, "..", "resources", "binaries", "wwwroot"),
+};
+var webRoot = webRootCandidates
+    .Select(Path.GetFullPath)
+    .FirstOrDefault(p => File.Exists(Path.Combine(p, "index.html")));
+
+var builder = webRoot != null
+    ? WebApplication.CreateBuilder(new WebApplicationOptions
+    {
+        Args = args,
+        ContentRootPath = exeDir,
+        WebRootPath = webRoot,
+    })
+    : WebApplication.CreateBuilder(args);
+
+if (webRoot != null)
+    Console.WriteLine($"[Hetu] WebRoot = {webRoot}");
+else
+    Console.WriteLine("[Hetu] 未找到打包 wwwroot，使用默认 WebRoot（dev 模式）");
 
 // 解析 Hetu 数据目录：优先 HETU_DATA_DIR / Hetu:DataDir，回退到 OS 本地数据目录
 var dataDir = ResolveDataDir(builder.Configuration);

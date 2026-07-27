@@ -3,6 +3,9 @@
   "productName": "Hetu (Slim)",
   "bundle": {
     "externalBin": ["binaries/Hetu.Api"],
-    "resources": ["binaries/wwwroot/**/*", "binaries/sqlite-vec/*"]
+    "resources": {
+      "binaries/wwwroot/**/*": "wwwroot/",
+      "binaries/sqlite-vec/*": "sqlite-vec/"
+    }
   }
 }
