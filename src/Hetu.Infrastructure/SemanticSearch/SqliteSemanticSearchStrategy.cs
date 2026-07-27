@@ -43,11 +43,12 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
         try
         {
             var fetchK = topK * 3;
-            var results = new List<NoteSearchResultDto>();
+            var allResults = new List<(Guid Id, string Title, string ContentSnippet, DateTimeOffset UpdatedAt)>();
 
             // 1. 搜索整篇笔记 embedding
-            using (var command = connection.CreateCommand())
+            try
             {
+                using var command = connection.CreateCommand();
                 command.CommandText = @"
                     SELECT n.""Id"", n.""Title"", n.""Content"", n.""UpdatedAt""
                     FROM vec_note_embeddings v
@@ -57,68 +58,79 @@ public class SqliteSemanticSearchStrategy : ISemanticSearchStrategy
                     LIMIT @topK";
                 command.Parameters.Add(new SqliteParameter("query", $"[{string.Join(",", queryEmbedding)}]"));
                 command.Parameters.Add(new SqliteParameter("fetchK", fetchK));
-                command.Parameters.Add(new SqliteParameter("topK", topK));
+                command.Parameters.Add(new SqliteParameter("topK", fetchK));
 
                 using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 while (await reader.ReadAsync(cancellationToken))
                 {
                     var content = reader.GetString(2);
-                    results.Add(new NoteSearchResultDto
+                    allResults.Add((
+                        reader.GetGuid(0),
+                        reader.GetString(1),
+                        content.Length > 120 ? content[..120] + "..." : content,
+                        reader.GetFieldValue<DateTimeOffset>(3)
+                    ));
+                }
+            }
+            catch
+            {
+                // vec_note_embeddings 不可用时忽略
+            }
+
+            // 2. 搜索 chunk embedding（包括笔记分块 + 网址/文件类型知识项）
+            try
+            {
+                using var chunkCmd = connection.CreateCommand();
+                chunkCmd.CommandText = @"
+                    SELECT ki.""Id"", ki.""Title"", c.""Content"", c.""Summary"", ki.""UpdatedAt""
+                    FROM vec_chunk_embeddings v
+                    JOIN ""NoteChunks"" c ON c.""Id"" = v.chunk_id
+                    JOIN ""KnowledgeItems"" ki ON ki.""Id"" = c.""KnowledgeItemId""
+                    WHERE v.embedding MATCH @query AND k = @fetchK AND ki.""IsDeleted"" = false
+                    ORDER BY distance
+                    LIMIT @topK";
+                chunkCmd.Parameters.Add(new SqliteParameter("query", $"[{string.Join(",", queryEmbedding)}]"));
+                chunkCmd.Parameters.Add(new SqliteParameter("fetchK", fetchK));
+                chunkCmd.Parameters.Add(new SqliteParameter("topK", fetchK));
+
+                using var chunkReader = await chunkCmd.ExecuteReaderAsync(cancellationToken);
+                while (await chunkReader.ReadAsync(cancellationToken))
+                {
+                    var content = chunkReader.IsDBNull(2) ? "" : chunkReader.GetString(2);
+                    var summary = chunkReader.IsDBNull(3) ? null : chunkReader.GetString(3);
+                    var snippet = !string.IsNullOrWhiteSpace(summary) ? summary : (MakeSnippet(content) ?? "");
+
+                    allResults.Add((
+                        chunkReader.GetGuid(0),
+                        chunkReader.GetString(1),
+                        snippet,
+                        chunkReader.GetFieldValue<DateTimeOffset>(4)
+                    ));
+                }
+            }
+            catch
+            {
+                // vec_chunk_embeddings 表不存在时忽略
+            }
+
+            // 3. 按 ID 去重（同一知识项可能同时有 note 和 chunk embedding），取先出现的（相似度更高的排前面）
+            var seen = new HashSet<Guid>();
+            var merged = new List<NoteSearchResultDto>();
+            foreach (var (id, title, snippet, updatedAt) in allResults)
+            {
+                if (seen.Add(id))
+                {
+                    merged.Add(new NoteSearchResultDto
                     {
-                        Id = reader.GetGuid(0),
-                        Title = reader.GetString(1),
-                        ContentSnippet = content.Length > 120 ? content[..120] + "..." : content,
-                        UpdatedAt = reader.GetFieldValue<DateTimeOffset>(3)
+                        Id = id,
+                        Title = title,
+                        ContentSnippet = snippet,
+                        UpdatedAt = updatedAt
                     });
                 }
             }
 
-            // 2. 搜索 chunk embedding（如果 vec_chunk_embeddings 表存在）
-            if (results.Count < topK)
-            {
-                try
-                {
-                    using var chunkCmd = connection.CreateCommand();
-                    chunkCmd.CommandText = @"
-                        SELECT ki.""Id"", ki.""Title"", c.""Content"", c.""Summary"", ki.""UpdatedAt""
-                        FROM vec_chunk_embeddings v
-                        JOIN ""NoteChunks"" c ON c.""Id"" = v.chunk_id
-                        JOIN ""KnowledgeItems"" ki ON ki.""Id"" = c.""KnowledgeItemId""
-                        WHERE v.embedding MATCH @query AND k = @fetchK AND ki.""IsDeleted"" = false
-                        ORDER BY distance
-                        LIMIT @limitK";
-                    chunkCmd.Parameters.Add(new SqliteParameter("query", $"[{string.Join(",", queryEmbedding)}]"));
-                    chunkCmd.Parameters.Add(new SqliteParameter("fetchK", fetchK));
-                    chunkCmd.Parameters.Add(new SqliteParameter("limitK", topK - results.Count));
-
-                    var existingIds = results.Select(r => r.Id).ToHashSet();
-                    using var chunkReader = await chunkCmd.ExecuteReaderAsync(cancellationToken);
-                    while (await chunkReader.ReadAsync(cancellationToken))
-                    {
-                        var itemId = chunkReader.GetGuid(0);
-                        if (existingIds.Contains(itemId)) continue;
-
-                        var content = chunkReader.IsDBNull(2) ? "" : chunkReader.GetString(2);
-                        var summary = chunkReader.IsDBNull(3) ? null : chunkReader.GetString(3);
-                        var snippet = !string.IsNullOrWhiteSpace(summary) ? summary : MakeSnippet(content);
-
-                        results.Add(new NoteSearchResultDto
-                        {
-                            Id = itemId,
-                            Title = chunkReader.GetString(1),
-                            ContentSnippet = snippet,
-                            UpdatedAt = chunkReader.GetFieldValue<DateTimeOffset>(4)
-                        });
-                        existingIds.Add(itemId);
-                    }
-                }
-                catch
-                {
-                    // vec_chunk_embeddings 表不存在时忽略
-                }
-            }
-
-            return results.Take(topK).ToList();
+            return merged.Take(topK).ToList();
         }
         finally
         {
