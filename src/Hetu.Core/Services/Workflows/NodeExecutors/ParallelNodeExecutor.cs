@@ -3,8 +3,8 @@ using Hetu.Shared.Workflow;
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
 
 /// <summary>
-/// Parallel 节点：标记节点，实际 fan-out 由引擎处理。
-/// 引擎识别 Parallel 类型后并发执行所有出边目标节点，收集结果到 {nodeId}.branches。
+/// Parallel 节点：标记节点，无实际执行逻辑。分路由引擎统一处理——
+/// 任何节点有多条出边时自动分路执行所有分支链路，无需显式并行块。
 /// </summary>
 public class ParallelNodeExecutor : INodeExecutor
 {
@@ -12,6 +12,6 @@ public class ParallelNodeExecutor : INodeExecutor
 
     public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
-        return Task.FromResult(new NodeResult { Output = "并行分支开始", BranchHandle = "__parallel_fanout__" });
+        return Task.FromResult(new NodeResult { Output = "" });
     }
 }

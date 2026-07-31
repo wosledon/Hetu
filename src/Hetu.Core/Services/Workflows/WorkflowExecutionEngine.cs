@@ -167,7 +167,7 @@ public class WorkflowExecutionEngine
 
     /// <summary>
     /// 执行单个节点：检查迭代/访问上限、持久化运行记录、写入上下文、推送事件。
-    /// Parallel 节点在此分路执行所有分支，并在分支汇聚的合并节点处合并。
+    /// 节点有多条出边（非条件/循环选择分支）时自动分路执行所有分支链路，并在汇聚点合并。
     /// </summary>
     private async Task<NodeResult> ExecuteNodeAndRecordAsync(NodeDto node, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
     {
@@ -195,15 +195,15 @@ public class WorkflowExecutionEngine
         };
         await _unitOfWork.WorkflowRunNodes.AddAsync(runNode, ct);
 
-        NodeResult nodeResult;
-        if (node.Type == WorkflowNodeTypes.Parallel)
+        var executor = GetExecutor(node.Type);
+        var nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
+
+        // 自动分路：普通节点有多条出边（且非条件/循环的选择分支）时，执行所有分支链路
+        var outgoing = ctx.Edges.Where(e => e.Source == node.Id).ToList();
+        var isSelectiveBranch = !string.IsNullOrEmpty(nodeResult.BranchHandle);
+        if (outgoing.Count > 1 && !isSelectiveBranch)
         {
-            nodeResult = await ExecuteParallelAsync(node, ctx, sink, runId, ct);
-        }
-        else
-        {
-            var executor = GetExecutor(node.Type);
-            nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
+            nodeResult = await ExecuteFanOutAsync(node, ctx, sink, runId, ct, nodeResult);
         }
 
         // 存储输出到上下文
@@ -231,19 +231,18 @@ public class WorkflowExecutionEngine
     }
 
     /// <summary>
-    /// 并行分路执行所有分支的完整链路（顺序执行，共享 scoped DbContext 避免并发），
-    /// 各分支输出汇总到 {parallelNodeId}.branches；分支汇聚到合并节点后执行合并节点一次。
+    /// 分路执行节点的所有出边分支链路（顺序执行，共享 scoped DbContext 避免并发），
+    /// 各分支输出汇总到 {nodeId}.branches；分支汇聚到公共后继后执行该合并节点一次。
+    /// 合并节点自身若再分路，其完成状态（合并点/全分支完成）会传播到外层。
     /// </summary>
-    private async Task<NodeResult> ExecuteParallelAsync(NodeDto parallelNode, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
+    private async Task<NodeResult> ExecuteFanOutAsync(NodeDto node, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct, NodeResult nodeResult)
     {
-        var branchEdges = ctx.Edges.Where(e => e.Source == parallelNode.Id).ToList();
-        if (branchEdges.Count == 0)
-            return new NodeResult { Output = "{}" };
+        var branchEdges = ctx.Edges.Where(e => e.Source == node.Id).ToList();
 
-        // 静态确定合并点（显式 Merge 节点，或各分支路径的公共后继）
-        var mergeNodeId = FindMergeNode(parallelNode, ctx);
+        // 静态确定合并点：各分支路径的公共后继（可为任意普通节点，无需显式 Merge 块）
+        var mergeNodeId = FindMergeNode(node, ctx);
 
-        // 顺序执行所有分支（共享 scoped DbContext，避免并发访问）
+        // 顺序执行所有分支链路
         var branchOutputs = new Dictionary<string, string>();
         foreach (var edge in branchEdges)
         {
@@ -254,20 +253,38 @@ public class WorkflowExecutionEngine
         }
 
         var branchesJson = JsonSerializer.Serialize(branchOutputs);
-        ctx.SetVariable(parallelNode.Id, "branches", branchesJson);
+        ctx.SetVariable(node.Id, "branches", branchesJson);
 
-        var result = new NodeResult { Output = branchesJson };
+        var result = new NodeResult
+        {
+            Output = nodeResult.Output ?? branchesJson,
+            ExtraVariables = new Dictionary<string, string>(nodeResult.ExtraVariables)
+        };
 
-        // 执行合并节点（聚合所有分支输出），主循环从合并节点的后继继续
+        // 执行合并节点（聚合所有分支输出）；合并节点自身的完成状态向上传播
         if (mergeNodeId != null)
         {
             var mergeNode = ctx.Nodes.FirstOrDefault(n => n.Id == mergeNodeId);
-            if (mergeNode != null)
+            // 合并点可能已被某个分支的嵌套分路消费，此时跳过执行仅记录合并点
+            if (mergeNode != null && ctx.GetVisitCount(mergeNodeId) == 0)
             {
                 var mergeResult = await ExecuteNodeAndRecordAsync(mergeNode, ctx, sink, runId, ct);
                 result.Output = mergeResult.Output ?? branchesJson;
+                foreach (var kv in mergeResult.ExtraVariables)
+                    result.ExtraVariables[kv.Key] = kv.Value;
+                // 合并节点未再分路时，显式记录合并点供主循环从其后继继续
+                if (!result.ExtraVariables.ContainsKey("mergeNodeId") && !result.ExtraVariables.ContainsKey("__all_branches_done__"))
+                    result.ExtraVariables["mergeNodeId"] = mergeNodeId;
             }
-            result.ExtraVariables["mergeNodeId"] = mergeNodeId;
+            else
+            {
+                result.ExtraVariables["mergeNodeId"] = mergeNodeId;
+            }
+        }
+        else
+        {
+            // 无合并点：各分支独立结束，主循环不再继续
+            result.ExtraVariables["__all_branches_done__"] = "true";
         }
 
         return result;
@@ -302,6 +319,10 @@ public class WorkflowExecutionEngine
 
             if (r.ShouldEnd) return lastOutput;
 
+            // 节点内部发生分路：其合并点已由内部执行，本分支止步，由外层统一从合并点后继继续
+            if (r.ExtraVariables.ContainsKey("mergeNodeId") || r.ExtraVariables.ContainsKey("__all_branches_done__"))
+                return lastOutput;
+
             currentId = GetNextNodeId(node, r, ctx);
         }
 
@@ -309,12 +330,13 @@ public class WorkflowExecutionEngine
     }
 
     /// <summary>
-    /// 静态确定并行分支的合并点：优先显式 Merge 节点，否则取被最多分支可达的公共节点。
+    /// 静态确定分支的合并点：被 ≥2 个分支可达的公共节点（可为任意普通节点，无需显式 Merge 块）。
+    /// 优先显式 Merge 节点，否则取"最近"公共后继（不被其他候选合并点可达的最小节点）。
     /// 无公共后继（各分支独立结束）时返回 null。
     /// </summary>
-    private static string? FindMergeNode(NodeDto parallelNode, ExecutionContext ctx)
+    private static string? FindMergeNode(NodeDto node, ExecutionContext ctx)
     {
-        var branchStarts = ctx.Edges.Where(e => e.Source == parallelNode.Id).Select(e => e.Target).Distinct().ToList();
+        var branchStarts = ctx.Edges.Where(e => e.Source == node.Id).Select(e => e.Target).Distinct().ToList();
         if (branchStarts.Count < 2) return null;
 
         // 每个分支的可达节点集合（沿出边 BFS）
@@ -345,10 +367,30 @@ public class WorkflowExecutionEngine
         var explicitMerge = candidates.FirstOrDefault(c => ctx.Nodes.First(n => n.Id == c).Type == WorkflowNodeTypes.Merge);
         if (explicitMerge != null) return explicitMerge;
 
-        // 否则取被最多分支可达者（近似最近公共汇聚点）
-        return candidates
-            .OrderByDescending(c => branchReachable.Count(set => set.Contains(c)))
-            .First();
+        // 否则取"最近"公共后继：不被其他候选可达的最小节点（如 A/B→C→End 时应取 C 而非 End）
+        var nearest = candidates
+            .Where(c => !candidates.Any(other => other != c && IsReachable(other, c, ctx)))
+            .ToList();
+        return nearest.FirstOrDefault();
+    }
+
+    /// <summary>判断 from 节点是否可沿出边到达 to 节点</summary>
+    private static bool IsReachable(string from, string to, ExecutionContext ctx)
+    {
+        if (from == to) return false;
+        var visited = new HashSet<string> { from };
+        var queue = new Queue<string>();
+        queue.Enqueue(from);
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var e in ctx.Edges.Where(edge => edge.Source == cur))
+            {
+                if (e.Target == to) return true;
+                if (visited.Add(e.Target)) queue.Enqueue(e.Target);
+            }
+        }
+        return false;
     }
 
     /// <summary>确定下一节点 ID</summary>
@@ -357,36 +399,26 @@ public class WorkflowExecutionEngine
         var outgoing = ctx.Edges.Where(e => e.Source == node.Id).ToList();
         if (outgoing.Count == 0) return null;
 
-        // 有分支 handle：匹配 sourceHandle
-        if (!string.IsNullOrEmpty(result.BranchHandle) && result.BranchHandle != "__parallel_fanout__")
+        // 分路后无合并点：所有分支已独立执行结束，主循环终止
+        if (result.ExtraVariables.ContainsKey("__all_branches_done__"))
+            return null;
+
+        // 分路后已执行合并节点：从合并节点的后继继续
+        if (result.ExtraVariables.TryGetValue("mergeNodeId", out var mergeId) && !string.IsNullOrEmpty(mergeId))
+        {
+            var mergeOutgoing = ctx.Edges.Where(e => e.Source == mergeId).ToList();
+            return mergeOutgoing.FirstOrDefault(e => string.IsNullOrEmpty(e.SourceHandle))?.Target
+                   ?? mergeOutgoing.FirstOrDefault()?.Target;
+        }
+
+        // 有分支 handle：匹配 sourceHandle（条件/循环的选择分支）
+        if (!string.IsNullOrEmpty(result.BranchHandle))
         {
             var matched = outgoing.FirstOrDefault(e => string.Equals(e.SourceHandle, result.BranchHandle, StringComparison.OrdinalIgnoreCase));
             if (matched != null) return matched.Target;
             // 回退到默认（无 handle 的边）
             matched = outgoing.FirstOrDefault(e => string.IsNullOrEmpty(e.SourceHandle));
             return matched?.Target;
-        }
-
-        // Parallel 节点：合并点已由引擎执行，从合并节点的后继继续
-        if (node.Type == WorkflowNodeTypes.Parallel)
-        {
-            if (result.ExtraVariables.TryGetValue("mergeNodeId", out var mergeId) && !string.IsNullOrEmpty(mergeId))
-            {
-                var mergeOutgoing = ctx.Edges.Where(e => e.Source == mergeId).ToList();
-                return mergeOutgoing.FirstOrDefault(e => string.IsNullOrEmpty(e.SourceHandle))?.Target
-                       ?? mergeOutgoing.FirstOrDefault()?.Target;
-            }
-            // 回退：找 join 点（所有分支目标的共同后继）
-            var branchTargets = outgoing.Select(e => e.Target).ToHashSet();
-            var nextNodes = ctx.Edges
-                .Where(e => branchTargets.Contains(e.Source))
-                .Select(e => e.Target)
-                .Distinct()
-                .ToList();
-            if (nextNodes.Count == 1) return nextNodes[0];
-            // 无明确 join 点，尝试 parallel 节点的 handle="join" 边
-            var joinEdge = outgoing.FirstOrDefault(e => string.Equals(e.SourceHandle, "join", StringComparison.OrdinalIgnoreCase));
-            return joinEdge?.Target ?? nextNodes.FirstOrDefault();
         }
 
         // 默认：第一条出边（优先无 handle 的）
