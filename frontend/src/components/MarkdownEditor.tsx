@@ -179,13 +179,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   })
 
   // ── 知识图谱提取 ──
-  const [extractResult, setExtractResult] = useState<{ newEntities: number; newRelations: number } | null>(null)
+  const [extractQueued, setExtractQueued] = useState(false)
 
   const extractGraph = useMutation({
-    mutationFn: () => graphService.extractFromNote(note!.id),
-    onSuccess: (result) => {
-      setExtractResult({ newEntities: result.newEntities, newRelations: result.newRelations })
-      setTimeout(() => setExtractResult(null), 5000)
+    mutationFn: () => graphService.batchExtractQueue([note!.id]),
+    onSuccess: () => {
+      setExtractQueued(true)
+      setTimeout(() => setExtractQueued(false), 5000)
     },
   })
 
@@ -517,12 +517,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             ) : (
               <Network size={11} />
             )}
-            {extractGraph.isPending ? '提取中...' : '提取图谱'}
+            {extractGraph.isPending ? '加入中...' : '提取图谱'}
           </button>
-          {extractResult && (
+          {extractQueued && (
             <span className="flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-400">
               <Check size={11} />
-              +{extractResult.newEntities} 实体 · +{extractResult.newRelations} 关系
+              已加入后台任务
             </span>
           )}
         </div>

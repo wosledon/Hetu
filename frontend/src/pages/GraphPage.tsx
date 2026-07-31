@@ -497,6 +497,7 @@ export default function GraphPage() {
   const [expandedNotebooks, setExpandedNotebooks] = useState<Set<string>>(new Set())
   const [extractResults, setExtractResults] = useState<Map<string, IExtractGraphResult | { error: string }>>(new Map())
   const [isExtracting, setIsExtracting] = useState(false)
+  const [extractQueued, setExtractQueued] = useState(false)
   const [layoutKey, setLayoutKey] = useState(0)
   const [previewNoteId, setPreviewNoteId] = useState<string | null>(null)
   const [previewNoteTitle, setPreviewNoteTitle] = useState('')
@@ -601,11 +602,14 @@ export default function GraphPage() {
   const handleBatchExtract = async () => {
     const ids = [...selectedNoteIds]; if (ids.length === 0) return
     setIsExtracting(true); setExtractResults(new Map())
-    for (const noteId of ids) {
-      try { const result = await graphService.extractFromNote(noteId); setExtractResults(prev => new Map(prev).set(noteId, result)) }
-      catch (err) { setExtractResults(prev => new Map(prev).set(noteId, { error: (err as Error).message || '提取失败' })) }
+    try {
+      await graphService.batchExtractQueue(ids)
+      setExtractQueued(true)
+      setTimeout(() => setExtractQueued(false), 5000)
+    } catch (err) {
+      setExtractResults(new Map([[ids[0], { error: (err as Error).message || '加入后台任务失败' }]]))
     }
-    setIsExtracting(false); refreshGraph()
+    setIsExtracting(false)
   }
 
   const filteredEntities = useMemo(() => {
@@ -750,8 +754,13 @@ export default function GraphPage() {
               <div className="flex items-center justify-between">
                 <button onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }} className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300">{selectedNoteIds.size > 0 ? '取消全选' : '全选'}</button>
                 <button onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
-                  {isExtracting ? (<><Loader2 size={14} className="animate-spin" />提取中...</>) : (<><Sparkles size={14} />提取选中 ({selectedNoteIds.size})</>)}
+                  {isExtracting ? (<><Loader2 size={14} className="animate-spin" />加入中...</>) : (<><Sparkles size={14} />提取选中 ({selectedNoteIds.size})</>)}
                 </button>
+                {extractQueued && (
+                  <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    <Check size={12} />已加入后台任务
+                  </span>
+                )}
               </div>
             </div>
           </div>
