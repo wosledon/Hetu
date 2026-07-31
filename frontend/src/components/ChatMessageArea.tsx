@@ -20,6 +20,7 @@ import { useStreaming } from '../hooks/useStreaming'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './ConfirmDialog'
 import { useUIStore } from '../stores/uiStore'
+import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -134,6 +135,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const confirm = useConfirm()
   const [input, setInput] = useState('')
   const topicId = topic?.id
+  // 会话级配置：从缓存恢复（组件以 key=topic.id 重挂载，切会话自动换缓存）
+  const cachedSettings = useMemo(() => loadTopicSettings(topicId), [topicId])
   const {
     streamingContent, setStreamingContent,
     streamingThinking,
@@ -170,16 +173,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
-  const [deepThinking, setDeepThinking] = useState(false)
-  const [reasoningEffort, setReasoningEffort] = useState<string>('medium')
+  const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
+  const [reasoningEffort, setReasoningEffort] = useState<string>(() => cachedSettings.reasoningEffort ?? 'medium')
   const [showReasoningPicker, setShowReasoningPicker] = useState(false)
-  const [webSearch, setWebSearch] = useState(false)
-  const [knowledgeBase, setKnowledgeBase] = useState(false)
-  const [toolCalling, setToolCalling] = useState(true)
-  const [toolApprovalMode, setToolApprovalMode] = useState<'auto' | 'ask' | 'bypass'>('ask')
+  const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
+  const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
+  const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? true)
+  const [toolApprovalMode, setToolApprovalMode] = useState<'auto' | 'ask' | 'bypass'>(() => cachedSettings.toolApprovalMode ?? 'ask')
   const [showApprovalPicker, setShowApprovalPicker] = useState(false)
   const approvalPickerRef = useRef<HTMLDivElement>(null)
-  const [memory, setMemory] = useState(false)
+  const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeState[]>([])
   const [workflowRunId, setWorkflowRunId] = useState<string>('')
@@ -190,7 +193,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
-  const [selectedModelId, setSelectedModelId] = useState('')
+  const [selectedModelId, setSelectedModelId] = useState(() => cachedSettings.modelId ?? '')
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const [slashMenuIndex, setSlashMenuIndex] = useState(0)
   const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
@@ -366,6 +369,28 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
+
+  // 缓存的模型可能已被删除，模型列表加载后校验并回退
+  useEffect(() => {
+    if (chatModels.length > 0 && selectedModelId && !chatModels.some((m) => m.id === selectedModelId)) {
+      setSelectedModelId('')
+    }
+  }, [chatModels, selectedModelId])
+
+  // 持久化会话级配置到 localStorage
+  useEffect(() => {
+    if (!topicId) return
+    saveTopicSettings(topicId, {
+      modelId: selectedModelId || undefined,
+      deepThinking,
+      reasoningEffort,
+      webSearch,
+      knowledgeBase,
+      memory,
+      toolCalling,
+      toolApprovalMode,
+    })
+  }, [topicId, selectedModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
 
   const toggleSavedThinking = useCallback((messageId: string) => {
     setExpandedThinking(prev => {
