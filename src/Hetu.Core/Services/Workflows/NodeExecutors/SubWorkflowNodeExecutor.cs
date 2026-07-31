@@ -41,7 +41,7 @@ public class SubWorkflowNodeExecutor : INodeExecutor
         if (depth > 5)
             return new NodeResult { Error = "SubWorkflow 递归深度超过上限 5" };
 
-        var subResult = await engine.ExecuteAsync(subWorkflowId, subInput, ct, depth);
+        var subResult = await engine.ExecuteAsync(subWorkflowId, subInput, ct, depth, null, null, ctx.GlobalApprovalMode);
         if (subResult.Status != "Succeeded")
             return new NodeResult { Error = subResult.Error ?? "子工作流执行失败" };
 

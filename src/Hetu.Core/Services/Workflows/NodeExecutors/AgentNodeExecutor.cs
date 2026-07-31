@@ -78,8 +78,20 @@ public class AgentNodeExecutor : INodeExecutor
         // 节点级执行参数（全部来自 node.Config）
         var toolNames = TryGetList<string>(config, "toolNames");
         var mcpServerIds = TryGetList<string>(config, "mcpServerIds").Select(Guid.Parse).ToList();
-        var toolApprovals = TryGetDict(config, "toolApprovals")
+        var nodeApprovals = TryGetDict(config, "toolApprovals");
+        var toolApprovals = nodeApprovals
             .ToDictionary(kv => kv.Key, kv => Enum.TryParse<ToolApprovalMode>(kv.Value, true, out var m) ? m : ToolApprovalMode.Auto);
+
+        // 对话界面全局审批模式：覆盖未在节点级显式配置的工具
+        if (!string.IsNullOrWhiteSpace(ctx.GlobalApprovalMode)
+            && Enum.TryParse<ToolApprovalMode>(ctx.GlobalApprovalMode, true, out var globalMode))
+        {
+            foreach (var name in toolNames)
+            {
+                if (!nodeApprovals.ContainsKey(name))
+                    toolApprovals[name] = globalMode;
+            }
+        }
 
         _logger.LogInformation("[AgentNode] node={NodeId} label={Label} config={Config} toolNames={ToolNames}",
             node.Id, node.Label, node.Config ?? "null", string.Join(",", toolNames));

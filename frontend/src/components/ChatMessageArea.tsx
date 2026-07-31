@@ -538,7 +538,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             }
           },
           (err) => { setStreamingContent('工作流执行失败：' + err) },
-          controller.signal)
+          controller.signal,
+          toolApprovalMode)
       } catch { setStreamingContent('工作流执行异常') }
       finally { stopStreaming(topic.id) }
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })

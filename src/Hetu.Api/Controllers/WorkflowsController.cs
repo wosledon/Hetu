@@ -71,7 +71,7 @@ public class WorkflowsController : ControllerBase
     [HttpPost("{id:guid}/run")]
     public async Task<ApiResponse<WorkflowRunResult>> Run(Guid id, [FromBody] RunWorkflowRequest? request, CancellationToken cancellationToken)
     {
-        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken);
+        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, null, null, request?.ToolApprovalMode);
         return ApiResponse<WorkflowRunResult>.Ok(result);
     }
 
@@ -88,7 +88,7 @@ public class WorkflowsController : ControllerBase
 
         try
         {
-            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink);
+            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, null, request?.ToolApprovalMode);
             await writer.WriteJsonAsync(new { type = "run_result", result });
         }
         catch (Exception ex)
@@ -116,7 +116,7 @@ public class WorkflowsController : ControllerBase
                 await _chatMessageService.CreateUserMessageAsync(topicId, request.Input, cancellationToken);
             }
 
-            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, topicId);
+            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, topicId, request?.ToolApprovalMode);
 
             // 将工作流输出保存为对话的助手消息
             if (result.Status == "Succeeded" && !string.IsNullOrWhiteSpace(result.Output))

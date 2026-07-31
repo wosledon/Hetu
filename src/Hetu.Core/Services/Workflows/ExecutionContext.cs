@@ -35,6 +35,9 @@ public class ExecutionContext
     /// <summary>运行 ID</summary>
     public Guid RunId { get; set; }
 
+    /// <summary>全局工具审批模式（auto/ask/bypass），Agent 节点未显式配置工具时生效</summary>
+    public string? GlobalApprovalMode { get; set; }
+
     /// <summary>工作流节点列表</summary>
     public List<NodeDto> Nodes { get; set; } = new();
 

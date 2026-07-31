@@ -33,6 +33,7 @@ export async function streamWorkflowRun(
   onEvent: (event: { type: string; [key: string]: unknown }) => void,
   onError: (err: string) => void,
   signal?: AbortSignal,
+  toolApprovalMode?: string,
 ): Promise<void> {
   const url = topicId
     ? `/api/workflows/${workflowId}/run/topic/${topicId}/stream`
@@ -42,7 +43,7 @@ export async function streamWorkflowRun(
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input }),
+      body: JSON.stringify({ input, toolApprovalMode }),
       signal,
     })
 
