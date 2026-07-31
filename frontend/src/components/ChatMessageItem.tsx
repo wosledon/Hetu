@@ -36,11 +36,11 @@ export default memo(function ChatMessageItem({
   onToggleThinking, onCopy, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onEditContentChange,
 }: ChatMessageItemProps) {
   return (
-    <div className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+    <div className="flex gap-3">
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-sm ${message.role === 'user' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}`}>
         {message.role === 'user' ? <span className="text-xs font-bold">U</span> : <Bot size={15} />}
       </div>
-      <div className={`flex min-w-0 max-w-[80%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+      <div className="flex min-w-0 w-full flex-col">
         <div className="mb-1.5 flex items-center gap-2">
           {message.role === 'assistant' && (
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
@@ -50,7 +50,7 @@ export default memo(function ChatMessageItem({
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
           )}
         </div>
-        <div className={`group relative rounded-2xl px-4 py-3 ${message.role === 'user' ? 'rounded-tr-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm' : 'rounded-tl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'}`}>
+        <div className={`group relative rounded-2xl px-4 py-3 ${message.role === 'user' ? 'rounded-tr-sm bg-blue-50 text-gray-900 dark:bg-blue-950/40 dark:text-gray-100' : 'rounded-tl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <textarea

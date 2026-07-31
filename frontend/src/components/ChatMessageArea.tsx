@@ -957,15 +957,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
         {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt - 2000) && (
-          <div className="flex gap-3 flex-row-reverse">
+          <div className="flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
               <span className="text-xs font-bold">U</span>
             </div>
-            <div className="max-w-[80%] flex flex-col items-end">
+            <div className="w-full flex flex-col">
               <div className="mb-1.5">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
               </div>
-              <div className="rounded-2xl rounded-tr-sm bg-gradient-to-br from-blue-500 to-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+              <div className="rounded-2xl rounded-tr-sm bg-blue-50 px-4 py-3 text-sm text-gray-900 dark:bg-blue-950/40 dark:text-gray-100">
                 {pendingUserMessage}
               </div>
             </div>
@@ -978,7 +978,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
               <Bot size={15} />
             </div>
-            <div className="max-w-[80%] flex flex-col items-start">
+            <div className="w-full flex flex-col">
               <div className="mb-1.5">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
               </div>
