@@ -198,18 +198,22 @@ public class WorkflowExecutionEngine
         var executor = GetExecutor(node.Type);
         var nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
 
+        // 先写入节点自身输出，保证分路分支执行时可读取上游输出
+        ctx.SetVariable(node.Id, "output", nodeResult.Output ?? "");
+        foreach (var kv in nodeResult.ExtraVariables)
+            ctx.SetVariable(node.Id, kv.Key, kv.Value);
+
         // 自动分路：普通节点有多条出边（且非条件/循环的选择分支）时，执行所有分支链路
         var outgoing = ctx.Edges.Where(e => e.Source == node.Id).ToList();
         var isSelectiveBranch = !string.IsNullOrEmpty(nodeResult.BranchHandle);
         if (outgoing.Count > 1 && !isSelectiveBranch)
         {
             nodeResult = await ExecuteFanOutAsync(node, ctx, sink, runId, ct, nodeResult);
+            // 覆盖分路后的输出（含合并结果）
+            ctx.SetVariable(node.Id, "output", nodeResult.Output ?? "");
+            foreach (var kv in nodeResult.ExtraVariables)
+                ctx.SetVariable(node.Id, kv.Key, kv.Value);
         }
-
-        // 存储输出到上下文
-        ctx.SetVariable(node.Id, "output", nodeResult.Output ?? "");
-        foreach (var kv in nodeResult.ExtraVariables)
-            ctx.SetVariable(node.Id, kv.Key, kv.Value);
 
         runNode.Output = nodeResult.Output;
         runNode.CompletedAt = DateTimeOffset.UtcNow;

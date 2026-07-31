@@ -6,7 +6,6 @@ using Hetu.Shared.Workflow;
 using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
-
 /// <summary>
 /// Agent 节点：node.AgentId 引用智能体页面维护的 PromptPreset（仅取 Content 作系统提示词）,
 /// modelId/toolNames/mcpServerIds/toolApprovals/迭代次数等执行参数全部来自节点 config JSON。
@@ -40,8 +39,10 @@ public class AgentNodeExecutor : INodeExecutor
         // 解析节点配置
         var config = ParseConfig(node.Config);
 
-        // 节点指令（用户告诉这个 Agent 要做什么）
+        // 节点指令（用户告诉这个 Agent 要做什么），支持 {{nodeId.var}} 模板引用
         var instruction = TryGetString(config, "instruction")?.Trim();
+        if (!string.IsNullOrWhiteSpace(instruction))
+            instruction = TemplateResolver.Resolve(instruction, ctx);
 
         // 自动接棒：从入边收集上游节点输出
         var upstreamEdges = ctx.Edges.Where(e => e.Target == node.Id).ToList();
