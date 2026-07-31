@@ -161,6 +161,7 @@ builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.EndNodeExecutor>();
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.LoopNodeExecutor>();
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.ParallelNodeExecutor>();
+builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.MergeNodeExecutor>();
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.ToolNodeExecutor>();
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.HumanNodeExecutor>();
 builder.Services.AddScoped<Hetu.Core.Services.Workflows.INodeExecutor, Hetu.Core.Services.Workflows.NodeExecutors.SubWorkflowNodeExecutor>();

@@ -5,6 +5,7 @@ export const WorkflowNodeTypes = {
   End: 'end',
   Loop: 'loop',
   Parallel: 'parallel',
+  Merge: 'merge',
   Tool: 'tool',
   Human: 'human',
   SubWorkflow: 'subworkflow',

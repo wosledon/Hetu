@@ -85,6 +85,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
       [WorkflowNodeTypes.End]: '结束',
       [WorkflowNodeTypes.Loop]: '循环',
       [WorkflowNodeTypes.Parallel]: '并行',
+      [WorkflowNodeTypes.Merge]: '合并',
       [WorkflowNodeTypes.Tool]: '工具',
       [WorkflowNodeTypes.Human]: '人工审批',
       [WorkflowNodeTypes.SubWorkflow]: '子工作流',

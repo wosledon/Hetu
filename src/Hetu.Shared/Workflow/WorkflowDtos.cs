@@ -9,6 +9,7 @@ public static class WorkflowNodeTypes
     public const string End = "end";
     public const string Loop = "loop";
     public const string Parallel = "parallel";
+    public const string Merge = "merge";
     public const string Tool = "tool";
     public const string Human = "human";
     public const string SubWorkflow = "subworkflow";

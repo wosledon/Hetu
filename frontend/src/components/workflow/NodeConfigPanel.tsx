@@ -363,6 +363,20 @@ export default function NodeConfigPanel({
           </>
         )}
 
+        {/* Merge 节点：输出模板 */}
+        {node.type === WorkflowNodeTypes.Merge && (
+          <div>
+            <label className={labelClass}>输出模板</label>
+            <textarea
+              className={`${inputClass} h-20 resize-none font-mono text-xs`}
+              value={(config.outputTemplate as string) ?? ''}
+              onChange={(e) => updateConfig('outputTemplate', e.target.value)}
+              placeholder={'{{branchA.output}} — 留空则输出所有分支结果的 JSON 汇总'}
+            />
+            <p className="mt-1 text-xs text-gray-400">等待所有上游分支完成后执行，聚合各分支输出。</p>
+          </div>
+        )}
+
         {/* End 节点：输出模板 */}
         {node.type === WorkflowNodeTypes.End && (
           <div>

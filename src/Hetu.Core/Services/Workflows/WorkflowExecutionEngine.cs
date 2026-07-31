@@ -116,64 +116,10 @@ public class WorkflowExecutionEngine
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (ctx.TotalIterations >= ctx.MaxTotalIterations)
-                    throw new InvalidOperationException($"工作流超过全局迭代上限 {ctx.MaxTotalIterations}，疑似死循环");
-                ctx.TotalIterations++;
-
                 var node = workflow.Nodes.FirstOrDefault(n => n.Id == currentNodeId);
                 if (node == null) throw new InvalidOperationException($"节点 {currentNodeId} 不存在");
 
-                var visits = ctx.IncrementVisit(node.Id);
-                if (visits > ctx.MaxNodeVisits && node.Type != WorkflowNodeTypes.Loop)
-                    throw new InvalidOperationException($"节点 {node.Label}({node.Id}) 被访问 {visits} 次，超过上限 {ctx.MaxNodeVisits}，疑似死循环");
-
-                await (sink?.OnNodeStartedAsync(run.Id, node.Id, node.Type, node.Label) ?? Task.CompletedTask);
-
-                var runNode = new WorkflowRunNode
-                {
-                    Id = Guid.NewGuid(),
-                    RunId = run.Id,
-                    NodeId = node.Id,
-                    NodeType = node.Type,
-                    Status = "Running",
-                    StartedAt = DateTimeOffset.UtcNow,
-                    Iterations = visits,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                };
-                await _unitOfWork.WorkflowRunNodes.AddAsync(runNode, ct);
-
-                NodeResult nodeResult;
-                if (node.Type == WorkflowNodeTypes.Parallel)
-                {
-                    nodeResult = await ExecuteParallelAsync(node, ctx, sink, run.Id, ct);
-                }
-                else
-                {
-                    var executor = GetExecutor(node.Type);
-                    nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
-                }
-
-                // 存储输出到上下文
-                ctx.SetVariable(node.Id, "output", nodeResult.Output ?? "");
-                foreach (var kv in nodeResult.ExtraVariables)
-                    ctx.SetVariable(node.Id, kv.Key, kv.Value);
-
-                runNode.Output = nodeResult.Output;
-                runNode.CompletedAt = DateTimeOffset.UtcNow;
-
-                if (nodeResult.Error != null)
-                {
-                    runNode.Status = "Failed";
-                    runNode.Error = nodeResult.Error;
-                    await _unitOfWork.SaveChangesAsync(ct);
-                    await (sink?.OnNodeFailedAsync(run.Id, node.Id, nodeResult.Error) ?? Task.CompletedTask);
-                    throw new InvalidOperationException($"节点 {node.Label} 执行失败：{nodeResult.Error}");
-                }
-
-                runNode.Status = "Succeeded";
-                await _unitOfWork.SaveChangesAsync(ct);
-                await (sink?.OnNodeCompletedAsync(run.Id, node.Id, nodeResult.Output ?? "") ?? Task.CompletedTask);
+                var nodeResult = await ExecuteNodeAndRecordAsync(node, ctx, sink, run.Id, ct);
 
                 if (nodeResult.ShouldEnd)
                 {
@@ -219,30 +165,190 @@ public class WorkflowExecutionEngine
         return result;
     }
 
-    /// <summary>并行执行所有分支目标节点，收集结果</summary>
+    /// <summary>
+    /// 执行单个节点：检查迭代/访问上限、持久化运行记录、写入上下文、推送事件。
+    /// Parallel 节点在此分路执行所有分支，并在分支汇聚的合并节点处合并。
+    /// </summary>
+    private async Task<NodeResult> ExecuteNodeAndRecordAsync(NodeDto node, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
+    {
+        if (ctx.TotalIterations >= ctx.MaxTotalIterations)
+            throw new InvalidOperationException($"工作流超过全局迭代上限 {ctx.MaxTotalIterations}，疑似死循环");
+        ctx.TotalIterations++;
+
+        var visits = ctx.IncrementVisit(node.Id);
+        if (visits > ctx.MaxNodeVisits && node.Type != WorkflowNodeTypes.Loop)
+            throw new InvalidOperationException($"节点 {node.Label}({node.Id}) 被访问 {visits} 次，超过上限 {ctx.MaxNodeVisits}，疑似死循环");
+
+        await (sink?.OnNodeStartedAsync(runId, node.Id, node.Type, node.Label) ?? Task.CompletedTask);
+
+        var runNode = new WorkflowRunNode
+        {
+            Id = Guid.NewGuid(),
+            RunId = runId,
+            NodeId = node.Id,
+            NodeType = node.Type,
+            Status = "Running",
+            StartedAt = DateTimeOffset.UtcNow,
+            Iterations = visits,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        await _unitOfWork.WorkflowRunNodes.AddAsync(runNode, ct);
+
+        NodeResult nodeResult;
+        if (node.Type == WorkflowNodeTypes.Parallel)
+        {
+            nodeResult = await ExecuteParallelAsync(node, ctx, sink, runId, ct);
+        }
+        else
+        {
+            var executor = GetExecutor(node.Type);
+            nodeResult = await executor.ExecuteAsync(node, ctx, ct, sink);
+        }
+
+        // 存储输出到上下文
+        ctx.SetVariable(node.Id, "output", nodeResult.Output ?? "");
+        foreach (var kv in nodeResult.ExtraVariables)
+            ctx.SetVariable(node.Id, kv.Key, kv.Value);
+
+        runNode.Output = nodeResult.Output;
+        runNode.CompletedAt = DateTimeOffset.UtcNow;
+
+        if (nodeResult.Error != null)
+        {
+            runNode.Status = "Failed";
+            runNode.Error = nodeResult.Error;
+            await _unitOfWork.SaveChangesAsync(ct);
+            await (sink?.OnNodeFailedAsync(runId, node.Id, nodeResult.Error) ?? Task.CompletedTask);
+            throw new InvalidOperationException($"节点 {node.Label} 执行失败：{nodeResult.Error}");
+        }
+
+        runNode.Status = "Succeeded";
+        await _unitOfWork.SaveChangesAsync(ct);
+        await (sink?.OnNodeCompletedAsync(runId, node.Id, nodeResult.Output ?? "") ?? Task.CompletedTask);
+
+        return nodeResult;
+    }
+
+    /// <summary>
+    /// 并行分路执行所有分支的完整链路（顺序执行，共享 scoped DbContext 避免并发），
+    /// 各分支输出汇总到 {parallelNodeId}.branches；分支汇聚到合并节点后执行合并节点一次。
+    /// </summary>
     private async Task<NodeResult> ExecuteParallelAsync(NodeDto parallelNode, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
     {
         var branchEdges = ctx.Edges.Where(e => e.Source == parallelNode.Id).ToList();
         if (branchEdges.Count == 0)
             return new NodeResult { Output = "{}" };
 
-        var branchTasks = branchEdges.Select(async edge =>
-        {
-            var target = ctx.Nodes.FirstOrDefault(n => n.Id == edge.Target);
-            if (target == null) return (edge.SourceHandle ?? edge.Target, (string?)"节点不存在", true);
+        // 静态确定合并点（显式 Merge 节点，或各分支路径的公共后继）
+        var mergeNodeId = FindMergeNode(parallelNode, ctx);
 
-            await (sink?.OnNodeStartedAsync(runId, target.Id, target.Type, target.Label) ?? Task.CompletedTask);
-            var executor = GetExecutor(target.Type);
-            var r = await executor.ExecuteAsync(target, ctx, ct);
-            ctx.SetVariable(target.Id, "output", r.Output ?? "");
-            await (sink?.OnNodeCompletedAsync(runId, target.Id, r.Output ?? "") ?? Task.CompletedTask);
-            return (edge.SourceHandle ?? edge.Target, r.Output, r.Error != null);
+        // 顺序执行所有分支（共享 scoped DbContext，避免并发访问）
+        var branchOutputs = new Dictionary<string, string>();
+        foreach (var edge in branchEdges)
+        {
+            ct.ThrowIfCancellationRequested();
+            var branchKey = edge.SourceHandle ?? edge.Target;
+            var output = await ExecuteBranchPathAsync(edge.Target, mergeNodeId, ctx, sink, runId, ct);
+            branchOutputs[branchKey] = output ?? "";
+        }
+
+        var branchesJson = JsonSerializer.Serialize(branchOutputs);
+        ctx.SetVariable(parallelNode.Id, "branches", branchesJson);
+
+        var result = new NodeResult { Output = branchesJson };
+
+        // 执行合并节点（聚合所有分支输出），主循环从合并节点的后继继续
+        if (mergeNodeId != null)
+        {
+            var mergeNode = ctx.Nodes.FirstOrDefault(n => n.Id == mergeNodeId);
+            if (mergeNode != null)
+            {
+                var mergeResult = await ExecuteNodeAndRecordAsync(mergeNode, ctx, sink, runId, ct);
+                result.Output = mergeResult.Output ?? branchesJson;
+            }
+            result.ExtraVariables["mergeNodeId"] = mergeNodeId;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 执行单个分支的完整链路：从分支起始节点沿边前进，直到到达合并点 / End 节点 / 无出边。
+    /// </summary>
+    private async Task<string?> ExecuteBranchPathAsync(string startNodeId, string? mergeNodeId, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
+    {
+        string? currentId = startNodeId;
+        string? lastOutput = null;
+        var visited = new HashSet<string>();
+
+        while (currentId != null && visited.Add(currentId))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // 到达合并点：本分支在此结束
+            if (mergeNodeId != null && currentId == mergeNodeId)
+                break;
+
+            var node = ctx.Nodes.FirstOrDefault(n => n.Id == currentId);
+            if (node == null) break;
+
+            // 分支内遇到 Merge 节点：作为本分支的合并点
+            if (node.Type == WorkflowNodeTypes.Merge)
+                break;
+
+            var r = await ExecuteNodeAndRecordAsync(node, ctx, sink, runId, ct);
+            lastOutput = r.Output;
+
+            if (r.ShouldEnd) return lastOutput;
+
+            currentId = GetNextNodeId(node, r, ctx);
+        }
+
+        return lastOutput;
+    }
+
+    /// <summary>
+    /// 静态确定并行分支的合并点：优先显式 Merge 节点，否则取被最多分支可达的公共节点。
+    /// 无公共后继（各分支独立结束）时返回 null。
+    /// </summary>
+    private static string? FindMergeNode(NodeDto parallelNode, ExecutionContext ctx)
+    {
+        var branchStarts = ctx.Edges.Where(e => e.Source == parallelNode.Id).Select(e => e.Target).Distinct().ToList();
+        if (branchStarts.Count < 2) return null;
+
+        // 每个分支的可达节点集合（沿出边 BFS）
+        var branchReachable = branchStarts.Select(start =>
+        {
+            var reachable = new HashSet<string> { start };
+            var queue = new Queue<string>();
+            queue.Enqueue(start);
+            while (queue.Count > 0)
+            {
+                var cur = queue.Dequeue();
+                foreach (var e in ctx.Edges.Where(edge => edge.Source == cur))
+                {
+                    if (reachable.Add(e.Target)) queue.Enqueue(e.Target);
+                }
+            }
+            return reachable;
         }).ToList();
 
-        var results = await Task.WhenAll(branchTasks);
-        var dict = results.ToDictionary(r => r.Item1, r => r.Item2 ?? "");
-        var json = JsonSerializer.Serialize(dict);
-        return new NodeResult { Output = json };
+        // 被 ≥2 个分支可达的节点作为候选合并点
+        var candidates = ctx.Nodes
+            .Select(n => n.Id)
+            .Where(nodeId => branchReachable.Count(set => set.Contains(nodeId)) >= 2)
+            .ToList();
+        if (candidates.Count == 0) return null;
+
+        // 优先显式 Merge 节点
+        var explicitMerge = candidates.FirstOrDefault(c => ctx.Nodes.First(n => n.Id == c).Type == WorkflowNodeTypes.Merge);
+        if (explicitMerge != null) return explicitMerge;
+
+        // 否则取被最多分支可达者（近似最近公共汇聚点）
+        return candidates
+            .OrderByDescending(c => branchReachable.Count(set => set.Contains(c)))
+            .First();
     }
 
     /// <summary>确定下一节点 ID</summary>
@@ -261,9 +367,16 @@ public class WorkflowExecutionEngine
             return matched?.Target;
         }
 
-        // Parallel 节点：找 join 点（所有分支目标的共同后继）
+        // Parallel 节点：合并点已由引擎执行，从合并节点的后继继续
         if (node.Type == WorkflowNodeTypes.Parallel)
         {
+            if (result.ExtraVariables.TryGetValue("mergeNodeId", out var mergeId) && !string.IsNullOrEmpty(mergeId))
+            {
+                var mergeOutgoing = ctx.Edges.Where(e => e.Source == mergeId).ToList();
+                return mergeOutgoing.FirstOrDefault(e => string.IsNullOrEmpty(e.SourceHandle))?.Target
+                       ?? mergeOutgoing.FirstOrDefault()?.Target;
+            }
+            // 回退：找 join 点（所有分支目标的共同后继）
             var branchTargets = outgoing.Select(e => e.Target).ToHashSet();
             var nextNodes = ctx.Edges
                 .Where(e => branchTargets.Contains(e.Source))

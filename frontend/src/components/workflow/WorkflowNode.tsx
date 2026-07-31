@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { Play, Bot, GitBranch, Square, Repeat, Split, Wrench, UserCheck, Workflow as WorkflowIcon } from 'lucide-react'
+import { Play, Bot, GitBranch, Square, Repeat, Split, GitMerge, Wrench, UserCheck, Workflow as WorkflowIcon } from 'lucide-react'
 import { WorkflowNodeTypes, type IWorkflowNode } from '../../types/workflow'
 
 export interface IWorkflowNodeData {
@@ -19,6 +19,7 @@ const NODE_STYLES: Record<string, { icon: typeof Play; color: string; bg: string
   [WorkflowNodeTypes.End]: { icon: Square, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10', border: 'border-red-300 dark:border-red-500/30' },
   [WorkflowNodeTypes.Loop]: { icon: Repeat, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-300 dark:border-purple-500/30' },
   [WorkflowNodeTypes.Parallel]: { icon: Split, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-500/10', border: 'border-cyan-300 dark:border-cyan-500/30' },
+  [WorkflowNodeTypes.Merge]: { icon: GitMerge, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10', border: 'border-teal-300 dark:border-teal-500/30' },
   [WorkflowNodeTypes.Tool]: { icon: Wrench, color: 'text-gray-600 dark:text-gray-300', bg: 'bg-gray-50 dark:bg-gray-500/10', border: 'border-gray-300 dark:border-gray-500/30' },
   [WorkflowNodeTypes.Human]: { icon: UserCheck, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10', border: 'border-orange-300 dark:border-orange-500/30' },
   [WorkflowNodeTypes.SubWorkflow]: { icon: WorkflowIcon, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-300 dark:border-indigo-500/30' },
@@ -40,6 +41,7 @@ function WorkflowNodeComponent({ data, selected }: NodeProps) {
   const isCondition = nodeData.type === WorkflowNodeTypes.Condition
   const isParallel = nodeData.type === WorkflowNodeTypes.Parallel
   const isLoop = nodeData.type === WorkflowNodeTypes.Loop
+  const isMerge = nodeData.type === WorkflowNodeTypes.Merge
 
   return (
     <div
@@ -73,6 +75,9 @@ function WorkflowNodeComponent({ data, selected }: NodeProps) {
       {isParallel && (
         <div className="pt-1 text-[10px] text-gray-400">并行分支 ↓</div>
       )}
+      {isMerge && (
+        <div className="pt-1 text-[10px] text-gray-400">合并分支 ↑</div>
+      )}
 
       {/* 出口连接点（End 无出口） */}
       {!isEnd && (
@@ -105,6 +110,7 @@ export const NODE_TYPE_META: { type: string; label: string; icon: typeof Play }[
   { type: WorkflowNodeTypes.Condition, label: '条件分支', icon: GitBranch },
   { type: WorkflowNodeTypes.Loop, label: '循环', icon: Repeat },
   { type: WorkflowNodeTypes.Parallel, label: '并行', icon: Split },
+  { type: WorkflowNodeTypes.Merge, label: '合并', icon: GitMerge },
   { type: WorkflowNodeTypes.Tool, label: '工具', icon: Wrench },
   { type: WorkflowNodeTypes.Human, label: '人工审批', icon: UserCheck },
   { type: WorkflowNodeTypes.SubWorkflow, label: '子工作流', icon: WorkflowIcon },
