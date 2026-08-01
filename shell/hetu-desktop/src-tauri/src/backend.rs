@@ -6,13 +6,12 @@
 //! - 开发模式直接 `dotnet run --project ...`；发布模式使用 Tauri sidecar (`Hetu.Api`)。
 //! - 启动后轮询 `/api/health` 判断就绪；窗口关闭时 kill 子进程，避免遗留。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use tauri::async_runtime::Mutex;
-use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -239,7 +238,9 @@ fn resolve_dev_project_dir(app: &AppHandle) -> Result<PathBuf> {
     }
 }
 
-/// 解析数据目录。优先 `HETU_DATA_DIR`，否则使用 Tauri 提供的 `BaseDirectory::AppLocalData`。
+/// 解析数据目录。优先 `HETU_DATA_DIR`，否则使用 OS 本地应用数据目录下的 `Hetu`。
+/// 注意与后端 `ResolveDataDir` 默认值一致（%LOCALAPPDATA%/Hetu），
+/// 避免壳子（Tauri AppLocalData 带 identifier）与 dev 脚本各用各的库导致配置不共享。
 fn resolve_data_dir(app: &AppHandle) -> Result<PathBuf> {
     if let Ok(custom) = std::env::var("HETU_DATA_DIR") {
         if !custom.trim().is_empty() {
@@ -248,13 +249,14 @@ fn resolve_data_dir(app: &AppHandle) -> Result<PathBuf> {
     }
 
     app.path()
-        .resolve("", BaseDirectory::AppLocalData)
-        .map(PathBuf::from)
-        .or_else(|_| {
-            app.path()
-                .app_local_data_dir()
-                .map_err(|e| anyhow!(e.to_string()))
+        .app_local_data_dir()
+        .map(|dir| {
+            dir.parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| dir.clone())
+                .join("Hetu")
         })
+        .map_err(|e| anyhow!(e.to_string()))
 }
 
 /// 轮询 `/api/health`，直到返回 200 或超时。
