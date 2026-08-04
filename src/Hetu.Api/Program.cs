@@ -190,6 +190,11 @@ builder.Services.AddHostedService<TrashCleanupService>();
 builder.Services.AddHostedService<AutoOrganizeService>();
 builder.Services.AddHostedService<ScheduledTaskRunner>();
 
+// Work 模块
+builder.Services.AddScoped<IWorkProjectService, WorkProjectService>();
+builder.Services.AddScoped<IWorkSessionService, WorkSessionService>();
+builder.Services.AddSingleton<Hetu.Api.Services.WorkTerminalManager>();
+
 // 定时任务
 builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
 builder.Services.AddScoped<IScheduledTaskExecutor, SkillScheduledTaskExecutor>();
@@ -221,6 +226,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthorization();
+app.UseWebSockets();
 app.MapControllers();
 
 // 健康检查端点：供桌面外壳 (Tauri shell) 轮询确认就绪

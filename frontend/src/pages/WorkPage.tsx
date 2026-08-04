@@ -1,18 +1,69 @@
-import { Workflow } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
+import WorkSidebar from '../components/work/WorkSidebar'
+import WorkSessionArea from '../components/work/WorkSessionArea'
+import WorkExplorer from '../components/work/WorkExplorer'
+import WorkTerminal from '../components/work/WorkTerminal'
+import { workProjectService } from '../services/workService'
+import type { IWorkProject, IWorkSession } from '../types/work'
 
 export default function WorkPage() {
+  const queryClient = useQueryClient()
+  const [selectedProject, setSelectedProject] = useState<IWorkProject | null>(null)
+  const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
+  const [showTerminal, setShowTerminal] = useState(true)
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['workProjects'],
+    queryFn: workProjectService.getAll,
+  })
+
+  // 默认选中第一个项目
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProject) {
+      setSelectedProject(projects[0])
+    }
+  }, [projects, selectedProject])
+
+  const handleSelectProject = (project: IWorkProject) => {
+    setSelectedProject(project)
+  }
+
+  const handleSelectSession = (session: IWorkSession) => {
+    setSelectedSession(session)
+    queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
+  }
+
+  const handleSessionUpdated = (session: IWorkSession) => {
+    setSelectedSession(session)
+  }
+
   return (
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.06]">
-              <Workflow size={32} className="text-gray-400" />
+        <div className="flex h-full min-w-0 flex-1">
+          <WorkSidebar
+            selectedProjectId={selectedProject?.id}
+            selectedSessionId={selectedSession?.id}
+            onSelectProject={handleSelectProject}
+            onSelectSession={handleSelectSession}
+          />
+          <WorkSessionArea
+            project={selectedProject ?? undefined}
+            session={selectedSession ?? undefined}
+            onSessionUpdated={handleSessionUpdated}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1">
+              <WorkExplorer
+                projectId={selectedProject?.id}
+              />
             </div>
-            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Work</h2>
-            <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">功能开发中，敬请期待</p>
+            {showTerminal && (
+              <WorkTerminal projectId={selectedProject?.id} onClose={() => setShowTerminal(false)} />
+            )}
           </div>
         </div>
       }

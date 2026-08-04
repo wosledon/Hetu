@@ -32,6 +32,12 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
+      // 工作终端 WebSocket
+      '/api/work-terminal': {
+        target: 'ws://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

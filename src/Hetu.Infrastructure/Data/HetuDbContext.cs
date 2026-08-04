@@ -37,6 +37,9 @@ public class HetuDbContext : DbContext
     public DbSet<KnowledgeItem> KnowledgeItems => Set<KnowledgeItem>();
     public DbSet<Memory> Memories => Set<Memory>();
     public DbSet<MemoryEmbedding> MemoryEmbeddings => Set<MemoryEmbedding>();
+    public DbSet<WorkProject> WorkProjects => Set<WorkProject>();
+    public DbSet<WorkSession> WorkSessions => Set<WorkSession>();
+    public DbSet<WorkMessage> WorkMessages => Set<WorkMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -446,6 +449,42 @@ public class HetuDbContext : DbContext
                 entity.Ignore(e => e.Vector);
                 entity.Property(e => e.Embedding).IsRequired();
             }
+        });
+
+        modelBuilder.Entity<WorkProject>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RootPath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Icon).HasMaxLength(50);
+            entity.Property(e => e.Color).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<WorkSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.HasOne(e => e.Project)
+                .WithMany(e => e.Sessions)
+                .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.UpdatedAt);
+        });
+
+        modelBuilder.Entity<WorkMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
+            entity.HasOne(e => e.Session)
+                .WithMany(e => e.Messages)
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.CreatedAt);
         });
     }
 }

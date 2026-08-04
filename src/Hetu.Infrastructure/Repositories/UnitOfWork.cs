@@ -33,6 +33,9 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     public IRepository<Memory> Memories { get; }
     public IRepository<MemoryEmbedding> MemoryEmbeddings { get; }
+    public IRepository<WorkProject> WorkProjects { get; }
+    public IRepository<WorkSession> WorkSessions { get; }
+    public IRepository<WorkMessage> WorkMessages { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -62,6 +65,9 @@ public class UnitOfWork : IUnitOfWork
         ScheduledTaskExecutions = new EfRepository<ScheduledTaskExecution>(context);
         Memories = new EfRepository<Memory>(context);
         MemoryEmbeddings = new EfRepository<MemoryEmbedding>(context);
+        WorkProjects = new EfRepository<WorkProject>(context);
+        WorkSessions = new EfRepository<WorkSession>(context);
+        WorkMessages = new EfRepository<WorkMessage>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

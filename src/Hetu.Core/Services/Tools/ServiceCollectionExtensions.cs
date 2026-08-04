@@ -19,6 +19,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, TodoTool>();
         services.AddScoped<IToolExecutor, RunCommandTool>();
         services.AddScoped<IToolExecutor, CreateScheduledTaskTool>();
+        services.AddScoped<IToolExecutor, WorkListDirTool>();
+        services.AddScoped<IToolExecutor, WorkReadFileTool>();
+        services.AddScoped<IToolExecutor, WorkWriteFileTool>();
+        services.AddScoped<IToolExecutor, WorkRunCommandTool>();
+        services.AddScoped<WorkToolContext>();
         services.AddScoped<ToolRegistry>();
         services.AddScoped<PromptComposer>();
         return services;

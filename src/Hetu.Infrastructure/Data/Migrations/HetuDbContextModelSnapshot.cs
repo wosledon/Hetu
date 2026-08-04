@@ -1141,6 +1141,124 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.ToTable("TaskItems");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.WorkMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("WorkMessages");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkProject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RootPath")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WorkProjects");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("WorkSessions");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.Workflow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1462,6 +1580,28 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Navigation("Note");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.WorkMessage", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.WorkSession", "Session")
+                        .WithMany("Messages")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkSession", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.WorkProject", "Project")
+                        .WithMany("Sessions")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.AiProvider", b =>
                 {
                     b.Navigation("Models");
@@ -1506,6 +1646,16 @@ namespace Hetu.Infrastructure.Data.Migrations
             modelBuilder.Entity("Hetu.Core.Entities.Tag", b =>
                 {
                     b.Navigation("NoteTags");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkProject", b =>
+                {
+                    b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkSession", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

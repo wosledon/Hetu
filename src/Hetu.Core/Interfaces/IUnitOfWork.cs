@@ -29,5 +29,8 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     IRepository<Memory> Memories { get; }
     IRepository<MemoryEmbedding> MemoryEmbeddings { get; }
+    IRepository<WorkProject> WorkProjects { get; }
+    IRepository<WorkSession> WorkSessions { get; }
+    IRepository<WorkMessage> WorkMessages { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
