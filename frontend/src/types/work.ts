@@ -51,6 +51,17 @@ export interface IWorkFileContent {
   modifiedAt?: string;
 }
 
+export interface IWorkFileChange {
+  id: string;
+  projectId: string;
+  sessionId?: string;
+  filePath: string;
+  oldContent?: string;
+  newContent: string;
+  action: 'write' | 'create';
+  createdAt: string;
+}
+
 export interface ICreateWorkProjectRequest {
   name: string;
   rootPath: string;

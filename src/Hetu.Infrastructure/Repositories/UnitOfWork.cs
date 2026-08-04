@@ -36,6 +36,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WorkProject> WorkProjects { get; }
     public IRepository<WorkSession> WorkSessions { get; }
     public IRepository<WorkMessage> WorkMessages { get; }
+    public IRepository<WorkFileChange> WorkFileChanges { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -68,6 +69,7 @@ public class UnitOfWork : IUnitOfWork
         WorkProjects = new EfRepository<WorkProject>(context);
         WorkSessions = new EfRepository<WorkSession>(context);
         WorkMessages = new EfRepository<WorkMessage>(context);
+        WorkFileChanges = new EfRepository<WorkFileChange>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

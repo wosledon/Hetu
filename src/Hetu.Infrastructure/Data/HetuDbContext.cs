@@ -40,6 +40,7 @@ public class HetuDbContext : DbContext
     public DbSet<WorkProject> WorkProjects => Set<WorkProject>();
     public DbSet<WorkSession> WorkSessions => Set<WorkSession>();
     public DbSet<WorkMessage> WorkMessages => Set<WorkMessage>();
+    public DbSet<WorkFileChange> WorkFileChanges => Set<WorkFileChange>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -484,6 +485,16 @@ public class HetuDbContext : DbContext
                 .HasForeignKey(e => e.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<WorkFileChange>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(20);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.ProjectId);
             entity.HasIndex(e => e.CreatedAt);
         });
     }

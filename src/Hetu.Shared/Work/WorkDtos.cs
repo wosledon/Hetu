@@ -97,3 +97,16 @@ public class WorkFileContentDto
     public string? Content { get; set; }
     public DateTimeOffset? ModifiedAt { get; set; }
 }
+
+/// <summary>文件变更记录（用于 diff 展示）</summary>
+public class WorkFileChangeDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public Guid? SessionId { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public string? OldContent { get; set; }
+    public string NewContent { get; set; } = string.Empty;
+    public string Action { get; set; } = "write";
+    public DateTimeOffset CreatedAt { get; set; }
+}

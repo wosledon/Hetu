@@ -184,6 +184,25 @@ public class WorkSessionService : IWorkSessionService
         return ApiResponse<List<WorkMessageDto>>.Ok(messages.OrderBy(m => m.CreatedAt).Select(Map).ToList());
     }
 
+    public async Task<List<WorkFileChangeDto>> GetFileChangesAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        var changes = await _unitOfWork.WorkFileChanges.FindAsync(c => c.SessionId == sessionId, cancellationToken);
+        return changes
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new WorkFileChangeDto
+            {
+                Id = c.Id,
+                ProjectId = c.ProjectId,
+                SessionId = c.SessionId,
+                FilePath = c.FilePath,
+                OldContent = c.OldContent,
+                NewContent = c.NewContent,
+                Action = c.Action,
+                CreatedAt = c.CreatedAt
+            })
+            .ToList();
+    }
+
     public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);

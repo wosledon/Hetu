@@ -1,5 +1,6 @@
 using System.Text;
 using Hetu.Api.Streaming;
+using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Profiles;
 using Hetu.Core.Services;
@@ -158,6 +159,25 @@ public class WorkStreamController : ControllerBase
 
                 chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
 
+                // 记录 write 工具执行前的旧内容（用于 diff）
+                var oldContents = new Dictionary<string, string?>();
+                foreach (var tc in pendingToolCalls.Where(t => t.Name == "work_write_file"))
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
+                        var path = doc.RootElement.TryGetProperty("path", out var p) ? p.GetString() : null;
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            var safePath = WorkPath.Resolve(project.RootPath, path);
+                            oldContents[tc.Id] = safePath != null && System.IO.File.Exists(safePath)
+                                ? await System.IO.File.ReadAllTextAsync(safePath, ct)
+                                : null;
+                        }
+                    }
+                    catch { }
+                }
+
                 var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                     sessionId.ToString(),
                     pendingToolCalls, overrides, sessionTodos,
@@ -165,24 +185,36 @@ public class WorkStreamController : ControllerBase
                     payload => writer.WriteJsonAsync(payload),
                     ct);
 
-                // 文件变更事件：捕获 write 类工具
-                foreach (var tc in pendingToolCalls)
+                // 文件变更事件 + 落库记录（供 diff 页展示）
+                foreach (var tc in pendingToolCalls.Where(t => t.Name == "work_write_file"))
                 {
-                    if (tc.Name == "work_write_file")
+                    try
                     {
-                        try
+                        using var doc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
+                        var path = doc.RootElement.TryGetProperty("path", out var p) ? p.GetString() : null;
+                        var newContent = doc.RootElement.TryGetProperty("content", out var c) ? c.GetString() ?? "" : "";
+                        if (string.IsNullOrWhiteSpace(path)) continue;
+
+                        var isNew = oldContents.GetValueOrDefault(tc.Id) == null;
+                        var action = isNew ? "create" : "write";
+                        await _unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
                         {
-                            using var doc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
-                            var path = doc.RootElement.TryGetProperty("path", out var p) ? p.GetString() : null;
-                            if (!string.IsNullOrWhiteSpace(path))
-                            {
-                                var evt = new { type = "file_change", path, action = "write" };
-                                fileChanges.Add(evt);
-                                await writer.WriteJsonAsync(evt);
-                            }
-                        }
-                        catch { }
+                            Id = Guid.NewGuid(),
+                            ProjectId = project.Id,
+                            SessionId = sessionId,
+                            FilePath = path,
+                            OldContent = oldContents.GetValueOrDefault(tc.Id),
+                            NewContent = newContent,
+                            Action = action,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        }, ct);
+
+                        var evt = new { type = "file_change", path, action };
+                        fileChanges.Add(evt);
+                        await writer.WriteJsonAsync(evt);
                     }
+                    catch { }
                 }
 
                 foreach (var (toolCallId, content) in toolResults)
@@ -216,6 +248,8 @@ public class WorkStreamController : ControllerBase
             var json = System.Text.Json.JsonSerializer.Serialize(change);
             await _sessionService.AddMessageAsync(sessionId, "system", "", "file_change", json, cancellationToken: CancellationToken.None);
         }
+
+        try { await _unitOfWork.SaveChangesAsync(ct); } catch { }
 
         await writer.WriteJsonAsync(new { type = "done" });
     }

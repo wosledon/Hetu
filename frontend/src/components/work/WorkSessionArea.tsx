@@ -170,6 +170,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
       queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+      queryClient.invalidateQueries({ queryKey: ['workFileChanges', session.id] })
     }
   }
 

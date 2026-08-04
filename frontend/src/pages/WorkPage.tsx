@@ -59,6 +59,7 @@ export default function WorkPage() {
             <div className="flex min-h-0 flex-1">
               <WorkExplorer
                 projectId={selectedProject?.id}
+                sessionId={selectedSession?.id}
               />
             </div>
             {showTerminal && (

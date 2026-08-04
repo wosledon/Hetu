@@ -5,6 +5,7 @@ import type {
   IWorkMessage,
   IWorkFileEntry,
   IWorkFileContent,
+  IWorkFileChange,
   ICreateWorkProjectRequest,
   IUpdateWorkProjectRequest,
   ICreateWorkSessionRequest,
@@ -26,6 +27,7 @@ export const workSessionService = {
   update: (id: string, data: IUpdateWorkSessionRequest) => put<IWorkSession>(`/work-sessions/${id}`, data),
   delete: (id: string) => del<void>(`/work-sessions/${id}`),
   getMessages: (id: string) => get<IWorkMessage[]>(`/work-sessions/${id}/messages`),
+  getFileChanges: (id: string) => get<IWorkFileChange[]>(`/work-sessions/${id}/file-changes`),
   addMessage: (id: string, data: { role: string; content: string; type?: string; metadata?: string }) =>
     post<IWorkMessage>(`/work-sessions/${id}/messages`, data),
 };

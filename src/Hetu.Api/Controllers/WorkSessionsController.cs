@@ -36,6 +36,13 @@ public class WorkSessionsController : ControllerBase
     public Task<ApiResponse<List<WorkMessageDto>>> GetMessages(Guid id, CancellationToken cancellationToken)
         => _sessionService.GetMessagesAsync(id, cancellationToken);
 
+    [HttpGet("{id:guid}/file-changes")]
+    public async Task<ApiResponse<List<WorkFileChangeDto>>> GetFileChanges(Guid id, CancellationToken cancellationToken)
+    {
+        var changes = await _sessionService.GetFileChangesAsync(id, cancellationToken);
+        return ApiResponse<List<WorkFileChangeDto>>.Ok(changes);
+    }
+
     [HttpPost("{id:guid}/messages")]
     public Task<ApiResponse<WorkMessageDto>> AddMessage(Guid id, [FromBody] AddWorkMessageRequest request, CancellationToken cancellationToken)
         => _sessionService.AddMessageAsync(id, request.Role, request.Content, request.Type, request.Metadata, cancellationToken: cancellationToken);
