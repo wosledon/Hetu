@@ -43,9 +43,9 @@ public class WorkTerminalController : ControllerBase
         {
             try
             {
-                await foreach (var line in session.Output.ReadAllAsync(ct))
+                await foreach (var chunk in session.Output.ReadAllAsync(ct))
                 {
-                    var payload = Encoding.UTF8.GetBytes(line + "\r\n");
+                    var payload = Encoding.UTF8.GetBytes(chunk);
                     await sendLock.WaitAsync(ct);
                     try
                     {

@@ -1,13 +1,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose } from 'lucide-react'
+import CodeMirror from '@uiw/react-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { python } from '@codemirror/lang-python'
+import { css } from '@codemirror/lang-css'
+import { html } from '@codemirror/lang-html'
+import { json } from '@codemirror/lang-json'
+import { markdown } from '@codemirror/lang-markdown'
+import { EditorView } from '@codemirror/view'
 import { workFileService, workSessionService } from '../../services/workService'
+import { useUIStore } from '../../stores/uiStore'
 import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
 
 interface WorkExplorerProps {
   projectId?: string
   sessionId?: string
+  onCollapse?: () => void
 }
 
 interface TreeNode extends IWorkFileEntry {
@@ -25,9 +35,7 @@ interface OpenTab {
   change?: IWorkFileChange
 }
 
-const TEXT_EXT = new Set(['.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx', '.css', '.html', '.cs', '.csproj', '.sln', '.py', '.go', '.rs', '.java', '.yaml', '.yml', '.toml', '.xml', '.sh', '.ps1', '.sql', '.env', '.gitignore', '.vue', '.svelte'])
-
-export default function WorkExplorer({ projectId, sessionId }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
   const [tree, setTree] = useState<TreeNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -193,11 +201,24 @@ export default function WorkExplorer({ projectId, sessionId }: WorkExplorerProps
     )
   }
 
-  const isTextFile = (name: string) => {
-    const idx = name.lastIndexOf('.')
-    if (idx < 0) return false
-    return TEXT_EXT.has(name.slice(idx).toLowerCase())
+  const langFor = (name: string) => {
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase()
+    if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'].includes(ext)) return javascript({ jsx: ext === '.jsx' || ext === '.tsx', typescript: ext === '.ts' || ext === '.tsx' })
+    if (ext === '.py') return python()
+    if (['.css', '.scss', '.less'].includes(ext)) return css()
+    if (['.html', '.htm', '.vue', '.svelte', '.xml'].includes(ext)) return html()
+    if (['.json', '.jsonc'].includes(ext)) return json()
+    if (['.md', '.mdx'].includes(ext)) return markdown()
+    return undefined
   }
+
+  const themeMode = useUIStore((s) => s.theme)
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+  const editorBaseTheme = EditorView.theme({
+    '&': { height: '100%', fontSize: '12px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+    '&.cm-focused': { outline: 'none' },
+  })
 
   const activeTab = tabs.find((t) => t.key === activeKey)
 
@@ -220,6 +241,9 @@ export default function WorkExplorer({ projectId, sessionId }: WorkExplorerProps
           {navBtn('browser', '浏览器', Globe)}
           <button onClick={loadRoot} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
             <RefreshCw size={12} />
+          </button>
+          <button onClick={onCollapse} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]" title="折叠面板">
+            <PanelRightClose size={12} />
           </button>
         </div>
 
@@ -309,15 +333,29 @@ export default function WorkExplorer({ projectId, sessionId }: WorkExplorerProps
                 <WorkDiffView change={activeTab.change} />
               )}
               {activeTab?.kind === 'file' && activeTab.file && (
-                <>
-                  {activeTab.file.isBinary ? (
-                    <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeTab.file.size} bytes）</div>
-                  ) : isTextFile(activeTab.file.name) ? (
-                    <pre className="h-full overflow-auto whitespace-pre p-3 font-mono text-[11px] leading-relaxed text-gray-700 dark:text-gray-300">{activeTab.file.content}</pre>
-                  ) : (
-                    <pre className="h-full overflow-auto whitespace-pre-wrap p-3 text-[11px] text-gray-600 dark:text-gray-400">{activeTab.file.content}</pre>
-                  )}
-                </>
+                activeTab.file.isBinary ? (
+                  <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeTab.file.size} bytes）</div>
+                ) : (
+                  <div className="h-full overflow-auto">
+                    <CodeMirror
+                      value={activeTab.file.content ?? ''}
+                      height="100%"
+                      readOnly
+                      theme={isDark ? 'dark' : 'light'}
+                      extensions={[
+                        editorBaseTheme,
+                        EditorView.lineWrapping,
+                        ...(langFor(activeTab.file.name) ? [langFor(activeTab.file.name)!] : []),
+                      ]}
+                      basicSetup={{
+                        lineNumbers: true,
+                        foldGutter: true,
+                        highlightActiveLine: false,
+                        highlightActiveLineGutter: false,
+                      }}
+                    />
+                  </div>
+                )
               )}
             </div>
           </>

@@ -5,32 +5,42 @@ import { workTerminalUrl } from '../../services/workService'
 interface WorkTerminalProps {
   projectId?: string
   onClose: () => void
+  height?: number
 }
 
-export default function WorkTerminal({ projectId, onClose }: WorkTerminalProps) {
-  const [lines, setLines] = useState<string[]>([])
+/** 剥离 ANSI 转义序列 */
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, '').replace(/\u001b\][^\u0007]*\u0007/g, '')
+}
+
+export default function WorkTerminal({ projectId, onClose, height }: WorkTerminalProps) {
+  const [content, setContent] = useState('')
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [error, setError] = useState('')
   const wsRef = useRef<WebSocket | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!projectId) return
-    setLines([])
+    setContent('')
     setInput('')
     setConnected(false)
+    setError('')
 
     const ws = new WebSocket(workTerminalUrl(projectId))
     wsRef.current = ws
     ws.onopen = () => setConnected(true)
     ws.onclose = () => setConnected(false)
-    ws.onerror = () => setConnected(false)
+    ws.onerror = () => setError('终端连接失败，请检查后端是否运行')
     ws.onmessage = (e) => {
-      setLines((prev) => {
-        const next = [...prev, e.data as string]
-        if (next.length > 2000) return next.slice(next.length - 2000)
+      setError('')
+      setContent((prev) => {
+        const next = prev + (e.data as string)
+        if (next.length > 50000) return next.slice(next.length - 50000)
         return next
       })
     }
@@ -42,8 +52,8 @@ export default function WorkTerminal({ projectId, onClose }: WorkTerminalProps) 
   }, [projectId])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [lines])
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [content])
 
   useEffect(() => {
     if (connected) inputRef.current?.focus()
@@ -57,15 +67,24 @@ export default function WorkTerminal({ projectId, onClose }: WorkTerminalProps) 
 
   const restart = () => {
     if (!projectId) return
+    setContent('')
+    setError('')
     fetch(`/api/work-terminal/${projectId}/stop`, { method: 'POST' }).then(() => {
       wsRef.current?.close()
-      setLines([])
       setConnected(false)
       const ws = new WebSocket(workTerminalUrl(projectId))
       wsRef.current = ws
       ws.onopen = () => setConnected(true)
       ws.onclose = () => setConnected(false)
-      ws.onmessage = (e) => setLines((prev) => [...prev.slice(-1999), e.data as string])
+      ws.onerror = () => setError('终端连接失败，请检查后端是否运行')
+      ws.onmessage = (e) => {
+        setError('')
+        setContent((prev) => {
+          const next = prev + (e.data as string)
+          if (next.length > 50000) return next.slice(next.length - 50000)
+          return next
+        })
+      }
     })
   }
 
@@ -84,7 +103,7 @@ export default function WorkTerminal({ projectId, onClose }: WorkTerminalProps) 
   }
 
   return (
-    <div className="flex h-52 shrink-0 flex-col border-t border-gray-200 bg-[#1e1e1e] dark:border-gray-800">
+    <div className="flex shrink-0 flex-col border-t border-gray-200 bg-[#1e1e1e] dark:border-gray-800" style={{ height: height ?? 208 }}>
       <div className="flex h-8 shrink-0 items-center gap-2 bg-[#252526] px-3 text-gray-300">
         <TerminalSquare size={13} />
         <span className="text-[11px] font-medium">终端</span>
@@ -108,10 +127,9 @@ export default function WorkTerminal({ projectId, onClose }: WorkTerminalProps) 
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2 font-mono text-[12px] leading-relaxed text-gray-200">
-        {lines.length === 0 && <div className="text-gray-500">终端已就绪，等待输出...</div>}
-        {lines.map((line, i) => (
-          <div key={i} className="whitespace-pre-wrap break-all">{line}</div>
-        ))}
+        {error && <div className="text-red-400">{error}</div>}
+        {!error && !content && <div className="text-gray-500">终端已就绪，等待输出...</div>}
+        <pre className="whitespace-pre-wrap break-all">{stripAnsi(content)}</pre>
         <div ref={bottomRef} />
       </div>
       <div className="flex shrink-0 items-center gap-1 border-t border-white/10 px-2 py-1">

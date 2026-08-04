@@ -28,15 +28,15 @@ export default defineConfig({
           })
         },
       },
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
-      // 工作终端 WebSocket
+      // 工作终端 WebSocket：必须排在 /api 之前，否则会被 http 代理拦截导致握手失败
       '/api/work-terminal': {
         target: 'ws://localhost:5000',
         changeOrigin: true,
         ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
       },
     },
   },

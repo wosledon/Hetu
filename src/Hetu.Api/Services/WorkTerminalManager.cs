@@ -47,8 +47,25 @@ public class WorkTerminalManager
                 rootPath = project.RootPath;
             }
 
-            var shell = OperatingSystem.IsWindows() ? "cmd.exe" : OperatingSystem.IsMacOS() ? "/bin/zsh" : "/bin/bash";
-            var args = OperatingSystem.IsWindows() ? "/Q" : "-i";
+            // Windows 用 PowerShell 作为 shell：管道 UTF-8 输入/输出可靠（cmd 在 chcp 65001 下管道输入有 bug）
+            string shell;
+            string args;
+            if (OperatingSystem.IsWindows())
+            {
+                shell = "powershell.exe";
+                args = "-NoLogo -NoExit -Command \"[Console]::InputEncoding=[System.Text.Encoding]::UTF8;[Console]::OutputEncoding=[System.Text.Encoding]::UTF8\"";
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                shell = "/bin/zsh";
+                args = "-i";
+            }
+            else
+            {
+                shell = "/bin/bash";
+                args = "-i";
+            }
+
             var psi = new ProcessStartInfo
             {
                 FileName = shell,
@@ -59,6 +76,7 @@ public class WorkTerminalManager
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
+                StandardInputEncoding = Encoding.UTF8,
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
@@ -110,6 +128,7 @@ public class TerminalSession : IDisposable
     public Process Process { get; }
     private readonly Channel<string> _outputChannel;
     public ChannelReader<string> Output => _outputChannel.Reader;
+    private readonly CancellationTokenSource _cts = new();
 
     public TerminalSession(Guid projectId, Process process)
     {
@@ -117,17 +136,34 @@ public class TerminalSession : IDisposable
         Process = process;
         _outputChannel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
 
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null) _outputChannel.Writer.TryWrite(e.Data);
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null) _outputChannel.Writer.TryWrite(e.Data);
-        };
         process.Exited += (_, _) => _outputChannel.Writer.TryComplete();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+
+        // 按原始字节块读取，保证提示符等无换行内容也能实时推送
+        _ = PumpStreamAsync(process.StandardOutput.BaseStream);
+        _ = PumpStreamAsync(process.StandardError.BaseStream);
+    }
+
+    private async Task PumpStreamAsync(Stream stream)
+    {
+        var buffer = new byte[4096];
+        var decoder = Encoding.UTF8.GetDecoder();
+        var charBuffer = new char[4096];
+        try
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                var read = await stream.ReadAsync(buffer, _cts.Token);
+                if (read <= 0) break;
+                var chars = decoder.GetChars(buffer, 0, read, charBuffer, 0);
+                if (chars > 0)
+                {
+                    _outputChannel.Writer.TryWrite(new string(charBuffer, 0, chars));
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
     }
 
     public void Write(string text)
@@ -143,6 +179,7 @@ public class TerminalSession : IDisposable
 
     public void Dispose()
     {
+        _cts.Cancel();
         try
         {
             if (!Process.HasExited)
@@ -152,6 +189,7 @@ public class TerminalSession : IDisposable
             }
         }
         catch { }
+        _cts.Dispose();
         Process.Dispose();
     }
 }
