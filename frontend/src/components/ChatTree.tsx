@@ -17,9 +17,10 @@ import {
   Pencil,
   Check,
   X,
+  Home,
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
-import type { IChatGroup, IChatTopic } from '../types'
+import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
 type GroupColor = (typeof GROUP_COLORS)[number]
@@ -48,10 +49,13 @@ function resolveGroupIcon(group: IChatGroup): React.ElementType {
 }
 
 interface ChatTreeProps {
+  mainChat?: IMainChat
+  selectedMain?: boolean
   selectedGroupId?: string
   selectedTopicId?: string
   onSelectGroup: (group: IChatGroup) => void
   onSelectTopic: (topic: IChatTopic) => void
+  onSelectMain?: () => void
   onDeleteTopic?: (topicId: string) => void
 }
 
@@ -162,7 +166,7 @@ function GroupNode({
   )
 }
 
-export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onDeleteTopic }: ChatTreeProps) {
+export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic }: ChatTreeProps) {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
@@ -244,6 +248,33 @@ export default function ChatTree({ selectedGroupId, selectedTopicId, onSelectGro
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
+        {mainChat && (
+          <div
+            onClick={onSelectMain}
+            className={`mb-1.5 cursor-pointer rounded-lg border px-2 py-1.5 transition-all ${
+              selectedMain
+                ? 'border-indigo-300 bg-gradient-to-r from-indigo-500 to-blue-600 shadow-md shadow-indigo-500/20 dark:border-indigo-700'
+                : 'border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 hover:border-indigo-200 dark:border-indigo-900/60 dark:from-indigo-950/50 dark:to-blue-950/50 dark:hover:border-indigo-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${
+                selectedMain ? 'bg-white/25' : 'bg-gradient-to-br from-indigo-500 to-blue-600'
+              }`}>
+                <Home size={11} />
+              </div>
+              <span className={`min-w-0 flex-1 truncate text-sm font-medium ${selectedMain ? 'text-white' : 'text-gray-700 dark:text-gray-200'}`}>
+                主对话
+              </span>
+              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                selectedMain ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
+              }`}>
+                全局
+              </span>
+            </div>
+          </div>
+        )}
+        {mainChat && <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />}
         {isAddingGroup && (
           <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
             <Folder size={14} className="shrink-0 text-blue-500" />

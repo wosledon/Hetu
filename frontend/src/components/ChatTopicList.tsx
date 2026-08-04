@@ -9,12 +9,13 @@ type SortKey = 'updated' | 'created'
 
 interface ChatTopicListProps {
   groupId?: string
+  isMainGroup?: boolean
   selectedTopicId?: string
   onSelectTopic: (topic: IChatTopic) => void
   onDeleteTopic?: (topicId: string) => void
 }
 
-export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic, onDeleteTopic }: ChatTopicListProps) {
+export default function ChatTopicList({ groupId, isMainGroup, selectedTopicId, onSelectTopic, onDeleteTopic }: ChatTopicListProps) {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -90,7 +91,7 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic,
                 <Search size={14} />
               </button>
             )}
-            {groupId && (
+            {groupId && !isMainGroup && (
               <button
                 onClick={handleCreate}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
@@ -139,7 +140,7 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic,
         {filteredTopics.length === 0 && searchQuery && (
           <div className="py-8 text-center text-xs text-gray-400">未找到匹配的话题</div>
         )}
-        {filteredTopics.length === 0 && !searchQuery && groupId && (
+        {filteredTopics.length === 0 && !searchQuery && groupId && !isMainGroup && (
           <div className="py-8 text-center text-xs text-gray-400">暂无话题，点击 + 创建</div>
         )}
         {filteredTopics.map((topic) => (
@@ -197,28 +198,30 @@ export default function ChatTopicList({ groupId, selectedTopicId, onSelectTopic,
               ) : (
                 <>
                   <h3 className={`flex-1 line-clamp-1 text-sm ${selectedTopicId === topic.id ? 'font-medium text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{topic.title || '新话题'}</h3>
-                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingTopicId(topic.id)
-                        setEditingTitle(topic.title)
-                      }}
-                      className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      title="重命名"
-                    >
-                      <Pencil size={12} className="text-gray-500" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteTopic.mutate(topic.id)
-                      }}
-                      className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    >
-                      <Trash2 size={12} className="text-red-400" />
-                    </button>
-                  </div>
+                  {!isMainGroup && !topic.isMain && (
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingTopicId(topic.id)
+                          setEditingTitle(topic.title)
+                        }}
+                        className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        title="重命名"
+                      >
+                        <Pencil size={12} className="text-gray-500" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteTopic.mutate(topic.id)
+                        }}
+                        className="rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      >
+                        <Trash2 size={12} className="text-red-400" />
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>

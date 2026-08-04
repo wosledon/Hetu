@@ -25,5 +25,7 @@ public class ChatTopic : BaseEntity
     public Guid? AutoOrganizeNotebookId { get; set; }
     public Guid? ParentTopicId { get; set; }
     public Guid? BranchMessageId { get; set; }
+    /// <summary>是否为主对话话题（主对话组内唯一的全局聊天话题）</summary>
+    public bool IsMain { get; set; }
     public List<ChatMessage> Messages { get; set; } = [];
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, Plus, Search, Trash2, Code, BookOpen, Lightbulb, PenTool, MessageSquare } from 'lucide-react'
+import { Folder, Plus, Search, Trash2, Code, BookOpen, Lightbulb, PenTool, MessageSquare, Home } from 'lucide-react'
 import { chatGroupService } from '../services/chatService'
-import type { IChatGroup } from '../types'
+import type { IChatGroup, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
 type GroupColor = (typeof GROUP_COLORS)[number]
@@ -53,9 +53,12 @@ function resolveGroupIcon(group: IChatGroup): React.ElementType {
 interface ChatSidebarProps {
   selectedGroupId?: string
   onSelectGroup: (group: IChatGroup) => void
+  mainChat?: IMainChat
+  selectedMain?: boolean
+  onSelectMain?: () => void
 }
 
-export default function ChatSidebar({ selectedGroupId, onSelectGroup }: ChatSidebarProps) {
+export default function ChatSidebar({ selectedGroupId, onSelectGroup, mainChat, selectedMain, onSelectMain }: ChatSidebarProps) {
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
@@ -142,6 +145,38 @@ export default function ChatSidebar({ selectedGroupId, onSelectGroup }: ChatSide
       )}
 
       <div className="flex-1 overflow-y-auto p-2">
+        {mainChat && (
+          <div
+            onClick={onSelectMain}
+            className={`mb-2 cursor-pointer rounded-xl border transition-all ${
+              selectedMain
+                ? 'border-indigo-300 bg-gradient-to-r from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/20 dark:border-indigo-700'
+                : 'border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 hover:border-indigo-200 hover:shadow-sm dark:border-indigo-900/60 dark:from-indigo-950/50 dark:to-blue-950/50 dark:hover:border-indigo-700'
+            }`}
+          >
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${
+                selectedMain ? 'bg-white/25' : 'bg-gradient-to-br from-indigo-500 to-blue-600'
+              }`}>
+                <Home size={15} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={`flex items-center text-sm font-medium ${selectedMain ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
+                  主对话
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                    selectedMain ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
+                  }`}>
+                    全局
+                  </span>
+                </div>
+                <div className={`mt-0.5 truncate text-[10px] ${selectedMain ? 'text-white/70' : 'text-gray-400'}`}>
+                  AI 主动任务 · 全局聊天
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {mainChat && <div className="my-2 border-t border-gray-200 dark:border-gray-800" />}
         {filteredGroups.map((group) => {
           const color = resolveGroupColor(group)
           const Icon = resolveGroupIcon(group)

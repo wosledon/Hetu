@@ -59,6 +59,7 @@ public class ScheduledTaskRunner : BackgroundService
         var scheduledTaskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var chatMessageService = scope.ServiceProvider.GetRequiredService<IChatMessageService>();
+        var chatGroupService = scope.ServiceProvider.GetRequiredService<IChatGroupService>();
         var executors = scope.ServiceProvider.GetRequiredService<IEnumerable<IScheduledTaskExecutor>>()
             .ToDictionary(e => e.Kind);
 
@@ -70,7 +71,7 @@ public class ScheduledTaskRunner : BackgroundService
         foreach (var task in dueTasks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, chatMessageService, cancellationToken);
+            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, chatMessageService, chatGroupService, cancellationToken);
         }
     }
 
@@ -80,6 +81,7 @@ public class ScheduledTaskRunner : BackgroundService
         IUnitOfWork unitOfWork,
         IScheduledTaskService scheduledTaskService,
         IChatMessageService chatMessageService,
+        IChatGroupService chatGroupService,
         CancellationToken cancellationToken)
     {
         // 标记为执行中，避免重复拾取
@@ -168,16 +170,25 @@ public class ScheduledTaskRunner : BackgroundService
         await unitOfWork.ScheduledTasks.UpdateAsync(task, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 绑定了会话的任务：把执行结果作为 assistant 消息追加到对应 Topic
-        if (task.TopicId.HasValue)
+        // 绑定了会话的任务：把执行结果作为 assistant 消息追加到对应 Topic；
+        // 未绑定时写入主对话，用于展示 AI 主动完成的任务
+        var targetTopicId = task.TopicId;
+        if (!targetTopicId.HasValue)
         {
-            await AppendResultToTopicAsync(chatMessageService, task, succeeded, resultSummary, errorMessage, cancellationToken);
+            var mainChat = await chatGroupService.GetMainAsync(cancellationToken);
+            targetTopicId = mainChat.Success ? mainChat.Data?.Topic.Id : null;
+        }
+
+        if (targetTopicId.HasValue)
+        {
+            await AppendResultToTopicAsync(chatMessageService, task, targetTopicId.Value, succeeded, resultSummary, errorMessage, cancellationToken);
         }
     }
 
     private async Task AppendResultToTopicAsync(
         IChatMessageService chatMessageService,
         ScheduledTask task,
+        Guid topicId,
         bool succeeded,
         string? resultSummary,
         string? errorMessage,
@@ -196,14 +207,14 @@ public class ScheduledTaskRunner : BackgroundService
             var content = $"{header}\n\n{body}";
 
             await chatMessageService.SaveAssistantMessageAsync(
-                task.TopicId!.Value,
+                topicId,
                 content,
                 modelId: null,
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "定时任务 {TaskId} 结果追加到会话 {TopicId} 失败", task.Id, task.TopicId);
+            _logger.LogWarning(ex, "定时任务 {TaskId} 结果追加到会话 {TopicId} 失败", task.Id, topicId);
         }
     }
 }

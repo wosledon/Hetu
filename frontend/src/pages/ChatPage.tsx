@@ -12,8 +12,15 @@ import type { IChatGroup, IChatTopic } from '../types'
 export default function ChatPage() {
   const [selectedGroup, setSelectedGroup] = useState<IChatGroup | null>(null)
   const [selectedTopic, setSelectedTopic] = useState<IChatTopic | null>(null)
+  const [selectedMain, setSelectedMain] = useState(false)
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
   const collapsed = secondaryMenuStyle === 'collapsed'
+
+  // 主对话（全局主对话组 + 唯一主话题）
+  const { data: mainChat } = useQuery({
+    queryKey: ['chatMain'],
+    queryFn: chatGroupService.getMain,
+  })
 
   // 获取分组列表，用于自动选择默认分组
   const { data: groups = [] } = useQuery({
@@ -28,19 +35,40 @@ export default function ChatPage() {
     enabled: !!selectedGroup,
   })
 
-  // 当分组列表加载完成且没有选择分组时，自动选择第一个分组
+  const handleSelectMain = () => {
+    if (!mainChat) return
+    setSelectedGroup(mainChat.group)
+    setSelectedTopic(mainChat.topic)
+    setSelectedMain(true)
+  }
+
+  const handleSelectGroup = (group: IChatGroup) => {
+    setSelectedGroup(group)
+    setSelectedTopic(null)
+    setSelectedMain(false)
+  }
+
+  const handleSelectTopic = (topic: IChatTopic) => {
+    setSelectedTopic(topic)
+    setSelectedMain(topic.id === mainChat?.topic.id)
+  }
+
+  // 主对话存在时默认选中主对话；否则选第一个分组
   useEffect(() => {
-    if (groups.length > 0 && !selectedGroup) {
+    if (selectedGroup) return
+    if (mainChat) {
+      handleSelectMain()
+    } else if (groups.length > 0) {
       setSelectedGroup(groups[0])
     }
-  }, [groups, selectedGroup])
+  }, [groups, mainChat, selectedGroup])
 
   // 话题列表加载后自动选第一个
   useEffect(() => {
-    if (topics.length > 0 && !selectedTopic) {
+    if (topics.length > 0 && !selectedTopic && !selectedMain) {
       setSelectedTopic(topics[0])
     }
-  }, [topics, selectedTopic])
+  }, [topics, selectedTopic, selectedMain])
 
   return (
     <AppLayout showSidebar={false} mainContent={
@@ -57,25 +85,29 @@ export default function ChatPage() {
     }>
       {collapsed ? (
         <ChatTree
+          mainChat={mainChat}
+          selectedMain={selectedMain}
           selectedGroupId={selectedGroup?.id}
           selectedTopicId={selectedTopic?.id}
-          onSelectGroup={setSelectedGroup}
-          onSelectTopic={setSelectedTopic}
+          onSelectGroup={handleSelectGroup}
+          onSelectTopic={handleSelectTopic}
+          onSelectMain={handleSelectMain}
           onDeleteTopic={() => setSelectedTopic(null)}
         />
       ) : (
         <>
           <ChatSidebar
+            mainChat={mainChat}
+            selectedMain={selectedMain}
             selectedGroupId={selectedGroup?.id}
-            onSelectGroup={(group) => {
-              setSelectedGroup(group)
-              setSelectedTopic(null)
-            }}
+            onSelectGroup={handleSelectGroup}
+            onSelectMain={handleSelectMain}
           />
           <ChatTopicList
             groupId={selectedGroup?.id}
+            isMainGroup={selectedMain}
             selectedTopicId={selectedTopic?.id}
-            onSelectTopic={setSelectedTopic}
+            onSelectTopic={handleSelectTopic}
             onDeleteTopic={() => setSelectedTopic(null)}
           />
         </>

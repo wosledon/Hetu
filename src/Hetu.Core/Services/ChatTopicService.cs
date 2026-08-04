@@ -31,6 +31,7 @@ public class ChatTopicService : IChatTopicService
     {
         var group = await _unitOfWork.ChatGroups.GetByIdAsync(request.GroupId, cancellationToken);
         if (group == null) return ApiResponse<ChatTopicDto>.Fail("会话组不存在");
+        if (group.IsMain) return ApiResponse<ChatTopicDto>.Fail("主对话不可创建子话题");
 
         var topic = new ChatTopic
         {
@@ -78,7 +79,10 @@ public class ChatTopicService : IChatTopicService
         return ApiResponse.Ok();
     }
 
-    private static ChatTopicDto Map(ChatTopic topic) => new()
+    private static ChatTopicDto Map(ChatTopic topic) => MapTopic(topic);
+
+    /// <summary>话题 → DTO 映射（供主对话等跨服务复用）</summary>
+    public static ChatTopicDto MapTopic(ChatTopic topic) => new()
     {
         Id = topic.Id,
         GroupId = topic.GroupId,
@@ -88,6 +92,7 @@ public class ChatTopicService : IChatTopicService
         NoteSyncStatus = topic.NoteSyncStatus.ToString().ToLower(),
         IsAutoOrganizeEnabled = topic.IsAutoOrganizeEnabled,
         AutoOrganizeNotebookId = topic.AutoOrganizeNotebookId,
+        IsMain = topic.IsMain,
         CreatedAt = topic.CreatedAt,
         UpdatedAt = topic.UpdatedAt
     };

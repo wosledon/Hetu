@@ -1,5 +1,5 @@
 import { get, post, put, del } from './api';
-import type { IChatGroup, IChatTopic, IChatMessage } from '../types';
+import type { IChatGroup, IChatTopic, IChatMessage, IMainChat } from '../types';
 
 // Re-export prompt preset types and service from dedicated module
 export { promptPresetService } from './promptPresetService';
@@ -73,6 +73,7 @@ export interface OrganizeTopicRequest {
 export const chatGroupService = {
   getAll: () => get<IChatGroup[]>('/chat-groups'),
   getById: (id: string) => get<IChatGroup>(`/chat-groups/${id}`),
+  getMain: () => get<IMainChat>('/chat-groups/main'),
   create: (data: CreateChatGroupRequest) => post<IChatGroup>('/chat-groups', data),
   update: (id: string, data: UpdateChatGroupRequest) => put<IChatGroup>(`/chat-groups/${id}`, data),
   delete: (id: string) => del<void>(`/chat-groups/${id}`),

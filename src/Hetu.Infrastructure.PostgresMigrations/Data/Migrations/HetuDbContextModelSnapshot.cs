@@ -168,6 +168,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<bool>("IsMain")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -190,12 +193,21 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("CachedTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompressedTokens")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("integer");
 
                     b.Property<string>("KnowledgeResultsJson")
                         .HasColumnType("text");
@@ -208,6 +220,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.Property<Guid?>("ModelId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("integer");
 
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
@@ -261,6 +276,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsAutoOrganizeEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMain")
                         .HasColumnType("boolean");
 
                     b.Property<Guid?>("ModelId")

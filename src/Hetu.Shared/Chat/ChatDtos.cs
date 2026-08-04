@@ -8,6 +8,7 @@ public class ChatGroupDto
     public string? Color { get; set; }
     public string? Icon { get; set; }
     public int SortOrder { get; set; }
+    public bool IsMain { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -18,6 +19,13 @@ public class CreateChatGroupRequest
     public string? Description { get; set; }
     public string? Color { get; set; }
     public string? Icon { get; set; }
+}
+
+/// <summary>主对话（全局主对话组 + 唯一主话题）</summary>
+public class MainChatDto
+{
+    public ChatGroupDto Group { get; set; } = null!;
+    public ChatTopicDto Topic { get; set; } = null!;
 }
 
 public class UpdateChatGroupRequest
@@ -39,6 +47,7 @@ public class ChatTopicDto
     public string NoteSyncStatus { get; set; } = "pending";
     public bool IsAutoOrganizeEnabled { get; set; }
     public Guid? AutoOrganizeNotebookId { get; set; }
+    public bool IsMain { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

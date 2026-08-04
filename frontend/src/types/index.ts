@@ -109,6 +109,7 @@ export interface IChatGroup {
   color?: string;
   icon?: string;
   sortOrder: number;
+  isMain?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,8 +123,14 @@ export interface IChatTopic {
   noteSyncStatus: 'pending' | 'synced' | 'outdated';
   isAutoOrganizeEnabled: boolean;
   autoOrganizeNotebookId?: string;
+  isMain?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IMainChat {
+  group: IChatGroup;
+  topic: IChatTopic;
 }
 
 export interface IChatMessage {

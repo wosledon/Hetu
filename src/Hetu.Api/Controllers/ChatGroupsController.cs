@@ -24,6 +24,10 @@ public class ChatGroupsController : ControllerBase
     public Task<ApiResponse<ChatGroupDto>> GetById(Guid id, CancellationToken cancellationToken)
         => _chatGroupService.GetByIdAsync(id, cancellationToken);
 
+    [HttpGet("main")]
+    public Task<ApiResponse<MainChatDto>> GetMain(CancellationToken cancellationToken)
+        => _chatGroupService.GetMainAsync(cancellationToken);
+
     [HttpPost]
     public Task<ApiResponse<ChatGroupDto>> Create([FromBody] CreateChatGroupRequest request, CancellationToken cancellationToken)
         => _chatGroupService.CreateAsync(request, cancellationToken);
