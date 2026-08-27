@@ -1,5 +1,6 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services;
 
@@ -8,12 +9,14 @@ public class NoteEmbeddingService : INoteEmbeddingService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
     private readonly IChunkService _chunkService;
+    private readonly ILogger<NoteEmbeddingService> _logger;
 
-    public NoteEmbeddingService(IUnitOfWork unitOfWork, IEmbeddingProviderFactory embeddingProviderFactory, IChunkService chunkService)
+    public NoteEmbeddingService(IUnitOfWork unitOfWork, IEmbeddingProviderFactory embeddingProviderFactory, IChunkService chunkService, ILogger<NoteEmbeddingService> logger)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
         _chunkService = chunkService;
+        _logger = logger;
     }
 
     public async Task GenerateEmbeddingAsync(Guid noteId, CancellationToken cancellationToken = default)
@@ -210,17 +213,37 @@ public class NoteEmbeddingService : INoteEmbeddingService
     public async Task GenerateKnowledgeItemEmbeddingAsync(Guid knowledgeItemId, CancellationToken cancellationToken = default)
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(knowledgeItemId, cancellationToken);
-        if (item == null || item.IsDeleted) return;
+        if (item == null || item.IsDeleted)
+        {
+            _logger.LogWarning("[KI Embed] 知识项不存在或已删除 id={Id}", knowledgeItemId);
+            return;
+        }
 
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
-        if (provider == null) return;
+        if (provider == null)
+        {
+            _logger.LogWarning("[KI Embed] 未配置 Embedding 模型，跳过索引 id={Id}", knowledgeItemId);
+            return;
+        }
 
         var text = item.Content;
-        if (string.IsNullOrWhiteSpace(text)) return;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _logger.LogWarning("[KI Embed] 知识项内容为空 id={Id} type={Type}", knowledgeItemId, item.Type);
+            return;
+        }
+
+        _logger.LogInformation("[KI Embed] 开始索引 id={Id} type={Type} contentLen={Len}", knowledgeItemId, item.Type, text.Length);
 
         // 使用分块策略
         var chunks = await _chunkService.ChunkTextAsync(text, cancellationToken);
-        if (chunks == null || chunks.Count == 0) return;
+        if (chunks == null || chunks.Count == 0)
+        {
+            _logger.LogWarning("[KI Embed] 分块结果为空 id={Id}", knowledgeItemId);
+            return;
+        }
+
+        _logger.LogInformation("[KI Embed] 分块完成 id={Id} chunkCount={Count}", knowledgeItemId, chunks.Count);
 
         // 删除旧的分块
         await _unitOfWork.KnowledgeItems.DeleteChunksAsync(item.Id, cancellationToken);
@@ -244,34 +267,43 @@ public class NoteEmbeddingService : INoteEmbeddingService
 
             if (string.IsNullOrWhiteSpace(textToEmbed)) continue;
 
-            var embedding = await provider.EmbedAsync(textToEmbed, cancellationToken);
-            var bytes = FloatArrayToBytes(embedding);
-
-            var existing = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingAsync(chunk.Id, cancellationToken);
-            if (existing == null)
+            try
             {
-                await _unitOfWork.KnowledgeItems.AddChunkEmbeddingAsync(new NoteChunkEmbedding
+                var embedding = await provider.EmbedAsync(textToEmbed, cancellationToken);
+
+                var existing = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingAsync(chunk.Id, cancellationToken);
+                if (existing == null)
                 {
-                    ChunkId = chunk.Id,
-                    Embedding = bytes,
-                    Vector = embedding,
-                    Model = "default",
-                    Dimensions = embedding.Length,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                }, cancellationToken);
-            }
-            else
-            {
-                existing.Embedding = bytes;
-                existing.Vector = embedding;
-                existing.Model = "default";
-                existing.Dimensions = embedding.Length;
-                existing.UpdatedAt = DateTimeOffset.UtcNow;
-                await _unitOfWork.KnowledgeItems.UpdateChunkEmbeddingAsync(existing, cancellationToken);
-            }
+                    await _unitOfWork.KnowledgeItems.AddChunkEmbeddingAsync(new NoteChunkEmbedding
+                    {
+                        ChunkId = chunk.Id,
+                        Embedding = FloatArrayToBytes(embedding),
+                        Vector = embedding,
+                        Model = "default",
+                        Dimensions = embedding.Length,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    }, cancellationToken);
+                }
+                else
+                {
+                    existing.Embedding = FloatArrayToBytes(embedding);
+                    existing.Vector = embedding;
+                    existing.Model = "default";
+                    existing.Dimensions = embedding.Length;
+                    existing.UpdatedAt = DateTimeOffset.UtcNow;
+                    await _unitOfWork.KnowledgeItems.UpdateChunkEmbeddingAsync(existing, cancellationToken);
+                }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            await _unitOfWork.KnowledgeItems.SyncChunkEmbeddingToVecTableAsync(chunk.Id, embedding, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.KnowledgeItems.SyncChunkEmbeddingToVecTableAsync(chunk.Id, embedding, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[KI Embed] 生成嵌入失败 id={Id} chunkIndex={Idx}", knowledgeItemId, chunk.ChunkIndex);
+                throw;
+            }
         }
+
+        _logger.LogInformation("[KI Embed] 索引完成 id={Id} chunkCount={Count}", knowledgeItemId, chunks.Count);
     }
 }
