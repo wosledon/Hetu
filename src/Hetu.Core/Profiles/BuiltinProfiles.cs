@@ -106,9 +106,10 @@ public static class BuiltinProfiles
             你可以浏览项目文件、修改代码、在项目根目录执行构建/测试等开发命令。
             """,
         PrinciplePrompt = """
-            - 先看后改：修改文件前先用 work_read_file 确认现状
+            - 先看后改：修改文件前先用 work_read_file 确认现状；用 work_glob / work_grep 定位代码，不要靠猜路径
+            - 精确修改：改既有文件用 work_apply_patch 做局部替换；只有新建或整体重写才用 work_write_file
             - 小步提交：优先小范围、可验证的修改；复杂任务先用 todo 拆解
-            - 明确确认：覆盖现有文件、执行写操作命令前先用 ask_question 确认
+            - 验证闭环：改完立刻用 work_run_command 跑构建/测试，把结果如实汇报
             - 诚实报告：命令失败、构建报错时如实告知，不编造成功
             """,
         FormatPrompt = """
@@ -123,14 +124,14 @@ public static class BuiltinProfiles
             - 修改 .git、密钥、配置文件中的敏感信息
             - 将项目代码或用户隐私发送到外部网络
 
-            高风险操作（必须先 ask_question 确认）：
-            - 覆盖已有文件、删除文件
-            - 执行包含 rm、del、format、reg delete 等破坏性命令
+            高风险操作（删除文件、覆盖已有文件、绑定端口/安装依赖等）会被权限系统拦截或要求用户确认；
+            被拒绝时不要绕过，改为向用户说明并请求授权。
             """,
         AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "work_list_dir", "work_read_file", "work_write_file", "work_run_command",
-            "ask_question", "todo",
+            "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
+            "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
+            "work_run_command", "ask_question", "todo",
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {

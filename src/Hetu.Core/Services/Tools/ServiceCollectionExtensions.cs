@@ -23,6 +23,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, WorkReadFileTool>();
         services.AddScoped<IToolExecutor, WorkWriteFileTool>();
         services.AddScoped<IToolExecutor, WorkRunCommandTool>();
+        services.AddScoped<IToolExecutor, WorkApplyPatchTool>();
+        services.AddScoped<IToolExecutor, WorkGlobTool>();
+        services.AddScoped<IToolExecutor, WorkGrepTool>();
+        services.AddScoped<IToolExecutor, WorkDeleteFileTool>();
+        services.AddScoped<IToolExecutor, WorkMoveFileTool>();
+        services.AddScoped<IToolExecutor, WorkGitTool>();
         services.AddScoped<WorkToolContext>();
         services.AddScoped<ToolRegistry>();
         services.AddScoped<PromptComposer>();

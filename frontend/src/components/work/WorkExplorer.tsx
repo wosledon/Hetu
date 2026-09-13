@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose, History, RotateCcw, Search } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -9,7 +9,7 @@ import { html } from '@codemirror/lang-html'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
-import { workFileService, workSessionService } from '../../services/workService'
+import { workFileService, workSessionService, workCheckpointService } from '../../services/workService'
 import { useUIStore } from '../../stores/uiStore'
 import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
@@ -25,7 +25,7 @@ interface TreeNode extends IWorkFileEntry {
   loaded?: boolean
 }
 
-type NavTab = 'files' | 'changes' | 'browser'
+type NavTab = 'files' | 'changes' | 'checkpoints' | 'browser'
 
 interface OpenTab {
   key: string
@@ -36,6 +36,7 @@ interface OpenTab {
 }
 
 export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
+  const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [loadedDirs, setLoadedDirs] = useState<Map<string, TreeNode[]>>(new Map())
@@ -43,11 +44,40 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
   const [browserUrl, setBrowserUrl] = useState('')
   const [tabs, setTabs] = useState<OpenTab[]>([])
   const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [restoreMessage, setRestoreMessage] = useState('')
 
   const { data: changes = [] } = useQuery({
     queryKey: ['workFileChanges', sessionId],
     queryFn: () => (sessionId ? workSessionService.getFileChanges(sessionId) : Promise.resolve([])),
     enabled: !!sessionId,
+  })
+
+  const { data: checkpoints = [] } = useQuery({
+    queryKey: ['workCheckpoints', sessionId],
+    queryFn: () => (sessionId ? workSessionService.getCheckpoints(sessionId) : Promise.resolve([])),
+    enabled: !!sessionId,
+  })
+
+  const searchTerm = searchQuery.trim()
+
+  const { data: searchHits = [], isFetching: isSearching } = useQuery({
+    queryKey: ['workFileSearch', projectId, searchTerm],
+    queryFn: () => workFileService.search(projectId!, searchTerm, 80),
+    enabled: !!projectId && searchTerm.length >= 2,
+  })
+
+  const restoreCheckpoint = useMutation({
+    mutationFn: (id: string) => workCheckpointService.restore(id),
+    onSuccess: (result) => {
+      setRestoreMessage(
+        `已恢复 ${result.restoredCount} 个文件，删除 ${result.deletedCount} 个文件` +
+          (result.errors.length > 0 ? `，${result.errors.length} 项失败` : ''),
+      )
+      queryClient.invalidateQueries({ queryKey: ['workFileChanges', sessionId] })
+      if (projectId) queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
+    },
+    onError: () => setRestoreMessage('回滚失败'),
   })
 
   const loadDir = useCallback(async (path: string) => {
@@ -211,6 +241,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
         <div className="flex h-9 shrink-0 items-center gap-1 border-b border-gray-100 px-2 dark:border-gray-800">
           {navBtn('files', '文件', Folder)}
           {navBtn('changes', '更改', GitCompare)}
+          {navBtn('checkpoints', '检查点', History)}
           {navBtn('browser', '浏览器', Globe)}
           <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
             <RefreshCw size={12} />
@@ -257,19 +288,101 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                     <div className="truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">{name}</div>
                     <div className="truncate text-[10px] text-gray-400">{change.filePath}</div>
                   </div>
-                  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${change.action === 'create' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                    {change.action === 'create' ? '新增' : '修改'}
+                  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${
+                    change.action === 'create'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : change.action === 'delete'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                  }`}>
+                    {change.action === 'create' ? '新增' : change.action === 'delete' ? '删除' : '修改'}
                   </span>
                 </div>
               )
             })}
           </div>
-        ) : (
+        ) : tab === 'checkpoints' ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-            {rootQuery.isFetching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
-            {!rootQuery.isFetching && rootQuery.error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{rootQuery.error.message || '读取目录失败'}</div>}
-            {!rootQuery.isFetching && !rootQuery.error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">空目录</div>}
-            {tree.map((node) => renderNode(node, '', 0))}
+            {restoreMessage && (
+              <div className="mb-1.5 rounded-lg bg-sky-50 px-2 py-1.5 text-[11px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+                {restoreMessage}
+              </div>
+            )}
+            {!sessionId && (
+              <div className="px-2 py-8 text-center text-xs text-gray-400">选择会话后查看检查点</div>
+            )}
+            {sessionId && checkpoints.length === 0 && (
+              <div className="px-2 py-8 text-center text-xs text-gray-400">暂无检查点（Agent 修改文件前会自动创建）</div>
+            )}
+            {checkpoints.map((cp) => (
+              <div
+                key={cp.id}
+                className="group mb-0.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+              >
+                <div className="flex items-center gap-2">
+                  <History size={13} className="shrink-0 text-sky-400" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[11px] text-gray-700 dark:text-gray-200">{cp.label}</div>
+                    <div className="truncate text-[10px] text-gray-400">
+                      {new Date(cp.createdAt).toLocaleTimeString()} · {cp.fileCount} 个文件
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => restoreCheckpoint.mutate(cp.id)}
+                    disabled={restoreCheckpoint.isPending}
+                    title="回滚到该检查点"
+                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                </div>
+                {cp.files.length > 0 && (
+                  <div className="mt-0.5 truncate pl-5 font-mono text-[10px] text-gray-400">{cp.files.join(' · ')}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center gap-1 border-b border-gray-100 p-1.5 dark:border-gray-800">
+              <Search size={12} className="shrink-0 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索文件名或内容"
+                className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-gray-400"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600">
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+            {searchTerm.length >= 2 ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+                {isSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
+                {!isSearching && searchHits.length === 0 && <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>}
+                {searchHits.map((hit, i) => (
+                  <div
+                    key={`${hit.path}:${hit.line}:${i}`}
+                    onClick={() => openFileTab(hit.path, hit.path.split('/').pop() ?? hit.path)}
+                    className="mb-0.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+                  >
+                    <div className="truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">
+                      {hit.path}{hit.line > 0 ? `:${hit.line}` : ''}
+                    </div>
+                    <div className="truncate text-[10px] text-gray-400">{hit.text}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+                {rootQuery.isFetching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
+                {!rootQuery.isFetching && rootQuery.error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{rootQuery.error.message || '读取目录失败'}</div>}
+                {!rootQuery.isFetching && !rootQuery.error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">空目录</div>}
+                {tree.map((node) => renderNode(node, '', 0))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, Square, FileCode, GitBranch, ChevronDown, ChevronRight, Loader2, Wrench, FolderTree } from 'lucide-react'
+import { Send, Bot, Square, FileCode, GitBranch, ChevronDown, ChevronRight, Loader2, Wrench, FolderTree, ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX } from 'lucide-react'
 import { workSessionService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
-import type { IWorkSession, IWorkMessage, IWorkProject } from '../../types/work'
+import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -16,12 +16,18 @@ interface WorkSessionAreaProps {
 
 interface FileChangeMeta { path: string; action: string }
 interface ToolCallView { id: string; name: string; arguments: string; result?: string; hidden?: boolean }
+interface ApprovalRequestView { id: string; name: string; arguments: string }
+interface QuestionRequestView { toolCallId: string; data: string }
+interface CheckpointView { id: string; label: string; fileCount: number }
 
 type WorkStreamHandlers = {
   onContent: (text: string) => void
   onToolCall: (tc: ToolCallView) => void
   onToolResult: (id: string, content: string) => void
   onFileChange: (fc: FileChangeMeta) => void
+  onApprovalRequest: (req: ApprovalRequestView) => void
+  onQuestion: (req: QuestionRequestView) => void
+  onCheckpoint: (cp: CheckpointView) => void
 }
 
 /** 把工作流的一帧分发给对应 handler；非 JSON 帧按纯文本追加。 */
@@ -37,10 +43,20 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     else if (evt.type === 'tool_call') handlers.onToolCall({ id: evt.id, name: evt.name, arguments: evt.arguments, hidden: evt.hidden })
     else if (evt.type === 'tool_result') handlers.onToolResult(evt.id, evt.content)
     else if (evt.type === 'file_change') handlers.onFileChange({ path: evt.path, action: evt.action })
+    else if (evt.type === 'approval_request') handlers.onApprovalRequest({ id: evt.id, name: evt.name, arguments: evt.arguments })
+    else if (evt.type === 'question') handlers.onQuestion({ toolCallId: evt.toolCallId, data: evt.data })
+    else if (evt.type === 'checkpoint') handlers.onCheckpoint({ id: evt.id, label: evt.label, fileCount: evt.fileCount })
   } catch {
     handlers.onContent(data)
   }
 }
+
+const PERMISSION_MODES: { value: WorkPermissionMode; label: string }[] = [
+  { value: 'readonly', label: '只读（不改文件）' },
+  { value: 'ask', label: '每次写入需确认' },
+  { value: 'auto', label: '自动执行写操作' },
+  { value: 'bypass', label: '全部放行' },
+]
 
 export default function WorkSessionArea({ project, session, onSessionUpdated }: WorkSessionAreaProps) {
   const queryClient = useQueryClient()
@@ -49,6 +65,11 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   const [streamingContent, setStreamingContent] = useState('')
   const [liveToolCalls, setLiveToolCalls] = useState<ToolCallView[]>([])
   const [liveFileChanges, setLiveFileChanges] = useState<FileChangeMeta[]>([])
+  const [liveCheckpoints, setLiveCheckpoints] = useState<CheckpointView[]>([])
+  const [approvals, setApprovals] = useState<ApprovalRequestView[]>([])
+  const [questions, setQuestions] = useState<QuestionRequestView[]>([])
+  const [answerDraft, setAnswerDraft] = useState('')
+  const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -84,9 +105,26 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     if (session) setModelOverride({ sessionId: session.id, value })
   }
 
+  const permissionMode: WorkPermissionMode =
+    session && pendingMode?.sessionId === session.id
+      ? pendingMode.value
+      : session?.permissionMode ?? 'ask'
+
+  const setPermissionMode = (value: WorkPermissionMode) => {
+    if (!session) return
+    setPendingMode({ sessionId: session.id, value })
+    workSessionService
+      .update(session.id, { title: session.title, modelId: session.modelId, permissionMode: value })
+      .then((updated) => {
+        onSessionUpdated?.(updated)
+        queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
+      })
+      .catch(() => setPendingMode(null))
+  }
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, liveToolCalls])
+  }, [messages, streamingContent, liveToolCalls, approvals, questions])
 
   if (!session) {
     return (
@@ -110,6 +148,9 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     setStreamingContent('')
     setLiveToolCalls([])
     setLiveFileChanges([])
+    setLiveCheckpoints([])
+    setApprovals([])
+    setQuestions([])
 
     const controller = new AbortController()
     streamRef.current = controller
@@ -118,6 +159,9 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       onToolCall: (tc) => setLiveToolCalls((prev) => [...prev.filter((x) => x.id !== tc.id), tc]),
       onToolResult: (id, result) => setLiveToolCalls((prev) => prev.map((x) => (x.id === id ? { ...x, result } : x))),
       onFileChange: (fc) => setLiveFileChanges((prev) => [...prev.filter((x) => x.path !== fc.path), fc]),
+      onApprovalRequest: (req) => setApprovals((prev) => [...prev.filter((x) => x.id !== req.id), req]),
+      onQuestion: (req) => setQuestions((prev) => [...prev.filter((x) => x.toolCallId !== req.toolCallId), req]),
+      onCheckpoint: (cp) => setLiveCheckpoints((prev) => [...prev.filter((x) => x.id !== cp.id), cp]),
     }
 
     try {
@@ -127,7 +171,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           content,
           modelId: selectedModelId || undefined,
           enableTools: true,
-          toolApprovalMode: 'auto',
+          permissionMode,
         },
         controller.signal,
       )
@@ -142,11 +186,29 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       setIsStreaming(false)
       setLiveToolCalls([])
       setLiveFileChanges([])
+      setLiveCheckpoints([])
+      setApprovals([])
+      setQuestions([])
       queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
       queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       queryClient.invalidateQueries({ queryKey: ['workFileChanges', session.id] })
+      queryClient.invalidateQueries({ queryKey: ['workCheckpoints', session.id] })
     }
+  }
+
+  const submitApproval = (id: string, approve: boolean) => {
+    if (!session) return
+    setApprovals((prev) => prev.filter((x) => x.id !== id))
+    workSessionService.approve(session.id, id, approve).catch(() => {})
+  }
+
+  const submitAnswer = (toolCallId: string) => {
+    if (!session || !answerDraft.trim()) return
+    const answer = answerDraft.trim()
+    setAnswerDraft('')
+    setQuestions((prev) => prev.filter((x) => x.toolCallId !== toolCallId))
+    workSessionService.answer(session.id, toolCallId, answer).catch(() => {})
   }
 
   const visibleToolCalls = liveToolCalls.filter((t) => !t.hidden)
@@ -154,12 +216,22 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
       {/* 头部 */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || '新会话'}</h2>
           <p className="truncate text-[11px] text-gray-400">
             {project ? `${project.name} · ` : ''}{messages.length} 条消息
           </p>
+        </div>
+        <div className="flex w-36 shrink-0 items-center gap-1.5">
+          {permissionMode === 'readonly' || permissionMode === 'bypass'
+            ? <ShieldOff size={14} className="shrink-0 text-amber-500" />
+            : <ShieldCheck size={14} className="shrink-0 text-emerald-500" />}
+          <Select
+            value={permissionMode}
+            onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
+            options={PERMISSION_MODES.map((m) => ({ value: m.value, label: m.label }))}
+          />
         </div>
         <div className="w-44 shrink-0">
           <Select
@@ -206,10 +278,57 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
             </div>
           )}
 
+          {/* 实时检查点 */}
+          {liveCheckpoints.length > 0 && (
+            <div className="space-y-1.5">
+              {liveCheckpoints.map((cp) => <CheckpointCard key={cp.id} cp={cp} />)}
+            </div>
+          )}
+
           {/* 实时工具调用 / 子 Agent */}
           {visibleToolCalls.length > 0 && (
             <div className="space-y-1.5">
               {visibleToolCalls.map((tc) => <ToolCallCard key={tc.id} tc={tc} />)}
+            </div>
+          )}
+
+          {/* 待确认的写操作 */}
+          {approvals.map((req) => (
+            <ApprovalCard
+              key={req.id}
+              request={req}
+              onApprove={() => submitApproval(req.id, true)}
+              onDeny={() => submitApproval(req.id, false)}
+            />
+          ))}
+
+          {/* Agent 追问 */}
+          {questions.length > 0 && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-950/20">
+              {questions.map((q) => (
+                <div key={q.toolCallId} className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <CircleHelp size={15} className="mt-0.5 shrink-0 text-indigo-500" />
+                    <p className="whitespace-pre-wrap text-[13px] text-gray-800 dark:text-gray-100">{questionText(q.data)}</p>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={answerDraft}
+                      onChange={(e) => setAnswerDraft(e.target.value)}
+                      rows={2}
+                      placeholder="输入回答后发送"
+                      className="flex-1 resize-none rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-indigo-400 dark:border-indigo-800 dark:bg-gray-900"
+                    />
+                    <button
+                      onClick={() => submitAnswer(q.toolCallId)}
+                      disabled={!answerDraft.trim()}
+                      className="rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
+                    >
+                      回答
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -287,15 +406,85 @@ function WorkMessageView({ message }: { message: IWorkMessage }) {
 }
 
 function FileChangeCard({ change }: { change: FileChangeMeta }) {
+  const meta = change.action === 'delete'
+    ? { label: '已删除', icon: <FileX size={14} className="shrink-0 text-rose-500" />, box: 'border-rose-200/70 bg-rose-50/70 dark:border-rose-800/40 dark:bg-rose-950/20', text: 'text-rose-800 dark:text-rose-300' }
+    : change.action === 'create'
+      ? { label: '新建', icon: <FilePlus size={14} className="shrink-0 text-emerald-500" />, box: 'border-emerald-200/70 bg-emerald-50/70 dark:border-emerald-800/40 dark:bg-emerald-950/20', text: 'text-emerald-800 dark:text-emerald-300' }
+      : { label: '已修改', icon: <PenLine size={14} className="shrink-0 text-amber-500" />, box: 'border-amber-200/70 bg-amber-50/70 dark:border-amber-800/40 dark:bg-amber-950/20', text: 'text-amber-800 dark:text-amber-300' }
+
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/70 px-3 py-1.5 dark:border-amber-800/40 dark:bg-amber-950/20">
-      <FileCode size={14} className="shrink-0 text-amber-500" />
-      <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-amber-800 dark:text-amber-300">{change.path}</span>
-      <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
-        {change.action === 'write' ? '已修改' : '变更'}
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${meta.box}`}>
+      {meta.icon}
+      <span className={`min-w-0 flex-1 truncate font-mono text-[12px] ${meta.text}`}>{change.path}</span>
+      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.text}`}>{meta.label}</span>
+    </div>
+  )
+}
+
+function CheckpointCard({ cp }: { cp: CheckpointView }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-sky-200/70 bg-sky-50/70 px-3 py-1.5 dark:border-sky-800/40 dark:bg-sky-950/20">
+      <History size={14} className="shrink-0 text-sky-500" />
+      <span className="min-w-0 flex-1 truncate text-[12px] text-sky-800 dark:text-sky-300">{cp.label}</span>
+      <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+        {cp.fileCount} 个文件快照
       </span>
     </div>
   )
+}
+
+function ApprovalCard({ request, onApprove, onDeny }: { request: ApprovalRequestView; onApprove: () => void; onDeny: () => void }) {
+  let args = request.arguments
+  try { args = JSON.stringify(JSON.parse(request.arguments), null, 2) } catch { /* keep raw */ }
+  const target = extractPath(request.arguments)
+
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 dark:border-amber-700/60 dark:bg-amber-950/20">
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-amber-500" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium text-gray-800 dark:text-gray-100">
+            需要确认：{request.name}
+          </p>
+          {target && <p className="mt-0.5 truncate font-mono text-[11px] text-gray-500">{target}</p>}
+        </div>
+      </div>
+      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-[11px] text-gray-600 dark:bg-gray-900/60 dark:text-gray-300">{args}</pre>
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={onApprove}
+          className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-emerald-600"
+        >
+          允许
+        </button>
+        <button
+          onClick={onDeny}
+          className="rounded-lg bg-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"
+        >
+          拒绝
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** ask_question 的 arguments 形如 { "question": "..." }，解析失败时回退原文。 */
+function questionText(data: string): string {
+  try {
+    const parsed = JSON.parse(data) as { question?: string }
+    return parsed.question ?? data
+  } catch {
+    return data
+  }
+}
+
+function extractPath(argumentsJson: string): string | null {
+  try {
+    const parsed = JSON.parse(argumentsJson) as { path?: string; to?: string; from?: string }
+    return parsed.path ?? parsed.to ?? parsed.from ?? null
+  } catch {
+    return null
+  }
 }
 
 function ToolCallCard({ tc }: { tc: ToolCallView }) {
@@ -304,6 +493,12 @@ function ToolCallCard({ tc }: { tc: ToolCallView }) {
     work_list_dir: { label: '浏览目录', icon: <FolderTree size={12} /> },
     work_read_file: { label: '读取文件', icon: <FileCode size={12} /> },
     work_write_file: { label: '修改文件', icon: <Wrench size={12} /> },
+    work_apply_patch: { label: '局部修改', icon: <PenLine size={12} /> },
+    work_delete_file: { label: '删除文件', icon: <FileX size={12} /> },
+    work_move_file: { label: '移动文件', icon: <FileCode size={12} /> },
+    work_glob: { label: '查找文件', icon: <FolderTree size={12} /> },
+    work_grep: { label: '搜索内容', icon: <FileCode size={12} /> },
+    work_git: { label: 'Git 查询', icon: <GitBranch size={12} /> },
     work_run_command: { label: '执行命令', icon: <GitBranch size={12} /> },
   }
   const meta = nameMap[tc.name] ?? { label: tc.name, icon: <Wrench size={12} /> }

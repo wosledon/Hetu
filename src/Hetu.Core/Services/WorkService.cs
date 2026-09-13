@@ -1,5 +1,6 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 
@@ -144,6 +145,9 @@ public class WorkSessionService : IWorkSessionService
             ProjectId = request.ProjectId,
             Title = string.IsNullOrWhiteSpace(request.Title) ? "新会话" : request.Title.Trim(),
             ModelId = request.ModelId,
+            PermissionMode = WorkToolPolicy.IsValidValue(request.PermissionMode)
+                ? request.PermissionMode!.Trim().ToLowerInvariant()
+                : WorkToolPolicy.DefaultMode,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -160,6 +164,12 @@ public class WorkSessionService : IWorkSessionService
 
         if (!string.IsNullOrWhiteSpace(request.Title)) session.Title = request.Title.Trim();
         session.ModelId = request.ModelId;
+        if (!string.IsNullOrWhiteSpace(request.PermissionMode))
+        {
+            if (!WorkToolPolicy.IsValidValue(request.PermissionMode))
+                return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：readonly | ask | auto | bypass");
+            session.PermissionMode = request.PermissionMode.Trim().ToLowerInvariant();
+        }
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
@@ -246,6 +256,7 @@ public class WorkSessionService : IWorkSessionService
         ProjectId = session.ProjectId,
         Title = session.Title,
         ModelId = session.ModelId,
+        PermissionMode = string.IsNullOrWhiteSpace(session.PermissionMode) ? WorkToolPolicy.DefaultMode : session.PermissionMode,
         MessageCount = messageCount,
         CreatedAt = session.CreatedAt,
         UpdatedAt = session.UpdatedAt

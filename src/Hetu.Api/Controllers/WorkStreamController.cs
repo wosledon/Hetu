@@ -24,23 +24,32 @@ public class WorkStreamController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWorkSessionService _sessionService;
+    private readonly IWorkCheckpointService _checkpointService;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ToolExecutionService _toolExecution;
-    private readonly WorkToolContext _workToolContext;
+    private readonly ToolRegistry _toolRegistry;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
         IWorkSessionService sessionService,
+        IWorkCheckpointService checkpointService,
         ILLMProviderFactory llmProviderFactory,
         ToolExecutionService toolExecution,
-        WorkToolContext workToolContext)
+        ToolRegistry toolRegistry)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
+        _checkpointService = checkpointService;
         _llmProviderFactory = llmProviderFactory;
         _toolExecution = toolExecution;
-        _workToolContext = workToolContext;
+        _toolRegistry = toolRegistry;
     }
+
+    /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
+    private const int MaxHistoryMessages = 40;
+
+    /// <summary>每个会话保留的检查点数量</summary>
+    private const int MaxCheckpointsPerSession = 30;
 
     [HttpPost("{sessionId:guid}/stream")]
     public async Task Stream(Guid sessionId, [FromBody] SendWorkMessageRequest request, CancellationToken ct = default)
@@ -64,7 +73,24 @@ public class WorkStreamController : ControllerBase
             await writer.WriteErrorAsync("项目不存在");
             return;
         }
-        _workToolContext.ProjectRoot = project.RootPath;
+
+        // 权限模式：请求 > 会话持久值；请求里带了就顺带持久化
+        var permissionMode = ResolvePermissionMode(request, session);
+        if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
+            !string.Equals(WorkToolPolicy.ToValue(permissionMode), session.PermissionMode, StringComparison.OrdinalIgnoreCase))
+        {
+            var entity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
+            if (entity != null)
+            {
+                entity.PermissionMode = WorkToolPolicy.ToValue(permissionMode);
+                entity.UpdatedAt = DateTimeOffset.UtcNow;
+                await _unitOfWork.WorkSessions.UpdateAsync(entity, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+                session.PermissionMode = entity.PermissionMode;
+            }
+        }
+
+        var approvalRules = await _unitOfWork.WorkApprovalRules.FindAsync(r => r.ProjectId == project.Id, ct);
 
         // 保存用户消息
         var userMsg = await _sessionService.AddMessageAsync(sessionId, "user", request.Content ?? "", cancellationToken: ct);
@@ -86,38 +112,40 @@ public class WorkStreamController : ControllerBase
         // 构建历史 + 工具
         var messagesResult = await _sessionService.GetMessagesAsync(sessionId, ct);
         var history = messagesResult.Data ?? [];
-        var chatMessages = history
-            .Where(m => m.Type == "text")
-            .Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content })
-            .ToList();
+        var chatMessages = BuildChatHistory(history);
 
         var profile = BuiltinProfiles.Work;
+        var systemPromptParts = new List<string>
+        {
+            profile.IdentityPrompt,
+            profile.PrinciplePrompt,
+            profile.FormatPrompt,
+            profile.SafetyPrompt,
+            $"\n当前项目: {project.Name}\n项目根目录: {project.RootPath}",
+            $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
+            BuildToolGuideline(profile.AllowedTools),
+        };
+
+        var ruleContext = WorkProjectRules.LoadRuleContext(project.RootPath);
+        if (!string.IsNullOrWhiteSpace(ruleContext))
+            systemPromptParts.Add($"\n项目规则（来自仓库内的约定文件，必须遵守）：\n{ruleContext}");
+
+        var gitContext = await WorkProjectRules.BuildGitContextAsync(project.RootPath, ct);
+        if (!string.IsNullOrWhiteSpace(gitContext))
+            systemPromptParts.Add($"\n版本控制状态：\n{gitContext}");
+
         var options = new ChatOptions
         {
             // ModelId 留空：provider 创建时已注入正确的模型名
             Stream = true,
-            SystemPrompt = string.Join("\n\n", new[]
-            {
-                profile.IdentityPrompt,
-                profile.PrinciplePrompt,
-                profile.FormatPrompt,
-                profile.SafetyPrompt,
-                $"\n当前项目: {project.Name}\n项目根目录: {project.RootPath}",
-                "工具使用约定：\n- work_list_dir / work_read_file：先浏览再读取\n- work_write_file：创建或覆盖文件，覆盖前确认\n- work_run_command：在项目根目录执行构建/测试/git 命令",
-            }),
+            SystemPrompt = string.Join("\n\n", systemPromptParts),
         };
 
         var overrides = new Dictionary<string, ToolApprovalMode>();
         if (request.EnableTools)
         {
-            var definitions = ToolRegistryStatic.ToDefinitions(profile);
-            options.Tools = definitions;
+            options.Tools = _toolRegistry.ToToolDefinitions(profile.AllowedTools.ToList());
             options.ToolChoice = "auto";
-            if (!string.IsNullOrWhiteSpace(request.ToolApprovalMode) &&
-                Enum.TryParse<ToolApprovalMode>(request.ToolApprovalMode, true, out var mode))
-            {
-                overrides["*"] = mode;
-            }
         }
 
         // Agent Loop
@@ -125,7 +153,7 @@ public class WorkStreamController : ControllerBase
         var thinkingSb = new StringBuilder();
         var sessionTodos = new List<SessionTodo>();
         var fileChanges = new List<object>();
-        const int maxIterations = 30;
+        var maxIterations = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : 30;
         string? loopError = null;
 
         try
@@ -143,53 +171,65 @@ public class WorkStreamController : ControllerBase
 
                 chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
 
-                // 解析 write 工具参数一次，供「执行前 diff」与「执行后变更记录」复用
-                var writes = new Dictionary<string, (string Path, string Content)>();
-                foreach (var tc in pendingToolCalls.Where(t => t.Name == "work_write_file"))
-                {
-                    var path = TryGetStringArgument(tc.Arguments, "path");
-                    if (string.IsNullOrWhiteSpace(path)) continue;
-                    writes[tc.Id] = (path, TryGetStringArgument(tc.Arguments, "content") ?? "");
-                }
+                // 预解析本轮会改动哪些文件（供检查点 + 变更记录）
+                var planned = PlanFileMutations(pendingToolCalls);
 
-                // 记录 write 工具执行前的旧内容（用于 diff）
-                var oldContents = new Dictionary<string, string?>();
-                foreach (var (toolCallId, write) in writes)
-                    oldContents[toolCallId] = await TryReadFileAsync(project.RootPath, write.Path, ct);
+                var oldContents = new Dictionary<string, string?>(StringComparer.Ordinal);
+                foreach (var change in planned)
+                    oldContents[ChangeKey(change.ToolCallId, change.Path)] =
+                        await TryReadFileAsync(project.RootPath, change.Path, ct);
+
+                // 改动执行前打检查点，支持整轮回滚
+                await CreateCheckpointAsync(project.Id, sessionId, iter, planned, ct, writer);
 
                 var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                     sessionId.ToString(),
                     pendingToolCalls, overrides, sessionTodos,
                     data => writer.WriteEventAsync(data),
                     payload => writer.WriteJsonAsync(payload),
-                    ct);
+                    ct,
+                    (toolCall, defaultMode) =>
+                    {
+                        var targetPath = WorkToolPolicy.ExtractTargetPath(toolCall.Name, toolCall.Arguments);
+                        return WorkToolPolicy.Decide(
+                            _toolRegistry.GetExecutor(toolCall.Name), toolCall.Name, targetPath, permissionMode, approvalRules);
+                    },
+                    project.RootPath);
 
                 // 文件变更事件 + 落库记录（供 diff 页展示）
-                foreach (var (toolCallId, write) in writes)
+                foreach (var change in planned)
                 {
                     try
                     {
-                        var oldContent = oldContents.GetValueOrDefault(toolCallId);
-                        var isNew = oldContent == null;
-                        var action = isNew ? "create" : "write";
+                        var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
+                        var oldContent = oldContents.GetValueOrDefault(toolCallKey);
+                        var newContent = change.InlineNewContent ??
+                            (System.IO.File.Exists(WorkPath.Resolve(project.RootPath, change.Path) ?? "\0")
+                                ? await TryReadFileAsync(project.RootPath, change.Path, ct)
+                                : null);
+
+                        var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";
                         await _unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
                         {
                             Id = Guid.NewGuid(),
                             ProjectId = project.Id,
                             SessionId = sessionId,
-                            FilePath = write.Path,
+                            FilePath = change.Path,
                             OldContent = oldContent,
-                            NewContent = write.Content,
+                            NewContent = newContent ?? "",
                             Action = action,
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
                         }, ct);
 
-                        var evt = new { type = "file_change", path = write.Path, action };
+                        var evt = new { type = "file_change", path = change.Path, action };
                         fileChanges.Add(evt);
                         await writer.WriteJsonAsync(evt);
                     }
-                    catch { }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                    {
+                        Log.Warning(ex, "[WorkStream] 记录文件变更失败 path={Path}", change.Path);
+                    }
                 }
 
                 foreach (var (toolCallId, content) in toolResults)
@@ -229,6 +269,145 @@ public class WorkStreamController : ControllerBase
         await writer.WriteJsonAsync(new { type = "done" });
     }
 
+    /// <summary>解析本轮生效的权限模式：请求显式指定优先，其次兼容旧的 ToolApprovalMode，最后回落到会话持久值</summary>
+    private static WorkPermissionMode ResolvePermissionMode(SendWorkMessageRequest request, WorkSessionDto session)
+    {
+        if (WorkToolPolicy.IsValidValue(request.PermissionMode))
+            return WorkToolPolicy.Parse(request.PermissionMode);
+
+        if (!string.IsNullOrWhiteSpace(request.ToolApprovalMode) &&
+            Enum.TryParse<ToolApprovalMode>(request.ToolApprovalMode, true, out var legacy))
+        {
+            return legacy switch
+            {
+                ToolApprovalMode.Bypass => WorkPermissionMode.Bypass,
+                ToolApprovalMode.Auto => WorkPermissionMode.Auto,
+                _ => WorkPermissionMode.Ask
+            };
+        }
+
+        return WorkToolPolicy.Parse(session.PermissionMode);
+    }
+
+    /// <summary>把工具清单与使用指引拼成 system prompt 片段</summary>
+    private string BuildToolGuideline(IReadOnlyCollection<string> toolNames)
+    {
+        var sb = new StringBuilder("工具使用约定：");
+        foreach (var executor in _toolRegistry.GetByNames(toolNames.ToList()))
+        {
+            sb.AppendLine();
+            sb.Append($"- {executor.Name}: {executor.Description}");
+            if (!string.IsNullOrWhiteSpace(executor.UsageGuideline))
+                sb.Append($"（{executor.UsageGuideline}）");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 历史压缩：保留最近 N 条文本消息，更早的内容折叠为一条摘要说明，
+    /// 避免长会话把上下文窗口顶满。
+    /// </summary>
+    private static List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history)
+    {
+        var texts = history.Where(m => m.Type == "text").ToList();
+        if (texts.Count <= MaxHistoryMessages)
+            return texts.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
+
+        var omitted = texts.Count - MaxHistoryMessages;
+        var kept = texts.Skip(omitted).ToList();
+        var messages = new List<LlmChatMessage>
+        {
+            new()
+            {
+                Role = "user",
+                Content = $"（本会话更早的 {omitted} 条消息因上下文长度限制已被省略，请基于后续对话继续。已修改的文件可重新读取确认。）"
+            }
+        };
+        messages.AddRange(kept.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }));
+        return messages;
+    }
+
+    private sealed record PlannedChange(string ToolCallId, string Path, string? InlineNewContent);
+
+    private static string ChangeKey(string toolCallId, string path) => toolCallId + "|" + path;
+
+    /// <summary>解析本轮工具调用中会改动哪些文件；只读工具不入列</summary>
+    private static List<PlannedChange> PlanFileMutations(List<LlmToolCall> toolCalls)
+    {
+        var planned = new List<PlannedChange>();
+        foreach (var toolCall in toolCalls)
+        {
+            switch (toolCall.Name)
+            {
+                case "work_write_file":
+                {
+                    var path = TryGetStringArgument(toolCall.Arguments, "path");
+                    if (!string.IsNullOrWhiteSpace(path))
+                        planned.Add(new PlannedChange(toolCall.Id, path, TryGetStringArgument(toolCall.Arguments, "content") ?? ""));
+                    break;
+                }
+                case "work_apply_patch":
+                case "work_delete_file":
+                {
+                    var path = TryGetStringArgument(toolCall.Arguments, "path");
+                    if (!string.IsNullOrWhiteSpace(path))
+                        planned.Add(new PlannedChange(toolCall.Id, path, null));
+                    break;
+                }
+                case "work_move_file":
+                {
+                    var from = TryGetStringArgument(toolCall.Arguments, "from");
+                    var to = TryGetStringArgument(toolCall.Arguments, "to");
+                    if (!string.IsNullOrWhiteSpace(from))
+                        planned.Add(new PlannedChange(toolCall.Id, from, null));
+                    if (!string.IsNullOrWhiteSpace(to))
+                        planned.Add(new PlannedChange(toolCall.Id, to, null));
+                    break;
+                }
+            }
+        }
+        return planned;
+    }
+
+    /// <summary>改动执行前为受影响的文件打快照检查点</summary>
+    private async Task CreateCheckpointAsync(
+        Guid projectId,
+        Guid sessionId,
+        int iteration,
+        List<PlannedChange> planned,
+        CancellationToken ct,
+        SseStreamWriter writer)
+    {
+        if (planned.Count == 0) return;
+
+        try
+        {
+            var checkpoint = await _checkpointService.CaptureAsync(
+                projectId,
+                sessionId,
+                $"第 {iteration + 1} 轮 · {planned.Select(p => p.Path).Distinct().Count()} 个文件",
+                planned.Select(p => p.ToolCallId),
+                planned.Select(p => p.Path).Distinct().ToList(),
+                ct);
+
+            if (checkpoint == null) return;
+
+            await writer.WriteJsonAsync(new
+            {
+                type = "checkpoint",
+                id = checkpoint.Id,
+                label = checkpoint.Label,
+                fileCount = checkpoint.FileCount
+            });
+
+            await _checkpointService.PruneAsync(sessionId, MaxCheckpointsPerSession, ct);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Log.Warning(ex, "[WorkStream] 创建检查点失败 sessionId={SessionId}", sessionId);
+        }
+    }
+
     /// <summary>读取工具调用参数中的字符串字段，参数不是合法 JSON 或字段缺失时返回 null</summary>
     private static string? TryGetStringArgument(string arguments, string name)
     {
@@ -260,37 +439,4 @@ public class WorkStreamController : ControllerBase
             return null;
         }
     }
-}
-
-/// <summary>静态工具定义辅助（Work 场景直接使用 Profile 允许的工具）</summary>
-public static class ToolRegistryStatic
-{
-    public static List<LlmToolDefinition> ToDefinitions(RuntimeProfile profile)
-    {
-        var defs = new List<LlmToolDefinition>();
-        foreach (var name in profile.AllowedTools)
-        {
-            var def = name switch
-            {
-                "work_list_dir" => Def("work_list_dir", "列出项目内目录/文件", Schema("{ \"type\": \"object\", \"properties\": { \"path\": { \"type\": \"string\", \"description\": \"相对项目根的目录路径，空串表示根目录\" } }, \"required\": [\"path\"] }")),
-                "work_read_file" => Def("work_read_file", "读取项目内文件内容", Schema("{ \"type\": \"object\", \"properties\": { \"path\": { \"type\": \"string\", \"description\": \"相对项目根的文件路径\" }, \"startLine\": { \"type\": \"integer\" }, \"endLine\": { \"type\": \"integer\" } }, \"required\": [\"path\"] }")),
-                "work_write_file" => Def("work_write_file", "创建或覆盖项目内文件，写入前需确认", Schema("{ \"type\": \"object\", \"properties\": { \"path\": { \"type\": \"string\", \"description\": \"相对项目根的文件路径\" }, \"content\": { \"type\": \"string\", \"description\": \"完整文件内容\" } }, \"required\": [\"path\", \"content\"] }")),
-                "work_run_command" => Def("work_run_command", "在项目根目录执行构建/测试/git 等开发命令", Schema("{ \"type\": \"object\", \"properties\": { \"command\": { \"type\": \"string\", \"description\": \"要执行的命令\" } }, \"required\": [\"command\"] }")),
-                "ask_question" => Def("ask_question", "向用户提问以获取澄清信息", Schema("{ \"type\": \"object\", \"properties\": { \"question\": { \"type\": \"string\" } }, \"required\": [\"question\"] }")),
-                "todo" => Def("todo", "维护任务清单", Schema("{ \"type\": \"object\", \"properties\": { \"todos\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"properties\": { \"title\": { \"type\": \"string\" }, \"done\": { \"type\": \"boolean\" } }, \"required\": [\"title\"] } } }, \"required\": [\"todos\"] }")),
-                _ => null,
-            };
-            if (def != null) defs.Add(def);
-        }
-        return defs;
-    }
-
-    private static LlmToolDefinition Def(string name, string description, System.Text.Json.JsonElement schema) => new()
-    {
-        Name = name,
-        Description = description,
-        ParametersSchema = schema
-    };
-
-    private static System.Text.Json.JsonElement Schema(string json) => System.Text.Json.JsonDocument.Parse(json).RootElement;
 }

@@ -37,6 +37,9 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WorkSession> WorkSessions { get; }
     public IRepository<WorkMessage> WorkMessages { get; }
     public IRepository<WorkFileChange> WorkFileChanges { get; }
+    public IRepository<WorkApprovalRule> WorkApprovalRules { get; }
+    public IRepository<WorkCheckpoint> WorkCheckpoints { get; }
+    public IRepository<WorkCheckpointFile> WorkCheckpointFiles { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -70,6 +73,9 @@ public class UnitOfWork : IUnitOfWork
         WorkSessions = new EfRepository<WorkSession>(context);
         WorkMessages = new EfRepository<WorkMessage>(context);
         WorkFileChanges = new EfRepository<WorkFileChange>(context);
+        WorkApprovalRules = new EfRepository<WorkApprovalRule>(context);
+        WorkCheckpoints = new EfRepository<WorkCheckpoint>(context);
+        WorkCheckpointFiles = new EfRepository<WorkCheckpointFile>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

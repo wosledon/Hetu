@@ -102,6 +102,105 @@ public class WorkFilesController : ControllerBase
         }
     }
 
+    /// <summary>项目内文件名/内容搜索（遵守 .gitignore/.hetuignore 与内置忽略目录）</summary>
+    [HttpGet("search")]
+    public async Task<ApiResponse<List<WorkFileSearchHitDto>>> Search(
+        Guid projectId,
+        [FromQuery] string query,
+        [FromQuery] int limit,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return ApiResponse<List<WorkFileSearchHitDto>>.Ok([]);
+
+        var root = await ResolveRootAsync(projectId, cancellationToken);
+        if (root == null) return ApiResponse<List<WorkFileSearchHitDto>>.Fail("项目不存在");
+
+        var max = Math.Clamp(limit <= 0 ? 60 : limit, 1, 200);
+        var needle = query.Trim();
+        var hits = new List<WorkFileSearchHitDto>();
+        var scanned = 0;
+
+        // 先按文件名匹配，保证定位类搜索优先生效
+        foreach (var file in EnumerateProjectFiles(root, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (++scanned > 20000 || hits.Count >= max) break;
+
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (relative.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                hits.Add(new WorkFileSearchHitDto { Path = relative, Line = 0, Text = Path.GetFileName(file) });
+        }
+
+        if (hits.Count < max)
+        {
+            var remaining = max - hits.Count;
+            foreach (var file in EnumerateProjectFiles(root, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (remaining <= 0) break;
+                if (!WorkProjectRules.IsProbablyText(file)) continue;
+
+                string[] lines;
+                try
+                {
+                    lines = await System.IO.File.ReadAllLinesAsync(file, cancellationToken);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+                for (var i = 0; i < lines.Length && remaining > 0; i++)
+                {
+                    var index = lines[i].IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+                    if (index < 0) continue;
+
+                    var text = lines[i].Trim();
+                    if (text.Length > 200) text = text[..200] + "…";
+                    hits.Add(new WorkFileSearchHitDto { Path = relative, Line = i + 1, Text = text });
+                    remaining--;
+                }
+            }
+        }
+
+        return ApiResponse<List<WorkFileSearchHitDto>>.Ok(hits);
+    }
+
+    private static IEnumerable<string> EnumerateProjectFiles(string root, CancellationToken cancellationToken)
+    {
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+
+            string[] subDirs;
+            string[] files;
+            try
+            {
+                subDirs = Directory.GetDirectories(current);
+                files = Directory.GetFiles(current);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var file in files) yield return file;
+
+            foreach (var sub in subDirs)
+            {
+                if (WorkProjectRules.IsBuiltinIgnoredDir(Path.GetFileName(sub))) continue;
+                var relative = Path.GetRelativePath(root, sub).Replace('\\', '/');
+                if (WorkProjectRules.IsIgnored(root, relative)) continue;
+                pending.Push(sub);
+            }
+        }
+    }
+
     private async Task<string?> ResolveRootAsync(Guid projectId, CancellationToken cancellationToken)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);

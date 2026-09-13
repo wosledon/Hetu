@@ -20,6 +20,8 @@ public class WorkSession : BaseEntity
     public WorkProject Project { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
+    /// <summary>权限模式：readonly | ask | auto | bypass</summary>
+    public string PermissionMode { get; set; } = "ask";
     public List<WorkMessage> Messages { get; set; } = [];
 }
 
@@ -37,4 +39,43 @@ public class WorkMessage : BaseEntity
     /// <summary>结构化附加数据（JSON，如 file_change 的路径/操作、subagent 的名称/状态）</summary>
     public string? Metadata { get; set; }
     public Guid? ModelId { get; set; }
+}
+
+/// <summary>
+/// 项目级工具审批规则：命中后自动放行或拒绝，免去重复确认。
+/// </summary>
+public class WorkApprovalRule : BaseEntity
+{
+    public Guid ProjectId { get; set; }
+    /// <summary>工具名，"*" 表示所有工具</summary>
+    public string ToolName { get; set; } = "*";
+    /// <summary>相对项目根的路径通配符（如 src/**），留空表示不限制路径</summary>
+    public string? PathPattern { get; set; }
+    /// <summary>allow | deny</summary>
+    public string Decision { get; set; } = "allow";
+    public bool IsEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// 工具批次开始前的文件快照，用于整体回滚本轮修改。
+/// </summary>
+public class WorkCheckpoint : BaseEntity
+{
+    public Guid ProjectId { get; set; }
+    public Guid SessionId { get; set; }
+    /// <summary>可读标签，如 "第 3 轮 · 修改 2 个文件"</summary>
+    public string Label { get; set; } = string.Empty;
+    /// <summary>触发的工具名（逗号分隔）</summary>
+    public string Tools { get; set; } = string.Empty;
+    public int FileCount { get; set; }
+    public List<WorkCheckpointFile> Files { get; set; } = [];
+}
+
+/// <summary>检查点内的单个文件快照；Content 为 null 表示快照时文件尚不存在</summary>
+public class WorkCheckpointFile : BaseEntity
+{
+    public Guid CheckpointId { get; set; }
+    public WorkCheckpoint Checkpoint { get; set; } = null!;
+    public string FilePath { get; set; } = string.Empty;
+    public string? Content { get; set; }
 }
