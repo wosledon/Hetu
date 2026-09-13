@@ -1,8 +1,8 @@
 using System.Data;
 using System.Text;
-using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Infrastructure.Data;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
@@ -181,19 +181,8 @@ public class MemoryService : IMemoryService
             var options = new ChatOptions { Stream = false, Temperature = 0.3 };
 
             var response = await provider.ChatAsync(chatMessages, options, cancellationToken);
-            var responseText = response.Trim();
 
-            // 尝试提取 JSON 部分
-            var jsonStart = responseText.IndexOf('[');
-            var jsonEnd = responseText.LastIndexOf(']');
-            if (jsonStart >= 0 && jsonEnd > jsonStart)
-            {
-                responseText = responseText[jsonStart..(jsonEnd + 1)];
-            }
-
-            var extracted = JsonSerializer.Deserialize<List<ExtractedFact>>(responseText,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
+            var extracted = LlmJsonExtractor.Deserialize<List<ExtractedFact>>(response);
             if (extracted == null || extracted.Count == 0)
                 return ApiResponse<List<MemoryDto>>.Ok([]);
 

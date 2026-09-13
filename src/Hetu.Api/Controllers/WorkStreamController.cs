@@ -5,6 +5,7 @@ using Hetu.Core.Interfaces;
 using Hetu.Core.Profiles;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -43,9 +44,7 @@ public class WorkStreamController : ControllerBase
     [HttpPost("{sessionId:guid}/stream")]
     public async Task Stream(Guid sessionId, [FromBody] SendWorkMessageRequest request, CancellationToken ct = default)
     {
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers.Connection = "keep-alive";
+        Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, ct);
 

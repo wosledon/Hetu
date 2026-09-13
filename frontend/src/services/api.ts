@@ -16,44 +16,39 @@ api.interceptors.response.use(
   }
 );
 
-export async function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  const response = await api.get<IApiResponse<T>>(url, { params });
+type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+/** 解包统一响应格式，业务失败时抛出 Error。 */
+async function request<T>(
+  method: HttpMethod,
+  url: string,
+  options: { params?: Record<string, unknown>; data?: unknown } = {}
+): Promise<T> {
+  const response = await api.request<IApiResponse<T>>({ method, url, ...options });
   if (!response.data.success) {
     throw new Error(response.data.error || '请求失败');
   }
   return response.data.data as T;
 }
 
-export async function post<T>(url: string, data?: unknown): Promise<T> {
-  const response = await api.post<IApiResponse<T>>(url, data);
-  if (!response.data.success) {
-    throw new Error(response.data.error || '请求失败');
-  }
-  return response.data.data as T;
+export function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
+  return request<T>('get', url, { params });
 }
 
-export async function put<T>(url: string, data?: unknown): Promise<T> {
-  const response = await api.put<IApiResponse<T>>(url, data);
-  if (!response.data.success) {
-    throw new Error(response.data.error || '请求失败');
-  }
-  return response.data.data as T;
+export function post<T>(url: string, data?: unknown): Promise<T> {
+  return request<T>('post', url, { data });
 }
 
-export async function patch<T>(url: string, data?: unknown): Promise<T> {
-  const response = await api.patch<IApiResponse<T>>(url, data);
-  if (!response.data.success) {
-    throw new Error(response.data.error || '请求失败');
-  }
-  return response.data.data as T;
+export function put<T>(url: string, data?: unknown): Promise<T> {
+  return request<T>('put', url, { data });
 }
 
-export async function del<T>(url: string): Promise<T> {
-  const response = await api.delete<IApiResponse<T>>(url);
-  if (!response.data.success) {
-    throw new Error(response.data.error || '请求失败');
-  }
-  return response.data.data as T;
+export function patch<T>(url: string, data?: unknown): Promise<T> {
+  return request<T>('patch', url, { data });
+}
+
+export function del<T>(url: string): Promise<T> {
+  return request<T>('delete', url);
 }
 
 export default api;

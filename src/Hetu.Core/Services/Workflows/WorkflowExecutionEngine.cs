@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -41,8 +42,6 @@ public class WorkflowExecutionEngine
     private readonly IEnumerable<INodeExecutor> _nodeExecutors;
     private readonly ILogger<WorkflowExecutionEngine> _logger;
     private readonly Dictionary<string, INodeExecutor> _executorByType;
-
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public WorkflowExecutionEngine(
         IUnitOfWork unitOfWork,

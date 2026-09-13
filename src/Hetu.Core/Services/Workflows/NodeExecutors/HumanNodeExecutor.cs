@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
@@ -11,8 +12,6 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class HumanNodeExecutor : INodeExecutor
 {
     private readonly WorkflowApprovalService _approvalService;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     public HumanNodeExecutor(WorkflowApprovalService approvalService)
     {
         _approvalService = approvalService;
@@ -50,7 +49,7 @@ public class HumanNodeExecutor : INodeExecutor
     private static Dictionary<string, object>? ParseConfig(string? configJson)
     {
         if (string.IsNullOrWhiteSpace(configJson)) return null;
-        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonOptions); }
+        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonDefaults.CaseInsensitive); }
         catch { return null; }
     }
 }

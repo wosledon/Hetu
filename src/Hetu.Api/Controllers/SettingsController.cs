@@ -1,5 +1,6 @@
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Infrastructure.Data;
 using Hetu.Shared.Common;
 using Hetu.Shared.Settings;
 using Microsoft.AspNetCore.Mvc;
@@ -50,10 +51,9 @@ public class SettingsController : ControllerBase
     [HttpPost("test-database")]
     public async Task<ApiResponse<DatabaseConnectionTestResult>> TestDatabase([FromBody] DatabaseConnectionRequest request, CancellationToken cancellationToken)
     {
-        var provider = request.Provider.ToLowerInvariant();
         try
         {
-            if (provider == "postgresql" || provider == "postgres")
+            if (DatabaseProviderInfo.IsPostgreSqlName(request.Provider))
             {
                 await using var connection = new NpgsqlConnection(request.ConnectionString);
                 await connection.OpenAsync(cancellationToken);

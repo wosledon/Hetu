@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
@@ -10,8 +11,6 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 /// </summary>
 public class MergeNodeExecutor : INodeExecutor
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     public string NodeType => WorkflowNodeTypes.Merge;
 
     public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)

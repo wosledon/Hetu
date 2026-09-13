@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services;
@@ -67,11 +68,6 @@ public class AgentLoopService
     private readonly CompressionPipelineService _compressionPipeline;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AgentLoopService> _logger;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
 
     public AgentLoopService(
         ILLMProviderFactory llmProviderFactory,
@@ -220,7 +216,7 @@ public class AgentLoopService
                     }
                     else
                     {
-                        je = JsonSerializer.SerializeToElement(payload, JsonOptions);
+                        je = JsonSerializer.SerializeToElement(payload, JsonDefaults.CaseInsensitive);
                     }
 
                     if (je.TryGetProperty("type", out var tEl) && tEl.GetString() == "tool_call")
@@ -289,7 +285,7 @@ public class AgentLoopService
                     {
                         if (doc.RootElement.TryGetProperty("toolCalls", out var tcArray))
                         {
-                            pendingToolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(tcArray.GetRawText(), JsonOptions);
+                            pendingToolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(tcArray.GetRawText(), JsonDefaults.CaseInsensitive);
                             _logger.LogInformation("[AgentLoop] parsed tool_calls count={Count} names={Names}",
                                 pendingToolCalls?.Count ?? 0, pendingToolCalls != null ? string.Join(",", pendingToolCalls.Select(t => t.Name)) : "null");
                         }

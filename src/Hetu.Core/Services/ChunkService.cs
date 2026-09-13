@@ -1,8 +1,8 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Notes;
 
 namespace Hetu.Core.Services;
@@ -184,53 +184,25 @@ public class ChunkService : IChunkService
     /// </summary>
     private static List<NoteChunk> ParseLlmChunks(string json)
     {
-        var chunks = new List<NoteChunk>();
+        var items = LlmJsonExtractor.Deserialize<List<LlmChunkResult>>(json);
+        if (items == null || items.Count == 0) return [];
 
-        try
+        var chunks = new List<NoteChunk>(items.Count);
+        for (var i = 0; i < items.Count; i++)
         {
-            var jsonStr = json.Trim();
+            var item = items[i];
+            if (string.IsNullOrWhiteSpace(item.Content)) continue;
 
-            // Strip markdown code fences: ```json ... ``` or ``` ... ```
-            var codeFenceMatch = Regex.Match(jsonStr, @"```(?:json)?\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
-            if (codeFenceMatch.Success)
+            chunks.Add(new NoteChunk
             {
-                jsonStr = codeFenceMatch.Groups[1].Value.Trim();
-            }
-            else
-            {
-                // Try to extract just the JSON array with a greedy match
-                var arrayMatch = Regex.Match(jsonStr, @"\[[\s\S]*\]");
-                if (arrayMatch.Success)
-                    jsonStr = arrayMatch.Value;
-            }
-
-            var items = JsonSerializer.Deserialize<List<LlmChunkResult>>(jsonStr, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
+                Id = Guid.NewGuid(),
+                ChunkIndex = i,
+                Content = item.Content.Trim(),
+                Summary = string.IsNullOrWhiteSpace(item.Summary) ? null : item.Summary.Trim(),
+                ChunkMethod = "llm",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
             });
-
-            if (items == null || items.Count == 0) return chunks;
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                var item = items[i];
-                if (string.IsNullOrWhiteSpace(item.Content)) continue;
-
-                chunks.Add(new NoteChunk
-                {
-                    Id = Guid.NewGuid(),
-                    ChunkIndex = i,
-                    Content = item.Content.Trim(),
-                    Summary = string.IsNullOrWhiteSpace(item.Summary) ? null : item.Summary.Trim(),
-                    ChunkMethod = "llm",
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow
-                });
-            }
-        }
-        catch
-        {
-            // JSON 解析失败
         }
 
         return chunks;

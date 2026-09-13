@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Hetu.Core.Utilities;
 using Hetu.Shared.AI;
 
 namespace Hetu.Core.Services;
@@ -12,14 +13,9 @@ public class StdioMcpClient : IDisposable
     private int _requestId;
     private bool _disposed;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     public StdioMcpClient(string connectionConfigJson)
     {
-        var config = JsonSerializer.Deserialize<McpStdioConfig>(connectionConfigJson, JsonOptions)
+        var config = JsonSerializer.Deserialize<McpStdioConfig>(connectionConfigJson, JsonDefaults.CaseInsensitive)
                      ?? throw new ArgumentException("无效的 MCP stdio 配置");
 
         if (string.IsNullOrWhiteSpace(config.Command))

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hetu.Api.Controllers;
@@ -87,9 +88,7 @@ public class OpenAiProxyController : ControllerBase
         }
 
         output.StatusCode = 200;
-        output.ContentType = "text/event-stream";
-        output.Headers.CacheControl = "no-cache";
-        output.Headers.Connection = "keep-alive";
+        output.StartSseStream();
         await using var stream = await upstream.Content.ReadAsStreamAsync(ct);
         await stream.CopyToAsync(output.Body, ct);
     }

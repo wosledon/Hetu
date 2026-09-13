@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Graph;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +15,25 @@ public class GraphService : IGraphService
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IMemoryCache _cache;
     private const string GraphCacheKey = "graph_data";
+
+    private const string CustomType = "custom";
+    private const string DefaultEntityType = "concept";
+    private const string DefaultRelationType = "related_to";
+
+    /// <summary>合法的实体类型，同时也是对外暴露的类型清单。</summary>
+    private static readonly string[] EntityTypes =
+        ["concept", "person", "organization", "technology", "project"];
+
+    /// <summary>合法的关系类型，同时也是对外暴露的类型清单。</summary>
+    private static readonly string[] RelationTypes =
+        ["belong_to", "related_to", "depends_on", "contains", "compared_with"];
+
+    /// <summary>LLM 偶尔返回缩写，归一化回完整类型名。</summary>
+    private static readonly Dictionary<string, string> EntityTypeAliases = new(StringComparer.Ordinal)
+    {
+        ["org"] = "organization",
+        ["tech"] = "technology",
+    };
 
     private static readonly JsonSerializerOptions SseJsonOptions = new()
     {
@@ -58,9 +78,7 @@ public class GraphService : IGraphService
             });
         }
 
-        httpContext.Response.ContentType = "text/event-stream";
-        httpContext.Response.Headers["Cache-Control"] = "no-cache";
-        httpContext.Response.Headers["Connection"] = "keep-alive";
+        httpContext.Response.StartSseStream();
 
         try
         {
@@ -101,30 +119,12 @@ public class GraphService : IGraphService
 
         return new GraphDataDto
         {
-            Entities = entities.Select(e => new GraphEntityDto
-            {
-                Id = e.Id,
-                Name = e.Name,
-                Type = e.Type,
-                Description = e.Description,
-                Metadata = e.Metadata,
-                RelationCount = relationCountDict.GetValueOrDefault(e.Id, 0),
-                CreatedAt = e.CreatedAt,
-                UpdatedAt = e.UpdatedAt
-            }).ToList(),
-            Relations = relations.Select(r => new GraphRelationDto
-            {
-                Id = r.Id,
-                SourceEntityId = r.SourceEntityId,
-                SourceEntityName = entityDict.TryGetValue(r.SourceEntityId, out var src) ? src.Name : "",
-                TargetEntityId = r.TargetEntityId,
-                TargetEntityName = entityDict.TryGetValue(r.TargetEntityId, out var tgt) ? tgt.Name : "",
-                RelationType = r.RelationType,
-                Description = r.Description,
-                Confidence = r.Confidence,
-                SourceNoteId = r.SourceNoteId,
-                CreatedAt = r.CreatedAt
-            }).ToList()
+            Entities = entities
+                .Select(e => MapEntity(e, relationCountDict.GetValueOrDefault(e.Id, 0)))
+                .ToList(),
+            Relations = relations
+                .Select(r => MapRelation(r, entityDict))
+                .ToList()
         };
     }
 
@@ -158,19 +158,8 @@ public class GraphService : IGraphService
             .ToDictionary(e => e.Id);
 
         var relationDtos = relatedRelations
-            .Select(r => new GraphRelationDto
-            {
-                Id = r.Id,
-                SourceEntityId = r.SourceEntityId,
-                SourceEntityName = entityDict.TryGetValue(r.SourceEntityId, out var src) ? src.Name : "",
-                TargetEntityId = r.TargetEntityId,
-                TargetEntityName = entityDict.TryGetValue(r.TargetEntityId, out var tgt) ? tgt.Name : "",
-                RelationType = r.RelationType,
-                Description = r.Description,
-                Confidence = r.Confidence,
-                SourceNoteId = r.SourceNoteId,
-                CreatedAt = r.CreatedAt
-            }).ToList();
+            .Select(r => MapRelation(r, entityDict))
+            .ToList();
 
         // Batch-fetch source notes in a single query
         var sourceNoteIds = relationDtos
@@ -290,19 +279,7 @@ public class GraphService : IGraphService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         InvalidateGraphCache();
 
-        return ApiResponse<GraphRelationDto>.Ok(new GraphRelationDto
-        {
-            Id = relation.Id,
-            SourceEntityId = relation.SourceEntityId,
-            SourceEntityName = source.Name,
-            TargetEntityId = relation.TargetEntityId,
-            TargetEntityName = target.Name,
-            RelationType = relation.RelationType,
-            Description = relation.Description,
-            Confidence = relation.Confidence,
-            SourceNoteId = relation.SourceNoteId,
-            CreatedAt = relation.CreatedAt
-        });
+        return ApiResponse<GraphRelationDto>.Ok(MapRelation(relation, source.Name, target.Name));
     }
 
     public async Task<ApiResponse> DeleteRelationAsync(Guid id, CancellationToken cancellationToken = default)
@@ -327,30 +304,30 @@ public class GraphService : IGraphService
             return ApiResponse<ExtractGraphResultDto>.Fail("未找到可用的 LLM 模型");
 
         var content = note.Content.Length > 4000 ? note.Content[..4000] : note.Content;
-        var jsonExample = """
+        var jsonExample = $$"""
             {
               "entities": [
-                {"name": "实体名称", "type": "concept|person|organization|technology|project", "description": "简短描述"}
+                {"name": "实体名称", "type": "{{string.Join('|', EntityTypes)}}", "description": "简短描述"}
               ],
               "relations": [
-                {"source": "实体名称", "target": "实体名称", "relation": "belong_to|related_to|depends_on|contains|compared_with", "description": "关系描述"}
+                {"source": "实体名称", "target": "实体名称", "relation": "{{string.Join('|', RelationTypes)}}", "description": "关系描述"}
               ]
             }
             """;
-        var prompt = $"""
+        var prompt = $$"""
             请从以下笔记内容中提取关键实体和它们之间的关系。
 
-            标题：{note.Title}
+            标题：{{note.Title}}
 
             内容：
-            {content}
+            {{content}}
 
             请以 JSON 格式返回，不要包含任何其他文字或 markdown 代码块标记：
-            {jsonExample}
+            {{jsonExample}}
 
             注意：
-            - type 必须是 concept、person、organization、technology、project 之一
-            - relation 必须是 belong_to、related_to、depends_on、contains、compared_with 之一
+            - type 必须是 {{string.Join('、', EntityTypes)}} 之一
+            - relation 必须是 {{string.Join('、', RelationTypes)}} 之一
             - 只提取真正重要的实体和关系，不要过度提取
             """;
 
@@ -404,21 +381,11 @@ public class GraphService : IGraphService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse<List<string>>> GetEntityTypesAsync(CancellationToken cancellationToken = default)
-    {
-        return ApiResponse<List<string>>.Ok(
-        [
-            "concept", "person", "organization", "technology", "project", "custom"
-        ]);
-    }
+    public Task<ApiResponse<List<string>>> GetEntityTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(ApiResponse<List<string>>.Ok([.. EntityTypes, CustomType]));
 
-    public async Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default)
-    {
-        return ApiResponse<List<string>>.Ok(
-        [
-            "belong_to", "related_to", "depends_on", "contains", "compared_with", "custom"
-        ]);
-    }
+    public Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(ApiResponse<List<string>>.Ok([.. RelationTypes, CustomType]));
 
     private async Task<ExtractGraphResultDto> ApplyExtractionResultAsync(ExtractionResult extracted, Guid noteId, CancellationToken cancellationToken)
     {
@@ -509,47 +476,25 @@ public class GraphService : IGraphService
         return result;
     }
 
-    private static ExtractionResult? ParseExtractionResult(string response)
-    {
-        try
-        {
-            var json = response.Trim();
-            if (json.StartsWith("```"))
-            {
-                var lines = json.Split('\n');
-                json = string.Join('\n', lines.Skip(1).TakeWhile(l => !l.TrimStart().StartsWith("```")));
-            }
+    private static ExtractionResult? ParseExtractionResult(string response) =>
+        LlmJsonExtractor.Deserialize<ExtractionResult>(response);
 
-            return JsonSerializer.Deserialize<ExtractionResult>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-        }
-        catch
-        {
-            return null;
-        }
+    private static string NormalizeEntityType(string? type)
+    {
+        if (string.IsNullOrWhiteSpace(type)) return DefaultEntityType;
+
+        var value = type.Trim().ToLowerInvariant();
+        if (EntityTypeAliases.TryGetValue(value, out var aliased)) return aliased;
+        return EntityTypes.Contains(value) ? value : DefaultEntityType;
     }
 
-    private static string NormalizeEntityType(string? type) => type?.ToLowerInvariant() switch
+    private static string NormalizeRelationType(string? type)
     {
-        "concept" => "concept",
-        "person" => "person",
-        "organization" or "org" => "organization",
-        "technology" or "tech" => "technology",
-        "project" => "project",
-        _ => "concept"
-    };
+        if (string.IsNullOrWhiteSpace(type)) return DefaultRelationType;
 
-    private static string NormalizeRelationType(string? type) => type?.ToLowerInvariant() switch
-    {
-        "belong_to" => "belong_to",
-        "related_to" => "related_to",
-        "depends_on" => "depends_on",
-        "contains" => "contains",
-        "compared_with" => "compared_with",
-        _ => "related_to"
-    };
+        var value = type.Trim().ToLowerInvariant();
+        return RelationTypes.Contains(value) ? value : DefaultRelationType;
+    }
 
     private static GraphEntityDto MapEntity(GraphEntity entity, int relationCount) => new()
     {
@@ -562,6 +507,28 @@ public class GraphService : IGraphService
         CreatedAt = entity.CreatedAt,
         UpdatedAt = entity.UpdatedAt
     };
+
+    private static GraphRelationDto MapRelation(
+        GraphRelation relation,
+        IReadOnlyDictionary<Guid, GraphEntity> entities) =>
+        MapRelation(relation, EntityName(entities, relation.SourceEntityId), EntityName(entities, relation.TargetEntityId));
+
+    private static GraphRelationDto MapRelation(GraphRelation relation, string sourceName, string targetName) => new()
+    {
+        Id = relation.Id,
+        SourceEntityId = relation.SourceEntityId,
+        SourceEntityName = sourceName,
+        TargetEntityId = relation.TargetEntityId,
+        TargetEntityName = targetName,
+        RelationType = relation.RelationType,
+        Description = relation.Description,
+        Confidence = relation.Confidence,
+        SourceNoteId = relation.SourceNoteId,
+        CreatedAt = relation.CreatedAt
+    };
+
+    private static string EntityName(IReadOnlyDictionary<Guid, GraphEntity> entities, Guid id) =>
+        entities.TryGetValue(id, out var entity) ? entity.Name : string.Empty;
 
     public async Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
@@ -635,16 +602,7 @@ public class GraphService : IGraphService
 
         var result = entities
             .Take(topK)
-            .Select(e => new GraphEntityDto
-            {
-                Id = e.Id,
-                Name = e.Name,
-                Type = e.Type,
-                Description = e.Description,
-                Metadata = e.Metadata,
-                CreatedAt = e.CreatedAt,
-                UpdatedAt = e.UpdatedAt
-            })
+            .Select(e => MapEntity(e, 0))
             .ToList();
 
         return ApiResponse<List<GraphEntityDto>>.Ok(result);
