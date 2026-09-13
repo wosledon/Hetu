@@ -197,7 +197,7 @@ public class KnowledgeBaseController : ControllerBase
 
         var unindexedItems = allItems.Where(k => !indexedItemIds.Contains(k.Id)).ToList();
         var skipped = 0;
-        var queued = 0;
+        var pendingItems = new List<BackgroundWorkItem>();
 
         foreach (var item in unindexedItems)
         {
@@ -227,21 +227,24 @@ public class KnowledgeBaseController : ControllerBase
 
             if (item.Type == KnowledgeItemType.Note && item.NoteId.HasValue)
             {
-                await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value), cancellationToken);
+                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value, item.Title));
             }
             else
             {
-                await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id), cancellationToken);
+                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id, item.Title));
             }
-            queued++;
         }
 
+        // 必须先提交队列记录再入队，否则处理器查不到 Queued 记录会重复建一条任务
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        foreach (var pendingItem in pendingItems)
+            await _taskQueue.QueueAsync(pendingItem, cancellationToken);
 
         return ApiResponse<BatchEmbeddingResultDto>.Ok(new BatchEmbeddingResultDto
         {
             TotalUnindexed = unindexedItems.Count,
-            QueuedCount = queued,
+            QueuedCount = pendingItems.Count,
             SkippedCount = skipped,
         });
     }

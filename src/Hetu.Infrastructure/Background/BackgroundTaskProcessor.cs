@@ -31,6 +31,10 @@ public class BackgroundTaskProcessor : BackgroundService
     {
         _logger.LogInformation("后台任务处理器已启动");
 
+        // 队列在内存中，进程重启后遗留的 Queued/Running 记录不会有人消费，必须补入队
+        // 必须与消费循环并行：通道有容量上限，先灌满再消费会互相等待造成死锁
+        _ = Task.Run(() => RecoverPendingTasksAsync(stoppingToken), CancellationToken.None);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             BackgroundWorkItem item;
@@ -103,6 +107,71 @@ public class BackgroundTaskProcessor : BackgroundService
         }
 
         _logger.LogInformation("后台任务处理器已停止");
+    }
+
+    private async Task RecoverPendingTasksAsync(CancellationToken ct)
+    {
+        try
+        {
+            List<BackgroundWorkItem> pendingItems;
+
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<HetuDbContext>();
+                var stale = await db.TaskItems
+                    .Where(t => !t.IsDeleted && (t.Status == 0 || t.Status == 1))
+                    .ToListAsync(ct);
+                if (stale.Count == 0)
+                    return;
+
+                var now = DateTimeOffset.UtcNow;
+                pendingItems = [];
+
+                // SQLite 不支持对 DateTimeOffset 排序，按创建时间排序在内存中完成
+                foreach (var group in stale.OrderBy(t => t.CreatedAt).GroupBy(t => new { t.TaskType, t.EntityId }))
+                {
+                    var record = group.Last();
+
+                    // 同一 (类型, 实体) 只保留一条，其余是历史竞态产生的重复记录
+                    foreach (var duplicate in group.Where(t => t.Id != record.Id))
+                    {
+                        duplicate.Status = 3; // Failed
+                        duplicate.ErrorMessage = "重复的排队任务记录，已自动清理";
+                        duplicate.CompletedAt = now;
+                        duplicate.UpdatedAt = now;
+                    }
+
+                    if (!Enum.TryParse<BackgroundTaskType>(record.TaskType, out var taskType))
+                    {
+                        record.Status = 3; // Failed
+                        record.ErrorMessage = "未知的任务类型，已终止";
+                        record.CompletedAt = now;
+                        record.UpdatedAt = now;
+                        continue;
+                    }
+
+                    record.Status = 0; // 重置为 Queued，由处理器重新领取
+                    record.StartedAt = null;
+                    record.CompletedAt = null;
+                    record.ErrorMessage = null;
+                    record.UpdatedAt = now;
+                    pendingItems.Add(new BackgroundWorkItem(taskType, record.EntityId, record.EntityTitle));
+                }
+
+                await db.SaveChangesAsync(ct);
+                _logger.LogInformation("恢复 {Count} 个中断的后台任务", pendingItems.Count);
+            }
+
+            foreach (var pendingItem in pendingItems)
+                await _taskQueue.QueueAsync(pendingItem, ct);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "恢复中断的后台任务失败");
+        }
     }
 
     private async Task ProcessItemAsync(BackgroundWorkItem item, IServiceProvider sp, CancellationToken ct)

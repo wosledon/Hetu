@@ -497,7 +497,7 @@ export default function GraphPage() {
   const [expandedNotebooks, setExpandedNotebooks] = useState<Set<string>>(new Set())
   const [extractResults, setExtractResults] = useState<Map<string, IExtractGraphResult | { error: string }>>(new Map())
   const [isExtracting, setIsExtracting] = useState(false)
-  const [extractQueued, setExtractQueued] = useState(false)
+  const [extractQueued, setExtractQueued] = useState<string | null>(null)
   const [layoutKey, setLayoutKey] = useState(0)
   const [previewNoteId, setPreviewNoteId] = useState<string | null>(null)
   const [previewNoteTitle, setPreviewNoteTitle] = useState('')
@@ -603,9 +603,11 @@ export default function GraphPage() {
     const ids = [...selectedNoteIds]; if (ids.length === 0) return
     setIsExtracting(true); setExtractResults(new Map())
     try {
-      await graphService.batchExtractQueue(ids)
-      setExtractQueued(true)
-      setTimeout(() => setExtractQueued(false), 5000)
+      const result = await graphService.batchExtractQueue(ids)
+      setExtractQueued(result.queuedCount > 0
+        ? `已加入后台任务 ${result.queuedCount} 项${result.skippedCount > 0 ? `，跳过 ${result.skippedCount} 项` : ''}`
+        : '选中的笔记均已有进行中的任务')
+      setTimeout(() => setExtractQueued(null), 5000)
     } catch (err) {
       setExtractResults(new Map([[ids[0], { error: (err as Error).message || '加入后台任务失败' }]]))
     }
@@ -765,7 +767,7 @@ export default function GraphPage() {
                 </button>
                 {extractQueued && (
                   <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                    <Check size={12} />已加入后台任务
+                    <Check size={12} />{extractQueued}
                   </span>
                 )}
               </div>

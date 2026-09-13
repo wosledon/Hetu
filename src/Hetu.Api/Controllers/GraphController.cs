@@ -79,33 +79,53 @@ public class GraphController : ControllerBase
     }
 
     [HttpPost("extract/batch-queue")]
-    public async Task<ApiResponse> BatchExtractQueue([FromBody] BatchExtractGraphRequest request, CancellationToken cancellationToken)
+    public async Task<ApiResponse<BatchQueueResultDto>> BatchExtractQueue([FromBody] BatchExtractGraphRequest request, CancellationToken cancellationToken)
     {
         var typeName = nameof(BackgroundTaskType.GraphExtract);
-        foreach (var noteId in request.NoteIds)
+        var noteIds = request.NoteIds.Distinct().ToList();
+        var pendingItems = new List<BackgroundWorkItem>();
+        var skipped = 0;
+
+        if (noteIds.Count > 0)
         {
-            // 检查是否已有进行中任务
             var existing = await _unitOfWork.TaskItems.FindAsync(
-                t => t.EntityId == noteId && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
+                t => noteIds.Contains(t.EntityId) && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
                 cancellationToken);
-            if (existing.Count > 0) continue;
+            var busyNoteIds = existing.Select(t => t.EntityId).ToHashSet();
 
-            // 立即创建 Queued 记录
-            var taskItem = new TaskItem
+            foreach (var noteId in noteIds)
             {
-                Id = Guid.NewGuid(),
-                TaskType = typeName,
-                EntityId = noteId,
-                Status = 0, // Queued
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow,
-            };
-            await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
+                if (busyNoteIds.Contains(noteId))
+                {
+                    skipped++;
+                    continue;
+                }
 
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, noteId), cancellationToken);
+                var taskItem = new TaskItem
+                {
+                    Id = Guid.NewGuid(),
+                    TaskType = typeName,
+                    EntityId = noteId,
+                    Status = 0, // Queued
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                };
+                await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
+                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, noteId));
+            }
+
+            // 必须先提交队列记录再入队，否则处理器查不到 Queued 记录会重复建一条任务
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse.Ok();
+
+        foreach (var pendingItem in pendingItems)
+            await _taskQueue.QueueAsync(pendingItem, cancellationToken);
+
+        return ApiResponse<BatchQueueResultDto>.Ok(new BatchQueueResultDto
+        {
+            QueuedCount = pendingItems.Count,
+            SkippedCount = skipped,
+        });
     }
 
     [HttpPost("merge")]

@@ -97,3 +97,12 @@ public class BatchExtractGraphRequest
 {
     public List<Guid> NoteIds { get; set; } = [];
 }
+
+public class BatchQueueResultDto
+{
+    /// <summary>本次成功加入队列的数量</summary>
+    public int QueuedCount { get; set; }
+
+    /// <summary>因已有进行中任务而跳过的数量</summary>
+    public int SkippedCount { get; set; }
+}

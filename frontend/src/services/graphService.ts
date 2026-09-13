@@ -1,5 +1,5 @@
 import { get, post, put, del } from './api';
-import type { IGraphData, IGraphEntity, IGraphRelation, IGraphEntityDetail, IExtractGraphResult } from '../types';
+import type { IGraphData, IGraphEntity, IGraphRelation, IGraphEntityDetail, IExtractGraphResult, IBatchQueueResult } from '../types';
 import { consumeSseStream } from '../utils/sse';
 
 export interface StreamGraphCallbacks {
@@ -69,7 +69,7 @@ export const graphService = {
     post<IExtractGraphResult[]>('/graph/extract/batch', { noteIds }),
 
   batchExtractQueue: (noteIds: string[]) =>
-    post<void>('/graph/extract/batch-queue', { noteIds }),
+    post<IBatchQueueResult>('/graph/extract/batch-queue', { noteIds }),
 
   mergeEntities: (keepEntityId: string, mergeEntityId: string) =>
     post<void>('/graph/merge', { keepEntityId, mergeEntityId }),
