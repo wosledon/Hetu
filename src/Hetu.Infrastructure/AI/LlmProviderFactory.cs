@@ -22,6 +22,20 @@ public class LlmProviderFactory : ILLMProviderFactory
     public Task<ILLMProvider?> CreateCompletionProviderAsync(CancellationToken cancellationToken = default)
         => CreateProviderByPurposeAsync("completion", cancellationToken);
 
+    public async Task<(ILLMProvider? Provider, Guid? ModelId)> ResolveAsync(
+        string? requestedModelId,
+        Guid? fallbackModelId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedModelId) && Guid.TryParse(requestedModelId, out var requestedId))
+            return (await CreateProviderAsync(requestedId, cancellationToken), requestedId);
+
+        if (fallbackModelId.HasValue)
+            return (await CreateProviderAsync(fallbackModelId.Value, cancellationToken), fallbackModelId);
+
+        return (await CreateChatProviderAsync(cancellationToken), null);
+    }
+
     public async Task<ILLMProvider?> CreateProviderAsync(Guid modelId, CancellationToken cancellationToken = default)
     {
         var model = await _unitOfWork.AiModels.GetByIdAsync(modelId, cancellationToken);

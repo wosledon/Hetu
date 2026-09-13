@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 
 namespace Hetu.Core.Services;
@@ -11,8 +12,6 @@ public class ProxyConfigService
 {
     public const string RouteKey = "Proxy:Route";
     public const string ShadowKey = "Proxy:Shadow";
-
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private readonly IUnitOfWork _unitOfWork;
 
@@ -29,7 +28,7 @@ public class ProxyConfigService
         {
             try
             {
-                var dto = JsonSerializer.Deserialize<ProxyConfigDto>(setting.Value, JsonOpts);
+                var dto = JsonSerializer.Deserialize<ProxyConfigDto>(setting.Value, JsonDefaults.CamelCase);
                 if (dto != null) { dto.Mode = mode; return dto; }
             }
             catch { }
@@ -48,7 +47,7 @@ public class ProxyConfigService
     public async Task SaveAsync(ProxyConfigDto dto, CancellationToken ct)
     {
         var key = dto.Mode == "route" ? RouteKey : ShadowKey;
-        var json = JsonSerializer.Serialize(dto, JsonOpts);
+        var json = JsonSerializer.Serialize(dto, JsonDefaults.CamelCase);
         await _unitOfWork.AppSettings.SetAsync(new Entities.AppSetting { Key = key, Value = json, UpdatedAt = DateTimeOffset.UtcNow }, ct);
         await _unitOfWork.SaveChangesAsync(ct);
     }

@@ -1,5 +1,5 @@
-using Microsoft.Extensions.DependencyInjection;
 using Hetu.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hetu.Core.Services.Tools;
 

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
@@ -74,23 +75,7 @@ public class WorkStreamController : ControllerBase
         }
 
         // 解析模型
-        ILLMProvider? provider;
-        Guid? modelId;
-        if (!string.IsNullOrWhiteSpace(request.ModelId) && Guid.TryParse(request.ModelId, out var reqId))
-        {
-            modelId = reqId;
-            provider = await _llmProviderFactory.CreateProviderAsync(reqId, ct);
-        }
-        else if (session.ModelId.HasValue)
-        {
-            modelId = session.ModelId.Value;
-            provider = await _llmProviderFactory.CreateProviderAsync(modelId.Value, ct);
-        }
-        else
-        {
-            modelId = null;
-            provider = await _llmProviderFactory.CreateChatProviderAsync(ct);
-        }
+        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(request.ModelId, session.ModelId, ct);
 
         if (provider == null)
         {
@@ -158,24 +143,19 @@ public class WorkStreamController : ControllerBase
 
                 chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
 
-                // 记录 write 工具执行前的旧内容（用于 diff）
-                var oldContents = new Dictionary<string, string?>();
+                // 解析 write 工具参数一次，供「执行前 diff」与「执行后变更记录」复用
+                var writes = new Dictionary<string, (string Path, string Content)>();
                 foreach (var tc in pendingToolCalls.Where(t => t.Name == "work_write_file"))
                 {
-                    try
-                    {
-                        using var doc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
-                        var path = doc.RootElement.TryGetProperty("path", out var p) ? p.GetString() : null;
-                        if (!string.IsNullOrWhiteSpace(path))
-                        {
-                            var safePath = WorkPath.Resolve(project.RootPath, path);
-                            oldContents[tc.Id] = safePath != null && System.IO.File.Exists(safePath)
-                                ? await System.IO.File.ReadAllTextAsync(safePath, ct)
-                                : null;
-                        }
-                    }
-                    catch { }
+                    var path = TryGetStringArgument(tc.Arguments, "path");
+                    if (string.IsNullOrWhiteSpace(path)) continue;
+                    writes[tc.Id] = (path, TryGetStringArgument(tc.Arguments, "content") ?? "");
                 }
+
+                // 记录 write 工具执行前的旧内容（用于 diff）
+                var oldContents = new Dictionary<string, string?>();
+                foreach (var (toolCallId, write) in writes)
+                    oldContents[toolCallId] = await TryReadFileAsync(project.RootPath, write.Path, ct);
 
                 var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                     sessionId.ToString(),
@@ -185,31 +165,27 @@ public class WorkStreamController : ControllerBase
                     ct);
 
                 // 文件变更事件 + 落库记录（供 diff 页展示）
-                foreach (var tc in pendingToolCalls.Where(t => t.Name == "work_write_file"))
+                foreach (var (toolCallId, write) in writes)
                 {
                     try
                     {
-                        using var doc = System.Text.Json.JsonDocument.Parse(tc.Arguments);
-                        var path = doc.RootElement.TryGetProperty("path", out var p) ? p.GetString() : null;
-                        var newContent = doc.RootElement.TryGetProperty("content", out var c) ? c.GetString() ?? "" : "";
-                        if (string.IsNullOrWhiteSpace(path)) continue;
-
-                        var isNew = oldContents.GetValueOrDefault(tc.Id) == null;
+                        var oldContent = oldContents.GetValueOrDefault(toolCallId);
+                        var isNew = oldContent == null;
                         var action = isNew ? "create" : "write";
                         await _unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
                         {
                             Id = Guid.NewGuid(),
                             ProjectId = project.Id,
                             SessionId = sessionId,
-                            FilePath = path,
-                            OldContent = oldContents.GetValueOrDefault(tc.Id),
-                            NewContent = newContent,
+                            FilePath = write.Path,
+                            OldContent = oldContent,
+                            NewContent = write.Content,
                             Action = action,
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
                         }, ct);
 
-                        var evt = new { type = "file_change", path, action };
+                        var evt = new { type = "file_change", path = write.Path, action };
                         fileChanges.Add(evt);
                         await writer.WriteJsonAsync(evt);
                     }
@@ -244,13 +220,45 @@ public class WorkStreamController : ControllerBase
         // 保存文件变更事件消息（供历史回放展示）
         foreach (var change in fileChanges)
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(change);
+            var json = JsonSerializer.Serialize(change);
             await _sessionService.AddMessageAsync(sessionId, "system", "", "file_change", json, cancellationToken: CancellationToken.None);
         }
 
         try { await _unitOfWork.SaveChangesAsync(ct); } catch { }
 
         await writer.WriteJsonAsync(new { type = "done" });
+    }
+
+    /// <summary>读取工具调用参数中的字符串字段，参数不是合法 JSON 或字段缺失时返回 null</summary>
+    private static string? TryGetStringArgument(string arguments, string name)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(arguments);
+            return doc.RootElement.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>读取文件旧内容用于 diff，路径非法、文件不存在或不可读时返回 null</summary>
+    private static async Task<string?> TryReadFileAsync(string rootPath, string relativePath, CancellationToken ct)
+    {
+        try
+        {
+            var path = WorkPath.Resolve(rootPath, relativePath);
+            return path != null && System.IO.File.Exists(path)
+                ? await System.IO.File.ReadAllTextAsync(path, ct)
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
     }
 }
 
