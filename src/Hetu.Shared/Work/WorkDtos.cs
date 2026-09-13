@@ -10,8 +10,26 @@ public class WorkProjectDto
     public string? Color { get; set; }
     public int SortOrder { get; set; }
     public int SessionCount { get; set; }
+    /// <summary>启用的 MCP 服务器 ID</summary>
+    public List<Guid> McpServerIds { get; set; } = [];
+    /// <summary>启用的本地技能 ID</summary>
+    public List<string> SkillIds { get; set; } = [];
+    /// <summary>诊断命令（构建/静态检查），留空时自动探测</summary>
+    public string? DiagnosticsCommand { get; set; }
+    /// <summary>代码语义索引状态</summary>
+    public WorkCodeIndexStatusDto CodeIndex { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>代码语义索引状态</summary>
+public class WorkCodeIndexStatusDto
+{
+    public int ChunkCount { get; set; }
+    public int FileCount { get; set; }
+    public DateTimeOffset? IndexedAt { get; set; }
+    /// <summary>是否已有可用索引</summary>
+    public bool IsReady => ChunkCount > 0;
 }
 
 public class CreateWorkProjectRequest
@@ -31,6 +49,9 @@ public class UpdateWorkProjectRequest
     public string? Icon { get; set; }
     public string? Color { get; set; }
     public int SortOrder { get; set; }
+    public List<Guid>? McpServerIds { get; set; }
+    public List<string>? SkillIds { get; set; }
+    public string? DiagnosticsCommand { get; set; }
 }
 
 public class WorkSessionDto
@@ -39,7 +60,15 @@ public class WorkSessionDto
     public Guid ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
+    /// <summary>plan | readonly | ask | auto | bypass</summary>
+    public string PermissionMode { get; set; } = "ask";
     public int MessageCount { get; set; }
+    /// <summary>已完成的对话轮次</summary>
+    public int TurnCount { get; set; }
+    public long PromptTokens { get; set; }
+    public long CompletionTokens { get; set; }
+    public long CachedTokens { get; set; }
+    public long TotalTokens { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -49,12 +78,14 @@ public class CreateWorkSessionRequest
     public Guid ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
+    public string? PermissionMode { get; set; }
 }
 
 public class UpdateWorkSessionRequest
 {
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
+    public string? PermissionMode { get; set; }
 }
 
 public class WorkMessageDto
@@ -66,6 +97,11 @@ public class WorkMessageDto
     public string Type { get; set; } = "text";
     public string? Metadata { get; set; }
     public Guid? ModelId { get; set; }
+    public int? PromptTokens { get; set; }
+    public int? CompletionTokens { get; set; }
+    public int? CachedTokens { get; set; }
+    public int? TotalTokens { get; set; }
+    public int? LatencyMs { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 
@@ -75,6 +111,8 @@ public class SendWorkMessageRequest
     public string? ModelId { get; set; }
     public bool EnableTools { get; set; } = true;
     public string? ToolApprovalMode { get; set; }
+    /// <summary>本轮权限模式（plan | readonly | ask | auto | bypass），传入时同时持久化到会话</summary>
+    public string? PermissionMode { get; set; }
 }
 
 /// <summary>文件系统条目</summary>
@@ -109,4 +147,108 @@ public class WorkFileChangeDto
     public string NewContent { get; set; } = string.Empty;
     public string Action { get; set; } = "write";
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>项目级工具审批规则</summary>
+public class WorkApprovalRuleDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public string ToolName { get; set; } = "*";
+    public string? PathPattern { get; set; }
+    public string Decision { get; set; } = "allow";
+    public bool IsEnabled { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class CreateWorkApprovalRuleRequest
+{
+    public string ToolName { get; set; } = "*";
+    public string? PathPattern { get; set; }
+    public string Decision { get; set; } = "allow";
+}
+
+/// <summary>检查点（工具批次前的文件快照）</summary>
+public class WorkCheckpointDto
+{
+    public Guid Id { get; set; }
+    public Guid SessionId { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string Tools { get; set; } = string.Empty;
+    public int FileCount { get; set; }
+    public List<string> Files { get; set; } = [];
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>检查点恢复结果</summary>
+public class RestoreCheckpointResultDto
+{
+    public Guid CheckpointId { get; set; }
+    public int RestoredCount { get; set; }
+    public int DeletedCount { get; set; }
+    public List<string> Errors { get; set; } = [];
+}
+
+/// <summary>项目内文件搜索结果</summary>
+public class WorkFileSearchHitDto
+{
+    public string Path { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public string Text { get; set; } = string.Empty;
+}
+
+/// <summary>写入文件请求</summary>
+public class WriteWorkFileRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    /// <summary>乐观并发校验：传入读取时的内容，若当前文件内容已变化则拒绝写入</summary>
+    public string? OriginalContent { get; set; }
+}
+
+/// <summary>一次 LLM 调用的 Token 消耗</summary>
+public class WorkMessageUsage
+{
+    public int PromptTokens { get; set; }
+    public int CompletionTokens { get; set; }
+    public int CachedTokens { get; set; }
+    public int TotalTokens { get; set; }
+    public int LatencyMs { get; set; }
+}
+
+/// <summary>代码语义检索命中</summary>
+public class WorkCodeSearchHitDto
+{
+    public string Path { get; set; } = string.Empty;
+    public int StartLine { get; set; }
+    public string Snippet { get; set; } = string.Empty;
+    public double Score { get; set; }
+}
+
+/// <summary>检查点与当前工作区的差异</summary>
+public class WorkCheckpointDiffDto
+{
+    public Guid CheckpointId { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public List<WorkCheckpointDiffFileDto> Files { get; set; } = [];
+}
+
+public class WorkCheckpointDiffFileDto
+{
+    public string Path { get; set; } = string.Empty;
+    /// <summary>create | delete | write | unchanged</summary>
+    public string Action { get; set; } = "write";
+    public string? OldContent { get; set; }
+    public string? NewContent { get; set; }
+}
+
+/// <summary>代码索引构建结果</summary>
+public class WorkCodeIndexResultDto
+{
+    public int IndexedFiles { get; set; }
+    public int IndexedChunks { get; set; }
+    public int SkippedFiles { get; set; }
+    public int RemovedChunks { get; set; }
+    public int FailedFiles { get; set; }
+    public DateTimeOffset IndexedAt { get; set; }
 }

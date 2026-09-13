@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings } from 'lucide-react'
 import { workProjectService, workSessionService } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
+import WorkProjectSettings from './WorkProjectSettings'
 
 interface WorkSidebarProps {
   selectedProjectId?: string
@@ -32,6 +33,7 @@ function resolveColor(project: IWorkProject): ProjectColor {
 function ProjectNode({
   project,
   expanded,
+  sessionQuery,
   selectedProjectId,
   selectedSessionId,
   onToggle,
@@ -42,6 +44,7 @@ function ProjectNode({
 }: {
   project: IWorkProject
   expanded: boolean
+  sessionQuery: string
   selectedProjectId?: string
   selectedSessionId?: string
   onToggle: () => void
@@ -52,12 +55,13 @@ function ProjectNode({
 }) {
   const queryClient = useQueryClient()
   const [renaming, setRenaming] = useState(false)
+  const [setting, setSetting] = useState(false)
   const [name, setName] = useState(project.name)
   const color = resolveColor(project)
 
   const { data: sessions = [] } = useQuery({
-    queryKey: ['workSessions', project.id],
-    queryFn: () => workProjectService.getSessions(project.id),
+    queryKey: ['workSessions', project.id, sessionQuery],
+    queryFn: () => workProjectService.getSessions(project.id, sessionQuery || undefined),
     enabled: expanded,
   })
 
@@ -102,6 +106,13 @@ function ProjectNode({
         <span className="shrink-0 text-[10px] text-gray-400">{project.sessionCount}</span>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
           <button
+            onClick={(e) => { e.stopPropagation(); setSetting(true) }}
+            title="项目设置"
+            className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+          >
+            <Settings size={11} />
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
           >
@@ -115,6 +126,8 @@ function ProjectNode({
           </button>
         </div>
       </div>
+
+      {setting && <WorkProjectSettings project={project} onClose={() => setSetting(false)} />}
 
       {renaming && (
         <div className="flex items-center gap-1 px-2 py-1" style={{ paddingLeft: '36px' }}>
@@ -168,7 +181,9 @@ function ProjectNode({
             )
           })}
           {sessions.length === 0 && (
-            <div className="py-0.5 text-[11px] text-gray-400" style={{ paddingLeft: '40px' }}>空</div>
+            <div className="py-0.5 text-[11px] text-gray-400" style={{ paddingLeft: '40px' }}>
+              {sessionQuery ? '无匹配会话' : '空'}
+            </div>
           )}
           <button
             onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
@@ -259,7 +274,7 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索..."
+            placeholder="搜索项目或会话..."
             className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
           />
         </div>
@@ -296,7 +311,8 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
           <ProjectNode
             key={project.id}
             project={project}
-            expanded={isExpanded(project.id)}
+            expanded={search ? true : isExpanded(project.id)}
+            sessionQuery={search}
             selectedProjectId={selectedProjectId}
             selectedSessionId={selectedSessionId}
             onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}

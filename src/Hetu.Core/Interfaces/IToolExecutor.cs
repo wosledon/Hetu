@@ -20,6 +20,12 @@ public interface IToolExecutor
     ToolApprovalMode DefaultApproval { get; }
 
     /// <summary>
+    /// 风险等级：只读模式下仅允许 <see cref="ToolRisk.Read"/> 的工具执行。
+    /// 默认按写操作处理，只读工具需显式覆盖为 <see cref="ToolRisk.Read"/>。
+    /// </summary>
+    ToolRisk Risk => ToolRisk.Write;
+
+    /// <summary>
     /// 工具使用指引（拼入 system prompt 的"工具使用约定"段落，告诉模型在什么场景下、以什么方式调用本工具）。
     /// 与 Description 互补：Description 描述"是什么 / 怎么调用"，UsageGuideline 描述"何时该用 / 与其他工具的协作规则"。
     /// 留空时该工具不会在 system prompt 中出现额外的约束条目。
@@ -28,6 +34,19 @@ public interface IToolExecutor
 
     /// <summary>执行工具</summary>
     Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// 工具风险等级
+/// </summary>
+public enum ToolRisk
+{
+    /// <summary>只读，不改变项目状态</summary>
+    Read,
+    /// <summary>写入/删除文件或修改外部状态</summary>
+    Write,
+    /// <summary>执行外部命令，影响面不可预知</summary>
+    Execute
 }
 
 /// <summary>

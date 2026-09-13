@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -86,6 +87,13 @@ public class ToolExecutionService
     /// Execute a list of tool calls within a session, handling approval, ask_question, and todo.
     /// Returns the tool results so the caller can add them to the LLM chat history.
     /// </summary>
+    /// <param name="decideToolCall">
+    /// 可选的逐次决策回调（权限模式 / 项目规则）。返回不允许时该工具不执行，
+    /// 直接把拒绝原因作为工具结果回传模型。
+    /// </param>
+    /// <param name="workScope">
+    /// 可选的工作项目作用域。工具在新作用域内执行，需显式传递，否则 work_* 文件工具取不到根目录与运行时工具。
+    /// </param>
     public async Task<List<(string toolCallId, string content)>> ExecuteToolCallsAsync(
         string sessionId,
         List<LlmToolCall> toolCalls,
@@ -93,13 +101,29 @@ public class ToolExecutionService
         List<SessionTodo> sessionTodos,
         Func<string, Task> writeEventAsync,
         Func<object, Task> writeJsonAsync,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? decideToolCall = null,
+        WorkToolScope? workScope = null)
     {
         var results = new List<(string toolCallId, string content)>();
         var state = _sessions.GetOrCreate(sessionId);
 
         await using var scope = _scopeFactory.CreateAsyncScope();
+        var workContext = scope.ServiceProvider.GetRequiredService<WorkToolContext>();
+        if (workScope != null)
+        {
+            workContext.ProjectRoot = workScope.ProjectRoot;
+            workContext.ProjectId = workScope.ProjectId;
+            workContext.ModelId = workScope.ModelId;
+            workContext.DiagnosticsCommand = workScope.DiagnosticsCommand;
+        }
+        workContext.WriteEventAsync = writeJsonAsync;
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
+        if (workScope?.RuntimeTools != null)
+        {
+            foreach (var runtimeTool in workScope.RuntimeTools)
+                toolRegistry.AddRuntimeTool(runtimeTool);
+        }
 
         foreach (var toolCall in toolCalls)
         {
@@ -119,6 +143,28 @@ public class ToolExecutionService
             var approval = approvalOverrides.GetValueOrDefault(toolCall.Name,
                 approvalOverrides.GetValueOrDefault("*",
                     executor?.DefaultApproval ?? ToolApprovalMode.Auto));
+
+            if (decideToolCall != null && !isSilentTool)
+            {
+                var decision = decideToolCall(toolCall, approval);
+                if (!decision.Allowed)
+                {
+                    var denyMessage = decision.DenyMessage ?? $"工具 \"{toolCall.Name}\" 被权限策略拒绝。";
+                    await writeJsonAsync(new
+                    {
+                        type = "tool_result",
+                        id = toolCall.Id,
+                        name = toolCall.Name,
+                        content = denyMessage,
+                        isError = true,
+                        collapsed = false,
+                        hidden = isSilentTool
+                    });
+                    results.Add((toolCall.Id, denyMessage));
+                    continue;
+                }
+                approval = decision.Mode;
+            }
 
             string resultContent;
             bool isError = false;

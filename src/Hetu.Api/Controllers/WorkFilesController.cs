@@ -102,6 +102,153 @@ public class WorkFilesController : ControllerBase
         }
     }
 
+    /// <summary>项目内文件名/内容搜索（遵守 .gitignore/.hetuignore 与内置忽略目录）</summary>
+    [HttpGet("search")]
+    public async Task<ApiResponse<List<WorkFileSearchHitDto>>> Search(
+        Guid projectId,
+        [FromQuery] string query,
+        [FromQuery] int limit,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return ApiResponse<List<WorkFileSearchHitDto>>.Ok([]);
+
+        var root = await ResolveRootAsync(projectId, cancellationToken);
+        if (root == null) return ApiResponse<List<WorkFileSearchHitDto>>.Fail("项目不存在");
+
+        var max = Math.Clamp(limit <= 0 ? 60 : limit, 1, 200);
+        var needle = query.Trim();
+        var hits = new List<WorkFileSearchHitDto>();
+        var scanned = 0;
+
+        // 先按文件名匹配，保证定位类搜索优先生效
+        foreach (var file in EnumerateProjectFiles(root, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (++scanned > 20000 || hits.Count >= max) break;
+
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (relative.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                hits.Add(new WorkFileSearchHitDto { Path = relative, Line = 0, Text = Path.GetFileName(file) });
+        }
+
+        if (hits.Count < max)
+        {
+            var remaining = max - hits.Count;
+            foreach (var file in EnumerateProjectFiles(root, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (remaining <= 0) break;
+                if (!WorkProjectRules.IsProbablyText(file)) continue;
+
+                string[] lines;
+                try
+                {
+                    lines = await System.IO.File.ReadAllLinesAsync(file, cancellationToken);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    continue;
+                }
+
+                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+                for (var i = 0; i < lines.Length && remaining > 0; i++)
+                {
+                    var index = lines[i].IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+                    if (index < 0) continue;
+
+                    var text = lines[i].Trim();
+                    if (text.Length > 200) text = text[..200] + "…";
+                    hits.Add(new WorkFileSearchHitDto { Path = relative, Line = i + 1, Text = text });
+                    remaining--;
+                }
+            }
+        }
+
+        return ApiResponse<List<WorkFileSearchHitDto>>.Ok(hits);
+    }
+
+    private static IEnumerable<string> EnumerateProjectFiles(string root, CancellationToken cancellationToken)
+    {
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+
+            string[] subDirs;
+            string[] files;
+            try
+            {
+                subDirs = Directory.GetDirectories(current);
+                files = Directory.GetFiles(current);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var file in files) yield return file;
+
+            foreach (var sub in subDirs)
+            {
+                if (WorkProjectRules.IsBuiltinIgnoredDir(Path.GetFileName(sub))) continue;
+                var relative = Path.GetRelativePath(root, sub).Replace('\\', '/');
+                if (WorkProjectRules.IsIgnored(root, relative)) continue;
+                pending.Push(sub);
+            }
+        }
+    }
+
+    /// <summary>写入/覆盖项目内文本文件（用于内置编辑器；创建目录，可选内容冲突校验）</summary>
+    [HttpPut("write")]
+    public async Task<ApiResponse<WorkFileContentDto>> Write(Guid projectId, [FromBody] WriteWorkFileRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Path)) return ApiResponse<WorkFileContentDto>.Fail("路径不能为空");
+
+        var root = await ResolveRootAsync(projectId, cancellationToken);
+        if (root == null) return ApiResponse<WorkFileContentDto>.Fail("项目不存在");
+
+        var file = WorkPath.Resolve(root, request.Path);
+        if (file == null) return ApiResponse<WorkFileContentDto>.Fail("路径超出项目范围");
+
+        if (Directory.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("目标路径是目录");
+
+        var content = request.Content ?? string.Empty;
+        if (content.Length > 2 * 1024 * 1024) return ApiResponse<WorkFileContentDto>.Fail("文件内容超过 2MB 限制");
+
+        try
+        {
+            if (System.IO.File.Exists(file) && request.OriginalContent != null)
+            {
+                var current = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
+                if (current != request.OriginalContent)
+                    return ApiResponse<WorkFileContentDto>.Fail("文件已被其他操作修改，请重新加载后再保存");
+            }
+
+            var dir = Path.GetDirectoryName(file);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            await System.IO.File.WriteAllTextAsync(file, content, cancellationToken);
+            var fi = new FileInfo(file);
+
+            return ApiResponse<WorkFileContentDto>.Ok(new WorkFileContentDto
+            {
+                Path = Path.GetRelativePath(root, file).Replace('\\', '/'),
+                Name = fi.Name,
+                Size = fi.Length,
+                IsBinary = false,
+                Content = content,
+                ModifiedAt = fi.LastWriteTimeUtc
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ApiResponse<WorkFileContentDto>.Fail($"写入文件失败: {ex.Message}");
+        }
+    }
+
     private async Task<string?> ResolveRootAsync(Guid projectId, CancellationToken cancellationToken)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);

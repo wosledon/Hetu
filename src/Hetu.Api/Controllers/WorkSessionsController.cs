@@ -10,10 +10,12 @@ namespace Hetu.Api.Controllers;
 public class WorkSessionsController : ControllerBase
 {
     private readonly IWorkSessionService _sessionService;
+    private readonly IWorkCheckpointService _checkpointService;
 
-    public WorkSessionsController(IWorkSessionService sessionService)
+    public WorkSessionsController(IWorkSessionService sessionService, IWorkCheckpointService checkpointService)
     {
         _sessionService = sessionService;
+        _checkpointService = checkpointService;
     }
 
     [HttpGet("{id:guid}")]
@@ -46,6 +48,37 @@ public class WorkSessionsController : ControllerBase
     [HttpPost("{id:guid}/messages")]
     public Task<ApiResponse<WorkMessageDto>> AddMessage(Guid id, [FromBody] AddWorkMessageRequest request, CancellationToken cancellationToken)
         => _sessionService.AddMessageAsync(id, request.Role, request.Content, request.Type, request.Metadata, cancellationToken: cancellationToken);
+
+    [HttpGet("{id:guid}/checkpoints")]
+    public Task<ApiResponse<List<WorkCheckpointDto>>> GetCheckpoints(Guid id, CancellationToken cancellationToken)
+        => _checkpointService.GetBySessionAsync(id, cancellationToken);
+}
+
+/// <summary>检查点相关接口（跨会话访问，按检查点 id 定位）</summary>
+[ApiController]
+[Route("api/work-checkpoints")]
+public class WorkCheckpointsController : ControllerBase
+{
+    private readonly IWorkCheckpointService _checkpointService;
+
+    public WorkCheckpointsController(IWorkCheckpointService checkpointService)
+    {
+        _checkpointService = checkpointService;
+    }
+
+    /// <summary>回滚到指定检查点：恢复快照内容，删除快照时并不存在的文件</summary>
+    [HttpPost("{id:guid}/restore")]
+    public Task<ApiResponse<RestoreCheckpointResultDto>> Restore(Guid id, CancellationToken cancellationToken)
+        => _checkpointService.RestoreAsync(id, cancellationToken);
+
+    /// <summary>对比检查点快照与当前工作区</summary>
+    [HttpGet("{id:guid}/diff")]
+    public Task<ApiResponse<WorkCheckpointDiffDto>> Diff(Guid id, CancellationToken cancellationToken)
+        => _checkpointService.GetDiffAsync(id, cancellationToken);
+
+    [HttpDelete("{id:guid}")]
+    public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
+        => _checkpointService.DeleteAsync(id, cancellationToken);
 }
 
 public class AddWorkMessageRequest

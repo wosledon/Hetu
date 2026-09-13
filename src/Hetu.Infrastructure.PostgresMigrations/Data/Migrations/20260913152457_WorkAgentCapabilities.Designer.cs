@@ -3,6 +3,7 @@ using System;
 using Hetu.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Pgvector;
 namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 {
     [DbContext(typeof(HetuDbContext))]
-    partial class HetuDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913152457_WorkAgentCapabilities")]
+    partial class WorkAgentCapabilities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1272,56 +1275,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.ToTable("WorkCheckpointFiles");
                 });
 
-            modelBuilder.Entity("Hetu.Core.Entities.WorkCodeChunk", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("Hash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("StartLine")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Vector>("Vector")
-                        .IsRequired()
-                        .HasColumnType("vector");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("ProjectId", "FilePath");
-
-                    b.ToTable("WorkCodeChunks");
-                });
-
             modelBuilder.Entity("Hetu.Core.Entities.WorkFileChange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1374,12 +1327,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("CachedTokens")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("CompletionTokens")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1387,17 +1334,11 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("LatencyMs")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Metadata")
                         .HasColumnType("text");
 
                     b.Property<Guid?>("ModelId")
                         .HasColumnType("uuid");
-
-                    b.Property<int?>("PromptTokens")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1406,9 +1347,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
-
-                    b.Property<int?>("TotalTokens")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -1444,15 +1382,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("DiagnosticsCommand")
-                        .HasColumnType("text");
-
                     b.Property<string>("Icon")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
-
-                    b.Property<string>("McpServerIds")
-                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1463,9 +1395,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("SkillIds")
-                        .HasColumnType("text");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
@@ -1484,12 +1413,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<long>("CachedTokens")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("CompletionTokens")
-                        .HasColumnType("bigint");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1506,19 +1429,10 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<long>("PromptTokens")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
-
-                    b.Property<long>("TotalTokens")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("TurnCount")
-                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");

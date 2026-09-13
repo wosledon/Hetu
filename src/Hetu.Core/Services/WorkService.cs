@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 
@@ -31,7 +33,8 @@ public class WorkProjectService : IWorkProjectService
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
         if (project == null) return ApiResponse<WorkProjectDto>.Fail("项目不存在");
         var count = (await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken)).Count;
-        return ApiResponse<WorkProjectDto>.Ok(Map(project, count));
+        var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == id, cancellationToken);
+        return ApiResponse<WorkProjectDto>.Ok(Map(project, count, BuildIndexStatus(chunks)));
     }
 
     public async Task<ApiResponse<WorkProjectDto>> CreateAsync(CreateWorkProjectRequest request, CancellationToken cancellationToken = default)
@@ -72,6 +75,11 @@ public class WorkProjectService : IWorkProjectService
         project.Icon = request.Icon;
         project.Color = request.Color;
         project.SortOrder = request.SortOrder;
+        if (request.McpServerIds != null)
+            project.McpServerIds = request.McpServerIds.Count == 0 ? null : JsonSerializer.Serialize(request.McpServerIds);
+        if (request.SkillIds != null)
+            project.SkillIds = request.SkillIds.Count == 0 ? null : JsonSerializer.Serialize(request.SkillIds);
+        project.DiagnosticsCommand = string.IsNullOrWhiteSpace(request.DiagnosticsCommand) ? null : request.DiagnosticsCommand.Trim();
         project.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.WorkProjects.UpdateAsync(project, cancellationToken);
@@ -90,7 +98,7 @@ public class WorkProjectService : IWorkProjectService
         return ApiResponse.Ok();
     }
 
-    private static WorkProjectDto Map(WorkProject project, int sessionCount) => new()
+    private static WorkProjectDto Map(WorkProject project, int sessionCount, WorkCodeIndexStatusDto? codeIndex = null) => new()
     {
         Id = project.Id,
         Name = project.Name,
@@ -100,9 +108,46 @@ public class WorkProjectService : IWorkProjectService
         Color = project.Color,
         SortOrder = project.SortOrder,
         SessionCount = sessionCount,
+        McpServerIds = ParseGuids(project.McpServerIds),
+        SkillIds = ParseStrings(project.SkillIds),
+        DiagnosticsCommand = project.DiagnosticsCommand,
+        CodeIndex = codeIndex ?? new WorkCodeIndexStatusDto(),
         CreatedAt = project.CreatedAt,
         UpdatedAt = project.UpdatedAt
     };
+
+    private static WorkCodeIndexStatusDto BuildIndexStatus(IReadOnlyList<WorkCodeChunk> chunks) => new()
+    {
+        ChunkCount = chunks.Count,
+        FileCount = chunks.Select(c => c.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        IndexedAt = chunks.Count > 0 ? chunks.Max(c => c.UpdatedAt) : null
+    };
+
+    private static List<Guid> ParseGuids(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static List<string> ParseStrings(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 }
 
 public class WorkSessionService : IWorkSessionService
@@ -114,11 +159,25 @@ public class WorkSessionService : IWorkSessionService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
     {
         var sessions = await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == projectId, cancellationToken);
         var messages = await _unitOfWork.WorkMessages.GetAllAsync(cancellationToken);
         var countBySession = messages.GroupBy(m => m.SessionId).ToDictionary(g => g.Key, g => g.Count());
+
+        var keyword = query?.Trim();
+        if (!string.IsNullOrEmpty(keyword))
+        {
+            var matchedSessionIds = messages
+                .Where(m => m.Type == "text" && m.Content.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.SessionId)
+                .ToHashSet();
+
+            sessions = sessions
+                .Where(s => s.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) || matchedSessionIds.Contains(s.Id))
+                .ToList();
+        }
+
         return ApiResponse<List<WorkSessionDto>>.Ok(sessions
             .OrderByDescending(s => s.UpdatedAt)
             .Select(s => Map(s, countBySession.GetValueOrDefault(s.Id)))
@@ -144,6 +203,9 @@ public class WorkSessionService : IWorkSessionService
             ProjectId = request.ProjectId,
             Title = string.IsNullOrWhiteSpace(request.Title) ? "新会话" : request.Title.Trim(),
             ModelId = request.ModelId,
+            PermissionMode = WorkToolPolicy.IsValidValue(request.PermissionMode)
+                ? request.PermissionMode!.Trim().ToLowerInvariant()
+                : WorkToolPolicy.DefaultMode,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -160,6 +222,12 @@ public class WorkSessionService : IWorkSessionService
 
         if (!string.IsNullOrWhiteSpace(request.Title)) session.Title = request.Title.Trim();
         session.ModelId = request.ModelId;
+        if (!string.IsNullOrWhiteSpace(request.PermissionMode))
+        {
+            if (!WorkToolPolicy.IsValidValue(request.PermissionMode))
+                return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：readonly | ask | auto | bypass");
+            session.PermissionMode = request.PermissionMode.Trim().ToLowerInvariant();
+        }
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
@@ -203,7 +271,7 @@ public class WorkSessionService : IWorkSessionService
             .ToList();
     }
 
-    public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);
         if (session == null) return ApiResponse<WorkMessageDto>.Fail("会话不存在");
@@ -229,9 +297,23 @@ public class WorkSessionService : IWorkSessionService
             Type = type,
             Metadata = metadata,
             ModelId = modelId,
+            PromptTokens = usage?.PromptTokens,
+            CompletionTokens = usage?.CompletionTokens,
+            CachedTokens = usage?.CachedTokens,
+            TotalTokens = usage?.TotalTokens,
+            LatencyMs = usage?.LatencyMs,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
+
+        if (usage != null)
+        {
+            session.PromptTokens += usage.PromptTokens;
+            session.CompletionTokens += usage.CompletionTokens;
+            session.CachedTokens += usage.CachedTokens;
+            session.TotalTokens += usage.TotalTokens;
+            if (role == "assistant") session.TurnCount++;
+        }
 
         await _unitOfWork.WorkMessages.AddAsync(message, cancellationToken);
         session.UpdatedAt = DateTimeOffset.UtcNow;
@@ -246,7 +328,13 @@ public class WorkSessionService : IWorkSessionService
         ProjectId = session.ProjectId,
         Title = session.Title,
         ModelId = session.ModelId,
+        PermissionMode = string.IsNullOrWhiteSpace(session.PermissionMode) ? WorkToolPolicy.DefaultMode : session.PermissionMode,
         MessageCount = messageCount,
+        TurnCount = session.TurnCount,
+        PromptTokens = session.PromptTokens,
+        CompletionTokens = session.CompletionTokens,
+        CachedTokens = session.CachedTokens,
+        TotalTokens = session.TotalTokens,
         CreatedAt = session.CreatedAt,
         UpdatedAt = session.UpdatedAt
     };
@@ -260,6 +348,11 @@ public class WorkSessionService : IWorkSessionService
         Type = message.Type,
         Metadata = message.Metadata,
         ModelId = message.ModelId,
+        PromptTokens = message.PromptTokens,
+        CompletionTokens = message.CompletionTokens,
+        CachedTokens = message.CachedTokens,
+        TotalTokens = message.TotalTokens,
+        LatencyMs = message.LatencyMs,
         CreatedAt = message.CreatedAt
     };
 }

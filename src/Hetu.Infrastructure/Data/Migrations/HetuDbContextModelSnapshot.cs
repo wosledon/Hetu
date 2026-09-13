@@ -1141,6 +1141,165 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.ToTable("TaskItems");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.WorkApprovalRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PathPattern")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ToolName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("WorkApprovalRules");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkCheckpoint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FileCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tools")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("WorkCheckpoints");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkCheckpointFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CheckpointId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckpointId");
+
+                    b.ToTable("WorkCheckpointFiles");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkCodeChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StartLine")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "FilePath");
+
+                    b.ToTable("WorkCodeChunks");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.WorkFileChange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1193,6 +1352,12 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CachedTokens")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CompletionTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1200,11 +1365,17 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("LatencyMs")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Metadata")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ModelId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("PromptTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1213,6 +1384,9 @@ namespace Hetu.Infrastructure.Data.Migrations
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("TotalTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -1248,8 +1422,14 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DiagnosticsCommand")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Icon")
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("McpServerIds")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -1260,6 +1440,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<string>("RootPath")
                         .IsRequired()
                         .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SkillIds")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("SortOrder")
@@ -1279,19 +1462,41 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("CachedTokens")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CompletionTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ModelId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PermissionMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("ask");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("PromptTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("TotalTokens")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TurnCount")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
@@ -1626,6 +1831,17 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Navigation("Note");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.WorkCheckpointFile", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.WorkCheckpoint", "Checkpoint")
+                        .WithMany("Files")
+                        .HasForeignKey("CheckpointId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Checkpoint");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.WorkMessage", b =>
                 {
                     b.HasOne("Hetu.Core.Entities.WorkSession", "Session")
@@ -1692,6 +1908,11 @@ namespace Hetu.Infrastructure.Data.Migrations
             modelBuilder.Entity("Hetu.Core.Entities.Tag", b =>
                 {
                     b.Navigation("NoteTags");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkCheckpoint", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.WorkProject", b =>

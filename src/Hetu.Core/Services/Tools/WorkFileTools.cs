@@ -4,10 +4,30 @@ using Hetu.Core.Interfaces;
 
 namespace Hetu.Core.Services.Tools;
 
-/// <summary>当前请求作用域内的工作项目根目录（由 Work 流式控制器设置）</summary>
+/// <summary>当前请求作用域内的工作项目上下文（由 Work 流式控制器设置）</summary>
 public class WorkToolContext
 {
     public string? ProjectRoot { get; set; }
+    public Guid? ProjectId { get; set; }
+    /// <summary>当前会话绑定的对话模型，供 work_task 子 Agent 复用</summary>
+    public Guid? ModelId { get; set; }
+    /// <summary>项目自定义诊断命令</summary>
+    public string? DiagnosticsCommand { get; set; }
+    /// <summary>SSE 事件通道，工具可借此推送进度（如子 Agent 执行步骤）</summary>
+    public Func<object, Task>? WriteEventAsync { get; set; }
+}
+
+/// <summary>
+/// 工具执行作用域参数。工具在独立 DI 作用域内执行，这些值由调用方显式传入。
+/// </summary>
+public class WorkToolScope
+{
+    public string? ProjectRoot { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? ModelId { get; set; }
+    public string? DiagnosticsCommand { get; set; }
+    /// <summary>运行时工具（如 MCP 适配器），需注册到执行作用域</summary>
+    public IReadOnlyList<IToolExecutor>? RuntimeTools { get; set; }
 }
 
 /// <summary>项目内安全路径解析（防目录穿越）</summary>
@@ -16,9 +36,11 @@ public static class WorkPath
     public static string? Resolve(string root, string relative)
     {
         if (string.IsNullOrWhiteSpace(root)) return null;
-        var full = Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
-        if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-            !full.Equals(root, StringComparison.OrdinalIgnoreCase))
+        // 根目录同样走 GetFullPath 规范化，避免 8.3 短路径与长路径比较不一致
+        var rootFull = Path.GetFullPath(root);
+        var full = Path.GetFullPath(Path.Combine(rootFull, relative.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+        if (!full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !full.Equals(rootFull, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -36,6 +58,7 @@ public class WorkListDirTool : IToolExecutor
     public string Name => "work_list_dir";
     public string Description => "列出项目内指定目录（相对项目根）下的子目录与文件";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public ToolRisk Risk => ToolRisk.Read;
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
@@ -63,9 +86,14 @@ public class WorkListDirTool : IToolExecutor
                 return ToolExecutionResult.Error($"目录不存在或超出项目范围: {rel}");
 
             var sb = new StringBuilder();
-            foreach (var d in Directory.GetDirectories(dir).OrderBy(x => x))
+            foreach (var d in Directory.GetDirectories(dir)
+                .Where(x => !WorkProjectRules.IsBuiltinIgnoredDir(Path.GetFileName(x)))
+                .Where(x => !WorkProjectRules.IsIgnored(root, Path.GetRelativePath(root, x)))
+                .OrderBy(x => x))
                 sb.AppendLine($"📁 {Path.GetRelativePath(root, d).Replace('\\', '/')}/");
-            foreach (var f in Directory.GetFiles(dir).OrderBy(x => x))
+            foreach (var f in Directory.GetFiles(dir)
+                .Where(x => !WorkProjectRules.IsIgnored(root, Path.GetRelativePath(root, x)))
+                .OrderBy(x => x))
             {
                 var fi = new FileInfo(f);
                 sb.AppendLine($"📄 {Path.GetRelativePath(root, f).Replace('\\', '/')} ({fi.Length} bytes)");
@@ -89,6 +117,7 @@ public class WorkReadFileTool : IToolExecutor
     public string Name => "work_read_file";
     public string Description => "读取项目内文件内容（相对项目根的路径）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+    public ToolRisk Risk => ToolRisk.Read;
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
@@ -146,7 +175,8 @@ public class WorkWriteFileTool : IToolExecutor
     public string Name => "work_write_file";
     public string Description => "创建或覆盖项目内文件（相对项目根的路径），content 为完整文件内容";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Ask;
-    public string? UsageGuideline => "仅用于明确要求修改/创建代码文件时；写入前应向用户确认。";
+    public ToolRisk Risk => ToolRisk.Write;
+    public string? UsageGuideline => "仅用于新建文件或整体重写；修改既有文件的局部内容请用 work_apply_patch。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
@@ -189,28 +219,44 @@ public class WorkWriteFileTool : IToolExecutor
 /// <summary>在项目根目录执行命令</summary>
 public class WorkRunCommandTool : IToolExecutor
 {
+    private const int DefaultTimeoutSeconds = 120;
+    private const int MaxTimeoutSeconds = 600;
+    private const int MaxOutputChars = 30000;
+
     private readonly WorkToolContext _context;
 
     public WorkRunCommandTool(WorkToolContext context) => _context = context;
 
     public string Name => "work_run_command";
-    public string Description => "在项目根目录执行 shell 命令（只读诊断优先，写操作需确认）";
+    public string Description => "在项目内执行 shell 命令（可指定工作目录与超时），返回标准输出/错误与退出码";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Ask;
-    public string? UsageGuideline => "仅用于构建、测试、git 状态等开发操作；破坏性命令禁止执行。";
+    public ToolRisk Risk => ToolRisk.Execute;
+    public string? UsageGuideline => "仅用于构建、测试、lint、git 等开发操作；破坏性命令（删除、格式化、关机等）一律禁止。";
 
     private static readonly HashSet<string> Denied = new(StringComparer.OrdinalIgnoreCase)
     {
         "rm", "rmdir", "del", "erase", "format", "diskpart", "reg", "regedit",
         "shutdown", "reboot", "halt", "poweroff", "taskkill", "dd", "mkfs", "fdisk",
-        "chmod", "chown", "wget", "sc", "net", "bcdedit", "icacls", "cacls", "takeown",
-        "rundll32", "mshta", "wmic", "wscript", "cscript",
+        "chmod", "chown", "sc", "net", "bcdedit", "icacls", "cacls", "takeown",
+        "rundll32", "mshta", "wmic", "wscript", "cscript", "shred", "cipher",
+        "rmdir", "rd", "vol", "attrib", "setx", "netsh",
     };
+
+    /// <summary>整条命令中出现即拒绝的高危片段</summary>
+    private static readonly string[] DeniedPatterns =
+    [
+        "rm -rf /", "rm -rf /*", "rm -rf ~", ":(){", "curl | sh", "curl | bash",
+        "wget | sh", "wget | bash", "invoke-expression", "iex(", "iex (",
+        "> /dev/sda", "mkfs.", "fork bomb", "format c:", "del /f /s /q c:",
+    ];
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
         "type": "object",
         "properties": {
-            "command": { "type": "string", "description": "要执行的命令" }
+            "command": { "type": "string", "description": "要执行的命令" },
+            "cwd": { "type": "string", "description": "相对项目根的工作目录，默认项目根" },
+            "timeoutSeconds": { "type": "integer", "description": "超时秒数，默认 120，最大 600" }
         },
         "required": ["command"]
     }
@@ -223,44 +269,133 @@ public class WorkRunCommandTool : IToolExecutor
         {
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
             var command = args.TryGetProperty("command", out var c) ? c.GetString() ?? "" : "";
+            var cwd = args.TryGetProperty("cwd", out var w) ? w.GetString() ?? "" : "";
+            var timeout = args.TryGetProperty("timeoutSeconds", out var t) && t.TryGetInt32(out var tv)
+                ? Math.Clamp(tv, 1, MaxTimeoutSeconds)
+                : DefaultTimeoutSeconds;
+
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
                 return ToolExecutionResult.Error("项目根目录不存在");
             if (string.IsNullOrWhiteSpace(command)) return ToolExecutionResult.Error("命令不能为空");
 
-            var first = command.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            if (first != null && Denied.Contains(Path.GetFileNameWithoutExtension(first)))
-                return ToolExecutionResult.Error($"禁止执行命令: {first}");
+            var denial = CheckSafety(command);
+            if (denial != null) return ToolExecutionResult.Error(denial);
+
+            var workDir = root;
+            if (!string.IsNullOrWhiteSpace(cwd))
+            {
+                var resolved = WorkPath.Resolve(root, cwd);
+                if (resolved == null || !Directory.Exists(resolved))
+                    return ToolExecutionResult.Error($"工作目录不存在或超出项目范围: {cwd}");
+                workDir = resolved;
+            }
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
-                Arguments = OperatingSystem.IsWindows() ? $"/C \"{command}\"" : $"-c \"{command}\"",
-                WorkingDirectory = root,
+                WorkingDirectory = workDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
+            if (OperatingSystem.IsWindows())
+            {
+                psi.ArgumentList.Add("/C");
+                psi.ArgumentList.Add(command);
+            }
+            else
+            {
+                psi.ArgumentList.Add("-c");
+                psi.ArgumentList.Add(command);
+            }
+
             using var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return ToolExecutionResult.Error("启动进程失败");
 
-            var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            await process.WaitForExitAsync(cts.Token);
-            var outText = await stdout;
-            var errText = await stderr;
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(timeout));
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+
+            var timedOut = false;
+            try
+            {
+                await process.WaitForExitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                timedOut = true;
+                try
+                {
+                    if (!process.HasExited) process.Kill(entireProcessTree: true);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // 进程可能已自然退出
+                }
+            }
+
+            var outText = await SafeReadAsync(stdoutTask);
+            var errText = await SafeReadAsync(stderrTask);
 
             var result = new StringBuilder();
-            if (!string.IsNullOrWhiteSpace(outText)) result.AppendLine(outText.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(errText)) result.AppendLine("[stderr] " + errText.TrimEnd());
-            result.AppendLine($"（退出码 {process.ExitCode}）");
+            if (!string.IsNullOrWhiteSpace(outText)) result.AppendLine(Truncate(outText.TrimEnd()));
+            if (!string.IsNullOrWhiteSpace(errText)) result.AppendLine("[stderr] " + Truncate(errText.TrimEnd()));
+            if (timedOut) result.AppendLine($"⏱️ 命令超时（{timeout}s）已被终止，需要更长时间请调大 timeoutSeconds。");
+            else result.AppendLine($"（退出码 {process.ExitCode}）");
             return ToolExecutionResult.Success(result.ToString());
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException or JsonException)
         {
             return ToolExecutionResult.Error($"执行命令失败: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 安全校验：逐段（按 &amp;&amp;、||、;、|、换行切分）检查首个 token，
+    /// 避免 `cd x &amp;&amp; rm -rf y` 这类绕过。
+    /// </summary>
+    public static string? CheckSafety(string command)
+    {
+        var lower = command.ToLowerInvariant();
+        foreach (var pattern in DeniedPatterns)
+        {
+            if (lower.Contains(pattern)) return $"命令包含被禁止的片段: {pattern}";
+        }
+
+        var segments = command.Split(
+            ["&&", "||", ";", "|", "\n", "\r", "&"],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var segment in segments)
+        {
+            var token = segment.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (token == null) continue;
+            token = token.Trim('(', ')', '"', '\'');
+            if (token.Length == 0) continue;
+            if (Denied.Contains(Path.GetFileNameWithoutExtension(token)))
+                return $"禁止执行命令: {token}";
+        }
+
+        return null;
+    }
+
+    private static async Task<string> SafeReadAsync(Task<string> task)
+    {
+        try
+        {
+            return await task;
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string Truncate(string text)
+        => text.Length <= MaxOutputChars
+            ? text
+            : text[..MaxOutputChars] + $"\n…（输出超过 {MaxOutputChars} 字符已截断）";
 }

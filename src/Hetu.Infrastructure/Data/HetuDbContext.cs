@@ -41,6 +41,10 @@ public class HetuDbContext : DbContext
     public DbSet<WorkSession> WorkSessions => Set<WorkSession>();
     public DbSet<WorkMessage> WorkMessages => Set<WorkMessage>();
     public DbSet<WorkFileChange> WorkFileChanges => Set<WorkFileChange>();
+    public DbSet<WorkApprovalRule> WorkApprovalRules => Set<WorkApprovalRule>();
+    public DbSet<WorkCheckpoint> WorkCheckpoints => Set<WorkCheckpoint>();
+    public DbSet<WorkCheckpointFile> WorkCheckpointFiles => Set<WorkCheckpointFile>();
+    public DbSet<WorkCodeChunk> WorkCodeChunks => Set<WorkCodeChunk>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -466,6 +470,7 @@ public class HetuDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PermissionMode).IsRequired().HasMaxLength(20).HasDefaultValue("ask");
             entity.HasOne(e => e.Project)
                 .WithMany(e => e.Sessions)
                 .HasForeignKey(e => e.ProjectId)
@@ -496,6 +501,66 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.SessionId);
             entity.HasIndex(e => e.ProjectId);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<WorkApprovalRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ToolName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.PathPattern).HasMaxLength(500);
+            entity.Property(e => e.Decision).IsRequired().HasMaxLength(20);
+            entity.HasIndex(e => e.ProjectId);
+        });
+
+        modelBuilder.Entity<WorkCheckpoint>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Tools).IsRequired().HasMaxLength(500);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<WorkCheckpointFile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
+            entity.HasOne(e => e.Checkpoint)
+                .WithMany(e => e.Files)
+                .HasForeignKey(e => e.CheckpointId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.CheckpointId);
+        });
+
+        modelBuilder.Entity<WorkCodeChunk>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Hash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => new { e.ProjectId, e.FilePath });
+
+            if (Database.IsNpgsql())
+            {
+                entity.Ignore(e => e.Embedding);
+
+                var vectorComparer = new ValueComparer<float[]>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(0, (hash, f) => HashCode.Combine(hash, f.GetHashCode())),
+                    v => v.ToArray());
+
+                entity.Property(e => e.Vector)
+                    .IsRequired()
+                    .HasColumnType("vector")
+                    .HasConversion(new VectorFloatArrayConverter(), vectorComparer);
+            }
+            else
+            {
+                entity.Ignore(e => e.Vector);
+                entity.Property(e => e.Embedding).IsRequired();
+            }
         });
     }
 }
