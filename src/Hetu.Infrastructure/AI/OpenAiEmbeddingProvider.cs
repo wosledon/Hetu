@@ -60,7 +60,7 @@ public class OpenAiEmbeddingProvider : IEmbeddingProvider
             .ToArray() ?? [];
     }
 
-    private static JsonSerializerOptions JsonOptions => new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
