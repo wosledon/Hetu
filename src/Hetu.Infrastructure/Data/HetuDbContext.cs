@@ -305,6 +305,13 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.TaskType);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.IsDeleted);
+            // 同一 (TaskType, EntityId) 只允许存在一条排队/执行中的任务，从数据库层面杜绝并发重复入队
+            entity.HasIndex(e => new { e.TaskType, e.EntityId })
+                .IsUnique()
+                .HasDatabaseName("IX_TaskItems_ActiveUniqueness")
+                .HasFilter(Database.IsNpgsql()
+                    ? "\"Status\" IN (0, 1) AND \"IsDeleted\" = false"
+                    : "Status IN (0, 1) AND IsDeleted = 0");
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

@@ -39,7 +39,8 @@ public class EmbeddingRegenerateScheduledTaskExecutor : IScheduledTaskExecutor
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await _embeddingService.GenerateEmbeddingAsync(note.Id, cancellationToken);
+                // 全量重建：忽略已有分块与向量，避免复用旧数据
+                await _embeddingService.GenerateEmbeddingAsync(note.Id, cancellationToken, force: true);
                 success++;
             }
             catch

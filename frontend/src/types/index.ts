@@ -264,6 +264,12 @@ export interface IExtractGraphResult {
   skippedRelations: number;
 }
 
+export interface IBatchQueueResult {
+  queuedCount: number;
+  /** 因已有进行中任务而跳过的数量 */
+  skippedCount: number;
+}
+
 export interface IShareLink {
   id: string;
   noteId: string;

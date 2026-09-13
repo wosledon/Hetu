@@ -1160,6 +1160,11 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.HasIndex("TaskType");
 
+                    b.HasIndex("TaskType", "EntityId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TaskItems_ActiveUniqueness")
+                        .HasFilter("\"Status\" IN (0, 1) AND \"IsDeleted\" = false");
+
                     b.ToTable("TaskItems");
                 });
 

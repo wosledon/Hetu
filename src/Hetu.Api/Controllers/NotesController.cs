@@ -1,4 +1,3 @@
-using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
@@ -12,15 +11,13 @@ public class NotesController : ControllerBase
 {
     private readonly INoteService _noteService;
     private readonly INoteAiService _noteAiService;
-    private readonly IBackgroundTaskQueue _taskQueue;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IBackgroundTaskCoordinator _taskCoordinator;
 
-    public NotesController(INoteService noteService, INoteAiService noteAiService, IBackgroundTaskQueue taskQueue, IUnitOfWork unitOfWork)
+    public NotesController(INoteService noteService, INoteAiService noteAiService, IBackgroundTaskCoordinator taskCoordinator)
     {
         _noteService = noteService;
         _noteAiService = noteAiService;
-        _taskQueue = taskQueue;
-        _unitOfWork = unitOfWork;
+        _taskCoordinator = taskCoordinator;
     }
 
     [HttpGet]
@@ -73,29 +70,13 @@ public class NotesController : ControllerBase
         if (note == null || !note.Success)
             return ApiResponse.Fail("笔记不存在");
 
-        // 检查是否已有进行中的索引任务
-        var typeName = nameof(BackgroundTaskType.GenerateEmbedding);
-        var existing = await _unitOfWork.TaskItems.FindAsync(
-            t => t.EntityId == id && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
+        var result = await _taskCoordinator.EnqueueAsync(
+            new BackgroundTaskRequest(BackgroundTaskType.GenerateEmbedding, id, note.Data?.Title),
             cancellationToken);
-        if (existing.Count > 0)
+
+        if (!result.Queued)
             return ApiResponse.Fail("该笔记已有正在进行的索引任务，请等待完成");
 
-        // 立即创建 Queued 记录，让前端立即感知
-        var taskItem = new TaskItem
-        {
-            Id = Guid.NewGuid(),
-            TaskType = typeName,
-            EntityId = id,
-            EntityTitle = note.Data?.Title,
-            Status = 0, // Queued
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
-        await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, id, note.Data?.Title), cancellationToken);
         return ApiResponse.Ok();
     }
 }

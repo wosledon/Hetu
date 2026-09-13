@@ -149,6 +149,7 @@ public static class HetuServiceCollectionExtensions
     public static IServiceCollection AddHetuBackgroundWorkers(this IServiceCollection services)
     {
         services.AddSingleton<IBackgroundTaskQueue, ChannelBackgroundTaskQueue>();
+        services.AddScoped<IBackgroundTaskCoordinator, BackgroundTaskCoordinator>();
         services.AddHostedService<BackgroundTaskProcessor>();
         services.AddHostedService<TrashCleanupService>();
         services.AddHostedService<AutoOrganizeService>();

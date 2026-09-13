@@ -56,6 +56,11 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
             return Task.FromResult(tracked);
         }
 
+        // 同一实例已被跟踪（如本作用域内刚 Add 的新实体）时不能再调 DbSet.Update：
+        // 它会把 Added 状态改写为 Modified，SaveChanges 于是发出影响 0 行的 UPDATE 并抛并发异常
+        if (tracked != null)
+            return Task.FromResult(entity);
+
         DbSet.Update(entity);
         return Task.FromResult(entity);
     }

@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Loader2,
   Network,
+  AlertCircle,
 } from 'lucide-react'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { TagInput } from './TagInput'
@@ -167,21 +168,37 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   const isIndexing = currentEmbedding?.hasRunningTask ?? false
 
+  const [indexError, setIndexError] = useState<string | null>(null)
+
   const generateEmbedding = useMutation({
     mutationFn: () => noteService.generateIndex(note!.id),
     onSuccess: () => {
+      setIndexError(null)
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
+    },
+    onError: (err: Error) => {
+      setIndexError(err.message || '生成索引失败')
+      queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
+      setTimeout(() => setIndexError(null), 5000)
     },
   })
 
   // ── 知识图谱提取 ──
-  const [extractQueued, setExtractQueued] = useState(false)
+  const [extractNotice, setExtractNotice] = useState<{ text: string; ok: boolean } | null>(null)
 
   const extractGraph = useMutation({
     mutationFn: () => graphService.batchExtractQueue([note!.id]),
-    onSuccess: () => {
-      setExtractQueued(true)
-      setTimeout(() => setExtractQueued(false), 5000)
+    onSuccess: (result) => {
+      setExtractNotice(
+        result.queuedCount > 0
+          ? { text: '已加入后台任务', ok: true }
+          : { text: '已有的图谱任务仍在进行中', ok: false }
+      )
+      setTimeout(() => setExtractNotice(null), 5000)
+    },
+    onError: (err: Error) => {
+      setExtractNotice({ text: err.message || '加入后台任务失败', ok: false })
+      setTimeout(() => setExtractNotice(null), 5000)
     },
   })
 
@@ -485,6 +502,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               未索引
             </span>
           )}
+          {indexError && (
+            <span className="flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <AlertCircle size={11} />
+              {indexError}
+            </span>
+          )}
           <button
             onClick={() => generateEmbedding.mutate()}
             disabled={generateEmbedding.isPending || isIndexing}
@@ -515,10 +538,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             )}
             {extractGraph.isPending ? '加入中...' : '提取图谱'}
           </button>
-          {extractQueued && (
-            <span className="flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-400">
-              <Check size={11} />
-              已加入后台任务
+          {extractNotice && (
+            <span
+              className={
+                extractNotice.ok
+                  ? 'flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-400'
+                  : 'flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
+              }
+            >
+              {extractNotice.ok ? <Check size={11} /> : <AlertCircle size={11} />}
+              {extractNotice.text}
             </span>
           )}
         </div>

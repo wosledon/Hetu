@@ -11,18 +11,18 @@ namespace Hetu.Api.Controllers;
 public class KnowledgeItemsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly IBackgroundTaskCoordinator _taskCoordinator;
     private readonly IWebHostEnvironment _env;
     private readonly WebContentExtractor _webExtractor;
 
     public KnowledgeItemsController(
         IUnitOfWork unitOfWork,
-        IBackgroundTaskQueue taskQueue,
+        IBackgroundTaskCoordinator taskCoordinator,
         IWebHostEnvironment env,
         WebContentExtractor webExtractor)
     {
         _unitOfWork = unitOfWork;
-        _taskQueue = taskQueue;
+        _taskCoordinator = taskCoordinator;
         _env = env;
         _webExtractor = webExtractor;
     }
@@ -107,8 +107,8 @@ public class KnowledgeItemsController : ControllerBase
         // 自动生成索引
         if (!string.IsNullOrWhiteSpace(item.Content))
         {
-            await _taskQueue.QueueAsync(
-                new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id),
+            await _taskCoordinator.EnqueueAsync(
+                new BackgroundTaskRequest(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id, item.Title),
                 cancellationToken);
         }
 
@@ -161,8 +161,8 @@ public class KnowledgeItemsController : ControllerBase
         // 自动生成索引
         if (!string.IsNullOrWhiteSpace(content))
         {
-            await _taskQueue.QueueAsync(
-                new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id),
+            await _taskCoordinator.EnqueueAsync(
+                new BackgroundTaskRequest(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id, item.Title),
                 cancellationToken);
         }
 
