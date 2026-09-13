@@ -112,6 +112,12 @@ export const chatMessageService = {
   send: (topicId: string, data: SendMessageRequest) => post<IChatMessage>(`/chat-messages/topic/${topicId}`, data),
   update: (id: string, data: UpdateChatMessageRequest) => put<IChatMessage>(`/chat-messages/${id}`, data),
   delete: (id: string) => del<void>(`/chat-messages/${id}`),
+  /** 提交工具调用的提问答案 */
+  submitAnswer: (sessionId: string | undefined, toolCallId: string, answer: string) =>
+    post<void>('/chat-messages/answer', { sessionId, toolCallId, answer }),
+  /** 提交工具调用的审批结果 */
+  submitApproval: (sessionId: string | undefined, toolCallId: string, approve: boolean) =>
+    post<void>('/chat-messages/approve', { sessionId, toolCallId, approve }),
   stream: (topicId: string, data: SendMessageRequest, signal?: AbortSignal): Promise<Response> =>
     fetch(`/api/chat-messages/topic/${topicId}/stream`, {
       method: 'POST',

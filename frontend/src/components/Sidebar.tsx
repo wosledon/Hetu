@@ -1,5 +1,5 @@
-import { confirm } from './ConfirmDialog'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { confirm } from './confirm'
+import { useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,6 +13,8 @@ import {
   FolderOpen,
   FileText,
 } from 'lucide-react'
+import { useNotebooks } from '../hooks/useNotebooks'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
@@ -60,23 +62,7 @@ function NotebookTreeItem({
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  useEffect(() => {
-    if (!menu) return
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeMenu()
-      }
-    }
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [menu, closeMenu])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const handleRename = () => {
     const trimmed = draftName.trim()
@@ -241,10 +227,7 @@ export default function Sidebar() {
   const DEFAULT_NOTEBOOK_ID = 'default'
   const isDefaultSelected = selectedNotebookId === DEFAULT_NOTEBOOK_ID
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: notebookService.getTree,
-  })
+  const notebooks = useNotebooks()
 
   const { data: notesPaged } = useQuery({
     queryKey: ['notes', 'sidebar-stats'],

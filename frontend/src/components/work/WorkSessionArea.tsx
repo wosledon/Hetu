@@ -6,6 +6,7 @@ import { aiModelService } from '../../services/aiProviderService'
 import type { IWorkSession, IWorkMessage, IWorkProject } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
+import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
@@ -16,63 +17,28 @@ interface WorkSessionAreaProps {
 interface FileChangeMeta { path: string; action: string }
 interface ToolCallView { id: string; name: string; arguments: string; result?: string; hidden?: boolean }
 
-async function consumeWorkStream(
-  _sessionId: string,
-  startRequest: (signal: AbortSignal) => Promise<Response>,
-  handlers: {
-    onContent: (text: string) => void
-    onToolCall: (tc: ToolCallView) => void
-    onToolResult: (id: string, content: string) => void
-    onFileChange: (fc: FileChangeMeta) => void
-  },
-) {
-  const controller = new AbortController()
-  let cancelled = false
+type WorkStreamHandlers = {
+  onContent: (text: string) => void
+  onToolCall: (tc: ToolCallView) => void
+  onToolResult: (id: string, content: string) => void
+  onFileChange: (fc: FileChangeMeta) => void
+}
+
+/** 把工作流的一帧分发给对应 handler；非 JSON 帧按纯文本追加。 */
+function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
+  if (data.startsWith(SSE_ERROR_PREFIX)) {
+    handlers.onContent('\n' + data)
+    return
+  }
   try {
-    const response = await startRequest(controller.signal)
-    if (!response.body) return
-    const reader = response.body.getReader()
-    const onAbort = () => { cancelled = true; reader.cancel().catch(() => {}) }
-    controller.signal.addEventListener('abort', onAbort)
-    const decoder = new TextDecoder()
-    let buffer = ''
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data.startsWith('[ERROR]')) {
-            handlers.onContent('\n' + data)
-            continue
-          }
-          try {
-            const evt = JSON.parse(data)
-            if (evt.type === 'content' && typeof evt.text === 'string') handlers.onContent(evt.text)
-            else if (evt.type === 'thinking' && typeof evt.text === 'string') handlers.onContent(evt.text)
-            else if (evt.type === 'tool_call') handlers.onToolCall({ id: evt.id, name: evt.name, arguments: evt.arguments, hidden: evt.hidden })
-            else if (evt.type === 'tool_result') handlers.onToolResult(evt.id, evt.content)
-            else if (evt.type === 'file_change') handlers.onFileChange({ path: evt.path, action: evt.action })
-          } catch {
-            handlers.onContent(data)
-          }
-        }
-      }
-    } finally {
-      controller.signal.removeEventListener('abort', onAbort)
-      reader.releaseLock()
-    }
-  } catch (error) {
-    if (!cancelled && !controller.signal.aborted) {
-      console.error('Work stream error:', error)
-      handlers.onContent('\n流式输出失败，请检查模型配置。')
-    }
-  } finally {
-    // 标记结束（由外层 await 后刷新消息）
+    const evt = JSON.parse(data)
+    if (evt.type === 'content' && typeof evt.text === 'string') handlers.onContent(evt.text)
+    else if (evt.type === 'thinking' && typeof evt.text === 'string') handlers.onContent(evt.text)
+    else if (evt.type === 'tool_call') handlers.onToolCall({ id: evt.id, name: evt.name, arguments: evt.arguments, hidden: evt.hidden })
+    else if (evt.type === 'tool_result') handlers.onToolResult(evt.id, evt.content)
+    else if (evt.type === 'file_change') handlers.onFileChange({ path: evt.path, action: evt.action })
+  } catch {
+    handlers.onContent(data)
   }
 }
 
@@ -83,9 +49,10 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   const [streamingContent, setStreamingContent] = useState('')
   const [liveToolCalls, setLiveToolCalls] = useState<ToolCallView[]>([])
   const [liveFileChanges, setLiveFileChanges] = useState<FileChangeMeta[]>([])
-  const [selectedModelId, setSelectedModelId] = useState<string>(() => session?.modelId ?? '')
+  const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const streamRef = useRef<AbortController | null>(null)
 
   const { data: messages = [] } = useQuery({
     queryKey: ['workMessages', session?.id],
@@ -110,9 +77,12 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     },
   })
 
-  useEffect(() => {
-    setSelectedModelId(session?.modelId ?? '')
-  }, [session?.id])
+  // 未手动切换过模型时，跟随会话上保存的模型
+  const selectedModelId =
+    session && modelOverride?.sessionId === session.id ? modelOverride.value : session?.modelId ?? ''
+  const setSelectedModelId = (value: string) => {
+    if (session) setModelOverride({ sessionId: session.id, value })
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -141,29 +111,34 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     setLiveToolCalls([])
     setLiveFileChanges([])
 
+    const controller = new AbortController()
+    streamRef.current = controller
+    const handlers: WorkStreamHandlers = {
+      onContent: (text) => setStreamingContent((prev) => prev + text),
+      onToolCall: (tc) => setLiveToolCalls((prev) => [...prev.filter((x) => x.id !== tc.id), tc]),
+      onToolResult: (id, result) => setLiveToolCalls((prev) => prev.map((x) => (x.id === id ? { ...x, result } : x))),
+      onFileChange: (fc) => setLiveFileChanges((prev) => [...prev.filter((x) => x.path !== fc.path), fc]),
+    }
+
     try {
-      await consumeWorkStream(
+      const response = await workSessionService.stream(
         session.id,
-        (signal) =>
-          fetch(`/api/work-sessions/${session.id}/stream`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-            body: JSON.stringify({
-              content,
-              modelId: selectedModelId || undefined,
-              enableTools: true,
-              toolApprovalMode: 'auto',
-            }),
-            signal,
-          }),
         {
-          onContent: (text) => setStreamingContent((prev) => prev + text),
-          onToolCall: (tc) => setLiveToolCalls((prev) => [...prev.filter((x) => x.id !== tc.id), tc]),
-          onToolResult: (id, result) => setLiveToolCalls((prev) => prev.map((x) => (x.id === id ? { ...x, result } : x))),
-          onFileChange: (fc) => setLiveFileChanges((prev) => [...prev.filter((x) => x.path !== fc.path), fc]),
+          content,
+          modelId: selectedModelId || undefined,
+          enableTools: true,
+          toolApprovalMode: 'auto',
         },
+        controller.signal,
       )
+      await consumeSseStream(response, ({ data }) => dispatchWorkEvent(data, handlers), { signal: controller.signal })
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        console.error('Work stream error:', error)
+        handlers.onContent('\n流式输出失败，请检查模型配置。')
+      }
     } finally {
+      streamRef.current = null
       setIsStreaming(false)
       setLiveToolCalls([])
       setLiveFileChanges([])
@@ -270,13 +245,9 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
             />
             {isStreaming ? (
               <button
-                onClick={() => {
-                  const ac = new AbortController()
-                  fetch(`/api/work-sessions/${session.id}/stream`, { method: 'POST', signal: ac.signal })
-                  ac.abort()
-                  setIsStreaming(false)
-                }}
+                onClick={() => streamRef.current?.abort()}
                 className="rounded-lg bg-gray-200 p-2 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                title="停止生成"
               >
                 <Square size={15} />
               </button>

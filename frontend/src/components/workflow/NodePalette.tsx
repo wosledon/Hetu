@@ -1,4 +1,4 @@
-import { NODE_TYPE_META } from './WorkflowNode'
+import { NODE_TYPE_META } from './workflowNodeModel'
 
 interface NodePaletteProps {
   onAddNode: (type: string) => void

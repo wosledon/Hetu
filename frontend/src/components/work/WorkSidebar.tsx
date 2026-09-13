@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown } from 'lucide-react'
 import { workProjectService, workSessionService } from '../../services/workService'
@@ -143,7 +143,7 @@ function ProjectNode({
             return (
               <div
                 key={session.id}
-                onClick={() => { onSelectProject(project); onSelectSession(session) }}
+        onClick={() => { if (!expanded) onToggle(); onSelectProject(project); onSelectSession(session) }}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
                 style={{ paddingLeft: '40px' }}
               >
@@ -186,11 +186,16 @@ function ProjectNode({
 export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession }: WorkSidebarProps) {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
+  const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
   const [isAdding, setIsAdding] = useState(false)
   const [name, setName] = useState('')
   const [rootPath, setRootPath] = useState('')
   const [createError, setCreateError] = useState('')
+
+  // 用户手动展开/折叠优先，未手动设置过的项目在选中时默认展开
+  const isExpanded = (id: string) => expandedProjects.get(id) ?? id === selectedProjectId
+  const setProjectExpanded = (id: string, expanded: boolean) =>
+    setExpandedProjects((prev) => new Map(prev).set(id, expanded))
 
   const { data: projects = [] } = useQuery({
     queryKey: ['workProjects'],
@@ -208,7 +213,7 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
       setName('')
       setRootPath('')
       setCreateError('')
-      setExpandedProjects((prev) => new Set(prev).add(project.id))
+      setProjectExpanded(project.id, true)
       onSelectProject(project)
     },
     onError: (err) => {
@@ -228,18 +233,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     mutationFn: ({ id, name }: { id: string; name: string }) => workProjectService.update(id, { name, rootPath: '', sortOrder: 0 }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workProjects'] }),
   })
-
-  // 选中项目时自动展开
-  useEffect(() => {
-    if (selectedProjectId) {
-      setExpandedProjects((prev) => {
-        if (prev.has(selectedProjectId)) return prev
-        const next = new Set(prev)
-        next.add(selectedProjectId)
-        return next
-      })
-    }
-  }, [selectedProjectId])
 
   const handleCreate = () => {
     if (!name.trim()) { setCreateError('请输入项目名称'); return }
@@ -303,17 +296,10 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
           <ProjectNode
             key={project.id}
             project={project}
-            expanded={expandedProjects.has(project.id)}
+            expanded={isExpanded(project.id)}
             selectedProjectId={selectedProjectId}
             selectedSessionId={selectedSessionId}
-            onToggle={() => {
-              setExpandedProjects((prev) => {
-                const next = new Set(prev)
-                if (next.has(project.id)) next.delete(project.id)
-                else next.add(project.id)
-                return next
-              })
-            }}
+            onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
             onSelectProject={onSelectProject}
             onSelectSession={onSelectSession}
             onDeleteProject={(id) => deleteProject.mutate(id)}

@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square, AlertCircle } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
-import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
@@ -17,10 +16,12 @@ import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
+import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
-import { useConfirm } from './ConfirmDialog'
+import { useConfirm } from './confirm'
 import { useUIStore } from '../stores/uiStore'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
+import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -79,47 +80,27 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   const store = useChatStreamStore.getState()
   const controller = new AbortController()
   chatStreamControl.register(topicId, controller)
-  let cancelled = false
   try {
     const response = await startRequest(controller.signal)
-    if (!response.body) return
-    const reader = response.body.getReader()
-    // 中断时取消 reader，使后端 ct 触发取消
-    const onAbort = () => { cancelled = true; reader.cancel().catch(() => {}) }
-    controller.signal.addEventListener('abort', onAbort)
-    const decoder = new TextDecoder()
-    let buffer = ''
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data.startsWith('[ERROR]')) {
-            store.appendContent(topicId, '\n' + data)
-            continue
-          }
-          try {
-            store.handleChunk(topicId, JSON.parse(data))
-          } catch {
-            store.appendContent(topicId, data)
-          }
+    await consumeSseStream(
+      response,
+      ({ data }) => {
+        if (data.startsWith(SSE_ERROR_PREFIX)) {
+          store.setStreamError(topicId, data.slice(SSE_ERROR_PREFIX.length).trim())
+          return
         }
-      }
-    } finally {
-      controller.signal.removeEventListener('abort', onAbort)
-      reader.releaseLock()
-    }
+        try {
+          store.handleChunk(topicId, JSON.parse(data))
+        } catch {
+          store.appendContent(topicId, data)
+        }
+      },
+      { signal: controller.signal },
+    )
   } catch (error) {
-    if (cancelled || controller.signal.aborted) {
-      // 用户主动中断，不视为错误
-    } else {
+    if (!controller.signal.aborted) {
       console.error('Stream error:', error)
-      store.appendContent(topicId, '流式输出失败，请检查模型配置。')
+      store.setStreamError(topicId, '流式输出失败，请检查模型配置。')
     }
   } finally {
     chatStreamControl.unregister(topicId)
@@ -152,6 +133,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingTodos,
     todoPanelCollapsed, setTodoPanelCollapsed,
     approvalRequests,
+    streamError, setStreamError,
     startStreaming, stopStreaming,
   } = useStreaming(topicId)
 
@@ -216,10 +198,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     enabled: !!topic,
   })
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: () => notebookService.getTree(),
-  })
+  const notebooks = useNotebooks()
 
   const { data: skills = [] } = useQuery({
     queryKey: ['skills'],
@@ -358,9 +337,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
+  // 缓存的模型可能已被删除，模型列表加载后回退到默认模型
+  const activeModelId =
+    chatModels.length === 0 || chatModels.some((m) => m.id === selectedModelId) ? selectedModelId : ''
 
   // Get current model's reasoning configuration
-  const currentModel = selectedModelId ? chatModels.find(m => m.id === selectedModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
+  const currentModel = activeModelId ? chatModels.find(m => m.id === activeModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
   const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
   const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
 
@@ -370,18 +352,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
 
-  // 缓存的模型可能已被删除，模型列表加载后校验并回退
-  useEffect(() => {
-    if (chatModels.length > 0 && selectedModelId && !chatModels.some((m) => m.id === selectedModelId)) {
-      setSelectedModelId('')
-    }
-  }, [chatModels, selectedModelId])
-
   // 持久化会话级配置到 localStorage
   useEffect(() => {
     if (!topicId) return
     saveTopicSettings(topicId, {
-      modelId: selectedModelId || undefined,
+      modelId: activeModelId || undefined,
       deepThinking,
       reasoningEffort,
       webSearch,
@@ -390,7 +365,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       toolCalling,
       toolApprovalMode,
     })
-  }, [topicId, selectedModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
+  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
 
   const toggleSavedThinking = useCallback((messageId: string) => {
     setExpandedThinking(prev => {
@@ -434,11 +409,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setCurrentQuestionIndex(0)
 
     try {
-      await fetch('/api/chat-messages/answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: topic?.id, toolCallId, answer: JSON.stringify(combined) }),
-      })
+      await chatMessageService.submitAnswer(topic?.id, toolCallId, JSON.stringify(combined))
     } catch (e) {
       console.error('Failed to submit answers:', e)
     }
@@ -467,31 +438,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       reader.readAsDataURL(file)
     })
 
+  // 消费整理话题的 SSE 流，收集预览文本；返回是否未出现错误帧。
   const readSseStream = async (response: Response, onData: (data: string) => void): Promise<boolean> => {
     if (!response.body) return false
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
     let hasError = false
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data.startsWith('[ERROR]')) {
-            hasError = true
-          }
-          onData(data)
-        }
-      }
-    }
+    await consumeSseStream(response, ({ data }) => {
+      if (data.startsWith(SSE_ERROR_PREFIX)) hasError = true
+      onData(data)
+    })
     return !hasError
   }
 
@@ -594,7 +548,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     void consumeChatStream(topic.id, (signal) =>
       chatMessageService.stream(topic.id, {
         content,
-        modelId: selectedModelId || undefined,
+        modelId: activeModelId || undefined,
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch, knowledgeBase, memory,
@@ -694,11 +648,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleApprove = async (toolCallId: string, approved: boolean) => {
     if (topicId) useChatStreamStore.getState().removeApproval(topicId, toolCallId)
     try {
-      await fetch('/api/chat-messages/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: topic?.id, toolCallId, approve: approved }),
-      })
+      await chatMessageService.submitApproval(topic?.id, toolCallId, approved)
     } catch {
       // Ignore — backend will timeout anyway
     }
@@ -708,11 +658,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleWorkflowApprove = async (runId: string, nodeId: string, approve: boolean) => {
     setPendingApproval(null)
     try {
-      await fetch(`/api/workflows/runs/${runId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodeId, approve }),
-      })
+      await workflowService.approve(runId, nodeId, approve)
     } catch {
       // Ignore
     }
@@ -725,17 +671,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setWorkflowToolCall(null)
     try {
       if (workflowToolCall.name === 'ask_question') {
-        await fetch('/api/chat-messages/answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, answer: answer ?? '' }),
-        })
+        await chatMessageService.submitAnswer(sessionId, workflowToolCall.toolCallId, answer ?? '')
       } else {
-        await fetch('/api/chat-messages/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, approve: approved }),
-        })
+        await chatMessageService.submitApproval(sessionId, workflowToolCall.toolCallId, approved)
       }
     } catch {
       // Ignore
@@ -1125,6 +1063,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           </div>
         )}
 
+        {streamError && (
+          <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{streamError}</span>
+            <button onClick={() => setStreamError('')} className="ml-auto shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></button>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -1426,13 +1372,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <button
                   onClick={() => { setShowModelPicker(!showModelPicker); setShowAgentPicker(false) }}
                   className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    selectedModelId
+                    activeModelId
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                       : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                   }`}
                   title="选择模型"
                 >
-                  {selectedModelId ? chatModels.find(m => m.id === selectedModelId)?.displayName || '默认模型' : '默认模型'}
+                  {activeModelId ? chatModels.find(m => m.id === activeModelId)?.displayName || '默认模型' : '默认模型'}
                   <ChevronDown size={10} />
                 </button>
                 {showModelPicker && (
@@ -1440,7 +1386,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     <div className="max-h-48 overflow-y-auto p-1.5">
                       <button
                         onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!selectedModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!activeModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
                         默认模型
                       </button>
@@ -1448,7 +1394,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         <button
                           key={m.id}
                           onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
-                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${selectedModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${activeModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                         >
                           {m.displayName}
                         </button>

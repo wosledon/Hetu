@@ -79,6 +79,8 @@ export interface TopicStreamState {
   usedMemory: boolean
   /** 流开始时间（ms），用于判断乐观用户气泡是否已被持久化 */
   startedAt: number
+  /** 本次流失败的原因；不随流式预览一起清空，直到下次发送才重置 */
+  streamError: string
 }
 
 const emptyTopic = (): TopicStreamState => ({
@@ -102,6 +104,7 @@ const emptyTopic = (): TopicStreamState => ({
   usedKnowledgeBase: false,
   usedMemory: false,
   startedAt: 0,
+  streamError: '',
 })
 
 interface ChatStreamStore {
@@ -111,6 +114,7 @@ interface ChatStreamStore {
   stop: (topicId: string) => void
   handleChunk: (topicId: string, chunk: Record<string, unknown>) => void
   appendContent: (topicId: string, text: string) => void
+  setStreamError: (topicId: string, message: string) => void
   clearAfterPersist: (topicId: string) => void
   setQuestionAnswer: (topicId: string, qId: string, answer: string) => void
   setQuestionIndex: (topicId: string, idx: number) => void
@@ -173,6 +177,8 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
           },
         }
       }),
+
+    setStreamError: (topicId, message) => patch(topicId, { streamError: message }),
 
     handleChunk: (topicId, chunk) =>
       set((st) => {

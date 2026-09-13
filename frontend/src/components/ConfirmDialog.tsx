@@ -1,42 +1,13 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
-
-interface ConfirmOptions {
-  title?: string
-  message: string
-  onConfirm: () => void
-  onCancel?: () => void
-}
-
-let _globalConfirm: ((opts: ConfirmOptions) => void) | null = null
-
-export function confirm(optionsOrMsg: ConfirmOptions | string): boolean {
-  if (typeof optionsOrMsg === 'string') {
-    _globalConfirm?.({ message: optionsOrMsg, onConfirm: () => {} })
-    return false // 旧代码 if(confirm('msg')) 编译通过，但需迁移到回调模式
-  }
-  _globalConfirm?.(optionsOrMsg)
-  return false
-}
-
-interface ConfirmContextType {
-  confirm: (options: ConfirmOptions) => void
-}
-
-const ConfirmContext = createContext<ConfirmContextType | null>(null)
-
-export function useConfirm() {
-  const ctx = useContext(ConfirmContext)
-  if (!ctx) throw new Error('useConfirm must be used within ConfirmProvider')
-  return ctx.confirm
-}
+import { ConfirmContext, registerGlobalConfirm, type ConfirmOptions } from './confirm'
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConfirmOptions | null>(null)
 
   useEffect(() => {
-    _globalConfirm = setState
-    return () => { _globalConfirm = null }
+    registerGlobalConfirm(setState)
+    return () => { registerGlobalConfirm(null) }
   }, [])
 
   const handleCancel = () => {
@@ -50,7 +21,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ConfirmContext.Provider value={{ confirm: setState }}>
+    <ConfirmContext.Provider value={setState}>
       {children}
       {state && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleCancel}>

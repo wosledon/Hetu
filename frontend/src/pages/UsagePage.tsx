@@ -15,8 +15,10 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService } from '../services/usageService'
-import { WeekHourHeatmap, YearHeatmap, useIsDark } from '../components/UsageHeatmap'
+import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
+import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
+import { segmentButtonClass } from '../utils/styles'
 
 type HeatTab = 'week' | 'year'
 type Metric = 'messages' | 'tokens' | 'logs'
@@ -161,11 +163,7 @@ export default function UsagePage() {
                   <button
                     key={m}
                     onClick={() => setMetric(m)}
-                    className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                      metric === m
-                        ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${segmentButtonClass(metric === m)}`}
                   >
                     {m === 'tokens' ? 'Tokens' : m === 'messages' ? '消息数' : '请求日志'}
                   </button>
@@ -236,21 +234,13 @@ export default function UsagePage() {
                         <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
                           <button
                             onClick={() => setHeatTab('week')}
-                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                              heatTab === 'week'
-                                ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                            }`}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${segmentButtonClass(heatTab === 'week')}`}
                           >
                             周 × 时
                           </button>
                           <button
                             onClick={() => setHeatTab('year')}
-                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                              heatTab === 'year'
-                                ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                            }`}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${segmentButtonClass(heatTab === 'year')}`}
                           >
                             年 × 日
                           </button>

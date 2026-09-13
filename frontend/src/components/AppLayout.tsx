@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
+import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 
 interface AppLayoutProps {
@@ -46,6 +47,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const lastMoreItem = useUIStore((state) => state.lastMoreItem)
   const setLastMoreItem = useUIStore((state) => state.setLastMoreItem)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [moreMenuPos, setMoreMenuPos] = useState<{ top: number; left: number } | null>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
 
   const pinnedItems = allConfigurableItems.filter((item) => pinnedNavItems.includes(item.path))
@@ -61,11 +63,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <button
         key={item.path}
         onClick={() => navigate(item.path)}
-        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-          isActive
-            ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-        }`}
+        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(isActive)}`}
       >
         <Icon size={14} />
         {item.label}
@@ -105,17 +103,19 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             <div className="relative">
               <button
                 ref={moreBtnRef}
-                onClick={() => setMoreOpen(!moreOpen)}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${
-                  moreOpen
-                    ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
+                onClick={() => {
+                  if (moreOpen) { setMoreOpen(false); return }
+                  const rect = moreBtnRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setMoreMenuPos({ top: rect.bottom + 4, left: rect.left })
+                  setMoreOpen(true)
+                }}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(moreOpen)}`}
               >
                 更多
                 <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
               </button>
-              {moreOpen && moreBtnRef.current && createPortal(
+              {moreOpen && moreMenuPos && createPortal(
                 <>
                   <div
                     className="fixed inset-0 z-[99998]"
@@ -124,8 +124,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                   <div
                     className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
                     style={{
-                      top: moreBtnRef.current.getBoundingClientRect().bottom + 4,
-                      left: moreBtnRef.current.getBoundingClientRect().left,
+                      top: moreMenuPos.top,
+                      left: moreMenuPos.left,
                     }}
                   >
                     {unpinnedItems.map((item) => {

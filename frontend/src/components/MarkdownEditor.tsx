@@ -25,11 +25,11 @@ import {
   Loader2,
   Network,
 } from 'lucide-react'
+import { useNotebooks } from '../hooks/useNotebooks'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
 import { noteService } from '../services/noteService'
-import { notebookService } from '../services/notebookService'
 import { noteVersionService } from '../services/noteVersionService'
 import { noteAiService } from '../services/noteAiService'
 import { shareService } from '../services/shareService'
@@ -142,11 +142,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     enabled: !!note && showVersions,
   })
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: () => notebookService.getTree(),
-    enabled: !!note,
-  })
+  const notebooks = useNotebooks(!!note)
 
   const { data: shareLinks = [], refetch: refetchShareLinks } = useQuery({
     queryKey: ['shareLinks', note?.id],

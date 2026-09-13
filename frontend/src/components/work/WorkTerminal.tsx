@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { TerminalSquare, X, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
-import { workTerminalUrl } from '../../services/workService'
+import { workTerminalService, workTerminalUrl } from '../../services/workService'
 
 interface WorkTerminalProps {
   projectId?: string
@@ -26,10 +26,6 @@ export default function WorkTerminal({ projectId, onClose, height }: WorkTermina
 
   useEffect(() => {
     if (!projectId) return
-    setContent('')
-    setInput('')
-    setConnected(false)
-    setError('')
 
     const ws = new WebSocket(workTerminalUrl(projectId))
     wsRef.current = ws
@@ -69,7 +65,7 @@ export default function WorkTerminal({ projectId, onClose, height }: WorkTermina
     if (!projectId) return
     setContent('')
     setError('')
-    fetch(`/api/work-terminal/${projectId}/stop`, { method: 'POST' }).then(() => {
+    workTerminalService.stop(projectId).then(() => {
       wsRef.current?.close()
       setConnected(false)
       const ws = new WebSocket(workTerminalUrl(projectId))

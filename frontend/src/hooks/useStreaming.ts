@@ -52,6 +52,7 @@ export function useStreaming(topicId: string | undefined) {
   const setCurrentQuestionIndex = useStreamField(id, 'currentQuestionIndex')
   const setStreamingTodos = useStreamField(id, 'todos')
   const setTodoPanelCollapsed = useStreamField(id, 'todoPanelCollapsed')
+  const setStreamError = useStreamField(id, 'streamError')
 
   return {
     streamingContent: s.streamingContent,
@@ -83,6 +84,8 @@ export function useStreaming(topicId: string | undefined) {
     todoPanelCollapsed: s.todoPanelCollapsed,
     setTodoPanelCollapsed,
     approvalRequests: s.approvalRequests as ApprovalRequest[],
+    streamError: s.streamError,
+    setStreamError,
     startStreaming: store.start,
     stopStreaming: store.stop,
     handleSseChunk: store.handleChunk,

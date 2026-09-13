@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
@@ -36,11 +36,9 @@ interface OpenTab {
 }
 
 export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
-  const [tree, setTree] = useState<TreeNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [loadedDirs, setLoadedDirs] = useState<Map<string, TreeNode[]>>(new Map())
   const [tab, setTab] = useState<NavTab>('files')
   const [browserUrl, setBrowserUrl] = useState('')
   const [tabs, setTabs] = useState<OpenTab[]>([])
@@ -58,39 +56,22 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     return entries
   }, [projectId])
 
-  const loadRoot = useCallback(async () => {
-    if (!projectId) return
-    setLoading(true)
-    setError('')
-    try {
-      const entries = await loadDir('')
-      setTree(entries)
-      setExpanded((prev) => {
-        const next = new Set(prev)
-        next.add('')
-        return next
+  const rootQuery = useQuery({
+    queryKey: ['workDirEntries', projectId, ''],
+    queryFn: () => loadDir(''),
+    enabled: !!projectId,
+  })
+
+  // 根目录来自查询结果，子目录按路径缓存，两者拼装成展示用的树
+  const tree = useMemo(() => {
+    const attach = (nodes: TreeNode[], parent: string): TreeNode[] =>
+      nodes.map((n) => {
+        const path = parent ? `${parent}/${n.name}` : n.name
+        const children = n.isDirectory ? loadedDirs.get(path) : undefined
+        return children ? { ...n, loaded: true, children: attach(children, path) } : n
       })
-    } catch (e) {
-      setTree([])
-      setError(e instanceof Error ? e.message : '读取目录失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId, loadDir])
-
-  useEffect(() => {
-    setTree([])
-    setExpanded(new Set())
-    setError('')
-    loadRoot()
-  }, [projectId, loadRoot])
-
-  // 切换项目时关闭所有标签页
-  useEffect(() => {
-    setTabs([])
-    setActiveKey(null)
-    setSelectedPath(null)
-  }, [projectId])
+    return attach(rootQuery.data ?? [], '')
+  }, [rootQuery.data, loadedDirs])
 
   const openFileTab = async (nodePath: string, name: string) => {
     if (!projectId) return
@@ -141,6 +122,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       return
     }
 
+    const willExpand = !expanded.has(nodePath)
     setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(nodePath)) next.delete(nodePath)
@@ -148,19 +130,10 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       return next
     })
 
-    if (!node.loaded) {
+    if (willExpand && !loadedDirs.has(nodePath)) {
       try {
         const children = await loadDir(nodePath)
-        setTree((prevTree) => {
-          const patch = (nodes: TreeNode[], parent: string): TreeNode[] =>
-            nodes.map((n) => {
-              const cur = parent ? `${parent}/${n.name}` : n.name
-              if (cur === nodePath) return { ...n, children, loaded: true }
-              if (n.children) return { ...n, children: patch(n.children, cur) }
-              return n
-            })
-          return patch(prevTree, '')
-        })
+        setLoadedDirs((prev) => new Map(prev).set(nodePath, children))
       } catch { /* ignore */ }
     }
   }
@@ -239,7 +212,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
           {navBtn('files', '文件', Folder)}
           {navBtn('changes', '更改', GitCompare)}
           {navBtn('browser', '浏览器', Globe)}
-          <button onClick={loadRoot} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
+          <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
             <RefreshCw size={12} />
           </button>
           <button onClick={onCollapse} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]" title="折叠面板">
@@ -293,9 +266,9 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-            {loading && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
-            {!loading && error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{error}</div>}
-            {!loading && !error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">空目录</div>}
+            {rootQuery.isFetching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
+            {!rootQuery.isFetching && rootQuery.error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{rootQuery.error.message || '读取目录失败'}</div>}
+            {!rootQuery.isFetching && !rootQuery.error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">空目录</div>}
             {tree.map((node) => renderNode(node, '', 0))}
           </div>
         )}

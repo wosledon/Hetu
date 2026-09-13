@@ -18,7 +18,7 @@ const MAX_TERMINAL_HEIGHT = 480
 
 export default function WorkPage() {
   const queryClient = useQueryClient()
-  const [selectedProject, setSelectedProject] = useState<IWorkProject | null>(null)
+  const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
   const [showTerminal, setShowTerminal] = useState(true)
   const [rightCollapsed, setRightCollapsed] = useState(false)
@@ -31,15 +31,11 @@ export default function WorkPage() {
     queryFn: workProjectService.getAll,
   })
 
-  // 默认选中第一个项目
-  useEffect(() => {
-    if (projects.length > 0 && !selectedProject) {
-      setSelectedProject(projects[0])
-    }
-  }, [projects, selectedProject])
+  // 未显式选择时默认使用第一个项目
+  const selectedProject = preferredProject ?? projects[0] ?? null
 
   const handleSelectProject = (project: IWorkProject) => {
-    setSelectedProject(project)
+    setPreferredProject(project)
   }
 
   const handleSelectSession = (session: IWorkSession) => {
@@ -129,6 +125,7 @@ export default function WorkPage() {
             <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
               <div className="flex min-h-0 flex-1">
                 <WorkExplorer
+                  key={selectedProject?.id}
                   projectId={selectedProject?.id}
                   sessionId={selectedSession?.id}
                   onCollapse={() => setRightCollapsed(true)}
@@ -142,6 +139,7 @@ export default function WorkPage() {
                     title="拖拽调整终端高度"
                   />
                   <WorkTerminal
+                    key={selectedProject?.id}
                     projectId={selectedProject?.id}
                     onClose={() => setShowTerminal(false)}
                     height={terminalHeight}
