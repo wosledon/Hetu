@@ -13,19 +13,25 @@ public class KnowledgeBaseController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
-    private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly IBackgroundTaskCoordinator _taskCoordinator;
 
     public KnowledgeBaseController(
         IUnitOfWork unitOfWork,
         ISemanticSearchService semanticSearchService,
         IEmbeddingProviderFactory embeddingProviderFactory,
-        IBackgroundTaskQueue taskQueue)
+        IBackgroundTaskCoordinator taskCoordinator)
     {
         _unitOfWork = unitOfWork;
         _semanticSearchService = semanticSearchService;
         _embeddingProviderFactory = embeddingProviderFactory;
-        _taskQueue = taskQueue;
+        _taskCoordinator = taskCoordinator;
     }
+
+    /// <summary>笔记类知识项按笔记聚合索引，其余按知识项自身索引</summary>
+    private static (BackgroundTaskType Type, Guid EntityId) ResolveTarget(KnowledgeItem item)
+        => item.Type == KnowledgeItemType.Note && item.NoteId.HasValue
+            ? (BackgroundTaskType.GenerateEmbedding, item.NoteId.Value)
+            : (BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id);
 
     /// <summary>
     /// 获取知识库状态概览
@@ -135,40 +141,14 @@ public class KnowledgeBaseController : ControllerBase
         if (item == null)
             return ApiResponse.Fail("知识项不存在");
 
-        // 检查是否已有进行中的任务
-        var entityId = item.Type == KnowledgeItemType.Note && item.NoteId.HasValue ? item.NoteId.Value : id;
-        var taskType = item.Type == KnowledgeItemType.Note && item.NoteId.HasValue
-            ? nameof(BackgroundTaskType.GenerateEmbedding)
-            : nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding);
-
-        var existingTasks = await _unitOfWork.TaskItems.FindAsync(
-            t => t.EntityId == entityId && t.TaskType == taskType && (t.Status == 0 || t.Status == 1),
+        var (taskType, entityId) = ResolveTarget(item);
+        var result = await _taskCoordinator.EnqueueAsync(
+            new BackgroundTaskRequest(taskType, entityId, item.Title),
             cancellationToken);
-        if (existingTasks.Count > 0)
+
+        if (!result.Queued)
             return ApiResponse.Fail("该知识项已有正在进行的索引任务，请等待完成");
 
-        // 立即创建 Queued 记录
-        var taskItem = new TaskItem
-        {
-            Id = Guid.NewGuid(),
-            TaskType = taskType,
-            EntityId = entityId,
-            EntityTitle = item.Title,
-            Status = 0, // Queued
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
-        await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        if (item.Type == KnowledgeItemType.Note && item.NoteId.HasValue)
-        {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value), cancellationToken);
-        }
-        else
-        {
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, id), cancellationToken);
-        }
         return ApiResponse.Ok();
     }
 
@@ -186,66 +166,21 @@ public class KnowledgeBaseController : ControllerBase
             .Distinct()
             .ToHashSet();
 
-        // 查询所有正在运行/排队的任务
-        var allTasks = await _unitOfWork.TaskItems.GetAllAsync(cancellationToken);
-        var runningEntityIds = allTasks
-            .Where(t => (t.Status == 0 || t.Status == 1) &&
-                        (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
-                         t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)))
-            .Select(t => t.EntityId)
-            .ToHashSet();
-
+        // 去重与并发保护由 IBackgroundTaskCoordinator 统一处理
         var unindexedItems = allItems.Where(k => !indexedItemIds.Contains(k.Id)).ToList();
-        var skipped = 0;
-        var pendingItems = new List<BackgroundWorkItem>();
-
-        foreach (var item in unindexedItems)
+        var requests = unindexedItems.Select(item =>
         {
-            var entityId = item.Type == KnowledgeItemType.Note && item.NoteId.HasValue ? item.NoteId.Value : item.Id;
-            if (runningEntityIds.Contains(entityId))
-            {
-                skipped++;
-                continue;
-            }
+            var (taskType, entityId) = ResolveTarget(item);
+            return new BackgroundTaskRequest(taskType, entityId, item.Title);
+        }).ToList();
 
-            var taskType = item.Type == KnowledgeItemType.Note && item.NoteId.HasValue
-                ? nameof(BackgroundTaskType.GenerateEmbedding)
-                : nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding);
-
-            // 立即创建 Queued 记录
-            var taskItem = new TaskItem
-            {
-                Id = Guid.NewGuid(),
-                TaskType = taskType,
-                EntityId = entityId,
-                EntityTitle = item.Title,
-                Status = 0, // Queued
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow,
-            };
-            await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
-
-            if (item.Type == KnowledgeItemType.Note && item.NoteId.HasValue)
-            {
-                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GenerateEmbedding, item.NoteId.Value, item.Title));
-            }
-            else
-            {
-                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id, item.Title));
-            }
-        }
-
-        // 必须先提交队列记录再入队，否则处理器查不到 Queued 记录会重复建一条任务
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        foreach (var pendingItem in pendingItems)
-            await _taskQueue.QueueAsync(pendingItem, cancellationToken);
+        var result = await _taskCoordinator.EnqueueBatchAsync(requests, cancellationToken);
 
         return ApiResponse<BatchEmbeddingResultDto>.Ok(new BatchEmbeddingResultDto
         {
             TotalUnindexed = unindexedItems.Count,
-            QueuedCount = pendingItems.Count,
-            SkippedCount = skipped,
+            QueuedCount = result.QueuedCount,
+            SkippedCount = result.SkippedCount,
         });
     }
 

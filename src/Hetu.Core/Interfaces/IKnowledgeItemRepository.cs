@@ -18,6 +18,9 @@ public interface IKnowledgeItemRepository : IRepository<KnowledgeItem>
     Task AddChunksAsync(IEnumerable<NoteChunk> chunks, CancellationToken cancellationToken = default);
     Task DeleteChunksAsync(Guid knowledgeItemId, CancellationToken cancellationToken = default);
 
+    /// <summary>按分块 ID 删除分块及其向量（用于增量重建索引时只清理失效分块）</summary>
+    Task DeleteChunksByIdsAsync(IEnumerable<Guid> chunkIds, CancellationToken cancellationToken = default);
+
     // ── ChunkEmbedding 相关 ──
     Task<NoteChunkEmbedding?> GetChunkEmbeddingAsync(Guid chunkId, CancellationToken cancellationToken = default);
     Task AddChunkEmbeddingAsync(NoteChunkEmbedding embedding, CancellationToken cancellationToken = default);

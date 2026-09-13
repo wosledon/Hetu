@@ -1,4 +1,3 @@
-using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Graph;
@@ -11,14 +10,12 @@ namespace Hetu.Api.Controllers;
 public class GraphController : ControllerBase
 {
     private readonly IGraphService _graphService;
-    private readonly IBackgroundTaskQueue _taskQueue;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IBackgroundTaskCoordinator _taskCoordinator;
 
-    public GraphController(IGraphService graphService, IBackgroundTaskQueue taskQueue, IUnitOfWork unitOfWork)
+    public GraphController(IGraphService graphService, IBackgroundTaskCoordinator taskCoordinator)
     {
         _graphService = graphService;
-        _taskQueue = taskQueue;
-        _unitOfWork = unitOfWork;
+        _taskCoordinator = taskCoordinator;
     }
 
     [HttpGet]
@@ -81,50 +78,17 @@ public class GraphController : ControllerBase
     [HttpPost("extract/batch-queue")]
     public async Task<ApiResponse<BatchQueueResultDto>> BatchExtractQueue([FromBody] BatchExtractGraphRequest request, CancellationToken cancellationToken)
     {
-        var typeName = nameof(BackgroundTaskType.GraphExtract);
-        var noteIds = request.NoteIds.Distinct().ToList();
-        var pendingItems = new List<BackgroundWorkItem>();
-        var skipped = 0;
-
-        if (noteIds.Count > 0)
-        {
-            var existing = await _unitOfWork.TaskItems.FindAsync(
-                t => noteIds.Contains(t.EntityId) && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
-                cancellationToken);
-            var busyNoteIds = existing.Select(t => t.EntityId).ToHashSet();
-
-            foreach (var noteId in noteIds)
-            {
-                if (busyNoteIds.Contains(noteId))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                var taskItem = new TaskItem
-                {
-                    Id = Guid.NewGuid(),
-                    TaskType = typeName,
-                    EntityId = noteId,
-                    Status = 0, // Queued
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    UpdatedAt = DateTimeOffset.UtcNow,
-                };
-                await _unitOfWork.TaskItems.AddAsync(taskItem, cancellationToken);
-                pendingItems.Add(new BackgroundWorkItem(BackgroundTaskType.GraphExtract, noteId));
-            }
-
-            // 必须先提交队列记录再入队，否则处理器查不到 Queued 记录会重复建一条任务
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-
-        foreach (var pendingItem in pendingItems)
-            await _taskQueue.QueueAsync(pendingItem, cancellationToken);
+        var results = await _taskCoordinator.EnqueueBatchAsync(
+            request.NoteIds
+                .Distinct()
+                .Select(noteId => new BackgroundTaskRequest(BackgroundTaskType.GraphExtract, noteId))
+                .ToList(),
+            cancellationToken);
 
         return ApiResponse<BatchQueueResultDto>.Ok(new BatchQueueResultDto
         {
-            QueuedCount = pendingItems.Count,
-            SkippedCount = skipped,
+            QueuedCount = results.QueuedCount,
+            SkippedCount = results.SkippedCount,
         });
     }
 

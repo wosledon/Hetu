@@ -68,6 +68,26 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
         }
     }
 
+    public async Task DeleteChunksByIdsAsync(IEnumerable<Guid> chunkIds, CancellationToken cancellationToken = default)
+    {
+        var ids = chunkIds.Distinct().ToList();
+        if (ids.Count == 0) return;
+
+        var chunks = await Context.NoteChunks
+            .Where(c => ids.Contains(c.Id))
+            .ToListAsync(cancellationToken);
+
+        if (chunks.Count == 0) return;
+
+        var existingIds = chunks.Select(c => c.Id).ToList();
+        var embeddings = await Context.NoteChunkEmbeddings
+            .Where(e => existingIds.Contains(e.ChunkId))
+            .ToListAsync(cancellationToken);
+
+        Context.NoteChunkEmbeddings.RemoveRange(embeddings);
+        Context.NoteChunks.RemoveRange(chunks);
+    }
+
     public Task<NoteChunkEmbedding?> GetChunkEmbeddingAsync(Guid chunkId, CancellationToken cancellationToken = default)
         => Context.NoteChunkEmbeddings.AsNoTracking().FirstOrDefaultAsync(e => e.ChunkId == chunkId, cancellationToken);
 

@@ -10,14 +10,14 @@ namespace Hetu.Core.Services;
 public class NoteService : INoteService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly IBackgroundTaskCoordinator _taskCoordinator;
     private readonly IGraphService _graphService;
     private readonly ILogger<NoteService> _logger;
 
-    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskQueue taskQueue, IGraphService graphService, ILogger<NoteService> logger)
+    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskCoordinator taskCoordinator, IGraphService graphService, ILogger<NoteService> logger)
     {
         _unitOfWork = unitOfWork;
-        _taskQueue = taskQueue;
+        _taskCoordinator = taskCoordinator;
         _graphService = graphService;
         _logger = logger;
     }
@@ -277,31 +277,8 @@ public class NoteService : INoteService
     /// </summary>
     private async Task QueueIfNotRunningAsync(BackgroundTaskType taskType, Guid entityId, string? metadata, CancellationToken ct)
     {
-        var typeName = taskType.ToString();
-        var existing = await _unitOfWork.TaskItems.FindAsync(
-            t => t.EntityId == entityId && t.TaskType == typeName && (t.Status == 0 || t.Status == 1),
-            ct);
-        if (existing.Count == 0)
-        {
-            // 立即创建 Queued 记录
-            var taskItem = new TaskItem
-            {
-                Id = Guid.NewGuid(),
-                TaskType = typeName,
-                EntityId = entityId,
-                EntityTitle = metadata,
-                Status = 0, // Queued
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow,
-            };
-            await _unitOfWork.TaskItems.AddAsync(taskItem, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
-
-            await _taskQueue.QueueAsync(new BackgroundWorkItem(taskType, entityId, metadata), ct);
-        }
-        else
-        {
-            _logger.LogDebug("跳过重复任务: {TaskType}({EntityId}), 已有进行中任务", typeName, entityId);
-        }
+        var result = await _taskCoordinator.EnqueueAsync(new BackgroundTaskRequest(taskType, entityId, metadata), ct);
+        if (!result.Queued)
+            _logger.LogDebug("跳过重复任务: {TaskType}({EntityId}), 已有进行中任务", taskType, entityId);
     }
 }
