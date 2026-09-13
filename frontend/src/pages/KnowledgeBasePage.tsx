@@ -45,6 +45,7 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
+import { segmentButtonClass } from '../utils/styles'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -250,11 +251,7 @@ export default function KnowledgeBasePage() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                      activeTab === tab.key
-                        ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${segmentButtonClass(activeTab === tab.key)}`}
                   >
                     <Icon size={15} />
                     {tab.label}

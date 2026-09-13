@@ -15,6 +15,7 @@ import type {
   IScheduledTask, IScheduledTaskExecution, IScheduledTaskTargetOption,
   ScheduledTaskKind, ScheduleType, ICreateScheduledTaskRequest,
 } from '../types'
+import { segmentButtonClass } from '../utils/styles'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -801,11 +802,7 @@ function ScheduledTaskEditor({
                 <button
                   key={st}
                   onClick={() => set('scheduleType', st)}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    form.scheduleType === st
-                      ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                  }`}
+                  className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${segmentButtonClass(form.scheduleType === st)}`}
                 >
                   {st === 'Interval' ? '固定间隔' : 'Cron 表达式'}
                 </button>

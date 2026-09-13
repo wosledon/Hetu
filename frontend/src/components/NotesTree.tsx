@@ -17,6 +17,7 @@ import {
   FolderPlus,
   Inbox,
 } from 'lucide-react'
+import { useNotebooks } from '../hooks/useNotebooks'
 import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
@@ -266,10 +267,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   const [rootName, setRootName] = useState('')
   const [showUncategorized, setShowUncategorized] = useState(false)
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: notebookService.getTree,
-  })
+  const notebooks = useNotebooks()
 
   const { data: uncategorizedData } = useQuery({
     queryKey: ['notes-tree', 'uncategorized'],

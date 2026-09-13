@@ -1,5 +1,5 @@
 import { confirm } from '../components/ConfirmDialog'
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { useState, useRef, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +18,7 @@ import {
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import { tagService } from '../services/tagService'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
@@ -83,21 +84,7 @@ export default function TagsPage() {
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  useEffect(() => {
-    if (!menu) return
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenu()
-    }
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [menu, closeMenu])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const handleCreate = () => {
     const trimmed = newName.trim()

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Workflow, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
+import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 
 interface AppLayoutProps {
@@ -61,11 +62,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <button
         key={item.path}
         onClick={() => navigate(item.path)}
-        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-          isActive
-            ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-        }`}
+        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(isActive)}`}
       >
         <Icon size={14} />
         {item.label}
@@ -106,11 +103,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               <button
                 ref={moreBtnRef}
                 onClick={() => setMoreOpen(!moreOpen)}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${
-                  moreOpen
-                    ? 'bg-white text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(moreOpen)}`}
               >
                 更多
                 <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />

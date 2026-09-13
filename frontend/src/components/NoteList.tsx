@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FolderInput, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { useNotebooks } from '../hooks/useNotebooks'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { noteService } from '../services/noteService'
-import { notebookService } from '../services/notebookService'
 import { tagPalette } from '../utils/tagColor'
 import type { INote, INotebook } from '../types'
 
@@ -56,11 +57,7 @@ export default function NoteList({
       }),
   })
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: () => notebookService.getTree(),
-    enabled: !includeDeleted,
-  })
+  const notebooks = useNotebooks(!includeDeleted)
 
   const createNote = useMutation({
     mutationFn: noteService.create,
@@ -129,21 +126,7 @@ export default function NoteList({
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  useEffect(() => {
-    if (!menu) return
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenu()
-    }
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [menu, closeMenu])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const handleScroll = useCallback(() => {
     if (scrollRef.current) setScrollTop(scrollRef.current.scrollTop)
