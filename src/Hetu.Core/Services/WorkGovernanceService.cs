@@ -168,6 +168,55 @@ public class WorkCheckpointService : IWorkCheckpointService
         return ApiResponse<RestoreCheckpointResultDto>.Ok(result);
     }
 
+    public async Task<ApiResponse<WorkCheckpointDiffDto>> GetDiffAsync(Guid checkpointId, CancellationToken cancellationToken = default)
+    {
+        var checkpoint = await _unitOfWork.WorkCheckpoints.GetByIdAsync(checkpointId, cancellationToken);
+        if (checkpoint == null) return ApiResponse<WorkCheckpointDiffDto>.Fail("检查点不存在");
+
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(checkpoint.ProjectId, cancellationToken);
+        if (project == null) return ApiResponse<WorkCheckpointDiffDto>.Fail("项目不存在");
+
+        var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => f.CheckpointId == checkpointId, cancellationToken);
+        var diff = new WorkCheckpointDiffDto { CheckpointId = checkpointId, Label = checkpoint.Label };
+
+        foreach (var snapshot in files.OrderBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase))
+        {
+            var full = WorkPath.Resolve(project.RootPath, snapshot.FilePath);
+            string? current = null;
+            if (full != null && File.Exists(full))
+            {
+                try
+                {
+                    var info = new FileInfo(full);
+                    if (info.Length <= MaxFileBytes && WorkProjectRules.IsProbablyText(full))
+                        current = await File.ReadAllTextAsync(full, cancellationToken);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    current = null;
+                }
+            }
+
+            var action = snapshot.Content == current
+                ? "unchanged"
+                : snapshot.Content == null
+                    ? "create"
+                    : current == null
+                        ? "delete"
+                        : "write";
+
+            diff.Files.Add(new WorkCheckpointDiffFileDto
+            {
+                Path = snapshot.FilePath,
+                Action = action,
+                OldContent = snapshot.Content,
+                NewContent = current
+            });
+        }
+
+        return ApiResponse<WorkCheckpointDiffDto>.Ok(diff);
+    }
+
     public async Task<ApiResponse> DeleteAsync(Guid checkpointId, CancellationToken cancellationToken = default)
     {
         var checkpoint = await _unitOfWork.WorkCheckpoints.GetByIdAsync(checkpointId, cancellationToken);

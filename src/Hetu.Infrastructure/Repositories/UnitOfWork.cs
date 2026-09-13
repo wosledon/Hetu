@@ -40,6 +40,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WorkApprovalRule> WorkApprovalRules { get; }
     public IRepository<WorkCheckpoint> WorkCheckpoints { get; }
     public IRepository<WorkCheckpointFile> WorkCheckpointFiles { get; }
+    public IRepository<WorkCodeChunk> WorkCodeChunks { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -76,6 +77,7 @@ public class UnitOfWork : IUnitOfWork
         WorkApprovalRules = new EfRepository<WorkApprovalRule>(context);
         WorkCheckpoints = new EfRepository<WorkCheckpoint>(context);
         WorkCheckpointFiles = new EfRepository<WorkCheckpointFile>(context);
+        WorkCodeChunks = new EfRepository<WorkCodeChunk>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

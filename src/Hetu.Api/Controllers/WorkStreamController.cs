@@ -28,6 +28,8 @@ public class WorkStreamController : ControllerBase
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ToolExecutionService _toolExecution;
     private readonly ToolRegistry _toolRegistry;
+    private readonly AgentLoopService _agentLoop;
+    private readonly ILocalSkillService _localSkillService;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -35,7 +37,9 @@ public class WorkStreamController : ControllerBase
         IWorkCheckpointService checkpointService,
         ILLMProviderFactory llmProviderFactory,
         ToolExecutionService toolExecution,
-        ToolRegistry toolRegistry)
+        ToolRegistry toolRegistry,
+        AgentLoopService agentLoop,
+        ILocalSkillService localSkillService)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -43,6 +47,8 @@ public class WorkStreamController : ControllerBase
         _llmProviderFactory = llmProviderFactory;
         _toolExecution = toolExecution;
         _toolRegistry = toolRegistry;
+        _agentLoop = agentLoop;
+        _localSkillService = localSkillService;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -92,6 +98,25 @@ public class WorkStreamController : ControllerBase
 
         var approvalRules = await _unitOfWork.WorkApprovalRules.FindAsync(r => r.ProjectId == project.Id, ct);
 
+        // 项目挂载的 MCP 服务器 → 注册为本会话运行时工具（ToolExecutionService 会重建子作用域，需显式传递）
+        var runtimeTools = new List<IToolExecutor>();
+        var mcpToolNames = new List<string>();
+        if (request.EnableTools && !string.IsNullOrWhiteSpace(project.McpServerIds))
+        {
+            try
+            {
+                mcpToolNames = await _agentLoop.LoadMcpToolsAsync(ParseGuidList(project.McpServerIds), ct);
+                // 仅在确实加载到工具时取执行器：GetByNames(空) 会返回全部工具，
+                // 那些实例绑定在请求作用域（WorkToolContext 无项目根），会遮蔽执行作用域内的同名工具
+                if (mcpToolNames.Count > 0)
+                    runtimeTools = _toolRegistry.GetByNames(mcpToolNames).ToList();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[WorkStream] 加载 MCP 工具失败 projectId={ProjectId}", project.Id);
+            }
+        }
+
         // 保存用户消息
         var userMsg = await _sessionService.AddMessageAsync(sessionId, "user", request.Content ?? "", cancellationToken: ct);
         if (!userMsg.Success)
@@ -115,6 +140,7 @@ public class WorkStreamController : ControllerBase
         var chatMessages = BuildChatHistory(history);
 
         var profile = BuiltinProfiles.Work;
+        var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
         var systemPromptParts = new List<string>
         {
             profile.IdentityPrompt,
@@ -122,9 +148,28 @@ public class WorkStreamController : ControllerBase
             profile.FormatPrompt,
             profile.SafetyPrompt,
             $"\n当前项目: {project.Name}\n项目根目录: {project.RootPath}",
-            $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
-            BuildToolGuideline(profile.AllowedTools),
+            $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（plan 计划模式只读调研 / readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
+            BuildToolGuideline(allowedTools),
         };
+
+        if (permissionMode == WorkPermissionMode.Plan)
+        {
+            systemPromptParts.Add("""
+                \n【计划模式】
+                本轮为纯调研，所有写操作与命令执行都被拦截，只有只读工具可用。
+                请充分利用只读工具（work_read_file / work_glob / work_grep / work_semantic_search / work_list_dir / work_task）摸清现状，
+                然后输出一份可执行的实施计划：目标、涉及文件（含路径）、分步改动要点、验证方式、风险点。
+                不要尝试修改任何文件；计划结束后会由用户切换到执行模式再动手。
+                """);
+        }
+        else if (mcpToolNames.Count > 0)
+        {
+            systemPromptParts.Add($"\n已启用外部 MCP 工具：{string.Join(", ", mcpToolNames)}");
+        }
+
+        var skillsContext = await BuildSkillsContextAsync(project.SkillIds, ct);
+        if (!string.IsNullOrWhiteSpace(skillsContext))
+            systemPromptParts.Add(skillsContext);
 
         var ruleContext = WorkProjectRules.LoadRuleContext(project.RootPath);
         if (!string.IsNullOrWhiteSpace(ruleContext))
@@ -144,7 +189,7 @@ public class WorkStreamController : ControllerBase
         var overrides = new Dictionary<string, ToolApprovalMode>();
         if (request.EnableTools)
         {
-            options.Tools = _toolRegistry.ToToolDefinitions(profile.AllowedTools.ToList());
+            options.Tools = _toolRegistry.ToToolDefinitions(allowedTools);
             options.ToolChoice = "auto";
         }
 
@@ -154,17 +199,33 @@ public class WorkStreamController : ControllerBase
         var sessionTodos = new List<SessionTodo>();
         var fileChanges = new List<object>();
         var maxIterations = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : 30;
+        var usageTotal = new WorkMessageUsage();
+        var executedToolNames = new List<string>();
         string? loopError = null;
 
         try
         {
             for (int iter = 0; iter < maxIterations; iter++)
             {
-                var (iterContent, iterThinking, pendingToolCalls, _) = await ChatStreamProcessor.ProcessStreamAsync(
+                var iterStart = DateTimeOffset.UtcNow;
+                var (iterContent, iterThinking, pendingToolCalls, usage) = await ChatStreamProcessor.ProcessStreamAsync(
                     provider, chatMessages, options, writer, ct);
 
                 contentSb.Append(iterContent);
                 thinkingSb.Append(iterThinking);
+                AccumulateUsage(usageTotal, usage, (int)(DateTimeOffset.UtcNow - iterStart).TotalMilliseconds);
+                if (usage != null)
+                {
+                    await writer.WriteJsonAsync(new
+                    {
+                        type = "usage",
+                        promptTokens = usageTotal.PromptTokens,
+                        completionTokens = usageTotal.CompletionTokens,
+                        cachedTokens = usageTotal.CachedTokens,
+                        totalTokens = usageTotal.TotalTokens,
+                        latencyMs = usageTotal.LatencyMs
+                    });
+                }
 
                 if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools)
                     break;
@@ -194,19 +255,26 @@ public class WorkStreamController : ControllerBase
                         return WorkToolPolicy.Decide(
                             _toolRegistry.GetExecutor(toolCall.Name), toolCall.Name, targetPath, permissionMode, approvalRules);
                     },
-                    project.RootPath);
+                    new WorkToolScope
+                    {
+                        ProjectRoot = project.RootPath,
+                        ProjectId = project.Id,
+                        ModelId = modelId,
+                        DiagnosticsCommand = project.DiagnosticsCommand,
+                        RuntimeTools = runtimeTools
+                    });
 
-                // 文件变更事件 + 落库记录（供 diff 页展示）
+                executedToolNames.AddRange(pendingToolCalls.Select(c => c.Name));
+
+                // 文件变更事件 + 落库记录（供 diff 页展示）：以执行后的真实磁盘内容为准，失败的写操作不记变更
                 foreach (var change in planned)
                 {
                     try
                     {
                         var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
                         var oldContent = oldContents.GetValueOrDefault(toolCallKey);
-                        var newContent = change.InlineNewContent ??
-                            (System.IO.File.Exists(WorkPath.Resolve(project.RootPath, change.Path) ?? "\0")
-                                ? await TryReadFileAsync(project.RootPath, change.Path, ct)
-                                : null);
+                        var newContent = await TryReadFileAsync(project.RootPath, change.Path, ct);
+                        if (newContent == oldContent) continue;
 
                         var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";
                         await _unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
@@ -252,9 +320,19 @@ public class WorkStreamController : ControllerBase
         var finalContent = contentSb.ToString().Trim();
         if (loopError != null && string.IsNullOrEmpty(finalContent))
             finalContent = $"处理请求时出错: {loopError}";
+        // 模型只发起工具调用而没有正文时也要落库，否则下一轮会丢失这轮上下文
+        if (string.IsNullOrEmpty(finalContent) && executedToolNames.Count > 0)
+        {
+            var names = string.Join("、", executedToolNames.Distinct());
+            finalContent = $"（本轮未输出正文，已调用工具：{names}）";
+        }
+
         if (!string.IsNullOrEmpty(finalContent))
         {
-            await _sessionService.AddMessageAsync(sessionId, "assistant", finalContent, "text", modelId: modelId, cancellationToken: CancellationToken.None);
+            await _sessionService.AddMessageAsync(
+                sessionId, "assistant", finalContent, "text", modelId: modelId,
+                usage: usageTotal.TotalTokens > 0 ? usageTotal : null,
+                cancellationToken: CancellationToken.None);
         }
 
         // 保存文件变更事件消息（供历史回放展示）
@@ -287,6 +365,64 @@ public class WorkStreamController : ControllerBase
         }
 
         return WorkToolPolicy.Parse(session.PermissionMode);
+    }
+
+    /// <summary>累加一轮 LLM 调用的 Token 消耗</summary>
+    private static void AccumulateUsage(WorkMessageUsage total, LlmUsage? usage, int latencyMs)
+    {
+        if (usage == null) return;
+        total.PromptTokens += usage.PromptTokens;
+        total.CompletionTokens += usage.CompletionTokens;
+        total.CachedTokens += usage.CachedTokens;
+        total.TotalTokens += usage.TotalTokens > 0 ? usage.TotalTokens : usage.PromptTokens + usage.CompletionTokens;
+        total.LatencyMs += latencyMs;
+    }
+
+    /// <summary>解析项目上以 JSON 数组保存的 Guid 列表</summary>
+    private static List<Guid> ParseGuidList(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>项目启用的技能 → system prompt 中的技能索引</summary>
+    private async Task<string> BuildSkillsContextAsync(string? skillIdsJson, CancellationToken ct)
+    {
+        var skillIds = ParseStrings(skillIdsJson);
+        if (skillIds.Count == 0) return string.Empty;
+
+        var scan = await _localSkillService.ScanAllAsync(ct);
+        var skills = scan.Data?.Where(s => s.IsEnabled && skillIds.Contains(s.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (skills == null || skills.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder("\n项目启用的技能（需要详细步骤时用 work_skill 读取全文）：");
+        foreach (var skill in skills)
+        {
+            sb.AppendLine();
+            sb.Append($"- {skill.Name}（id: {skill.Id}）");
+            if (!string.IsNullOrWhiteSpace(skill.Description)) sb.Append($": {skill.Description}");
+        }
+        return sb.ToString();
+    }
+
+    private static List<string> ParseStrings(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     /// <summary>把工具清单与使用指引拼成 system prompt 片段</summary>
@@ -327,7 +463,7 @@ public class WorkStreamController : ControllerBase
         return messages;
     }
 
-    private sealed record PlannedChange(string ToolCallId, string Path, string? InlineNewContent);
+    private sealed record PlannedChange(string ToolCallId, string Path);
 
     private static string ChangeKey(string toolCallId, string path) => toolCallId + "|" + path;
 
@@ -343,7 +479,7 @@ public class WorkStreamController : ControllerBase
                 {
                     var path = TryGetStringArgument(toolCall.Arguments, "path");
                     if (!string.IsNullOrWhiteSpace(path))
-                        planned.Add(new PlannedChange(toolCall.Id, path, TryGetStringArgument(toolCall.Arguments, "content") ?? ""));
+                        planned.Add(new PlannedChange(toolCall.Id, path));
                     break;
                 }
                 case "work_apply_patch":
@@ -351,7 +487,7 @@ public class WorkStreamController : ControllerBase
                 {
                     var path = TryGetStringArgument(toolCall.Arguments, "path");
                     if (!string.IsNullOrWhiteSpace(path))
-                        planned.Add(new PlannedChange(toolCall.Id, path, null));
+                        planned.Add(new PlannedChange(toolCall.Id, path));
                     break;
                 }
                 case "work_move_file":
@@ -359,9 +495,9 @@ public class WorkStreamController : ControllerBase
                     var from = TryGetStringArgument(toolCall.Arguments, "from");
                     var to = TryGetStringArgument(toolCall.Arguments, "to");
                     if (!string.IsNullOrWhiteSpace(from))
-                        planned.Add(new PlannedChange(toolCall.Id, from, null));
+                        planned.Add(new PlannedChange(toolCall.Id, from));
                     if (!string.IsNullOrWhiteSpace(to))
-                        planned.Add(new PlannedChange(toolCall.Id, to, null));
+                        planned.Add(new PlannedChange(toolCall.Id, to));
                     break;
                 }
             }

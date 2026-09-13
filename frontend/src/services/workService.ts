@@ -11,6 +11,10 @@ import type {
   IWorkCheckpoint,
   IRestoreCheckpointResult,
   IWorkFileSearchHit,
+  IWorkCodeIndexStatus,
+  IWorkCodeIndexResult,
+  IWorkCodeSearchHit,
+  IWorkCheckpointDiff,
   ICreateWorkProjectRequest,
   IUpdateWorkProjectRequest,
   ICreateWorkSessionRequest,
@@ -24,11 +28,21 @@ export const workProjectService = {
   create: (data: ICreateWorkProjectRequest) => post<IWorkProject>('/work-projects', data),
   update: (id: string, data: IUpdateWorkProjectRequest) => put<IWorkProject>(`/work-projects/${id}`, data),
   delete: (id: string) => del<void>(`/work-projects/${id}`),
-  getSessions: (id: string) => get<IWorkSession[]>(`/work-projects/${id}/sessions`),
+  getSessions: (id: string, query?: string) =>
+    get<IWorkSession[]>(`/work-projects/${id}/sessions`, { query: query || undefined }),
   getApprovalRules: (id: string) => get<IWorkApprovalRule[]>(`/work-projects/${id}/approval-rules`),
   createApprovalRule: (id: string, data: ICreateWorkApprovalRuleRequest) =>
     post<IWorkApprovalRule>(`/work-projects/${id}/approval-rules`, data),
   deleteApprovalRule: (id: string) => del<void>(`/work-approval-rules/${id}`),
+  /** 代码语义索引状态 */
+  getCodeIndexStatus: (id: string) => get<IWorkCodeIndexStatus>(`/work-projects/${id}/code-index`),
+  /** 建立/重建代码语义索引 */
+  indexCode: (id: string, force = false) =>
+    post<IWorkCodeIndexResult>(`/work-projects/${id}/code-index?force=${force ? 'true' : 'false'}`),
+  clearCodeIndex: (id: string) => del<void>(`/work-projects/${id}/code-index`),
+  /** 代码语义检索（需先建立索引） */
+  searchCode: (id: string, query: string, limit = 8) =>
+    get<IWorkCodeSearchHit[]>(`/work-projects/${id}/code-index/search`, { query, limit }),
 };
 
 export const workSessionService = {
@@ -69,6 +83,7 @@ export const workSessionService = {
 
 export const workCheckpointService = {
   restore: (id: string) => post<IRestoreCheckpointResult>(`/work-checkpoints/${id}/restore`),
+  diff: (id: string) => get<IWorkCheckpointDiff>(`/work-checkpoints/${id}/diff`),
   delete: (id: string) => del<void>(`/work-checkpoints/${id}`),
 };
 
@@ -84,6 +99,8 @@ export const workFileService = {
     get<IWorkFileContent>(`/work-projects/${projectId}/fs/read`, { path }),
   search: (projectId: string, query: string, limit?: number) =>
     get<IWorkFileSearchHit[]>(`/work-projects/${projectId}/fs/search`, { query, limit }),
+  write: (projectId: string, path: string, content: string, originalContent?: string) =>
+    put<IWorkFileContent>(`/work-projects/${projectId}/fs/write`, { path, content, originalContent }),
 };
 
 export const workTerminalUrl = (projectId: string) => {

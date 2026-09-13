@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, Square, FileCode, GitBranch, ChevronDown, ChevronRight, Loader2, Wrench, FolderTree, ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX } from 'lucide-react'
+import { Send, Bot, Square, FileCode, GitBranch, ChevronDown, ChevronRight, Loader2, Wrench, FolderTree, ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX, ListChecks, Coins, Search } from 'lucide-react'
 import { workSessionService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode } from '../../types/work'
@@ -19,6 +19,8 @@ interface ToolCallView { id: string; name: string; arguments: string; result?: s
 interface ApprovalRequestView { id: string; name: string; arguments: string }
 interface QuestionRequestView { toolCallId: string; data: string }
 interface CheckpointView { id: string; label: string; fileCount: number }
+interface SubAgentView { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
+interface UsageView { promptTokens: number; completionTokens: number; cachedTokens: number; totalTokens: number; latencyMs: number }
 
 type WorkStreamHandlers = {
   onContent: (text: string) => void
@@ -28,6 +30,8 @@ type WorkStreamHandlers = {
   onApprovalRequest: (req: ApprovalRequestView) => void
   onQuestion: (req: QuestionRequestView) => void
   onCheckpoint: (cp: CheckpointView) => void
+  onSubAgent: (sa: SubAgentView) => void
+  onUsage: (usage: UsageView) => void
 }
 
 /** 把工作流的一帧分发给对应 handler；非 JSON 帧按纯文本追加。 */
@@ -46,17 +50,22 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     else if (evt.type === 'approval_request') handlers.onApprovalRequest({ id: evt.id, name: evt.name, arguments: evt.arguments })
     else if (evt.type === 'question') handlers.onQuestion({ toolCallId: evt.toolCallId, data: evt.data })
     else if (evt.type === 'checkpoint') handlers.onCheckpoint({ id: evt.id, label: evt.label, fileCount: evt.fileCount })
+    else if (evt.type === 'subagent') handlers.onSubAgent({ id: evt.id, description: evt.description, stage: evt.stage, tool: evt.tool, steps: evt.steps, message: evt.message })
+    else if (evt.type === 'usage') handlers.onUsage({ promptTokens: evt.promptTokens, completionTokens: evt.completionTokens, cachedTokens: evt.cachedTokens, totalTokens: evt.totalTokens, latencyMs: evt.latencyMs })
   } catch {
     handlers.onContent(data)
   }
 }
 
 const PERMISSION_MODES: { value: WorkPermissionMode; label: string }[] = [
+  { value: 'plan', label: '计划模式（只调研）' },
   { value: 'readonly', label: '只读（不改文件）' },
   { value: 'ask', label: '每次写入需确认' },
   { value: 'auto', label: '自动执行写操作' },
   { value: 'bypass', label: '全部放行' },
 ]
+
+const PLAN_EXECUTE_PROMPT = '按上面的计划开始执行。'
 
 export default function WorkSessionArea({ project, session, onSessionUpdated }: WorkSessionAreaProps) {
   const queryClient = useQueryClient()
@@ -66,6 +75,8 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   const [liveToolCalls, setLiveToolCalls] = useState<ToolCallView[]>([])
   const [liveFileChanges, setLiveFileChanges] = useState<FileChangeMeta[]>([])
   const [liveCheckpoints, setLiveCheckpoints] = useState<CheckpointView[]>([])
+  const [liveSubAgents, setLiveSubAgents] = useState<SubAgentView[]>([])
+  const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
   const [approvals, setApprovals] = useState<ApprovalRequestView[]>([])
   const [questions, setQuestions] = useState<QuestionRequestView[]>([])
   const [answerDraft, setAnswerDraft] = useState('')
@@ -143,12 +154,26 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     if (!session || !input.trim() || isStreaming) return
     const content = input.trim()
     setInput('')
+    await runStream(content, permissionMode)
+  }
+
+  /** 计划模式：切到执行模式并把计划交给 Agent 落地 */
+  const executePlan = async () => {
+    if (!session || isStreaming) return
+    setPermissionMode('auto')
+    await runStream(PLAN_EXECUTE_PROMPT, 'auto')
+  }
+
+  const runStream = async (content: string, mode: WorkPermissionMode) => {
+    if (!session) return
     addMessage.mutate({ id: session.id, content })
     setIsStreaming(true)
     setStreamingContent('')
     setLiveToolCalls([])
     setLiveFileChanges([])
     setLiveCheckpoints([])
+    setLiveSubAgents([])
+    setLiveUsage(null)
     setApprovals([])
     setQuestions([])
 
@@ -162,6 +187,13 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       onApprovalRequest: (req) => setApprovals((prev) => [...prev.filter((x) => x.id !== req.id), req]),
       onQuestion: (req) => setQuestions((prev) => [...prev.filter((x) => x.toolCallId !== req.toolCallId), req]),
       onCheckpoint: (cp) => setLiveCheckpoints((prev) => [...prev.filter((x) => x.id !== cp.id), cp]),
+      onSubAgent: (sa) =>
+        setLiveSubAgents((prev) =>
+          prev.some((x) => x.id === sa.id)
+            ? prev.map((x) => (x.id === sa.id ? { ...x, ...sa } : x))
+            : [...prev, sa],
+        ),
+      onUsage: (usage) => setLiveUsage(usage),
     }
 
     try {
@@ -171,7 +203,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           content,
           modelId: selectedModelId || undefined,
           enableTools: true,
-          permissionMode,
+          permissionMode: mode,
         },
         controller.signal,
       )
@@ -187,6 +219,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       setLiveToolCalls([])
       setLiveFileChanges([])
       setLiveCheckpoints([])
+      setLiveSubAgents([])
       setApprovals([])
       setQuestions([])
       queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
@@ -213,6 +246,14 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
 
   const visibleToolCalls = liveToolCalls.filter((t) => !t.hidden)
 
+  const usageTotal: UsageView = liveUsage ?? {
+    promptTokens: session.promptTokens ?? 0,
+    completionTokens: session.completionTokens ?? 0,
+    cachedTokens: session.cachedTokens ?? 0,
+    totalTokens: session.totalTokens ?? 0,
+    latencyMs: 0,
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
       {/* 头部 */}
@@ -221,12 +262,17 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || '新会话'}</h2>
           <p className="truncate text-[11px] text-gray-400">
             {project ? `${project.name} · ` : ''}{messages.length} 条消息
+            {usageTotal.totalTokens > 0 && ` · ${formatTokens(usageTotal.totalTokens)} tokens`}
+            {usageTotal.totalTokens > 0 && usageTotal.cachedTokens > 0 && `（缓存 ${formatTokens(usageTotal.cachedTokens)}）`}
+            {session.turnCount > 0 && ` · ${session.turnCount} 轮`}
           </p>
         </div>
-        <div className="flex w-36 shrink-0 items-center gap-1.5">
-          {permissionMode === 'readonly' || permissionMode === 'bypass'
-            ? <ShieldOff size={14} className="shrink-0 text-amber-500" />
-            : <ShieldCheck size={14} className="shrink-0 text-emerald-500" />}
+        <div className="flex w-40 shrink-0 items-center gap-1.5">
+          {permissionMode === 'plan'
+            ? <ListChecks size={14} className="shrink-0 text-sky-500" />
+            : permissionMode === 'readonly' || permissionMode === 'bypass'
+              ? <ShieldOff size={14} className="shrink-0 text-amber-500" />
+              : <ShieldCheck size={14} className="shrink-0 text-emerald-500" />}
           <Select
             value={permissionMode}
             onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
@@ -289,6 +335,29 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           {visibleToolCalls.length > 0 && (
             <div className="space-y-1.5">
               {visibleToolCalls.map((tc) => <ToolCallCard key={tc.id} tc={tc} />)}
+            </div>
+          )}
+
+          {/* 实时子 Agent */}
+          {liveSubAgents.length > 0 && (
+            <div className="space-y-1.5">
+              {liveSubAgents.map((sa) => <SubAgentCard key={sa.id} sa={sa} />)}
+            </div>
+          )}
+
+          {/* 计划模式：一键转执行 */}
+          {permissionMode === 'plan' && !isStreaming && (
+            <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 dark:border-sky-800/50 dark:bg-sky-950/20">
+              <ListChecks size={15} className="shrink-0 text-sky-500" />
+              <span className="min-w-0 flex-1 text-[12px] text-sky-800 dark:text-sky-300">
+                计划模式只做只读调研；确认计划后切换到执行模式落地。
+              </span>
+              <button
+                onClick={executePlan}
+                className="shrink-0 rounded-lg bg-sky-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-sky-600"
+              >
+                按计划执行
+              </button>
             </div>
           )}
 
@@ -400,6 +469,16 @@ function WorkMessageView({ message }: { message: IWorkMessage }) {
         ) : (
           <ThemedMarkdown source={message.content} />
         )}
+        {!isUser && (message.totalTokens ?? 0) > 0 && (
+          <div className="mt-2 flex items-center gap-1 border-t border-black/5 pt-1.5 text-[10px] text-gray-400 dark:border-white/5">
+            <Coins size={10} />
+            <span>
+              {formatTokens(message.totalTokens ?? 0)} tokens
+              {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
+              {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -428,6 +507,35 @@ function CheckpointCard({ cp }: { cp: CheckpointView }) {
       <span className="min-w-0 flex-1 truncate text-[12px] text-sky-800 dark:text-sky-300">{cp.label}</span>
       <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
         {cp.fileCount} 个文件快照
+      </span>
+    </div>
+  )
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return String(n)
+}
+
+function SubAgentCard({ sa }: { sa: SubAgentView }) {
+  const meta = sa.stage === 'error'
+    ? { label: '子 Agent 失败', box: 'border-rose-200/70 bg-rose-50/70 dark:border-rose-800/40 dark:bg-rose-950/20', text: 'text-rose-800 dark:text-rose-300' }
+    : sa.stage === 'done'
+      ? { label: '子 Agent 完成', box: 'border-violet-200/70 bg-violet-50/70 dark:border-violet-800/40 dark:bg-violet-950/20', text: 'text-violet-800 dark:text-violet-300' }
+      : { label: '子 Agent 运行中', box: 'border-indigo-200/70 bg-indigo-50/70 dark:border-indigo-800/40 dark:bg-indigo-950/20', text: 'text-indigo-800 dark:text-indigo-300' }
+
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${meta.box}`}>
+      {sa.stage === 'done' || sa.stage === 'error'
+        ? <Bot size={14} className={`shrink-0 ${meta.text}`} />
+        : <Loader2 size={14} className={`shrink-0 animate-spin ${meta.text}`} />}
+      <span className={`min-w-0 flex-1 truncate text-[12px] ${meta.text}`}>
+        {sa.description}{sa.tool && ` · ${sa.tool}`}
+        {sa.message && ` · ${sa.message}`}
+      </span>
+      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.text}`}>
+        {meta.label}{sa.steps ? ` · ${sa.steps} 步` : ''}
       </span>
     </div>
   )
@@ -500,6 +608,10 @@ function ToolCallCard({ tc }: { tc: ToolCallView }) {
     work_grep: { label: '搜索内容', icon: <FileCode size={12} /> },
     work_git: { label: 'Git 查询', icon: <GitBranch size={12} /> },
     work_run_command: { label: '执行命令', icon: <GitBranch size={12} /> },
+    work_diagnostics: { label: '构建诊断', icon: <Wrench size={12} /> },
+    work_semantic_search: { label: '语义搜索', icon: <Search size={12} /> },
+    work_task: { label: '子 Agent', icon: <Bot size={12} /> },
+    work_skill: { label: '调用技能', icon: <Wrench size={12} /> },
   }
   const meta = nameMap[tc.name] ?? { label: tc.name, icon: <Wrench size={12} /> }
   let args = tc.arguments

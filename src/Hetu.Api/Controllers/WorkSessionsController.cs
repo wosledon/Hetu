@@ -71,6 +71,11 @@ public class WorkCheckpointsController : ControllerBase
     public Task<ApiResponse<RestoreCheckpointResultDto>> Restore(Guid id, CancellationToken cancellationToken)
         => _checkpointService.RestoreAsync(id, cancellationToken);
 
+    /// <summary>对比检查点快照与当前工作区</summary>
+    [HttpGet("{id:guid}/diff")]
+    public Task<ApiResponse<WorkCheckpointDiffDto>> Diff(Guid id, CancellationToken cancellationToken)
+        => _checkpointService.GetDiffAsync(id, cancellationToken);
+
     [HttpDelete("{id:guid}")]
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _checkpointService.DeleteAsync(id, cancellationToken);

@@ -1,3 +1,10 @@
+export interface IWorkCodeIndexStatus {
+  chunkCount: number;
+  fileCount: number;
+  indexedAt?: string;
+  isReady: boolean;
+}
+
 export interface IWorkProject {
   id: string;
   name: string;
@@ -7,12 +14,16 @@ export interface IWorkProject {
   color?: string;
   sortOrder: number;
   sessionCount: number;
+  mcpServerIds: string[];
+  skillIds: string[];
+  diagnosticsCommand?: string;
+  codeIndex: IWorkCodeIndexStatus;
   createdAt: string;
   updatedAt: string;
 }
 
-/** 工具调用权限模式：只读 / 每次询问 / 自动放行写操作 / 全部放行 */
-export type WorkPermissionMode = 'readonly' | 'ask' | 'auto' | 'bypass';
+/** 工具调用权限模式：计划（只读调研）/ 只读 / 每次询问 / 自动放行写操作 / 全部放行 */
+export type WorkPermissionMode = 'plan' | 'readonly' | 'ask' | 'auto' | 'bypass';
 
 export interface IWorkSession {
   id: string;
@@ -21,6 +32,11 @@ export interface IWorkSession {
   modelId?: string;
   messageCount: number;
   permissionMode: WorkPermissionMode;
+  turnCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens: number;
+  totalTokens: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,6 +90,11 @@ export interface IWorkMessage {
   type: WorkMessageType;
   metadata?: string;
   modelId?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  cachedTokens?: number;
+  totalTokens?: number;
+  latencyMs?: number;
   createdAt: string;
 }
 
@@ -120,6 +141,9 @@ export interface IUpdateWorkProjectRequest {
   icon?: string;
   color?: string;
   sortOrder: number;
+  mcpServerIds?: string[];
+  skillIds?: string[];
+  diagnosticsCommand?: string;
 }
 
 export interface ICreateWorkSessionRequest {
@@ -133,4 +157,33 @@ export interface IUpdateWorkSessionRequest {
   title: string;
   modelId?: string;
   permissionMode?: WorkPermissionMode;
+}
+
+export interface IWorkCodeSearchHit {
+  path: string;
+  startLine: number;
+  score: number;
+  snippet: string;
+}
+
+export interface IWorkCodeIndexResult {
+  indexedFiles: number;
+  indexedChunks: number;
+  skippedFiles: number;
+  removedChunks: number;
+  failedFiles: number;
+  indexedAt: string;
+}
+
+export interface IWorkCheckpointDiffFile {
+  path: string;
+  action: 'create' | 'write' | 'delete' | 'unchanged';
+  oldContent?: string;
+  newContent?: string;
+}
+
+export interface IWorkCheckpointDiff {
+  checkpointId: string;
+  label: string;
+  files: IWorkCheckpointDiffFile[];
 }

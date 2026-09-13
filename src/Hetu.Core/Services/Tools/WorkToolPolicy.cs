@@ -6,6 +6,8 @@ namespace Hetu.Core.Services.Tools;
 /// <summary>Work 会话权限模式</summary>
 public enum WorkPermissionMode
 {
+    /// <summary>计划：只读工具可用，写/执行类工具全部拒绝，模型只能产出计划</summary>
+    Plan,
     /// <summary>只读：拒绝一切写/执行类工具</summary>
     ReadOnly,
     /// <summary>询问：写/执行类工具执行前等待用户确认（默认）</summary>
@@ -30,11 +32,15 @@ public static class WorkToolPolicy
 {
     public const string DefaultMode = "ask";
 
-    private static readonly string[] ModeValues = ["readonly", "ask", "auto", "bypass"];
+    private static readonly string[] ModeValues = ["plan", "readonly", "ask", "auto", "bypass"];
+
+    public const string PlanDenyMessage =
+        "当前处于计划模式：本次不执行任何写操作。请先输出一份可执行的计划（目标、涉及文件、步骤、验证方式），由用户确认后再执行。";
 
     /// <summary>解析权限模式字符串，非法值回退为 <see cref="WorkPermissionMode.Ask"/></summary>
     public static WorkPermissionMode Parse(string? value) => value?.Trim().ToLowerInvariant() switch
     {
+        "plan" => WorkPermissionMode.Plan,
         "readonly" or "read-only" or "read_only" => WorkPermissionMode.ReadOnly,
         "auto" => WorkPermissionMode.Auto,
         "bypass" => WorkPermissionMode.Bypass,
@@ -44,6 +50,7 @@ public static class WorkToolPolicy
     /// <summary>序列化为持久化字符串</summary>
     public static string ToValue(WorkPermissionMode mode) => mode switch
     {
+        WorkPermissionMode.Plan => "plan",
         WorkPermissionMode.ReadOnly => "readonly",
         WorkPermissionMode.Auto => "auto",
         WorkPermissionMode.Bypass => "bypass",
@@ -66,6 +73,11 @@ public static class WorkToolPolicy
     {
         var risk = executor?.Risk ?? ToolRisk.Write;
 
+        if (mode == WorkPermissionMode.Plan && risk != ToolRisk.Read)
+        {
+            return new WorkToolDecision(false, ToolApprovalMode.Bypass, PlanDenyMessage);
+        }
+
         if (mode == WorkPermissionMode.ReadOnly && risk != ToolRisk.Read)
         {
             return new WorkToolDecision(false, ToolApprovalMode.Bypass,
@@ -85,6 +97,7 @@ public static class WorkToolPolicy
 
         return mode switch
         {
+            WorkPermissionMode.Plan => new WorkToolDecision(true, ToolApprovalMode.Auto),
             WorkPermissionMode.ReadOnly => new WorkToolDecision(true, ToolApprovalMode.Auto),
             WorkPermissionMode.Ask => new WorkToolDecision(true, DefaultApprovalForRisk(risk, ask: true)),
             WorkPermissionMode.Auto => new WorkToolDecision(true, DefaultApprovalForRisk(risk, ask: false)),

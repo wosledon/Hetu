@@ -12,15 +12,18 @@ public class WorkProjectsController : ControllerBase
     private readonly IWorkProjectService _projectService;
     private readonly IWorkSessionService _sessionService;
     private readonly IWorkApprovalRuleService _approvalRuleService;
+    private readonly IWorkCodeIndexService _codeIndexService;
 
     public WorkProjectsController(
         IWorkProjectService projectService,
         IWorkSessionService sessionService,
-        IWorkApprovalRuleService approvalRuleService)
+        IWorkApprovalRuleService approvalRuleService,
+        IWorkCodeIndexService codeIndexService)
     {
         _projectService = projectService;
         _sessionService = sessionService;
         _approvalRuleService = approvalRuleService;
+        _codeIndexService = codeIndexService;
     }
 
     [HttpGet]
@@ -43,9 +46,30 @@ public class WorkProjectsController : ControllerBase
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _projectService.DeleteAsync(id, cancellationToken);
 
+    /// <summary>会话列表，query 为标题/消息内容关键字</summary>
     [HttpGet("{id:guid}/sessions")]
-    public Task<ApiResponse<List<WorkSessionDto>>> GetSessions(Guid id, CancellationToken cancellationToken)
-        => _sessionService.GetByProjectAsync(id, cancellationToken);
+    public Task<ApiResponse<List<WorkSessionDto>>> GetSessions(Guid id, [FromQuery] string? query, CancellationToken cancellationToken)
+        => _sessionService.GetByProjectAsync(id, query, cancellationToken);
+
+    /// <summary>代码向量索引状态</summary>
+    [HttpGet("{id:guid}/code-index")]
+    public async Task<ApiResponse<WorkCodeIndexStatusDto>> GetCodeIndexStatus(Guid id, CancellationToken cancellationToken)
+        => await _codeIndexService.GetStatusAsync(id, cancellationToken);
+
+    /// <summary>重建代码向量索引（force=true 时忽略哈希缓存全量重建）</summary>
+    [HttpPost("{id:guid}/code-index")]
+    public async Task<ApiResponse<WorkCodeIndexResultDto>> RebuildCodeIndex(Guid id, [FromQuery] bool force, CancellationToken cancellationToken)
+        => await _codeIndexService.IndexProjectAsync(id, force, cancellationToken);
+
+    /// <summary>清空代码向量索引</summary>
+    [HttpDelete("{id:guid}/code-index")]
+    public async Task<ApiResponse> ClearCodeIndex(Guid id, CancellationToken cancellationToken)
+        => await _codeIndexService.ClearAsync(id, cancellationToken);
+
+    /// <summary>在代码向量索引上做语义检索</summary>
+    [HttpGet("{id:guid}/code-index/search")]
+    public async Task<ApiResponse<List<WorkCodeSearchHitDto>>> SearchCodeIndex(Guid id, [FromQuery] string query, [FromQuery] int limit, CancellationToken cancellationToken)
+        => await _codeIndexService.SearchAsync(id, query ?? "", limit <= 0 ? 8 : limit, cancellationToken);
 
     /// <summary>项目级工具审批规则（allow 直接放行 / deny 直接拒绝）</summary>
     [HttpGet("{id:guid}/approval-rules")]

@@ -91,8 +91,8 @@ public class ToolExecutionService
     /// 可选的逐次决策回调（权限模式 / 项目规则）。返回不允许时该工具不执行，
     /// 直接把拒绝原因作为工具结果回传模型。
     /// </param>
-    /// <param name="projectRoot">
-    /// 可选的工作项目根目录。工具在新作用域内执行，需显式传递，否则 work_* 文件工具取不到根目录。
+    /// <param name="workScope">
+    /// 可选的工作项目作用域。工具在新作用域内执行，需显式传递，否则 work_* 文件工具取不到根目录与运行时工具。
     /// </param>
     public async Task<List<(string toolCallId, string content)>> ExecuteToolCallsAsync(
         string sessionId,
@@ -103,15 +103,27 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken cancellationToken,
         Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? decideToolCall = null,
-        string? projectRoot = null)
+        WorkToolScope? workScope = null)
     {
         var results = new List<(string toolCallId, string content)>();
         var state = _sessions.GetOrCreate(sessionId);
 
         await using var scope = _scopeFactory.CreateAsyncScope();
-        if (!string.IsNullOrWhiteSpace(projectRoot))
-            scope.ServiceProvider.GetRequiredService<WorkToolContext>().ProjectRoot = projectRoot;
+        var workContext = scope.ServiceProvider.GetRequiredService<WorkToolContext>();
+        if (workScope != null)
+        {
+            workContext.ProjectRoot = workScope.ProjectRoot;
+            workContext.ProjectId = workScope.ProjectId;
+            workContext.ModelId = workScope.ModelId;
+            workContext.DiagnosticsCommand = workScope.DiagnosticsCommand;
+        }
+        workContext.WriteEventAsync = writeJsonAsync;
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
+        if (workScope?.RuntimeTools != null)
+        {
+            foreach (var runtimeTool in workScope.RuntimeTools)
+                toolRegistry.AddRuntimeTool(runtimeTool);
+        }
 
         foreach (var toolCall in toolCalls)
         {

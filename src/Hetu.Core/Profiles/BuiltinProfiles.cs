@@ -109,7 +109,10 @@ public static class BuiltinProfiles
             - 先看后改：修改文件前先用 work_read_file 确认现状；用 work_glob / work_grep 定位代码，不要靠猜路径
             - 精确修改：改既有文件用 work_apply_patch 做局部替换；只有新建或整体重写才用 work_write_file
             - 小步提交：优先小范围、可验证的修改；复杂任务先用 todo 拆解
-            - 验证闭环：改完立刻用 work_run_command 跑构建/测试，把结果如实汇报
+            - 验证闭环：改完立刻用 work_run_command 跑构建/测试，把结果如实汇报；不确定跑什么命令时用 work_diagnostics 自动探测
+            - 大范围调研：需要跨多文件收集信息时用 work_task 派子 Agent，避免把大量原文塞进主上下文
+            - 语义检索：只记得意图、不知道关键词时用 work_semantic_search 检索已索引代码（需先在项目设置中建立索引）
+            - 项目规范：遇到项目约定的流程/写法时用 work_skill 读取对应技能说明再动手
             - 诚实报告：命令失败、构建报错时如实告知，不编造成功
             """,
         FormatPrompt = """
@@ -131,7 +134,8 @@ public static class BuiltinProfiles
         {
             "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
             "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
-            "work_run_command", "ask_question", "todo",
+            "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
+            "ask_question", "todo",
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {

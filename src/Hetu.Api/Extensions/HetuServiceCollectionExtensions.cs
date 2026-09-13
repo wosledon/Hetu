@@ -206,6 +206,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IWorkSessionService, WorkSessionService>();
         services.AddScoped<IWorkApprovalRuleService, WorkApprovalRuleService>();
         services.AddScoped<IWorkCheckpointService, WorkCheckpointService>();
+        services.AddScoped<IWorkCodeIndexService, WorkCodeIndexService>();
         services.AddSingleton<WorkTerminalManager>();
     }
 

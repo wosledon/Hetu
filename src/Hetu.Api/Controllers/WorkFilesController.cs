@@ -201,6 +201,54 @@ public class WorkFilesController : ControllerBase
         }
     }
 
+    /// <summary>写入/覆盖项目内文本文件（用于内置编辑器；创建目录，可选内容冲突校验）</summary>
+    [HttpPut("write")]
+    public async Task<ApiResponse<WorkFileContentDto>> Write(Guid projectId, [FromBody] WriteWorkFileRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Path)) return ApiResponse<WorkFileContentDto>.Fail("路径不能为空");
+
+        var root = await ResolveRootAsync(projectId, cancellationToken);
+        if (root == null) return ApiResponse<WorkFileContentDto>.Fail("项目不存在");
+
+        var file = WorkPath.Resolve(root, request.Path);
+        if (file == null) return ApiResponse<WorkFileContentDto>.Fail("路径超出项目范围");
+
+        if (Directory.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("目标路径是目录");
+
+        var content = request.Content ?? string.Empty;
+        if (content.Length > 2 * 1024 * 1024) return ApiResponse<WorkFileContentDto>.Fail("文件内容超过 2MB 限制");
+
+        try
+        {
+            if (System.IO.File.Exists(file) && request.OriginalContent != null)
+            {
+                var current = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
+                if (current != request.OriginalContent)
+                    return ApiResponse<WorkFileContentDto>.Fail("文件已被其他操作修改，请重新加载后再保存");
+            }
+
+            var dir = Path.GetDirectoryName(file);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            await System.IO.File.WriteAllTextAsync(file, content, cancellationToken);
+            var fi = new FileInfo(file);
+
+            return ApiResponse<WorkFileContentDto>.Ok(new WorkFileContentDto
+            {
+                Path = Path.GetRelativePath(root, file).Replace('\\', '/'),
+                Name = fi.Name,
+                Size = fi.Length,
+                IsBinary = false,
+                Content = content,
+                ModifiedAt = fi.LastWriteTimeUtc
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ApiResponse<WorkFileContentDto>.Fail($"写入文件失败: {ex.Message}");
+        }
+    }
+
     private async Task<string?> ResolveRootAsync(Guid projectId, CancellationToken cancellationToken)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);

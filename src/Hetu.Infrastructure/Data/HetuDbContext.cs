@@ -44,6 +44,7 @@ public class HetuDbContext : DbContext
     public DbSet<WorkApprovalRule> WorkApprovalRules => Set<WorkApprovalRule>();
     public DbSet<WorkCheckpoint> WorkCheckpoints => Set<WorkCheckpoint>();
     public DbSet<WorkCheckpointFile> WorkCheckpointFiles => Set<WorkCheckpointFile>();
+    public DbSet<WorkCodeChunk> WorkCodeChunks => Set<WorkCodeChunk>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -529,6 +530,37 @@ public class HetuDbContext : DbContext
                 .HasForeignKey(e => e.CheckpointId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.CheckpointId);
+        });
+
+        modelBuilder.Entity<WorkCodeChunk>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Hash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => new { e.ProjectId, e.FilePath });
+
+            if (Database.IsNpgsql())
+            {
+                entity.Ignore(e => e.Embedding);
+
+                var vectorComparer = new ValueComparer<float[]>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(0, (hash, f) => HashCode.Combine(hash, f.GetHashCode())),
+                    v => v.ToArray());
+
+                entity.Property(e => e.Vector)
+                    .IsRequired()
+                    .HasColumnType("vector")
+                    .HasConversion(new VectorFloatArrayConverter(), vectorComparer);
+            }
+            else
+            {
+                entity.Ignore(e => e.Vector);
+                entity.Property(e => e.Embedding).IsRequired();
+            }
         });
     }
 }

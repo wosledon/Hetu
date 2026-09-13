@@ -36,5 +36,6 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<WorkApprovalRule> WorkApprovalRules { get; }
     IRepository<WorkCheckpoint> WorkCheckpoints { get; }
     IRepository<WorkCheckpointFile> WorkCheckpointFiles { get; }
+    IRepository<WorkCodeChunk> WorkCodeChunks { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

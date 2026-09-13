@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose, History, RotateCcw, Search } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -9,10 +9,11 @@ import { html } from '@codemirror/lang-html'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
-import { workFileService, workSessionService, workCheckpointService } from '../../services/workService'
+import { workFileService, workSessionService, workCheckpointService, workProjectService } from '../../services/workService'
 import { useUIStore } from '../../stores/uiStore'
-import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange } from '../../types/work'
+import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange, IWorkCheckpoint, IWorkCheckpointDiff, IWorkCodeSearchHit } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
+import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -30,9 +31,10 @@ type NavTab = 'files' | 'changes' | 'checkpoints' | 'browser'
 interface OpenTab {
   key: string
   label: string
-  kind: 'file' | 'diff'
+  kind: 'file' | 'diff' | 'checkpoint'
   file?: IWorkFileContent
   change?: IWorkFileChange
+  checkpoint?: IWorkCheckpointDiff
 }
 
 export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
@@ -45,7 +47,10 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
   const [tabs, setTabs] = useState<OpenTab[]>([])
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchMode, setSearchMode] = useState<'text' | 'semantic'>('text')
   const [restoreMessage, setRestoreMessage] = useState('')
+  const [drafts, setDrafts] = useState<Map<string, string>>(new Map())
+  const [saveMessage, setSaveMessage] = useState('')
 
   const { data: changes = [] } = useQuery({
     queryKey: ['workFileChanges', sessionId],
@@ -64,7 +69,36 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
   const { data: searchHits = [], isFetching: isSearching } = useQuery({
     queryKey: ['workFileSearch', projectId, searchTerm],
     queryFn: () => workFileService.search(projectId!, searchTerm, 80),
-    enabled: !!projectId && searchTerm.length >= 2,
+    enabled: !!projectId && searchTerm.length >= 2 && searchMode === 'text',
+  })
+
+  const { data: codeHits = [], isFetching: isCodeSearching } = useQuery({
+    queryKey: ['workCodeSearch', projectId, searchTerm],
+    queryFn: () => workProjectService.searchCode(projectId!, searchTerm, 12),
+    enabled: !!projectId && searchTerm.length >= 2 && searchMode === 'semantic',
+  })
+
+  const { data: indexStatus } = useQuery({
+    queryKey: ['workCodeIndex', projectId],
+    queryFn: () => workProjectService.getCodeIndexStatus(projectId!),
+    enabled: !!projectId && searchMode === 'semantic',
+  })
+
+  const saveFile = useMutation({
+    mutationFn: (payload: { key: string; path: string; content: string; originalContent: string }) =>
+      workFileService.write(projectId!, payload.path, payload.content, payload.originalContent),
+    onSuccess: (saved, payload) => {
+      setTabs((prev) => prev.map((t) => (t.key === payload.key && t.file ? { ...t, file: saved } : t)))
+      setDrafts((prev) => {
+        const next = new Map(prev)
+        next.delete(payload.key)
+        return next
+      })
+      setSaveMessage(`已保存 ${payload.path}`)
+      setTimeout(() => setSaveMessage(''), 2500)
+      queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
+    },
+    onError: (error: Error) => setSaveMessage(`保存失败：${error.message}`),
   })
 
   const restoreCheckpoint = useMutation({
@@ -131,6 +165,46 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     setTabs((prev) => [...prev, { key, label: `${name} (diff)`, kind: 'diff', change }])
     setActiveKey(key)
   }
+
+  const openCheckpointDiffTab = async (cp: IWorkCheckpoint) => {
+    const key = `cp:${cp.id}`
+    if (tabs.some((t) => t.key === key)) {
+      setActiveKey(key)
+      return
+    }
+    try {
+      const diff = await workCheckpointService.diff(cp.id)
+      setTabs((prev) => [...prev, { key, label: `${cp.label} (差异)`, kind: 'checkpoint', checkpoint: diff }])
+      setActiveKey(key)
+    } catch { setRestoreMessage('读取检查点差异失败') }
+  }
+
+  const draftOf = (tab: OpenTab) => drafts.get(tab.key) ?? tab.file?.content ?? ''
+
+  const activeTab = tabs.find((t) => t.key === activeKey)
+
+  const saveActiveTab = () => {
+    if (!activeTab || activeTab.kind !== 'file' || !activeTab.file || !projectId) return
+    const content = drafts.get(activeTab.key)
+    if (content === undefined) return
+    saveFile.mutate({
+      key: activeTab.key,
+      path: activeTab.file.path,
+      content,
+      originalContent: activeTab.file.content ?? '',
+    })
+  }
+
+  // Ctrl/Cmd+S 保存当前文件（无依赖数组，始终闭包最新状态）
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 's') return
+      e.preventDefault()
+      saveActiveTab()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
 
   const closeTab = (key: string) => {
     setTabs((prev) => {
@@ -222,8 +296,6 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     '&': { height: '100%', fontSize: '12px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
     '&.cm-focused': { outline: 'none' },
   })
-
-  const activeTab = tabs.find((t) => t.key === activeKey)
 
   const navBtn = (t: NavTab, label: string, Icon: React.ComponentType<{ size?: number }>) => (
     <button
@@ -328,6 +400,13 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                     </div>
                   </div>
                   <button
+                    onClick={() => void openCheckpointDiffTab(cp)}
+                    title="查看与当前工作区的差异"
+                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700"
+                  >
+                    <Diff size={12} />
+                  </button>
+                  <button
                     onClick={() => restoreCheckpoint.mutate(cp.id)}
                     disabled={restoreCheckpoint.isPending}
                     title="回滚到该检查点"
@@ -349,9 +428,16 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索文件名或内容"
+                placeholder={searchMode === 'semantic' ? '按语义检索代码（需已建索引）' : '搜索文件名或内容'}
                 className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-gray-400"
               />
+              <button
+                onClick={() => setSearchMode(searchMode === 'text' ? 'semantic' : 'text')}
+                title={searchMode === 'text' ? '切换为语义检索' : '切换为文本搜索'}
+                className={`shrink-0 rounded p-0.5 ${searchMode === 'semantic' ? 'text-violet-500' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <Sparkles size={12} />
+              </button>
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} className="shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600">
                   <X size={11} />
@@ -360,20 +446,51 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
             </div>
             {searchTerm.length >= 2 ? (
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-                {isSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
-                {!isSearching && searchHits.length === 0 && <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>}
-                {searchHits.map((hit, i) => (
-                  <div
-                    key={`${hit.path}:${hit.line}:${i}`}
-                    onClick={() => openFileTab(hit.path, hit.path.split('/').pop() ?? hit.path)}
-                    className="mb-0.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]"
-                  >
-                    <div className="truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">
-                      {hit.path}{hit.line > 0 ? `:${hit.line}` : ''}
-                    </div>
-                    <div className="truncate text-[10px] text-gray-400">{hit.text}</div>
-                  </div>
-                ))}
+                {searchMode === 'text' ? (
+                  <>
+                    {isSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
+                    {!isSearching && searchHits.length === 0 && <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>}
+                    {searchHits.map((hit, i) => (
+                      <div
+                        key={`${hit.path}:${hit.line}:${i}`}
+                        onClick={() => openFileTab(hit.path, hit.path.split('/').pop() ?? hit.path)}
+                        className="mb-0.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+                      >
+                        <div className="truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">
+                          {hit.path}{hit.line > 0 ? `:${hit.line}` : ''}
+                        </div>
+                        <div className="truncate text-[10px] text-gray-400">{hit.text}</div>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {isCodeSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
+                    {!isCodeSearching && indexStatus && !indexStatus.isReady && (
+                      <div className="px-2 py-8 text-center text-[11px] text-gray-400">
+                        尚未建立代码向量索引，请先在项目设置中执行「重建代码索引」
+                      </div>
+                    )}
+                    {!isCodeSearching && indexStatus?.isReady && codeHits.length === 0 && (
+                      <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>
+                    )}
+                    {codeHits.map((hit: IWorkCodeSearchHit, i: number) => (
+                      <div
+                        key={`${hit.path}:${hit.startLine}:${i}`}
+                        onClick={() => openFileTab(hit.path, hit.path.split('/').pop() ?? hit.path)}
+                        className="mb-0.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">
+                            {hit.path}{hit.startLine > 0 ? `:${hit.startLine}` : ''}
+                          </span>
+                          <span className="shrink-0 text-[9px] text-violet-500">{hit.score.toFixed(3)}</span>
+                        </div>
+                        <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-[10px] text-gray-400">{hit.snippet}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
@@ -402,8 +519,9 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                       : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
-                  {t.kind === 'diff' ? <GitCompare size={11} className="text-indigo-400" /> : <FileCode size={11} className="text-gray-400" />}
+                  {t.kind === 'diff' ? <GitCompare size={11} className="text-indigo-400" /> : t.kind === 'checkpoint' ? <Diff size={11} className="text-sky-400" /> : <FileCode size={11} className="text-gray-400" />}
                   <span className="max-w-40 truncate">{t.label}</span>
+                  {t.kind === 'file' && drafts.has(t.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="未保存" />}
                   <button
                     onClick={(e) => { e.stopPropagation(); closeTab(t.key) }}
                     className="ml-0.5 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-200 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-gray-700"
@@ -415,31 +533,60 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
             </div>
 
             <div className="min-h-0 flex-1">
+              {saveMessage && (
+                <div className="shrink-0 border-b border-gray-100 bg-gray-50/60 px-3 py-1 text-[11px] text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
+                  {saveMessage}
+                </div>
+              )}
               {activeTab?.kind === 'diff' && activeTab.change && (
                 <WorkDiffView change={activeTab.change} />
+              )}
+              {activeTab?.kind === 'checkpoint' && activeTab.checkpoint && (
+                <WorkCheckpointDiffView diff={activeTab.checkpoint} />
               )}
               {activeTab?.kind === 'file' && activeTab.file && (
                 activeTab.file.isBinary ? (
                   <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeTab.file.size} bytes）</div>
                 ) : (
-                  <div className="h-full overflow-auto">
-                    <CodeMirror
-                      value={activeTab.file.content ?? ''}
-                      height="100%"
-                      readOnly
-                      theme={isDark ? 'dark' : 'light'}
-                      extensions={[
-                        editorBaseTheme,
-                        EditorView.lineWrapping,
-                        ...(langFor(activeTab.file.name) ? [langFor(activeTab.file.name)!] : []),
-                      ]}
-                      basicSetup={{
-                        lineNumbers: true,
-                        foldGutter: true,
-                        highlightActiveLine: false,
-                        highlightActiveLineGutter: false,
-                      }}
-                    />
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
+                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeTab.file.path}</span>
+                      <button
+                        onClick={saveActiveTab}
+                        disabled={!drafts.has(activeTab.key) || saveFile.isPending}
+                        className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                        title="保存（Ctrl+S）"
+                      >
+                        {saveFile.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                        保存
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      <CodeMirror
+                        value={draftOf(activeTab)}
+                        height="100%"
+                        theme={isDark ? 'dark' : 'light'}
+                        onChange={(value) =>
+                          setDrafts((prev) => {
+                            const next = new Map(prev)
+                            if (value === activeTab.file?.content) next.delete(activeTab.key)
+                            else next.set(activeTab.key, value)
+                            return next
+                          })
+                        }
+                        extensions={[
+                          editorBaseTheme,
+                          EditorView.lineWrapping,
+                          ...(langFor(activeTab.file.name) ? [langFor(activeTab.file.name)!] : []),
+                        ]}
+                        basicSetup={{
+                          lineNumbers: true,
+                          foldGutter: true,
+                          highlightActiveLine: false,
+                          highlightActiveLineGutter: false,
+                        }}
+                      />
+                    </div>
                   </div>
                 )
               )}

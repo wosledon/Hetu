@@ -4,10 +4,30 @@ using Hetu.Core.Interfaces;
 
 namespace Hetu.Core.Services.Tools;
 
-/// <summary>当前请求作用域内的工作项目根目录（由 Work 流式控制器设置）</summary>
+/// <summary>当前请求作用域内的工作项目上下文（由 Work 流式控制器设置）</summary>
 public class WorkToolContext
 {
     public string? ProjectRoot { get; set; }
+    public Guid? ProjectId { get; set; }
+    /// <summary>当前会话绑定的对话模型，供 work_task 子 Agent 复用</summary>
+    public Guid? ModelId { get; set; }
+    /// <summary>项目自定义诊断命令</summary>
+    public string? DiagnosticsCommand { get; set; }
+    /// <summary>SSE 事件通道，工具可借此推送进度（如子 Agent 执行步骤）</summary>
+    public Func<object, Task>? WriteEventAsync { get; set; }
+}
+
+/// <summary>
+/// 工具执行作用域参数。工具在独立 DI 作用域内执行，这些值由调用方显式传入。
+/// </summary>
+public class WorkToolScope
+{
+    public string? ProjectRoot { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? ModelId { get; set; }
+    public string? DiagnosticsCommand { get; set; }
+    /// <summary>运行时工具（如 MCP 适配器），需注册到执行作用域</summary>
+    public IReadOnlyList<IToolExecutor>? RuntimeTools { get; set; }
 }
 
 /// <summary>项目内安全路径解析（防目录穿越）</summary>
@@ -16,9 +36,11 @@ public static class WorkPath
     public static string? Resolve(string root, string relative)
     {
         if (string.IsNullOrWhiteSpace(root)) return null;
-        var full = Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
-        if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-            !full.Equals(root, StringComparison.OrdinalIgnoreCase))
+        // 根目录同样走 GetFullPath 规范化，避免 8.3 短路径与长路径比较不一致
+        var rootFull = Path.GetFullPath(root);
+        var full = Path.GetFullPath(Path.Combine(rootFull, relative.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
+        if (!full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !full.Equals(rootFull, StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
