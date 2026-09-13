@@ -40,16 +40,27 @@ public class ToolRegistry
         return _executors.TryGetValue(name, out var executor) ? executor : null;
     }
 
-    /// <summary>按工具名列表过滤（用于 Agent 绑定）</summary>
+    /// <summary>
+    /// 按工具名列表过滤（用于 Agent 绑定）。
+    /// 显式传 null 才表示“绑定全部工具”；传空列表表示“不绑定任何工具”，避免调用方漏传时意外放开全部工具。
+    /// </summary>
     public IReadOnlyList<IToolExecutor> GetByNames(IReadOnlyList<string>? names)
     {
-        var all = GetAll();
-        if (names is null || names.Count == 0) return all;
-        var set = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
-        return all.Where(e => set.Contains(e.Name)).ToList();
+        if (names is null) return GetAll();
+        if (names.Count == 0) return [];
+
+        var result = new List<IToolExecutor>(names.Count);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in names)
+        {
+            if (string.IsNullOrWhiteSpace(name) || !seen.Add(name)) continue;
+            var executor = GetExecutor(name);
+            if (executor != null) result.Add(executor);
+        }
+        return result;
     }
 
-    /// <summary>将指定工具转换为 LLM 工具定义</summary>
+    /// <summary>将指定工具转换为 LLM 工具定义（<paramref name="toolNames"/> 为 null 时返回全部）</summary>
     public List<LlmToolDefinition> ToToolDefinitions(IReadOnlyList<string>? toolNames = null)
     {
         var executors = GetByNames(toolNames);

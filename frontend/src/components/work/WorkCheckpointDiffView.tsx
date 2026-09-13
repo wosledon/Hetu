@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FilePlus, FileX, PenLine, FileCode } from 'lucide-react'
+import { FilePlus, FileX, PenLine, FileCode, TriangleAlert } from 'lucide-react'
 import type { IWorkCheckpointDiff, IWorkFileChange } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
 
@@ -12,16 +12,18 @@ const ACTION_META: Record<string, { label: string; icon: React.ReactNode; text: 
   delete: { label: '删除', icon: <FileX size={12} className="text-rose-500" />, text: 'text-rose-600 dark:text-rose-400' },
   write: { label: '改动', icon: <PenLine size={12} className="text-amber-500" />, text: 'text-amber-600 dark:text-amber-400' },
   unchanged: { label: '未变', icon: <FileCode size={12} className="text-gray-400" />, text: 'text-gray-400' },
+  skipped: { label: '跳过', icon: <TriangleAlert size={12} className="text-gray-400" />, text: 'text-gray-400' },
 }
 
 /** 检查点快照与当前工作区的差异：左侧文件列表 + 右侧逐行 diff。 */
 export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewProps) {
-  const changed = diff.files.filter((f) => f.action !== 'unchanged')
-  const firstIndex = diff.files.findIndex((f) => f.action !== 'unchanged')
+  const changed = diff.files.filter((f) => f.action !== 'unchanged' && f.action !== 'skipped')
+  const firstIndex = diff.files.findIndex((f) => f.action !== 'unchanged' && f.action !== 'skipped')
   const [selected, setSelected] = useState(firstIndex >= 0 ? firstIndex : 0)
   const file = diff.files[selected]
+  const omitted = Math.max(0, (diff.totalFiles ?? diff.files.length) - diff.files.length)
 
-  const asChange: IWorkFileChange | undefined = file
+  const asChange: IWorkFileChange | undefined = file && file.action !== 'skipped'
     ? {
         id: `${diff.checkpointId}:${file.path}`,
         projectId: '',
@@ -38,7 +40,10 @@ export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewP
       <div className="flex w-56 shrink-0 flex-col border-r border-gray-100 dark:border-gray-800">
         <div className="shrink-0 border-b border-gray-100 px-2 py-1.5 text-[11px] text-gray-500 dark:border-gray-800">
           <div className="truncate font-medium text-gray-700 dark:text-gray-200">{diff.label}</div>
-          <div className="text-[10px] text-gray-400">{changed.length} 个文件与快照不同</div>
+          <div className="text-[10px] text-gray-400">
+            {changed.length} 个文件与快照不同
+            {omitted > 0 && <span> · 另有 {omitted} 个文件未加载</span>}
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {diff.files.length === 0 && <div className="px-2 py-6 text-center text-[11px] text-gray-400">快照为空</div>}
@@ -48,6 +53,7 @@ export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewP
               <button
                 key={f.path}
                 onClick={() => setSelected(i)}
+                title={f.note}
                 className={`mb-0.5 flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors ${i === selected ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
               >
                 {meta.icon}
@@ -58,8 +64,23 @@ export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewP
           })}
         </div>
       </div>
-      <div className="min-w-0 flex-1">
-        {asChange ? <WorkDiffView change={asChange} /> : <div className="flex h-full items-center justify-center text-xs text-gray-400">无文件可比较</div>}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {file?.truncated && file.action !== 'skipped' && (
+          <div className="shrink-0 border-b border-amber-100 bg-amber-50 px-3 py-1 text-[11px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400">
+            {file.note ?? '内容过大，仅显示前部分'}
+          </div>
+        )}
+        <div className="min-h-0 flex-1">
+          {asChange ? (
+            <WorkDiffView change={asChange} />
+          ) : file ? (
+            <div className="flex h-full items-center justify-center px-6 text-center text-xs text-gray-400">
+              {file.note ?? '该文件已跳过内容比对'}
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-gray-400">无文件可比较</div>
+          )}
+        </div>
       </div>
     </div>
   )

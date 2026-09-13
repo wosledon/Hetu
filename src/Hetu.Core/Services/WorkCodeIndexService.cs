@@ -30,6 +30,9 @@ public class WorkCodeIndexService : IWorkCodeIndexService
     /// <summary>单次 Embedding 批量大小</summary>
     private const int EmbedBatchSize = 24;
 
+    /// <summary>数据库侧向量检索不可用时，内存回退扫描的分块上限（超出部分不参与打分）</summary>
+    private const int MaxFallbackScanChunks = 20000;
+
     /// <summary>参与代码语义索引的文件类型</summary>
     private static readonly HashSet<string> IndexableExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -41,27 +44,74 @@ public class WorkCodeIndexService : IWorkCodeIndexService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
+    private readonly IWorkCodeVectorStore _vectorStore;
+    private readonly IWorkCodeIndexRefreshQueue? _refreshQueue;
     private readonly ILogger<WorkCodeIndexService> _logger;
 
     public WorkCodeIndexService(
         IUnitOfWork unitOfWork,
         IEmbeddingProviderFactory embeddingProviderFactory,
-        ILogger<WorkCodeIndexService> logger)
+        IWorkCodeVectorStore vectorStore,
+        ILogger<WorkCodeIndexService> logger,
+        IWorkCodeIndexRefreshQueue? refreshQueue = null)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
+        _vectorStore = vectorStore;
         _logger = logger;
+        _refreshQueue = refreshQueue;
     }
 
     public async Task<ApiResponse<WorkCodeIndexStatusDto>> GetStatusAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == projectId, cancellationToken);
-        return ApiResponse<WorkCodeIndexStatusDto>.Ok(new WorkCodeIndexStatusDto
+        var indexedAt = chunks.Count > 0 ? chunks.Max(c => c.UpdatedAt) : (DateTimeOffset?)null;
+        var status = new WorkCodeIndexStatusDto
         {
             ChunkCount = chunks.Count,
             FileCount = chunks.Select(c => c.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
-            IndexedAt = chunks.Count > 0 ? chunks.Max(c => c.UpdatedAt) : null
-        });
+            IndexedAt = indexedAt,
+            RefreshPending = _refreshQueue?.IsPending(projectId) ?? false
+        };
+
+        // 过期判定：按文件修改时间与索引时间比对（只读元数据，不读文件内容）
+        if (indexedAt.HasValue)
+        {
+            var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);
+            if (project != null && !string.IsNullOrWhiteSpace(project.RootPath) && Directory.Exists(project.RootPath))
+            {
+                status.StaleFileCount = CountStaleFiles(project.RootPath, indexedAt.Value);
+                status.IsStale = status.StaleFileCount > 0;
+            }
+        }
+
+        return ApiResponse<WorkCodeIndexStatusDto>.Ok(status);
+    }
+
+    /// <summary>统计索引时间之后被修改或新增的可索引文件数（最多扫描 <see cref="MaxFilesPerRun"/> 个文件）</summary>
+    private static int CountStaleFiles(string root, DateTimeOffset indexedAt)
+    {
+        var stale = 0;
+        var scanned = 0;
+        foreach (var file in EnumerateFiles(root))
+        {
+            if (++scanned > MaxFilesPerRun) break;
+            if (IsModifiedAfter(file, indexedAt)) stale++;
+        }
+        return stale;
+    }
+
+    /// <summary>文件修改时间是否晚于索引时间</summary>
+    private static bool IsModifiedAfter(string fullPath, DateTimeOffset indexedAt)
+    {
+        try
+        {
+            return File.GetLastWriteTimeUtc(fullPath) > indexedAt.UtcDateTime;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public async Task<ApiResponse> ClearAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -70,6 +120,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         foreach (var chunk in chunks)
             await _unitOfWork.WorkCodeChunks.DeleteAsync(chunk, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _vectorStore.DeleteAsync(chunks.Select(c => c.Id).ToList(), cancellationToken);
         _logger.LogInformation("[WorkCodeIndex] 清空索引 projectId={ProjectId} chunks={Count}", projectId, chunks.Count);
         return ApiResponse.Ok();
     }
@@ -95,15 +146,18 @@ public class WorkCodeIndexService : IWorkCodeIndexService
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         var result = new WorkCodeIndexResultDto { IndexedAt = DateTimeOffset.UtcNow };
+        var indexedAt = existing.Count > 0 ? existing.Max(c => c.UpdatedAt) : (DateTimeOffset?)null;
         var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var addedChunks = new List<WorkCodeChunk>();
+        var removedChunkIds = new List<Guid>();
 
         foreach (var file in EnumerateFiles(project.RootPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (seenPaths.Count >= MaxFilesPerRun) break;
-            seenPaths.Add(file);
 
             var relative = Path.GetRelativePath(project.RootPath, file).Replace('\\', '/');
+            seenPaths.Add(relative);
             string content;
             try
             {
@@ -120,13 +174,22 @@ public class WorkCodeIndexService : IWorkCodeIndexService
             if (!force && old != null && old.Count > 0 && old.All(c => c.Hash == hash))
             {
                 result.SkippedFiles++;
+                // 内容未变但文件已被改写：刷新分块时间戳，否则状态会永远停留在“待刷新”
+                if (indexedAt.HasValue && IsModifiedAfter(file, indexedAt.Value))
+                {
+                    foreach (var chunk in old)
+                        await _unitOfWork.WorkCodeChunks.TouchUpdatedAtAsync(chunk.Id, cancellationToken);
+                }
                 continue;
             }
 
             if (old != null)
             {
                 foreach (var chunk in old)
+                {
                     await _unitOfWork.WorkCodeChunks.DeleteAsync(chunk, cancellationToken);
+                    removedChunkIds.Add(chunk.Id);
+                }
                 result.RemovedChunks += old.Count;
             }
 
@@ -149,7 +212,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
                         var vector = i < vectors.Length ? vectors[i] : [];
                         if (vector.Length == 0)
                             throw new InvalidOperationException("Embedding 返回空向量，请检查 Embedding 模型与维度配置");
-                        await _unitOfWork.WorkCodeChunks.AddAsync(new WorkCodeChunk
+                        var chunk = new WorkCodeChunk
                         {
                             Id = Guid.NewGuid(),
                             ProjectId = projectId,
@@ -162,7 +225,9 @@ public class WorkCodeIndexService : IWorkCodeIndexService
                             Model = provider.Dimensions > 0 ? $"{provider.GetType().Name}:{provider.Dimensions}" : provider.GetType().Name,
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
-                        }, cancellationToken);
+                        };
+                        await _unitOfWork.WorkCodeChunks.AddAsync(chunk, cancellationToken);
+                        addedChunks.Add(chunk);
                         result.IndexedChunks++;
                     }
                 }
@@ -184,16 +249,57 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         {
             if (seenPaths.Contains(path)) continue;
             foreach (var chunk in old)
+            {
                 await _unitOfWork.WorkCodeChunks.DeleteAsync(chunk, cancellationToken);
+                removedChunkIds.Add(chunk.Id);
+            }
             result.RemovedChunks += old.Count;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 同步数据库侧向量索引：删除失效分块，并把本次保留 + 新增的分块全量回写，
+        // 这样即使 vec 虚表曾被重建也能自愈；写入失败只记日志，不影响索引结果。
+        await SyncVectorStoreAsync(projectId, byPath, seenPaths, addedChunks, removedChunkIds, cancellationToken);
+
         _logger.LogInformation(
             "[WorkCodeIndex] 构建完成 projectId={ProjectId} files={Files} chunks={Chunks} skipped={Skipped} removed={Removed} failed={Failed}",
             projectId, result.IndexedFiles, result.IndexedChunks, result.SkippedFiles, result.RemovedChunks, result.FailedFiles);
 
         return ApiResponse<WorkCodeIndexResultDto>.Ok(result);
+    }
+
+    /// <summary>把本次保留与新增的分块同步到数据库侧向量索引，并清理被替换/删除的分块</summary>
+    private async Task SyncVectorStoreAsync(
+        Guid projectId,
+        IReadOnlyDictionary<string, List<WorkCodeChunk>> byPath,
+        HashSet<string> seenPaths,
+        List<WorkCodeChunk> added,
+        List<Guid> removedIds,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (removedIds.Count > 0)
+                await _vectorStore.DeleteAsync(removedIds, cancellationToken);
+
+            var kept = byPath
+                .Where(kv => seenPaths.Contains(kv.Key))
+                .SelectMany(kv => kv.Value)
+                .ToList();
+
+            var toUpsert = kept.Concat(added).ToList();
+            if (toUpsert.Count > 0)
+                await _vectorStore.UpsertAsync(toUpsert, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[WorkCodeIndex] 同步向量索引失败 projectId={ProjectId}", projectId);
+        }
     }
 
     public async Task<ApiResponse<List<WorkCodeSearchHitDto>>> SearchAsync(
@@ -209,10 +315,6 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         if (provider == null)
             return ApiResponse<List<WorkCodeSearchHitDto>>.Fail("未配置 Embedding 模型");
 
-        var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == projectId, cancellationToken);
-        if (chunks.Count == 0)
-            return ApiResponse<List<WorkCodeSearchHitDto>>.Ok([]);
-
         float[] queryVector;
         try
         {
@@ -224,7 +326,46 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         }
 
         var topK = Math.Clamp(limit, 1, 30);
-        var hits = chunks
+
+        // 优先走数据库侧向量检索（sqlite-vec / pgvector）：只取候选分块，避免把整个索引读进内存
+        var candidateIds = await _vectorStore.SearchAsync(projectId, queryVector, topK, cancellationToken);
+        if (candidateIds is { Count: > 0 })
+        {
+            var candidates = await _unitOfWork.WorkCodeChunks.FindAsync(c => candidateIds.Contains(c.Id), cancellationToken);
+            var byId = candidates.ToDictionary(c => c.Id);
+            var ordered = candidateIds
+                .Where(byId.ContainsKey)
+                .Select(id => byId[id])
+                .Where(c => c.ProjectId == projectId)
+                .Take(topK)
+                .ToList();
+
+            // 多项目共用一张向量表时，候选可能全部属于其他项目，此时继续回退到本项目分块检索
+            if (ordered.Count > 0)
+                return ApiResponse<List<WorkCodeSearchHitDto>>.Ok(BuildHits(ordered, queryVector));
+        }
+
+        if (candidateIds is { Count: 0 } && await _vectorStore.CountAsync(projectId, cancellationToken) > 0)
+        {
+            // 数据库侧索引可用但整表都没有命中，说明确实没有匹配内容
+            return ApiResponse<List<WorkCodeSearchHitDto>>.Ok([]);
+        }
+
+        // 回退：数据库侧向量检索不可用，或索引尚未同步（例如索引在本次升级前构建）
+        var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == projectId, cancellationToken);
+        if (chunks.Count == 0)
+            return ApiResponse<List<WorkCodeSearchHitDto>>.Ok([]);
+
+        var scanned = chunks;
+        if (chunks.Count > MaxFallbackScanChunks)
+        {
+            _logger.LogWarning(
+                "[WorkCodeIndex] 内存回退扫描超过上限 projectId={ProjectId} chunks={Count} limit={Limit}，建议重建索引",
+                projectId, chunks.Count, MaxFallbackScanChunks);
+            scanned = chunks.Take(MaxFallbackScanChunks).ToList();
+        }
+
+        var hits = scanned
             .Select(c => new { Chunk = c, Vector = BytesToFloatArray(c.Embedding) })
             .Where(x => x.Vector.Length > 0 && x.Vector.Length == queryVector.Length)
             .Select(x => new { x.Chunk, Score = CosineSimilarity(queryVector, x.Vector) })
@@ -241,6 +382,20 @@ public class WorkCodeIndexService : IWorkCodeIndexService
 
         return ApiResponse<List<WorkCodeSearchHitDto>>.Ok(hits);
     }
+
+    /// <summary>按候选分块真正计算余弦相似度并组装命中结果（数据库侧只提供候选，分数口径与内存回退保持一致）</summary>
+    private static List<WorkCodeSearchHitDto> BuildHits(IReadOnlyList<WorkCodeChunk> chunks, float[] queryVector)
+        => chunks
+            .Select(c => new { Chunk = c, Score = CosineSimilarity(queryVector, BytesToFloatArray(c.Embedding)) })
+            .OrderByDescending(x => x.Score)
+            .Select(x => new WorkCodeSearchHitDto
+            {
+                Path = x.Chunk.FilePath,
+                StartLine = x.Chunk.StartLine,
+                Snippet = x.Chunk.Content.Length > 600 ? x.Chunk.Content[..600] + "…" : x.Chunk.Content,
+                Score = Math.Round(x.Score, 4)
+            })
+            .ToList();
 
     /// <summary>枚举项目内可索引的文本文件（跳过忽略目录、二进制与超大文件）</summary>
     private static IEnumerable<string> EnumerateFiles(string root)

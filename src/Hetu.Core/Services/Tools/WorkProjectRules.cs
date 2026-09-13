@@ -107,7 +107,10 @@ public static class WorkProjectRules
     }
 
     /// <summary>判断文件是否可安全作为文本读取（扩展名黑名单 + 体积上限 + NUL 探测）</summary>
-    public static bool IsProbablyText(string fullPath)
+    public static bool IsProbablyText(string fullPath) => IsProbablyText(fullPath, MaxScannedFileBytes);
+
+    /// <summary>同 <see cref="IsProbablyText(string)"/>，但可指定体积上限（如检查点差异允许更大的文本文件）</summary>
+    public static bool IsProbablyText(string fullPath, long maxBytes)
     {
         var ext = Path.GetExtension(fullPath).ToLowerInvariant();
         if (BinaryExtensions.Contains(ext)) return false;
@@ -116,7 +119,7 @@ public static class WorkProjectRules
         {
             var info = new FileInfo(fullPath);
             if (!info.Exists || info.Length == 0) return true;
-            if (info.Length > MaxScannedFileBytes) return false;
+            if (info.Length > maxBytes) return false;
 
             using var stream = File.OpenRead(fullPath);
             var buffer = new byte[Math.Min(4096, (int)info.Length)];

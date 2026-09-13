@@ -221,11 +221,11 @@ public class WorkSessionService : IWorkSessionService
         if (session == null) return ApiResponse<WorkSessionDto>.Fail("会话不存在");
 
         if (!string.IsNullOrWhiteSpace(request.Title)) session.Title = request.Title.Trim();
-        session.ModelId = request.ModelId;
+        if (request.ModelId.HasValue) session.ModelId = request.ModelId;
         if (!string.IsNullOrWhiteSpace(request.PermissionMode))
         {
             if (!WorkToolPolicy.IsValidValue(request.PermissionMode))
-                return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：readonly | ask | auto | bypass");
+                return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：plan | readonly | ask | auto | bypass");
             session.PermissionMode = request.PermissionMode.Trim().ToLowerInvariant();
         }
         session.UpdatedAt = DateTimeOffset.UtcNow;

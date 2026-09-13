@@ -95,6 +95,8 @@ public static class HetuServiceCollectionExtensions
         else
             services.AddScoped<ISemanticSearchStrategy, SqliteSemanticSearchStrategy>();
 
+        services.AddScoped<IWorkCodeVectorStore, WorkCodeVectorStore>();
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return providerInfo;
@@ -151,6 +153,9 @@ public static class HetuServiceCollectionExtensions
         services.AddHostedService<TrashCleanupService>();
         services.AddHostedService<AutoOrganizeService>();
         services.AddHostedService<ScheduledTaskRunner>();
+
+        services.AddSingleton<IWorkCodeIndexRefreshQueue, WorkCodeIndexRefreshQueue>();
+        services.AddHostedService<WorkCodeIndexRefreshWorker>();
 
         services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
         services.AddScoped<IScheduledTaskExecutor, SkillScheduledTaskExecutor>();

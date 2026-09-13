@@ -30,6 +30,12 @@ public class WorkCodeIndexStatusDto
     public DateTimeOffset? IndexedAt { get; set; }
     /// <summary>是否已有可用索引</summary>
     public bool IsReady => ChunkCount > 0;
+    /// <summary>索引后新增或修改、尚未重新索引的文件数</summary>
+    public int StaleFileCount { get; set; }
+    /// <summary>索引相对工作区已过期（存在未索引的变更）</summary>
+    public bool IsStale { get; set; }
+    /// <summary>是否存在自动刷新任务排队中</summary>
+    public bool RefreshPending { get; set; }
 }
 
 public class CreateWorkProjectRequest
@@ -231,15 +237,25 @@ public class WorkCheckpointDiffDto
     public Guid CheckpointId { get; set; }
     public string Label { get; set; } = string.Empty;
     public List<WorkCheckpointDiffFileDto> Files { get; set; } = [];
+    /// <summary>快照文件总数（内容因体积预算被裁剪时可能大于 Files 数量）</summary>
+    public int TotalFiles { get; set; }
+    /// <summary>是否存在因体积/二进制而裁剪内容的文件</summary>
+    public bool Truncated { get; set; }
 }
 
 public class WorkCheckpointDiffFileDto
 {
     public string Path { get; set; } = string.Empty;
-    /// <summary>create | delete | write | unchanged</summary>
+    /// <summary>create | delete | write | unchanged | skipped</summary>
     public string Action { get; set; } = "write";
     public string? OldContent { get; set; }
     public string? NewContent { get; set; }
+    /// <summary>内容超出体积上限，已按行裁剪</summary>
+    public bool Truncated { get; set; }
+    /// <summary>二进制文件，不返回内容</summary>
+    public bool IsBinary { get; set; }
+    /// <summary>裁剪说明（无裁剪时为 null）</summary>
+    public string? Note { get; set; }
 }
 
 /// <summary>代码索引构建结果</summary>

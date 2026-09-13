@@ -55,24 +55,19 @@ public class SqliteVecInterceptor : DbConnectionInterceptor
                 s_initialized = true;
 
                 await using var dropCmd = sqliteConnection.CreateCommand();
-                dropCmd.CommandText = "DROP TABLE IF EXISTS vec_note_embeddings; DROP TABLE IF EXISTS vec_chunk_embeddings; DROP TABLE IF EXISTS vec_memory_embeddings;";
+                dropCmd.CommandText = "DROP TABLE IF EXISTS vec_note_embeddings; DROP TABLE IF EXISTS vec_chunk_embeddings; DROP TABLE IF EXISTS vec_memory_embeddings; DROP TABLE IF EXISTS vec_work_code_chunks;";
                 await dropCmd.ExecuteNonQueryAsync(cancellationToken);
 
                 await using var createCmd = sqliteConnection.CreateCommand();
-                createCmd.CommandText = $@"
-                    CREATE VIRTUAL TABLE IF NOT EXISTS vec_note_embeddings USING vec0(
-                        note_id TEXT PRIMARY KEY,
-                        embedding float[{dimensions}]
-                    );
-                    CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunk_embeddings USING vec0(
-                        chunk_id TEXT PRIMARY KEY,
-                        embedding float[{dimensions}]
-                    );
-                    CREATE VIRTUAL TABLE IF NOT EXISTS vec_memory_embeddings USING vec0(
-                        memory_id TEXT PRIMARY KEY,
-                        embedding float[{dimensions}]
-                    );";
+                createCmd.CommandText = CreateTablesSql(dimensions);
                 await createCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            else if (await IsMissingTableAsync(sqliteConnection, cancellationToken))
+            {
+                // 维度未变但表被外部删除（例如用旧备份覆盖数据库）：只补建缺失的表，保留已有向量
+                await using var repairCmd = sqliteConnection.CreateCommand();
+                repairCmd.CommandText = CreateTablesSql(dimensions);
+                await repairCmd.ExecuteNonQueryAsync(cancellationToken);
             }
         }
         catch
@@ -84,6 +79,45 @@ public class SqliteVecInterceptor : DbConnectionInterceptor
             s_initLock.Release();
         }
     }
+
+    private static readonly string[] VecTables =
+    [
+        "vec_note_embeddings",
+        "vec_chunk_embeddings",
+        "vec_memory_embeddings",
+        "vec_work_code_chunks"
+    ];
+
+    private static async Task<bool> IsMissingTableAsync(SqliteConnection conn, CancellationToken ct)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('vec_note_embeddings','vec_chunk_embeddings','vec_memory_embeddings','vec_work_code_chunks')";
+        var count = await cmd.ExecuteScalarAsync(ct);
+        return count switch
+        {
+            long l => l < VecTables.Length,
+            int i => i < VecTables.Length,
+            _ => true
+        };
+    }
+
+    private static string CreateTablesSql(int dimensions) => $@"
+        CREATE VIRTUAL TABLE IF NOT EXISTS vec_note_embeddings USING vec0(
+            note_id TEXT PRIMARY KEY,
+            embedding float[{dimensions}]
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunk_embeddings USING vec0(
+            chunk_id TEXT PRIMARY KEY,
+            embedding float[{dimensions}]
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS vec_memory_embeddings USING vec0(
+            memory_id TEXT PRIMARY KEY,
+            embedding float[{dimensions}]
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS vec_work_code_chunks USING vec0(
+            chunk_id TEXT PRIMARY KEY,
+            embedding float[{dimensions}]
+        );";
 
     /// <summary>
     /// 从数据库中检测实际 embedding 维度：优先取 NoteEmbeddings 中最新记录，

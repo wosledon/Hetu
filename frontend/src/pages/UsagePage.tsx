@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import ReactECharts from 'echarts-for-react'
+import ReactEChartsCore from 'echarts-for-react/lib/core'
+import echarts from '../utils/echarts'
 import {
   Gauge,
   Zap,
@@ -207,7 +208,7 @@ export default function UsagePage() {
                           <CalendarClock size={15} className="text-blue-500" />
                           近 7 天趋势
                         </h3>
-                        <ReactECharts option={trendOption} style={{ height: 220, width: '100%' }} notMerge />
+                        <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 220, width: '100%' }} notMerge />
                       </div>
 
                       {/* 模型分布 */}
@@ -219,7 +220,7 @@ export default function UsagePage() {
                         {byModel.length === 0 ? (
                           <p className="flex h-[220px] items-center justify-center text-xs text-gray-400">暂无数据</p>
                         ) : (
-                          <ReactECharts option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
+                          <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
                         )}
                       </div>
                     </div>

@@ -3,6 +3,9 @@ export interface IWorkCodeIndexStatus {
   fileCount: number;
   indexedAt?: string;
   isReady: boolean;
+  staleFileCount: number;
+  isStale: boolean;
+  refreshPending: boolean;
 }
 
 export interface IWorkProject {
@@ -177,13 +180,18 @@ export interface IWorkCodeIndexResult {
 
 export interface IWorkCheckpointDiffFile {
   path: string;
-  action: 'create' | 'write' | 'delete' | 'unchanged';
+  action: 'create' | 'write' | 'delete' | 'unchanged' | 'skipped';
   oldContent?: string;
   newContent?: string;
+  truncated: boolean;
+  isBinary: boolean;
+  note?: string;
 }
 
 export interface IWorkCheckpointDiff {
   checkpointId: string;
   label: string;
   files: IWorkCheckpointDiffFile[];
+  totalFiles: number;
+  truncated: boolean;
 }
