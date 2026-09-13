@@ -1,5 +1,5 @@
-import { confirm } from './ConfirmDialog'
-import { useState, useEffect } from 'react'
+import { confirm } from './confirm'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
@@ -43,9 +43,9 @@ function resolveGroupColor(group: IChatGroup): GroupColor {
   const c = group.color?.toLowerCase()
   return (c && GROUP_COLORS.includes(c as GroupColor)) ? (c as GroupColor) : GROUP_COLORS[hashString(group.name) % GROUP_COLORS.length]
 }
-function resolveGroupIcon(group: IChatGroup): React.ElementType {
+function resolveGroupIconKey(group: IChatGroup): string {
   const i = group.icon?.toLowerCase()
-  return (i && GROUP_ICONS[i]) ? GROUP_ICONS[i] : GROUP_ICONS.default
+  return (i && GROUP_ICONS[i]) ? i : 'default'
 }
 
 interface ChatTreeProps {
@@ -79,16 +79,17 @@ function GroupNode({
   onOpenTopicMenu: (e: React.MouseEvent, topic: IChatTopic) => void
 }) {
   const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
+  const [expandedOverride, setExpandedOverride] = useState<{ key: string | null; expanded: boolean } | null>(null)
   // 组仅在"被选为当前组但尚未选中具体话题"时聚焦；一旦选中话题，焦点移到叶子节点
   const isGroupFocused = selectedGroupId === group.id && !selectedTopicId
   const color = resolveGroupColor(group)
-  const Icon = resolveGroupIcon(group)
+  const iconKey = resolveGroupIconKey(group)
+  const Icon = GROUP_ICONS[iconKey]
 
-  // 当前话题属于本组时，自动展开以露出高亮的话题
-  useEffect(() => {
-    if (selectedTopicId && selectedGroupId === group.id) setExpanded(true)
-  }, [selectedTopicId, selectedGroupId, group.id])
+  // 选中本组话题时自动展开；用户手动切换后以 override 为准（焦点变化后失效）
+  const focusKey = selectedGroupId === group.id ? selectedTopicId ?? null : null
+  const expanded = expandedOverride?.key === focusKey ? expandedOverride.expanded : focusKey !== null
+  const setExpanded = (value: boolean) => setExpandedOverride({ key: focusKey, expanded: value })
 
   const { data: topics = [] } = useQuery({
     queryKey: ['chatTopics', group.id],
@@ -116,7 +117,7 @@ function GroupNode({
         onClick={() => { onSelectGroup(group); setExpanded(true) }}
       >
         <button
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
           className="shrink-0 text-gray-400"
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

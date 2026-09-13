@@ -26,10 +26,6 @@ export default function WorkTerminal({ projectId, onClose, height }: WorkTermina
 
   useEffect(() => {
     if (!projectId) return
-    setContent('')
-    setInput('')
-    setConnected(false)
-    setError('')
 
     const ws = new WebSocket(workTerminalUrl(projectId))
     wsRef.current = ws

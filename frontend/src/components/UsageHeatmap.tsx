@@ -1,15 +1,10 @@
 import ReactECharts from 'echarts-for-react'
-import { useUIStore } from '../stores/uiStore'
+import { useIsDark } from '../hooks/useIsDark'
 import type { IUsageDayStat, IUsageHourStat } from '../services/usageService'
 
 type Metric = 'messages' | 'tokens'
 
 const METRIC_LABEL: Record<Metric, string> = { messages: '消息数', tokens: 'Tokens' }
-
-export function useIsDark(): boolean {
-  const theme = useUIStore((s) => s.theme)
-  return theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-}
 
 function fmt(n: number): string {
   if (n >= 10000) return (n / 1000).toFixed(1) + 'k'

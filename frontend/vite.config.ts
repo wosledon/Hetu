@@ -15,14 +15,14 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         // SSE 流式传输需要禁用缓冲
-        configure: (proxy, _options) => {
-          proxy.on('proxyRes', (proxyRes, _req, _res) => {
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
             // 禁用代理缓冲
             proxyRes.headers['x-accel-buffering'] = 'no'
             proxyRes.headers['cache-control'] = 'no-cache, no-transform'
             proxyRes.headers['connection'] = 'keep-alive'
           })
-          proxy.on('proxyReq', (proxyReq, _req, _res) => {
+          proxy.on('proxyReq', (proxyReq) => {
             // 设置请求头以提示后端禁用缓冲
             proxyReq.setHeader('X-Accel-Buffering', 'no')
           })

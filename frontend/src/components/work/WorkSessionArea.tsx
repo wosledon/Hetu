@@ -49,7 +49,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   const [streamingContent, setStreamingContent] = useState('')
   const [liveToolCalls, setLiveToolCalls] = useState<ToolCallView[]>([])
   const [liveFileChanges, setLiveFileChanges] = useState<FileChangeMeta[]>([])
-  const [selectedModelId, setSelectedModelId] = useState<string>(() => session?.modelId ?? '')
+  const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
@@ -77,9 +77,12 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     },
   })
 
-  useEffect(() => {
-    setSelectedModelId(session?.modelId ?? '')
-  }, [session?.id])
+  // 未手动切换过模型时，跟随会话上保存的模型
+  const selectedModelId =
+    session && modelOverride?.sessionId === session.id ? modelOverride.value : session?.modelId ?? ''
+  const setSelectedModelId = (value: string) => {
+    if (session) setModelOverride({ sessionId: session.id, value })
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

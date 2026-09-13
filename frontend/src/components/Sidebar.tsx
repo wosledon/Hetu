@@ -1,4 +1,4 @@
-import { confirm } from './ConfirmDialog'
+import { confirm } from './confirm'
 import { useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'

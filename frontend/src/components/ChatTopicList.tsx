@@ -74,7 +74,7 @@ export default function ChatTopicList({ groupId, isMainGroup, selectedTopicId, o
     if (topics.length > 0 && !selectedTopicId) {
       onSelectTopic(topics[0])
     }
-  }, [topics, selectedTopicId])
+  }, [topics, selectedTopicId, onSelectTopic])
 
   return (
     <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">

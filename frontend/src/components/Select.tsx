@@ -65,11 +65,6 @@ export default function Select({
     }
   }, [open, searchable])
 
-  // Reset search when closed
-  useEffect(() => {
-    if (!open) setSearch('')
-  }, [open])
-
   // Click outside to close
   useEffect(() => {
     if (!open) return
@@ -143,11 +138,6 @@ export default function Select({
     el?.scrollIntoView({ block: 'nearest' })
   }, [open, activeIndex, filteredOptions])
 
-  // Reset active index when search changes
-  useEffect(() => {
-    if (open && searchable) setActiveIndex(-1)
-  }, [search, open, searchable])
-
   // Position dropdown — recompute on open, scroll, and resize so it follows the trigger
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
   useEffect(() => {
@@ -194,7 +184,8 @@ export default function Select({
         disabled={disabled}
         onClick={() => {
           if (disabled) return
-          setOpen((prev) => !prev)
+          if (open) close()
+          else setOpen(true)
         }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -232,7 +223,7 @@ export default function Select({
                 <input
                   ref={searchRef}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setActiveIndex(-1) }}
                   placeholder={searchPlaceholder}
                   className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
                 />

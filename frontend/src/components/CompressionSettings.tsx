@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
@@ -28,7 +28,7 @@ const MODE_LABELS: Record<string, { label: string; desc: string }> = {
 
 export default function CompressionSettings() {
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<CompressionPipelineConfig | null>(null)
+  const [draftOverride, setDraftOverride] = useState<CompressionPipelineConfig | null>(null)
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['compressionConfig'],
@@ -40,14 +40,13 @@ export default function CompressionSettings() {
     queryFn: () => aiModelService.getAll(),
   })
 
-  useEffect(() => {
-    if (config && !draft) setDraft(JSON.parse(JSON.stringify(config)))
-  }, [config])
-
   const saveMutation = useMutation({
     mutationFn: (data: CompressionPipelineConfig) => settingService.setCompressionConfig(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['compressionConfig'] }),
   })
+
+  // 以服务端配置为基线，用户编辑后以本地草稿为准
+  const draft = draftOverride ?? config ?? null
 
   if (isLoading || !draft) {
     return <div className="flex items-center gap-2 p-6"><Loader2 size={16} className="animate-spin text-gray-400" /><span className="text-sm text-gray-500">加载中...</span></div>
@@ -55,7 +54,7 @@ export default function CompressionSettings() {
 
   const chatModels = models.filter(m => m.purpose === 'chat' && m.providerId)
   const saveNow = (next: CompressionPipelineConfig) => {
-    setDraft(next)
+    setDraftOverride(next)
     saveMutation.mutate(next)
   }
   const enabledCount = draft?.nodes.filter(n => n.enabled).length ?? 0

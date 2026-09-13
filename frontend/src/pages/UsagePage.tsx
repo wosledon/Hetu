@@ -15,7 +15,8 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService } from '../services/usageService'
-import { WeekHourHeatmap, YearHeatmap, useIsDark } from '../components/UsageHeatmap'
+import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
+import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
 import { segmentButtonClass } from '../utils/styles'
 

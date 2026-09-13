@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Waypoints, Copy, Check, Route as RouteIcon, Zap, Plus, Trash2, Globe, Braces,
@@ -54,22 +54,25 @@ function ProxyCard({
   modelOptions: ModelOption[]
 }) {
   const queryClient = useQueryClient()
-  const [form, setForm] = useState<IProxyConfig | null>(null)
+  const [formOverride, setFormOverride] = useState<IProxyConfig | null>(null)
   const [dirty, setDirty] = useState(false)
 
   const { data: configs = [] } = useQuery({ queryKey: ['proxyConfig'], queryFn: proxyService.getAll })
   const server = configs.find((c) => c.mode === mode)
 
-  useEffect(() => {
-    if (server && !form) {
-      setForm({
-        ...server,
-        routeRules: server.routeRules.length > 0
-          ? server.routeRules
-          : [{ category: 'default', targetModelKey: '', sortOrder: 0 }],
-      })
-    }
-  }, [server, form])
+  const serverForm = useMemo(
+    () =>
+      server
+        ? {
+            ...server,
+            routeRules: server.routeRules.length > 0
+              ? server.routeRules
+              : [{ category: 'default', targetModelKey: '', sortOrder: 0 }],
+          }
+        : null,
+    [server],
+  )
+  const form = formOverride ?? serverForm
 
   const saveMut = useMutation({
     mutationFn: proxyService.save,
@@ -80,7 +83,8 @@ function ProxyCard({
   })
 
   const patch = (p: Partial<IProxyConfig>) => {
-    setForm((f) => (f ? { ...f, ...p } : f))
+    if (!form) return
+    setFormOverride({ ...form, ...p })
     setDirty(true)
   }
 

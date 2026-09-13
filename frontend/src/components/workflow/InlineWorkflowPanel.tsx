@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MarkerType, type Node, type Edge, type NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react'
-import WorkflowNodeComponent, { toFlowNode } from './WorkflowNode'
+import WorkflowNodeComponent from './WorkflowNode'
+import { toFlowNode, type IWorkflowNodeData } from './workflowNodeModel'
 import type { IWorkflow, IWorkflowNode } from '../../types/workflow'
-import type { IWorkflowNodeData } from './WorkflowNode'
 import { renderToolName } from '../../utils/toolRendering'
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }

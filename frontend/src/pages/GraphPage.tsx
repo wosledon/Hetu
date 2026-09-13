@@ -567,7 +567,7 @@ export default function GraphPage() {
     enabled: showExtractDialog,
   })
 
-  const notes = notesData?.items ?? []
+  const notes = useMemo(() => notesData?.items ?? [], [notesData])
 
   const notebookNameMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -622,11 +622,18 @@ export default function GraphPage() {
     return relations.filter(r => ids.has(r.sourceEntityId) && ids.has(r.targetEntityId))
   }, [filteredEntities, relations])
 
-  // Use container size for layout if available, otherwise sensible defaults
-  const layoutSize = useMemo(() => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    return { w: rect?.width || 1200, h: rect?.height || 800 }
-  }, [filteredEntities.length])
+  // 容器尺寸变化时重新计算布局尺寸
+  const [layoutSize, setLayoutSize] = useState({ w: 1200, h: 800 })
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const measure = () => setLayoutSize({ w: container.clientWidth || 1200, h: container.clientHeight || 800 })
+    measure()
+    const obs = new ResizeObserver(measure)
+    obs.observe(container)
+    return () => obs.disconnect()
+  }, [])
 
   const positions = useForceLayout(filteredEntities, filteredRelations, layoutSize.w, layoutSize.h, layoutKey)
 

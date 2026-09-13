@@ -18,7 +18,7 @@ import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
-import { useConfirm } from './ConfirmDialog'
+import { useConfirm } from './confirm'
 import { useUIStore } from '../stores/uiStore'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
@@ -337,9 +337,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
+  // 缓存的模型可能已被删除，模型列表加载后回退到默认模型
+  const activeModelId =
+    chatModels.length === 0 || chatModels.some((m) => m.id === selectedModelId) ? selectedModelId : ''
 
   // Get current model's reasoning configuration
-  const currentModel = selectedModelId ? chatModels.find(m => m.id === selectedModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
+  const currentModel = activeModelId ? chatModels.find(m => m.id === activeModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
   const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
   const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
 
@@ -349,18 +352,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
 
-  // 缓存的模型可能已被删除，模型列表加载后校验并回退
-  useEffect(() => {
-    if (chatModels.length > 0 && selectedModelId && !chatModels.some((m) => m.id === selectedModelId)) {
-      setSelectedModelId('')
-    }
-  }, [chatModels, selectedModelId])
-
   // 持久化会话级配置到 localStorage
   useEffect(() => {
     if (!topicId) return
     saveTopicSettings(topicId, {
-      modelId: selectedModelId || undefined,
+      modelId: activeModelId || undefined,
       deepThinking,
       reasoningEffort,
       webSearch,
@@ -369,7 +365,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       toolCalling,
       toolApprovalMode,
     })
-  }, [topicId, selectedModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
+  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
 
   const toggleSavedThinking = useCallback((messageId: string) => {
     setExpandedThinking(prev => {
@@ -552,7 +548,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     void consumeChatStream(topic.id, (signal) =>
       chatMessageService.stream(topic.id, {
         content,
-        modelId: selectedModelId || undefined,
+        modelId: activeModelId || undefined,
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch, knowledgeBase, memory,
@@ -1376,13 +1372,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 <button
                   onClick={() => { setShowModelPicker(!showModelPicker); setShowAgentPicker(false) }}
                   className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    selectedModelId
+                    activeModelId
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                       : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                   }`}
                   title="选择模型"
                 >
-                  {selectedModelId ? chatModels.find(m => m.id === selectedModelId)?.displayName || '默认模型' : '默认模型'}
+                  {activeModelId ? chatModels.find(m => m.id === activeModelId)?.displayName || '默认模型' : '默认模型'}
                   <ChevronDown size={10} />
                 </button>
                 {showModelPicker && (
@@ -1390,7 +1386,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     <div className="max-h-48 overflow-y-auto p-1.5">
                       <button
                         onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!selectedModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!activeModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
                         默认模型
                       </button>
@@ -1398,7 +1394,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         <button
                           key={m.id}
                           onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
-                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${selectedModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${activeModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                         >
                           {m.displayName}
                         </button>
