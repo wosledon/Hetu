@@ -41,7 +41,7 @@ export const useUIStore = create<UIState>()(
       selectedNotebookId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
-      pinnedNavItems: ['/tags', '/agents', '/skills', '/knowledge-base', '/graph', '/tasks/background', '/tasks/scheduled', '/memories', '/models'],
+      pinnedNavItems: [],
       lastMoreItem: null,
       setAppName: (name) => set({ appName: name }),
       setAssistantName: (name) => set({ assistantName: name }),
@@ -57,13 +57,17 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
-        if (state && Array.isArray(state.pinnedNavItems) && version < 2) {
-          state.pinnedNavItems = state.pinnedNavItems.flatMap((p) =>
-            p === '/tasks' ? ['/tasks/background', '/tasks/scheduled'] : [p]
-          )
+        if (state && Array.isArray(state.pinnedNavItems)) {
+          if (version < 2) {
+            state.pinnedNavItems = state.pinnedNavItems.flatMap((p) =>
+              p === '/tasks' ? ['/tasks/background', '/tasks/scheduled'] : [p]
+            )
+          }
+          // v3：导航菜单默认全部关闭，清空历史固定项
+          if (version < 3) state.pinnedNavItems = []
         }
         return state as Partial<UIState>
       },

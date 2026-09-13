@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -89,20 +89,22 @@ export default function SettingsPage() {
     },
   })
 
+  // 服务端快照只在首次加载时灌入本地 store；否则保存后的旧快照会把刚改的值覆盖回去
+  const hydrated = useRef(false)
   useEffect(() => {
-    if (snapshot && !setSetting.isPending) {
-      setAppName(snapshot.appName)
-      setAssistantName(snapshot.assistantName)
-      setAssistantPersona(snapshot.assistantPersona)
-      setTheme(snapshot.theme as Theme)
-      if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
-        setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
-      try {
-        const items = JSON.parse(snapshot.pinnedNavItems)
-        if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
-      } catch { /* keep current value if parse fails */ }
-    }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setSetting.isPending, setTheme, setSecondaryMenuStyle, setPinnedNavItems])
+    if (!snapshot || hydrated.current) return
+    hydrated.current = true
+    setAppName(snapshot.appName)
+    setAssistantName(snapshot.assistantName)
+    setAssistantPersona(snapshot.assistantPersona)
+    setTheme(snapshot.theme as Theme)
+    if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
+      setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
+    try {
+      const items = JSON.parse(snapshot.pinnedNavItems)
+      if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
+    } catch { /* keep current value if parse fails */ }
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setSecondaryMenuStyle, setPinnedNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
