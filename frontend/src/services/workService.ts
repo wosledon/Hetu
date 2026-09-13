@@ -30,6 +30,23 @@ export const workSessionService = {
   getFileChanges: (id: string) => get<IWorkFileChange[]>(`/work-sessions/${id}/file-changes`),
   addMessage: (id: string, data: { role: string; content: string; type?: string; metadata?: string }) =>
     post<IWorkMessage>(`/work-sessions/${id}/messages`, data),
+  /** 流式发起一轮工作对话，返回待消费的 SSE 响应 */
+  stream: (
+    id: string,
+    data: { content: string; modelId?: string; enableTools?: boolean; toolApprovalMode?: string },
+    signal?: AbortSignal,
+  ) =>
+    fetch(`/api/work-sessions/${id}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(data),
+      signal,
+    }),
+};
+
+export const workTerminalService = {
+  /** 结束当前终端会话，下次连接会启动新进程 */
+  stop: (projectId: string) => post<void>(`/work-terminal/${projectId}/stop`),
 };
 
 export const workFileService = {
