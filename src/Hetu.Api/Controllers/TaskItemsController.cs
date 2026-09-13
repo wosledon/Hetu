@@ -19,15 +19,12 @@ public class TaskItemsController : ControllerBase
     [HttpGet]
     public async Task<ApiResponse<List<TaskItemDto>>> GetAll([FromQuery] string? type, [FromQuery] int? status, CancellationToken ct)
     {
-        var items = await _unitOfWork.TaskItems.GetAllAsync(ct);
-        var query = items.AsEnumerable();
+        // 过滤条件下推到数据库，避免全表加载
+        var typeFilter = string.IsNullOrEmpty(type) ? null : type.ToLowerInvariant();
+        var items = await _unitOfWork.TaskItems.FindAsync(
+            t => (typeFilter == null || t.TaskType.ToLower() == typeFilter) && (status == null || t.Status == status), ct);
 
-        if (!string.IsNullOrEmpty(type))
-            query = query.Where(t => t.TaskType.Equals(type, StringComparison.OrdinalIgnoreCase));
-        if (status.HasValue)
-            query = query.Where(t => t.Status == status.Value);
-
-        var dtos = query
+        var dtos = items
             .OrderByDescending(t => t.CreatedAt)
             .Take(200)
             .Select(MapToDto)

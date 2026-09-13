@@ -154,32 +154,45 @@ public class ChatMessageService : IChatMessageService
         if (string.IsNullOrWhiteSpace(keyword))
             return ApiResponse<List<ChatMessageSearchResultDto>>.Ok([]);
 
-        var allMessages = await _unitOfWork.ChatMessages.GetAllAsync(cancellationToken);
-        var allTopics = await _unitOfWork.ChatTopics.GetAllAsync(cancellationToken);
-        var topicDict = allTopics.ToDictionary(t => t.Id, t => t);
+        var lowerKeyword = keyword.ToLowerInvariant();
 
-        var query = allMessages.AsEnumerable();
-
+        // 关键字过滤下推到数据库，避免全表加载后在内存过滤
+        IReadOnlyList<ChatMessage> messages;
         if (topicId.HasValue)
         {
-            query = query.Where(m => m.TopicId == topicId.Value);
+            messages = await _unitOfWork.ChatMessages.FindAsync(
+                m => m.TopicId == topicId.Value && m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
         }
         else if (groupId.HasValue)
         {
-            var groupTopicIds = new HashSet<Guid>(allTopics.Where(t => t.GroupId == groupId.Value).Select(t => t.Id));
-            query = query.Where(m => groupTopicIds.Contains(m.TopicId));
+            var groupTopicIds = (await _unitOfWork.ChatTopics.FindAsync(
+                t => t.GroupId == groupId.Value, cancellationToken)).Select(t => t.Id).ToList();
+
+            if (groupTopicIds.Count == 0)
+                return ApiResponse<List<ChatMessageSearchResultDto>>.Ok([]);
+
+            messages = await _unitOfWork.ChatMessages.FindAsync(
+                m => groupTopicIds.Contains(m.TopicId) && m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
+        }
+        else
+        {
+            messages = await _unitOfWork.ChatMessages.FindAsync(
+                m => m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
         }
 
-        var lowerKeyword = keyword.ToLowerInvariant();
-        query = query.Where(m => m.Content.ToLower().Contains(lowerKeyword));
+        var hits = messages.OrderByDescending(m => m.CreatedAt).Take(50).ToList();
 
-        var results = query
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(50)
+        // 只为命中的消息加载所属话题标题
+        var hitTopicIds = hits.Select(m => m.TopicId).Distinct().ToList();
+        var topicDict = hitTopicIds.Count == 0
+            ? []
+            : (await _unitOfWork.ChatTopics.FindAsync(t => hitTopicIds.Contains(t.Id), cancellationToken))
+                .ToDictionary(t => t.Id, t => t);
+
+        var results = hits
             .Select(m =>
             {
                 topicDict.TryGetValue(m.TopicId, out var topic);
-                var snippet = MakeSnippet(m.Content, lowerKeyword);
                 return new ChatMessageSearchResultDto
                 {
                     Id = m.Id,
@@ -187,7 +200,7 @@ public class ChatMessageService : IChatMessageService
                     TopicTitle = topic?.Title ?? "未知话题",
                     Role = m.Role,
                     Content = m.Content,
-                    ContentSnippet = snippet,
+                    ContentSnippet = MakeSnippet(m.Content, lowerKeyword),
                     CreatedAt = m.CreatedAt
                 };
             })

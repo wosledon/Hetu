@@ -272,23 +272,20 @@ public class KnowledgeBaseController : ControllerBase
             return ApiResponse<List<NoteChunkDto>>.Fail("知识项不存在");
 
         var chunks = await _unitOfWork.KnowledgeItems.GetChunksAsync(id, cancellationToken);
-        var result = new List<NoteChunkDto>();
-        foreach (var chunk in chunks)
+        var embeddedChunkIds = (await _unitOfWork.KnowledgeItems.GetEmbeddedChunkIdsAsync(id, cancellationToken)).ToHashSet();
+
+        var result = chunks.Select(chunk => new NoteChunkDto
         {
-            var embedding = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingAsync(chunk.Id, cancellationToken);
-            result.Add(new NoteChunkDto
-            {
-                Id = chunk.Id,
-                KnowledgeItemId = chunk.KnowledgeItemId,
-                ChunkIndex = chunk.ChunkIndex,
-                Content = chunk.Content,
-                Summary = chunk.Summary,
-                ChunkMethod = chunk.ChunkMethod,
-                HasEmbedding = embedding != null,
-                CreatedAt = chunk.CreatedAt,
-                UpdatedAt = chunk.UpdatedAt
-            });
-        }
+            Id = chunk.Id,
+            KnowledgeItemId = chunk.KnowledgeItemId,
+            ChunkIndex = chunk.ChunkIndex,
+            Content = chunk.Content,
+            Summary = chunk.Summary,
+            ChunkMethod = chunk.ChunkMethod,
+            HasEmbedding = embeddedChunkIds.Contains(chunk.Id),
+            CreatedAt = chunk.CreatedAt,
+            UpdatedAt = chunk.UpdatedAt
+        }).ToList();
 
         return ApiResponse<List<NoteChunkDto>>.Ok(result);
     }

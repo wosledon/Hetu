@@ -123,6 +123,7 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .Where(n => n.IsDeleted)
             .ToListAsync(cancellationToken);
 
+        // SQLite 提供程序不支持 DateTimeOffset 排序比较，cutoff 过滤只能在内存中完成
         return notes.Where(n => n.DeletedAt.HasValue && n.DeletedAt.Value < cutoff).ToList();
     }
 
