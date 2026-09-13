@@ -7,6 +7,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     assetsDir: '',
+    // 实测 rolldown 默认分包（路由级懒加载）初始 JS 约 267KB；显式 vendor 分组反而会把
+    // 整组依赖挂到入口（1.4MB），故不分组。剩余超 500KB 的 chunk 均为按需加载的页面级 chunk
+    // （MarkdownEditor 1.05MB、UsagePage 620KB 已按需引入 echarts）与 mermaid 单模块布局包
+    // （flowchart-elk 1.44MB，单文件无法再拆，仅在文档含对应图表时才下载），故放宽阈值。
+    chunkSizeWarningLimit: 1500,
   },
   server: {
     port: 5174,

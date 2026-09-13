@@ -30,6 +30,7 @@ public class WorkStreamController : ControllerBase
     private readonly ToolRegistry _toolRegistry;
     private readonly AgentLoopService _agentLoop;
     private readonly ILocalSkillService _localSkillService;
+    private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -39,7 +40,8 @@ public class WorkStreamController : ControllerBase
         ToolExecutionService toolExecution,
         ToolRegistry toolRegistry,
         AgentLoopService agentLoop,
-        ILocalSkillService localSkillService)
+        ILocalSkillService localSkillService,
+        IWorkCodeIndexRefreshQueue codeIndexRefreshQueue)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -49,6 +51,7 @@ public class WorkStreamController : ControllerBase
         _toolRegistry = toolRegistry;
         _agentLoop = agentLoop;
         _localSkillService = localSkillService;
+        _codeIndexRefreshQueue = codeIndexRefreshQueue;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -106,10 +109,7 @@ public class WorkStreamController : ControllerBase
             try
             {
                 mcpToolNames = await _agentLoop.LoadMcpToolsAsync(ParseGuidList(project.McpServerIds), ct);
-                // 仅在确实加载到工具时取执行器：GetByNames(空) 会返回全部工具，
-                // 那些实例绑定在请求作用域（WorkToolContext 无项目根），会遮蔽执行作用域内的同名工具
-                if (mcpToolNames.Count > 0)
-                    runtimeTools = _toolRegistry.GetByNames(mcpToolNames).ToList();
+                runtimeTools = _toolRegistry.GetByNames(mcpToolNames).ToList();
             }
             catch (Exception ex)
             {
@@ -340,6 +340,13 @@ public class WorkStreamController : ControllerBase
         {
             var json = JsonSerializer.Serialize(change);
             await _sessionService.AddMessageAsync(sessionId, "system", "", "file_change", json, cancellationToken: CancellationToken.None);
+        }
+
+        // 文件有改动时排队刷新代码索引（去抖 + 仅刷新已建索引的项目）
+        if (fileChanges.Count > 0 && session.ProjectId != Guid.Empty)
+        {
+            try { _codeIndexRefreshQueue.Enqueue(session.ProjectId); }
+            catch (Exception ex) { Log.Debug(ex, "[WorkStream] 代码索引刷新入队失败"); }
         }
 
         try { await _unitOfWork.SaveChangesAsync(ct); } catch { }

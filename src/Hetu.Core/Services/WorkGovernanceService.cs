@@ -94,6 +94,12 @@ public class WorkCheckpointService : IWorkCheckpointService
     private const int MaxFilesPerCheckpoint = 200;
     private const long MaxFileBytes = 2 * 1024 * 1024;
 
+    /// <summary>单个差异文件返回的最大字符数</summary>
+    private const int MaxDiffFileChars = 200_000;
+
+    /// <summary>一次差异响应返回内容的总字符预算</summary>
+    private const long MaxDiffTotalChars = 2_000_000;
+
     private readonly IUnitOfWork _unitOfWork;
 
     public WorkCheckpointService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
@@ -177,24 +183,49 @@ public class WorkCheckpointService : IWorkCheckpointService
         if (project == null) return ApiResponse<WorkCheckpointDiffDto>.Fail("项目不存在");
 
         var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => f.CheckpointId == checkpointId, cancellationToken);
-        var diff = new WorkCheckpointDiffDto { CheckpointId = checkpointId, Label = checkpoint.Label };
+        var diff = new WorkCheckpointDiffDto
+        {
+            CheckpointId = checkpointId,
+            Label = checkpoint.Label,
+            TotalFiles = files.Count
+        };
 
+        var budget = MaxDiffTotalChars;
         foreach (var snapshot in files.OrderBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase))
         {
             var full = WorkPath.Resolve(project.RootPath, snapshot.FilePath);
             string? current = null;
+            var binary = false;
+            var tooLarge = false;
             if (full != null && File.Exists(full))
             {
                 try
                 {
                     var info = new FileInfo(full);
-                    if (info.Length <= MaxFileBytes && WorkProjectRules.IsProbablyText(full))
-                        current = await File.ReadAllTextAsync(full, cancellationToken);
+                    // 先判体积再判二进制，避免超大文本文件被误报为二进制文件
+                    if (info.Length > MaxFileBytes) tooLarge = true;
+                    else if (!WorkProjectRules.IsProbablyText(full, MaxFileBytes)) binary = true;
+                    else current = await File.ReadAllTextAsync(full, cancellationToken);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     current = null;
                 }
+            }
+
+            // 二进制/超大文件不返回内容，只标注状态，避免撑爆内存与响应体
+            if (binary || tooLarge)
+            {
+                diff.Files.Add(new WorkCheckpointDiffFileDto
+                {
+                    Path = snapshot.FilePath,
+                    Action = "skipped",
+                    IsBinary = binary,
+                    Truncated = true,
+                    Note = binary ? "二进制文件，已跳过内容比对" : $"文件超过 {MaxFileBytes / 1024 / 1024} MB，已跳过内容比对"
+                });
+                diff.Truncated = true;
+                continue;
             }
 
             var action = snapshot.Content == current
@@ -205,16 +236,44 @@ public class WorkCheckpointService : IWorkCheckpointService
                         ? "delete"
                         : "write";
 
+            // 单文件按行裁剪 + 整体字符预算，避免大仓库差异一次性撑爆内存与响应体
+            var old = TrimContent(snapshot.Content, MaxDiffFileChars, out var oldTrimmed);
+            var newTrimmed = false;
+            var next = action == "unchanged" ? null : TrimContent(current, MaxDiffFileChars, out newTrimmed);
+            var truncated = oldTrimmed || newTrimmed;
+
+            if (truncated) diff.Truncated = true;
             diff.Files.Add(new WorkCheckpointDiffFileDto
             {
                 Path = snapshot.FilePath,
                 Action = action,
-                OldContent = snapshot.Content,
-                NewContent = current
+                OldContent = old,
+                NewContent = next,
+                Truncated = truncated,
+                Note = truncated ? "内容过大，仅显示前部分" : null
             });
+
+            budget -= Math.Max(old?.Length ?? 0, next?.Length ?? 0);
+            if (budget <= 0)
+            {
+                diff.Truncated = true;
+                break;
+            }
         }
 
         return ApiResponse<WorkCheckpointDiffDto>.Ok(diff);
+    }
+
+    /// <summary>按行边界裁剪到最大长度，返回 null 表示无内容</summary>
+    private static string? TrimContent(string? content, int maxChars, out bool truncated)
+    {
+        truncated = false;
+        if (content == null) return null;
+        if (content.Length <= maxChars) return content;
+
+        truncated = true;
+        var cut = content.LastIndexOf('\n', maxChars - 1);
+        return content[..(cut > 0 ? cut : maxChars)];
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid checkpointId, CancellationToken cancellationToken = default)

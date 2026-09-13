@@ -25,6 +25,8 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
   const { data: indexStatus } = useQuery({
     queryKey: ['workCodeIndex', project.id],
     queryFn: () => workProjectService.getCodeIndexStatus(project.id),
+    // 后台自动刷新期间轮询状态，刷新完成后停止
+    refetchInterval: (query) => (query.state.data?.refreshPending ? 3000 : false),
   })
 
   const save = useMutation({
@@ -152,6 +154,12 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                 {indexStatus?.isReady
                   ? `${indexStatus.fileCount} 个文件 / ${indexStatus.chunkCount} 个片段`
                   : '尚未建立索引（建立后可用语义检索代码）'}
+                {indexStatus?.isReady && indexStatus.refreshPending && (
+                  <span className="ml-1 text-blue-500 dark:text-blue-400">· 正在后台刷新</span>
+                )}
+                {indexStatus?.isReady && !indexStatus.refreshPending && indexStatus.isStale && (
+                  <span className="ml-1 text-amber-600 dark:text-amber-400">· {indexStatus.staleFileCount} 个文件已变更，待刷新</span>
+                )}
               </span>
               <button
                 onClick={() => rebuildIndex.mutate()}

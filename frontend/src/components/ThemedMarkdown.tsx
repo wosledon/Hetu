@@ -4,8 +4,19 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
-import mermaid from 'mermaid'
 import { useUIStore } from '../stores/uiStore'
+
+/** mermaid 体积较大（含多种布局引擎），仅在文档内确实存在图表时按需加载 */
+let mermaidModulePromise: Promise<typeof import('mermaid')> | null = null
+async function loadMermaid(isDark: boolean) {
+  const mod = await (mermaidModulePromise ??= import('mermaid'))
+  mod.default.initialize({
+    startOnLoad: false,
+    theme: isDark ? 'dark' : 'default',
+    securityLevel: 'loose',
+  })
+  return mod.default
+}
 
 interface ThemedMarkdownProps {
   source: string
@@ -24,14 +35,11 @@ export default memo(function ThemedMarkdown({ source, className }: ThemedMarkdow
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // 初始化 mermaid
+  // 初始化 mermaid（仅在文档含图表时加载依赖）
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: isDark ? 'dark' : 'default',
-      securityLevel: 'loose',
-    })
-  }, [isDark])
+    if (!source.includes('mermaid')) return
+    void loadMermaid(isDark)
+  }, [isDark, source])
 
   // 在渲染后执行 mermaid 图表
   useEffect(() => {
@@ -41,6 +49,7 @@ export default memo(function ThemedMarkdown({ source, className }: ThemedMarkdow
 
     let cancelled = false
     const run = async () => {
+      const mermaid = await loadMermaid(isDark)
       for (const el of mermaidEls) {
         if (cancelled) return
         const code = el.textContent ?? ''

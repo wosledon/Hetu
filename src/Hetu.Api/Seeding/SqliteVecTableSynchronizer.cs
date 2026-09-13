@@ -33,6 +33,14 @@ internal static class SqliteVecTableSynchronizer
                 idColumn: "chunk_id",
                 entities: db.NoteChunkEmbeddings.AsNoTracking().AsAsyncEnumerable(),
                 selector: e => (e.ChunkId, e.Embedding));
+
+            // 项目代码索引分块：列名不同（ChunkId 即 WorkCodeChunk.Id）
+            await BackfillAsync(
+                connection,
+                vecTable: "vec_work_code_chunks",
+                idColumn: "chunk_id",
+                entities: db.WorkCodeChunks.AsNoTracking().AsAsyncEnumerable(),
+                selector: e => (e.Id, e.Embedding));
         }
         catch
         {

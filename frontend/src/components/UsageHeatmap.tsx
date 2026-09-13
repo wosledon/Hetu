@@ -1,4 +1,5 @@
-import ReactECharts from 'echarts-for-react'
+import ReactEChartsCore from 'echarts-for-react/lib/core'
+import echarts from '../utils/echarts'
 import { useIsDark } from '../hooks/useIsDark'
 import type { IUsageDayStat, IUsageHourStat } from '../services/usageService'
 
@@ -102,7 +103,7 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
     ],
   }
 
-  return <ReactECharts option={option} style={{ height: 260, width: '100%' }} notMerge />
+  return <ReactEChartsCore echarts={echarts} option={option} style={{ height: 260, width: '100%' }} notMerge />
 }
 
 /** 近一年 GitHub 风格日历热力图 */
@@ -166,5 +167,5 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
     ],
   }
 
-  return <ReactECharts option={option} style={{ height: 220, width: '100%' }} notMerge />
+  return <ReactEChartsCore echarts={echarts} option={option} style={{ height: 220, width: '100%' }} notMerge />
 }
