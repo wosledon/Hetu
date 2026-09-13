@@ -39,14 +39,29 @@ export async function consumeSseStream(
     reader.cancel().catch(() => {})
   }
   signal?.addEventListener('abort', onAbort)
+  // 传入时已被中断的 signal 不会触发 abort 事件，需要主动取消
+  if (signal?.aborted) onAbort()
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let pendingCr = false
   try {
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
-      buffer += decoder.decode(value, { stream: true })
+
+      let chunk = decoder.decode(value, { stream: true })
+      // 归一化 CRLF：`\r\n` 可能跨 chunk 断开，用 pendingCr 记住悬空的 `\r`
+      if (pendingCr) {
+        // 与本次的 `\n` 组成 CRLF 时保留该 `\n`，否则视为独立换行
+        if (!chunk.startsWith('\n')) chunk = '\n' + chunk
+        pendingCr = false
+      }
+      if (chunk.endsWith('\r')) {
+        pendingCr = true
+        chunk = chunk.slice(0, -1)
+      }
+      buffer += chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
       let boundary: number
       while ((boundary = buffer.indexOf('\n\n')) !== -1) {
