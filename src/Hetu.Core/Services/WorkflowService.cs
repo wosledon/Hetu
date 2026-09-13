@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Workflow;
 
@@ -9,11 +10,6 @@ namespace Hetu.Core.Services;
 public class WorkflowService : IWorkflowService
 {
     private readonly IUnitOfWork _unitOfWork;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
 
     public WorkflowService(IUnitOfWork unitOfWork)
     {
@@ -193,7 +189,7 @@ public class WorkflowService : IWorkflowService
     internal static T? Deserialize<T>(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return default;
-        try { return JsonSerializer.Deserialize<T>(json, JsonOptions); }
+        try { return JsonSerializer.Deserialize<T>(json, JsonDefaults.CaseInsensitive); }
         catch { return default; }
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,8 +13,6 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class SubWorkflowNodeExecutor : INodeExecutor
 {
     private readonly IServiceProvider _serviceProvider;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     public SubWorkflowNodeExecutor(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
@@ -58,7 +57,7 @@ public class SubWorkflowNodeExecutor : INodeExecutor
     private static Dictionary<string, object>? ParseConfig(string? configJson)
     {
         if (string.IsNullOrWhiteSpace(configJson)) return null;
-        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonOptions); }
+        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonDefaults.CaseInsensitive); }
         catch { return null; }
     }
 }

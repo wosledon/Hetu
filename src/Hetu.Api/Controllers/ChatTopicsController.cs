@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -47,9 +48,7 @@ public class ChatTopicsController : ControllerBase
     [HttpPost("{id:guid}/organize")]
     public async Task Organize(Guid id, [FromBody] OrganizeTopicRequest request, CancellationToken cancellationToken)
     {
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers.Connection = "keep-alive";
+        Response.StartSseStream();
 
         async Task WriteEventAsync(string data)
         {

@@ -1,9 +1,9 @@
-using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Workflows;
 using Hetu.Api.Streaming;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Workflow;
 using Microsoft.AspNetCore.Mvc;
@@ -20,8 +20,6 @@ public class WorkflowsController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatMessageService _chatMessageService;
     private readonly ToolExecutionService _toolExecution;
-
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public WorkflowsController(
         IWorkflowService workflowService,
@@ -79,9 +77,7 @@ public class WorkflowsController : ControllerBase
     [HttpPost("{id:guid}/run/stream")]
     public async Task RunStream(Guid id, [FromBody] RunWorkflowRequest? request, CancellationToken cancellationToken)
     {
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers.Connection = "keep-alive";
+        Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, cancellationToken);
         var sink = new SseWorkflowEventSink(writer);
@@ -101,9 +97,7 @@ public class WorkflowsController : ControllerBase
     [HttpPost("{id:guid}/run/topic/{topicId:guid}/stream")]
     public async Task RunStreamInTopic(Guid id, Guid topicId, [FromBody] RunWorkflowRequest? request, CancellationToken cancellationToken)
     {
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers.Connection = "keep-alive";
+        Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, cancellationToken);
         var sink = new SseWorkflowEventSink(writer);

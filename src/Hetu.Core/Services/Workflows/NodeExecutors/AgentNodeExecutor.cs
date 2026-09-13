@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 using Microsoft.Extensions.Logging;
 
@@ -16,8 +17,6 @@ public class AgentNodeExecutor : INodeExecutor
     private readonly IUnitOfWork _unitOfWork;
     private readonly AgentLoopService _agentLoopService;
     private readonly ILogger<AgentNodeExecutor> _logger;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILogger<AgentNodeExecutor> logger)
     {
         _unitOfWork = unitOfWork;
@@ -130,7 +129,7 @@ public class AgentNodeExecutor : INodeExecutor
     private static Dictionary<string, object>? ParseConfig(string? configJson)
     {
         if (string.IsNullOrWhiteSpace(configJson)) return null;
-        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonOptions); }
+        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(configJson, JsonDefaults.CaseInsensitive); }
         catch { return null; }
     }
 
@@ -149,7 +148,7 @@ public class AgentNodeExecutor : INodeExecutor
     {
         if (config == null || !config.TryGetValue(key, out var v) || v is not JsonElement je || je.ValueKind != JsonValueKind.Array)
             return new List<T>();
-        try { return je.Deserialize<List<T>>(JsonOptions) ?? new List<T>(); }
+        try { return je.Deserialize<List<T>>(JsonDefaults.CaseInsensitive) ?? new List<T>(); }
         catch { return new List<T>(); }
     }
 
@@ -157,7 +156,7 @@ public class AgentNodeExecutor : INodeExecutor
     {
         if (config == null || !config.TryGetValue(key, out var v) || v is not JsonElement je || je.ValueKind != JsonValueKind.Object)
             return new Dictionary<string, string>();
-        try { return je.Deserialize<Dictionary<string, string>>(JsonOptions) ?? new(); }
+        try { return je.Deserialize<Dictionary<string, string>>(JsonDefaults.CaseInsensitive) ?? new(); }
         catch { return new Dictionary<string, string>(); }
     }
 

@@ -2,6 +2,7 @@ using System.Text;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Utilities;
 using Hetu.Api.Streaming;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
@@ -99,9 +100,7 @@ public class ChatMessagesController : ControllerBase
     [HttpPost("topic/{topicId:guid}/stream")]
     public async Task Stream(Guid topicId, [FromBody] SendMessageRequest request, CancellationToken ct = default)
     {
-        Response.ContentType = "text/event-stream";
-        Response.Headers.CacheControl = "no-cache";
-        Response.Headers.Connection = "keep-alive";
+        Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, ct);
 
