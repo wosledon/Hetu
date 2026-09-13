@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Hetu.Core.Entities;
@@ -100,11 +101,21 @@ public class AiProviderService : IAiProviderService
 
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            using var client = _httpClientFactory.CreateClient();
 
             var baseUrl = provider.BaseUrl?.TrimEnd('/') ?? GetDefaultBaseUrl(provider.ProviderType);
-            var response = await client.GetAsync($"{baseUrl}/models", cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/models");
+            if (string.Equals(provider.ProviderType, "anthropic", StringComparison.OrdinalIgnoreCase))
+            {
+                request.Headers.Add("x-api-key", apiKey);
+                request.Headers.Add("anthropic-version", "2023-06-01");
+            }
+            else
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            }
+
+            using var response = await client.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);

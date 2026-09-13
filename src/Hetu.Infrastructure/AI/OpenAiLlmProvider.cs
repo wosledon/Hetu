@@ -28,7 +28,7 @@ public class OpenAiLlmProvider : ILLMProvider
     {
         var requestBody = CreateChatRequest(messages, false, options);
         using var request = CreateRequest("chat/completions", requestBody);
-        var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -46,7 +46,7 @@ public class OpenAiLlmProvider : ILLMProvider
     {
         var requestBody = CreateChatRequest(messages, true, options);
         using var request = CreateRequest("chat/completions", requestBody);
-        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);

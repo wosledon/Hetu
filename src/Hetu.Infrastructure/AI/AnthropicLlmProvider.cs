@@ -30,7 +30,7 @@ public class AnthropicLlmProvider : ILLMProvider
         var (systemPrompt, requestMessages) = BuildMessages(messages);
         var requestBody = CreateMessagesRequest(requestMessages, false, options, systemPrompt);
         using var request = CreateRequest("messages", requestBody);
-        var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<AnthropicMessageResponse>(cancellationToken: cancellationToken);
@@ -45,7 +45,7 @@ public class AnthropicLlmProvider : ILLMProvider
         var (systemPrompt, requestMessages) = BuildMessages(messages);
         var requestBody = CreateMessagesRequest(requestMessages, true, options, systemPrompt);
         using var request = CreateRequest("messages", requestBody);
-        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
