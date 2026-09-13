@@ -57,6 +57,7 @@ public class WorkTerminalController : ControllerBase
             }
             catch (OperationCanceledException) { }
             catch (WebSocketException) { }
+            catch (ObjectDisposedException) { }
         }, ct);
 
         // WebSocket → 输入

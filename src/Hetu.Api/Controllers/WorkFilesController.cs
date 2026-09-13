@@ -1,5 +1,6 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -24,8 +25,8 @@ public class WorkFilesController : ControllerBase
         var root = await ResolveRootAsync(projectId, cancellationToken);
         if (root == null) return ApiResponse<List<WorkFileEntryDto>>.Fail("项目不存在");
 
-        var dir = ResolveSafePath(root, path ?? "");
-        if (!Directory.Exists(dir)) return ApiResponse<List<WorkFileEntryDto>>.Fail("目录不存在");
+        var dir = WorkPath.Resolve(root, path ?? "");
+        if (dir == null || !Directory.Exists(dir)) return ApiResponse<List<WorkFileEntryDto>>.Fail("目录不存在");
 
         try
         {
@@ -70,8 +71,8 @@ public class WorkFilesController : ControllerBase
         var root = await ResolveRootAsync(projectId, cancellationToken);
         if (root == null) return ApiResponse<WorkFileContentDto>.Fail("项目不存在");
 
-        var file = ResolveSafePath(root, path);
-        if (!System.IO.File.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("文件不存在");
+        var file = WorkPath.Resolve(root, path);
+        if (file == null || !System.IO.File.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("文件不存在");
 
         try
         {
@@ -107,17 +108,5 @@ public class WorkFilesController : ControllerBase
         if (project == null || string.IsNullOrWhiteSpace(project.RootPath)) return null;
         if (!Directory.Exists(project.RootPath)) return null;
         return Path.GetFullPath(project.RootPath);
-    }
-
-    /// <summary>将相对路径安全地解析到项目根目录内，防止目录穿越</summary>
-    private static string ResolveSafePath(string root, string relative)
-    {
-        var full = Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar)));
-        if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-            !full.Equals(root, StringComparison.OrdinalIgnoreCase))
-        {
-            return root;
-        }
-        return full;
     }
 }

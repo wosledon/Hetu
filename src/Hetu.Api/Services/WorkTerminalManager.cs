@@ -134,7 +134,13 @@ public class TerminalSession : IDisposable
     {
         ProjectId = projectId;
         Process = process;
-        _outputChannel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+        // 有界缓冲：终端进程在无客户端连接时仍会持续输出，避免通道无限增长导致内存泄漏
+        _outputChannel = Channel.CreateBounded<string>(new BoundedChannelOptions(4096)
+        {
+            SingleReader = false,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest,
+        });
 
         process.Exited += (_, _) => _outputChannel.Writer.TryComplete();
 
@@ -168,11 +174,13 @@ public class TerminalSession : IDisposable
 
     public void Write(string text)
     {
-        if (!Process.HasExited)
+        try
         {
             Process.StandardInput.Write(text);
             Process.StandardInput.Flush();
         }
+        catch (InvalidOperationException) { }
+        catch (IOException) { }
     }
 
     public void WriteLine(string line) => Write(line + Environment.NewLine);

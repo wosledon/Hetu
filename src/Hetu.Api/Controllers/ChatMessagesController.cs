@@ -208,13 +208,16 @@ public class ChatMessagesController : ControllerBase
         var latencyMs = (int)sw.ElapsedMilliseconds;
 
         // 中断或正常完成都保存已生成的部分内容
-        var finalContent = contentSb.ToString().Trim();
-        if (loopError != null && string.IsNullOrEmpty(finalContent))
+        var finalContent = contentSb.ToString();
+        if (cancelled)
+            finalContent += "\n\n*（已停止生成）*";
+        else if (finalContent.Trim().Length == 0 && loopError != null)
             finalContent = $"处理请求时出错: {loopError}";
+
         if (!string.IsNullOrEmpty(finalContent))
         {
             await _chatMessageService.SaveAssistantMessageAsync(topicId,
-                cancelled ? contentSb + "\n\n*（已停止生成）*" : contentSb.ToString(), modelId,
+                finalContent, modelId,
                 thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
                 searchJson, kbJson, memJson,
                 hasUsage ? totalTokens : null,
