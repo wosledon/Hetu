@@ -8,6 +8,7 @@ import type {
   IWorkflowRun,
   IWorkflowRunDetail,
 } from '../types/workflow'
+import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 
 export const workflowService = {
   getAll: () => get<IWorkflow[]>('/workflows'),
@@ -24,8 +25,8 @@ export const workflowService = {
     post<void>(`/workflows/runs/${runId}/approve`, { nodeId, approve }),
 }
 
-/// 流式执行工作流的 SSE 订阅。返回取消函数。
-/// onEvent 接收每个 SSE 事件对象。
+/// 流式执行工作流的 SSE 订阅。
+/// onEvent 接收每个 SSE 事件对象，onError 接收流内错误帧或连接错误。
 export async function streamWorkflowRun(
   workflowId: string,
   input: string | undefined,
@@ -52,32 +53,18 @@ export async function streamWorkflowRun(
       return
     }
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('data: ')) {
-          const jsonStr = trimmed.slice(6)
-          try {
-            const evt = JSON.parse(jsonStr)
-            onEvent(evt)
-          } catch {
-            // 非 JSON（如 [ERROR] 消息）
-            if (jsonStr.startsWith('[ERROR]')) onError(jsonStr.slice(7).trim())
-          }
+    await consumeSseStream(
+      response,
+      ({ data }) => {
+        try {
+          onEvent(JSON.parse(data))
+        } catch {
+          // 非 JSON 帧，通常是以 [ERROR] 开头的流内错误
+          if (data.startsWith(SSE_ERROR_PREFIX)) onError(data.slice(SSE_ERROR_PREFIX.length).trim())
         }
-      }
-    }
+      },
+      { signal },
+    )
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
       onError((err as Error).message)

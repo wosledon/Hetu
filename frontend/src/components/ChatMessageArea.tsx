@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square, AlertCircle } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
-import { notebookService } from '../services/notebookService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
@@ -17,10 +16,12 @@ import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { useStreaming } from '../hooks/useStreaming'
+import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './ConfirmDialog'
 import { useUIStore } from '../stores/uiStore'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
+import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
 
 interface ChatMessageAreaProps {
@@ -79,47 +80,27 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   const store = useChatStreamStore.getState()
   const controller = new AbortController()
   chatStreamControl.register(topicId, controller)
-  let cancelled = false
   try {
     const response = await startRequest(controller.signal)
-    if (!response.body) return
-    const reader = response.body.getReader()
-    // 中断时取消 reader，使后端 ct 触发取消
-    const onAbort = () => { cancelled = true; reader.cancel().catch(() => {}) }
-    controller.signal.addEventListener('abort', onAbort)
-    const decoder = new TextDecoder()
-    let buffer = ''
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data.startsWith('[ERROR]')) {
-            store.appendContent(topicId, '\n' + data)
-            continue
-          }
-          try {
-            store.handleChunk(topicId, JSON.parse(data))
-          } catch {
-            store.appendContent(topicId, data)
-          }
+    await consumeSseStream(
+      response,
+      ({ data }) => {
+        if (data.startsWith(SSE_ERROR_PREFIX)) {
+          store.setStreamError(topicId, data.slice(SSE_ERROR_PREFIX.length).trim())
+          return
         }
-      }
-    } finally {
-      controller.signal.removeEventListener('abort', onAbort)
-      reader.releaseLock()
-    }
+        try {
+          store.handleChunk(topicId, JSON.parse(data))
+        } catch {
+          store.appendContent(topicId, data)
+        }
+      },
+      { signal: controller.signal },
+    )
   } catch (error) {
-    if (cancelled || controller.signal.aborted) {
-      // 用户主动中断，不视为错误
-    } else {
+    if (!controller.signal.aborted) {
       console.error('Stream error:', error)
-      store.appendContent(topicId, '流式输出失败，请检查模型配置。')
+      store.setStreamError(topicId, '流式输出失败，请检查模型配置。')
     }
   } finally {
     chatStreamControl.unregister(topicId)
@@ -152,6 +133,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingTodos,
     todoPanelCollapsed, setTodoPanelCollapsed,
     approvalRequests,
+    streamError, setStreamError,
     startStreaming, stopStreaming,
   } = useStreaming(topicId)
 
@@ -216,10 +198,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     enabled: !!topic,
   })
 
-  const { data: notebooks = [] } = useQuery({
-    queryKey: ['notebooks'],
-    queryFn: () => notebookService.getTree(),
-  })
+  const notebooks = useNotebooks()
 
   const { data: skills = [] } = useQuery({
     queryKey: ['skills'],
@@ -434,11 +413,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setCurrentQuestionIndex(0)
 
     try {
-      await fetch('/api/chat-messages/answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: topic?.id, toolCallId, answer: JSON.stringify(combined) }),
-      })
+      await chatMessageService.submitAnswer(topic?.id, toolCallId, JSON.stringify(combined))
     } catch (e) {
       console.error('Failed to submit answers:', e)
     }
@@ -467,31 +442,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       reader.readAsDataURL(file)
     })
 
+  // 消费整理话题的 SSE 流，收集预览文本；返回是否未出现错误帧。
   const readSseStream = async (response: Response, onData: (data: string) => void): Promise<boolean> => {
     if (!response.body) return false
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
     let hasError = false
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data.startsWith('[ERROR]')) {
-            hasError = true
-          }
-          onData(data)
-        }
-      }
-    }
+    await consumeSseStream(response, ({ data }) => {
+      if (data.startsWith(SSE_ERROR_PREFIX)) hasError = true
+      onData(data)
+    })
     return !hasError
   }
 
@@ -694,11 +652,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleApprove = async (toolCallId: string, approved: boolean) => {
     if (topicId) useChatStreamStore.getState().removeApproval(topicId, toolCallId)
     try {
-      await fetch('/api/chat-messages/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: topic?.id, toolCallId, approve: approved }),
-      })
+      await chatMessageService.submitApproval(topic?.id, toolCallId, approved)
     } catch {
       // Ignore — backend will timeout anyway
     }
@@ -708,11 +662,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const handleWorkflowApprove = async (runId: string, nodeId: string, approve: boolean) => {
     setPendingApproval(null)
     try {
-      await fetch(`/api/workflows/runs/${runId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodeId, approve }),
-      })
+      await workflowService.approve(runId, nodeId, approve)
     } catch {
       // Ignore
     }
@@ -725,17 +675,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setWorkflowToolCall(null)
     try {
       if (workflowToolCall.name === 'ask_question') {
-        await fetch('/api/chat-messages/answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, answer: answer ?? '' }),
-        })
+        await chatMessageService.submitAnswer(sessionId, workflowToolCall.toolCallId, answer ?? '')
       } else {
-        await fetch('/api/chat-messages/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, toolCallId: workflowToolCall.toolCallId, approve: approved }),
-        })
+        await chatMessageService.submitApproval(sessionId, workflowToolCall.toolCallId, approved)
       }
     } catch {
       // Ignore
@@ -1122,6 +1064,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {streamError && (
+          <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{streamError}</span>
+            <button onClick={() => setStreamError('')} className="ml-auto shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></button>
           </div>
         )}
 
