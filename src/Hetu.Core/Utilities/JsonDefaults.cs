@@ -10,4 +10,10 @@ public static class JsonDefaults
     {
         PropertyNameCaseInsensitive = true,
     };
+
+    /// <summary>camelCase 输出：SSE 事件与前端持久化结果的统一契约。</summary>
+    public static readonly JsonSerializerOptions CamelCase = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
 }

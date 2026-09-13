@@ -1,9 +1,9 @@
+using System.Linq;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
 using Microsoft.Extensions.Logging;
-using System.Linq;
 
 namespace Hetu.Core.Services;
 

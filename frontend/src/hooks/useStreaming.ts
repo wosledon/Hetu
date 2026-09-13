@@ -1,14 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useChatStreamStore, getTopicStream } from '../stores/chatStreamStore'
-import type {
-  StreamingQuestion,
-  StreamingTodo,
-  StreamingToolResult,
-  ApprovalRequest,
-  SearchResult,
-  KnowledgeResult,
-  MemoryResult,
-} from '../stores/chatStreamStore'
+import type { ApprovalRequest, TopicStreamState } from '../stores/chatStreamStore'
 
 export type {
   StreamingQuestion,
@@ -21,6 +13,21 @@ export type {
   MemoryResult,
 } from '../stores/chatStreamStore'
 
+type Setter<T> = (v: T | ((prev: T) => T)) => void
+
+/** 生成某个话题流式状态下单个字段的 setter，支持直接赋值或函数式更新 */
+function useStreamField<K extends keyof TopicStreamState>(id: string, key: K): Setter<TopicStreamState[K]> {
+  return useCallback(
+    (v: TopicStreamState[K] | ((prev: TopicStreamState[K]) => TopicStreamState[K])) => {
+      useChatStreamStore.getState().update(id, (cur) => {
+        const value = typeof v === 'function' ? (v as (prev: TopicStreamState[K]) => TopicStreamState[K])(cur[key]) : v
+        return { [key]: value } as Partial<TopicStreamState>
+      })
+    },
+    [id, key],
+  )
+}
+
 /**
  * 订阅某个话题的全局流式状态。状态保存在全局 store（按 topicId 隔离），
  * 组件卸载/切换话题不会丢失，支持多话题同时流式。
@@ -32,76 +39,19 @@ export function useStreaming(topicId: string | undefined) {
   const s = useMemo(() => raw ?? getTopicStream({}, ''), [raw])
   const store = useChatStreamStore.getState()
 
-  const setStreamingContent = useCallback(
-    (v: string | ((p: string) => string)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        streamingContent: typeof v === 'function' ? v(cur.streamingContent) : v,
-      })),
-    [id],
-  )
-  const setStreamingThinking = useCallback(
-    (v: string | ((p: string) => string)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        streamingThinking: typeof v === 'function' ? v(cur.streamingThinking) : v,
-      })),
-    [id],
-  )
-  const setShowThinking = useCallback(
-    (v: boolean | ((p: boolean) => boolean)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        showThinking: typeof v === 'function' ? v(cur.showThinking) : v,
-      })),
-    [id],
-  )
-  const setPendingUserMessage = useCallback(
-    (v: string | null) => useChatStreamStore.getState().update(id, () => ({ pendingUserMessage: v })),
-    [id],
-  )
-  const setStreamingSearchResults = useCallback(
-    (v: SearchResult[]) => useChatStreamStore.getState().update(id, () => ({ searchResults: v })),
-    [id],
-  )
-  const setStreamingKnowledgeResults = useCallback(
-    (v: KnowledgeResult[]) => useChatStreamStore.getState().update(id, () => ({ knowledgeResults: v })),
-    [id],
-  )
-  const setStreamingMemoryResults = useCallback(
-    (v: MemoryResult[]) => useChatStreamStore.getState().update(id, () => ({ memoryResults: v })),
-    [id],
-  )
-  const setStreamingToolResults = useCallback(
-    (v: StreamingToolResult[]) => useChatStreamStore.getState().update(id, () => ({ toolResults: v })),
-    [id],
-  )
-  const setStreamingQuestions = useCallback(
-    (v: StreamingQuestion[]) => useChatStreamStore.getState().update(id, () => ({ questions: v })),
-    [id],
-  )
-  const setQuestionAnswers = useCallback(
-    (v: Record<string, string> | ((p: Record<string, string>) => Record<string, string>)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        questionAnswers: typeof v === 'function' ? v(cur.questionAnswers) : v,
-      })),
-    [id],
-  )
-  const setCurrentQuestionIndex = useCallback(
-    (v: number | ((p: number) => number)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        currentQuestionIndex: typeof v === 'function' ? v(cur.currentQuestionIndex) : v,
-      })),
-    [id],
-  )
-  const setStreamingTodos = useCallback(
-    (v: StreamingTodo[]) => useChatStreamStore.getState().update(id, () => ({ todos: v })),
-    [id],
-  )
-  const setTodoPanelCollapsed = useCallback(
-    (v: boolean | ((p: boolean) => boolean)) =>
-      useChatStreamStore.getState().update(id, (cur) => ({
-        todoPanelCollapsed: typeof v === 'function' ? v(cur.todoPanelCollapsed) : v,
-      })),
-    [id],
-  )
+  const setStreamingContent = useStreamField(id, 'streamingContent')
+  const setStreamingThinking = useStreamField(id, 'streamingThinking')
+  const setShowThinking = useStreamField(id, 'showThinking')
+  const setPendingUserMessage = useStreamField(id, 'pendingUserMessage')
+  const setStreamingSearchResults = useStreamField(id, 'searchResults')
+  const setStreamingKnowledgeResults = useStreamField(id, 'knowledgeResults')
+  const setStreamingMemoryResults = useStreamField(id, 'memoryResults')
+  const setStreamingToolResults = useStreamField(id, 'toolResults')
+  const setStreamingQuestions = useStreamField(id, 'questions')
+  const setQuestionAnswers = useStreamField(id, 'questionAnswers')
+  const setCurrentQuestionIndex = useStreamField(id, 'currentQuestionIndex')
+  const setStreamingTodos = useStreamField(id, 'todos')
+  const setTodoPanelCollapsed = useStreamField(id, 'todoPanelCollapsed')
 
   return {
     streamingContent: s.streamingContent,

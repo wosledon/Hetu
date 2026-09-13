@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 
@@ -61,7 +62,7 @@ public class WorkListDirTool : IToolExecutor
             if (dir == null || !Directory.Exists(dir))
                 return ToolExecutionResult.Error($"目录不存在或超出项目范围: {rel}");
 
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
             foreach (var d in Directory.GetDirectories(dir).OrderBy(x => x))
                 sb.AppendLine($"📁 {Path.GetRelativePath(root, d).Replace('\\', '/')}/");
             foreach (var f in Directory.GetFiles(dir).OrderBy(x => x))
@@ -123,7 +124,7 @@ public class WorkReadFileTool : IToolExecutor
             end = Math.Min(lines.Length, end);
             if (start > end) return ToolExecutionResult.Error("起始行大于结束行");
 
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
             for (int i = start - 1; i < end; i++)
                 sb.AppendLine($"{i + 1}| {lines[i]}");
             return ToolExecutionResult.Success(sb.ToString());
@@ -251,7 +252,7 @@ public class WorkRunCommandTool : IToolExecutor
             var outText = await stdout;
             var errText = await stderr;
 
-            var result = new System.Text.StringBuilder();
+            var result = new StringBuilder();
             if (!string.IsNullOrWhiteSpace(outText)) result.AppendLine(outText.TrimEnd());
             if (!string.IsNullOrWhiteSpace(errText)) result.AppendLine("[stderr] " + errText.TrimEnd());
             result.AppendLine($"（退出码 {process.ExitCode}）");

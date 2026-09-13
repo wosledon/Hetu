@@ -300,13 +300,13 @@ public class OpenAiLlmProvider : ILLMProvider
         return request;
     }
 
-    private static JsonSerializerOptions JsonOptions => new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private static JsonSerializerOptions JsonOptionsOut => new()
+    private static readonly JsonSerializerOptions JsonOptionsOut = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };

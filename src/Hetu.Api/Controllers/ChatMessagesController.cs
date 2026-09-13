@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
+using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Profiles;
 using Hetu.Core.Services;
 using Hetu.Core.Utilities;
-using Hetu.Api.Streaming;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
@@ -116,14 +119,14 @@ public class ChatMessagesController : ControllerBase
 
         await MarkTopicOutdatedIfNeededAsync(topic, topicId, ct);
 
-        var (provider, modelId) = await ResolveProviderAsync(request, topic, ct);
+        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(request.ModelId, topic.ModelId, ct);
         if (provider == null) { await writer.WriteErrorAsync("未找到可用的对话模型"); return; }
 
         var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);
         var options = await BuildChatOptionsAsync(request, topic, modelId, ct);
         var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, ct);
 
-        var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
+        var profile = BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
 
         var contentSb = new StringBuilder();
@@ -131,7 +134,7 @@ public class ChatMessagesController : ControllerBase
         var sessionTodos = new List<SessionTodo>();
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
         int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0, estimatedInput = 0, estimatedCompressed = 0;
         bool hasUsage = false;
         var cancelled = false;
@@ -142,19 +145,11 @@ public class ChatMessagesController : ControllerBase
             for (int iter = 0; iter < maxIter; iter++)
             {
                 // 1. 压缩前估算原始 Token
-                estimatedInput += (int)Math.Ceiling(
-                    (chatMessages.Sum(m => m.Content?.Length ?? 0)
-                        + (options.SystemPrompt?.Length ?? 0)
-                        + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
-                    ) / 3.0);
+                estimatedInput += EstimateTokens(chatMessages, options);
 
                 // 2. 压缩本轮消息并估算压缩后 Token
                 await CompressChatHistoryAsync(chatMessages, options, ct);
-                estimatedCompressed += (int)Math.Ceiling(
-                    (chatMessages.Sum(m => m.Content?.Length ?? 0)
-                        + (options.SystemPrompt?.Length ?? 0)
-                        + (options.Tools?.Sum(t => System.Text.Json.JsonSerializer.Serialize(t).Length) ?? 0)
-                    ) / 3.0);
+                estimatedCompressed += EstimateTokens(chatMessages, options);
 
                 // 3. LLM 调用
                 await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
@@ -248,16 +243,6 @@ public class ChatMessagesController : ControllerBase
         }
     }
 
-    private async Task<(ILLMProvider? provider, Guid? modelId)> ResolveProviderAsync(
-        SendMessageRequest request, ChatTopicDto topic, CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(request.ModelId) && Guid.TryParse(request.ModelId, out var reqId))
-            return (await _llmProviderFactory.CreateProviderAsync(reqId, ct), reqId);
-        if (topic.ModelId.HasValue)
-            return (await _llmProviderFactory.CreateProviderAsync(topic.ModelId.Value, ct), topic.ModelId);
-        return (await _llmProviderFactory.CreateChatProviderAsync(ct), null);
-    }
-
     private async Task<List<LlmChatMessage>> BuildChatHistoryAsync(
         Guid topicId, SendMessageRequest request, ILLMProvider provider, CancellationToken ct)
     {
@@ -303,7 +288,7 @@ public class ChatMessagesController : ControllerBase
         // ModelId 留空：provider 创建时已注入正确的模型名（_modelId），
         // 这里的 modelId 是数据库主键 Guid，绝不能当模型名发给 LLM。
         var options = new ChatOptions { Stream = true };
-        var profile = Hetu.Core.Profiles.BuiltinProfiles.Knowledge;
+        var profile = BuiltinProfiles.Knowledge;
 
         string? skillPrompt = null;
         if (!string.IsNullOrWhiteSpace(request.SkillName))
@@ -346,11 +331,11 @@ public class ChatMessagesController : ControllerBase
         {
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(config);
+                using var doc = JsonDocument.Parse(config);
                 if (doc.RootElement.TryGetProperty("systemPrompt", out var sp))
                     return sp.GetString();
             }
-            catch { }
+            catch (JsonException) { }
         }
         return null;
     }
@@ -382,8 +367,6 @@ public class ChatMessagesController : ControllerBase
         SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
-        // Persist with camelCase so the frontend can parse saved results the same way as SSE payloads.
-        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
         if (request.WebSearch)
         {
@@ -391,7 +374,7 @@ public class ChatMessagesController : ControllerBase
             if (results.Count > 0)
             {
                 await writer.WriteJsonAsync(new { type = "search_results", results });
-                searchJson = System.Text.Json.JsonSerializer.Serialize(results, jsonOptions);
+                searchJson = JsonSerializer.Serialize(results, JsonDefaults.CamelCase);
                 messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildSearchContext(results) });
             }
         }
@@ -405,11 +388,14 @@ public class ChatMessagesController : ControllerBase
                 {
                     var items = kbResult.Data.Items;
                     await writer.WriteJsonAsync(new { type = "knowledge_results", results = items.Select(r => new { r.Title, r.ContentSnippet, r.Id }) });
-                    kbJson = System.Text.Json.JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }), jsonOptions);
+                    kbJson = JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }), JsonDefaults.CamelCase);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildKnowledgeContext(items) });
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[Stream] 知识库检索失败");
+            }
         }
 
         if (request.Memory)
@@ -420,18 +406,21 @@ public class ChatMessagesController : ControllerBase
                 if (memories.Count > 0)
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });
-                    memJson = System.Text.Json.JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }), jsonOptions);
+                    memJson = JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }), JsonDefaults.CamelCase);
                     messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildMemoryContext(memories) });
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[Stream] 记忆检索失败");
+            }
         }
 
         return (searchJson, kbJson, memJson);
     }
 
     private (bool useToolCalling, Dictionary<string, ToolApprovalMode> overrides) ConfigureToolCalling(
-        SendMessageRequest request, Hetu.Core.Profiles.RuntimeProfile profile, ChatOptions options)
+        SendMessageRequest request, RuntimeProfile profile, ChatOptions options)
     {
         var overrides = new Dictionary<string, ToolApprovalMode>();
         if (!request.EnableTools) return (false, overrides);
@@ -474,7 +463,15 @@ public class ChatMessagesController : ControllerBase
         return sb.ToString();
     }
 
-    /// <summary>压缩聊天历史中的每条消息内容，节省发送给 LLM 的 token</summary>
+    /// <summary>按字符数粗略估算一轮请求的 token 数（约 3 字符 / token）</summary>
+    private static int EstimateTokens(List<LlmChatMessage> messages, ChatOptions options)
+    {
+        var chars = messages.Sum(m => m.Content?.Length ?? 0)
+            + (options.SystemPrompt?.Length ?? 0)
+            + (options.Tools?.Sum(t => JsonSerializer.Serialize(t).Length) ?? 0);
+        return (int)Math.Ceiling(chars / 3.0);
+    }
+
     private async Task CompressChatHistoryAsync(List<LlmChatMessage> messages, ChatOptions options, CancellationToken ct)
     {
         for (int i = 0; i < messages.Count; i++)

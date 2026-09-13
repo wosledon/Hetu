@@ -1,5 +1,5 @@
-using Hetu.Core.Interfaces;
 using Hetu.Core.Entities;
+using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
 using Microsoft.AspNetCore.Mvc;
