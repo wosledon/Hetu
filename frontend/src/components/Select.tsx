@@ -18,6 +18,8 @@ export interface SelectProps {
   /** 是否启用搜索过滤 */
   searchable?: boolean
   searchPlaceholder?: string
+  /** 自定义触发器样式（紧凑场景传入以覆盖默认大尺寸样式） */
+  triggerClassName?: string
 }
 
 const TRIGGER_CLASS =
@@ -32,6 +34,7 @@ export default function Select({
   disabled,
   searchable = false,
   searchPlaceholder = '搜索...',
+  triggerClassName,
 }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -154,7 +157,8 @@ export default function Select({
       setDropdownStyle({
         position: 'fixed',
         left: rect.left,
-        width: rect.width,
+        // 面板最小 180px，避免触发器太窄导致选项被裁切
+        width: Math.max(rect.width, 180),
         ...(dropUp
           ? { bottom: window.innerHeight - rect.top + 4 }
           : { top: rect.bottom + 4 }),
@@ -193,7 +197,7 @@ export default function Select({
             setOpen(true)
           }
         }}
-        className={TRIGGER_CLASS}
+        className={triggerClassName ?? TRIGGER_CLASS}
       >
         <span
           className={`truncate text-left ${

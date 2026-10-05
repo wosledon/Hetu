@@ -1,20 +1,36 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Send, Square, ChevronDown, ChevronRight, Loader2,
   ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX,
   ListChecks, Coins, User, Copy, Check, Braces, SquareCode, FolderOpen, SquareTerminal, Brain, Wrench, Bot,
+  Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote,
 } from 'lucide-react'
-import { workSessionService, workProjectService, workOpenService } from '../../services/workService'
+import { workSessionService, workProjectService, workOpenService, workCheckpointService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
+import { promptPresetService } from '../../services/promptPresetService'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
+import Select from '../Select'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
+import { useConfirm } from '../../components/confirm'
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
   session?: IWorkSession
   onSessionUpdated?: (session: IWorkSession) => void
+  onSessionCreated?: (session: IWorkSession) => void
+  /** 右侧探索器当前打开的文件（作为可引用上下文） */
+  activeFilePath?: string | null
+  onClearActiveFile?: () => void
+  /** 外部注入的上下文（如编辑器选中代码） */
+  pendingContext?: { kind: 'selection'; path: string; text: string; nonce: number } | null
+  /** 点击路径 → 在探索器打开文件 */
+  onOpenFilePath?: (path: string) => void
+  /** 把命令送到内置终端执行 */
+  onRunCommand?: (command: string) => void
+  /** 把代码块插入编辑器光标处 */
+  onInsertCode?: (code: string) => void
 }
 
 interface FileChangeMeta { path: string; action: string }
@@ -66,12 +82,32 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
 }
 
 const PERMISSION_MODES: { value: WorkPermissionMode; label: string }[] = [
-  { value: 'plan', label: '计划模式（只调研）' },
-  { value: 'readonly', label: '只读（不改文件）' },
-  { value: 'ask', label: '每次写入需确认' },
-  { value: 'auto', label: '自动执行写操作' },
+  { value: 'plan', label: '计划（只调研）' },
+  { value: 'readonly', label: '只读' },
+  { value: 'ask', label: '写入需确认' },
+  { value: 'auto', label: '自动执行' },
   { value: 'bypass', label: '全部放行' },
 ]
+
+/** 工具栏统一样式的下拉选择器（复用自定义 Select，展开菜单为统一风格） */
+function ToolbarSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <Select
+      value={value}
+      onChange={onChange}
+      options={options}
+      triggerClassName="flex h-[26px] max-w-[140px] shrink-0 items-center justify-between gap-1 rounded-md px-1.5 text-[11px] text-gray-600 outline-none transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/50"
+    />
+  )
+}
 
 const PLAN_EXECUTE_PROMPT = '按上面的计划开始执行。'
 
@@ -98,7 +134,18 @@ const TOOL_META: Record<string, { label: string; tone: string }> = {
   work_skill: { label: '调用技能', tone: 'text-indigo-500' },
 }
 
-export default function WorkSessionArea({ project, session, onSessionUpdated }: WorkSessionAreaProps) {
+export default function WorkSessionArea({
+  project,
+  session,
+  onSessionUpdated,
+  onSessionCreated,
+  activeFilePath,
+  onClearActiveFile,
+  pendingContext,
+  onOpenFilePath,
+  onRunCommand,
+  onInsertCode,
+}: WorkSessionAreaProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -118,6 +165,15 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
   const streamRef = useRef<AbortController | null>(null)
   const seqRef = useRef(0)
 
+  const createSession = useMutation({
+    mutationFn: workSessionService.create,
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['workSessions'] })
+      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+      onSessionCreated?.(created)
+    },
+  })
+
   const { data: messages = [] } = useQuery({
     queryKey: ['workMessages', session?.id],
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
@@ -134,6 +190,72 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     queryFn: () => workOpenService.apps(),
     staleTime: 5 * 60 * 1000,
   })
+
+  // 智能体（提示词预设）与推理强度
+  const { data: agents = [] } = useQuery({
+    queryKey: ['promptPresets'],
+    queryFn: () => promptPresetService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
+  const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
+  const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
+  const reasoningEffort = session && effortOverride?.sessionId === session.id ? effortOverride.value : ''
+
+  // 上下文 chips：引用文件（受控于探索器）+ 注入的选中代码/粘贴路径
+  const [injectedContexts, setInjectedContexts] = useState<{ id: string; kind: 'selection' | 'path'; label: string; text: string }[]>([])
+  const lastContextNonce = useRef(0)
+  useEffect(() => {
+    if (!pendingContext || pendingContext.nonce === lastContextNonce.current) return
+    lastContextNonce.current = pendingContext.nonce
+    setInjectedContexts((prev) => [
+      ...prev.filter((c) => !(c.kind === 'selection' && c.label === pendingContext.path)),
+      { id: `sel-${pendingContext.nonce}`, kind: 'selection', label: pendingContext.path, text: pendingContext.text },
+    ])
+  }, [pendingContext])
+
+  /** 粘贴绝对路径 → 转为引用 chip（不放回输入框） */
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData.getData('text/plain').trim()
+    if (text.length > 260 || text.includes('\n')) return
+    if (!/^[a-zA-Z]:[\\/]/.test(text) && !text.startsWith('\\\\')) return
+    e.preventDefault()
+    const label = text.split(/[\\/]/).pop() || text
+    setInjectedContexts((prev) => [
+      ...prev.filter((c) => c.label !== label),
+      { id: `path-${Date.now()}`, kind: 'path', label, text: `【引用文件】${text}` },
+    ])
+  }
+
+  // 快捷键：Ctrl/Cmd+L 聚焦输入框，Alt+N 新建会话
+  const newSessionRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    newSessionRef.current = () => {
+      if (project) createSession.mutate({ projectId: project.id, title: '' })
+    }
+  }, [project, createSession])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        newSessionRef.current()
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        textareaRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // 输入历史（↑/↓ 回溯）
+  const [inputHistory, setInputHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+
+  // 长会话：旧回合默认折叠
+  const [showOlder, setShowOlder] = useState(false)
 
   // 未手动切换过模型时，跟随会话上保存的模型
   const selectedModelId =
@@ -181,6 +303,16 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       return !id || lastOfSubagent.get(id) === m.id
     })
   }, [messages])
+
+  // 长会话：默认只展示最近一轮，更早的折叠
+  const lastUserIndex = useMemo(() => {
+    for (let i = orderedMessages.length - 1; i >= 0; i--) {
+      if (orderedMessages[i].role === 'user') return i
+    }
+    return -1
+  }, [orderedMessages])
+  const visibleMessages = showOlder || lastUserIndex <= 0 ? orderedMessages : orderedMessages.slice(lastUserIndex)
+  const olderCount = showOlder || lastUserIndex <= 0 ? 0 : lastUserIndex
  // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   const lastUserMessage = useMemo(
     () => [...messages].reverse().find((m) => m.role === 'user'),
@@ -219,7 +351,36 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     if (!session || !input.trim() || isStreaming) return
     const content = input.trim()
     setInput('')
-    await runStream(content, permissionMode)
+    setHistoryIndex(-1)
+    setInputHistory((prev) => [...prev.slice(-49), content])
+    setInjectedContexts([])
+    await runStream(buildContent(content), permissionMode)
+  }
+
+  /** 把上下文 chips 组装进提示词 */
+  const buildContent = (raw: string): string => {
+    const parts: string[] = []
+    if (activeFilePath) parts.push(`【引用文件】${activeFilePath}`)
+    for (const c of injectedContexts) {
+      if (c.kind === 'selection') parts.push(`【选中代码 · ${c.label}】\n\`\`\`\n${c.text}\n\`\`\``)
+    }
+    if (parts.length === 0) return raw
+    return `${parts.join('\n')}\n\n${raw}`
+  }
+
+  /** 预设提示词直达发送（诊断 / 起步 chips / 后续建议共用） */
+  const sendPreset = (text: string) => {
+    if (!session || isStreaming) return
+    setInputHistory((prev) => [...prev.slice(-49), text])
+    void runStream(buildContent(text), permissionMode)
+  }
+
+  /** 重新生成：重跑最后一条用户消息，不重复落库该消息 */
+  const retryLast = async () => {
+    if (!session || isStreaming) return
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    if (!lastUser) return
+    await runStream(lastUser.content, permissionMode, false)
   }
 
   /** 计划模式：切到执行模式并把计划交给 Agent 落地 */
@@ -229,10 +390,10 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     await runStream(PLAN_EXECUTE_PROMPT, 'auto')
   }
 
-  const runStream = async (content: string, mode: WorkPermissionMode) => {
+  const runStream = async (content: string, mode: WorkPermissionMode, persistUserMessage = true) => {
     if (!session) return
     setIsStreaming(true)
-    setPendingUser(content)
+    if (persistUserMessage) setPendingUser(content)
     resetStreamState()
 
     const controller = new AbortController()
@@ -279,6 +440,9 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           modelId: selectedModelId || undefined,
           enableTools: true,
           permissionMode: mode,
+          reasoningEffort: reasoningEffort || undefined,
+          agentPrompt: selectedAgentId ? agents.find((a) => a.id === selectedAgentId)?.content : undefined,
+          persistUserMessage,
         },
         controller.signal,
       )
@@ -314,6 +478,43 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
     setAnswerDraft('')
     setQuestions((prev) => prev.filter((x) => x.toolCallId !== toolCallId))
     workSessionService.answer(session.id, toolCallId, answer).catch(() => {})
+  }
+
+  /** 导出会话为 Markdown */
+  const exportMarkdown = () => {
+    if (!session) return
+    const lines: string[] = [`# ${session.title || '工作会话'}`, '']
+    for (const m of orderedMessages) {
+      if (m.type === 'file_change') {
+        let meta: FileChangeMeta = { path: '', action: 'write' }
+        try { meta = JSON.parse(m.metadata ?? '{}') } catch { /* 使用默认值 */ }
+        const label = meta.action === 'create' ? '新建' : meta.action === 'delete' ? '删除' : '修改'
+        lines.push(`- 📄 ${label} \`${meta.path}\``)
+      } else if (m.type === 'thought') {
+        lines.push('<details><summary>思考过程</summary>', '', m.content, '', '</details>')
+      } else if (m.type === 'tool') {
+        let meta: { name: string } = { name: '' }
+        try { meta = { ...meta, ...JSON.parse(m.metadata ?? '{}') } } catch { /* 使用默认值 */ }
+        lines.push(`<details><summary>🔧 ${meta.name || '工具调用'}</summary>`, '', '```', m.content, '```', '', '</details>')
+      } else if (m.type === 'subagent') {
+        lines.push(`- 🤖 子 Agent：${m.content}`)
+      } else if (m.type === 'checkpoint') {
+        lines.push(`- 📌 检查点：${m.content}`)
+      } else if (m.role === 'user') {
+        lines.push('## 我', '', m.content, '')
+      } else if (m.type === 'system') {
+        lines.push(`> ${m.content}`, '')
+      } else {
+        lines.push('## Agent', '', m.content, '')
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${session.title || 'work-session'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleOpen = async (app: string) => {
@@ -375,11 +576,30 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
             </span>
           )}
           {project && (
-            <OpenWithButton
-              apps={openApps}
-              onOpen={handleOpen}
-              onCopyPath={copyRootPath}
-            />
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+                disabled={createSession.isPending}
+                title="新建会话（Alt+N）"
+                aria-label="新建会话"
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              >
+                {createSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              </button>
+              <button
+                onClick={exportMarkdown}
+                title="导出会话为 Markdown"
+                aria-label="导出会话为 Markdown"
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              >
+                <Download size={14} />
+              </button>
+              <OpenWithButton
+                apps={openApps}
+                onOpen={handleOpen}
+                onCopyPath={copyRootPath}
+              />
+            </div>
           )}
         </div>
         {openFeedback && (
@@ -392,10 +612,33 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
       {/* 消息区：瀑布流 */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
-          {orderedMessages.map((msg) =>
+          {olderCount > 0 && (
+            <button
+              onClick={() => setShowOlder(true)}
+              className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            >
+              <ChevronDown size={11} />展开更早的 {olderCount} 条消息
+            </button>
+          )}
+          {visibleMessages.map((msg) =>
             isProcessMessage(msg)
-              ? <ProcessMessageRow key={msg.id} message={msg} />
-              : <MessageRow key={msg.id} message={msg} />,
+              ? <ProcessMessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
+              : <MessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />,
+          )}
+
+          {/* 空会话：快捷起步 */}
+          {!isStreaming && lastUserIndex < 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {['解释这个项目是做什么的', '修复构建错误', '搜索与登录相关的代码', '总结 README 的要点'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => sendPreset(t)}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* 刚发出、后端尚在持久化的消息（即时反馈） */}
@@ -453,11 +696,14 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
                 </div>
               )}
 
-              {timeline.map((item) => <TimelineRow key={item.seq} item={item} />)}
+              {timeline.map((item) => <TimelineRow key={item.seq} item={item} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />)}
 
               {streamingContent && (
                 <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
-                  <ThemedMarkdown source={streamingContent} />
+                  <ThemedMarkdown
+                    source={streamingContent}
+                    onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
+                  />
                   <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 animate-pulse bg-blue-500" aria-hidden />
                 </div>
               )}
@@ -472,8 +718,7 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
           )}
 
           {/* 计划模式：一键转执行 */}
-          {permissionMode === 'plan' && !isStreaming && (
-            <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 dark:border-sky-800/50 dark:bg-sky-950/20">
+          {permissionMode === 'plan' && !isStreaming && (            <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 dark:border-sky-800/50 dark:bg-sky-950/20">
               <ListChecks size={15} className="shrink-0 text-sky-500" />
               <span className="min-w-0 flex-1 text-[12px] text-sky-800 dark:text-sky-300">
                 计划模式只做只读调研；确认计划后切换到执行模式落地。
@@ -487,70 +732,159 @@ export default function WorkSessionArea({ project, session, onSessionUpdated }: 
             </div>
           )}
 
+          {/* 后续建议 + 重新生成 */}
+          {!isStreaming && orderedMessages.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {['继续实现', '补充单元测试', '解释上面的改动'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => sendPreset(t)}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+                >
+                  {t}
+                </button>
+              ))}
+              <button
+                onClick={() => void retryLast()}
+                title="用最后一条输入重新生成"
+                className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+              >
+                <RotateCcw size={11} />重新生成
+              </button>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* 输入区：模式/模型等操作收在输入框工具栏 */}
-      <div className="border-t border-gray-200 bg-gray-50/70 p-3 dark:border-gray-800 dark:bg-gray-900/70">
+      {/* 输入区：上下文 chips + 模式/Agent/模型/推理强度工具栏 */}
+      <div className="bg-white p-3 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
+          {(activeFilePath || injectedContexts.length > 0) && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              {activeFilePath && (
+                <span
+                  className="flex max-w-64 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                  title={`引用文件：${activeFilePath}`}
+                >
+                  <FileCode size={10} className="shrink-0" />
+                  <span className="truncate">{activeFilePath}</span>
+                  <button
+                    onClick={() => onClearActiveFile?.()}
+                    aria-label="移除引用文件"
+                    className="shrink-0 rounded-full p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                  >
+                    <X size={9} />
+                  </button>
+                </span>
+              )}
+              {injectedContexts.map((c) => (
+                <span
+                  key={c.id}
+                  className="flex max-w-64 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  title={c.kind === 'selection' ? c.text.slice(0, 200) : c.text}
+                >
+                  {c.kind === 'selection' ? <Quote size={10} className="shrink-0" /> : <FileCode size={10} className="shrink-0" />}
+                  <span className="truncate">{c.kind === 'selection' ? `选中 ${c.label}` : c.label}</span>
+                  <button
+                    onClick={() => setInjectedContexts((prev) => prev.filter((x) => x.id !== c.id))}
+                    aria-label="移除上下文"
+                    className="shrink-0 rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                  >
+                    <X size={9} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={handlePaste}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   handleSend()
+                  return
+                }
+                if (e.key === 'ArrowUp' && (input === '' || e.currentTarget.selectionStart === 0)) {
+                  if (inputHistory.length === 0) return
+                  e.preventDefault()
+                  const next = historyIndex < 0 ? inputHistory.length - 1 : Math.max(0, historyIndex - 1)
+                  setHistoryIndex(next)
+                  setInput(inputHistory[next])
+                  return
+                }
+                if (e.key === 'ArrowDown' && historyIndex >= 0) {
+                  e.preventDefault()
+                  const next = historyIndex + 1
+                  if (next >= inputHistory.length) { setHistoryIndex(-1); setInput('') }
+                  else { setHistoryIndex(next); setInput(inputHistory[next]) }
                 }
               }}
-              placeholder="描述你要完成的开发任务，如：修复登录页的样式问题"
+              placeholder="描述你要完成的开发任务，如：修复登录页的样式问题（↑ 回溯历史输入）"
               rows={2}
               className="max-h-40 w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400"
             />
-            <div className="flex items-center gap-2 border-t border-gray-100 px-2 py-1.5 dark:border-gray-800">
+            <div className="flex flex-nowrap items-center gap-1.5 px-1.5 py-1.5">
               {modeIcon}
-              <select
+              <ToolbarSelect
                 value={permissionMode}
-                onChange={(e) => setPermissionMode(e.target.value as WorkPermissionMode)}
-                aria-label="权限模式"
-                className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] text-gray-600 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-              >
-                {PERMISSION_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-              <select
+                onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
+                options={PERMISSION_MODES.map((m) => ({ value: m.value, label: m.label }))}
+              />
+              <ToolbarSelect
+                value={selectedAgentId}
+                onChange={(v) => session && setAgentOverride({ sessionId: session.id, value: v })}
+                options={[{ value: '', label: '默认 Agent' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]}
+              />
+              <ToolbarSelect
                 value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-                aria-label="模型"
-                className="max-w-40 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] text-gray-600 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                onChange={(v) => setSelectedModelId(v)}
+                options={[{ value: '', label: '默认模型' }, ...aiModels.filter((m) => m.purpose === 'chat').map((m) => ({ value: m.id, label: m.displayName }))]}
+              />
+              <ToolbarSelect
+                value={reasoningEffort}
+                onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
+                options={[{ value: '', label: '默认强度' }, { value: 'low', label: '低' }, { value: 'medium', label: '中' }, { value: 'high', label: '高' }]}
+              />
+              <button
+                onClick={() => sendPreset(`运行构建诊断${project?.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
+                disabled={isStreaming}
+                title="运行构建诊断并汇报"
+                aria-label="运行构建诊断"
+                className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60"
               >
-                <option value="">默认模型</option>
-                {aiModels.filter((m) => m.purpose === 'chat').map((m) => <option key={m.id} value={m.id}>{m.displayName}</option>)}
-              </select>
-              <span className="ml-auto hidden text-[10px] text-gray-400 sm:inline">Enter 发送 · Shift+Enter 换行</span>
+                <Stethoscope size={12} />诊断
+              </button>
               {isStreaming ? (
                 <button
                   onClick={() => streamRef.current?.abort()}
-                  className="rounded-lg bg-gray-200 p-2 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
+                  className="ml-auto flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-600 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"
                   title="停止生成"
                   aria-label="停止生成"
                 >
-                  <Square size={15} />
+                  <Square size={14} />
                 </button>
               ) : (
                 <button
                   onClick={handleSend}
                   disabled={!input.trim()}
-                  className="rounded-lg bg-blue-500 p-2 text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
+                  className="ml-auto flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
                   aria-label="发送"
                 >
-                  <Send size={15} />
+                  <Send size={14} />
                 </button>
               )}
             </div>
           </div>
-          <p className="mt-1.5 px-1 text-[11px] text-gray-400">Agent 按权限模式读写项目文件、执行开发命令，写操作会按规则询问或直接放行。</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 px-1 text-[11px] text-gray-400">
+            <span>Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦</span>
+            <span className="hidden sm:inline">Agent 按权限模式读写项目文件；引用文件 / 选中代码随消息发送</span>
+          </p>
         </div>
       </div>
     </div>
@@ -666,7 +1000,7 @@ function UserBubble({ message }: { message: IWorkMessage }) {
   )
 }
 
-function AgentTextBlock({ message }: { message: IWorkMessage }) {
+function AgentTextBlock({ message, onCodeAction }: { message: IWorkMessage; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
   const [copied, setCopied] = useState(false)
   if (message.type === 'system') {
     return (
@@ -694,7 +1028,7 @@ function AgentTextBlock({ message }: { message: IWorkMessage }) {
         </button>
       </div>
       <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
-        <ThemedMarkdown source={message.content} />
+        <ThemedMarkdown source={message.content} onCodeAction={onCodeAction} />
       </div>
       {(message.totalTokens ?? 0) > 0 && (
         <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400">
@@ -710,14 +1044,61 @@ function AgentTextBlock({ message }: { message: IWorkMessage }) {
   )
 }
 
-function FileChangeRow({ change }: { change: FileChangeMeta }) {
+function FileChangeRow({ change, onOpenPath }: { change: FileChangeMeta; onOpenPath?: (path: string) => void }) {
   const meta = FILE_ACTION_META[change.action] ?? FILE_ACTION_META.write
   const Icon = change.action === 'delete' ? FileX : change.action === 'create' ? FilePlus : PenLine
   return (
     <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50/60 px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-800/40">
       <Icon size={13} className={`shrink-0 ${meta.cls}`} />
-      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300">{change.path}</span>
+      {onOpenPath ? (
+        <button
+          onClick={() => onOpenPath(change.path)}
+          title="在编辑器中打开"
+          className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-gray-600 underline-offset-2 hover:text-blue-500 hover:underline dark:text-gray-300"
+        >
+          {change.path}
+        </button>
+      ) : (
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300">{change.path}</span>
+      )}
       <span className={`shrink-0 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span>
+    </div>
+  )
+}
+
+/** 检查点行：对话内可直接回滚到该快照 */
+function CheckpointRow({ message }: { message: IWorkMessage }) {
+  const confirm = useConfirm()
+  const [restoring, setRestoring] = useState(false)
+  let meta: { id?: string; fileCount?: number } = {}
+  try { meta = JSON.parse(message.metadata ?? '{}') } catch { /* 使用默认值 */ }
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+      <History size={12} className="shrink-0 text-sky-500" />
+      <span className="min-w-0 flex-1 truncate text-[11px] text-sky-800 dark:text-sky-300">
+        检查点 · {message.content}
+      </span>
+      {meta.id && (
+        <button
+          onClick={() => confirm({
+            message: `确定回滚到检查点「${message.content}」吗？工作区相关文件将被覆盖。`,
+            onConfirm: async () => {
+              setRestoring(true)
+              try {
+                await workCheckpointService.restore(meta.id!)
+              } finally {
+                setRestoring(false)
+              }
+            },
+          })}
+          disabled={restoring}
+          title="回滚到此检查点"
+          className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-sky-600 transition-colors hover:bg-sky-100 disabled:opacity-40 dark:text-sky-300 dark:hover:bg-sky-900/40"
+        >
+          {restoring ? <Loader2 size={10} className="animate-spin" /> : <RotateCcw size={10} />}
+          回滚到此
+        </button>
+      )}
     </div>
   )
 }
@@ -745,12 +1126,16 @@ function ThoughtBlock({ text, streaming }: { text: string; streaming: boolean })
 }
 
 /** 历史消息中的过程事件（思考 / 工具调用 / 子 Agent）：各自折叠，展开才看细节 */
-function ProcessMessageRow({ message }: { message: IWorkMessage }) {
+function ProcessMessageRow({ message, onOpenFilePath, onRunCommand }: {
+  message: IWorkMessage
+  onOpenFilePath?: (path: string) => void
+  onRunCommand?: (command: string) => void
+}) {
   if (message.type === 'thought') return <ThoughtBlock text={message.content} streaming={false} />
   if (message.type === 'tool') {
     let meta: { name: string; arguments: string } = { name: '', arguments: '{}' }
     try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-    return <ToolCallRow name={meta.name} args={meta.arguments} result={message.content} />
+    return <ToolCallRow name={meta.name} args={meta.arguments} result={message.content} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} />
   }
   let meta: { stage: string; tool?: string; steps?: number; message?: string } = { stage: 'done' }
   try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
@@ -760,21 +1145,26 @@ function ProcessMessageRow({ message }: { message: IWorkMessage }) {
 const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 */
-function MessageRow({ message }: { message: IWorkMessage }) {
+function MessageRow({ message, onOpenFilePath, onCodeAction }: { message: IWorkMessage; onOpenFilePath?: (path: string) => void; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
   if (message.type === 'file_change') {
     let meta: FileChangeMeta = { path: '', action: 'write' }
     try { meta = JSON.parse(message.metadata ?? '{}') } catch { /* 使用默认值 */ }
-    return <FileChangeRow change={meta} />
+    return <FileChangeRow change={meta} onOpenPath={onOpenFilePath} />
   }
+  if (message.type === 'checkpoint') return <CheckpointRow message={message} />
   if (message.role === 'user') return <UserBubble message={message} />
-  return <AgentTextBlock message={message} />
+  return <AgentTextBlock message={message} onCodeAction={onCodeAction} />
 }
 
-function TimelineRow({ item }: { item: TimelineItem }) {
+function TimelineRow({ item, onOpenFilePath, onRunCommand }: {
+  item: TimelineItem
+  onOpenFilePath?: (path: string) => void
+  onRunCommand?: (command: string) => void
+}) {
   if (item.kind === 'tool') {
-    return <ToolCallRow name={item.name} args={item.arguments} result={item.result} running={item.result === undefined} />
+    return <ToolCallRow name={item.name} args={item.arguments} result={item.result} running={item.result === undefined} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} />
   }
-  if (item.kind === 'file') return <FileChangeRow change={{ path: item.path, action: item.action }} />
+  if (item.kind === 'file') return <FileChangeRow change={{ path: item.path, action: item.action }} onOpenPath={onOpenFilePath} />
   if (item.kind === 'checkpoint') {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
@@ -815,26 +1205,61 @@ function SubAgentRow({ description, stage, tool, steps, message }: { description
   )
 }
 
-function ToolCallRow({ name, args, result, running }: { name: string; args: string; result?: string; running?: boolean }) {
+function ToolCallRow({ name, args, result, running, onOpenPath, onRunCommand }: {
+  name: string
+  args: string
+  result?: string
+  running?: boolean
+  onOpenPath?: (path: string) => void
+  onRunCommand?: (command: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const meta = TOOL_META[name] ?? { label: name, tone: 'text-gray-500' }
   const target = extractPath(args)
+  const command = extractRunnableCommand(name, args)
   let prettyArgs = args
   try { prettyArgs = JSON.stringify(JSON.parse(args), null, 2) } catch { /* 保留原文 */ }
   return (
     <div className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left"
-      >
-        {open ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
+      <div className="flex items-center gap-2 px-2.5 py-1.5">
+        <button
+          onClick={() => setOpen(!open)}
+          className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+          aria-label={open ? '收起详情' : '展开详情'}
+        >
+          {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        </button>
         <Wrench size={11} className={`shrink-0 ${meta.tone}`} />
         <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{meta.label}</span>
-        {target && <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400">{target}</span>}
+        {target ? (
+          onOpenPath ? (
+            <button
+              onClick={() => onOpenPath(target)}
+              title="在编辑器中打开"
+              className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
+            >
+              {target}
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400">{target}</span>
+          )
+        ) : (
+          command && <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400">{command}</span>
+        )}
+        {command && onRunCommand && (
+          <button
+            onClick={() => onRunCommand(command)}
+            title="在终端运行"
+            aria-label="在终端运行"
+            className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
+          >
+            <Play size={11} />
+          </button>
+        )}
         {result !== undefined && !running
           ? <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
           : <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />}
-      </button>
+      </div>
       {open && (
         <div className="border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
           <pre className="overflow-x-auto text-[11px] text-gray-500 dark:text-gray-400">{prettyArgs}</pre>
@@ -897,4 +1322,32 @@ function extractPath(argumentsJson: string): string | null {
   } catch {
     return null
   }
+}
+
+function extractCommand(argumentsJson: string): string | null {
+  try {
+    const parsed = JSON.parse(argumentsJson) as { command?: string }
+    return parsed.command ?? null
+  } catch {
+    return null
+  }
+}
+
+function extractArg(argumentsJson: string, key: string): string | null {
+  try {
+    const parsed = JSON.parse(argumentsJson) as Record<string, string>
+    return parsed[key] ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 可送到终端执行的命令行：run_command / diagnostics / git 只读查询 */
+function extractRunnableCommand(name: string, argumentsJson: string): string | null {
+  if (name === 'work_run_command' || name === 'work_diagnostics') return extractCommand(argumentsJson)
+  if (name === 'work_git') {
+    const args = extractArg(argumentsJson, 'args')
+    return args ? `git ${args}` : null
+  }
+  return null
 }

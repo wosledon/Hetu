@@ -26,6 +26,12 @@ export default function WorkPage() {
   const queryClient = useQueryClient()
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
+  // 跨组件联动：当前打开文件 / 打开文件请求 / 终端命令请求 / 对话上下文注入 / 编辑器插入请求
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
+  const [openFileRequest, setOpenFileRequest] = useState<{ path: string; nonce: number } | null>(null)
+  const [terminalCommandRequest, setTerminalCommandRequest] = useState<{ command: string; nonce: number } | null>(null)
+  const [pendingContext, setPendingContext] = useState<{ kind: 'selection'; path: string; text: string; nonce: number } | null>(null)
+  const [insertRequest, setInsertRequest] = useState<{ text: string; path?: string; nonce: number } | null>(null)
   const [showTerminal, setShowTerminal] = useState(() => localStorage.getItem('hetu-work-terminal-open') !== '0')
   const [rightCollapsed, setRightCollapsed] = useState(false)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
@@ -52,6 +58,18 @@ export default function WorkPage() {
   const handleSessionUpdated = (session: IWorkSession) => {
     setSelectedSession(session)
   }
+
+  const handleSessionCreated = (session: IWorkSession) => {
+    queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
+    queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+    setSelectedSession(session)
+  }
+
+  const requestOpenFile = (path: string) => setOpenFileRequest({ path, nonce: Date.now() })
+  const requestRunCommand = (command: string) => setTerminalCommandRequest({ command, nonce: Date.now() })
+  const addSelectionContext = (path: string, text: string) =>
+    setPendingContext({ kind: 'selection', path, text, nonce: Date.now() })
+  const requestInsertText = (text: string) => setInsertRequest({ text, path: undefined, nonce: Date.now() })
 
   // 终端开合与高度持久化到 localStorage
   useEffect(() => {
@@ -126,6 +144,13 @@ export default function WorkPage() {
             project={selectedProject ?? undefined}
             session={selectedSession ?? undefined}
             onSessionUpdated={handleSessionUpdated}
+            onSessionCreated={handleSessionCreated}
+            activeFilePath={activeFilePath}
+            onClearActiveFile={() => setActiveFilePath(null)}
+            pendingContext={pendingContext}
+            onOpenFilePath={requestOpenFile}
+            onRunCommand={requestRunCommand}
+            onInsertCode={requestInsertText}
           />
           {!rightCollapsed && (
             <div
@@ -150,8 +175,11 @@ export default function WorkPage() {
                   projectId={selectedProject?.id}
                   sessionId={selectedSession?.id}
                   onCollapse={() => setRightCollapsed(true)}
-                />
-              </div>
+                  onActiveFileChange={setActiveFilePath}
+                  openFileRequest={openFileRequest}
+                  onAddSelectionContext={addSelectionContext}
+                  insertRequest={insertRequest}
+                />              </div>
               {showTerminal && (
                 <>
                   <div
@@ -164,6 +192,7 @@ export default function WorkPage() {
                     projectId={selectedProject?.id}
                     onClose={() => setShowTerminal(false)}
                     height={terminalHeight}
+                    commandRequest={terminalCommandRequest}
                   />
                 </>
               )}

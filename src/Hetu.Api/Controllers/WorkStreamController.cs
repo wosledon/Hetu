@@ -117,12 +117,15 @@ public class WorkStreamController : ControllerBase
             }
         }
 
-        // 保存用户消息
-        var userMsg = await _sessionService.AddMessageAsync(sessionId, "user", request.Content ?? "", cancellationToken: ct);
-        if (!userMsg.Success)
+        // 保存用户消息（重新生成时跳过，避免历史重复）
+        if (request.PersistUserMessage)
         {
-            await writer.WriteErrorAsync(userMsg.Error ?? "保存消息失败");
-            return;
+            var userMsg = await _sessionService.AddMessageAsync(sessionId, "user", request.Content ?? "", cancellationToken: ct);
+            if (!userMsg.Success)
+            {
+                await writer.WriteErrorAsync(userMsg.Error ?? "保存消息失败");
+                return;
+            }
         }
 
         // 解析模型
@@ -151,6 +154,10 @@ public class WorkStreamController : ControllerBase
             $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（plan 计划模式只读调研 / readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
             BuildToolGuideline(allowedTools),
         };
+
+        // 智能体（提示词预设）附加系统提示
+        if (!string.IsNullOrWhiteSpace(request.AgentPrompt))
+            systemPromptParts.Add($"【当前智能体】\n{request.AgentPrompt.Trim()}");
 
         if (permissionMode == WorkPermissionMode.Plan)
         {
@@ -185,6 +192,17 @@ public class WorkStreamController : ControllerBase
             Stream = true,
             SystemPrompt = string.Join("\n\n", systemPromptParts),
         };
+
+        // 推理强度：仅原生推理模型（reasoning_mode=native）生效，其余模型忽略
+        if (!string.IsNullOrWhiteSpace(request.ReasoningEffort))
+        {
+            var effortModelId = Guid.TryParse(request.ModelId, out var requestedEffortModel) ? requestedEffortModel : session.ModelId ?? Guid.Empty;
+            var effortModel = effortModelId != Guid.Empty
+                ? await _unitOfWork.AiModels.GetByIdAsync(effortModelId, ct)
+                : await _unitOfWork.AiModels.GetDefaultByPurposeAsync("chat", ct);
+            if (effortModel != null && string.Equals(effortModel.ReasoningMode, "native", StringComparison.OrdinalIgnoreCase))
+                options.ReasoningEffort = request.ReasoningEffort;
+        }
 
         var overrides = new Dictionary<string, ToolApprovalMode>();
         if (request.EnableTools)
@@ -597,6 +615,12 @@ public class WorkStreamController : ControllerBase
                 label = checkpoint.Label,
                 fileCount = checkpoint.FileCount
             });
+
+            // 检查点事件落库：历史回放时可见，并支持从对话里直接回滚
+            await _sessionService.AddMessageAsync(
+                sessionId, "system", checkpoint.Label, "checkpoint",
+                JsonSerializer.Serialize(new { id = checkpoint.Id, label = checkpoint.Label, fileCount = checkpoint.FileCount }),
+                cancellationToken: CancellationToken.None);
 
             await _checkpointService.PruneAsync(sessionId, MaxCheckpointsPerSession, ct);
         }

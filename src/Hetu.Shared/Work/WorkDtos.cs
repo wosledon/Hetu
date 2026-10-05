@@ -119,6 +119,12 @@ public class SendWorkMessageRequest
     public string? ToolApprovalMode { get; set; }
     /// <summary>本轮权限模式（plan | readonly | ask | auto | bypass），传入时同时持久化到会话</summary>
     public string? PermissionMode { get; set; }
+    /// <summary>模型推理强度（low | medium | high），仅对原生推理模型生效</summary>
+    public string? ReasoningEffort { get; set; }
+    /// <summary>智能体（提示词预设）附加系统提示，切换 Agent 时传入</summary>
+    public string? AgentPrompt { get; set; }
+    /// <summary>是否持久化用户消息；重新生成时传 false，避免历史里重复出现同一句输入</summary>
+    public bool PersistUserMessage { get; set; } = true;
 }
 
 /// <summary>文件系统条目</summary>

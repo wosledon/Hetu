@@ -83,7 +83,7 @@ export interface IWorkFileSearchHit {
   text: string;
 }
 
-export type WorkMessageType = 'text' | 'file_change' | 'subagent' | 'tool' | 'thought' | 'system';
+export type WorkMessageType = 'text' | 'file_change' | 'subagent' | 'tool' | 'thought' | 'checkpoint' | 'system';
 
 export interface IWorkMessage {
   id: string;

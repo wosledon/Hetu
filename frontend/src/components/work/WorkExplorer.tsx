@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2 } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -21,6 +21,14 @@ interface WorkExplorerProps {
   projectId?: string
   sessionId?: string
   onCollapse?: () => void
+  /** 当前打开的文件路径变化（供对话区显示引用 chip） */
+  onActiveFileChange?: (path: string | null) => void
+  /** 打开指定文件请求（来自对话区点击路径） */
+  openFileRequest?: { path: string; nonce: number } | null
+  /** 把编辑器选中代码加入对话上下文 */
+  onAddSelectionContext?: (path: string, text: string) => void
+  /** 在编辑器当前标签光标处插入文本（来自对话代码块动作） */
+  insertRequest?: { text: string; path?: string; nonce: number } | null
 }
 
 interface TreeNode extends IWorkFileEntry {
@@ -47,7 +55,7 @@ interface OpenTab {
   checkpoint?: IWorkCheckpointDiff
 }
 
-export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest }: WorkExplorerProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -223,6 +231,8 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       setActiveKey(key)
       setSelectedPath(nodePath)
       setActionError('')
+      setTab('files')
+      onActiveFileChange?.(nodePath)
     } catch (e) {
       setActionError(`打开文件失败：${(e as Error).message || '未知错误'}`)
     }
@@ -309,6 +319,78 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+
+  // 对话区点击路径 → 打开文件
+  const lastOpenNonce = useRef(0)
+  useEffect(() => {
+    if (!openFileRequest || openFileRequest.nonce === lastOpenNonce.current) return
+    lastOpenNonce.current = openFileRequest.nonce
+    const name = openFileRequest.path.split('/').pop() ?? openFileRequest.path
+    void openFileTab(openFileRequest.path, name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFileRequest])
+
+  // 关闭当前活动文件标签时清除引用
+  useEffect(() => {
+    if (!activeKey) onActiveFileChange?.(null)
+  }, [activeKey, onActiveFileChange])
+
+  // 对话代码块"插入到编辑器"
+  const editorViewRef = useRef<EditorView | null>(null)
+  const pendingInsertRef = useRef<string | null>(null)
+  const insertAtCursor = (text: string) => {
+    const view = editorViewRef.current
+    if (!view || !activeTab || activeTab.kind !== 'file' || !activeTab.file) return
+    const { from } = view.state.selection.main
+    const current = draftOf(activeTab)
+    const next = current.slice(0, from) + text + current.slice(from)
+    setDrafts((prev) => new Map(prev).set(activeTab.key, next))
+    setSaveMessage('已插入到编辑器')
+    setTimeout(() => setSaveMessage(''), 2000)
+  }
+  const lastInsertNonce = useRef(0)
+  /* 以下两个 effect 是"外部事件 → 状态同步"的指令式通道（对话代码块插入编辑器），
+     不是渲染派生副作用，故按设计关闭 set-state-in-effect / exhaustive-deps 检查 */
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+  useEffect(() => {
+    if (!insertRequest || insertRequest.nonce === lastInsertNonce.current) return
+    lastInsertNonce.current = insertRequest.nonce
+    if (insertRequest.path && insertRequest.path !== activeTab?.file?.path) {
+      // 目标文件未打开：先打开再插入
+      pendingInsertRef.current = insertRequest.text
+      const name = insertRequest.path.split('/').pop() ?? insertRequest.path
+      void openFileTab(insertRequest.path, name)
+      return
+    }
+    insertAtCursor(insertRequest.text)
+  }, [insertRequest])
+  useEffect(() => {
+    if (!pendingInsertRef.current || !activeTab || activeTab.kind !== 'file') return
+    const text = pendingInsertRef.current
+    pendingInsertRef.current = null
+    insertAtCursor(text)
+  }, [activeTab?.key])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+
+  const quoteSelection = () => {
+    const view = editorViewRef.current
+    if (!view || !activeTab || activeTab.kind !== 'file' || !activeTab.file) return
+    const { from, to } = view.state.selection.main
+    if (from === to) {
+      setSaveMessage('请先在编辑器中选择代码')
+      setTimeout(() => setSaveMessage(''), 2000)
+      return
+    }
+    const text = view.state.sliceDoc(from, to)
+    if (text.length > 8000) {
+      setSaveMessage('选中内容过大（>8000 字符）')
+      setTimeout(() => setSaveMessage(''), 2000)
+      return
+    }
+    onAddSelectionContext?.(activeTab.file.path, text)
+    setSaveMessage('已加入对话上下文')
+    setTimeout(() => setSaveMessage(''), 2000)
+  }
 
   const closeTab = (key: string) => {
     setTabs((prev) => {
@@ -777,6 +859,13 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                     <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
                       <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeTab.file.path}</span>
                       <button
+                        onClick={quoteSelection}
+                        title="将选中代码加入对话（Quote）"
+                        className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                      >
+                        <Quote size={11} />引用选中
+                      </button>
+                      <button
                         onClick={saveActiveTab}
                         disabled={!drafts.has(activeTab.key) || saveFile.isPending}
                         className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
@@ -791,6 +880,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                         value={draftOf(activeTab)}
                         height="100%"
                         theme={isDark ? 'dark' : 'light'}
+                        onCreateEditor={(view) => { editorViewRef.current = view }}
                         onChange={(value) =>
                           setDrafts((prev) => {
                             const next = new Map(prev)

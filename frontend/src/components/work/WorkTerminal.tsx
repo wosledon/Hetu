@@ -6,6 +6,8 @@ interface WorkTerminalProps {
   projectId?: string
   onClose: () => void
   height?: number
+  /** 外部注入的命令请求（如从对话里"在终端运行"），变化即执行 */
+  commandRequest?: { command: string; nonce: number } | null
 }
 
 /** 剥离 ANSI 转义序列 */
@@ -14,7 +16,7 @@ function stripAnsi(text: string): string {
   return text.replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, '').replace(/\u001b\][^\u0007]*\u0007/g, '')
 }
 
-export default function WorkTerminal({ projectId, onClose, height }: WorkTerminalProps) {
+export default function WorkTerminal({ projectId, onClose, height, commandRequest }: WorkTerminalProps) {
   const [content, setContent] = useState('')
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
@@ -62,6 +64,21 @@ export default function WorkTerminal({ projectId, onClose, height }: WorkTermina
   useEffect(() => {
     if (connected) inputRef.current?.focus()
   }, [connected])
+
+  // 外部命令注入：对话里点"在终端运行"后直达终端执行
+  const lastCommandNonce = useRef(0)
+  useEffect(() => {
+    if (!commandRequest || commandRequest.nonce === lastCommandNonce.current) return
+    lastCommandNonce.current = commandRequest.nonce
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setError('终端未连接，命令未执行')
+      return
+    }
+    ws.send(commandRequest.command + '\r')
+    append(`\n❯ ${commandRequest.command}\n`)
+    inputRef.current?.focus()
+  }, [commandRequest, append])
 
   const send = (text: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return

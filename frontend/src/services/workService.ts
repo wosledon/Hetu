@@ -70,6 +70,9 @@ export const workSessionService = {
       enableTools?: boolean;
       toolApprovalMode?: string;
       permissionMode?: WorkPermissionMode;
+      reasoningEffort?: string;
+      agentPrompt?: string;
+      persistUserMessage?: boolean;
     },
     signal?: AbortSignal,
   ) =>
