@@ -255,7 +255,9 @@ public class OpenAiLlmProvider : ILLMProvider
 
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
         if (options.MaxTokens.HasValue) body["max_tokens"] = options.MaxTokens.Value;
-        if (!string.IsNullOrWhiteSpace(options.ReasoningEffort)) body["reasoning_effort"] = options.ReasoningEffort;
+
+        var reasoningEffort = ResolveReasoningEffort(options);
+        if (reasoningEffort != null) body["reasoning_effort"] = reasoningEffort;
 
         // Tools
         if (options.Tools is { Count: > 0 })
@@ -276,6 +278,31 @@ public class OpenAiLlmProvider : ILLMProvider
 
         return body;
     }
+
+    /// <summary>
+    /// 解析 OpenAI 兼容接口的推理强度：off/none 表示不启用；数字预算按区间折算为等级；
+    /// 其余字符串（low/medium/high/xhigh/max 或供应商自定义值）原样透传。
+    /// </summary>
+    private static string? ResolveReasoningEffort(ChatOptions options)
+    {
+        var effort = options.ReasoningEffort?.Trim().ToLowerInvariant();
+        if (effort is "off" or "none" or "disabled") return null;
+
+        if (string.IsNullOrEmpty(effort) && options.ReasoningBudgetTokens is > 0)
+            effort = MapBudgetToEffort(options.ReasoningBudgetTokens.Value);
+
+        if (string.IsNullOrEmpty(effort)) return null;
+        if (int.TryParse(effort, out var budget) && budget > 0)
+            return MapBudgetToEffort(budget);
+        return effort;
+    }
+
+    private static string MapBudgetToEffort(int budgetTokens) => budgetTokens switch
+    {
+        <= 4096 => "low",
+        <= 16384 => "medium",
+        _ => "high"
+    };
 
     private static List<object> BuildContentParts(List<LlmContentPart> parts)
     {

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.AI;
@@ -54,7 +55,8 @@ public class AiModelService : IAiModelService
             ContextWindow = request.ContextWindow,
             Dimensions = request.Dimensions,
             ReasoningMode = request.ReasoningMode ?? "none",
-            ReasoningEffort = request.ReasoningEffort ?? "medium",
+            ReasoningEffort = NormalizeEffort(request.ReasoningEffort) ?? "medium",
+            ReasoningBudgetTokens = request.ReasoningBudgetTokens,
             SupportsVision = request.SupportsVision,
             SupportsReasoning = request.SupportsReasoning,
             SupportsTools = request.SupportsTools,
@@ -85,7 +87,8 @@ public class AiModelService : IAiModelService
         model.ContextWindow = request.ContextWindow;
         model.Dimensions = request.Dimensions;
         model.ReasoningMode = request.ReasoningMode ?? model.ReasoningMode;
-        model.ReasoningEffort = request.ReasoningEffort ?? model.ReasoningEffort;
+        model.ReasoningEffort = NormalizeEffort(request.ReasoningEffort) ?? model.ReasoningEffort;
+        model.ReasoningBudgetTokens = request.ReasoningBudgetTokens ?? model.ReasoningBudgetTokens;
         model.SupportsVision = request.SupportsVision;
         model.SupportsReasoning = request.SupportsReasoning;
         model.SupportsTools = request.SupportsTools;
@@ -120,8 +123,19 @@ public class AiModelService : IAiModelService
         return ApiResponse.Ok();
     }
 
-    private static AiModelDto Map(AiModel model) => new()
+    /// <summary>
+    /// 归一化推理强度：允许 off/none/minimal/low/medium/high/xhigh/max、供应商自定义字符串或数字预算。
+    /// </summary>
+    private static string? NormalizeEffort(string? effort)
     {
+        if (string.IsNullOrWhiteSpace(effort)) return null;
+        var trimmed = effort.Trim();
+        if (int.TryParse(trimmed, out var budget) && budget > 0)
+            return budget.ToString(CultureInfo.InvariantCulture);
+        return trimmed.ToLowerInvariant();
+    }
+
+    private static AiModelDto Map(AiModel model) => new()    {
         Id = model.Id,
         ProviderId = model.ProviderId,
         ModelId = model.ModelId,
@@ -131,7 +145,8 @@ public class AiModelService : IAiModelService
         ContextWindow = model.ContextWindow,
         Dimensions = model.Dimensions,
         ReasoningMode = model.ReasoningMode ?? "none",
-        ReasoningEffort = model.ReasoningEffort ?? "medium",
+        ReasoningEffort = NormalizeEffort(model.ReasoningEffort) ?? "medium",
+        ReasoningBudgetTokens = model.ReasoningBudgetTokens,
         SupportsVision = model.SupportsVision,
         SupportsReasoning = model.SupportsReasoning,
         SupportsTools = model.SupportsTools,

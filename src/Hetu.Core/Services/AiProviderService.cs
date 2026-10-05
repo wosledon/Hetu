@@ -183,6 +183,7 @@ public class AiProviderService : IAiProviderService
             Dimensions = m.Dimensions,
             ReasoningMode = m.ReasoningMode,
             ReasoningEffort = m.ReasoningEffort,
+            ReasoningBudgetTokens = m.ReasoningBudgetTokens,
             SupportsVision = m.SupportsVision,
             SupportsReasoning = m.SupportsReasoning,
             SupportsTools = m.SupportsTools,
