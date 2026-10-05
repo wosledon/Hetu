@@ -5,8 +5,9 @@ import WorkDiffView from './WorkDiffView'
 
 interface WorkCheckpointDiffViewProps {
   diff: IWorkCheckpointDiff
+  onRevertFile?: (path: string, oldContent: string) => void
+  actionPending?: boolean
 }
-
 const ACTION_META: Record<string, { label: string; icon: React.ReactNode; text: string }> = {
   create: { label: '新增', icon: <FilePlus size={12} className="text-emerald-500" />, text: 'text-emerald-600 dark:text-emerald-400' },
   delete: { label: '删除', icon: <FileX size={12} className="text-rose-500" />, text: 'text-rose-600 dark:text-rose-400' },
@@ -16,7 +17,7 @@ const ACTION_META: Record<string, { label: string; icon: React.ReactNode; text: 
 }
 
 /** 检查点快照与当前工作区的差异：左侧文件列表 + 右侧逐行 diff。 */
-export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewProps) {
+export default function WorkCheckpointDiffView({ diff, onRevertFile, actionPending }: WorkCheckpointDiffViewProps) {
   const changed = diff.files.filter((f) => f.action !== 'unchanged' && f.action !== 'skipped')
   const firstIndex = diff.files.findIndex((f) => f.action !== 'unchanged' && f.action !== 'skipped')
   const [selected, setSelected] = useState(firstIndex >= 0 ? firstIndex : 0)
@@ -72,7 +73,12 @@ export default function WorkCheckpointDiffView({ diff }: WorkCheckpointDiffViewP
         )}
         <div className="min-h-0 flex-1">
           {asChange ? (
-            <WorkDiffView change={asChange} />
+            <WorkDiffView
+              change={asChange}
+              revertLabel="还原到快照版本"
+              actionPending={actionPending}
+              onRevert={file.oldContent != null ? () => onRevertFile?.(file.path, file.oldContent ?? '') : undefined}
+            />
           ) : file ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-xs text-gray-400">
               {file.note ?? '该文件已跳过内容比对'}

@@ -16,13 +16,13 @@
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Hetu.Core/Hetu.Core.csproj" />
     <ProjectReference Include="../Hetu.Infrastructure/Hetu.Infrastructure.csproj" />
-    <ProjectReference
-      Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
+    <ProjectReference Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
     <ProjectReference Include="../Hetu.Shared/Hetu.Shared.csproj" />
   </ItemGroup>
 
@@ -42,19 +42,14 @@
     <FrontendWwwroot>$(MSBuildThisFileDirectory)wwwroot</FrontendWwwroot>
   </PropertyGroup>
 
-  <Target Name="BuildFrontendSpa"
-    BeforeTargets="AssignTargetPaths;PrepareForBuild"
-    Condition="'$(Configuration)' == 'Release' AND '$(SkipFrontendBuild)' != 'true' AND Exists('$(FrontendProjectDir)\package.json')">
+  <Target Name="BuildFrontendSpa" BeforeTargets="AssignTargetPaths;PrepareForBuild" Condition="'$(Configuration)' == 'Release' AND '$(SkipFrontendBuild)' != 'true' AND Exists('$(FrontendProjectDir)\package.json')">
     <Message Importance="high" Text="[Hetu] Building frontend SPA at $(FrontendProjectDir)" />
-    <Exec Command="npm ci" WorkingDirectory="$(FrontendProjectDir)"
-      Condition="!Exists('$(FrontendProjectDir)\node_modules')" />
+    <Exec Command="npm ci" WorkingDirectory="$(FrontendProjectDir)" Condition="!Exists('$(FrontendProjectDir)\node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="$(FrontendProjectDir)" />
     <ItemGroup>
       <_FrontendDistFiles Include="$(FrontendDistDir)\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(_FrontendDistFiles)"
-      DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_FrontendDistFiles)" DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- 让构建出来的 wwwroot 在 publish 时随产物一起发布。

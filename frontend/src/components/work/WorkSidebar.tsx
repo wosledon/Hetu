@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings } from 'lucide-react'
 import { workProjectService, workSessionService } from '../../services/workService'
+import { useConfirm } from '../../components/confirm'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
 
@@ -10,6 +11,8 @@ interface WorkSidebarProps {
   selectedSessionId?: string
   onSelectProject: (project: IWorkProject) => void
   onSelectSession: (session: IWorkSession) => void
+  onProjectDeleted?: (projectId: string) => void
+  onSessionDeleted?: (sessionId: string) => void
 }
 
 const PROJECT_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -41,6 +44,7 @@ function ProjectNode({
   onSelectSession,
   onDeleteProject,
   onRenameProject,
+  onSessionDeleted,
 }: {
   project: IWorkProject
   expanded: boolean
@@ -52,11 +56,14 @@ function ProjectNode({
   onSelectSession: (s: IWorkSession) => void
   onDeleteProject: (id: string) => void
   onRenameProject: (p: IWorkProject) => void
+  onSessionDeleted?: (sessionId: string) => void
 }) {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [renaming, setRenaming] = useState(false)
   const [setting, setSetting] = useState(false)
   const [name, setName] = useState(project.name)
+  const [actionError, setActionError] = useState('')
   const color = resolveColor(project)
 
   const { data: sessions = [] } = useQuery({
@@ -68,20 +75,45 @@ function ProjectNode({
   const createSession = useMutation({
     mutationFn: workSessionService.create,
     onSuccess: (newSession) => {
+      setActionError('')
       queryClient.invalidateQueries({ queryKey: ['workSessions', project.id] })
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       onSelectProject(project)
       onSelectSession(newSession)
     },
+    onError: (e: Error) => setActionError(e.message || '创建会话失败'),
   })
 
   const renameMutation = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) => workSessionService.update(id, { title }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workSessions', project.id] })
-      setRenaming(false)
+      setRenamingSessionId(null)
+      setActionError('')
+    },
+    onError: (e: Error) => {
+      setActionError(e.message || '重命名失败')
+      setRenamingSessionId(null)
     },
   })
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: workSessionService.delete,
+    onSuccess: (_result, sessionId) => {
+      setActionError('')
+      queryClient.invalidateQueries({ queryKey: ['workSessions', project.id] })
+      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+      onSessionDeleted?.(sessionId)
+    },
+    onError: (e: Error) => setActionError(e.message || '删除会话失败'),
+  })
+
+  const handleDeleteSession = (session: IWorkSession) => {
+    confirm({
+      message: `确定删除会话「${session.title || '新会话'}」吗？会话消息将一并删除。`,
+      onConfirm: () => deleteSessionMutation.mutate(session.id),
+    })
+  }
 
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const [sessionName, setSessionName] = useState('')
@@ -114,12 +146,16 @@ function ProjectNode({
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
+            title="重命名项目"
+            aria-label="重命名项目"
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
           >
             <Pencil size={11} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
+            title="删除项目"
+            aria-label="删除项目"
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
           >
             <Trash2 size={11} />
@@ -151,32 +187,59 @@ function ProjectNode({
 
       {expanded && (
         <div className="mt-0.5">
+          {actionError && (
+            <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={{ marginLeft: '40px' }}>
+              {actionError}
+            </div>
+          )}
           {sessions.map((session) => {
             const active = selectedSessionId === session.id
             return (
               <div
-                key={session.id}
+        key={session.id}
         onClick={() => { if (!expanded) onToggle(); onSelectProject(project); onSelectSession(session) }}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
-                style={{ paddingLeft: '40px' }}
+        className={`group flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
+        style={{ paddingLeft: '40px' }}
               >
-                <MessageSquare size={11} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-                {renamingSessionId === session.id ? (
-                  <input
-                    autoFocus
-                    value={sessionName}
-                    onChange={(e) => setSessionName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && sessionName.trim()) renameMutation.mutate({ id: session.id, title: sessionName.trim() })
-                      if (e.key === 'Escape') setRenamingSessionId(null)
-                    }}
-                    className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
-                  />
-                ) : (
-                  <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                    {session.title || '新会话'}
-                  </span>
-                )}
+        <MessageSquare size={11} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
+        {renamingSessionId === session.id ? (
+          <input
+            autoFocus
+            value={sessionName}
+            onChange={(e) => setSessionName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && sessionName.trim()) renameMutation.mutate({ id: session.id, title: sessionName.trim() })
+              if (e.key === 'Escape') setRenamingSessionId(null)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
+          />
+        ) : (
+          <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+            {session.title || '新会话'}
+          </span>
+        )}
+        {renamingSessionId !== session.id && (
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
+              title="重命名会话"
+              aria-label="重命名会话"
+              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+            >
+              <Pencil size={10} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
+              disabled={deleteSessionMutation.isPending}
+              title="删除会话"
+              aria-label="删除会话"
+              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700"
+            >
+              <Trash2 size={10} />
+            </button>
+          </div>
+        )}
               </div>
             )
           })}
@@ -198,14 +261,16 @@ function ProjectNode({
   )
 }
 
-export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession }: WorkSidebarProps) {
+export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted }: WorkSidebarProps) {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
   const [isAdding, setIsAdding] = useState(false)
   const [name, setName] = useState('')
   const [rootPath, setRootPath] = useState('')
   const [createError, setCreateError] = useState('')
+  const [projectActionError, setProjectActionError] = useState('')
 
   // 用户手动展开/折叠优先，未手动设置过的项目在选中时默认展开
   const isExpanded = (id: string) => expandedProjects.get(id) ?? id === selectedProjectId
@@ -238,15 +303,33 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
 
   const deleteProject = useMutation({
     mutationFn: workProjectService.delete,
-    onSuccess: () => {
+    onSuccess: (_result, projectId) => {
+      setProjectActionError('')
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       queryClient.invalidateQueries({ queryKey: ['workSessions'] })
+      onProjectDeleted?.(projectId)
     },
+    onError: (e: Error) => setProjectActionError(e.message || '删除项目失败'),
   })
 
   const renameProject = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => workProjectService.update(id, { name, rootPath: '', sortOrder: 0 }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workProjects'] }),
+    mutationFn: (p: IWorkProject) =>
+      workProjectService.update(p.id, {
+        name: p.name,
+        rootPath: p.rootPath,
+        description: p.description,
+        icon: p.icon,
+        color: p.color,
+        sortOrder: p.sortOrder,
+        mcpServerIds: p.mcpServerIds,
+        skillIds: p.skillIds,
+        diagnosticsCommand: p.diagnosticsCommand,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+      setProjectActionError('')
+    },
+    onError: (e: Error) => setProjectActionError(e.message || '重命名项目失败'),
   })
 
   const handleCreate = () => {
@@ -318,10 +401,22 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
             onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
             onSelectProject={onSelectProject}
             onSelectSession={onSelectSession}
-            onDeleteProject={(id) => deleteProject.mutate(id)}
-            onRenameProject={(p) => renameProject.mutate({ id: p.id, name: p.name })}
+            onDeleteProject={(id) => {
+              const project = projects.find((p) => p.id === id)
+              confirm({
+                message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
+                onConfirm: () => deleteProject.mutate(id),
+              })
+            }}
+            onRenameProject={(p) => renameProject.mutate(p)}
+            onSessionDeleted={onSessionDeleted}
           />
         ))}
+        {projectActionError && (
+          <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[11px] text-red-500 dark:bg-red-950/30 dark:text-red-400">
+            {projectActionError}
+          </div>
+        )}
         {filtered.length === 0 && (
           <div className="py-8 text-center text-xs text-gray-400">暂无项目</div>
         )}

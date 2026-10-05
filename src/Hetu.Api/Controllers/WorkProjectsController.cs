@@ -1,3 +1,4 @@
+using Hetu.Api.Services;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
@@ -46,6 +47,14 @@ public class WorkProjectsController : ControllerBase
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _projectService.DeleteAsync(id, cancellationToken);
 
+    /// <summary>用外部应用打开项目目录（vscode / cursor / explorer / terminal）</summary>
+    [HttpPost("{id:guid}/open")]
+    public async Task<ApiResponse<string>> Open(Guid id, [FromQuery] string app, [FromServices] WorkOpenInAppService openService, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(app)) return ApiResponse<string>.Fail("缺少 app 参数");
+        var (success, output) = await openService.OpenAsync(id, app, cancellationToken);
+        return success ? ApiResponse<string>.Ok(output) : ApiResponse<string>.Fail(output);
+    }
     /// <summary>会话列表，query 为标题/消息内容关键字</summary>
     [HttpGet("{id:guid}/sessions")]
     public Task<ApiResponse<List<WorkSessionDto>>> GetSessions(Guid id, [FromQuery] string? query, CancellationToken cancellationToken)

@@ -214,6 +214,8 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IWorkCheckpointService, WorkCheckpointService>();
         services.AddScoped<IWorkCodeIndexService, WorkCodeIndexService>();
         services.AddSingleton<WorkTerminalManager>();
+        services.AddSingleton<WorkGitService>();
+        services.AddSingleton<WorkOpenInAppService>();
     }
 
     private static bool IsDefaultSqliteConnectionString(string connectionString) =>

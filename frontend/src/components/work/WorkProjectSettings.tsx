@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, Database, Trash2, RefreshCw } from 'lucide-react'
+import { X, Loader2, Database, Trash2, RefreshCw, ShieldCheck, ShieldOff, Plus } from 'lucide-react'
 import { workProjectService } from '../../services/workService'
 import { mcpService } from '../../services/mcpService'
 import { skillService } from '../../services/skillService'
+import { useConfirm } from '../../components/confirm'
 import type { IWorkProject } from '../../types/work'
 
 interface WorkProjectSettingsProps {
@@ -14,13 +15,47 @@ interface WorkProjectSettingsProps {
 /** 项目级设置：MCP 服务器、技能白名单、诊断命令与代码索引管理。 */
 export default function WorkProjectSettings({ project, onClose }: WorkProjectSettingsProps) {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [mcpIds, setMcpIds] = useState<string[]>(project.mcpServerIds ?? [])
   const [skillIds, setSkillIds] = useState<string[]>(project.skillIds ?? [])
   const [diagnosticsCommand, setDiagnosticsCommand] = useState(project.diagnosticsCommand ?? '')
   const [message, setMessage] = useState('')
+  const [ruleTool, setRuleTool] = useState('')
+  const [rulePattern, setRulePattern] = useState('')
+  const [ruleDecision, setRuleDecision] = useState<'allow' | 'deny'>('allow')
 
   const { data: mcpServers = [] } = useQuery({ queryKey: ['mcpServers'], queryFn: mcpService.getAll })
   const { data: skills = [] } = useQuery({ queryKey: ['localSkills'], queryFn: skillService.getLocalSkills })
+
+  const { data: approvalRules = [] } = useQuery({
+    queryKey: ['workApprovalRules', project.id],
+    queryFn: () => workProjectService.getApprovalRules(project.id),
+  })
+
+  const createRule = useMutation({
+    mutationFn: () =>
+      workProjectService.createApprovalRule(project.id, {
+        toolName: ruleTool.trim(),
+        pathPattern: rulePattern.trim() || undefined,
+        decision: ruleDecision,
+      }),
+    onSuccess: () => {
+      setMessage('审批规则已添加')
+      setRuleTool('')
+      setRulePattern('')
+      queryClient.invalidateQueries({ queryKey: ['workApprovalRules', project.id] })
+    },
+    onError: (e: Error) => setMessage(`添加规则失败：${e.message}`),
+  })
+
+  const deleteRule = useMutation({
+    mutationFn: workProjectService.deleteApprovalRule,
+    onSuccess: () => {
+      setMessage('审批规则已删除')
+      queryClient.invalidateQueries({ queryKey: ['workApprovalRules', project.id] })
+    },
+    onError: (e: Error) => setMessage(`删除规则失败：${e.message}`),
+  })
 
   const { data: indexStatus } = useQuery({
     queryKey: ['workCodeIndex', project.id],
@@ -66,7 +101,15 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
       queryClient.invalidateQueries({ queryKey: ['workCodeIndex', project.id] })
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
     },
+    onError: (e: Error) => setMessage(`清空索引失败：${e.message}`),
   })
+
+  const handleClearIndex = () => {
+    confirm({
+      message: '确定清空代码语义索引吗？清空后需要重建才能使用语义检索。',
+      onConfirm: () => clearIndex.mutate(),
+    })
+  }
 
   const toggle = (list: string[], setList: (v: string[]) => void, id: string) =>
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
@@ -146,6 +189,81 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
           </div>
 
           <div>
+            <label className="mb-1 block text-[12px] font-medium text-gray-600 dark:text-gray-300">
+              工具审批规则（{approvalRules.length} 条）
+            </label>
+            <div className="space-y-1 rounded-lg border border-gray-200 p-1.5 dark:border-gray-700">
+              {approvalRules.length === 0 && (
+                <p className="px-2 py-3 text-center text-[11px] text-gray-400">暂无规则，Agent 调用工具时将按会话权限模式询问</p>
+              )}
+              {approvalRules.map((rule) => (
+                <div key={rule.id} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 dark:hover:bg-white/[0.04]">
+                  {rule.decision === 'allow' ? (
+                    <ShieldCheck size={12} className="shrink-0 text-emerald-500" />
+                  ) : (
+                    <ShieldOff size={12} className="shrink-0 text-rose-500" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">
+                    {rule.toolName}
+                    {rule.pathPattern && <span className="text-gray-400"> · {rule.pathPattern}</span>}
+                  </span>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${rule.decision === 'allow' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'}`}>
+                    {rule.decision === 'allow' ? '放行' : '拒绝'}
+                  </span>
+                  <button
+                    onClick={() => confirm({
+                      message: `确定删除审批规则「${rule.toolName}」吗？`,
+                      onConfirm: () => deleteRule.mutate(rule.id),
+                    })}
+                    className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-rose-500 dark:hover:bg-gray-800"
+                    title="删除规则"
+                    aria-label="删除规则"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-1 border-t border-gray-100 px-1.5 pt-1.5 dark:border-gray-800">
+                <input
+                  value={ruleTool}
+                  onChange={(e) => setRuleTool(e.target.value)}
+                  list="work-tool-names"
+                  placeholder="工具名"
+                  className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-1 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                />
+                <datalist id="work-tool-names">
+                  {['work_list_dir', 'work_read_file', 'work_write_file', 'work_run_command', 'work_task', 'work_diagnostics', 'work_semantic_search', 'work_skill'].map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+                <input
+                  value={rulePattern}
+                  onChange={(e) => setRulePattern(e.target.value)}
+                  placeholder="路径匹配（可选，如 src/*）"
+                  className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                />
+                <select
+                  value={ruleDecision}
+                  onChange={(e) => setRuleDecision(e.target.value as 'allow' | 'deny')}
+                  className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1 py-1 text-[11px] outline-none dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <option value="allow">放行</option>
+                  <option value="deny">拒绝</option>
+                </select>
+                <button
+                  onClick={() => ruleTool.trim() && createRule.mutate()}
+                  disabled={!ruleTool.trim() || createRule.isPending}
+                  className="flex shrink-0 items-center gap-0.5 rounded px-1.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                >
+                  {createRule.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                  添加
+                </button>
+              </div>
+            </div>
+            <p className="mt-1 text-[11px] text-gray-400">命中规则的调用将直接放行或拒绝，不再逐次询问。</p>
+          </div>
+
+          <div>
             <label className="mb-1 flex items-center gap-1.5 text-[12px] font-medium text-gray-600 dark:text-gray-300">
               <Database size={12} /> 代码语义索引
             </label>
@@ -170,10 +288,11 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                 重建
               </button>
               <button
-                onClick={() => clearIndex.mutate()}
+                onClick={handleClearIndex}
                 disabled={clearIndex.isPending || !indexStatus?.isReady}
                 className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-800"
                 title="清空索引"
+                aria-label="清空索引"
               >
                 <Trash2 size={11} />
               </button>

@@ -213,6 +213,14 @@ public class WorkStreamController : ControllerBase
 
                 contentSb.Append(iterContent);
                 thinkingSb.Append(iterThinking);
+
+                // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）
+                if (!string.IsNullOrWhiteSpace(iterThinking.ToString()))
+                {
+                    await _sessionService.AddMessageAsync(
+                        sessionId, "assistant", iterThinking.ToString(), "thought",
+                        cancellationToken: CancellationToken.None);
+                }
                 AccumulateUsage(usageTotal, usage, (int)(DateTimeOffset.UtcNow - iterStart).TotalMilliseconds);
                 if (usage != null)
                 {
@@ -247,7 +255,11 @@ public class WorkStreamController : ControllerBase
                     sessionId.ToString(),
                     pendingToolCalls, overrides, sessionTodos,
                     data => writer.WriteEventAsync(data),
-                    payload => writer.WriteJsonAsync(payload),
+                    async payload =>
+                    {
+                        await writer.WriteJsonAsync(payload);
+                        await PersistSubagentEventAsync(sessionId, payload);
+                    },
                     ct,
                     (toolCall, defaultMode) =>
                     {
@@ -303,6 +315,16 @@ public class WorkStreamController : ControllerBase
                 foreach (var (toolCallId, content) in toolResults)
                 {
                     chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
+                    // 工具调用落库：参数进 metadata，结果截断进正文，供历史回放
+                    var call = pendingToolCalls?.FirstOrDefault(c => c.Id == toolCallId);
+                    await _sessionService.AddMessageAsync(
+                        sessionId, "assistant", Truncate(content ?? string.Empty), "tool",
+                        metadata: JsonSerializer.Serialize(new
+                        {
+                            name = call?.Name ?? string.Empty,
+                            arguments = call?.Arguments ?? string.Empty,
+                        }),
+                        cancellationToken: CancellationToken.None);
                 }
             }
         }
@@ -353,6 +375,39 @@ public class WorkStreamController : ControllerBase
 
         await writer.WriteJsonAsync(new { type = "done" });
     }
+
+    /// <summary>子 Agent 进度事件落库（仅 subagent 帧），供历史回放</summary>
+    private async Task PersistSubagentEventAsync(Guid sessionId, object payload)
+    {
+        try
+        {
+            var json = JsonSerializer.SerializeToElement(payload);
+            if (json.ValueKind != JsonValueKind.Object ||
+                !json.TryGetProperty("type", out var typeEl) ||
+                typeEl.GetString() != "subagent")
+                return;
+
+            var description = json.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "";
+            var metadata = JsonSerializer.Serialize(new
+            {
+                id = json.TryGetProperty("id", out var idEl) ? idEl.GetString() : null,
+                stage = json.TryGetProperty("stage", out var s) ? s.GetString() : null,
+                tool = json.TryGetProperty("tool", out var t) ? t.GetString() : null,
+                steps = json.TryGetProperty("steps", out var st) && st.TryGetInt32(out var steps) ? steps : (int?)null,
+                message = json.TryGetProperty("message", out var m) ? m.GetString() : null,
+            });
+            await _sessionService.AddMessageAsync(
+                sessionId, "assistant", Truncate(description), "subagent", metadata,
+                cancellationToken: CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "[WorkStream] 子 Agent 事件落库失败");
+        }
+    }
+
+    private static string Truncate(string text, int max = 4000)
+        => string.IsNullOrEmpty(text) || text.Length <= max ? text : text[..max] + "\n…（内容过长已截断）";
 
     /// <summary>解析本轮生效的权限模式：请求显式指定优先，其次兼容旧的 ToolApprovalMode，最后回落到会话持久值</summary>
     private static WorkPermissionMode ResolvePermissionMode(SendWorkMessageRequest request, WorkSessionDto session)

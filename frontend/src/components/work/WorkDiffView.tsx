@@ -1,12 +1,25 @@
 import { useMemo } from 'react'
+import { Loader2, RotateCcw, ArrowUpFromLine } from 'lucide-react'
 import type { IWorkFileChange } from '../../types/work'
 import { lineDiff } from '../../utils/lineDiff'
 
 interface WorkDiffViewProps {
   change: IWorkFileChange
+  onRevert?: () => void
+  onApply?: () => void
+  actionPending?: boolean
+  revertLabel?: string
+  applyLabel?: string
 }
 
-export default function WorkDiffView({ change }: WorkDiffViewProps) {
+export default function WorkDiffView({
+  change,
+  onRevert,
+  onApply,
+  actionPending,
+  revertLabel = '还原到此版本',
+  applyLabel = '应用到工作区',
+}: WorkDiffViewProps) {
   const lines = useMemo(() => lineDiff(change.oldContent ?? '', change.newContent), [change])
   const isCreate = change.action === 'create'
 
@@ -26,6 +39,28 @@ export default function WorkDiffView({ change }: WorkDiffViewProps) {
         {isCreate && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">新增文件</span>}
         <span className="text-[11px] text-emerald-600 dark:text-emerald-400">+{stats.added}</span>
         <span className="text-[11px] text-red-500 dark:text-red-400">-{stats.removed}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {onRevert && change.action !== 'create' && change.oldContent != null && (
+            <button
+              onClick={onRevert}
+              disabled={actionPending}
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-40 dark:text-amber-400 dark:hover:bg-amber-950/40"
+            >
+              {actionPending ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
+              {revertLabel}
+            </button>
+          )}
+          {onApply && change.action !== 'delete' && (
+            <button
+              onClick={onApply}
+              disabled={actionPending}
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
+            >
+              {actionPending ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpFromLine size={11} />}
+              {applyLabel}
+            </button>
+          )}
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse font-mono text-[11px] leading-relaxed">

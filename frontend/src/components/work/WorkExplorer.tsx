@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2 } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -8,8 +8,10 @@ import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
 import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
-import { EditorView } from '@codemirror/view'
-import { workFileService, workSessionService, workCheckpointService, workProjectService } from '../../services/workService'
+import { EditorView, keymap } from '@codemirror/view'
+import { search, searchKeymap } from '@codemirror/search'
+import { workFileService, workSessionService, workCheckpointService, workProjectService, workGitService } from '../../services/workService'
+import { useConfirm } from '../../components/confirm'
 import { useUIStore } from '../../stores/uiStore'
 import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange, IWorkCheckpoint, IWorkCheckpointDiff, IWorkCodeSearchHit } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
@@ -26,7 +28,15 @@ interface TreeNode extends IWorkFileEntry {
   loaded?: boolean
 }
 
-type NavTab = 'files' | 'changes' | 'checkpoints' | 'browser'
+type NavTab = 'files' | 'changes' | 'checkpoints' | 'browser' | 'git'
+
+const GIT_STATUS_META: Record<string, { label: string; cls: string }> = {
+  M: { label: '修改', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  A: { label: '新增', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  D: { label: '删除', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
+  R: { label: '重命名', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  '??': { label: '未跟踪', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+}
 
 interface OpenTab {
   key: string
@@ -39,6 +49,7 @@ interface OpenTab {
 
 export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkExplorerProps) {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [loadedDirs, setLoadedDirs] = useState<Map<string, TreeNode[]>>(new Map())
@@ -51,6 +62,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
   const [restoreMessage, setRestoreMessage] = useState('')
   const [drafts, setDrafts] = useState<Map<string, string>>(new Map())
   const [saveMessage, setSaveMessage] = useState('')
+  const [actionError, setActionError] = useState('')
 
   const { data: changes = [] } = useQuery({
     queryKey: ['workFileChanges', sessionId],
@@ -62,6 +74,26 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     queryKey: ['workCheckpoints', sessionId],
     queryFn: () => (sessionId ? workSessionService.getCheckpoints(sessionId) : Promise.resolve([])),
     enabled: !!sessionId,
+  })
+
+  const { data: gitStatus, refetch: refetchGit, isFetching: isGitLoading } = useQuery({
+    queryKey: ['workGitStatus', projectId],
+    queryFn: () => workGitService.status(projectId!),
+    enabled: !!projectId && tab === 'git',
+  })
+  const [gitSelected, setGitSelected] = useState<Set<string>>(new Set())
+  const [gitCommitMessage, setGitCommitMessage] = useState('')
+  const [gitMessage, setGitMessage] = useState('')
+
+  const gitCommit = useMutation({
+    mutationFn: () => workGitService.commit(projectId!, gitCommitMessage.trim(), [...gitSelected]),
+    onSuccess: (result) => {
+      setGitMessage(result.output || '已提交')
+      setGitCommitMessage('')
+      setGitSelected(new Set())
+      void refetchGit()
+    },
+    onError: (e: Error) => setGitMessage(`提交失败：${e.message}`),
   })
 
   const searchTerm = searchQuery.trim()
@@ -111,7 +143,45 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       queryClient.invalidateQueries({ queryKey: ['workFileChanges', sessionId] })
       if (projectId) queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
     },
-    onError: () => setRestoreMessage('回滚失败'),
+    onError: (e: Error) => setRestoreMessage(`回滚失败：${e.message}`),
+  })
+
+  /** diff 还原/应用：把指定版本内容写回工作区（不传 originalContent，跳过冲突校验） */
+  const writeFileContent = useMutation({
+    mutationFn: ({ path, content }: { path: string; content: string }) =>
+      workFileService.write(projectId!, path, content, undefined),
+    onSuccess: (_r, { path }) => {
+      setSaveMessage(`已写入 ${path}`)
+      setTimeout(() => setSaveMessage(''), 2500)
+      if (projectId) queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['workFileChanges', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['workGitStatus', projectId] })
+    },
+    onError: (e: Error) => setSaveMessage(`写入失败：${e.message}`),
+  })
+
+  const handleRevertChange = (change: IWorkFileChange, label: string) => {
+    confirm({
+      message: `确定把 ${change.filePath} ${label}吗？磁盘上的当前内容将被覆盖。`,
+      onConfirm: () => writeFileContent.mutate({ path: change.filePath, content: change.oldContent ?? '' }),
+    })
+  }
+
+  const handleApplyChange = (change: IWorkFileChange) => {
+    confirm({
+      message: `确定把该版本内容写入 ${change.filePath} 吗？磁盘上的当前内容将被覆盖。`,
+      onConfirm: () => writeFileContent.mutate({ path: change.filePath, content: change.newContent }),
+    })
+  }
+
+  const deleteCheckpoint = useMutation({
+    mutationFn: workCheckpointService.delete,
+    onSuccess: (_result, checkpointId) => {
+      setRestoreMessage('检查点已删除')
+      queryClient.invalidateQueries({ queryKey: ['workCheckpoints', sessionId] })
+      setTabs((prev) => prev.filter((t) => t.key !== `cp:${checkpointId}`))
+    },
+    onError: (e: Error) => setRestoreMessage(`删除检查点失败：${e.message}`),
   })
 
   const loadDir = useCallback(async (path: string) => {
@@ -152,7 +222,10 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       setTabs((prev) => [...prev, newTab])
       setActiveKey(key)
       setSelectedPath(nodePath)
-    } catch { /* ignore */ }
+      setActionError('')
+    } catch (e) {
+      setActionError(`打开文件失败：${(e as Error).message || '未知错误'}`)
+    }
   }
 
   const openDiffTab = (change: IWorkFileChange) => {
@@ -179,11 +252,39 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
     } catch { setRestoreMessage('读取检查点差异失败') }
   }
 
+  /** 打开 Git 工作区差异：旧内容取 HEAD 版本，新内容取磁盘当前文件 */
+  const openGitDiffTab = async (file: { path: string; status: string }) => {
+    if (!projectId) return
+    const key = `diff:git:${file.path}`
+    if (tabs.some((t) => t.key === key)) {
+      setActiveKey(key)
+      return
+    }
+    try {
+      const content = await workGitService.fileContent(projectId, file.path)
+      const action = file.status === '??' || file.status === 'A' ? 'create' : file.status === 'D' ? 'delete' : 'write'
+      const change: IWorkFileChange = {
+        id: `git:${file.path}`,
+        projectId,
+        filePath: file.path,
+        oldContent: content.oldContent ?? '',
+        newContent: content.newContent ?? '',
+        action,
+        createdAt: new Date().toISOString(),
+      }
+      const name = file.path.split('/').pop() ?? file.path
+      setTabs((prev) => [...prev, { key, label: `${name} (git)`, kind: 'diff', change }])
+      setActiveKey(key)
+    } catch (e) {
+      setActionError(`读取 Git 差异失败：${(e as Error).message || '未知错误'}`)
+    }
+  }
+
   const draftOf = (tab: OpenTab) => drafts.get(tab.key) ?? tab.file?.content ?? ''
 
   const activeTab = tabs.find((t) => t.key === activeKey)
 
-  const saveActiveTab = () => {
+  const saveActiveTab = useCallback(() => {
     if (!activeTab || activeTab.kind !== 'file' || !activeTab.file || !projectId) return
     const content = drafts.get(activeTab.key)
     if (content === undefined) return
@@ -193,18 +294,21 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       content,
       originalContent: activeTab.file.content ?? '',
     })
-  }
+  }, [activeTab, drafts, projectId, saveFile])
 
-  // Ctrl/Cmd+S 保存当前文件（无依赖数组，始终闭包最新状态）
+  // Ctrl/Cmd+S 保存当前文件：经 ref 调用最新回调，监听器只注册一次
+  const saveActiveTabRef = useRef<() => void>(() => {})
+  useEffect(() => { saveActiveTabRef.current = saveActiveTab }, [saveActiveTab])
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 's') return
       e.preventDefault()
-      saveActiveTab()
+      saveActiveTabRef.current()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  })
+  }, [])
 
   const closeTab = (key: string) => {
     setTabs((prev) => {
@@ -238,7 +342,10 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
       try {
         const children = await loadDir(nodePath)
         setLoadedDirs((prev) => new Map(prev).set(nodePath, children))
-      } catch { /* ignore */ }
+        setActionError('')
+      } catch (e) {
+        setActionError(`读取目录失败：${(e as Error).message || '未知错误'}`)
+      }
     }
   }
 
@@ -314,6 +421,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
           {navBtn('files', '文件', Folder)}
           {navBtn('changes', '更改', GitCompare)}
           {navBtn('checkpoints', '检查点', History)}
+          {navBtn('git', 'Git', GitBranch)}
           {navBtn('browser', '浏览器', Globe)}
           <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
             <RefreshCw size={12} />
@@ -402,17 +510,34 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                   <button
                     onClick={() => void openCheckpointDiffTab(cp)}
                     title="查看与当前工作区的差异"
+                    aria-label="查看与当前工作区的差异"
                     className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700"
                   >
                     <Diff size={12} />
                   </button>
                   <button
-                    onClick={() => restoreCheckpoint.mutate(cp.id)}
+                    onClick={() => confirm({
+                      message: `确定回滚到检查点「${cp.label}」吗？工作区中相关文件将被覆盖，此操作不可撤销。`,
+                      onConfirm: () => restoreCheckpoint.mutate(cp.id),
+                    })}
                     disabled={restoreCheckpoint.isPending}
                     title="回滚到该检查点"
+                    aria-label="回滚到该检查点"
                     className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700"
                   >
                     <RotateCcw size={12} />
+                  </button>
+                  <button
+                    onClick={() => confirm({
+                      message: `确定删除检查点「${cp.label}」吗？删除后无法再回滚到该时间点。`,
+                      onConfirm: () => deleteCheckpoint.mutate(cp.id),
+                    })}
+                    disabled={deleteCheckpoint.isPending}
+                    title="删除检查点"
+                    aria-label="删除检查点"
+                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-700"
+                  >
+                    <Trash2 size={12} />
                   </button>
                 </div>
                 {cp.files.length > 0 && (
@@ -420,6 +545,85 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                 )}
               </div>
             ))}
+          </div>
+        ) : tab === 'git' ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
+              <GitBranch size={12} className="shrink-0 text-gray-400" />
+              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-600 dark:text-gray-300">
+                {gitStatus?.isRepo ? gitStatus.branch : '非 Git 仓库'}
+              </span>
+              <button
+                onClick={() => { setGitMessage(''); void refetchGit() }}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+                title="刷新 Git 状态"
+                aria-label="刷新 Git 状态"
+              >
+                <RefreshCw size={11} className={isGitLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            {gitMessage && (
+              <div className="mx-2 mt-1.5 rounded bg-sky-50 px-2 py-1 text-[10px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+                {gitMessage}
+              </div>
+            )}
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+              {!gitStatus?.isRepo && (
+                <div className="px-2 py-8 text-center text-xs text-gray-400">当前项目目录不是 Git 仓库</div>
+              )}
+              {gitStatus?.isRepo && gitStatus.files.length === 0 && (
+                <div className="px-2 py-8 text-center text-xs text-gray-400">工作区干净，没有未提交的变更</div>
+              )}
+              {gitStatus?.files.map((f) => {
+                const meta = GIT_STATUS_META[f.status] ?? GIT_STATUS_META.M
+                const checked = gitSelected.has(f.path)
+                return (
+                  <div key={f.path} className="mb-0.5 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => setGitSelected((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(f.path)) next.delete(f.path)
+                        else next.add(f.path)
+                        return next
+                      })}
+                      className="h-3.5 w-3.5 shrink-0"
+                      aria-label={`选择 ${f.path}`}
+                    />
+                    <span
+                      onClick={() => void openGitDiffTab(f)}
+                      className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[11px] text-gray-700 dark:text-gray-200"
+                      title={`${f.path}（${meta.label}，点击查看差异）`}
+                    >
+                      {f.path}
+                    </span>
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${meta.cls}`}>{meta.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+            {gitSelected.size > 0 && (
+              <div className="shrink-0 border-t border-gray-100 p-2 dark:border-gray-800">
+                <input
+                  value={gitCommitMessage}
+                  onChange={(e) => setGitCommitMessage(e.target.value)}
+                  placeholder="提交信息，如 fix: 修复登录样式"
+                  className="mb-1.5 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                />
+                <button
+                  onClick={() => confirm({
+                    message: `确定提交选中的 ${gitSelected.size} 个文件吗？将执行 git add 并创建提交。`,
+                    onConfirm: () => gitCommit.mutate(),
+                  })}
+                  disabled={!gitCommitMessage.trim() || gitCommit.isPending}
+                  className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-500 py-1.5 text-[11px] font-medium text-white hover:bg-blue-600 disabled:opacity-40"
+                >
+                  {gitCommit.isPending ? <Loader2 size={11} className="animate-spin" /> : <GitCommitHorizontal size={11} />}
+                  提交 {gitSelected.size} 个文件
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -533,16 +737,37 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
             </div>
 
             <div className="min-h-0 flex-1">
+              {actionError && (
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-red-50 px-3 py-1 text-[11px] text-red-600 dark:border-gray-800 dark:bg-red-950/30 dark:text-red-400">
+                  <span className="min-w-0 flex-1">{actionError}</span>
+                  <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label="关闭错误提示">
+                    <X size={10} />
+                  </button>
+                </div>
+              )}
               {saveMessage && (
                 <div className="shrink-0 border-b border-gray-100 bg-gray-50/60 px-3 py-1 text-[11px] text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
                   {saveMessage}
                 </div>
               )}
               {activeTab?.kind === 'diff' && activeTab.change && (
-                <WorkDiffView change={activeTab.change} />
+                <WorkDiffView
+                  change={activeTab.change}
+                  actionPending={writeFileContent.isPending}
+                  revertLabel={activeTab.change.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前'}
+                  onRevert={() => handleRevertChange(activeTab.change!, activeTab.change!.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前')}
+                  onApply={activeTab.change.id.startsWith('git:') ? undefined : () => handleApplyChange(activeTab.change!)}
+                />
               )}
               {activeTab?.kind === 'checkpoint' && activeTab.checkpoint && (
-                <WorkCheckpointDiffView diff={activeTab.checkpoint} />
+                <WorkCheckpointDiffView
+                  diff={activeTab.checkpoint}
+                  actionPending={writeFileContent.isPending}
+                  onRevertFile={(path, oldContent) => confirm({
+                    message: `确定把 ${path} 还原到快照版本吗？磁盘上的当前内容将被覆盖。`,
+                    onConfirm: () => writeFileContent.mutate({ path, content: oldContent }),
+                  })}
+                />
               )}
               {activeTab?.kind === 'file' && activeTab.file && (
                 activeTab.file.isBinary ? (
@@ -577,6 +802,8 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
                         extensions={[
                           editorBaseTheme,
                           EditorView.lineWrapping,
+                          keymap.of([...searchKeymap]),
+                          search({ top: true }),
                           ...(langFor(activeTab.file.name) ? [langFor(activeTab.file.name)!] : []),
                         ]}
                         basicSetup={{
@@ -593,8 +820,18 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse }: WorkE
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
-            点击文件或更改在标签页中打开
+          <div className="flex flex-1 flex-col">
+            {actionError && (
+              <div className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                <span className="min-w-0 flex-1">{actionError}</span>
+                <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label="关闭错误提示">
+                  <X size={10} />
+                </button>
+              </div>
+            )}
+            <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
+              点击文件或更改在标签页中打开
+            </div>
           </div>
         )}
       </div>

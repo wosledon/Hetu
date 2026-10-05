@@ -16,14 +16,20 @@ const DEFAULT_TERMINAL_HEIGHT = 208
 const MIN_TERMINAL_HEIGHT = 96
 const MAX_TERMINAL_HEIGHT = 480
 
+const clampTerminalHeight = (h: number) => Math.min(MAX_TERMINAL_HEIGHT, Math.max(MIN_TERMINAL_HEIGHT, h))
+const readStoredTerminalHeight = () => {
+  const v = Number(localStorage.getItem('hetu-work-terminal-height'))
+  return Number.isFinite(v) && v > 0 ? clampTerminalHeight(v) : DEFAULT_TERMINAL_HEIGHT
+}
+
 export default function WorkPage() {
   const queryClient = useQueryClient()
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
-  const [showTerminal, setShowTerminal] = useState(true)
+  const [showTerminal, setShowTerminal] = useState(() => localStorage.getItem('hetu-work-terminal-open') !== '0')
   const [rightCollapsed, setRightCollapsed] = useState(false)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
-  const [terminalHeight, setTerminalHeight] = useState(DEFAULT_TERMINAL_HEIGHT)
+  const [terminalHeight, setTerminalHeight] = useState(readStoredTerminalHeight)
   const dragging = useRef<{ type: 'width' | 'height'; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null)
 
   const { data: projects = [] } = useQuery({
@@ -46,6 +52,14 @@ export default function WorkPage() {
   const handleSessionUpdated = (session: IWorkSession) => {
     setSelectedSession(session)
   }
+
+  // 终端开合与高度持久化到 localStorage
+  useEffect(() => {
+    localStorage.setItem('hetu-work-terminal-open', showTerminal ? '1' : '0')
+  }, [showTerminal])
+  useEffect(() => {
+    localStorage.setItem('hetu-work-terminal-height', String(terminalHeight))
+  }, [terminalHeight])
 
   // 拖拽调宽/调高
   const onDragStart = useCallback((type: 'width' | 'height') => (e: React.MouseEvent) => {
@@ -100,6 +114,13 @@ export default function WorkPage() {
             selectedSessionId={selectedSession?.id}
             onSelectProject={handleSelectProject}
             onSelectSession={handleSelectSession}
+            onProjectDeleted={(projectId) => {
+              if (preferredProject?.id === projectId) setPreferredProject(null)
+              if (selectedSession?.projectId === projectId) setSelectedSession(null)
+            }}
+            onSessionDeleted={(sessionId) => {
+              if (selectedSession?.id === sessionId) setSelectedSession(null)
+            }}
           />
           <WorkSessionArea
             project={selectedProject ?? undefined}

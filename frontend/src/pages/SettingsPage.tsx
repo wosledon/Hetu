@@ -555,7 +555,7 @@ function NavigationSettingsSection({
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">导航菜单</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Work、工作流、搜索始终固定显示。
+          选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Code、工作流、搜索始终固定显示。
         </p>
       </div>
 

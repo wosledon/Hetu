@@ -83,7 +83,7 @@ export interface IWorkFileSearchHit {
   text: string;
 }
 
-export type WorkMessageType = 'text' | 'file_change' | 'subagent' | 'tool' | 'system';
+export type WorkMessageType = 'text' | 'file_change' | 'subagent' | 'tool' | 'thought' | 'system';
 
 export interface IWorkMessage {
   id: string;
@@ -176,6 +176,33 @@ export interface IWorkCodeIndexResult {
   removedChunks: number;
   failedFiles: number;
   indexedAt: string;
+}
+
+export interface IWorkOpenApp {
+  app: string;
+  label: string;
+  available: boolean;
+  iconUrl?: string;
+}
+
+export interface IWorkGitFileStatus {
+  path: string;
+  /** M 修改 / A 新增 / D 删除 / R 重命名 / ?? 未跟踪 */
+  status: string;
+}
+
+export interface IWorkGitStatus {
+  isRepo: boolean;
+  branch: string;
+  files: IWorkGitFileStatus[];
+}
+
+export interface IWorkGitFileContent {
+  path: string;
+  status: string;
+  oldContent?: string;
+  newContent?: string;
+  isBinary: boolean;
 }
 
 export interface IWorkCheckpointDiffFile {

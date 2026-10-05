@@ -19,6 +19,9 @@ import type {
   IUpdateWorkProjectRequest,
   ICreateWorkSessionRequest,
   IUpdateWorkSessionRequest,
+  IWorkGitStatus,
+  IWorkGitFileContent,
+  IWorkOpenApp,
   WorkPermissionMode,
 } from '../types/work';
 
@@ -31,6 +34,9 @@ export const workProjectService = {
   getSessions: (id: string, query?: string) =>
     get<IWorkSession[]>(`/work-projects/${id}/sessions`, { query: query || undefined }),
   getApprovalRules: (id: string) => get<IWorkApprovalRule[]>(`/work-projects/${id}/approval-rules`),
+  /** 用外部应用打开项目目录：vscode / cursor / explorer / terminal */
+  open: (id: string, app: string) =>
+    post<string>(`/work-projects/${id}/open?app=${app}`),
   createApprovalRule: (id: string, data: ICreateWorkApprovalRuleRequest) =>
     post<IWorkApprovalRule>(`/work-projects/${id}/approval-rules`, data),
   deleteApprovalRule: (id: string) => del<void>(`/work-approval-rules/${id}`),
@@ -90,6 +96,18 @@ export const workCheckpointService = {
 export const workTerminalService = {
   /** 结束当前终端会话，下次连接会启动新进程 */
   stop: (projectId: string) => post<void>(`/work-terminal/${projectId}/stop`),
+};
+
+export const workOpenService = {
+  apps: () => get<IWorkOpenApp[]>('/work-open/apps'),
+};
+
+export const workGitService = {
+  status: (projectId: string) => get<IWorkGitStatus>(`/work-projects/${projectId}/git/status`),
+  fileContent: (projectId: string, path: string) =>
+    get<IWorkGitFileContent>(`/work-projects/${projectId}/git/file`, { path }),
+  commit: (projectId: string, message: string, paths: string[]) =>
+    post<{ success: boolean; output: string }>(`/work-projects/${projectId}/git/commit`, { message, paths }),
 };
 
 export const workFileService = {

@@ -2,6 +2,7 @@ using Hetu.Api.Extensions;
 using Hetu.Api.Hosting;
 using Hetu.Api.Seeding;
 using Hetu.Infrastructure.Data;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
@@ -28,6 +29,9 @@ HetuLogging.Configure(dataDir);
 builder.Host.UseSerilog();
 
 builder.Services.AddHetuWebInfrastructure();
+// 固定 DataProtection 应用判别值：默认值取自 content root（bin 目录），
+// 不同检出目录/部署位置的实例无法解密彼此加密的 API Key
+builder.Services.AddDataProtection(options => options.ApplicationDiscriminator = "Hetu");
 var providerInfo = builder.Services.AddHetuDatabase(builder.Configuration, dataDir);
 builder.Services.AddHetuDomainServices();
 builder.Services.AddHetuBackgroundWorkers();

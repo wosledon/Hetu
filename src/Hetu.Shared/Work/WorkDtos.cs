@@ -268,3 +268,46 @@ public class WorkCodeIndexResultDto
     public int FailedFiles { get; set; }
     public DateTimeOffset IndexedAt { get; set; }
 }
+
+public class WorkOpenAppDto
+{
+    public string App { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public bool Available { get; set; }
+    public string? IconUrl { get; set; }
+}
+
+public class WorkGitFileStatusDto
+{
+    public string Path { get; set; } = string.Empty;
+    /// <summary>porcelain 状态码：M 修改 / A 新增 / D 删除 / R 重命名 / ?? 未跟踪</summary>
+    public string Status { get; set; } = string.Empty;
+}
+
+public class WorkGitStatusDto
+{
+    public bool IsRepo { get; set; }
+    public string Branch { get; set; } = string.Empty;
+    public List<WorkGitFileStatusDto> Files { get; set; } = new();
+}
+
+public class WorkGitFileContentDto
+{
+    public string Path { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? OldContent { get; set; }
+    public string? NewContent { get; set; }
+    public bool IsBinary { get; set; }
+}
+
+public class WorkGitCommitRequest
+{
+    public string Message { get; set; } = string.Empty;
+    public List<string> Paths { get; set; } = new();
+}
+
+public class WorkGitCommitResultDto
+{
+    public bool Success { get; set; }
+    public string Output { get; set; } = string.Empty;
+}
