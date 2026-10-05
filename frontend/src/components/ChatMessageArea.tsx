@@ -30,6 +30,24 @@ interface ChatMessageAreaProps {
   onTopicUpdated?: (topic: IChatTopic) => void
 }
 
+/** 现代 LLM 常见的推理强度等级（后端按模型能力透传或换算为对应 API 参数） */
+const REASONING_EFFORT_LEVELS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+
+const REASONING_EFFORT_LABELS: Record<string, string> = {
+  off: '关闭',
+  none: '关闭',
+  minimal: '最低',
+  low: '低',
+  medium: '中',
+  high: '高',
+  xhigh: '超高',
+  max: '最大',
+}
+
+function reasoningEffortLabel(effort: string): string {
+  return REASONING_EFFORT_LABELS[effort] ?? (/^\d+$/.test(effort) ? `${effort} tokens` : effort)
+}
+
 function findNotebookName(notebooks: INotebook[], id: string): string {
   for (const nb of notebooks) {
     if (nb.id === id) return nb.name
@@ -1490,19 +1508,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     title="推理强度"
                   >
                     <Brain size={14} />
-                    {reasoningEffort === 'low' ? '低' : reasoningEffort === 'high' ? '高' : reasoningEffort === 'off' ? '关闭' : '中'}
+                    {reasoningEffortLabel(reasoningEffort)}
                     <ChevronDown size={10} />
                   </button>
                   {showReasoningPicker && (
                     <div className="absolute bottom-full left-0 mb-2 w-32 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                       <div className="p-1.5">
-                        {['low', 'medium', 'high'].map(level => (
+                        {REASONING_EFFORT_LEVELS.map(level => (
                           <button
                             key={level}
                             onClick={() => { setReasoningEffort(level); setDeepThinking(true); setShowReasoningPicker(false) }}
                             className={`w-full rounded-lg px-3 py-1.5 text-left text-xs ${reasoningEffort === level ? 'bg-violet-50 text-violet-600 dark:bg-violet-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                           >
-                            {level === 'low' ? '低强度' : level === 'medium' ? '中等' : '高强度'}
+                            {REASONING_EFFORT_LABELS[level]}强度
                           </button>
                         ))}
                         <button

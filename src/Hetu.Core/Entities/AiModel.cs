@@ -15,9 +15,13 @@ public class AiModel : BaseEntity
     /// </summary>
     public string ReasoningMode { get; set; } = "none";
     /// <summary>
-    /// 推理强度: off/low/medium/high（仅 native 模式使用）
+    /// 推理强度: off/none/minimal/low/medium/high/xhigh/max 或供应商自定义字符串
     /// </summary>
     public string ReasoningEffort { get; set; } = "medium";
+    /// <summary>
+    /// 推理 Token 预算（Claude budget_tokens 风格；为空时按强度等级由 Provider 换算）
+    /// </summary>
+    public int? ReasoningBudgetTokens { get; set; }
     /// <summary>
     /// 是否支持视觉（图像理解）
     /// </summary>

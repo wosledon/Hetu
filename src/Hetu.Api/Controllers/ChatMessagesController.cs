@@ -347,12 +347,12 @@ public class ChatMessagesController : ControllerBase
     {
         if (!request.DeepThinking) return;
 
-        string reasoningMode = "none";
+        AiModel? model = null;
         if (modelId.HasValue)
         {
-            var model = await _unitOfWork.AiModels.GetByIdAsync(modelId.Value);
-            if (model != null) reasoningMode = model.ReasoningMode ?? "none";
+            model = await _unitOfWork.AiModels.GetByIdAsync(modelId.Value);
         }
+        var reasoningMode = model?.ReasoningMode ?? "none";
         if (reasoningMode == "none") return;
 
         if (reasoningMode == "tag")
@@ -361,8 +361,9 @@ public class ChatMessagesController : ControllerBase
         }
         else if (reasoningMode == "native")
         {
-            var effort = !string.IsNullOrWhiteSpace(request.ReasoningEffort) ? request.ReasoningEffort : "medium";
-            options.ReasoningEffort = effort;
+            var effort = !string.IsNullOrWhiteSpace(request.ReasoningEffort) ? request.ReasoningEffort : model?.ReasoningEffort;
+            if (!string.IsNullOrWhiteSpace(effort)) options.ReasoningEffort = effort;
+            if (model?.ReasoningBudgetTokens is > 0) options.ReasoningBudgetTokens = model.ReasoningBudgetTokens;
         }
     }
 

@@ -1,11 +1,84 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap } from 'lucide-react'
-import { aiProviderService, aiModelService } from '../services/aiProviderService'
-import type { RemoteModelInfo } from '../services/aiProviderService'
+import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap, Search } from 'lucide-react'
+import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
+import type { RemoteModelInfo, CatalogModelInfo } from '../services/aiProviderService'
 import Select from './Select'
 
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
+
+/** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
+const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+
+function effortLabel(value: string): string {
+  switch (value) {
+    case 'off':
+    case 'none':
+      return '关闭'
+    case 'minimal':
+      return '最低'
+    case 'low':
+      return '低'
+    case 'medium':
+      return '中'
+    case 'high':
+      return '高'
+    case 'xhigh':
+      return '超高'
+    case 'max':
+      return '最大'
+    default:
+      return /^\d+$/.test(value) ? `${value} tokens` : value
+  }
+}
+
+/** 从模型目录条目推导默认推理强度：优先取目录声明的 effort 值，其次按预算下限。 */
+function catalogDefaultEffort(model: CatalogModelInfo): string {
+  if (model.reasoningEffortValues.includes('medium')) return 'medium'
+  if (model.reasoningEffortValues.length > 0) {
+    const middle = model.reasoningEffortValues[Math.floor(model.reasoningEffortValues.length / 2)]
+    return middle
+  }
+  if (model.reasoningBudgetMin) return 'medium'
+  return 'medium'
+}
+
+/** 从模型目录条目生成模型创建请求（保留可编辑，用户仍可手动调整）。 */
+function catalogToModelRequest(providerId: string, model: CatalogModelInfo) {
+  if (!model.reasoning) {
+    return {
+      providerId,
+      modelId: model.modelId,
+      displayName: model.name || model.modelId,
+      purpose: 'chat' as const,
+      reasoningMode: 'none',
+      reasoningEffort: 'medium',
+    }
+  }
+  return {
+    providerId,
+    modelId: model.modelId,
+    displayName: model.name || model.modelId,
+    purpose: 'chat' as const,
+    contextWindow: model.contextWindow,
+    reasoningMode: 'native',
+    reasoningEffort: catalogDefaultEffort(model),
+    reasoningBudgetTokens: model.reasoningBudgetMin ?? undefined,
+    supportsVision: model.supportsVision,
+    supportsReasoning: true,
+    supportsTools: model.supportsTools,
+  }
+}
+
+/** 按模型 ID 精确检索模型目录，用于供应商自动获取模型时补齐能力配置。 */
+async function lookupCatalogModel(modelId: string): Promise<CatalogModelInfo | null> {
+  try {
+    const results = await aiModelCatalogService.search(modelId, 10)
+    return results.find((m) => m.modelId === modelId) ?? null
+  } catch {
+    return null
+  }
+}
 
 export default function AiSettings() {
   const queryClient = useQueryClient()
@@ -13,7 +86,7 @@ export default function AiSettings() {
   const [showModelForm, setShowModelForm] = useState(false)
   const [showFetchForm, setShowFetchForm] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
-  const [editingModel, setEditingModel] = useState<{ id: string; modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean } | null>(null)
+  const [editingModel, setEditingModel] = useState<{ id: string; modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean } | null>(null)
 
   const { data: providers = [] } = useQuery({
     queryKey: ['aiProviders'],
@@ -201,7 +274,8 @@ export default function AiSettings() {
                       )}
                       {model.reasoningMode && model.reasoningMode !== 'none' && (
                         <span className="inline-flex shrink-0 items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
-                          {model.reasoningMode === 'native' ? '原生推理' : '标签推理'} · {model.reasoningEffort === 'low' ? '低' : model.reasoningEffort === 'medium' ? '中' : model.reasoningEffort === 'high' ? '高' : '关闭'}
+                          {model.reasoningMode === 'native' ? '原生推理' : '标签推理'} · {effortLabel(model.reasoningEffort)}
+                          {model.reasoningBudgetTokens ? ` (${model.reasoningBudgetTokens})` : ''}
                         </span>
                       )}
                       {!model.isVisible && (
@@ -270,7 +344,14 @@ export default function AiSettings() {
       {showFetchForm && (
         <FetchModelsForm
           providerId={selectedProviderId}
-          onAdd={(modelId) => createModel.mutate({ providerId: selectedProviderId, modelId, displayName: modelId, purpose: 'chat' })}
+          onAdd={async (modelId) => {
+            const catalogModel = await lookupCatalogModel(modelId)
+            if (catalogModel) {
+              createModel.mutate(catalogToModelRequest(selectedProviderId, catalogModel))
+            } else {
+              createModel.mutate({ providerId: selectedProviderId, modelId, displayName: modelId, purpose: 'chat' })
+            }
+          }}
           onCancel={() => setShowFetchForm(false)}
         />
       )}
@@ -352,9 +433,9 @@ function ModelForm({
   onSubmit,
   onCancel,
 }: {
-  initialData?: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean }
+  initialData?: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean }
   isEdit?: boolean
-  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
+  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
   onCancel: () => void
 }) {
   const [modelId, setModelId] = useState(initialData?.modelId ?? '')
@@ -365,6 +446,14 @@ function ModelForm({
   const [dimensions, setDimensions] = useState(initialData?.dimensions?.toString() ?? '')
   const [reasoningMode, setReasoningMode] = useState(initialData?.reasoningMode ?? 'none')
   const [reasoningEffort, setReasoningEffort] = useState(initialData?.reasoningEffort ?? 'medium')
+  const [reasoningBudgetTokens, setReasoningBudgetTokens] = useState(initialData?.reasoningBudgetTokens?.toString() ?? '')
+  const [customEffort, setCustomEffort] = useState(() => !!initialData && !DEFAULT_EFFORT_VALUES.includes(initialData.reasoningEffort))
+  const [catalogEffortValues, setCatalogEffortValues] = useState<string[]>([])
+  const [catalogBudgetMin, setCatalogBudgetMin] = useState<number | null>(null)
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogResults, setCatalogResults] = useState<CatalogModelInfo[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
   const [supportsVision, setSupportsVision] = useState(initialData?.supportsVision ?? false)
   const [supportsReasoning, setSupportsReasoning] = useState(initialData?.supportsReasoning ?? false)
   const [supportsTools, setSupportsTools] = useState(initialData?.supportsTools ?? false)
@@ -372,6 +461,61 @@ function ModelForm({
 
   const isChat = purpose === 'chat'
   const isEmbedding = purpose === 'embedding'
+
+  // models.dev 模型目录检索（防抖 350ms，关键词至少 2 个字符）
+  useEffect(() => {
+    const q = catalogQuery.trim()
+    if (q.length < 2) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setCatalogLoading(true)
+      aiModelCatalogService
+        .search(q, 20)
+        .then((data) => {
+          if (cancelled) return
+          setCatalogResults(data)
+          setCatalogError(null)
+        })
+        .catch((err) => {
+          if (!cancelled) setCatalogError((err as Error).message)
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogLoading(false)
+        })
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [catalogQuery])
+
+  // 选择目录模型后自动填充配置，用户仍可在此基础上手动修改
+  const applyCatalogModel = (model: CatalogModelInfo) => {
+    setModelId(model.modelId)
+    setDisplayName(model.name || model.modelId)
+    if (model.contextWindow) setContextWindow(String(model.contextWindow))
+    setSupportsVision(model.supportsVision)
+    setSupportsTools(model.supportsTools)
+    setSupportsReasoning(model.reasoning)
+    setCatalogEffortValues(model.reasoningEffortValues)
+    setCatalogBudgetMin(model.reasoningBudgetMin ?? null)
+    if (model.reasoning) {
+      setReasoningMode('native')
+      setReasoningEffort(catalogDefaultEffort(model))
+      setReasoningBudgetTokens(model.reasoningBudgetMin ? String(Math.max(model.reasoningBudgetMin, 16384)) : '')
+      setCustomEffort(false)
+    } else {
+      setReasoningMode('none')
+      setReasoningEffort('medium')
+      setReasoningBudgetTokens('')
+    }
+    setCatalogResults([])
+    setCatalogQuery('')
+  }
+
+  const effortOptions = catalogEffortValues.length > 0 ? catalogEffortValues : DEFAULT_EFFORT_VALUES
+  const effortInOptions = effortOptions.includes(reasoningEffort)
+  const catalogActive = catalogQuery.trim().length >= 2
 
   const handleSubmit = () => {
     onSubmit({
@@ -383,6 +527,7 @@ function ModelForm({
       dimensions: dimensions ? parseInt(dimensions) : undefined,
       reasoningMode: isChat ? reasoningMode : 'none',
       reasoningEffort: isChat ? reasoningEffort : 'medium',
+      reasoningBudgetTokens: isChat && reasoningBudgetTokens.trim() ? parseInt(reasoningBudgetTokens) : undefined,
       supportsVision: isChat ? supportsVision : false,
       supportsReasoning: isChat ? supportsReasoning : false,
       supportsTools: isChat ? supportsTools : false,
@@ -393,7 +538,7 @@ function ModelForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[460px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -408,6 +553,77 @@ function ModelForm({
         </div>
 
         <div className="space-y-5 px-6 py-5">
+          {/* ── 模型目录（models.dev） ── */}
+          {!isEdit && (
+            <section className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">从模型目录选择</h4>
+                <a
+                  href="https://models.dev"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-blue-500 hover:underline dark:text-blue-400"
+                >
+                  models.dev
+                </a>
+              </div>
+              <div className="relative">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={catalogQuery}
+                  onChange={(e) => setCatalogQuery(e.target.value)}
+                  placeholder="搜索模型，如 gpt-5 / claude / deepseek / glm / kimi"
+                  className={`${inputClass} pl-9`}
+                />
+              </div>
+              {catalogQuery.trim().length === 1 && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">至少输入 2 个字符</p>
+              )}
+              {catalogActive && catalogLoading && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">正在检索模型目录...</p>
+              )}
+              {catalogActive && catalogError && (
+                <p className="text-[11px] text-red-500">{catalogError}</p>
+              )}
+              {catalogActive && !catalogLoading && !catalogError && catalogResults.length === 0 && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">未找到匹配模型，仍可手动填写</p>
+              )}
+              {catalogActive && catalogResults.length > 0 && (
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-1.5 dark:border-white/[0.06]">
+                  {catalogResults.map((m) => (
+                    <button
+                      key={`${m.providerId}/${m.modelId}`}
+                      type="button"
+                      onClick={() => applyCatalogModel(m)}
+                      className="w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{m.name || m.modelId}</span>
+                        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{m.modelId}</span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+                        <span className="shrink-0">{m.providerName}</span>
+                        {m.reasoning && (
+                          <span className="inline-flex shrink-0 items-center rounded bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                            推理{m.reasoningEffortValues.length > 0 ? `: ${m.reasoningEffortValues.map(effortLabel).join('/')}` : m.reasoningBudgetMin ? `: ≥${m.reasoningBudgetMin} tokens` : ''}
+                          </span>
+                        )}
+                        {m.supportsVision && (
+                          <span className="inline-flex shrink-0 items-center rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">视觉</span>
+                        )}
+                        {m.supportsTools && (
+                          <span className="inline-flex shrink-0 items-center rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">工具</span>
+                        )}
+                        {m.contextWindow ? <span className="shrink-0">{(m.contextWindow / 1024).toLocaleString()}K 上下文</span> : null}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* ── 基础信息 ── */}
           <section className="space-y-3.5">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">基础信息</h4>
@@ -495,15 +711,49 @@ function ModelForm({
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理强度</label>
                   <Select
-                    value={reasoningEffort}
-                    onChange={(value) => setReasoningEffort(value)}
+                    value={effortInOptions && !customEffort ? reasoningEffort : '__custom__'}
+                    onChange={(value) => {
+                      if (value === '__custom__') {
+                        setCustomEffort(true)
+                        return
+                      }
+                      setCustomEffort(false)
+                      setReasoningEffort(value)
+                    }}
                     options={[
-                      { value: 'off', label: '关闭' },
-                      { value: 'low', label: '低' },
-                      { value: 'medium', label: '中' },
-                      { value: 'high', label: '高' },
+                      ...effortOptions.map((value) => ({ value, label: effortLabel(value) })),
+                      { value: '__custom__', label: '自定义值…' },
                     ]}
                   />
+                  {customEffort && (
+                    <input
+                      type="text"
+                      value={reasoningEffort}
+                      onChange={(e) => setReasoningEffort(e.target.value)}
+                      placeholder="自定义强度，如 minimal / xhigh / max 或数字 Token 预算"
+                      className={inputClass}
+                    />
+                  )}
+                  {catalogEffortValues.length > 0 && (
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      选项来自模型目录声明：{catalogEffortValues.map(effortLabel).join(' / ')}
+                    </p>
+                  )}
+                </div>
+              )}
+              {reasoningMode !== 'none' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理 Token 预算（可选）</label>
+                  <input
+                    type="number"
+                    value={reasoningBudgetTokens}
+                    onChange={(e) => setReasoningBudgetTokens(e.target.value)}
+                    placeholder={catalogBudgetMin ? `如 ${catalogBudgetMin}（Claude budget_tokens）` : '如 4096（Claude budget_tokens）'}
+                    className={inputClass}
+                  />
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    留空按推理强度自动换算；Anthropic 最小 1024，且需小于最大输出 Token
+                  </p>
                 </div>
               )}
 

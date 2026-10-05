@@ -112,6 +112,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IAppSettingService, AppSettingService>();
         services.AddScoped<IAiProviderService, AiProviderService>();
         services.AddScoped<IAiModelService, AiModelService>();
+        services.AddSingleton<IModelCatalogService, ModelCatalogService>();
         services.AddScoped<ILLMProviderFactory, LlmProviderFactory>();
         services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
         services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();

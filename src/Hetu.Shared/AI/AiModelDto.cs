@@ -12,6 +12,7 @@ public class AiModelDto
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }
     public bool SupportsTools { get; set; }
@@ -31,6 +32,7 @@ public class CreateAiModelRequest
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }
     public bool SupportsTools { get; set; }
@@ -47,6 +49,7 @@ public class UpdateAiModelRequest
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }
     public bool SupportsTools { get; set; }
