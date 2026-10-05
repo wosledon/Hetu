@@ -235,6 +235,30 @@ public class AnthropicLlmProvider : ILLMProvider
         return (null, result);
     }
 
+    /// <summary>
+    /// 解析 Claude 扩展思考的 Token 预算：优先使用显式预算；
+    /// 否则按强度等级折算（off/none 返回 null，表示不启用扩展思考）。
+    /// </summary>
+    private static int? ResolveThinkingBudget(ChatOptions options)
+    {
+        if (options.ReasoningBudgetTokens is > 0)
+            return Math.Max(options.ReasoningBudgetTokens.Value, 1024);
+
+        var effort = options.ReasoningEffort?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(effort) || effort is "off" or "none" or "disabled") return null;
+        if (int.TryParse(effort, out var budget) && budget > 0) return Math.Max(budget, 1024);
+
+        return effort switch
+        {
+            "minimal" => 1024,
+            "low" => 4096,
+            "medium" => 16384,
+            "high" => 32768,
+            "xhigh" or "max" => 64000,
+            _ => 16384
+        };
+    }
+
     private object CreateMessagesRequest(List<AnthropicMessage> messages, bool stream, ChatOptions options, string? systemPrompt)
     {
         var formattedMessages = messages.Select(m =>
@@ -257,17 +281,16 @@ public class AnthropicLlmProvider : ILLMProvider
             body["system"] = options.SystemPrompt;
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
 
-        // Extended thinking
-        if (!string.IsNullOrWhiteSpace(options.ReasoningEffort))
+        // Extended thinking（扩展思考）
+        var thinkingBudget = ResolveThinkingBudget(options);
+        if (thinkingBudget is > 0)
         {
-            var budget = options.ReasoningEffort switch
-            {
-                "low" => 2048,
-                "high" => 32768,
-                _ => 8192
-            };
-            body["thinking"] = new { type = "enabled", budget_tokens = budget };
-            if (!stream) body["stream"] = true;
+            // Anthropic 要求 max_tokens 大于 thinking.budget_tokens
+            var maxTokens = options.MaxTokens ?? 2048;
+            body["max_tokens"] = Math.Max(maxTokens, thinkingBudget.Value + 2048);
+            body["thinking"] = new { type = "enabled", budget_tokens = thinkingBudget };
+            // thinking 启用时不允许同时设置 temperature
+            body.Remove("temperature");
         }
 
         // Tools

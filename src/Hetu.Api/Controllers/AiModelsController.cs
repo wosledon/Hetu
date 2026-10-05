@@ -10,10 +10,12 @@ namespace Hetu.Api.Controllers;
 public class AiModelsController : ControllerBase
 {
     private readonly IAiModelService _aiModelService;
+    private readonly IModelCatalogService _modelCatalogService;
 
-    public AiModelsController(IAiModelService aiModelService)
+    public AiModelsController(IAiModelService aiModelService, IModelCatalogService modelCatalogService)
     {
         _aiModelService = aiModelService;
+        _modelCatalogService = modelCatalogService;
     }
 
     [HttpGet]
@@ -43,4 +45,18 @@ public class AiModelsController : ControllerBase
     [HttpPost("{id:guid}/set-default")]
     public Task<ApiResponse> SetDefault(Guid id, CancellationToken cancellationToken)
         => _aiModelService.SetDefaultAsync(id, cancellationToken);
+
+    /// <summary>
+    /// 搜索 models.dev 开放模型目录（添加模型时自动填充能力配置）。
+    /// </summary>
+    [HttpGet("catalog/search")]
+    public Task<ApiResponse<List<CatalogModelInfo>>> SearchCatalog([FromQuery] string? q, [FromQuery] int limit = 30, CancellationToken cancellationToken = default)
+        => _modelCatalogService.SearchAsync(q, limit, cancellationToken);
+
+    /// <summary>
+    /// models.dev 模型目录中的供应商列表。
+    /// </summary>
+    [HttpGet("catalog/providers")]
+    public Task<ApiResponse<List<CatalogProviderInfo>>> CatalogProviders(CancellationToken cancellationToken)
+        => _modelCatalogService.GetProvidersAsync(cancellationToken);
 }

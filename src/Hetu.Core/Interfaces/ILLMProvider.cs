@@ -82,9 +82,13 @@ public class ChatOptions
     public int? MaxTokens { get; set; }
     public bool Stream { get; set; }
     /// <summary>
-    /// 推理强度（native 模式）：low / medium / high
+    /// 推理强度（native 模式）：off/none/minimal/low/medium/high/xhigh/max 或供应商自定义字符串
     /// </summary>
     public string? ReasoningEffort { get; set; }
+    /// <summary>
+    /// 推理 Token 预算（Claude budget_tokens 风格；设置时优先于强度等级）
+    /// </summary>
+    public int? ReasoningBudgetTokens { get; set; }
     /// <summary>
     /// 可用工具定义列表（传给 LLM）
     /// </summary>

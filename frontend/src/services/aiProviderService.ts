@@ -19,6 +19,9 @@ export interface CreateAiModelRequest {
   isDefault?: boolean;
   contextWindow?: number;
   dimensions?: number;
+  reasoningMode?: string;
+  reasoningEffort?: string;
+  reasoningBudgetTokens?: number;
   supportsVision?: boolean;
   supportsReasoning?: boolean;
   supportsTools?: boolean;
@@ -32,6 +35,9 @@ export interface UpdateAiModelRequest {
   isDefault?: boolean;
   contextWindow?: number;
   dimensions?: number;
+  reasoningMode?: string;
+  reasoningEffort?: string;
+  reasoningBudgetTokens?: number;
   supportsVision?: boolean;
   supportsReasoning?: boolean;
   supportsTools?: boolean;
@@ -44,6 +50,34 @@ export interface RemoteModelInfo {
   contextWindow?: number;
 }
 
+/** models.dev 模型目录条目（添加模型时自动填充能力配置） */
+export interface CatalogModelInfo {
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  name: string;
+  description?: string;
+  family?: string;
+  reasoning: boolean;
+  /** 模型支持的推理强度等级（effort 类型） */
+  reasoningEffortValues: string[];
+  /** 推理 Token 预算下限（budget_tokens 类型，Claude 风格） */
+  reasoningBudgetMin?: number;
+  /** 推理仅支持开关切换（toggle 类型） */
+  reasoningToggleOnly: boolean;
+  supportsVision: boolean;
+  supportsTools: boolean;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  releaseDate?: string;
+}
+
+export interface CatalogProviderInfo {
+  id: string;
+  name: string;
+  modelCount: number;
+}
+
 export const aiProviderService = {
   getAll: () => get<IAiProvider[]>('/ai-providers'),
   getById: (id: string) => get<IAiProvider>(`/ai-providers/${id}`),
@@ -52,6 +86,13 @@ export const aiProviderService = {
   delete: (id: string) => del<void>(`/ai-providers/${id}`),
   getDefault: (purpose: string) => get<IAiProvider | null>(`/ai-providers/default/${purpose}`),
   fetchModels: (id: string) => get<RemoteModelInfo[]>(`/ai-providers/${id}/fetch-models`),
+};
+
+/** 模型目录（models.dev）检索：添加模型时自动填充能力配置 */
+export const aiModelCatalogService = {
+  search: (q: string, limit = 30) =>
+    get<CatalogModelInfo[]>(`/ai-models/catalog/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  providers: () => get<CatalogProviderInfo[]>('/ai-models/catalog/providers'),
 };
 
 export const aiModelService = {
