@@ -22,7 +22,6 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import Select from '../components/Select'
 import ThemedMarkdown from '../components/ThemedMarkdown'
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
@@ -74,13 +73,34 @@ interface NodePosition {
   vy: number
 }
 
+interface DragState { id: string | null; x: number; y: number }
+
+// Obsidian 风格：节点半径按连接数增长，但整体保持小巧
+const nodeRadius = (e: IGraphEntity) => Math.min(14, 4.5 + Math.sqrt(Math.max(0, e.relationCount)) * 2.4)
+
+const hexToRgb = (hex: string) => {
+  const v = (s: string) => { const n = parseInt(s, 16); return Number.isNaN(n) ? 0 : n }
+  return { r: v(hex.slice(1, 3)), g: v(hex.slice(3, 5)), b: v(hex.slice(5, 7)) }
+}
+
 // --- Force-directed layout hook (unchanged physics, same throttling) ---
-function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], width: number, height: number, layoutKey: number) {
+function useForceLayout(
+  entities: IGraphEntity[],
+  relations: IGraphRelation[],
+  width: number,
+  height: number,
+  layoutKey: number,
+  dragRef: React.RefObject<DragState>,
+  wakeKey: number,
+  onSettle?: (nodes: NodePosition[]) => void,
+) {
   const [positions, setPositions] = useState<NodePosition[]>([])
   const positionsRef = useRef<NodePosition[]>([])
   const frameRef = useRef<number>(0)
   const initializedRef = useRef(false)
   const prevLayoutKeyRef = useRef(layoutKey)
+  const onSettleRef = useRef(onSettle)
+  useEffect(() => { onSettleRef.current = onSettle })
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -130,19 +150,31 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       })
     }
 
+    // 拖拽中的节点：以最新拖拽坐标为准
+    if (dragRef.current.id) {
+      const dragNode = nodes.find(n => n.id === dragRef.current.id)
+      if (dragNode) { dragNode.x = dragRef.current.x; dragNode.y = dragRef.current.y }
+    }
+
     let iteration = 0
+    let alpha = 1
     // 根据节点数量动态调整迭代次数和节流间隔
     const nodeCount = nodes.length
-    const maxIterations = nodeCount > 100 ? 50 : nodeCount > 50 ? 75 : 100
-    const THROTTLE_INTERVAL = nodeCount > 100 ? 10 : nodeCount > 50 ? 5 : 3
+    const maxIterations = Math.max(200, nodeCount > 100 ? 260 : 320)
+    const THROTTLE_INTERVAL = nodeCount > 100 ? 8 : 4
+    // d3-force 式冷却：力随 alpha 衰减，布局平滑收敛而非生硬停摆
+    const alphaDecay = 1 - Math.pow(0.001, 1 / maxIterations)
+    const velocityDecay = 0.6
 
     const simulate = () => {
-      if (iteration >= maxIterations) return
+      if (iteration >= maxIterations || alpha < 0.015) {
+        onSettleRef.current?.(nodes)
+        return
+      }
 
-      const repulsion = 5000
-      const attraction = 0.005
-      const damping = 0.85
-      const centerPull = 0.01
+      const repulsion = 4200
+      const attraction = 0.02
+      const centerPull = 0.02
 
       // Pre-build node map for O(1) lookups during relation processing
       const nodeMap = new Map<string, NodePosition>()
@@ -188,9 +220,11 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
 
         fx += (cx - node.x) * centerPull
         fy += (cy - node.y) * centerPull
+        fx *= alpha
+        fy *= alpha
 
-        node.vx = (node.vx + fx) * damping
-        node.vy = (node.vy + fy) * damping
+        node.vx = (node.vx + fx) * velocityDecay
+        node.vy = (node.vy + fy) * velocityDecay
       }
 
       for (const rel of relations) {
@@ -201,7 +235,7 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
         const dx = target.x - source.x
         const dy = target.y - source.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const force = dist * attraction
+        const force = dist * attraction * alpha
 
         source.vx += (dx / dist) * force
         source.vy += (dy / dist) * force
@@ -210,6 +244,11 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       }
 
       for (const node of nodes) {
+        if (dragRef.current.id === node.id) {
+          node.x = dragRef.current.x; node.y = dragRef.current.y
+          node.vx = 0; node.vy = 0
+          continue
+        }
         node.x += node.vx
         node.y += node.vy
         node.x = Math.max(40, Math.min(width - 40, node.x))
@@ -217,6 +256,7 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
       }
 
       iteration++
+      alpha += alphaDecay * (0 - alpha)
       positionsRef.current = nodes
 
       // Throttle React state updates: every THROTTLE_INTERVAL iterations + always on last
@@ -231,9 +271,14 @@ function useForceLayout(entities: IGraphEntity[], relations: IGraphRelation[], w
 
     frameRef.current = requestAnimationFrame(simulate)
     return () => cancelAnimationFrame(frameRef.current)
-  }, [entities, relations, width, height, layoutKey])
+  }, [entities, relations, width, height, layoutKey, wakeKey, dragRef])
 
-  return positions
+  const setNodePosition = useCallback((id: string, x: number, y: number) => {
+    const p = positionsRef.current.find(n => n.id === id)
+    if (p) { p.x = x; p.y = y; p.vx = 0; p.vy = 0 }
+  }, [])
+
+  return { positions, setNodePosition }
 }
 
 // --- Canvas renderer hook: draws graph directly on <canvas> via requestAnimationFrame ---
@@ -241,11 +286,15 @@ interface CanvasRendererOptions {
   zoom: number
   pan: { x: number; y: number }
   selectedEntityId: string | null
+  externalHoverId: string | null
   onSelectEntity: (id: string) => void
   onDeleteRelation: (id: string) => void
   onDeselect: () => void
   onPanChange: (pan: { x: number; y: number }) => void
   onZoomChange: (zoom: number) => void
+  onWakeSimulation: () => void
+  setNodePosition: (id: string, x: number, y: number) => void
+  dragRef: React.RefObject<DragState>
 }
 
 function useCanvasRenderer(
@@ -255,8 +304,20 @@ function useCanvasRenderer(
   positions: NodePosition[],
   options: CanvasRendererOptions,
 ) {
-  const { zoom, pan, selectedEntityId, onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange } = options
+  const { zoom, pan, selectedEntityId, onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition, externalHoverId } = options
   const animationRef = useRef<number>(0)
+  const hoveredIdRef = useRef<string | null>(null)
+  const externalHoverRef = useRef(externalHoverId)
+  useEffect(() => { externalHoverRef.current = externalHoverId }, [externalHoverId])
+
+  // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛/补间，缩放与平移更顺滑
+  const dispZoomRef = useRef(zoom)
+  const dispPanRef = useRef(pan)
+  const animRef = useRef<{
+    t0: number; dur: number
+    fromPan: { x: number; y: number }; fromZoom: number
+    toPan: { x: number; y: number }; toZoom: number
+  } | null>(null)
 
   // Keep refs in sync with latest props for the render loop (avoids stale closures)
   const posMapRef = useRef<Map<string, NodePosition>>(new Map())
@@ -273,8 +334,8 @@ function useCanvasRenderer(
   useEffect(() => { panRef.current = pan }, [pan])
   useEffect(() => { selectedRef.current = selectedEntityId }, [selectedEntityId])
 
-  const callbacksRef = useRef({ onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange })
-  useEffect(() => { callbacksRef.current = { onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange } })
+  const callbacksRef = useRef({ onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition })
+  useEffect(() => { callbacksRef.current = { onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition } })
 
   // --- Render loop ---
   useEffect(() => {
@@ -294,7 +355,23 @@ function useCanvasRenderer(
         canvas.height = targetH
       }
       const w = canvas.width / dpr, h = canvas.height / dpr
-      const z = zoomRef.current, p = panRef.current
+      // 展示变换：补间动画优先，否则向逻辑值收敛
+      const anim = animRef.current
+      if (anim) {
+        const t = Math.min(1, (performance.now() - anim.t0) / anim.dur)
+        const e = 1 - Math.pow(1 - t, 3)
+        dispPanRef.current = {
+          x: anim.fromPan.x + (anim.toPan.x - anim.fromPan.x) * e,
+          y: anim.fromPan.y + (anim.toPan.y - anim.fromPan.y) * e,
+        }
+        dispZoomRef.current = anim.fromZoom + (anim.toZoom - anim.fromZoom) * e
+        if (t >= 1) animRef.current = null
+      } else {
+        dispZoomRef.current += (zoomRef.current - dispZoomRef.current) * 0.22
+        dispPanRef.current.x += (panRef.current.x - dispPanRef.current.x) * 0.22
+        dispPanRef.current.y += (panRef.current.y - dispPanRef.current.y) * 0.22
+      }
+      const z = dispZoomRef.current, p = dispPanRef.current
       const selId = selectedRef.current
       const posMap = posMapRef.current, emap = entityMapRef.current, rels = relationsRef.current
 
@@ -305,68 +382,127 @@ function useCanvasRenderer(
       ctx.translate(p.x, p.y)
       ctx.scale(z, z)
 
-      // --- Draw relations ---
+      const isDark = document.documentElement.classList.contains('dark')
+
+      // 悬停高亮（画布内悬停优先，其次侧栏联动）：计算邻居集合，其余节点/连线淡化
+      const hovered = hoveredIdRef.current ?? externalHoverRef.current
+      const hoverSet = new Set<string>()
+      if (hovered) {
+        hoverSet.add(hovered)
+        for (const rel of rels) {
+          if (rel.sourceEntityId === hovered) hoverSet.add(rel.targetEntityId)
+          if (rel.targetEntityId === hovered) hoverSet.add(rel.sourceEntityId)
+        }
+      }
+
+      // --- Draw relations:细线、微弯、无箭头无文字标签（Obsidian 风格） ---
       for (const rel of rels) {
         const src = posMap.get(rel.sourceEntityId), tgt = posMap.get(rel.targetEntityId)
         if (!src || !tgt) continue
         const sEnt = emap.get(rel.sourceEntityId), tEnt = emap.get(rel.targetEntityId)
-        const sR = 18 + Math.min((sEnt?.relationCount ?? 0) * 2, 12)
-        const tR = 18 + Math.min((tEnt?.relationCount ?? 0) * 2, 12)
+        const sR = sEnt ? nodeRadius(sEnt) : 5
+        const tR = tEnt ? nodeRadius(tEnt) : 5
         const dx = tgt.x - src.x, dy = tgt.y - src.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
         const ux = dx / dist, uy = dy / dist
         const x1 = src.x + ux * sR, y1 = src.y + uy * sR
-        const x2 = tgt.x - ux * (tR + 6), y2 = tgt.y - uy * (tR + 6)
+        const x2 = tgt.x - ux * (tR + 2), y2 = tgt.y - uy * (tR + 2)
 
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2)
-        ctx.strokeStyle = 'rgba(203,213,225,0.7)'; ctx.lineWidth = 1.2 / z; ctx.stroke()
+        // 轻微弯曲，避免直线网格感
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+        const nx = -(y2 - y1), ny = (x2 - x1)
+        const nl = Math.sqrt(nx * nx + ny * ny) || 1
+        const bend = Math.min(28, dist * 0.07)
+        const cx = mx + (nx / nl) * bend, cy = my + (ny / nl) * bend
 
-        const hl = 6 / z
-        ctx.beginPath(); ctx.moveTo(x2, y2)
-        ctx.lineTo(x2 - hl * ux + hl * 0.4 * (-uy), y2 - hl * uy + hl * 0.4 * ux)
-        ctx.moveTo(x2, y2)
-        ctx.lineTo(x2 - hl * ux - hl * 0.4 * (-uy), y2 - hl * uy - hl * 0.4 * ux)
-        ctx.strokeStyle = 'rgba(203,213,225,0.8)'; ctx.lineWidth = 1.2 / z; ctx.stroke()
-
-        const fs = Math.max(9, 9 / z)
-        ctx.font = `${fs}px -apple-system,BlinkMacSystemFont,sans-serif`
-        ctx.fillStyle = 'rgba(156,163,175,0.8)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(RELATION_LABELS[rel.relationType] || rel.relationType, (src.x + tgt.x) / 2, (src.y + tgt.y) / 2 - 6)
+        const touched = hovered !== null && (rel.sourceEntityId === hovered || rel.targetEntityId === hovered)
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.quadraticCurveTo(cx, cy, x2, y2)
+        if (touched) {
+          ctx.strokeStyle = isDark ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.6)'
+          ctx.lineWidth = 1.4 / z
+        } else if (hovered) {
+          ctx.strokeStyle = isDark ? 'rgba(148,163,184,0.05)' : 'rgba(148,163,184,0.07)'
+          ctx.lineWidth = 1 / z
+        } else {
+          ctx.strokeStyle = isDark ? 'rgba(148,163,184,0.2)' : 'rgba(148,163,184,0.32)'
+          ctx.lineWidth = 1 / z
+        }
+        ctx.stroke()
       }
 
-      // --- Draw entities ---
+      // --- Draw entities:小圆点 + 柔光晕 ---
       for (const entity of entities) {
         const pos = posMap.get(entity.id); if (!pos) continue
         const color = ENTITY_COLORS[entity.type] || ENTITY_COLORS.custom
+        const rgb = hexToRgb(color)
         const isSel = selId === entity.id
-        const r = 18 + Math.min(entity.relationCount * 2, 12)
-
-        if (isSel) {
-          const t = Date.now() / 1000, pulseR = r + 4 + Math.sin(t * Math.PI) * 2
-          ctx.beginPath(); ctx.arc(pos.x, pos.y, pulseR, 0, Math.PI * 2)
-          ctx.strokeStyle = color; ctx.lineWidth = 2 / z
-          ctx.globalAlpha = 0.3 + Math.sin(t * Math.PI) * 0.2; ctx.stroke(); ctx.globalAlpha = 1
-        }
+        const isHov = hovered === entity.id
+        const isNeighbor = hovered !== null && !isHov && hoverSet.has(entity.id)
+        const dimmed = hovered !== null && !hoverSet.has(entity.id)
+        const r = nodeRadius(entity)
+        const rr = isSel || isHov ? r * 1.2 : r
 
         ctx.save()
-        ctx.shadowColor = 'rgba(0,0,0,0.15)'; ctx.shadowBlur = 6 / z; ctx.shadowOffsetY = 2 / z
-        const cr = parseInt(color.slice(1, 3), 16), cg = parseInt(color.slice(3, 5), 16), cb = parseInt(color.slice(5, 7), 16)
-        const grad = ctx.createRadialGradient(pos.x - r * 0.25, pos.y - r * 0.25, 0, pos.x, pos.y, r)
-        grad.addColorStop(0, `rgba(${cr},${cg},${cb},1)`); grad.addColorStop(1, `rgba(${cr},${cg},${cb},0.8)`)
-        ctx.beginPath(); ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2)
-        ctx.fillStyle = grad; ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1; ctx.restore()
+        if (dimmed) ctx.globalAlpha = 0.18
 
-        const gx = pos.x - r * 0.3, gy = pos.y - r * 0.3, gr = r * 0.4
-        ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2)
-        const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr)
-        glow.addColorStop(0, 'rgba(255,255,255,0.3)'); glow.addColorStop(1, 'rgba(255,255,255,0)')
-        ctx.fillStyle = glow; ctx.fill()
+        // 柔光晕
+        const halo = ctx.createRadialGradient(pos.x, pos.y, rr * 0.9, pos.x, pos.y, rr * 2.8)
+        const haloAlpha = isSel || isHov ? 0.5 : isNeighbor ? 0.4 : 0.26
+        halo.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${haloAlpha})`)
+        halo.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`)
+        ctx.fillStyle = halo
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, rr * 2.8, 0, Math.PI * 2); ctx.fill()
 
-        const lbl = entity.name.length > 6 ? entity.name.slice(0, 5) + '\u2026' : entity.name
-        const efs = Math.max(10, 10 / z)
-        ctx.font = `500 ${efs}px -apple-system,BlinkMacSystemFont,sans-serif`
-        ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(lbl, pos.x, pos.y + 1)
+        // 核心圆点：纯色填充，选中/悬停/邻居加描边
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, rr, 0, Math.PI * 2)
+        ctx.fillStyle = color; ctx.fill()
+        if (isSel || isHov || isNeighbor) {
+          ctx.lineWidth = (isSel || isHov ? 2 : 1.2) / z
+          ctx.strokeStyle = isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.95)'
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
+
+      // --- Labels:节点下方完整名称，防重叠剔除（悬停/选中/高度数节点优先） ---
+      const labelCandidates: { entity: IGraphEntity; pos: NodePosition; rr: number; isSel: boolean; isHov: boolean }[] = []
+      for (const entity of entities) {
+        const pos = posMap.get(entity.id); if (!pos) continue
+        const isSel = selId === entity.id
+        const isHov = hovered === entity.id
+        const dimmed = hovered !== null && !hoverSet.has(entity.id)
+        if (dimmed) continue
+        if (!(z >= 0.45 || isSel || isHov)) continue
+        const r = nodeRadius(entity)
+        const rr = isSel || isHov ? r * 1.2 : r
+        labelCandidates.push({ entity, pos, rr, isSel, isHov })
+      }
+      labelCandidates.sort((a, b) => {
+        const wa = (a.isSel ? 2 : 0) + (a.isHov ? 2 : 0) + a.entity.relationCount / 100
+        const wb = (b.isSel ? 2 : 0) + (b.isHov ? 2 : 0) + b.entity.relationCount / 100
+        return wb - wa
+      })
+      const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
+      for (const c of labelCandidates) {
+        const fsc = Math.max(10, 11.5 / z)
+        ctx.font = `${c.isSel || c.isHov ? 600 : 400} ${fsc}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`
+        const tw = ctx.measureText(c.entity.name).width * z
+        const sx = c.pos.x * z + p.x, sy = c.pos.y * z + p.y
+        const ly = sy + c.rr * z + 5
+        const lh = fsc * z
+        const rect = { x1: sx - tw / 2 - 3, x2: sx + tw / 2 + 3, y1: ly - 2, y2: ly + lh + 2 }
+        if (!c.isSel && !c.isHov && placed.some(r => r.x1 < rect.x2 && r.x2 > rect.x1 && r.y1 < rect.y2 && r.y2 > rect.y1)) continue
+        placed.push(rect)
+
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+        ctx.lineJoin = 'round'
+        ctx.lineWidth = 3 / z
+        ctx.strokeStyle = isDark ? 'rgba(2,6,23,0.85)' : 'rgba(248,250,252,0.9)'
+        ctx.strokeText(c.entity.name, c.pos.x, c.pos.y + c.rr + 5 / z)
+        ctx.fillStyle = isDark ? 'rgba(226,232,240,0.95)' : 'rgba(51,65,85,0.95)'
+        ctx.fillText(c.entity.name, c.pos.x, c.pos.y + c.rr + 5 / z)
       }
 
       ctx.restore()
@@ -392,29 +528,42 @@ function useCanvasRenderer(
     return () => obs.disconnect()
   }, [canvasRef, entities.length])
 
-  // --- Mouse interaction (hit-test, pan, zoom, click) ---
+  // --- Mouse interaction (hit-test, pan, zoom, drag node, hover highlight) ---
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
-    let isDragging = false, startX = 0, startY = 0
+    const drag = options.dragRef
+    let mode: 'none' | 'pan' | 'node' = 'none'
+    let moved = false
+    let startCX = 0, startCY = 0
+    let startPanX = 0, startPanY = 0
+    let dragId: string | null = null
+    let dragOX = 0, dragOY = 0
+
+    const toGraph = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect()
+      const z = dispZoomRef.current, p = dispPanRef.current
+      return { x: (clientX - rect.left - p.x) / z, y: (clientY - rect.top - p.y) / z }
+    }
 
     const hitTest = (sx: number, sy: number): { entity?: string; relation?: string } => {
-      const z = zoomRef.current, p = panRef.current
+      const z = dispZoomRef.current, p = dispPanRef.current
       const rect = canvas.getBoundingClientRect()
       const x = (sx - rect.left - p.x) / z, y = (sy - rect.top - p.y) / z
 
       for (const entity of entities) {
         const pos = posMapRef.current.get(entity.id); if (!pos) continue
-        const r = 18 + Math.min(entity.relationCount * 2, 12)
+        const r = nodeRadius(entity) + 3 / z
         if ((x - pos.x) ** 2 + (y - pos.y) ** 2 <= r * r) return { entity: entity.id }
       }
       for (const rel of relationsRef.current) {
         const src = posMapRef.current.get(rel.sourceEntityId), tgt = posMapRef.current.get(rel.targetEntityId)
         if (!src || !tgt) continue
-        const sR = 18 + Math.min((entityMapRef.current.get(rel.sourceEntityId)?.relationCount ?? 0) * 2, 12)
-        const tR = 18 + Math.min((entityMapRef.current.get(rel.targetEntityId)?.relationCount ?? 0) * 2, 12)
+        const sEnt = entityMapRef.current.get(rel.sourceEntityId), tEnt = entityMapRef.current.get(rel.targetEntityId)
+        const sR = sEnt ? nodeRadius(sEnt) : 5
+        const tR = tEnt ? nodeRadius(tEnt) : 5
         const dx = tgt.x - src.x, dy = tgt.y - src.y, dist = Math.sqrt(dx * dx + dy * dy); if (dist < 1) continue
         const ux = dx / dist, uy = dy / dist
-        const x1 = src.x + ux * sR, y1 = src.y + uy * sR, x2 = tgt.x - ux * (tR + 6), y2 = tgt.y - uy * (tR + 6)
+        const x1 = src.x + ux * sR, y1 = src.y + uy * sR, x2 = tgt.x - ux * (tR + 2), y2 = tgt.y - uy * (tR + 2)
         const len2 = (x2 - x1) ** 2 + (y2 - y1) ** 2; if (len2 < 1) continue
         const t = Math.max(0, Math.min(1, ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / len2))
         const px = x1 + t * (x2 - x1), py = y1 + t * (y2 - y1)
@@ -424,37 +573,57 @@ function useCanvasRenderer(
     }
 
     const onMove = (e: MouseEvent) => {
+      if (mode !== 'none') { canvas.style.cursor = 'grabbing'; return }
       const hit = hitTest(e.clientX, e.clientY)
-      canvas.style.cursor = (hit.entity || hit.relation) ? 'pointer' : isDragging ? 'grabbing' : 'grab'
+      hoveredIdRef.current = hit.entity ?? null
+      canvas.style.cursor = (hit.entity || hit.relation) ? 'pointer' : 'grab'
     }
 
-    const onWindowMove = (e: MouseEvent) => {
-      if (isDragging) {
-        callbacksRef.current.onPanChange({ x: e.clientX - startX, y: e.clientY - startY })
+    const onLeave = () => { hoveredIdRef.current = null }
+
+    const onWinMove = (e: MouseEvent) => {
+      if (mode === 'none') return
+      if (Math.abs(e.clientX - startCX) > 3 || Math.abs(e.clientY - startCY) > 3) moved = true
+      if (mode === 'pan') {
+        callbacksRef.current.onPanChange({ x: startPanX + e.clientX - startCX, y: startPanY + e.clientY - startCY })
+      } else if (mode === 'node' && dragId) {
+        const g = toGraph(e.clientX, e.clientY)
+        const x = g.x - dragOX, y = g.y - dragOY
+        const pos = posMapRef.current.get(dragId)
+        if (pos) { pos.x = x; pos.y = y }
+        drag.current = { id: dragId, x, y }
+        callbacksRef.current.setNodePosition(dragId, x, y)
       }
+    }
+
+    const onWinUp = () => {
+      if (mode === 'node' && dragId) {
+        drag.current = { id: null, x: 0, y: 0 }
+        callbacksRef.current.onWakeSimulation()
+      }
+      mode = 'none'; dragId = null
     }
 
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return
-      startX = e.clientX - panRef.current.x; startY = e.clientY - panRef.current.y
-      isDragging = false
-      const onMoveCheck = (ev: MouseEvent) => {
-        if (Math.abs(ev.clientX - startX - panRef.current.x) > 3 || Math.abs(ev.clientY - startY - panRef.current.y) > 3) isDragging = true
+      moved = false
+      startCX = e.clientX; startCY = e.clientY
+      const hit = hitTest(e.clientX, e.clientY)
+      if (hit.entity) {
+        mode = 'node'; dragId = hit.entity
+        const pos = posMapRef.current.get(hit.entity)
+        const g = toGraph(e.clientX, e.clientY)
+        dragOX = pos ? g.x - pos.x : 0
+        dragOY = pos ? g.y - pos.y : 0
+        if (pos) drag.current = { id: hit.entity, x: pos.x, y: pos.y }
+      } else {
+        mode = 'pan'
+        startPanX = panRef.current.x; startPanY = panRef.current.y
       }
-      const onUp = () => {
-        isDragging = false
-        canvas.style.cursor = 'grab'
-        window.removeEventListener('mousemove', onMoveCheck)
-        window.removeEventListener('mousemove', onWindowMove)
-        window.removeEventListener('mouseup', onUp)
-      }
-      window.addEventListener('mousemove', onMoveCheck)
-      window.addEventListener('mousemove', onWindowMove)
-      window.addEventListener('mouseup', onUp)
     }
 
     const onClick = (e: MouseEvent) => {
-      if (isDragging) { isDragging = false; return }
+      if (moved) { moved = false; return }
       const hit = hitTest(e.clientX, e.clientY)
       if (hit.entity) callbacksRef.current.onSelectEntity(hit.entity)
       else if (hit.relation) callbacksRef.current.onDeleteRelation(hit.relation)
@@ -463,6 +632,7 @@ function useCanvasRenderer(
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      animRef.current = null
       const rect = canvas.getBoundingClientRect()
       const mx = e.clientX - rect.left, my = e.clientY - rect.top
       const cz = zoomRef.current, cp = panRef.current
@@ -474,13 +644,68 @@ function useCanvasRenderer(
 
     canvas.addEventListener('mousedown', onDown)
     canvas.addEventListener('mousemove', onMove)
+    canvas.addEventListener('mouseleave', onLeave)
     canvas.addEventListener('click', onClick)
     canvas.addEventListener('wheel', onWheel, { passive: false })
+    window.addEventListener('mousemove', onWinMove)
+    window.addEventListener('mouseup', onWinUp)
     return () => {
       canvas.removeEventListener('mousedown', onDown); canvas.removeEventListener('mousemove', onMove)
+      canvas.removeEventListener('mouseleave', onLeave)
       canvas.removeEventListener('click', onClick); canvas.removeEventListener('wheel', onWheel)
+      window.removeEventListener('mousemove', onWinMove)
+      window.removeEventListener('mouseup', onWinUp)
     }
-  }, [canvasRef, entities])
+  }, [canvasRef, entities, options.dragRef])
+
+  // 平滑地将视图居中到指定实体（从侧栏/详情跳转时用）
+  const centerOnEntity = useCallback((id: string) => {
+    const pos = posMapRef.current.get(id)
+    const canvas = canvasRef.current
+    if (!pos || !canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const z = Math.max(0.3, Math.min(1.5, dispZoomRef.current))
+    const toPan = { x: rect.width / 2 - pos.x * z, y: rect.height / 2 - pos.y * z }
+    animRef.current = {
+      t0: performance.now(),
+      dur: 450,
+      fromPan: { ...dispPanRef.current },
+      fromZoom: dispZoomRef.current,
+      toPan,
+      toZoom: z,
+    }
+    // 同步逻辑态，避免动画结束后显示值向旧逻辑值漂移
+    callbacksRef.current.onPanChange(toPan)
+    callbacksRef.current.onZoomChange(z)
+  }, [canvasRef])
+
+  // 平滑地将整幅图谱适配进视口（首次布局收敛后用）
+  const fitToNodes = useCallback((nodes: NodePosition[]) => {
+    const canvas = canvasRef.current
+    if (!canvas || nodes.length === 0) return
+    const rect = canvas.getBoundingClientRect()
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const n of nodes) {
+      minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x)
+      minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y)
+    }
+    const bw = Math.max(maxX - minX, 1), bh = Math.max(maxY - minY, 1)
+    const pad = 70
+    const z = Math.max(0.3, Math.min(1.5, Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh)))
+    const toPan = { x: rect.width / 2 - ((minX + maxX) / 2) * z, y: rect.height / 2 - ((minY + maxY) / 2) * z }
+    animRef.current = {
+      t0: performance.now(),
+      dur: 600,
+      fromPan: { ...dispPanRef.current },
+      fromZoom: dispZoomRef.current,
+      toPan,
+      toZoom: z,
+    }
+    callbacksRef.current.onPanChange(toPan)
+    callbacksRef.current.onZoomChange(z)
+  }, [canvasRef])
+
+  return { centerOnEntity, fitToNodes }
 }
 
 export default function GraphPage() {
@@ -637,21 +862,42 @@ export default function GraphPage() {
     return () => obs.disconnect()
   }, [])
 
-  const positions = useForceLayout(filteredEntities, filteredRelations, layoutSize.w, layoutSize.h, layoutKey)
+  const dragRef = useRef<DragState>({ id: null, x: 0, y: 0 })
+  const [wakeKey, setWakeKey] = useState(0)
+  const [externalHoverId, setExternalHoverId] = useState<string | null>(null)
+  const firstSettleRef = useRef(true)
+  const fitToNodesRef = useRef<(nodes: NodePosition[]) => void>(() => {})
 
-  useCanvasRenderer(canvasRef, filteredEntities, filteredRelations, positions, {
-    zoom, pan, selectedEntityId,
+  const { positions, setNodePosition } = useForceLayout(filteredEntities, filteredRelations, layoutSize.w, layoutSize.h, layoutKey, dragRef, wakeKey, (nodes) => {
+    // 首次布局收敛后自动适配视图，把整个图谱框进画面
+    if (!firstSettleRef.current) return
+    firstSettleRef.current = false
+    fitToNodesRef.current(nodes)
+  })
+
+  const { centerOnEntity, fitToNodes } = useCanvasRenderer(canvasRef, filteredEntities, filteredRelations, positions, {
+    zoom, pan, selectedEntityId, externalHoverId,
     onSelectEntity: setSelectedEntityId,
     onDeleteRelation: (id) => deleteRelationMutation.mutate(id),
     onDeselect: () => setSelectedEntityId(null),
     onPanChange: setPan,
     onZoomChange: setZoom,
+    onWakeSimulation: () => setWakeKey(k => k + 1),
+    setNodePosition,
+    dragRef,
   })
+  useEffect(() => { fitToNodesRef.current = fitToNodes }, [fitToNodes])
 
   const entityTypes = useMemo(() => [...new Set(entities.map(e => e.type))], [entities])
 
+  const typeCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of entities) m.set(e.type, (m.get(e.type) ?? 0) + 1)
+    return m
+  }, [entities])
+
   const handleResetView = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
-  const handleAutoLayout = () => { setLayoutKey(prev => prev + 1) }
+  const handleAutoLayout = () => { firstSettleRef.current = true; setLayoutKey(prev => prev + 1) }
 
   const handleOpenNotePreview = useCallback(async (noteId: string, noteTitle: string) => {
     setPreviewNoteId(noteId)
@@ -836,14 +1082,23 @@ export default function GraphPage() {
         {entityDetail.relations.length > 0 && (
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">关系 ({entityDetail.relations.length})</h4>
-            <div className="space-y-1.5">{entityDetail.relations.map(rel => (
-              <div key={rel.id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-gray-800">
-                <span className="font-medium text-gray-700 dark:text-gray-300">{rel.sourceEntityName}</span>
-                <span className="text-indigo-500">→</span>
-                <span className="text-gray-400">{RELATION_LABELS[rel.relationType] || rel.relationType}</span>
-                <span className="text-indigo-500">→</span>
-                <span className="font-medium text-gray-700 dark:text-gray-300">{rel.targetEntityName}</span>
-              </div>))}</div>
+            <div className="space-y-1">{entityDetail.relations.map(rel => {
+              const otherId = rel.sourceEntityId === entityDetail.id ? rel.targetEntityId : rel.sourceEntityId
+              return (
+                <div
+                  key={rel.id}
+                  onClick={() => { setSelectedEntityId(otherId); centerOnEntity(otherId) }}
+                  onMouseEnter={() => setExternalHoverId(otherId)}
+                  onMouseLeave={() => setExternalHoverId(null)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs transition-colors hover:bg-indigo-50 dark:bg-gray-800 dark:hover:bg-indigo-950/30"
+                >
+                  <span className="truncate font-medium text-gray-700 dark:text-gray-300" title={rel.sourceEntityName}>{rel.sourceEntityName}</span>
+                  <span className="shrink-0 text-gray-400">{RELATION_LABELS[rel.relationType] || rel.relationType}</span>
+                  <span className="shrink-0 text-indigo-400">→</span>
+                  <span className="truncate font-medium text-gray-700 dark:text-gray-300" title={rel.targetEntityName}>{rel.targetEntityName}</span>
+                </div>
+              )
+            })}</div>
           </div>
         )}
       </div>
@@ -857,33 +1112,44 @@ export default function GraphPage() {
         {rightPanel}
       </div>
     }>
-      <div className="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2></div>
-          <div className="relative mb-2"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder="搜索实体..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e)} options={[{ value: 'all', label: '全部类型' }, ...entityTypes.map(type => ({ value: type, label: ENTITY_TYPE_LABELS[type] || type }))]} />
-        </div>
-        <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 p-4 dark:border-gray-800 dark:from-indigo-950/20 dark:to-purple-950/20">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">实体</div><div className="mt-1 text-xl font-bold text-indigo-600 dark:text-indigo-400">{entities.length}</div></div>
-            <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-gray-800"><div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">关系</div><div className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400">{relations.length}</div></div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2>
+            <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
+          </div>
+          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder="搜索实体..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>全部 {entities.length}</button>
+            {entityTypes.map(type => (
+              <button key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ENTITY_COLORS[type] || ENTITY_COLORS.custom }} />{ENTITY_TYPE_LABELS[type] || type} {typeCounts.get(type) ?? 0}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{entities.length}</span> 实体</span>
+          <span className="text-gray-300 dark:text-gray-600">·</span>
+          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{relations.length}</span> 关系</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-1.5">
           {filteredEntities.length === 0 && <div className="py-8 text-center text-xs text-gray-400">暂无匹配的实体</div>}
           {filteredEntities.map(entity => {
             const color = ENTITY_COLORS[entity.type] || ENTITY_COLORS.custom
-            const EntityIcon = ENTITY_ICONS[entity.type] || ENTITY_ICONS.custom
+            const active = selectedEntityId === entity.id
             return (
-              <div key={entity.id} onClick={() => setSelectedEntityId(entity.id)} className={`group mb-1 cursor-pointer rounded-xl p-3 transition-all ${selectedEntityId === entity.id ? 'bg-indigo-50 shadow-sm dark:bg-indigo-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm" style={{ backgroundColor: `${color}15` }}><EntityIcon size={16} style={{ color }} /></div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2"><h3 className={`truncate text-sm ${selectedEntityId === entity.id ? 'font-medium text-indigo-700 dark:text-indigo-200' : 'font-medium text-gray-800 dark:text-gray-100'}`}>{entity.name}</h3><span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{entity.relationCount}</span></div>
-                    <span className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]" style={{ backgroundColor: `${color}15`, color }}>{ENTITY_TYPE_LABELS[entity.type] || entity.type}</span>
-                    {entity.description && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{entity.description}</p>}
-                  </div>
-                </div>
+              <div
+                key={entity.id}
+                title={entity.name}
+                onClick={() => { setSelectedEntityId(entity.id); centerOnEntity(entity.id) }}
+                onMouseEnter={() => setExternalHoverId(entity.id)}
+                onMouseLeave={() => setExternalHoverId(null)}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'}`}
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                <span className={`flex-1 truncate text-sm ${active ? 'font-medium text-indigo-700 dark:text-indigo-200' : 'text-gray-700 dark:text-gray-200'}`}>{entity.name}</span>
+                <span className="shrink-0 text-[10px] tabular-nums text-gray-400">{entity.relationCount}</span>
               </div>
             )
           })}
