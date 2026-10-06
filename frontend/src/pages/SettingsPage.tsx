@@ -766,7 +766,10 @@ function DefaultModelSelect({
       <Select
         value={value}
         onChange={onChange}
-        options={models.map((m) => ({ value: m.id, label: `${m.displayName} (${m.modelId})` }))}
+        options={[
+          { value: '', label: placeholder },
+          ...models.map((m) => ({ value: m.id, label: `${m.displayName} (${m.modelId})` })),
+        ]}
         placeholder={placeholder}
         className="w-56"
       />
