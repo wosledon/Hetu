@@ -37,11 +37,11 @@ public class ModelCatalogService : IModelCatalogService
         if (!loadResult.Success) return ApiResponse<List<CatalogModelInfo>>.Fail(loadResult.Error ?? "模型目录加载失败");
 
         var keywordText = keyword?.Trim();
-        var matches = string.IsNullOrWhiteSpace(keywordText)
+            var matches = string.IsNullOrWhiteSpace(keywordText)
             ? _models
             : _models
                 .Select(m => (model: m, score: Score(m, keywordText)))
-                .Where(x => x.score > 0)
+                .Where(x => x.score < int.MaxValue)
                 .OrderBy(x => x.score)
                 .ThenBy(x => x.model.ProviderId, StringComparer.Ordinal)
                 .ThenBy(x => x.model.ModelId, StringComparer.Ordinal)
@@ -57,7 +57,65 @@ public class ModelCatalogService : IModelCatalogService
         return ApiResponse<List<CatalogProviderInfo>>.Ok(_providers);
     }
 
-    /// <summary>越小越相关；0 表示不匹配。</summary>
+    public async Task<ApiResponse<List<CatalogProviderInfo>>> SearchProvidersAsync(string? keyword, int limit = 20, CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0) limit = 20;
+        if (limit > 50) limit = 50;
+
+        var loadResult = await EnsureLoadedAsync(cancellationToken);
+        if (!loadResult.Success) return ApiResponse<List<CatalogProviderInfo>>.Fail(loadResult.Error ?? "模型目录加载失败");
+
+        var keywordText = keyword?.Trim();
+        var matches = string.IsNullOrWhiteSpace(keywordText)
+            ? _providers
+            : _providers
+                .Select(p => (provider: p, score: ScoreProvider(p, keywordText)))
+                .Where(x => x.score < int.MaxValue)
+                .OrderBy(x => x.score)
+                .ThenBy(x => x.provider.Id, StringComparer.Ordinal)
+                .Select(x => x.provider);
+
+        return ApiResponse<List<CatalogProviderInfo>>.Ok(matches.Take(limit).ToList());
+    }
+
+    public async Task<ApiResponse<CatalogProviderDetail>> GetProviderAsync(string? providerId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+            return ApiResponse<CatalogProviderDetail>.Fail("供应商 ID 不能为空");
+
+        var loadResult = await EnsureLoadedAsync(cancellationToken);
+        if (!loadResult.Success) return ApiResponse<CatalogProviderDetail>.Fail(loadResult.Error ?? "模型目录加载失败");
+
+        var id = providerId.Trim();
+        var provider = _providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (provider == null) return ApiResponse<CatalogProviderDetail>.Fail("模型目录中不存在该供应商");
+
+        return ApiResponse<CatalogProviderDetail>.Ok(new CatalogProviderDetail
+        {
+            Id = provider.Id,
+            Name = provider.Name,
+            Api = provider.Api,
+            Env = provider.Env,
+            Npm = provider.Npm,
+            Doc = provider.Doc,
+            ModelCount = provider.ModelCount,
+            Models = _models.Where(m => string.Equals(m.ProviderId, id, StringComparison.OrdinalIgnoreCase)).ToList()
+        });
+    }
+
+    /// <summary>0 为最相关，<see cref="int.MaxValue"/> 表示不匹配。</summary>
+    private static int ScoreProvider(CatalogProviderInfo provider, string keyword)
+    {
+        if (provider.Id.Equals(keyword, StringComparison.OrdinalIgnoreCase)) return 0;
+        if ((provider.Name ?? string.Empty).Equals(keyword, StringComparison.OrdinalIgnoreCase)) return 1;
+        if (provider.Id.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)) return 2;
+        if ((provider.Name ?? string.Empty).StartsWith(keyword, StringComparison.OrdinalIgnoreCase)) return 3;
+        if (provider.Id.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return 4;
+        if ((provider.Name ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase)) return 5;
+        return int.MaxValue;
+    }
+
+    /// <summary>0 为最相关，<see cref="int.MaxValue"/> 表示不匹配。</summary>
     private static int Score(CatalogModelInfo model, string keyword)
     {
         var id = model.ModelId;
@@ -73,7 +131,7 @@ public class ModelCatalogService : IModelCatalogService
         if (name.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return 5;
         if (provider.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return 6;
         if (providerName.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return 7;
-        return 0;
+        return int.MaxValue;
     }
 
     private async Task<ApiResponse> EnsureLoadedAsync(CancellationToken cancellationToken)
@@ -108,6 +166,12 @@ public class ModelCatalogService : IModelCatalogService
                 var providerName = providerProperty.Value.TryGetProperty("name", out var providerNameElement)
                     ? providerNameElement.GetString() ?? providerId
                     : providerId;
+                var providerApi = providerProperty.Value.TryGetProperty("api", out var apiElement) ? apiElement.GetString() : null;
+                var providerEnv = providerProperty.Value.TryGetProperty("env", out var envElement) && envElement.ValueKind == JsonValueKind.Array
+                    ? envElement.EnumerateArray().Select(e => e.GetString()).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))
+                    : null;
+                var providerNpm = providerProperty.Value.TryGetProperty("npm", out var npmElement) ? npmElement.GetString() : null;
+                var providerDoc = providerProperty.Value.TryGetProperty("doc", out var docElement) ? docElement.GetString() : null;
 
                 var providerModels = new List<CatalogModelInfo>(modelsElement.EnumerateObject().Count());
                 foreach (var modelProperty in modelsElement.EnumerateObject())
@@ -122,6 +186,10 @@ public class ModelCatalogService : IModelCatalogService
                 {
                     Id = providerId,
                     Name = providerName,
+                    Api = providerApi,
+                    Env = providerEnv,
+                    Npm = providerNpm,
+                    Doc = providerDoc,
                     ModelCount = providerModels.Count
                 });
                 models.AddRange(providerModels);

@@ -59,4 +59,25 @@ public class AiModelsController : ControllerBase
     [HttpGet("catalog/providers")]
     public Task<ApiResponse<List<CatalogProviderInfo>>> CatalogProviders(CancellationToken cancellationToken)
         => _modelCatalogService.GetProvidersAsync(cancellationToken);
+
+    /// <summary>
+    /// 搜索 models.dev 供应商（添加供应商时自动填充名称 / 协议 / Base URL）。
+    /// </summary>
+    [HttpGet("catalog/providers/search")]
+    public Task<ApiResponse<List<CatalogProviderInfo>>> SearchCatalogProviders([FromQuery] string? q, [FromQuery] int limit = 20, CancellationToken cancellationToken = default)
+        => _modelCatalogService.SearchProvidersAsync(q, limit, cancellationToken);
+
+    /// <summary>
+    /// models.dev 供应商详情（含全部模型），用于批量导入模型。
+    /// </summary>
+    [HttpGet("catalog/providers/{providerId}")]
+    public Task<ApiResponse<CatalogProviderDetail>> CatalogProviderDetail(string providerId, CancellationToken cancellationToken)
+        => _modelCatalogService.GetProviderAsync(providerId, cancellationToken);
+
+    /// <summary>
+    /// 批量创建模型（从模型目录导入时一次写入）。
+    /// </summary>
+    [HttpPost("batch")]
+    public Task<ApiResponse<List<AiModelDto>>> CreateBatch([FromBody] List<CreateAiModelRequest> requests, CancellationToken cancellationToken)
+        => _aiModelService.CreateBatchAsync(requests, cancellationToken);
 }

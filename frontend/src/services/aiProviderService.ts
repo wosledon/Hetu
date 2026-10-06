@@ -72,6 +72,25 @@ export interface CatalogModelInfo {
   releaseDate?: string;
 }
 
+/** models.dev 供应商信息（添加供应商时只需填 API Key） */
+export interface CatalogProviderInfo {
+  id: string;
+  name: string;
+  /** 官方 API 地址（未提供时需手动填写） */
+  api?: string;
+  /** 官方环境变量名，如 DEEPSEEK_API_KEY */
+  env?: string;
+  /** SDK 包名，用于推断 OpenAI 兼容 / Anthropic 协议 */
+  npm?: string;
+  doc?: string;
+  modelCount: number;
+}
+
+/** models.dev 供应商详情（含全部模型） */
+export interface CatalogProviderDetail extends CatalogProviderInfo {
+  models: CatalogModelInfo[];
+}
+
 export interface CatalogProviderInfo {
   id: string;
   name: string;
@@ -93,6 +112,9 @@ export const aiModelCatalogService = {
   search: (q: string, limit = 30) =>
     get<CatalogModelInfo[]>(`/ai-models/catalog/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   providers: () => get<CatalogProviderInfo[]>('/ai-models/catalog/providers'),
+  searchProviders: (q: string, limit = 20) =>
+    get<CatalogProviderInfo[]>(`/ai-models/catalog/providers/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  provider: (id: string) => get<CatalogProviderDetail>(`/ai-models/catalog/providers/${encodeURIComponent(id)}`),
 };
 
 export const aiModelService = {
@@ -100,6 +122,7 @@ export const aiModelService = {
   getByProvider: (providerId: string) => get<IAiModel[]>(`/ai-models/provider/${providerId}`),
   getById: (id: string) => get<IAiModel>(`/ai-models/${id}`),
   create: (data: CreateAiModelRequest) => post<IAiModel>('/ai-models', data),
+  createBatch: (data: CreateAiModelRequest[]) => post<IAiModel[]>('/ai-models/batch', data),
   update: (id: string, data: UpdateAiModelRequest) => put<IAiModel>(`/ai-models/${id}`, data),
   delete: (id: string) => del<void>(`/ai-models/${id}`),
   setDefault: (id: string) => post<void>(`/ai-models/${id}/set-default`),

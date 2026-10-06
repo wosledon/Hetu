@@ -14,4 +14,14 @@ public interface IModelCatalogService
     /// 获取 models.dev 模型目录中的供应商列表。
     /// </summary>
     Task<ApiResponse<List<CatalogProviderInfo>>> GetProvidersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 按关键词搜索 models.dev 供应商（添加供应商时自动填充名称 / 协议 / Base URL）。
+    /// </summary>
+    Task<ApiResponse<List<CatalogProviderInfo>>> SearchProvidersAsync(string? keyword, int limit = 20, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取 models.dev 供应商详情（含该供应商全部模型），用于批量导入模型。
+    /// </summary>
+    Task<ApiResponse<CatalogProviderDetail>> GetProviderAsync(string providerId, CancellationToken cancellationToken = default);
 }
