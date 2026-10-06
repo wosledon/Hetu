@@ -70,6 +70,7 @@ export interface IAppSettingsSnapshot {
   contextWindowSize?: number;
   pinnedNavItems: string;
   secondaryMenuStyle: string;
+  navStyle: string;
 }
 
 export interface IAiProvider {

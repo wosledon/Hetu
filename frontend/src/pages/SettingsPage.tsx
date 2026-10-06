@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -41,6 +41,13 @@ const menuStyleOptions = [
   { key: 'collapsed' as SecondaryMenuStyle, label: '树形', desc: '合并为一棵树，展开父级显示子项', icon: PanelLeft },
 ]
 
+type NavStyle = 'top' | 'vertical'
+
+const navStyleOptions = [
+  { key: 'top' as NavStyle, label: '顶部横栏', desc: '导航横向排列在顶部', icon: PanelTop },
+  { key: 'vertical' as NavStyle, label: '垂直胶囊', desc: '导航纵向排列在最左侧', icon: GalleryVerticalEnd },
+]
+
 const configurableNavItems = [
   { path: '/tags', label: '标签', icon: Tag },
   { path: '/agents', label: '智能体', icon: Bot },
@@ -62,12 +69,14 @@ export default function SettingsPage() {
   const assistantPersona = useUIStore((state) => state.assistantPersona)
   const theme = useUIStore((state) => state.theme)
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
+  const navStyle = useUIStore((state) => state.navStyle)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
   const setAppName = useUIStore((state) => state.setAppName)
   const setAssistantName = useUIStore((state) => state.setAssistantName)
   const setAssistantPersona = useUIStore((state) => state.setAssistantPersona)
   const setTheme = useUIStore((state) => state.setTheme)
   const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
+  const setNavStyle = useUIStore((state) => state.setNavStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
 
   const { data: snapshot } = useQuery({
@@ -100,6 +109,8 @@ export default function SettingsPage() {
     setTheme(snapshot.theme as Theme)
     if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
       setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
+    if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical')
+      setNavStyle(snapshot.navStyle)
     try {
       const items = JSON.parse(snapshot.pinnedNavItems)
       if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
@@ -138,6 +149,11 @@ export default function SettingsPage() {
   const handleMenuStyleChange = (value: SecondaryMenuStyle) => {
     setSecondaryMenuStyle(value)
     setSetting.mutate({ key: 'SecondaryMenuStyle', value })
+  }
+
+  const handleNavStyleChange = (value: NavStyle) => {
+    setNavStyle(value)
+    setSetting.mutate({ key: 'NavStyle', value })
   }
 
   const handlePinnedNavItemsChange = (items: string[]) => {
@@ -208,6 +224,7 @@ export default function SettingsPage() {
                     assistantPersona={assistantPersona}
                     theme={theme}
                     secondaryMenuStyle={secondaryMenuStyle}
+                    navStyle={navStyle}
                     snapshot={snapshot}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
@@ -217,6 +234,7 @@ export default function SettingsPage() {
                     onAssistantPersonaSave={handleAssistantPersonaSave}
                     onThemeChange={handleThemeChange}
                     onMenuStyleChange={handleMenuStyleChange}
+                    onNavStyleChange={handleNavStyleChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
                     onNavigate={navigate}
                   />}
@@ -269,6 +287,7 @@ function AppSettingsSection({
   assistantPersona,
   theme,
   secondaryMenuStyle,
+  navStyle,
   snapshot,
   onAppNameChange,
   onAppNameSave,
@@ -278,6 +297,7 @@ function AppSettingsSection({
   onAssistantPersonaSave,
   onThemeChange,
   onMenuStyleChange,
+  onNavStyleChange,
   onSettingChange,
   onNavigate,
 }: {
@@ -286,6 +306,7 @@ function AppSettingsSection({
   assistantPersona: string
   theme: Theme
   secondaryMenuStyle: SecondaryMenuStyle
+  navStyle: NavStyle
   snapshot: IAppSettingsSnapshot | undefined
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
@@ -295,6 +316,7 @@ function AppSettingsSection({
   onAssistantPersonaSave: () => void
   onThemeChange: (v: Theme) => void
   onMenuStyleChange: (v: SecondaryMenuStyle) => void
+  onNavStyleChange: (v: NavStyle) => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
@@ -415,7 +437,7 @@ function AppSettingsSection({
 
       {/* Secondary Menu Style Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">菜单样式</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">二级菜单样式</label>
         <div className="grid grid-cols-2 gap-3">
           {menuStyleOptions.map((opt) => {
             const Icon = opt.icon
@@ -453,6 +475,48 @@ function AppSettingsSection({
           })}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面的菜单结构：平铺为父子两栏并排，树形则合并为一棵树</p>
+      </div>
+
+      {/* Nav Style Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">主导航样式</label>
+        <div className="grid grid-cols-2 gap-3">
+          {navStyleOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = navStyle === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onNavStyleChange(opt.key)}
+                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    当前
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500">控制顶部功能入口的位置：顶部横栏为默认样式，垂直胶囊将导航移动至窗口最左侧</p>
       </div>
 
       {/* Knowledge Graph */}

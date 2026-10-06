@@ -212,6 +212,19 @@ body {
   border-bottom-color: rgba(255, 255, 255, 0.05);
 }
 
+/* ===== Vertical capsule nav rail ===== */
+.glass-rail {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-rail {
+  background: rgba(12, 15, 26, 0.78);
+  border-right-color: rgba(255, 255, 255, 0.05);
+}
+
 /* ===== Note card subtle lift ===== */
 .note-card {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);

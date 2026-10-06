@@ -36,6 +36,8 @@ public class AppSettingsSnapshotDto
     public string PinnedNavItems { get; set; } = "[]";
     /// <summary>二级菜单样式：flat 或 collapsed</summary>
     public string SecondaryMenuStyle { get; set; } = "flat";
+    /// <summary>主导航菜单样式：top（顶部横栏）或 vertical（左侧垂直胶囊）</summary>
+    public string NavStyle { get; set; } = "top";
 }
 
 public class DatabaseConnectionRequest

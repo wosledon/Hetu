@@ -31,6 +31,7 @@ public class AppSettingService : IAppSettingService
             ContextWindowSize = await GetNullableIntValueAsync("ContextWindowSize", cancellationToken),
             PinnedNavItems = await GetValueAsync("PinnedNavItems", "[]", cancellationToken),
             SecondaryMenuStyle = await GetValueAsync("SecondaryMenuStyle", "flat", cancellationToken),
+            NavStyle = await GetValueAsync("NavStyle", "top", cancellationToken),
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }

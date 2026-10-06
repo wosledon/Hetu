@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
+type NavStyle = 'top' | 'vertical';
 
 interface UIState {
   appName: string;
@@ -11,6 +12,7 @@ interface UIState {
   theme: Theme;
   sidebarCollapsed: boolean;
   secondaryMenuStyle: SecondaryMenuStyle;
+  navStyle: NavStyle;
   selectedNotebookId?: string;
   selectedTagId?: string;
   searchQuery: string;
@@ -22,6 +24,7 @@ interface UIState {
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSecondaryMenuStyle: (style: SecondaryMenuStyle) => void;
+  setNavStyle: (style: NavStyle) => void;
   setSelectedNotebookId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
   setSearchQuery: (query: string) => void;
@@ -38,6 +41,7 @@ export const useUIStore = create<UIState>()(
       theme: 'light',
       sidebarCollapsed: false,
       secondaryMenuStyle: 'flat',
+      navStyle: 'top',
       selectedNotebookId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
@@ -49,6 +53,7 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSecondaryMenuStyle: (style) => set({ secondaryMenuStyle: style }),
+      setNavStyle: (style) => set({ navStyle: style }),
       setSelectedNotebookId: (id) => set({ selectedNotebookId: id, selectedTagId: undefined }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNotebookId: undefined }),
       setSearchQuery: (query) => set({ searchQuery: query }),
@@ -78,6 +83,7 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
         secondaryMenuStyle: state.secondaryMenuStyle,
+        navStyle: state.navStyle,
         pinnedNavItems: state.pinnedNavItems,
       }),
     }
