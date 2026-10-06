@@ -4,17 +4,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
   FolderOpen,
+  FolderSearch,
   Loader2,
   Pencil,
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Terminal,
   Trash2,
   X,
   Zap,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import FolderPickerDialog from '../components/FolderPickerDialog'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
@@ -42,6 +45,7 @@ export default function SkillsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ category: '', name: '', description: '', config: defaultConfig, isEnabled: true })
   const [showDirConfig, setShowDirConfig] = useState(false)
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [dirInput, setDirInput] = useState('')
 
   // Database skills
@@ -56,7 +60,6 @@ export default function SkillsPage() {
   const { data: directories = [] } = useQuery({
     queryKey: ['skillDirectories'],
     queryFn: () => skillService.getSkillDirectories(),
-    enabled: showDirConfig,
   })
 
   const createMutation = useMutation({
@@ -114,6 +117,17 @@ export default function SkillsPage() {
 
   const handleRemoveDir = (dir: string) => {
     updateDirsMutation.mutate(directories.filter(d => d !== dir))
+  }
+
+  // 打开前端目录选择器；选中后直接添加
+  const handleBrowseDir = () => setShowFolderPicker(true)
+
+  const handleFolderPicked = (picked: string) => {
+    setShowFolderPicker(false)
+    const trimmed = picked.trim()
+    if (!trimmed || directories.includes(trimmed)) return
+    updateDirsMutation.mutate([...directories, trimmed])
+    setDirInput('')
   }
 
   const renderSkillCard = (skill: ISkill | ILocalSkill, isLocal: boolean) => {
@@ -259,14 +273,23 @@ export default function SkillsPage() {
             />
           </div>
           {tab === 'local' ? (
-            <button
-              onClick={() => refetchLocal()}
-              title="刷新本地技能"
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <RefreshCw size={14} />
-              刷新
-            </button>
+            <>
+              <button
+                onClick={() => setShowDirConfig(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <Settings size={14} />
+                配置目录{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
+              </button>
+              <button
+                onClick={() => refetchLocal()}
+                title="刷新本地技能"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <RefreshCw size={14} />
+                刷新
+              </button>
+            </>
           ) : (
             <button
               onClick={openCreateForm}
@@ -363,8 +386,7 @@ export default function SkillsPage() {
       )}
 
       {/* Directory config modal */}
-      {showDirConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      {showDirConfig && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
@@ -373,21 +395,28 @@ export default function SkillsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">配置技能目录</h3>
-                  <p className="text-xs text-gray-500">添加包含技能定义文件的目录路径</p>
+                  <p className="text-xs text-gray-500">点击「浏览」选择目录，或手动输入路径</p>
                 </div>
               </div>
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
+                <button
+                  onClick={handleBrowseDir}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                >
+                  <FolderSearch size={14} />
+                  浏览
+                </button>
                 <input
                   value={dirInput}
                   onChange={(e) => setDirInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
-                  placeholder="输入目录路径，如 /home/user/skills"
+                  placeholder="或手动输入目录路径，如 /home/user/skills"
                   className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                 />
-                <button onClick={handleAddDir} className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600">
+                <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
                   添加
                 </button>
               </div>
@@ -420,6 +449,16 @@ export default function SkillsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 前端目录选择器 */}
+      {showFolderPicker && (
+        <FolderPickerDialog
+          initialPath={dirInput.trim() || directories[directories.length - 1]}
+          title="选择技能目录"
+          onClose={() => setShowFolderPicker(false)}
+          onPick={handleFolderPicked}
+        />
       )}
 
     </AppLayout>

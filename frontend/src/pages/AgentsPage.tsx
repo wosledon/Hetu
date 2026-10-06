@@ -12,6 +12,7 @@ import {
   Edit2,
   FileEdit,
   FolderOpen,
+  FolderSearch,
   Globe,
   HelpCircle,
   Import,
@@ -31,6 +32,7 @@ import {
   Zap,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import FolderPickerDialog from '../components/FolderPickerDialog'
 import Select from '../components/Select'
 import { promptPresetService } from '../services/promptPresetService'
 import type { ILocalPromptPreset } from '../types'
@@ -98,6 +100,7 @@ export default function AgentsPage() {
   const [enabledTools, setEnabledTools] = useState<string[]>(AVAILABLE_TOOLS.map(t => t.name))
   const [toolApprovals, setToolApprovals] = useState<Record<string, string>>({})
   const [showDirConfig, setShowDirConfig] = useState(false)
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [dirInput, setDirInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -230,6 +233,17 @@ export default function AgentsPage() {
 
   const handleRemoveDir = (dir: string) => {
     updateDirsMutation.mutate(directories.filter(d => d !== dir))
+  }
+
+  // 打开前端目录选择器；选中后直接添加
+  const handleBrowseDir = () => setShowFolderPicker(true)
+
+  const handleFolderPicked = (picked: string) => {
+    setShowFolderPicker(false)
+    const trimmed = picked.trim()
+    if (!trimmed || directories.includes(trimmed)) return
+    updateDirsMutation.mutate([...directories, trimmed])
+    setDirInput('')
   }
 
   const getToolCount = (toolsConfig?: string) => {
@@ -564,21 +578,28 @@ export default function AgentsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">配置智能体目录</h3>
-                  <p className="text-xs text-gray-500">添加包含智能体定义文件的目录路径</p>
+                  <p className="text-xs text-gray-500">点击「浏览」选择目录，或手动输入路径</p>
                 </div>
               </div>
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
+                <button
+                  onClick={handleBrowseDir}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                >
+                  <FolderSearch size={14} />
+                  浏览
+                </button>
                 <input
                   value={dirInput}
                   onChange={(e) => setDirInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
-                  placeholder="输入目录路径，如 /home/user/agents"
+                  placeholder="或手动输入目录路径，如 /home/user/agents"
                   className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                 />
-                <button onClick={handleAddDir} className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600">
+                <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
                   添加
                 </button>
               </div>
@@ -611,6 +632,16 @@ export default function AgentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 前端目录选择器 */}
+      {showFolderPicker && (
+        <FolderPickerDialog
+          initialPath={dirInput.trim() || directories[directories.length - 1]}
+          title="选择智能体目录"
+          onClose={() => setShowFolderPicker(false)}
+          onPick={handleFolderPicked}
+        />
       )}
 
     </AppLayout>
