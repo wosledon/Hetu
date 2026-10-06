@@ -84,6 +84,8 @@ public class ChatMessageDto
     public string? SearchResultsJson { get; set; }
     public string? KnowledgeResultsJson { get; set; }
     public string? MemoryResultsJson { get; set; }
+    /// <summary>本轮工具调用流水 JSON（名称/参数/结果），供前端瀑布流还原执行过程</summary>
+    public string? ToolCallsJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 

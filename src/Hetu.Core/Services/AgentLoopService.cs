@@ -234,9 +234,9 @@ public class AgentLoopService
                 },
                 ct);
 
-            foreach (var (toolCallId, content2) in toolResults)
+            foreach (var (toolCallId, content2, resultIsError) in toolResults)
             {
-                var isError = content2.StartsWith("Error:", StringComparison.OrdinalIgnoreCase);
+                var isError = resultIsError || content2.StartsWith("Error:", StringComparison.OrdinalIgnoreCase);
                 await sink.OnToolResultAsync(toolCallId, content2, isError);
                 result.ToolCalls.Add(new AgentToolCallRecord
                 {

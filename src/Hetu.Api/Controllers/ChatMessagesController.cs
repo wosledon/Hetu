@@ -15,6 +15,15 @@ using Serilog;
 
 namespace Hetu.Api.Controllers;
 
+/// <summary>持久化到助手消息的工具调用流水条目（供前端瀑布流还原执行过程）</summary>
+public class ToolCallLogEntry
+{
+    public string Name { get; set; } = string.Empty;
+    public string Arguments { get; set; } = "{}";
+    public string? Result { get; set; }
+    public bool IsError { get; set; }
+}
+
 [ApiController]
 [Route("api/chat-messages")]
 public class ChatMessagesController : ControllerBase
@@ -124,6 +133,26 @@ public class ChatMessagesController : ControllerBase
 
         var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);
         var options = await BuildChatOptionsAsync(request, topic, modelId, ct);
+
+        // 技能的 promptTemplate 组装进本轮用户消息：{{input}} 替换为 /name 之后的入参
+        if (!string.IsNullOrWhiteSpace(request.SkillName))
+        {
+            var skillTemplate = (await ResolveSkillAsync(request.SkillName, ct)).PromptTemplate;
+            if (!string.IsNullOrWhiteSpace(skillTemplate))
+            {
+                var skillInput = ExtractSkillInput(request.Content, request.SkillName);
+                var composed = skillTemplate.Contains("{{input}}", StringComparison.Ordinal)
+                    ? skillTemplate.Replace("{{input}}", skillInput)
+                    : $"{skillTemplate}\n\n{skillInput}";
+                for (var i = chatMessages.Count - 1; i >= 0; i--)
+                {
+                    if (chatMessages[i].Role != "user") continue;
+                    chatMessages[i] = new LlmChatMessage { Role = "user", Content = composed };
+                    break;
+                }
+            }
+        }
+
         var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, ct);
 
         var profile = BuiltinProfiles.Knowledge;
@@ -131,6 +160,7 @@ public class ChatMessagesController : ControllerBase
 
         var contentSb = new StringBuilder();
         var thinkingSb = new StringBuilder();
+        var toolCallLog = new List<ToolCallLogEntry>();
         var sessionTodos = new List<SessionTodo>();
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
@@ -186,9 +216,23 @@ public class ChatMessagesController : ControllerBase
                     payload => writer.WriteJsonAsync(payload),
                     ct);
 
-                foreach (var (toolCallId, content) in toolResults)
+                foreach (var (toolCallId, content, _) in toolResults)
                 {
                     chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
+                }
+
+                // 记录工具调用流水，随助手消息持久化（前端瀑布流还原执行过程）
+                foreach (var (toolCallId, toolContent, isError) in toolResults)
+                {
+                    var call = pendingToolCalls.FirstOrDefault(c => c.Id == toolCallId);
+                    if (call == null) continue;
+                    toolCallLog.Add(new ToolCallLogEntry
+                    {
+                        Name = call.Name,
+                        Arguments = call.Arguments,
+                        Result = toolContent,
+                        IsError = isError,
+                    });
                 }
             }
         }
@@ -216,6 +260,9 @@ public class ChatMessagesController : ControllerBase
 
         if (!string.IsNullOrEmpty(finalContent))
         {
+            var toolCallsJson = toolCallLog.Count > 0
+                ? JsonSerializer.Serialize(toolCallLog, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+                : null;
             await _chatMessageService.SaveAssistantMessageAsync(topicId,
                 finalContent, modelId,
                 thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
@@ -226,6 +273,7 @@ public class ChatMessagesController : ControllerBase
                 inputTokens: estimatedInput,
                 compressedTokens: estimatedCompressed,
                 outputTokens: hasUsage ? totalCompletion : null,
+                toolCallsJson: toolCallsJson,
                 cancellationToken: CancellationToken.None);
         }
 
@@ -295,7 +343,7 @@ public class ChatMessagesController : ControllerBase
 
         string? skillPrompt = null;
         if (!string.IsNullOrWhiteSpace(request.SkillName))
-            skillPrompt = await ResolveSkillPromptAsync(request.SkillName, ct);
+            skillPrompt = (await ResolveSkillAsync(request.SkillName, ct)).SystemPrompt;
 
         var assistantName = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantName", ct))?.Value;
         var assistantPersona = (await _unitOfWork.AppSettings.GetByKeyAsync("AssistantPersona", ct))?.Value;
@@ -318,7 +366,11 @@ public class ChatMessagesController : ControllerBase
         return options;
     }
 
-    private async Task<string?> ResolveSkillPromptAsync(string skillName, CancellationToken ct)
+    /// <summary>
+    /// 解析技能（数据库技能优先，其次本地技能目录）：同时取出 systemPrompt 与 promptTemplate。
+    /// 本地技能此前只用了 systemPrompt，SKILL.md 正文/指令模板被丢弃，导致"选得到但读不到"。
+    /// </summary>
+    private async Task<(string? SystemPrompt, string? PromptTemplate)> ResolveSkillAsync(string skillName, CancellationToken ct)
     {
         var skill = (await _unitOfWork.Skills.FindAsync(s => s.Name == skillName && s.IsEnabled, ct)).FirstOrDefault();
         string? config = skill?.Config;
@@ -326,21 +378,50 @@ public class ChatMessagesController : ControllerBase
         if (config == null)
         {
             var localResult = await _localSkillService.ScanAllAsync(ct);
-            var local = (localResult.Data ?? []).FirstOrDefault(s => s.IsEnabled && s.Name.Contains(skillName, StringComparison.OrdinalIgnoreCase));
+            var local = (localResult.Data ?? [])
+                .FirstOrDefault(s => s.IsEnabled && string.Equals(s.Name, skillName, StringComparison.OrdinalIgnoreCase))
+                ?? (localResult.Data ?? []).FirstOrDefault(s => s.IsEnabled && s.Name.Contains(skillName, StringComparison.OrdinalIgnoreCase));
             config = local?.Config;
         }
 
-        if (config != null)
+        if (config == null) return (null, null);
+
+        try
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(config);
-                if (doc.RootElement.TryGetProperty("systemPrompt", out var sp))
-                    return sp.GetString();
-            }
-            catch (JsonException) { }
+            using var doc = JsonDocument.Parse(config);
+            var root = doc.RootElement;
+            // skill.json 的 config 可能是整棵技能树（含 name/description/config），向下再取一层
+            if (root.TryGetProperty("config", out var nested) && nested.ValueKind == JsonValueKind.Object)
+                root = nested;
+
+            string? systemPrompt = null;
+            if (root.TryGetProperty("systemPrompt", out var sp))
+                systemPrompt = sp.GetString();
+
+            string? promptTemplate = null;
+            if (root.TryGetProperty("promptTemplate", out var pt))
+                promptTemplate = pt.GetString();
+
+            return (systemPrompt, promptTemplate);
         }
-        return null;
+        catch (JsonException) { return (null, null); }
+    }
+
+    /// <summary>把用户消息里的 /skillName 前缀剥掉，得到技能入参</summary>
+    private static string ExtractSkillInput(string? content, string skillName)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+        var trimmed = content.Trim();
+        if (trimmed.StartsWith("/", StringComparison.Ordinal))
+        {
+            var rest = trimmed[1..];
+            if (rest.StartsWith(skillName, StringComparison.OrdinalIgnoreCase))
+            {
+                var after = rest[skillName.Length..].Trim();
+                return string.IsNullOrEmpty(after) ? string.Empty : after;
+            }
+        }
+        return trimmed;
     }
 
     private async Task ApplyDeepThinkingAsync(SendMessageRequest request, ChatOptions options, Guid? modelId)

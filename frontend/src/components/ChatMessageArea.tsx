@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, Loader2, Atom, Zap, Square, AlertCircle } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
@@ -9,9 +9,9 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
+import ChatToolCallRow from './ChatToolCallRow'
 import { TodoPanel, QuestionPanel } from './ChatStreamPanels'
 import Select from './Select'
-import ToolCallsPanel from './ToolCallsPanel'
 import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
@@ -19,7 +19,6 @@ import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './confirm'
-import { useUIStore } from '../stores/uiStore'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
@@ -130,7 +129,6 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
-  const assistantName = useUIStore((state) => state.assistantName)
   const confirm = useConfirm()
   const [input, setInput] = useState('')
   const topicId = topic?.id
@@ -575,7 +573,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         skillName: detectedSkillName,
         agentId: detectedAgentId || selectedPreset?.id,
         enableTools: toolCalling,
-        toolApprovalOverrides: toolApprovalMode !== 'auto' ? { '*': toolApprovalMode } : undefined,
+        // 始终下发全局审批模式：auto 也必须显式覆盖，否则各工具 DefaultApproval（如 run_command=Ask）仍会逐个询问
+        toolApprovalOverrides: { '*': toolApprovalMode },
       }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
@@ -920,7 +919,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <ChatMessageItem
               key={message.id}
               message={message}
-              assistantName={assistantName}
               isEditing={editingMessageId === message.id}
               editingContent={editingMessageId === message.id ? editingContent : ''}
               isCopied={copiedMessageId === message.id}
@@ -939,15 +937,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
         {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt - 2000) && (
-          <div className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
-              <span className="text-xs font-bold">U</span>
+          <div className="flex flex-row-reverse gap-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
+              <User size={13} />
             </div>
-            <div className="w-full flex flex-col">
+            <div className="flex min-w-0 flex-1 flex-col items-end">
               <div className="mb-1.5">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
               </div>
-              <div className="rounded-2xl rounded-tr-sm bg-blue-50 px-4 py-3 text-sm text-gray-900 dark:bg-blue-950/40 dark:text-gray-100">
+              <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 dark:bg-blue-950/30 dark:text-gray-100">
                 {pendingUserMessage}
               </div>
             </div>
@@ -956,50 +954,54 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         {/* Streaming response - show during and after stream until messages refresh */}
         {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
-          <div className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
-              <Bot size={15} />
-            </div>
-            <div className="w-full flex flex-col">
-              <div className="mb-1.5">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{assistantName}</span>
-              </div>
-              <div className="rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
+          <div className="flex flex-col">
+              {/* 瀑布流：思考/工具/引用/正文各自成块纵向堆叠，不用气泡包裹 */}
+              <div className="text-gray-800 dark:text-gray-100">
                 {/* Thinking block - show whenever thinking content exists */}
                 {streamingThinking && (
-                  <div className="mb-3">
+                  <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
                     <button
                       onClick={() => setShowThinking(!showThinking)}
-                      className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
                     >
-                      <Brain size={12} />
+                      {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
+                      <Brain size={11} className="shrink-0 text-gray-400" />
                       <span>深度思考</span>
-                      <ChevronDown size={10} className={`transition-transform ${showThinking ? 'rotate-180' : ''}`} />
                     </button>
                     {showThinking && (
-                      <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-400 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-500">
+                      <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
                         <ThemedMarkdown source={streamingThinking} />
                         <div ref={thinkingEndRef} />
                       </div>
                     )}
                   </div>
                 )}
-                {/* Content */}
-                {streamingContent && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ThemedMarkdown source={streamingContent} />
+                {/* 工具调用流水：执行时间顺序展示（Copilot 式瀑布行） */}
+                {streamingToolCalls.length > 0 && (
+                  <div className="mb-3 space-y-1">
+                    {streamingToolCalls.map((tc, i) => {
+                      const result = streamingToolResults.find(r => r.id === tc.id)
+                      return (
+                        <ChatToolCallRow
+                          key={tc.id || i}
+                          name={tc.name}
+                          args={tc.arguments}
+                          result={result?.content}
+                          isError={result?.isError}
+                          running={!result}
+                        />
+                      )
+                    })}
                   </div>
                 )}
-                {/* Tool calls and results during streaming */}
-                <ToolCallsPanel toolCalls={streamingToolCalls} toolResults={streamingToolResults} />
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
-                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                    <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Search size={11} />
                       参考来源
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5 p-1.5">
                       {streamingSearchResults.map((r, i) => (
                         <a
                           key={i}
@@ -1045,12 +1047,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
                 {/* Memory results - show when memory was used */}
                 {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
-                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                    <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Atom size={11} />
                       记忆参考
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5 p-1.5">
                       {streamingMemoryResults.map((r, i) => (
                         <div
                           key={i}
@@ -1069,6 +1071,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     </div>
                   </div>
                 )}
+                {/* 正文（最终回答）：瀑布流末端 */}
+                {streamingContent && (
+                  <div className="mt-3 prose prose-sm dark:prose-invert max-w-none">
+                    <ThemedMarkdown source={streamingContent} />
+                  </div>
+                )}
                 {/* Loading dots - show only when streaming and no content yet */}
                 {!streamingContent && !streamingThinking && isStreaming && (
                   <div className="flex items-center gap-1.5 py-1">
@@ -1077,7 +1085,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                   </div>
                 )}
               </div>
-            </div>
           </div>
         )}
 

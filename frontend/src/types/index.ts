@@ -148,6 +148,8 @@ export interface IChatMessage {
   searchResultsJson?: string;
   knowledgeResultsJson?: string;
   memoryResultsJson?: string;
+  /** 本轮工具调用流水 JSON（名称/参数/结果），供瀑布流还原执行过程 */
+  toolCallsJson?: string;
   createdAt: string;
 }
 

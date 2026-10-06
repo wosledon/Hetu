@@ -94,7 +94,7 @@ public class ToolExecutionService
     /// <param name="workScope">
     /// 可选的工作项目作用域。工具在新作用域内执行，需显式传递，否则 work_* 文件工具取不到根目录与运行时工具。
     /// </param>
-    public async Task<List<(string toolCallId, string content)>> ExecuteToolCallsAsync(
+    public async Task<List<(string toolCallId, string content, bool isError)>> ExecuteToolCallsAsync(
         string sessionId,
         List<LlmToolCall> toolCalls,
         Dictionary<string, ToolApprovalMode> approvalOverrides,
@@ -105,7 +105,7 @@ public class ToolExecutionService
         Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? decideToolCall = null,
         WorkToolScope? workScope = null)
     {
-        var results = new List<(string toolCallId, string content)>();
+        var results = new List<(string toolCallId, string content, bool isError)>();
         var state = _sessions.GetOrCreate(sessionId);
 
         await using var scope = _scopeFactory.CreateAsyncScope();
@@ -160,7 +160,7 @@ public class ToolExecutionService
                         collapsed = false,
                         hidden = isSilentTool
                     });
-                    results.Add((toolCall.Id, denyMessage));
+                    results.Add((toolCall.Id, denyMessage, true));
                     continue;
                 }
                 approval = decision.Mode;
@@ -194,7 +194,7 @@ public class ToolExecutionService
                 hidden = isSilentTool
             });
 
-            results.Add((toolCall.Id, resultContent));
+            results.Add((toolCall.Id, resultContent, isError));
         }
 
         return results;

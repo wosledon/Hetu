@@ -330,7 +330,7 @@ public class WorkStreamController : ControllerBase
                     }
                 }
 
-                foreach (var (toolCallId, content) in toolResults)
+                foreach (var (toolCallId, content, _) in toolResults)
                 {
                     chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
                     // 工具调用落库：参数进 metadata，结果截断进正文，供历史回放
