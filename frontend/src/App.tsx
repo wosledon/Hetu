@@ -19,6 +19,7 @@ const WorkPage = lazy(() => import('./pages/WorkPage'))
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'))
 const ProxyPage = lazy(() => import('./pages/ProxyPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
+const AppsPage = lazy(() => import('./pages/AppsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
 function RouteFallback() {
@@ -48,6 +49,7 @@ function App() {
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/proxy" element={<ProxyPage />} />
         <Route path="/usage" element={<UsagePage />} />
+        <Route path="/apps" element={<AppsPage />} />
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/share/:shareCode" element={<SharedNotePage />} />

@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
 import { segmentButtonClass } from '../utils/styles'
@@ -31,6 +31,7 @@ const allConfigurableItems = [
   { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
+  { path: '/apps', label: '应用', icon: AppWindow },
 ] as const
 
 // 右侧独立分组：代理与用量

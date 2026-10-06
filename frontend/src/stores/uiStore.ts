@@ -62,7 +62,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -73,6 +73,10 @@ export const useUIStore = create<UIState>()(
           }
           // v3：导航菜单默认全部关闭，清空历史固定项
           if (version < 3) state.pinnedNavItems = []
+          // v4：新增的菜单项补进固定列表（用户已固定过其他项时，新项默认可见）
+          if (version < 4 && state.pinnedNavItems.length > 0 && !state.pinnedNavItems.includes('/apps')) {
+            state.pinnedNavItems = [...state.pinnedNavItems, '/apps']
+          }
         }
         return state as Partial<UIState>
       },

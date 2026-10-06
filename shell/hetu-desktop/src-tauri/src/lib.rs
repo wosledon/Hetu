@@ -52,6 +52,43 @@ fn open_data_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 打开应用内嵌网页窗口（独立 WebViewWindow）。
+///
+/// 大模型网页对话普遍设置 X-Frame-Options / CSP frame-ancestors，前端 iframe 会被拒绝连接；
+/// 用真实子窗口加载则不受该限制。已打开过的应用仅聚焦，不重复开窗。
+#[tauri::command]
+async fn open_app_webview<R: Runtime>(app: AppHandle<R>, url: String, title: String) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    let parsed: url::Url = url.parse().map_err(|e| format!("invalid url: {e}"))?;
+    let label = format!("app-{:x}", stable_hash(parsed.as_str()));
+
+    if let Some(existing) = app.get_webview_window(&label) {
+        existing.show().map_err(|e| e.to_string())?;
+        existing.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    let window_title = if title.trim().is_empty() { parsed.host_str().unwrap_or("应用").to_string() } else { title.trim().to_string() };
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
+        .title(&window_title)
+        .inner_size(1200.0, 860.0)
+        .min_inner_size(720.0, 480.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 稳定字符串哈希（FxHash 风格），用于把 URL 映射为窗口 label。
+fn stable_hash(input: &str) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in input.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_tracing();
@@ -63,6 +100,7 @@ pub fn run() {
             get_backend_info,
             open_main_window,
             open_data_dir,
+            open_app_webview,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
