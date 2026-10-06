@@ -38,5 +38,21 @@ public class CatalogProviderInfo
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    /// <summary>官方 API 地址（部分供应商未提供，需手动填写）</summary>
+    public string? Api { get; set; }
+    /// <summary>官方环境变量名（如 DEEPSEEK_API_KEY）</summary>
+    public string? Env { get; set; }
+    /// <summary>SDK 包名（用于推断 OpenAI 兼容 / Anthropic 协议）</summary>
+    public string? Npm { get; set; }
+    /// <summary>官方文档地址</summary>
+    public string? Doc { get; set; }
     public int ModelCount { get; set; }
+}
+
+/// <summary>
+/// models.dev 模型目录中的供应商详情（含全部模型）
+/// </summary>
+public class CatalogProviderDetail : CatalogProviderInfo
+{
+    public List<CatalogModelInfo> Models { get; set; } = [];
 }

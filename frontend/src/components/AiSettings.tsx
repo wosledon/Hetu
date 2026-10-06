@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap, Search } from 'lucide-react'
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
-import type { RemoteModelInfo, CatalogModelInfo } from '../services/aiProviderService'
+import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
 
 const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
@@ -31,6 +31,9 @@ function effortLabel(value: string): string {
       return /^\d+$/.test(value) ? `${value} tokens` : value
   }
 }
+
+/** models.dev 供应商一次性批量导入的模型数量上限 */
+const CATALOG_IMPORT_LIMIT = 40
 
 /** 从模型目录条目推导默认推理强度：优先取目录声明的 effort 值，其次按预算下限。 */
 function catalogDefaultEffort(model: CatalogModelInfo): string {
@@ -117,6 +120,13 @@ export default function AiSettings() {
     },
   })
 
+  const createModelBatch = useMutation({
+    mutationFn: aiModelService.createBatch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['aiProviders'] })
+    },
+  })
+
   const updateModel = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof aiModelService.update>[1] }) =>
       aiModelService.update(id, data),
@@ -173,7 +183,30 @@ export default function AiSettings() {
       {/* Provider Form */}
       {showProviderForm && (
         <ProviderForm
-          onSubmit={(data) => createProvider.mutate(data)}
+          onSubmit={async (data) => {
+            // 从 models.dev 选择供应商时：保存供应商后按其目录批量导入模型，用户只需提供 Key
+            const created = await createProvider.mutateAsync({
+              providerType: data.providerType,
+              name: data.name.trim(),
+              apiKey: data.apiKey,
+              baseUrl: data.baseUrl,
+            })
+            if (data.catalogProviderId && data.importModels && created?.id) {
+              try {
+                const detail = await aiModelCatalogService.provider(data.catalogProviderId)
+                const chatModels = (detail?.models ?? [])
+                  .filter((m) => !/embed/i.test(m.modelId))
+                  .slice(0, CATALOG_IMPORT_LIMIT)
+                if (chatModels.length > 0) {
+                  await createModelBatch.mutateAsync(
+                    chatModels.map((m) => catalogToModelRequest(created.id, m))
+                  )
+                }
+              } catch {
+                // 目录导入失败不影响供应商本身创建成功
+              }
+            }
+          }}
           onCancel={() => setShowProviderForm(false)}
         />
       )}
@@ -352,6 +385,9 @@ export default function AiSettings() {
               createModel.mutate({ providerId: selectedProviderId, modelId, displayName: modelId, purpose: 'chat' })
             }
           }}
+          onAddBatch={(models) => {
+            createModelBatch.mutate(models.map((m) => catalogToModelRequest(selectedProviderId, m)))
+          }}
           onCancel={() => setShowFetchForm(false)}
         />
       )}
@@ -365,23 +401,121 @@ function ProviderForm({
   onSubmit,
   onCancel,
 }: {
-  onSubmit: (data: { providerType: 'openai' | 'anthropic'; name: string; apiKey: string; baseUrl?: string }) => void
+  onSubmit: (data: {
+    providerType: 'openai' | 'anthropic'
+    name: string
+    apiKey: string
+    baseUrl?: string
+    /** 选中的 models.dev 供应商 ID（用于创建后批量导入其模型） */
+    catalogProviderId?: string
+    importModels?: boolean
+  }) => void
   onCancel: () => void
 }) {
   const [providerType, setProviderType] = useState<'openai' | 'anthropic'>('openai')
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  // models.dev 供应商目录：选中后仅需填写 API Key
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogResults, setCatalogResults] = useState<CatalogProviderInfo[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogProvider, setCatalogProvider] = useState<CatalogProviderInfo | null>(null)
+  const [importModels, setImportModels] = useState(true)
+
+  useEffect(() => {
+    const q = catalogQuery.trim()
+    if (q.length < 2) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setCatalogLoading(true)
+      aiModelCatalogService
+        .searchProviders(q, 15)
+        .then((data) => {
+          if (!cancelled) setCatalogResults(data)
+        })
+        .catch(() => {
+          if (!cancelled) setCatalogResults([])
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogLoading(false)
+        })
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [catalogQuery])
+
+  const applyCatalogProvider = (provider: CatalogProviderInfo) => {
+    const isAnthropic = provider.npm === '@ai-sdk/anthropic'
+    setProviderType(isAnthropic ? 'anthropic' : 'openai')
+    setName(provider.name)
+    setBaseUrl(provider.api ?? '')
+    setCatalogProvider(provider)
+    setCatalogResults([])
+    setCatalogQuery('')
+  }
 
   return (
     <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
       <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">添加提供商</h3>
       <div className="space-y-3">
+        {/* 供应商目录：选中后只需填 API Key */}
+        <div className="relative">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={catalogQuery}
+            onChange={(e) => setCatalogQuery(e.target.value)}
+            placeholder="从 models.dev 选择供应商，如 deepseek / moonshot / zhipu"
+            className={`${inputClass} pl-9`}
+          />
+          {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
+              {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">正在检索供应商目录...</p>}
+              {!catalogLoading &&
+                catalogResults.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyCatalogProvider(p)}
+                    className="w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                  >
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.name}</span>
+                    <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{p.id}</span>
+                    <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{p.modelCount} 个模型</span>
+                    {p.api && <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{p.api}</span>}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+        {catalogProvider && (
+          <div className="rounded-lg border border-gray-200 bg-white/60 px-3 py-2 text-[11px] text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400">
+            已选择目录供应商，名称与 Base URL 自动填充
+            {!catalogProvider.api && '（目录未提供 Base URL，请手动填写）'}
+            {catalogProvider.env && <span className="ml-1">· Key 对应环境变量 {catalogProvider.env}</span>}
+            <button
+              type="button"
+              onClick={() => {
+                setCatalogProvider(null)
+                setImportModels(false)
+                setName('')
+                setBaseUrl('')
+              }}
+              className="ml-2 text-blue-500 hover:underline dark:text-blue-400"
+            >
+              清除
+            </button>
+          </div>
+        )}
+
         <Select
           value={providerType}
           onChange={(value) => setProviderType(value as 'openai' | 'anthropic')}
           options={[
-            { value: 'openai', label: 'OpenAI' },
+            { value: 'openai', label: 'OpenAI 兼容' },
             { value: 'anthropic', label: 'Anthropic' },
           ]}
         />
@@ -396,7 +530,7 @@ function ProviderForm({
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder="API Key"
+          placeholder={catalogProvider?.env ?? 'API Key'}
           className={inputClass}
         />
         <input
@@ -406,12 +540,20 @@ function ProviderForm({
           placeholder="Base URL（可选，默认官方地址）"
           className={inputClass}
         />
-        <div className="flex gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-1">
           <button
-            onClick={() => onSubmit({ providerType, name, apiKey, baseUrl: baseUrl || undefined })}
-            className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
+            onClick={() => onSubmit({
+              providerType,
+              name,
+              apiKey,
+              baseUrl: baseUrl || undefined,
+              catalogProviderId: catalogProvider?.id,
+              importModels: importModels && !!catalogProvider,
+            })}
+            disabled={!name.trim()}
+            className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
           >
-            保存
+            {catalogProvider && importModels ? '保存并导入模型' : '保存'}
           </button>
           <button
             onClick={onCancel}
@@ -420,6 +562,17 @@ function ProviderForm({
             取消
           </button>
         </div>
+        {catalogProvider && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+            <input
+              type="checkbox"
+              checked={importModels}
+              onChange={(e) => setImportModels(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
+            />
+            同时导入该供应商模型（{Math.min(catalogProvider.modelCount, CATALOG_IMPORT_LIMIT)} 个，能力配置自动填充）
+          </label>
+        )}
       </div>
     </div>
   )
@@ -869,32 +1022,81 @@ function ModelForm({
 function FetchModelsForm({
   providerId,
   onAdd,
+  onAddBatch,
   onCancel,
 }: {
   providerId: string
   onAdd: (modelId: string) => void
+  /** 从模型目录批量导入（自动填充能力配置） */
+  onAddBatch?: (models: CatalogModelInfo[]) => void
   onCancel: () => void
 }) {
   const [models, setModels] = useState<RemoteModelInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // 模型目录（models.dev）批量导入
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogResults, setCatalogResults] = useState<CatalogModelInfo[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  useState(() => {
-    aiProviderService.fetchModels(providerId)
+  useEffect(() => {
+    let cancelled = false
+    aiProviderService
+      .fetchModels(providerId)
       .then((data) => {
-        setModels(data)
-        setLoading(false)
+        if (!cancelled) setModels(data)
       })
       .catch((err) => {
-        setError((err as Error).message)
-        setLoading(false)
+        if (!cancelled) setError((err as Error).message)
       })
-  })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [providerId])
+
+  useEffect(() => {
+    const q = catalogQuery.trim()
+    if (q.length < 2) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setCatalogLoading(true)
+      aiModelCatalogService
+        .search(q, 30)
+        .then((data) => {
+          if (!cancelled) setCatalogResults(data)
+        })
+        .catch(() => {
+          if (!cancelled) setCatalogResults([])
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogLoading(false)
+        })
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [catalogQuery])
+
+  const toggleSelected = (key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const selectedModels = catalogResults.filter((m) => selected.has(`${m.providerId}/${m.modelId}`))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[480px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -904,6 +1106,95 @@ function FetchModelsForm({
           </button>
         </div>
 
+        {/* 模型目录批量导入 */}
+        {onAddBatch && (
+          <section className="mb-5 space-y-2 border-b border-gray-100 pb-5 dark:border-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">从模型目录批量导入</h4>
+              <a href="https://models.dev" target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline dark:text-blue-400">
+                models.dev
+              </a>
+            </div>
+            <div className="relative">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={catalogQuery}
+                onChange={(e) => setCatalogQuery(e.target.value)}
+                placeholder="搜索模型，如 deepseek / glm / kimi / qwen"
+                className={`${inputClass} pl-9`}
+              />
+            </div>
+            {catalogQuery.trim().length >= 2 && (
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                {catalogLoading ? '正在检索模型目录...' : catalogResults.length > 0 ? `匹配 ${catalogResults.length} 个模型，能力配置自动填充` : '未找到匹配模型'}
+              </p>
+            )}
+            {catalogResults.length > 0 && (
+              <>
+                <div className="max-h-60 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-1.5 dark:border-white/[0.06]">
+                  {catalogResults.map((m) => {
+                    const key = `${m.providerId}/${m.modelId}`
+                    const checked = selected.has(key)
+                    return (
+                      <label
+                        key={key}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${checked ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelected(key)}
+                          className="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200">{m.name || m.modelId}</span>
+                        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{m.providerName}</span>
+                        {m.reasoning && (
+                          <span className="shrink-0 rounded bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">推理</span>
+                        )}
+                        {m.supportsVision && (
+                          <span className="shrink-0 rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">视觉</span>
+                        )}
+                        {m.supportsTools && (
+                          <span className="shrink-0 rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">工具</span>
+                        )}
+                        {m.contextWindow ? <span className="shrink-0 text-[11px] text-gray-400">{(m.contextWindow / 1024).toLocaleString()}K</span> : null}
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
+                  >
+                    全选
+                  </button>
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
+                  >
+                    清空
+                  </button>
+                  <button
+                    onClick={() => {
+                      onAddBatch(selectedModels)
+                      setSelected(new Set())
+                      setCatalogQuery('')
+                      setCatalogResults([])
+                    }}
+                    disabled={selectedModels.length === 0}
+                    className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97] disabled:opacity-50"
+                  >
+                    导入所选（{selectedModels.length}）
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">供应商接口返回</h4>
         {loading && (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
