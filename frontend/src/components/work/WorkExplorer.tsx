@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, PanelRightClose, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -16,11 +16,11 @@ import { useUIStore } from '../../stores/uiStore'
 import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange, IWorkCheckpoint, IWorkCheckpointDiff, IWorkCodeSearchHit } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
+import WorkTerminal from './WorkTerminal'
 
 interface WorkExplorerProps {
   projectId?: string
   sessionId?: string
-  onCollapse?: () => void
   /** 当前打开的文件路径变化（供对话区显示引用 chip） */
   onActiveFileChange?: (path: string | null) => void
   /** 打开指定文件请求（来自对话区点击路径） */
@@ -29,6 +29,8 @@ interface WorkExplorerProps {
   onAddSelectionContext?: (path: string, text: string) => void
   /** 在编辑器当前标签光标处插入文本（来自对话代码块动作） */
   insertRequest?: { text: string; path?: string; nonce: number } | null
+  /** 外部注入的终端命令请求（对话区"在终端运行"） */
+  commandRequest?: { command: string; nonce: number } | null
 }
 
 interface TreeNode extends IWorkFileEntry {
@@ -36,7 +38,19 @@ interface TreeNode extends IWorkFileEntry {
   loaded?: boolean
 }
 
-type NavTab = 'files' | 'changes' | 'checkpoints' | 'browser' | 'git'
+type FeatureKind = 'guide' | 'files' | 'changes' | 'checkpoints' | 'browser' | 'git' | 'terminal'
+
+interface FeatureTab { key: FeatureKind; label: string }
+
+const FEATURE_LABELS: Record<FeatureKind, string> = {
+  guide: '新标签页',
+  files: '文件',
+  changes: '更改',
+  checkpoints: '检查点',
+  browser: '浏览器',
+  git: 'Git',
+  terminal: '终端',
+}
 
 const GIT_STATUS_META: Record<string, { label: string; cls: string }> = {
   M: { label: '修改', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
@@ -55,27 +69,58 @@ interface OpenTab {
   checkpoint?: IWorkCheckpointDiff
 }
 
-export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [loadedDirs, setLoadedDirs] = useState<Map<string, TreeNode[]>>(new Map())
-  const [tab, setTab] = useState<NavTab>('files')
   const [browserUrl, setBrowserUrl] = useState('')
   const [tabs, setTabs] = useState<OpenTab[]>([])
-  const [activeKey, setActiveKey] = useState<string | null>(null)
+  // 面板活动视图：功能标签页（guide/files/...）或文档标签页（file/diff/checkpoint）
+  const [activePanel, setActivePanel] = useState<{ type: 'feature' | 'doc'; key: string }>({ type: 'feature', key: 'guide' })
+  const [featureTabs, setFeatureTabs] = useState<FeatureTab[]>([{ key: 'guide', label: '新标签页' }])
+  const activeFeature: FeatureKind | null = activePanel.type === 'feature' ? (activePanel.key as FeatureKind) : null
+
+  /** 打开/激活一个功能标签页（文件/更改/检查点/Git/浏览器/终端） */
+  const activateFeature = (key: FeatureKind) => {
+    setFeatureTabs((prev) => (prev.some((t) => t.key === key) ? prev : [...prev, { key, label: FEATURE_LABELS[key] }]))
+    setActivePanel({ type: 'feature', key })
+  }
+
+  /** 关闭功能标签页；关闭后回到新标签页 */
+  const closeFeature = (key: FeatureKind) => {
+    setFeatureTabs((prev) => {
+      const next = prev.filter((t) => t.key !== key)
+      if (activePanel.type === 'feature' && activePanel.key === key) {
+        setActivePanel({ type: 'feature', key: next.some((t) => t.key === 'guide') ? 'guide' : (next[0]?.key ?? 'guide') })
+        if (!next.some((t) => t.key === 'guide')) return [{ key: 'guide', label: '新标签页' }, ...next.filter((t) => t.key !== 'guide')]
+      }
+      return next
+    })
+  }
+
+  /** 激活一个已打开的文档标签页 */
+  const openDoc = (key: string) => {
+    setActivePanel({ type: 'doc', key })
+  }
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMode, setSearchMode] = useState<'text' | 'semantic'>('text')
   const [restoreMessage, setRestoreMessage] = useState('')
   const [drafts, setDrafts] = useState<Map<string, string>>(new Map())
   const [saveMessage, setSaveMessage] = useState('')
   const [actionError, setActionError] = useState('')
+  // 功能列表与文档区的可分栏宽度 + 标签页右键菜单
+  const [listWidth, setListWidth] = useState(256)
+  const listDragging = useRef<{ startX: number; startWidth: number } | null>(null)
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; kind: 'feature' | 'doc'; key: string; label: string } | null>(null)
 
   const { data: changes = [] } = useQuery({
     queryKey: ['workFileChanges', sessionId],
     queryFn: () => (sessionId ? workSessionService.getFileChanges(sessionId) : Promise.resolve([])),
     enabled: !!sessionId,
+    // 文件改动后无需手动刷新，轮询保持列表最新
+    refetchInterval: sessionId ? 5000 : false,
   })
 
   const { data: checkpoints = [] } = useQuery({
@@ -87,7 +132,8 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
   const { data: gitStatus, refetch: refetchGit, isFetching: isGitLoading } = useQuery({
     queryKey: ['workGitStatus', projectId],
     queryFn: () => workGitService.status(projectId!),
-    enabled: !!projectId && tab === 'git',
+    enabled: !!projectId && activeFeature === 'git',
+    refetchInterval: !!projectId && activeFeature === 'git' ? 5000 : false,
   })
   const [gitSelected, setGitSelected] = useState<Set<string>>(new Set())
   const [gitCommitMessage, setGitCommitMessage] = useState('')
@@ -202,6 +248,8 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
     queryKey: ['workDirEntries', projectId, ''],
     queryFn: () => loadDir(''),
     enabled: !!projectId,
+    // 外部（AI 工具/终端）修改文件后轮询刷新目录列表
+    refetchInterval: projectId ? 5000 : false,
   })
 
   // 根目录来自查询结果，子目录按路径缓存，两者拼装成展示用的树
@@ -220,7 +268,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
     const key = `file:${nodePath}`
     // 已在标签页则直接切换
     if (tabs.some((t) => t.key === key)) {
-      setActiveKey(key)
+      openDoc(key)
       setSelectedPath(nodePath)
       return
     }
@@ -228,10 +276,10 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
       const content = await workFileService.read(projectId, nodePath)
       const newTab: OpenTab = { key, label: name, kind: 'file', file: content }
       setTabs((prev) => [...prev, newTab])
-      setActiveKey(key)
+      openDoc(key)
       setSelectedPath(nodePath)
       setActionError('')
-      setTab('files')
+
       onActiveFileChange?.(nodePath)
     } catch (e) {
       setActionError(`打开文件失败：${(e as Error).message || '未知错误'}`)
@@ -241,24 +289,24 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
   const openDiffTab = (change: IWorkFileChange) => {
     const key = `diff:${change.id}`
     if (tabs.some((t) => t.key === key)) {
-      setActiveKey(key)
+      openDoc(key)
       return
     }
     const name = change.filePath.split('/').pop() ?? change.filePath
     setTabs((prev) => [...prev, { key, label: `${name} (diff)`, kind: 'diff', change }])
-    setActiveKey(key)
+    openDoc(key)
   }
 
   const openCheckpointDiffTab = async (cp: IWorkCheckpoint) => {
     const key = `cp:${cp.id}`
     if (tabs.some((t) => t.key === key)) {
-      setActiveKey(key)
+      openDoc(key)
       return
     }
     try {
       const diff = await workCheckpointService.diff(cp.id)
       setTabs((prev) => [...prev, { key, label: `${cp.label} (差异)`, kind: 'checkpoint', checkpoint: diff }])
-      setActiveKey(key)
+      openDoc(key)
     } catch { setRestoreMessage('读取检查点差异失败') }
   }
 
@@ -267,7 +315,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
     if (!projectId) return
     const key = `diff:git:${file.path}`
     if (tabs.some((t) => t.key === key)) {
-      setActiveKey(key)
+      openDoc(key)
       return
     }
     try {
@@ -284,7 +332,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
       }
       const name = file.path.split('/').pop() ?? file.path
       setTabs((prev) => [...prev, { key, label: `${name} (git)`, kind: 'diff', change }])
-      setActiveKey(key)
+      openDoc(key)
     } catch (e) {
       setActionError(`读取 Git 差异失败：${(e as Error).message || '未知错误'}`)
     }
@@ -292,29 +340,29 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
 
   const draftOf = (tab: OpenTab) => drafts.get(tab.key) ?? tab.file?.content ?? ''
 
-  const activeTab = tabs.find((t) => t.key === activeKey)
+  const activeDoc = activePanel.type === 'doc' ? tabs.find((t) => t.key === activePanel.key) : undefined
 
-  const saveActiveTab = useCallback(() => {
-    if (!activeTab || activeTab.kind !== 'file' || !activeTab.file || !projectId) return
-    const content = drafts.get(activeTab.key)
+  const saveactiveDoc = useCallback(() => {
+    if (!activeDoc || activeDoc.kind !== 'file' || !activeDoc.file || !projectId) return
+    const content = drafts.get(activeDoc.key)
     if (content === undefined) return
     saveFile.mutate({
-      key: activeTab.key,
-      path: activeTab.file.path,
+      key: activeDoc.key,
+      path: activeDoc.file.path,
       content,
-      originalContent: activeTab.file.content ?? '',
+      originalContent: activeDoc.file.content ?? '',
     })
-  }, [activeTab, drafts, projectId, saveFile])
+  }, [activeDoc, drafts, projectId, saveFile])
 
   // Ctrl/Cmd+S 保存当前文件：经 ref 调用最新回调，监听器只注册一次
-  const saveActiveTabRef = useRef<() => void>(() => {})
-  useEffect(() => { saveActiveTabRef.current = saveActiveTab }, [saveActiveTab])
+  const saveactiveDocRef = useRef<() => void>(() => {})
+  useEffect(() => { saveactiveDocRef.current = saveactiveDoc }, [saveactiveDoc])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 's') return
       e.preventDefault()
-      saveActiveTabRef.current()
+      saveactiveDocRef.current()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -332,19 +380,19 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
 
   // 关闭当前活动文件标签时清除引用
   useEffect(() => {
-    if (!activeKey) onActiveFileChange?.(null)
-  }, [activeKey, onActiveFileChange])
+    if (activePanel.type !== 'doc' || !activeDoc?.file) onActiveFileChange?.(null)
+  }, [activePanel, activeDoc, onActiveFileChange])
 
   // 对话代码块"插入到编辑器"
   const editorViewRef = useRef<EditorView | null>(null)
   const pendingInsertRef = useRef<string | null>(null)
   const insertAtCursor = (text: string) => {
     const view = editorViewRef.current
-    if (!view || !activeTab || activeTab.kind !== 'file' || !activeTab.file) return
+    if (!view || !activeDoc || activeDoc.kind !== 'file' || !activeDoc.file) return
     const { from } = view.state.selection.main
-    const current = draftOf(activeTab)
+    const current = draftOf(activeDoc)
     const next = current.slice(0, from) + text + current.slice(from)
-    setDrafts((prev) => new Map(prev).set(activeTab.key, next))
+    setDrafts((prev) => new Map(prev).set(activeDoc.key, next))
     setSaveMessage('已插入到编辑器')
     setTimeout(() => setSaveMessage(''), 2000)
   }
@@ -355,7 +403,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
   useEffect(() => {
     if (!insertRequest || insertRequest.nonce === lastInsertNonce.current) return
     lastInsertNonce.current = insertRequest.nonce
-    if (insertRequest.path && insertRequest.path !== activeTab?.file?.path) {
+    if (insertRequest.path && insertRequest.path !== activeDoc?.file?.path) {
       // 目标文件未打开：先打开再插入
       pendingInsertRef.current = insertRequest.text
       const name = insertRequest.path.split('/').pop() ?? insertRequest.path
@@ -365,16 +413,16 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
     insertAtCursor(insertRequest.text)
   }, [insertRequest])
   useEffect(() => {
-    if (!pendingInsertRef.current || !activeTab || activeTab.kind !== 'file') return
+    if (!pendingInsertRef.current || !activeDoc || activeDoc.kind !== 'file') return
     const text = pendingInsertRef.current
     pendingInsertRef.current = null
     insertAtCursor(text)
-  }, [activeTab?.key])
+  }, [activeDoc?.key])
   /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const quoteSelection = () => {
     const view = editorViewRef.current
-    if (!view || !activeTab || activeTab.kind !== 'file' || !activeTab.file) return
+    if (!view || !activeDoc || activeDoc.kind !== 'file' || !activeDoc.file) return
     const { from, to } = view.state.selection.main
     if (from === to) {
       setSaveMessage('请先在编辑器中选择代码')
@@ -387,22 +435,9 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
       setTimeout(() => setSaveMessage(''), 2000)
       return
     }
-    onAddSelectionContext?.(activeTab.file.path, text)
+    onAddSelectionContext?.(activeDoc.file.path, text)
     setSaveMessage('已加入对话上下文')
     setTimeout(() => setSaveMessage(''), 2000)
-  }
-
-  const closeTab = (key: string) => {
-    setTabs((prev) => {
-      const idx = prev.findIndex((t) => t.key === key)
-      if (idx < 0) return prev
-      const next = prev.filter((t) => t.key !== key)
-      if (activeKey === key) {
-        const neighbor = next[Math.max(0, idx - 1)] ?? next[0]
-        setActiveKey(neighbor ? neighbor.key : null)
-      }
-      return next
-    })
   }
 
   const toggleNode = async (node: TreeNode, parentPath: string) => {
@@ -486,53 +521,218 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
     '&.cm-focused': { outline: 'none' },
   })
 
-  const navBtn = (t: NavTab, label: string, Icon: React.ComponentType<{ size?: number }>) => (
-    <button
-      onClick={() => setTab(t)}
-      className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${tab === t ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
-    >
-      <Icon size={12} /> {label}
-    </button>
-  )
+  const NAV_ITEMS: { key: FeatureKind; label: string; desc: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+    { key: 'files', label: '文件', desc: '浏览项目目录，搜索文件名与内容，内置编辑器保存', Icon: Folder },
+    { key: 'changes', label: '更改', desc: '查看本会话 AI 产生的文件修改，逐行对比与回滚', Icon: GitCompare },
+    { key: 'checkpoints', label: '检查点', desc: '任务开始前的文件快照，可整体还原工作区', Icon: History },
+    { key: 'git', label: 'Git', desc: '分支与工作区状态、逐文件 Diff、暂存并提交', Icon: GitBranch },
+    { key: 'browser', label: '浏览器', desc: '内嵌网页预览，快速打开本地开发服务页面', Icon: Globe },
+    { key: 'terminal', label: '终端', desc: '项目根目录的交互式终端，支持 SSH 远程主机', Icon: TerminalSquare },
+  ]
+
+  const features = NAV_ITEMS
+
+  const openTabMenu = (e: React.MouseEvent, kind: 'feature' | 'doc', key: string, label: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setTabMenu({ x: e.clientX, y: e.clientY, kind, key, label })
+  }
+
+  const docTab = (t: OpenTab) => {
+    const active = activePanel.type === 'doc' && activePanel.key === t.key
+    return (
+      <div
+        key={t.key}
+        onClick={() => openDoc(t.key)}
+        onContextMenu={(e) => openTabMenu(e, 'doc', t.key, t.label)}
+        className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium transition-colors ${
+          active ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+        }`}
+      >
+        <FileCode size={11} className="shrink-0" />
+        <span className="max-w-[110px] truncate">{t.label}</span>
+        {t.kind === 'file' && drafts.has(t.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="未保存" />}
+        <span
+          onClick={(e) => { e.stopPropagation(); closeDocTab(t.key) }}
+          role="button"
+          aria-label="关闭标签"
+          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100 dark:hover:bg-gray-700"
+        >
+          <X size={9} />
+        </span>
+      </div>
+    )
+  }
+
+  const closeDocTab = (key: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.key === key)
+      const next = prev.filter((t) => t.key !== key)
+      if (activePanel.type === 'doc' && activePanel.key === key) {
+        const neighbor = prev[idx + 1] ?? prev[idx - 1]
+        if (neighbor) openDoc(neighbor.key)
+        else setActivePanel({ type: 'feature', key: 'guide' })
+      }
+      return next
+    })
+  }
+
+  const closeOtherDocTabs = (key: string) => {
+    setTabs((prev) => prev.filter((t) => t.key === key))
+    setActivePanel({ type: 'doc', key })
+  }
+
+  const closeAllDocTabs = () => {
+    setTabs([])
+    setActivePanel({ type: 'feature', key: 'guide' })
+  }
+
+  // 标签页右键菜单：点击别处或按 Esc 关闭
+  useEffect(() => {
+    if (!tabMenu) return
+    const close = () => setTabMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', close)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', close)
+    }
+  }, [tabMenu])
+
+  // 功能列表与文档区之间的拖拽分栏
+  const onListDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    listDragging.current = { startX: e.clientX, startWidth: listWidth }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [listWidth])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const d = listDragging.current
+      if (!d) return
+      setListWidth(Math.min(520, Math.max(200, d.startWidth + (e.clientX - d.startX))))
+    }
+    const onUp = () => {
+      listDragging.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
 
   return (
+    <>
     <div className="flex min-w-0 flex-1 border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      {/* 左侧导航：文件 / 更改 / 浏览器 */}
-      <div className="flex w-64 shrink-0 flex-col">
-        <div className="flex h-9 shrink-0 items-center gap-1 border-b border-gray-100 px-2 dark:border-gray-800">
-          {navBtn('files', '文件', Folder)}
-          {navBtn('changes', '更改', GitCompare)}
-          {navBtn('checkpoints', '检查点', History)}
-          {navBtn('git', 'Git', GitBranch)}
-          {navBtn('browser', '浏览器', Globe)}
-          <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} className="ml-auto rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]">
-            <RefreshCw size={12} />
-          </button>
-          <button onClick={onCollapse} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]" title="折叠面板">
-            <PanelRightClose size={12} />
-          </button>
+      {/* 左侧垂直导航 */}
+      <div className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-gray-100 py-2 dark:border-gray-800">
+        {NAV_ITEMS.map((n) => {
+          const Icon = n.Icon
+          const active = activeFeature === n.key
+          return (
+            <button
+              key={n.key}
+              onClick={() => activateFeature(n.key)}
+              title={n.label}
+              disabled={!projectId}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-40 ${
+                active
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
+              }`}
+            >
+              <Icon size={15} />
+            </button>
+          )
+        })}
+        <div className="flex-1" />
+        <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} title="刷新" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]">
+          <RefreshCw size={13} />
+        </button>
+      </div>
+
+      {/* 主区：浏览器风格标签条 + 内容 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-gray-100 px-1.5 dark:border-gray-800">
+          {featureTabs.map((t) => {
+            const nav = NAV_ITEMS.find((n) => n.key === t.key)
+            const Icon = t.key === 'guide' ? LayoutGrid : (nav?.Icon ?? Folder)
+            const active = activePanel.type === 'feature' && activePanel.key === t.key
+            return (
+              <div
+                key={t.key}
+                onClick={() => setActivePanel({ type: 'feature', key: t.key })}
+                onContextMenu={(e) => openTabMenu(e, 'feature', t.key, t.label)}
+                className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium transition-colors ${
+                  active ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Icon size={11} className="shrink-0" />
+                <span className="max-w-[100px] truncate">{t.label}</span>
+                <span
+                  onClick={(e) => { e.stopPropagation(); closeFeature(t.key) }}
+                  role="button"
+                  aria-label="关闭标签"
+                  className="rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100 dark:hover:bg-gray-700"
+                >
+                  <X size={9} />
+                </span>
+              </div>
+            )
+          })}
+          {tabs.map(docTab)}
         </div>
 
-        {tab === 'browser' ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex gap-1 border-b border-gray-100 p-1.5 dark:border-gray-800">
-              <input
-                value={browserUrl}
-                onChange={(e) => setBrowserUrl(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                placeholder="输入 URL（http://...）"
-                className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
-              />
-            </div>
-            <div className="flex flex-1 items-center justify-center p-4 text-center text-[11px] text-gray-400">
-              <div>
-                <Globe size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                <p>内嵌浏览器需要 CSP 与后端代理支持</p>
-                <p className="mt-1 text-[10px]">输入 http(s):// 地址回车加载</p>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {activeFeature === 'guide' ? (
+            /* 新标签页：居中垂直功能导航 */
+            <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+              <div className="w-full max-w-xs">
+                <div className="mb-5 text-center">
+                  <LayoutGrid size={26} className="mx-auto mb-2.5 text-blue-500" />
+                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">工作台</h2>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+                    {projectId ? '从左侧导航或下方列表选择功能开始工作' : '请先在左侧选择项目'}
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  {features.map((f) => {
+                    const Icon = f.Icon
+                    return (
+                      <button
+                        key={f.key}
+                        onClick={() => activateFeature(f.key)}
+                        disabled={!projectId}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/[0.06]"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-500 dark:bg-blue-950/40 dark:text-blue-400">
+                          <Icon size={15} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] font-medium text-gray-800 dark:text-gray-100">{f.label}</span>
+                          <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">{f.desc}</span>
+                        </span>
+                        <ChevronRight size={13} className="shrink-0 text-gray-300 dark:text-gray-600" />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ) : tab === 'changes' ? (
+          ) : activeFeature === 'terminal' ? (
+            <WorkTerminal projectId={projectId} sessionId={sessionId} commandRequest={commandRequest} />
+          ) : activeFeature === 'browser' ? (
+            <BrowserPanel url={browserUrl} onUrlChange={setBrowserUrl} />
+          ) : (
+      <div className="flex min-w-0 flex-1">
+      {/* 左侧栏：当前功能的列表/树，宽度可拖拽调整 */}
+      <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
+        {activeFeature === 'changes' ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {changes.length === 0 && (
               <div className="px-2 py-8 text-center text-xs text-gray-400">暂无文件修改</div>
@@ -563,7 +763,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
               )
             })}
           </div>
-        ) : tab === 'checkpoints' ? (
+        ) : activeFeature === 'checkpoints' ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {restoreMessage && (
               <div className="mb-1.5 rounded-lg bg-sky-50 px-2 py-1.5 text-[11px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
@@ -628,7 +828,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
               </div>
             ))}
           </div>
-        ) : tab === 'git' ? (
+        ) : activeFeature === 'git' ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
               <GitBranch size={12} className="shrink-0 text-gray-400" />
@@ -790,34 +990,18 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
         )}
       </div>
 
-      {/* 右侧标签页内容区 */}
-      <div className="flex min-w-0 flex-1 flex-col border-l border-gray-200 dark:border-gray-800">
-        {tabs.length > 0 ? (
-          <>
-            <div className="flex h-9 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-gray-100 bg-gray-50/60 px-1.5 dark:border-gray-800 dark:bg-gray-800/40">
-              {tabs.map((t) => (
-                <div
-                  key={t.key}
-                  onClick={() => setActiveKey(t.key)}
-                  className={`group flex shrink-0 cursor-pointer items-center gap-1 rounded-t-md border border-b-0 px-2.5 py-1.5 text-[11px] transition-colors ${
-                    activeKey === t.key
-                      ? 'border-gray-200 bg-white font-medium text-blue-600 dark:border-gray-700 dark:bg-gray-900 dark:text-blue-300'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  {t.kind === 'diff' ? <GitCompare size={11} className="text-indigo-400" /> : t.kind === 'checkpoint' ? <Diff size={11} className="text-sky-400" /> : <FileCode size={11} className="text-gray-400" />}
-                  <span className="max-w-40 truncate">{t.label}</span>
-                  {t.kind === 'file' && drafts.has(t.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="未保存" />}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); closeTab(t.key) }}
-                    className="ml-0.5 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-200 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-gray-700"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))}
-            </div>
+      {/* 分栏拖拽手柄：视觉上只有 1px，命中区域 7px */}
+      <div
+        onMouseDown={onListDragStart}
+        className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
+        title="拖拽调整宽度"
+      >
+        <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
+      </div>
 
+      {/* 右侧标签页内容区 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {activeDoc ? (
             <div className="min-h-0 flex-1">
               {actionError && (
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-red-50 px-3 py-1 text-[11px] text-red-600 dark:border-gray-800 dark:bg-red-950/30 dark:text-red-400">
@@ -832,18 +1016,18 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                   {saveMessage}
                 </div>
               )}
-              {activeTab?.kind === 'diff' && activeTab.change && (
+              {activeDoc?.kind === 'diff' && activeDoc.change && (
                 <WorkDiffView
-                  change={activeTab.change}
+                  change={activeDoc.change}
                   actionPending={writeFileContent.isPending}
-                  revertLabel={activeTab.change.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前'}
-                  onRevert={() => handleRevertChange(activeTab.change!, activeTab.change!.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前')}
-                  onApply={activeTab.change.id.startsWith('git:') ? undefined : () => handleApplyChange(activeTab.change!)}
+                  revertLabel={activeDoc.change.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前'}
+                  onRevert={() => handleRevertChange(activeDoc.change!, activeDoc.change!.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前')}
+                  onApply={activeDoc.change.id.startsWith('git:') ? undefined : () => handleApplyChange(activeDoc.change!)}
                 />
               )}
-              {activeTab?.kind === 'checkpoint' && activeTab.checkpoint && (
+              {activeDoc?.kind === 'checkpoint' && activeDoc.checkpoint && (
                 <WorkCheckpointDiffView
-                  diff={activeTab.checkpoint}
+                  diff={activeDoc.checkpoint}
                   actionPending={writeFileContent.isPending}
                   onRevertFile={(path, oldContent) => confirm({
                     message: `确定把 ${path} 还原到快照版本吗？磁盘上的当前内容将被覆盖。`,
@@ -851,13 +1035,13 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                   })}
                 />
               )}
-              {activeTab?.kind === 'file' && activeTab.file && (
-                activeTab.file.isBinary ? (
-                  <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeTab.file.size} bytes）</div>
+              {activeDoc?.kind === 'file' && activeDoc.file && (
+                activeDoc.file.isBinary ? (
+                  <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeDoc.file.size} bytes）</div>
                 ) : (
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
-                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeTab.file.path}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeDoc.file.path}</span>
                       <button
                         onClick={quoteSelection}
                         title="将选中代码加入对话（Quote）"
@@ -866,8 +1050,8 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                         <Quote size={11} />引用选中
                       </button>
                       <button
-                        onClick={saveActiveTab}
-                        disabled={!drafts.has(activeTab.key) || saveFile.isPending}
+                        onClick={saveactiveDoc}
+                        disabled={!drafts.has(activeDoc.key) || saveFile.isPending}
                         className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
                         title="保存（Ctrl+S）"
                       >
@@ -877,15 +1061,15 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                     </div>
                     <div className="min-h-0 flex-1 overflow-auto">
                       <CodeMirror
-                        value={draftOf(activeTab)}
+                        value={draftOf(activeDoc)}
                         height="100%"
                         theme={isDark ? 'dark' : 'light'}
                         onCreateEditor={(view) => { editorViewRef.current = view }}
                         onChange={(value) =>
                           setDrafts((prev) => {
                             const next = new Map(prev)
-                            if (value === activeTab.file?.content) next.delete(activeTab.key)
-                            else next.set(activeTab.key, value)
+                            if (value === activeDoc.file?.content) next.delete(activeDoc.key)
+                            else next.set(activeDoc.key, value)
                             return next
                           })
                         }
@@ -894,7 +1078,7 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                           EditorView.lineWrapping,
                           keymap.of([...searchKeymap]),
                           search({ top: true }),
-                          ...(langFor(activeTab.file.name) ? [langFor(activeTab.file.name)!] : []),
+                          ...(langFor(activeDoc.file.name) ? [langFor(activeDoc.file.name)!] : []),
                         ]}
                         basicSetup={{
                           lineNumbers: true,
@@ -908,7 +1092,6 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
                 )
               )}
             </div>
-          </>
         ) : (
           <div className="flex flex-1 flex-col">
             {actionError && (
@@ -920,10 +1103,198 @@ export default function WorkExplorer({ projectId, sessionId, onCollapse, onActiv
               </div>
             )}
             <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
-              点击文件或更改在标签页中打开
+              {activeFeature === 'files' ? '点击文件在标签页中打开' : activeFeature === 'changes' ? '点击更改在标签页中查看 Diff' : activeFeature === 'checkpoints' ? '点击检查点查看快照 Diff' : '功能内容'}
             </div>
           </div>
         )}
+      </div>
+      </div>
+      )}
+    </div>
+    </div>
+  </div>
+
+  {/* 标签页右键菜单 */}
+  {tabMenu && (
+    <div
+      className="fixed z-50 min-w-[128px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+      style={{ left: tabMenu.x, top: tabMenu.y }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={() => {
+          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+          else closeDocTab(tabMenu.key)
+          setTabMenu(null)
+        }}
+        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        关闭
+      </button>
+      <button
+        onClick={() => {
+          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+          else closeOtherDocTabs(tabMenu.key)
+          setTabMenu(null)
+        }}
+        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        关闭其他
+      </button>
+      <button
+        onClick={() => {
+          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+          else closeAllDocTabs()
+          setTabMenu(null)
+        }}
+        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        关闭全部
+      </button>
+    </div>
+  )}
+    </>
+  )
+}
+
+/* ─── 内嵌浏览器面板 ─── */
+
+const BROWSER_PRESETS = [
+  { label: '本机开发服务', url: 'http://localhost:5174' },
+  { label: '后端 API 文档', url: 'http://localhost:5000/scalar/v1' },
+  { label: 'GitHub', url: 'https://github.com' },
+]
+
+/** 带导航工具条的内嵌浏览器：历史前进后退、刷新、外站新窗打开、常用链接 */
+function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: string) => void }) {
+  const [input, setInput] = useState(url)
+  const [history, setHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const [frameKey, setFrameKey] = useState(0)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => { setInput(url) }, [url])
+
+  const navigate = (target: string, push = true) => {
+    const normalized = /^https?:\/\//i.test(target) ? target : `https://${target}`
+    onUrlChange(normalized)
+    setInput(normalized)
+    setLoaded(false)
+    setFrameKey((k) => k + 1)
+    if (push) {
+      const next = [...history.slice(0, historyIndex + 1), normalized]
+      setHistory(next)
+      setHistoryIndex(next.length - 1)
+    }
+  }
+
+  const goBack = () => {
+    if (historyIndex <= 0) return
+    const target = history[historyIndex - 1]
+    setHistoryIndex(historyIndex - 1)
+    onUrlChange(target)
+    setInput(target)
+    setLoaded(false)
+    setFrameKey((k) => k + 1)
+  }
+
+  const goForward = () => {
+    if (historyIndex >= history.length - 1) return
+    const target = history[historyIndex + 1]
+    setHistoryIndex(historyIndex + 1)
+    onUrlChange(target)
+    setInput(target)
+    setLoaded(false)
+    setFrameKey((k) => k + 1)
+  }
+
+  if (!url) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">浏览器</h3>
+        </div>
+        <div className="mb-3 flex gap-1">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
+            placeholder="输入网址或搜索..."
+            className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
+          />
+          <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
+            前往
+          </button>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">常用链接</p>
+          {BROWSER_PRESETS.map((p) => (
+            <button
+              key={p.url}
+              onClick={() => navigate(p.url)}
+              className="flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left transition-all hover:border-blue-300 hover:bg-blue-50/40 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-950/20"
+            >
+              <Globe size={13} className="shrink-0 text-blue-500" />
+              <div className="min-w-0">
+                <div className="truncate text-[11px] font-medium text-gray-700 dark:text-gray-200">{p.label}</div>
+                <div className="truncate text-[10px] text-gray-400">{p.url}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        <p className="mt-4 text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">
+          提示：部分网站设置 X-Frame-Options / CSP 不允许内嵌加载，将显示空白；可点击工具栏的外链按钮在系统浏览器打开。
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 工具条 */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
+        <button onClick={goBack} disabled={historyIndex <= 0} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title="后退">
+          <ArrowLeft size={13} />
+        </button>
+        <button onClick={goForward} disabled={historyIndex >= history.length - 1} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title="前进">
+          <ArrowRight size={13} />
+        </button>
+        <button onClick={() => { setLoaded(false); setFrameKey((k) => k + 1) }} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="刷新">
+          <RotateCcw size={13} />
+        </button>
+        <button onClick={() => navigate('http://localhost:5174')} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="回到本机服务">
+          <Home size={13} />
+        </button>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
+          className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] outline-none focus:border-blue-400 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
+        />
+        <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
+          前往
+        </button>
+        <a href={url} target="_blank" rel="noreferrer" className="shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="在系统浏览器打开">
+          <ExternalLink size={13} />
+        </a>
+      </div>
+      {/* 页面 */}
+      <div className="relative min-h-0 flex-1 bg-white dark:bg-gray-950">
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center text-[11px] text-gray-400">
+            <Loader2 size={16} className="mr-2 animate-spin" />
+            加载中...
+          </div>
+        )}
+        <iframe
+          key={frameKey}
+          src={url}
+          title="内嵌浏览器"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          referrerPolicy="no-referrer"
+          className="h-full w-full border-0"
+          onLoad={() => setLoaded(true)}
+        />
       </div>
     </div>
   )

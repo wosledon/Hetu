@@ -10,11 +10,16 @@ namespace Hetu.Core.Services;
 public class WorkProjectService : IWorkProjectService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? _dataProtection;
 
-    public WorkProjectService(IUnitOfWork unitOfWork)
+    public WorkProjectService(IUnitOfWork unitOfWork, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
     {
         _unitOfWork = unitOfWork;
+        _dataProtection = dataProtection;
     }
+
+    private string Protect(string plaintext)
+        => _dataProtection == null ? plaintext : Convert.ToBase64String(_dataProtection.CreateProtector("Hetu.Ssh").Protect(System.Text.Encoding.UTF8.GetBytes(plaintext)));
 
     public async Task<ApiResponse<List<WorkProjectDto>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -41,19 +46,38 @@ public class WorkProjectService : IWorkProjectService
     {
         if (string.IsNullOrWhiteSpace(request.Name)) return ApiResponse<WorkProjectDto>.Fail("项目名称不能为空");
         if (string.IsNullOrWhiteSpace(request.RootPath)) return ApiResponse<WorkProjectDto>.Fail("项目根目录不能为空");
-        if (!Directory.Exists(request.RootPath.Trim())) return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
+
+        var isRemote = request.ConnectionType == "Ssh";
+        if (isRemote)
+        {
+            if (string.IsNullOrWhiteSpace(request.SshHost)) return ApiResponse<WorkProjectDto>.Fail("SSH 主机地址不能为空");
+            if (request.SshAuthType == "Password" && string.IsNullOrEmpty(request.SshPassword))
+                return ApiResponse<WorkProjectDto>.Fail("密码认证需要填写密码");
+        }
+        else if (!Directory.Exists(request.RootPath.Trim()))
+        {
+            return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
+        }
 
         var project = new WorkProject
         {
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             RootPath = request.RootPath.Trim(),
+            ConnectionType = isRemote ? "Ssh" : "Local",
+            SshHost = isRemote ? request.SshHost!.Trim() : null,
+            SshPort = isRemote ? (request.SshPort <= 0 ? 22 : request.SshPort) : 22,
+            SshUser = isRemote ? request.SshUser?.Trim() : null,
+            SshAuthType = isRemote ? request.SshAuthType : "Key",
+            SshKeyPath = isRemote ? request.SshKeyPath?.Trim() : null,
             Description = request.Description,
             Icon = request.Icon,
             Color = request.Color,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
+        if (isRemote && !string.IsNullOrEmpty(request.SshPassword) && _dataProtection != null)
+            project.SshPasswordProtected = Protect(request.SshPassword);
 
         await _unitOfWork.WorkProjects.AddAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -68,7 +92,8 @@ public class WorkProjectService : IWorkProjectService
         if (!string.IsNullOrWhiteSpace(request.Name)) project.Name = request.Name.Trim();
         if (!string.IsNullOrWhiteSpace(request.RootPath))
         {
-            if (!Directory.Exists(request.RootPath.Trim())) return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
+            if (project.ConnectionType != "Ssh" && !Directory.Exists(request.RootPath.Trim()))
+                return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
             project.RootPath = request.RootPath.Trim();
         }
         project.Description = request.Description;
@@ -80,6 +105,30 @@ public class WorkProjectService : IWorkProjectService
         if (request.SkillIds != null)
             project.SkillIds = request.SkillIds.Count == 0 ? null : JsonSerializer.Serialize(request.SkillIds);
         project.DiagnosticsCommand = string.IsNullOrWhiteSpace(request.DiagnosticsCommand) ? null : request.DiagnosticsCommand.Trim();
+
+        // SSH 连接信息更新
+        if (!string.IsNullOrWhiteSpace(request.ConnectionType))
+        {
+            var wasRemote = project.ConnectionType == "Ssh";
+            project.ConnectionType = request.ConnectionType == "Ssh" ? "Ssh" : "Local";
+            if (!wasRemote && project.ConnectionType == "Ssh" && string.IsNullOrWhiteSpace(request.SshHost))
+                return ApiResponse<WorkProjectDto>.Fail("切换为 SSH 项目需要填写主机地址");
+        }
+        if (project.ConnectionType == "Ssh")
+        {
+            if (!string.IsNullOrWhiteSpace(request.SshHost)) project.SshHost = request.SshHost.Trim();
+            if (request.SshPort is > 0) project.SshPort = request.SshPort.Value;
+            if (request.SshUser != null) project.SshUser = request.SshUser.Trim();
+            if (!string.IsNullOrWhiteSpace(request.SshAuthType)) project.SshAuthType = request.SshAuthType;
+            if (request.SshKeyPath != null) project.SshKeyPath = request.SshKeyPath.Trim();
+            if (request.SshPassword != null)
+            {
+                // 空字符串表示清除已存密码；非空则重新加密保存
+                project.SshPasswordProtected = request.SshPassword.Length == 0 || _dataProtection == null
+                    ? null
+                    : Protect(request.SshPassword);
+            }
+        }
         project.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.WorkProjects.UpdateAsync(project, cancellationToken);
@@ -103,6 +152,13 @@ public class WorkProjectService : IWorkProjectService
         Id = project.Id,
         Name = project.Name,
         RootPath = project.RootPath,
+        ConnectionType = project.ConnectionType,
+        SshHost = project.ConnectionType == "Ssh" ? project.SshHost : null,
+        SshPort = project.ConnectionType == "Ssh" ? project.SshPort : 22,
+        SshUser = project.ConnectionType == "Ssh" ? project.SshUser : null,
+        SshAuthType = project.ConnectionType == "Ssh" ? project.SshAuthType : "Key",
+        SshKeyPath = project.ConnectionType == "Ssh" ? project.SshKeyPath : null,
+        HasSshPassword = project.ConnectionType == "Ssh" && !string.IsNullOrEmpty(project.SshPasswordProtected),
         Description = project.Description,
         Icon = project.Icon,
         Color = project.Color,

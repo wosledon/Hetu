@@ -5,6 +5,16 @@ public class WorkProjectDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string RootPath { get; set; } = string.Empty;
+    /// <summary>连接类型：Local | Ssh</summary>
+    public string ConnectionType { get; set; } = "Local";
+    public string? SshHost { get; set; }
+    public int SshPort { get; set; } = 22;
+    public string? SshUser { get; set; }
+    /// <summary>Key | Password | Agent</summary>
+    public string SshAuthType { get; set; } = "Key";
+    public string? SshKeyPath { get; set; }
+    /// <summary>是否已保存 SSH 密码（不回传明文）</summary>
+    public bool HasSshPassword { get; set; }
     public string? Description { get; set; }
     public string? Icon { get; set; }
     public string? Color { get; set; }
@@ -45,6 +55,16 @@ public class CreateWorkProjectRequest
     public string? Description { get; set; }
     public string? Icon { get; set; }
     public string? Color { get; set; }
+    /// <summary>Local | Ssh</summary>
+    public string ConnectionType { get; set; } = "Local";
+    public string? SshHost { get; set; }
+    public int SshPort { get; set; } = 22;
+    public string? SshUser { get; set; }
+    /// <summary>Key | Password | Agent</summary>
+    public string SshAuthType { get; set; } = "Key";
+    public string? SshKeyPath { get; set; }
+    /// <summary>SSH 密码明文（保存时加密，仅创建/更新时接收）</summary>
+    public string? SshPassword { get; set; }
 }
 
 public class UpdateWorkProjectRequest
@@ -58,6 +78,37 @@ public class UpdateWorkProjectRequest
     public List<Guid>? McpServerIds { get; set; }
     public List<string>? SkillIds { get; set; }
     public string? DiagnosticsCommand { get; set; }
+    /// <summary>Local | Ssh</summary>
+    public string? ConnectionType { get; set; }
+    public string? SshHost { get; set; }
+    public int? SshPort { get; set; }
+    public string? SshUser { get; set; }
+    /// <summary>Key | Password | Agent</summary>
+    public string? SshAuthType { get; set; }
+    public string? SshKeyPath { get; set; }
+    /// <summary>SSH 密码明文（传空字符串表示清除已存密码）</summary>
+    public string? SshPassword { get; set; }
+}
+
+/// <summary>本机 SSH 客户端探测结果</summary>
+public class WorkSshStatusDto
+{
+    public bool Available { get; set; }
+    public string? Version { get; set; }
+    public string Os { get; set; } = string.Empty;
+    /// <summary>未检测到 ssh 时的安装引导文案</summary>
+    public string InstallHint { get; set; } = string.Empty;
+    /// <summary>安装引导的外链（官方文档）</summary>
+    public string? InstallUrl { get; set; }
+}
+
+/// <summary>SSH 连接测试结果</summary>
+public class WorkSshTestResultDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    /// <summary>远程登录提示串（user@host），用于展示连接目标</summary>
+    public string? RemoteBanner { get; set; }
 }
 
 public class WorkSessionDto

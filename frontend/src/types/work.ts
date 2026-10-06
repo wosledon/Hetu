@@ -12,6 +12,15 @@ export interface IWorkProject {
   id: string;
   name: string;
   rootPath: string;
+  /** 连接类型：Local | Ssh */
+  connectionType: string;
+  sshHost?: string;
+  sshPort: number;
+  sshUser?: string;
+  /** Key | Password | Agent */
+  sshAuthType: string;
+  sshKeyPath?: string;
+  hasSshPassword: boolean;
   description?: string;
   icon?: string;
   color?: string;
@@ -135,6 +144,13 @@ export interface ICreateWorkProjectRequest {
   description?: string;
   icon?: string;
   color?: string;
+  connectionType?: string;
+  sshHost?: string;
+  sshPort?: number;
+  sshUser?: string;
+  sshAuthType?: string;
+  sshKeyPath?: string;
+  sshPassword?: string;
 }
 
 export interface IUpdateWorkProjectRequest {
@@ -147,6 +163,13 @@ export interface IUpdateWorkProjectRequest {
   mcpServerIds?: string[];
   skillIds?: string[];
   diagnosticsCommand?: string;
+  connectionType?: string;
+  sshHost?: string;
+  sshPort?: number;
+  sshUser?: string;
+  sshAuthType?: string;
+  sshKeyPath?: string;
+  sshPassword?: string;
 }
 
 export interface ICreateWorkSessionRequest {

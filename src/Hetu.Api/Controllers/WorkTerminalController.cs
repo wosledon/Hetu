@@ -1,11 +1,12 @@
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using Hetu.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hetu.Api.Controllers;
 
-/// <summary>工作终端：WebSocket 双向通道，后台 shell 运行在项目根目录</summary>
+/// <summary>工作终端：WebSocket 双向通道，伪终端运行在本地或 SSH 远程主机</summary>
 [ApiController]
 [Route("api/work-terminal")]
 public class WorkTerminalController : ControllerBase
@@ -18,7 +19,7 @@ public class WorkTerminalController : ControllerBase
     }
 
     [HttpGet("{projectId:guid}/connect")]
-    public async Task Connect(Guid projectId, CancellationToken ct)
+    public async Task Connect(Guid projectId, [FromQuery] int cols, [FromQuery] int rows, CancellationToken ct)
     {
         if (!HttpContext.WebSockets.IsWebSocketRequest)
         {
@@ -26,7 +27,7 @@ public class WorkTerminalController : ControllerBase
             return;
         }
 
-        var (session, error) = await _manager.GetOrCreateAsync(projectId, ct);
+        var (session, error) = await _manager.GetOrCreateAsync(projectId, cols <= 0 ? 80 : cols, rows <= 0 ? 24 : rows, ct);
         if (session == null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -38,7 +39,7 @@ public class WorkTerminalController : ControllerBase
         var buffer = new byte[4096];
         var sendLock = new SemaphoreSlim(1, 1);
 
-        // 输出 → WebSocket
+        // 输出 → WebSocket（文本帧）
         var outputTask = Task.Run(async () =>
         {
             try
@@ -60,17 +61,32 @@ public class WorkTerminalController : ControllerBase
             catch (ObjectDisposedException) { }
         }, ct);
 
-        // WebSocket → 输入
+        // WebSocket → 输入：二进制帧为键盘数据，文本帧为 JSON 控制
         try
         {
             while (webSocket.State == WebSocketState.Open)
             {
                 var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
                 if (result.MessageType == WebSocketMessageType.Close) break;
-                if (result.MessageType == WebSocketMessageType.Text && result.Count > 0)
+                if (result.Count == 0) continue;
+
+                if (result.MessageType == WebSocketMessageType.Binary)
+                {
+                    session.Write(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                }
+                else
                 {
                     var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    session.Write(text);
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(text);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("t", out var t) && t.GetString() == "resize")
+                        {
+                            session.Resize(root.GetProperty("cols").GetInt32(), root.GetProperty("rows").GetInt32());
+                        }
+                    }
+                    catch (JsonException) { /* 非 JSON 文本按键盘输入兜底 */ session.Write(text); }
                 }
             }
         }

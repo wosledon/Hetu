@@ -471,6 +471,12 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.Icon).HasMaxLength(50);
             entity.Property(e => e.Color).HasMaxLength(50);
+            entity.Property(e => e.ConnectionType).IsRequired().HasMaxLength(20).HasDefaultValue("Local");
+            entity.Property(e => e.SshHost).HasMaxLength(500);
+            entity.Property(e => e.SshUser).HasMaxLength(200);
+            entity.Property(e => e.SshAuthType).IsRequired().HasMaxLength(20).HasDefaultValue("Key");
+            entity.Property(e => e.SshKeyPath).HasMaxLength(1000);
+            entity.Property(e => e.SshPasswordProtected).HasMaxLength(4000);
         });
 
         modelBuilder.Entity<WorkSession>(entity =>

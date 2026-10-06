@@ -4,7 +4,7 @@ import {
   Send, Square, ChevronDown, ChevronRight, Loader2,
   ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX,
   ListChecks, Coins, User, Copy, Check, Braces, SquareCode, FolderOpen, SquareTerminal, Brain, Wrench, Bot,
-  Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote,
+  Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
@@ -31,6 +31,10 @@ interface WorkSessionAreaProps {
   onRunCommand?: (command: string) => void
   /** 把代码块插入编辑器光标处 */
   onInsertCode?: (code: string) => void
+  /** 切换右侧工作面板显示 */
+  onTogglePanel?: () => void
+  /** 右侧工作面板当前是否展开 */
+  panelOpen?: boolean
 }
 
 interface FileChangeMeta { path: string; action: string }
@@ -145,6 +149,8 @@ export default function WorkSessionArea({
   onOpenFilePath,
   onRunCommand,
   onInsertCode,
+  onTogglePanel,
+  panelOpen,
 }: WorkSessionAreaProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
@@ -342,6 +348,15 @@ export default function WorkSessionArea({
           <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
             选择左侧会话开始，或新建会话。编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
           </p>
+          {onTogglePanel && (
+            <button
+              onClick={onTogglePanel}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+            >
+              <PanelRightOpen size={13} />
+              {panelOpen ? '收起工作面板' : '打开工作面板'}
+            </button>
+          )}
         </div>
       </div>
     )
@@ -600,6 +615,20 @@ export default function WorkSessionArea({
                 onCopyPath={copyRootPath}
               />
             </div>
+          )}
+          {onTogglePanel && (
+            <button
+              onClick={onTogglePanel}
+              title={panelOpen ? '收起工作面板' : '展开工作面板'}
+              aria-label={panelOpen ? '收起工作面板' : '展开工作面板'}
+              className={`rounded-lg p-1.5 transition-colors ${
+                panelOpen
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+              }`}
+            >
+              {panelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+            </button>
           )}
         </div>
         {openFeedback && (

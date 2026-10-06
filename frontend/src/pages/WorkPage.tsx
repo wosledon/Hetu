@@ -1,26 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelRightOpen } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import WorkSidebar from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
-import WorkTerminal from '../components/work/WorkTerminal'
 import { workProjectService } from '../services/workService'
 import type { IWorkProject, IWorkSession } from '../types/work'
 
 const DEFAULT_RIGHT_WIDTH = 560
 const MIN_RIGHT_WIDTH = 320
 const MAX_RIGHT_WIDTH = 1200
-const DEFAULT_TERMINAL_HEIGHT = 208
-const MIN_TERMINAL_HEIGHT = 96
-const MAX_TERMINAL_HEIGHT = 480
-
-const clampTerminalHeight = (h: number) => Math.min(MAX_TERMINAL_HEIGHT, Math.max(MIN_TERMINAL_HEIGHT, h))
-const readStoredTerminalHeight = () => {
-  const v = Number(localStorage.getItem('hetu-work-terminal-height'))
-  return Number.isFinite(v) && v > 0 ? clampTerminalHeight(v) : DEFAULT_TERMINAL_HEIGHT
-}
 
 export default function WorkPage() {
   const queryClient = useQueryClient()
@@ -32,11 +21,10 @@ export default function WorkPage() {
   const [terminalCommandRequest, setTerminalCommandRequest] = useState<{ command: string; nonce: number } | null>(null)
   const [pendingContext, setPendingContext] = useState<{ kind: 'selection'; path: string; text: string; nonce: number } | null>(null)
   const [insertRequest, setInsertRequest] = useState<{ text: string; path?: string; nonce: number } | null>(null)
-  const [showTerminal, setShowTerminal] = useState(() => localStorage.getItem('hetu-work-terminal-open') !== '0')
-  const [rightCollapsed, setRightCollapsed] = useState(false)
+  // 工作面板默认关闭：只在项目会话中按需从会话头部打开，不常驻右侧
+  const [rightCollapsed, setRightCollapsed] = useState(true)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
-  const [terminalHeight, setTerminalHeight] = useState(readStoredTerminalHeight)
-  const dragging = useRef<{ type: 'width' | 'height'; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null)
+  const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
 
   const { data: projects = [] } = useQuery({
     queryKey: ['workProjects'],
@@ -71,43 +59,25 @@ export default function WorkPage() {
     setPendingContext({ kind: 'selection', path, text, nonce: Date.now() })
   const requestInsertText = (text: string) => setInsertRequest({ text, path: undefined, nonce: Date.now() })
 
-  // 终端开合与高度持久化到 localStorage
-  useEffect(() => {
-    localStorage.setItem('hetu-work-terminal-open', showTerminal ? '1' : '0')
-  }, [showTerminal])
-  useEffect(() => {
-    localStorage.setItem('hetu-work-terminal-height', String(terminalHeight))
-  }, [terminalHeight])
-
-  // 拖拽调宽/调高
-  const onDragStart = useCallback((type: 'width' | 'height') => (e: React.MouseEvent) => {
+  // 拖拽调整右侧面板宽度
+  const onDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     dragging.current = {
-      type,
       startX: e.clientX,
-      startY: e.clientY,
       startWidth: rightWidth,
-      startHeight: terminalHeight,
     }
-    document.body.style.cursor = type === 'width' ? 'col-resize' : 'row-resize'
+    document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
-  }, [rightWidth, terminalHeight])
+  }, [rightWidth])
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const d = dragging.current
       if (!d) return
-      if (d.type === 'width') {
-        // 手柄是右侧面板左边框：鼠标左移 = 面板变宽，右移 = 变窄
-        const delta = e.clientX - d.startX
-        const next = d.startWidth - delta
-        setRightWidth(Math.min(MAX_RIGHT_WIDTH, Math.max(MIN_RIGHT_WIDTH, next)))
-      } else {
-        // 手柄是终端上边框：鼠标上移 = 终端变高，下移 = 变矮
-        const delta = e.clientY - d.startY
-        const next = d.startHeight - delta
-        setTerminalHeight(Math.min(MAX_TERMINAL_HEIGHT, Math.max(MIN_TERMINAL_HEIGHT, next)))
-      }
+      // 手柄是右侧面板左边框：鼠标左移 = 面板变宽，右移 = 变窄
+      const delta = e.clientX - d.startX
+      const next = d.startWidth - delta
+      setRightWidth(Math.min(MAX_RIGHT_WIDTH, Math.max(MIN_RIGHT_WIDTH, next)))
     }
     const onUp = () => {
       dragging.current = null
@@ -151,52 +121,32 @@ export default function WorkPage() {
             onOpenFilePath={requestOpenFile}
             onRunCommand={requestRunCommand}
             onInsertCode={requestInsertText}
+            onTogglePanel={() => setRightCollapsed((v) => !v)}
+            panelOpen={!rightCollapsed}
           />
+          {/* 面板收起时不常驻右侧：只在项目会话内通过会话头部按钮打开 */}
           {!rightCollapsed && (
-            <div
-              onMouseDown={onDragStart('width')}
-              className="w-1 shrink-0 cursor-col-resize bg-gray-200/70 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-600"
-              title="拖拽调整右侧面板宽度"
-            />
-          )}
-          {rightCollapsed ? (
-            <button
-              onClick={() => setRightCollapsed(false)}
-              className="flex w-8 shrink-0 flex-col items-center justify-center border-l border-gray-200 bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
-              title="展开右侧面板"
-            >
-              <PanelRightOpen size={14} />
-            </button>
-          ) : (
-            <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
-              <div className="flex min-h-0 flex-1">
+            <>
+              <div
+                onMouseDown={onDragStart}
+                className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
+                title="拖拽调整右侧面板宽度"
+              >
+                <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
+              </div>
+              <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
                 <WorkExplorer
                   key={selectedProject?.id}
                   projectId={selectedProject?.id}
                   sessionId={selectedSession?.id}
-                  onCollapse={() => setRightCollapsed(true)}
                   onActiveFileChange={setActiveFilePath}
                   openFileRequest={openFileRequest}
                   onAddSelectionContext={addSelectionContext}
                   insertRequest={insertRequest}
-                />              </div>
-              {showTerminal && (
-                <>
-                  <div
-                    onMouseDown={onDragStart('height')}
-                    className="h-1 shrink-0 cursor-row-resize bg-gray-200/70 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-600"
-                    title="拖拽调整终端高度"
-                  />
-                  <WorkTerminal
-                    key={selectedProject?.id}
-                    projectId={selectedProject?.id}
-                    onClose={() => setShowTerminal(false)}
-                    height={terminalHeight}
-                    commandRequest={terminalCommandRequest}
-                  />
-                </>
-              )}
-            </div>
+                  commandRequest={terminalCommandRequest}
+                />
+              </div>
+            </>
           )}
         </div>
       }

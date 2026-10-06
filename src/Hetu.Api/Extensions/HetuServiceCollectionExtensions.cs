@@ -2,6 +2,7 @@ using Hetu.Api.Services;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Work;
 using Hetu.Core.Services.Workflows;
 using Hetu.Core.Services.Workflows.NodeExecutors;
 using Hetu.Infrastructure.AI;
@@ -11,6 +12,7 @@ using Hetu.Infrastructure.Repositories;
 using Hetu.Infrastructure.ScheduledTasks;
 using Hetu.Infrastructure.SemanticSearch;
 using Hetu.Infrastructure.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 
@@ -215,7 +217,15 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IWorkCheckpointService, WorkCheckpointService>();
         services.AddScoped<IWorkCodeIndexService, WorkCodeIndexService>();
         services.AddSingleton<WorkTerminalManager>();
-        services.AddSingleton<WorkGitService>();
+        // Git 服务需要能解密 SSH 密码：手工构造执行器工厂（本地直跑 / SSH 走 ssh 客户端）
+        services.AddSingleton(sp =>
+        {
+            var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+            var protector = sp.GetRequiredService<IDataProtectionProvider>().CreateProtector("Hetu.Ssh");
+            return new WorkGitService(scopeFactory, project => project.ConnectionType == "Ssh"
+                ? new SshCommandRunner(project, v => string.IsNullOrEmpty(v) ? null : System.Text.Encoding.UTF8.GetString(protector.Unprotect(Convert.FromBase64String(v))))
+                : new LocalCommandRunner(project.RootPath));
+        });
         services.AddSingleton<WorkOpenInAppService>();
     }
 

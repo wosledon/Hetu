@@ -1,11 +1,25 @@
 namespace Hetu.Core.Entities;
 
-/// <summary>工作项目：以代码/项目为维度的协作单元，绑定本地目录</summary>
+/// <summary>工作项目：以代码/项目为维度的协作单元，绑定本地目录或 SSH 远程主机</summary>
 public class WorkProject : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
-    /// <summary>项目本地根目录</summary>
+    /// <summary>项目根目录（本地路径，或远程主机上的绝对路径）</summary>
     public string RootPath { get; set; } = string.Empty;
+    /// <summary>连接类型：Local | Ssh</summary>
+    public string ConnectionType { get; set; } = "Local";
+    /// <summary>SSH 主机地址</summary>
+    public string? SshHost { get; set; }
+    /// <summary>SSH 端口</summary>
+    public int SshPort { get; set; } = 22;
+    /// <summary>SSH 登录用户</summary>
+    public string? SshUser { get; set; }
+    /// <summary>SSH 认证方式：Key | Password | Agent</summary>
+    public string SshAuthType { get; set; } = "Key";
+    /// <summary>SSH 私钥文件路径（Key 认证）</summary>
+    public string? SshKeyPath { get; set; }
+    /// <summary>DataProtection 加密的 SSH 密码（Password 认证）</summary>
+    public string? SshPasswordProtected { get; set; }
     public string? Description { get; set; }
     public string? Icon { get; set; }
     public string? Color { get; set; }

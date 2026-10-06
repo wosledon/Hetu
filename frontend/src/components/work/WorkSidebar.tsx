@@ -1,10 +1,212 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings } from 'lucide-react'
-import { workProjectService, workSessionService } from '../../services/workService'
+import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi } from 'lucide-react'
+import { workProjectService, workSessionService, workSshService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
+
+interface WorkSidebarProps {
+  selectedProjectId?: string
+  selectedSessionId?: string
+  onSelectProject: (project: IWorkProject) => void
+  onSelectSession: (session: IWorkSession) => void
+  onProjectDeleted?: (projectId: string) => void
+  onSessionDeleted?: (sessionId: string) => void
+}
+
+/* ─── 新建项目对话框（本地 / SSH 远程） ─── */
+
+function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (p: IWorkProject) => void }) {
+  const queryClient = useQueryClient()
+  const [mode, setMode] = useState<'local' | 'ssh'>('local')
+  const [name, setName] = useState('')
+  const [rootPath, setRootPath] = useState('')
+  const [host, setHost] = useState('')
+  const [port, setPort] = useState(22)
+  const [user, setUser] = useState('')
+  const [authType, setAuthType] = useState('Key')
+  const [keyPath, setKeyPath] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const { data: sshStatus } = useQuery({ queryKey: ['workSshStatus'], queryFn: workSshService.status })
+
+  const create = useMutation({
+    mutationFn: workProjectService.create,
+    onSuccess: (project) => {
+      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+      onCreated(project)
+    },
+    onError: (e: Error) => setError(e.message || '创建项目失败'),
+  })
+
+  const testConnection = useMutation({
+    mutationFn: workSshService.test,
+    onSuccess: (r) => setTestResult({ ok: r.success, text: r.remoteBanner ? `${r.message}（${r.remoteBanner}）` : r.message }),
+    onError: (e: Error) => setTestResult({ ok: false, text: e.message || '连接测试失败' }),
+  })
+
+  const handleCreate = () => {
+    setError('')
+    if (!name.trim()) { setError('请输入项目名称'); return }
+    if (mode === 'local') {
+      if (!rootPath.trim()) { setError('请输入本地目录'); return }
+      create.mutate({ name: name.trim(), rootPath: rootPath.trim() })
+      return
+    }
+    if (!host.trim()) { setError('请输入 SSH 主机地址'); return }
+    if (authType === 'Password' && !password) { setError('请输入 SSH 密码'); return }
+    if (authType === 'Key' && !keyPath.trim()) { setError('请输入私钥文件路径'); return }
+    if (!rootPath.trim()) { setError('请输入远程项目目录（绝对路径）'); return }
+    create.mutate({
+      name: name.trim(),
+      rootPath: rootPath.trim(),
+      connectionType: 'Ssh',
+      sshHost: host.trim(),
+      sshPort: port,
+      sshUser: user.trim() || undefined,
+      sshAuthType: authType,
+      sshKeyPath: authType === 'Key' ? keyPath.trim() : undefined,
+      sshPassword: authType === 'Password' ? password : undefined,
+    })
+  }
+
+  const inputCls = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">新建项目</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          {/* 模式切换 */}
+          <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            {([
+              { key: 'local' as const, label: '本地目录', icon: HardDrive },
+              { key: 'ssh' as const, label: 'SSH 远程', icon: Server },
+            ]).map((m) => {
+              const Icon = m.icon
+              return (
+                <button
+                  key={m.key}
+                  onClick={() => { setMode(m.key); setTestResult(null) }}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[13px] font-medium transition-all ${
+                    mode === m.key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  <Icon size={13} />
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">项目名称</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：我的服务端项目" className={inputCls} />
+          </div>
+
+          {mode === 'local' ? (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">本地目录</label>
+              <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 D:\repos\MyProject 或 /home/me/project" className={`${inputCls} font-mono text-[13px]`} />
+            </div>
+          ) : (
+            <>
+              {/* SSH 未安装引导 */}
+              {sshStatus && !sshStatus.available && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                    <Wifi size={13} />
+                    未检测到 ssh 命令（{sshStatus.os}）
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">{sshStatus.installHint}</p>
+                  {sshStatus.installUrl && (
+                    <a href={sshStatus.installUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block text-[11px] font-medium text-amber-700 underline dark:text-amber-300">
+                      查看安装指南 →
+                    </a>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-[1fr_96px] gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">主机地址</label>
+                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10 或 example.com" className={`${inputCls} font-mono text-[13px]`} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">端口</label>
+                  <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} className={inputCls} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">登录用户</label>
+                  <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" className={`${inputCls} font-mono text-[13px]`} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">认证方式</label>
+                  <select value={authType} onChange={(e) => setAuthType(e.target.value)} className={inputCls}>
+                    <option value="Key">私钥文件</option>
+                    <option value="Password">密码</option>
+                    <option value="Agent">SSH Agent</option>
+                  </select>
+                </div>
+              </div>
+              {authType === 'Key' && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">私钥文件路径</label>
+                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder="如 ~/.ssh/id_rsa" className={`${inputCls} font-mono text-[13px]`} />
+                </div>
+              )}
+              {authType === 'Password' && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">密码</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="SSH 登录密码（加密保存）" className={inputCls} />
+                </div>
+              )}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">远程项目目录</label>
+                <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 /home/me/projects/app（绝对路径）" className={`${inputCls} font-mono text-[13px]`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setTestResult(null); testConnection.mutate({ host: host.trim(), port, user: user.trim() || undefined, authType, keyPath: keyPath.trim() || undefined, password: password || undefined, rootPath: rootPath.trim() || '~' }) }}
+                  disabled={testConnection.isPending || !host.trim()}
+                  className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                >
+                  {testConnection.isPending ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
+                  测试连接
+                </button>
+                {testResult && (
+                  <span className={`text-[11px] ${testResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                    {testResult.text}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
+          {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">取消</button>
+          <button
+            onClick={handleCreate}
+            disabled={create.isPending}
+            className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+          >
+            {create.isPending ? '创建中...' : '创建'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 interface WorkSidebarProps {
   selectedProjectId?: string
@@ -135,6 +337,11 @@ function ProjectNode({
         <span className={`min-w-0 flex-1 truncate text-[13px] ${selectedProjectId === project.id ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>
           {project.name}
         </span>
+        {project.connectionType === 'Ssh' && (
+          <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-900/40 dark:text-violet-300" title={`SSH：${project.sshUser ?? ''}${project.sshUser ? '@' : ''}${project.sshHost}:${project.sshPort}`}>
+            SSH
+          </span>
+        )}
         <span className="shrink-0 text-[10px] text-gray-400">{project.sessionCount}</span>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
           <button
@@ -267,9 +474,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
   const [isAdding, setIsAdding] = useState(false)
-  const [name, setName] = useState('')
-  const [rootPath, setRootPath] = useState('')
-  const [createError, setCreateError] = useState('')
   const [projectActionError, setProjectActionError] = useState('')
 
   // 用户手动展开/折叠优先，未手动设置过的项目在选中时默认展开
@@ -284,22 +488,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
 
   const search = searchTerm.trim().toLowerCase()
   const filtered = projects.filter((p) => !search || p.name.toLowerCase().includes(search))
-
-  const createProject = useMutation({
-    mutationFn: workProjectService.create,
-    onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
-      setIsAdding(false)
-      setName('')
-      setRootPath('')
-      setCreateError('')
-      setProjectExpanded(project.id, true)
-      onSelectProject(project)
-    },
-    onError: (err) => {
-      setCreateError(err instanceof Error ? err.message : '创建项目失败')
-    },
-  })
 
   const deleteProject = useMutation({
     mutationFn: workProjectService.delete,
@@ -332,13 +520,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     onError: (e: Error) => setProjectActionError(e.message || '重命名项目失败'),
   })
 
-  const handleCreate = () => {
-    if (!name.trim()) { setCreateError('请输入项目名称'); return }
-    if (!rootPath.trim()) { setCreateError('请输入项目目录'); return }
-    setCreateError('')
-    createProject.mutate({ name: name.trim(), rootPath: rootPath.trim() })
-  }
-
   return (
     <div className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800">
@@ -364,29 +545,14 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
       </div>
 
       {isAdding && (
-        <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="项目名称"
-            className="mb-1.5 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[13px] outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
-          />
-          <input
-            value={rootPath}
-            onChange={(e) => setRootPath(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            placeholder="本地目录，如 D:\repos\MyProject"
-            className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[12px] outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
-          />
-          <div className="flex gap-1.5">
-            <button onClick={handleCreate} className="rounded-lg bg-blue-500 px-3 py-1 text-xs font-medium text-white hover:bg-blue-600">创建</button>
-            <button onClick={() => { setIsAdding(false); setName(''); setRootPath(''); setCreateError('') }} className="rounded-lg border border-gray-200 px-3 py-1 text-xs hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">取消</button>
-          </div>
-          {createError && (
-            <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{createError}</p>
-          )}
-        </div>
+        <CreateProjectDialog
+          onClose={() => setIsAdding(false)}
+          onCreated={(project) => {
+            setIsAdding(false)
+            setProjectExpanded(project.id, true)
+            onSelectProject(project)
+          }}
+        />
       )}
 
       <div className="flex-1 overflow-y-auto p-2">

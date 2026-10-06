@@ -101,6 +101,37 @@ export const workTerminalService = {
   stop: (projectId: string) => post<void>(`/work-terminal/${projectId}/stop`),
 };
 
+/** SSH 客户端探测与连接测试 */
+export interface ISshStatus {
+  available: boolean
+  version?: string
+  os: string
+  installHint: string
+  installUrl?: string
+}
+
+export interface ISshTestRequest {
+  name?: string
+  host: string
+  port: number
+  user?: string
+  authType: string
+  keyPath?: string
+  password?: string
+  rootPath?: string
+}
+
+export interface ISshTestResult {
+  success: boolean
+  message: string
+  remoteBanner?: string
+}
+
+export const workSshService = {
+  status: () => get<ISshStatus>('/work/ssh/status'),
+  test: (data: ISshTestRequest) => post<ISshTestResult>('/work/ssh/test', data),
+};
+
 export const workOpenService = {
   apps: () => get<IWorkOpenApp[]>('/work-open/apps'),
 };
