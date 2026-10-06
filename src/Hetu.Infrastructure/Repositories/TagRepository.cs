@@ -25,6 +25,7 @@ public class TagRepository : EfRepository<Tag>, ITagRepository
     {
         var counts = await Context.NoteTags
             .AsNoTracking()
+            .Where(nt => Context.Notes.Any(n => n.Id == nt.NoteId))
             .GroupBy(nt => nt.TagId)
             .Select(g => new { TagId = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);

@@ -185,6 +185,13 @@ public class NoteService : INoteService
             await QueueIfNotRunningAsync(BackgroundTaskType.GenerateEmbedding, note.Id, note.Title, cancellationToken);
         }
 
+        // 删除时孤儿实体已被清理，恢复后重新提取以重建图谱
+        var autoExtractSetting = await _unitOfWork.AppSettings.GetByKeyAsync("GraphAutoExtract", cancellationToken);
+        if (autoExtractSetting?.Value == "true")
+        {
+            await QueueIfNotRunningAsync(BackgroundTaskType.GraphExtract, note.Id, note.Title, cancellationToken);
+        }
+
         return ApiResponse.Ok();
     }
 

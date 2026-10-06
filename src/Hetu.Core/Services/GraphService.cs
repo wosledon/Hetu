@@ -119,10 +119,13 @@ public class GraphService : IGraphService
 
         return new GraphDataDto
         {
+            // 孤立实体（没有任何关系）视为脏数据，不展示
             Entities = entities
-                .Select(e => MapEntity(e, relationCountDict.GetValueOrDefault(e.Id, 0)))
+                .Where(e => relationCountDict.GetValueOrDefault(e.Id, 0) > 0)
+                .Select(e => MapEntity(e, relationCountDict[e.Id]))
                 .ToList(),
             Relations = relations
+                .Where(r => entityDict.ContainsKey(r.SourceEntityId) && entityDict.ContainsKey(r.TargetEntityId))
                 .Select(r => MapRelation(r, entityDict))
                 .ToList()
         };
@@ -536,8 +539,6 @@ public class GraphService : IGraphService
         var noteRelations = await _unitOfWork.GraphRelations
             .FindAsync(r => r.SourceNoteId == noteId, cancellationToken);
 
-        if (noteRelations.Count == 0) return;
-
         // 2. 软删除这些关系
         foreach (var rel in noteRelations)
         {
@@ -566,6 +567,26 @@ public class GraphService : IGraphService
                     await _unitOfWork.GraphEntities.DeleteAsync(entity, cancellationToken);
             }
         }
+
+        // 4. 兜底：清理历史遗留的孤立实体（无任何存留关系）
+        var liveRelations = await _unitOfWork.GraphRelations
+            .FindAsync(r => !r.IsDeleted, cancellationToken);
+        var liveEntityIds = new HashSet<Guid>();
+        foreach (var live in liveRelations)
+        {
+            liveEntityIds.Add(live.SourceEntityId);
+            liveEntityIds.Add(live.TargetEntityId);
+        }
+
+        var orphans = (await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken))
+            .Where(e => !liveEntityIds.Contains(e.Id))
+            .ToList();
+        foreach (var orphan in orphans)
+        {
+            await _unitOfWork.GraphEntities.DeleteAsync(orphan, cancellationToken);
+        }
+
+        if (noteRelations.Count == 0 && orphans.Count == 0) return;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         InvalidateGraphCache();
