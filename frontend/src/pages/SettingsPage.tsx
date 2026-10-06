@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
+import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
@@ -15,7 +16,7 @@ import { aiProviderService } from '../services/aiProviderService'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost'
+type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost' | 'about'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
@@ -26,6 +27,7 @@ const settingsSections = [
   { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
   { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
   { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
+  { key: 'about', label: '关于', description: '产品信息与版本', icon: Info },
 ] satisfies { key: SettingsSection; label: string; description: string; icon: typeof Settings }[]
 
 const themeOptions = [
@@ -268,6 +270,8 @@ export default function SettingsPage() {
                   {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
 
                   {activeSection === 'mcp' && <McpServerManager />}
+
+                  {activeSection === 'about' && <AboutSection appName={appName} />}
                 </div>
               </div>
             </div>

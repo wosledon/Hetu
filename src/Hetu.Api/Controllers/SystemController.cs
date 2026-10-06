@@ -1,3 +1,4 @@
+using System.Reflection;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,16 @@ namespace Hetu.Api.Controllers;
 [Route("api/system")]
 public class SystemController : ControllerBase
 {
+    /// <summary>当前后端程序集版本（与桌面壳 tauri.conf.json 同源维护，供「关于」页展示）</summary>
+    [HttpGet("version")]
+    public ApiResponse<VersionInfoDto> GetVersion()
+    {
+        var assembly = typeof(SystemController).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        var version = informational?.Split('+')[0] ?? assembly.GetName().Version?.ToString() ?? "0.0.0";
+        return ApiResponse<VersionInfoDto>.Ok(new VersionInfoDto { Version = version, ProductName = "Hetu" });
+    }
+
     /// <summary>
     /// 列出指定路径下的子目录。path 为空时返回可用驱动器/根路径列表（current 也为空）。
     /// </summary>
@@ -70,4 +81,10 @@ public class FsEntryDto
 {
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
+}
+
+public class VersionInfoDto
+{
+    public string Version { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
 }

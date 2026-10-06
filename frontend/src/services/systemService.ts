@@ -15,4 +15,6 @@ export interface IFsDirs {
 export const systemService = {
   /** path 为空时返回驱动器/根列表 */
   listDirs: (path?: string) => get<IFsDirs>('/system/fs/dirs', { path }),
-};
+  /** 后端程序集版本（启动时读取，供「关于」页展示） */
+  getVersion: () => get<{ version: string; productName: string }>('/system/version'),
+}

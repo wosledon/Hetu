@@ -188,8 +188,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const verticalRail = (
     <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-0.5 overflow-y-auto py-3">
-      <button onClick={() => navigate('/')} className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" title={appName}>
-        <BrandMark size={24} />
+      <button onClick={() => navigate('/')} className="mb-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80 dark:bg-white/90" title={appName}>
+        <BrandMark size={34} />
       </button>
       {fixedNavItems.map(renderVerticalNavButton)}
 
@@ -249,7 +249,9 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <nav className="glass-nav grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-6">
         <div className="flex items-center justify-start">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-            <BrandMark size={24} />
+            <span className="flex h-9 w-9 items-center justify-center rounded-full dark:bg-white/90">
+              <BrandMark size={30} />
+            </span>
             <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
         </div>
