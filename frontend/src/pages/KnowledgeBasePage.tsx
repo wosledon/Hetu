@@ -22,8 +22,6 @@ import {
   Globe,
   Plus,
   Trash2,
-  CircleDot,
-  Activity,
 } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
@@ -45,7 +43,6 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
-import { segmentButtonClass } from '../utils/styles'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -229,31 +226,42 @@ export default function KnowledgeBasePage() {
       showSidebar={false}
       mainContent={
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
-          <div className="mx-auto max-w-5xl px-8 py-8">
+          <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm shadow-violet-500/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
                   <Database size={20} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">知识库</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">管理笔记、文件、网址的向量索引与文档分块</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">知识库</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">管理笔记、文件、网址的向量索引与文档分块</p>
                 </div>
+              </div>
+              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{status?.totalItems ?? '-'}</b> 个知识项</span>
+                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{status?.indexedItems ?? '-'}</b> 已索引</span>
+                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                <span><b className="text-sm font-semibold text-violet-600 dark:text-violet-400">{indexedPercent}%</b> 覆盖率</span>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="mb-6 flex items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            <div className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all ${segmentButtonClass(activeTab === tab.key)}`}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+                      activeTab === tab.key
+                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
                   >
-                    <Icon size={15} />
+                    <Icon size={14} />
                     {tab.label}
                   </button>
                 )
@@ -262,191 +270,118 @@ export default function KnowledgeBasePage() {
 
             {/* Overview Tab */}
             {activeTab === 'overview' && (
-              <div className="space-y-6">
-                {/* Status Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-7">
-                  <StatusCard
-                    icon={<Layers size={20} />}
-                    label="总项目数"
-                    value={status?.totalItems ?? '-'}
-                    color="blue"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<FileText size={20} />}
-                    label="笔记"
-                    value={status?.noteCount ?? '-'}
-                    color="indigo"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<Upload size={20} />}
-                    label="文件"
-                    value={status?.fileCount ?? '-'}
-                    color="green"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<Globe size={20} />}
-                    label="网址"
-                    value={status?.urlCount ?? '-'}
-                    color="purple"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<CheckCircle2 size={20} />}
-                    label="已索引"
-                    value={status?.indexedItems ?? '-'}
-                    color="green"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<AlertCircle size={20} />}
-                    label="未索引"
-                    value={status?.unindexedItems ?? '-'}
-                    color="amber"
-                    loading={statusLoading}
-                  />
-                  <StatusCard
-                    icon={<Activity size={20} />}
-                    label="进行中"
-                    value={status?.runningTaskCount ?? '-'}
-                    color={status && status.runningTaskCount > 0 ? 'teal' : 'gray'}
-                    loading={statusLoading}
-                    pulse={status && status.runningTaskCount > 0}
-                  />
-                </div>
-
-                {/* Progress Bar */}
-                <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">索引进度</h3>
-                    <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{indexedPercent}%</span>
-                  </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-                      style={{ width: `${indexedPercent}%` }}
-                    />
-                  </div>
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    {status ? `${status.indexedItems} / ${status.totalItems} 知识项已生成向量索引` : '加载中...'}
-                  </p>
-                </div>
-
-                {/* Provider Status */}
-                <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">Embedding 提供者</h3>
-                  {status?.hasEmbeddingProvider ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                        <CheckCircle2 size={16} className="text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">已配置</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">向量维度: {status.dimensions}</p>
+              <div className="space-y-4">
+                {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex flex-wrap items-center gap-8">
+                    {/* 进度环 */}
+                    <div className="relative h-24 w-24 shrink-0">
+                      <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-gray-100 dark:stroke-white/[0.06]" />
+                        <circle
+                          cx="50" cy="50" r="42" fill="none" strokeWidth="8" strokeLinecap="round"
+                          className="stroke-emerald-500 transition-all duration-700"
+                          strokeDasharray={`${(indexedPercent * 2.64).toFixed(1)} 264`}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{indexedPercent}%</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">已索引</span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                        <AlertCircle size={16} className="text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">未配置</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">请在设置中配置 Embedding 模型</p>
+
+                    {/* 说明 + 状态 */}
+                    <div className="min-w-[220px] flex-1">
+                      <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">向量索引驾驶舱</h2>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {status ? `${status.indexedItems} / ${status.totalItems} 知识项已生成向量索引` : '加载中...'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                          status?.hasEmbeddingProvider
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                        }`}>
+                          {status?.hasEmbeddingProvider ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                          {status?.hasEmbeddingProvider ? `Embedding 已配置 · ${status.dimensions} 维` : '未配置 Embedding 模型'}
+                        </span>
+                        {status && status.runningTaskCount > 0 && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-600 dark:bg-teal-950/40 dark:text-teal-400">
+                            <Loader2 size={12} className="animate-spin" />
+                            {status.runningTaskCount} 个任务进行中
+                          </span>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Running Tasks Indicator */}
-                {status && status.runningTaskCount > 0 && (
-                  <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-6 dark:border-teal-800 dark:bg-teal-900/10">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
-                        <Loader2 size={20} className="animate-spin text-teal-600 dark:text-teal-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium text-teal-800 dark:text-teal-300">
-                          索引任务进行中
-                        </h3>
-                        <p className="mt-0.5 text-xs text-teal-600 dark:text-teal-400">
-                          当前有 {status.runningTaskCount} 个任务正在排队或执行中，请等待完成
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Batch Action */}
-                {status && status.unindexedItems > 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">批量索引</h3>
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          为 {status.unindexedItems} 个未索引知识项生成向量
-                          {status.runningTaskCount > 0 && (
-                            <span className="ml-1 inline-flex items-center gap-1 text-teal-600 dark:text-teal-400">
-                              <CircleDot size={10} className="animate-pulse" />
-                              {status.runningTaskCount} 个任务进行中
-                            </span>
-                          )}
-                        </p>
-                      </div>
+                    {/* 批量操作 */}
+                    {status && status.unindexedItems > 0 ? (
                       <button
                         onClick={() => batchMutation.mutate()}
                         disabled={batchMutation.isPending || !status.hasEmbeddingProvider || status.runningTaskCount > 0}
-                        className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+                        className="flex shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
                       >
                         {batchMutation.isPending || status.runningTaskCount > 0 ? (
                           <Loader2 size={16} className="animate-spin" />
                         ) : (
                           <Zap size={16} />
                         )}
-                        {batchMutation.isPending ? '排队中...' : status.runningTaskCount > 0 ? '任务进行中...' : '批量生成'}
+                        {batchMutation.isPending ? '排队中...' : status.runningTaskCount > 0 ? '任务进行中...' : `为 ${status.unindexedItems} 项生成索引`}
                       </button>
-                    </div>
-                    {batchMutation.data && (
-                      <p className="mt-3 text-sm text-green-600 dark:text-green-400">
-                        已将 {batchMutation.data.queuedCount} 个知识项加入队列
-                        {batchMutation.data.skippedCount > 0 && (
-                          <span className="ml-2 text-amber-600 dark:text-amber-400">
-                            （跳过 {batchMutation.data.skippedCount} 个已有进行中任务的项）
-                          </span>
-                        )}
-                      </p>
-                    )}
-                    {batchMutation.error && (
-                      <p className="mt-3 text-sm text-red-600 dark:text-red-400">
-                        {(batchMutation.error as Error).message}
-                      </p>
+                    ) : (
+                      <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <CheckCircle2 size={14} />
+                        全部知识项均已索引
+                      </div>
                     )}
                   </div>
-                )}
+
+                  {/* 关键指标 */}
+                  <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800">
+                    <MetricPill icon={<Layers size={13} />} color="blue" label="总项目" value={status?.totalItems ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<FileText size={13} />} color="indigo" label="笔记" value={status?.noteCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<Upload size={13} />} color="green" label="文件" value={status?.fileCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<Globe size={13} />} color="purple" label="网址" value={status?.urlCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<AlertCircle size={13} />} color="amber" label="未索引" value={status?.unindexedItems ?? '-'} loading={statusLoading} />
+                  </div>
+
+                  {batchMutation.data && (
+                    <p className="mt-4 text-xs text-green-600 dark:text-green-400">
+                      已将 {batchMutation.data.queuedCount} 个知识项加入队列
+                      {batchMutation.data.skippedCount > 0 && (
+                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                          （跳过 {batchMutation.data.skippedCount} 个已有进行中任务的项）
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {batchMutation.error && (
+                    <p className="mt-4 text-xs text-red-600 dark:text-red-400">
+                      {(batchMutation.error as Error).message}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
-
             {/* Manage Tab */}
             {activeTab === 'manage' && (
               <div className="space-y-4">
                 {/* Type Filter + Actions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                     {typeFilters.map((f) => {
                       const Icon = f.icon
                       return (
                         <button
                           key={f.key}
                           onClick={() => setManageFilter(f.key)}
-                          className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                             manageFilter === f.key
-                              ? 'bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                              ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                           }`}
                         >
-                          <Icon size={12} />
+                          <Icon size={13} />
                           {f.label}
                         </button>
                       )
@@ -461,14 +396,14 @@ export default function KnowledgeBasePage() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Upload size={13} />
                       上传文件
                     </button>
                     <button
                       onClick={() => setShowAddUrl(true)}
-                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Plus size={13} />
                       添加网址
@@ -532,7 +467,7 @@ export default function KnowledgeBasePage() {
                     {embeddingStatuses.map((item) => (
                       <div
                         key={item.id}
-                        className={`group flex items-center gap-4 rounded-xl border bg-white px-5 py-4 transition-all hover:shadow-sm dark:bg-gray-900 ${
+                        className={`group flex items-center gap-4 rounded-2xl border bg-white px-5 py-4 transition-all hover:shadow-md dark:bg-gray-900 ${
                           item.hasRunningTask
                             ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
                             : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
@@ -605,11 +540,9 @@ export default function KnowledgeBasePage() {
                           <button
                             onClick={() => generateMutation.mutate(item.id)}
                             disabled={generateMutation.isPending || item.hasRunningTask}
-                            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                            className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                           >
-                            {item.hasRunningTask ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : generateMutation.isPending ? (
+                            {item.hasRunningTask || generateMutation.isPending ? (
                               <Loader2 size={12} className="animate-spin" />
                             ) : (
                               <RefreshCw size={12} />
@@ -621,7 +554,8 @@ export default function KnowledgeBasePage() {
                               onClick={() => {
                                 confirm({ message: '确定删除该知识项？', onConfirm: () => deleteMutation.mutate(item.id) })
                               }}
-                              className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-all hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                              className="flex items-center gap-1 rounded-full p-1.5 text-red-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                              title="删除知识项"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -638,18 +572,18 @@ export default function KnowledgeBasePage() {
             {activeTab === 'search' && (
               <div className="space-y-6">
                 {/* Search Input */}
-                <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">语义搜索测试</h3>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
-                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         placeholder="输入查询内容，测试语义搜索效果..."
-                        className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+                        className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
                       />
                     </div>
                     <div className="relative">
@@ -666,7 +600,7 @@ export default function KnowledgeBasePage() {
                     <button
                       onClick={handleSearch}
                       disabled={isSearching || !searchQuery.trim()}
-                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+                      className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
                     >
                       {isSearching ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -886,22 +820,20 @@ function ChunkDetailModal({
   )
 }
 
-/* ─── Status Card ─── */
+/* ─── Metric Pill ─── */
 
-function StatusCard({
+function MetricPill({
   icon,
   label,
   value,
   color,
   loading,
-  pulse,
 }: {
   icon: React.ReactNode
   label: string
   value: number | string
-  color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo' | 'gray' | 'teal'
+  color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo'
   loading: boolean
-  pulse?: boolean
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -909,24 +841,20 @@ function StatusCard({
     amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
     indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
-    gray: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-    teal: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[color]} ${pulse ? 'animate-pulse' : ''}`}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-          {loading ? (
-            <div className="mt-1 h-6 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-          ) : (
-            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
-          )}
-        </div>
+    <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3.5 py-3 dark:bg-white/[0.03]">
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${colorMap[color]}`}>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">{label}</p>
+        {loading ? (
+          <div className="mt-0.5 h-5 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+        ) : (
+          <p className="text-lg font-bold leading-tight text-gray-800 dark:text-gray-100">{value}</p>
+        )}
       </div>
     </div>
   )

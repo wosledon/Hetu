@@ -33,10 +33,10 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
   return (
     <button
       onClick={copy}
-      className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+      className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
         copied
           ? 'text-emerald-600 dark:text-emerald-400'
-          : 'text-gray-400 hover:bg-gray-200/70 hover:text-gray-600 dark:hover:bg-white/[0.08] dark:hover:text-gray-300'
+          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
       }`}
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -56,6 +56,7 @@ function ProxyCard({
   const queryClient = useQueryClient()
   const [formOverride, setFormOverride] = useState<IProxyConfig | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
 
   const { data: configs = [] } = useQuery({ queryKey: ['proxyConfig'], queryFn: proxyService.getAll })
   const server = configs.find((c) => c.mode === mode)
@@ -74,17 +75,29 @@ function ProxyCard({
   )
   const form = formOverride ?? serverForm
 
+  // 影子代理：切换目标模型即时生效，仅模型 ID 需手动保存；路由代理作为整体，任何改动都需保存
+  const directSave = mode === 'shadow'
+
   const saveMut = useMutation({
     mutationFn: proxyService.save,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proxyConfig'] })
       setDirty(false)
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 1500)
     },
   })
 
   const patch = (p: Partial<IProxyConfig>) => {
     if (!form) return
-    setFormOverride({ ...form, ...p })
+    const next = { ...form, ...p }
+    setFormOverride(next)
+    if (directSave && !('modelKey' in p)) {
+      // 选择类改动即时保存；若模型 ID 有未保存编辑，则按服务端原值落库
+      const pendingKey = next.modelKey !== (serverForm?.modelKey ?? next.modelKey)
+      saveMut.mutate(pendingKey ? { ...next, modelKey: serverForm!.modelKey } : next)
+      return
+    }
     setDirty(true)
   }
 
@@ -92,8 +105,18 @@ function ProxyCard({
     return <div className="py-16 text-center text-sm text-gray-400">加载中...</div>
   }
 
-  const canSave = form.modelKey.trim() &&
-    (mode === 'shadow' ? !!form.shadowTargetModelKey : form.routeRules.some((r) => r.targetModelKey))
+  const modelKeyPending = directSave && !!serverForm && form.modelKey !== serverForm.modelKey
+  const pending = directSave ? modelKeyPending : dirty
+  const canSave = !!form.modelKey.trim() && pending && !saveMut.isPending
+  const statusText = saveMut.isPending
+    ? '保存中...'
+    : pending
+      ? form.modelKey.trim()
+        ? directSave ? '模型 ID 有未保存的修改' : '有未保存的修改'
+        : '模型 ID 不能为空'
+      : savedFlash
+        ? '已保存'
+        : '配置已是最新'
 
   return (
     <div className="space-y-6">
@@ -101,9 +124,9 @@ function ProxyCard({
       <section>
         <div className="mb-1.5 flex items-baseline justify-between">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">对外模型 ID</label>
-          <span className="text-[11px] text-gray-400">客户端请求时的 model 参数</span>
+          <span className="text-[11px] text-gray-400 dark:text-gray-500">客户端请求时的 model 参数</span>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 dark:bg-white/[0.03]">
           <Braces size={14} className="shrink-0 text-gray-400" />
           <input
             value={form.modelKey}
@@ -120,7 +143,7 @@ function ProxyCard({
         <section>
           <div className="mb-1.5 flex items-baseline justify-between">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">代理到的目标模型</label>
-            <span className="text-[11px] text-gray-400">所有请求统一转发到它</span>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">所有请求统一转发到它</span>
           </div>
           <Select
             value={form.shadowTargetModelKey ?? ''}
@@ -138,7 +161,7 @@ function ProxyCard({
           <section>
             <div className="mb-1.5 flex items-baseline justify-between">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">分类模型</label>
-              <span className="text-[11px] text-gray-400">可选，留空走规则启发</span>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">可选，留空走规则启发</span>
             </div>
             <Select
               value={form.routeClassifierModelKey ?? ''}
@@ -154,16 +177,16 @@ function ProxyCard({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">路由规则</label>
               <button
                 onClick={() => patch({ routeRules: [...form.routeRules, { category: 'simple', targetModelKey: '', sortOrder: form.routeRules.length }] })}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-blue-500 transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10"
               >
                 <Plus size={13} /> 加规则
               </button>
             </div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/[0.08]">
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
               {form.routeRules.map((rule, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 ${idx > 0 ? 'border-t border-gray-100 dark:border-white/[0.06]' : ''} bg-white dark:bg-transparent`}
+                  className={`flex items-center gap-2.5 bg-white px-3.5 py-3 dark:bg-transparent ${idx > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}`}
                 >
                   <div className="w-28 shrink-0">
                     <Select
@@ -184,27 +207,26 @@ function ProxyCard({
                   </div>
                   <button
                     onClick={() => patch({ routeRules: form.routeRules.filter((_, i) => i !== idx) })}
-                    className="shrink-0 rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-gray-600 dark:hover:bg-red-500/10"
+                    className="shrink-0 rounded-full p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    title="删除规则"
                   >
                     <Trash2 size={14} />
                   </button>
                 </div>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-gray-400">按问题类型匹配第一条规则，都不命中走「默认兜底」</p>
+            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">按问题类型匹配第一条规则，都不命中走「默认兜底」</p>
           </section>
         </>
       )}
 
       {/* 保存栏 */}
-      <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/[0.06]">
-        <span className="text-[11px] text-gray-400">
-          {dirty ? '有未保存的修改' : '配置已是最新'}
-        </span>
+      <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+        <span className="text-[11px] text-gray-400 dark:text-gray-500">{statusText}</span>
         <button
           onClick={() => saveMut.mutate(form)}
-          disabled={!canSave || !dirty || saveMut.isPending}
-          className="rounded-xl bg-blue-500 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          disabled={!canSave}
+          className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
           {saveMut.isPending ? '保存中...' : '保存配置'}
         </button>
@@ -239,83 +261,73 @@ export default function ProxyPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl px-6 py-8">
-            {/* 标题 */}
-            <div className="mb-6">
-              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-                <Waypoints size={22} className="text-blue-500" />
-                代理服务
-              </h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                对外暴露统一模型 ID，把请求代理到配置的真实模型
-              </p>
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-6xl px-8 py-8">
+            {/* 页头 */}
+            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-sm shadow-blue-500/20">
+                  <Waypoints size={20} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">代理服务</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">对外暴露统一模型 ID，把请求代理到配置的真实模型</p>
+                </div>
+              </div>
+              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{modelOptions.length}</b> 个可用模型</span>
+                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                <span><b className="text-sm font-semibold text-blue-600 dark:text-blue-400">2</b> 种接入协议</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-              {/* 左栏：接入地址 + 模式选择 */}
-              <div className="space-y-4">
-                {/* 接入地址 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
-                  <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    <Globe size={13} className="text-blue-500" />
-                    接入地址
-                  </div>
-                  <div className="space-y-1.5">
-                    {endpoints.map((e) => (
-                      <div key={e.label} className="rounded-lg bg-gray-50 px-2.5 py-1.5 dark:bg-white/[0.04]">
-                        <div className="mb-0.5 text-[11px] text-gray-400">{e.label}</div>
-                        <div className="flex items-center gap-1.5">
-                          <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-300">{e.value}</code>
-                          <CopyBtn text={e.value} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* 选项卡 */}
+            <div className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              {([
+                { key: 'shadow' as const, label: '影子代理', icon: Zap },
+                { key: 'route' as const, label: '路由代理', icon: RouteIcon },
+              ]).map((t) => {
+                const Icon = t.icon
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+                      tab === t.key
+                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
 
-                {/* 模式选择（竖排卡片） */}
-                <div className="space-y-2">
-                  {([
-                    { key: 'shadow', label: '影子代理', desc: '固定代理到一个模型，应用只配这一个 ID', icon: Zap, color: 'blue' },
-                    { key: 'route', label: '路由代理', desc: '按问题类型智能分发到不同模型', icon: RouteIcon, color: 'violet' },
-                  ] as const).map((t) => {
-                    const Icon = t.icon
-                    const active = tab === t.key
-                    const isBlue = t.color === 'blue'
-                    return (
-                      <button
-                        key={t.key}
-                        onClick={() => setTab(t.key)}
-                        className={`flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all ${
-                          active
-                            ? isBlue
-                              ? 'border-blue-500 bg-blue-50/60 dark:border-blue-400/60 dark:bg-blue-950/30'
-                              : 'border-violet-500 bg-violet-50/60 dark:border-violet-400/60 dark:bg-violet-950/30'
-                            : 'border-gray-200/80 bg-white hover:border-gray-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:border-white/[0.12]'
-                        }`}
-                      >
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          active
-                            ? isBlue ? 'bg-blue-500 text-white' : 'bg-violet-500 text-white'
-                            : isBlue ? 'bg-blue-50 text-blue-500 dark:bg-blue-500/10' : 'bg-violet-50 text-violet-500 dark:bg-violet-500/10'
-                        }`}>
-                          <Icon size={16} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className={`text-sm font-medium ${active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                            {t.label}
-                          </div>
-                          <div className="mt-0.5 text-[11px] leading-snug text-gray-400">{t.desc}</div>
-                        </div>
-                      </button>
-                    )
-                  })}
+            <div className="space-y-4">
+              {/* 接入地址 */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="mb-3 flex items-center gap-2">
+                  <Globe size={14} className="text-blue-500" />
+                  <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">接入地址</h2>
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">在客户端中把 Base URL 设为以下地址</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {endpoints.map((e) => (
+                    <div key={e.label} className="flex items-center gap-2 rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-white/[0.03]">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-0.5 text-[11px] text-gray-400 dark:text-gray-500">{e.label}</div>
+                        <code className="block truncate font-mono text-xs text-gray-700 dark:text-gray-300">{e.value}</code>
+                      </div>
+                      <CopyBtn text={e.value} />
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* 右栏：配置卡 */}
-              <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
+              {/* 配置卡 */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <ProxyCard key={tab} mode={tab} modelOptions={modelOptions} />
               </div>
             </div>

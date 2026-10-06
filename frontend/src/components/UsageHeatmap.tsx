@@ -1,4 +1,5 @@
-import ReactEChartsCore from 'echarts-for-react/lib/core'
+import { useEffect, useRef, useState } from 'react'
+import ReactEChartsCore from 'echarts-for-react/esm/core'
 import echarts from '../utils/echarts'
 import { useIsDark } from '../hooks/useIsDark'
 import type { IUsageDayStat, IUsageHourStat } from '../services/usageService'
@@ -37,9 +38,28 @@ function heatColors(isDark: boolean): string[] {
     : ['#f1f5f9', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8']
 }
 
-/** 近 7 天 × 24 小时 热力图 */
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
+
+/** 实测容器宽度，用于把热力图格子算成正方形 */
+function useContainerWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setWidth(el.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, width]
+}
+
+/** 近 7 天 × 24 小时 热力图（方格保持正方形） */
 export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metric: Metric }) {
   const isDark = useIsDark()
+  const [wrapRef, width] = useContainerWidth()
   const days = last7Days()
   const map = new Map<string, number>()
   let max = 1
@@ -55,6 +75,11 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
       seriesData.push([h, di, map.get(`${day}_${h}`) ?? 0])
     }
   })
+
+  // 可用宽度减去坐标轴占位后均分 24 列，行高取同值得到正方形格子
+  const cell = width > 0 ? clamp((width - 92) / 24, 8, 44) : 14
+  const chartWidth = width > 0 ? Math.min(width, Math.round(cell * 24 + 92)) : '100%'
+  const chartHeight = Math.round(cell * 7 + 38)
 
   const textColor = isDark ? '#9ca3af' : '#6b7280'
   const option = {
@@ -103,12 +128,17 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
     ],
   }
 
-  return <ReactEChartsCore echarts={echarts} option={option} style={{ height: 260, width: '100%' }} notMerge />
+  return (
+    <div ref={wrapRef}>
+      <ReactEChartsCore echarts={echarts} option={option} style={{ height: chartHeight, width: chartWidth }} notMerge />
+    </div>
+  )
 }
 
-/** 近一年 GitHub 风格日历热力图 */
+/** 近一年 GitHub 风格日历热力图（方格保持正方形） */
 export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: Metric }) {
   const isDark = useIsDark()
+  const [wrapRef, width] = useContainerWidth()
   const map = new Map<string, number>()
   let max = 1
   for (const d of data) {
@@ -129,6 +159,11 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
     seriesData.push([iso, map.get(iso) ?? 0])
     cursor.setDate(cursor.getDate() + 1)
   }
+
+  // 可用宽度减去日历边距后均分约 53 周，得到正方形格子
+  const cell = width > 0 ? clamp((width - 66) / 53, 6, 18) : 12
+  const chartWidth = width > 0 ? Math.min(width, Math.round(cell * 53 + 66)) : '100%'
+  const chartHeight = Math.round(cell * 7 + 54)
 
   const textColor = isDark ? '#9ca3af' : '#6b7280'
   const option = {
@@ -151,7 +186,7 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
       right: 16,
       bottom: 24,
       range: [toIso(start), toIso(today)],
-      cellSize: ['auto', 14],
+      cellSize: cell,
       splitLine: { show: false },
       itemStyle: { color: 'transparent', borderWidth: 2, borderColor: isDark ? '#0c0f1a' : '#fff' },
       dayLabel: { color: textColor, fontSize: 10, nameMap: ['日', '一', '二', '三', '四', '五', '六'] },
@@ -167,5 +202,9 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
     ],
   }
 
-  return <ReactEChartsCore echarts={echarts} option={option} style={{ height: 220, width: '100%' }} notMerge />
+  return (
+    <div ref={wrapRef}>
+      <ReactEChartsCore echarts={echarts} option={option} style={{ height: chartHeight, width: chartWidth }} notMerge />
+    </div>
+  )
 }

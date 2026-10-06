@@ -75,36 +75,33 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-5xl px-6 py-8">
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{headerTitle}</h1>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{headerSubtitle}</p>
+            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-sm shadow-sky-500/20">
+                  {isBackground ? <ListTodo size={20} className="text-white" /> : <CalendarClock size={20} className="text-white" />}
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{headerTitle}</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{headerSubtitle}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isBackground && isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
-                {isBackground && (
-                  <button
-                    onClick={() => {
-                      queryClient.invalidateQueries({ queryKey: ['task-items'] })
-                    }}
-                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-                    title="刷新"
-                  >
-                    <RefreshCw size={16} />
-                  </button>
-                )}
-                {isBackground && stats && stats.completed > 0 && (
-                  <button
-                    onClick={() => clearMutation.mutate()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-                  >
-                    <Trash2 size={12} /> 清除已完成
-                  </button>
-                )}
-              </div>
+              {isBackground && stats && (
+                <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{stats.total}</b> 条记录</span>
+                  {(stats.queued > 0 || stats.running > 0) && (
+                    <>
+                      <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                      <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                        <Loader2 size={12} className="animate-spin" />
+                        {stats.running} 执行中 · {stats.queued} 排队
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {isBackground ? (
@@ -112,10 +109,13 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
                 stats={stats}
                 tasks={filtered}
                 isLoading={isLoading}
+                isRefetching={isRefetching}
                 filter={filter}
                 setFilter={setFilter}
                 typeFilter={typeFilter}
                 setTypeFilter={setTypeFilter}
+                onClearCompleted={() => clearMutation.mutate()}
+                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['task-items'] })}
                 onDelete={(id) => deleteMutation.mutate(id)}
               />
             ) : (
@@ -136,10 +136,13 @@ interface BackgroundTasksViewProps {
   stats: ITaskStats | undefined
   tasks: ITaskItem[]
   isLoading: boolean
+  isRefetching: boolean
   filter: FilterStatus
   setFilter: (f: FilterStatus) => void
   typeFilter: string
   setTypeFilter: (t: string) => void
+  onClearCompleted: () => void
+  onRefresh: () => void
   onDelete: (id: string) => void
 }
 
@@ -147,20 +150,20 @@ function BackgroundTasksView({
   stats,
   tasks,
   isLoading,
+  isRefetching,
   filter,
   setFilter,
   typeFilter,
   setTypeFilter,
+  onClearCompleted,
+  onRefresh,
   onDelete,
 }: BackgroundTasksViewProps) {
   return (
     <>
-      {/* Stats */}
-      {stats && <StatsCards stats={stats} />}
-
-      {/* Filters */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]">
+      {/* 筛选：状态 + 类型 */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           {([
             { key: 'all', label: '全部', count: stats?.total },
             { key: '0', label: '排队中', count: stats?.queued },
@@ -171,40 +174,56 @@ function BackgroundTasksView({
             <button
               key={subTab.key}
               onClick={() => setFilter(subTab.key)}
-              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${
                 filter === subTab.key
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/20'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
               }`}
             >
               {subTab.label}
               {subTab.count !== undefined && subTab.count > 0 && (
-                <span className="text-[11px] opacity-60">{subTab.count}</span>
+                <span className="text-[11px] opacity-70">{subTab.count}</span>
               )}
             </button>
           ))}
         </div>
-
-        <div className="flex items-center gap-1 rounded-lg bg-gray-100/60 p-0.5 dark:bg-white/[0.04]">
-          <button
-            onClick={() => setTypeFilter('')}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
-              !typeFilter ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            全部类型
-          </button>
-          {Object.entries(TYPE_MAP).map(([key, val]) => (
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             <button
-              key={key}
-              onClick={() => setTypeFilter(key)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
-                typeFilter === key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              onClick={() => setTypeFilter('')}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                !typeFilter ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
               }`}
             >
-              {val.label}
+              全部类型
             </button>
-          ))}
+            {Object.entries(TYPE_MAP).map(([key, val]) => (
+              <button
+                key={key}
+                onClick={() => setTypeFilter(key)}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                  typeFilter === key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                {val.label}
+              </button>
+            ))}
+          </div>
+          {stats && stats.completed > 0 && (
+            <button
+              onClick={onClearCompleted}
+              className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <Trash2 size={12} /> 清除已完成
+            </button>
+          )}
+          <button
+            onClick={onRefresh}
+            title="刷新"
+            className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
+            <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
@@ -323,22 +342,26 @@ function ScheduledTasksView() {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-end gap-2">
-        {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
-        <button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
-          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-          title="刷新"
-        >
-          <RefreshCw size={16} />
-        </button>
-        <button
-          onClick={handleCreate}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500"
-        >
-          <Plus size={14} />
-          新建定时任务
-        </button>
+      {/* 工具栏 */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
+          {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
+            title="刷新"
+            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <RefreshCw size={13} />
+            刷新
+          </button>
+          <button
+            onClick={handleCreate}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+          >
+            <Plus size={15} />
+            新建定时任务
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -404,12 +427,12 @@ function ScheduledTaskRow({
   const statusInfo = task.lastStatus ? LAST_STATUS_MAP[task.lastStatus] : null
 
   return (
-    <div className="group rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.03]">
+    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       <div className="flex items-center gap-3">
         {/* Enable indicator */}
         <button
           onClick={onToggle}
-          className={`shrink-0 rounded-lg p-1.5 transition-colors ${
+          className={`shrink-0 rounded-xl p-1.5 transition-colors ${
             task.isEnabled
               ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10'
               : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06]'
@@ -482,16 +505,16 @@ function ScheduledTaskRow({
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <button onClick={onRun} className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-500/10" title="立即运行">
+          <button onClick={onRun} className="rounded-full p-1.5 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/10" title="立即运行">
             <Play size={14} />
           </button>
-          <button onClick={onHistory} className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="执行历史">
+          <button onClick={onHistory} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="执行历史">
             <History size={14} />
           </button>
-          <button onClick={onEdit} className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="编辑">
+          <button onClick={onEdit} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="编辑">
             <Pencil size={14} />
           </button>
-          <button onClick={onDelete} className="rounded-md p-1.5 text-gray-300 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400" title="删除">
+          <button onClick={onDelete} className="rounded-full p-1.5 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" title="删除">
             <Trash2 size={14} />
           </button>
         </div>
@@ -510,17 +533,17 @@ function ScheduledTaskRow({
 
 function ScheduledEmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gradient-to-br from-white to-gray-50/60 py-20 dark:border-white/[0.08] dark:from-white/[0.02] dark:to-transparent">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30">
-        <CalendarClock size={28} />
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30">
+        <CalendarClock size={32} />
       </div>
-      <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">暂无定时任务</p>
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">创建定时任务，按计划自动执行技能、重建图谱或 Embedding</p>
+      <p className="text-sm font-medium">暂无定时任务</p>
+      <p className="mt-1 text-xs">创建定时任务，按计划自动执行技能、重建图谱或 Embedding</p>
       <button
         onClick={onCreate}
-        className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500"
+        className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
       >
-        <Plus size={13} />
+        <Plus size={15} />
         新建定时任务
       </button>
     </div>
@@ -681,7 +704,7 @@ function ScheduledTaskEditor({
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="例如：每日知识摘要"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
             />
           </div>
 
@@ -692,7 +715,7 @@ function ScheduledTaskEditor({
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               placeholder="可选"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
             />
           </div>
 
@@ -710,7 +733,7 @@ function ScheduledTaskEditor({
                     onClick={() => set('taskKind', kind)}
                     className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-left text-xs transition-all ${
                       active
-                        ? 'border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-300'
+                        ? 'border-sky-400 bg-sky-50 text-sky-600 dark:border-sky-500/50 dark:bg-sky-500/10 dark:text-sky-300'
                         : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
                     }`}
                   >
@@ -760,7 +783,7 @@ function ScheduledTaskEditor({
                 onChange={(e) => set('parameters', e.target.value)}
                 placeholder="传递给技能的输入内容（可选）"
                 rows={3}
-                className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
               />
             </div>
           )}
@@ -775,7 +798,7 @@ function ScheduledTaskEditor({
                   onChange={(e) => setAiSystemPrompt(e.target.value)}
                   placeholder="设定大模型的角色与行为，例如：你是知识整理助手，擅长提炼要点。"
                   rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
               </div>
               <div>
@@ -785,7 +808,7 @@ function ScheduledTaskEditor({
                   onChange={(e) => setAiPrompt(e.target.value)}
                   placeholder="描述要让大模型完成的任务，例如：总结本周新增笔记的核心要点。"
                   rows={4}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
                 <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
                   将使用默认对话模型执行，支持自然语言描述任意任务。
@@ -820,7 +843,7 @@ function ScheduledTaskEditor({
                   min={1}
                   value={form.intervalMinutes}
                   onChange={(e) => set('intervalMinutes', Number(e.target.value))}
-                  className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
                 <span className="text-xs text-gray-400">分钟</span>
                 <div className="ml-auto flex gap-1">
@@ -843,7 +866,7 @@ function ScheduledTaskEditor({
                 value={form.cronExpression}
                 onChange={(e) => set('cronExpression', e.target.value)}
                 placeholder="0 8 * * *"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
               />
               <div className="mt-2 flex flex-wrap gap-1">
                 {CRON_PRESETS.map((p) => (
@@ -869,7 +892,7 @@ function ScheduledTaskEditor({
                 max={5}
                 value={form.maxRetries}
                 onChange={(e) => set('maxRetries', Number(e.target.value))}
-                className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
               />
               <span className="text-xs text-gray-400">失败后指数退避重试（0 = 不重试）</span>
             </div>
@@ -877,9 +900,9 @@ function ScheduledTaskEditor({
 
           {/* Bound conversation status */}
           {form.topicId && (
-            <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5 dark:border-blue-500/20 dark:bg-blue-500/[0.06]">
-              <MessageSquare size={14} className="shrink-0 text-blue-500" />
-              <span className="text-xs text-blue-600 dark:text-blue-400">
+            <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/50 px-4 py-2.5 dark:border-sky-500/20 dark:bg-sky-500/[0.06]">
+              <MessageSquare size={14} className="shrink-0 text-sky-500" />
+              <span className="text-xs text-sky-600 dark:text-sky-400">
                 已绑定会话：执行结果将作为消息自动追加到该会话
               </span>
             </div>
@@ -891,8 +914,8 @@ function ScheduledTaskEditor({
             <button
               type="button"
               onClick={() => set('isEnabled', !form.isEnabled)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-                form.isEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+                form.isEnabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
               <span className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ${form.isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -911,14 +934,14 @@ function ScheduledTaskEditor({
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             取消
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md disabled:opacity-50"
           >
             {submitting && <Loader2 size={13} className="animate-spin" />}
             {isEdit ? '保存' : '创建'}
@@ -1027,36 +1050,6 @@ function ExecutionRow({ exec }: { exec: IScheduledTaskExecution }) {
   )
 }
 
-/* ─── Stats ─── */
-
-function StatsCards({ stats }: { stats: ITaskStats }) {
-  const cards = [
-    { label: '排队中', value: stats.queued, icon: ListTodo, color: 'from-gray-400 to-gray-500', shadow: 'shadow-gray-500/20' },
-    { label: '执行中', value: stats.running, icon: Clock, color: 'from-blue-500 to-indigo-500', shadow: 'shadow-blue-500/20' },
-    { label: '已完成', value: stats.completed, icon: CheckCircle2, color: 'from-emerald-500 to-teal-500', shadow: 'shadow-emerald-500/20' },
-    { label: '失败', value: stats.failed, icon: XCircle, color: 'from-red-500 to-rose-500', shadow: 'shadow-red-500/20' },
-  ]
-
-  return (
-    <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {cards.map((card) => {
-        const Icon = card.icon
-        return (
-          <div key={card.label} className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03]">
-            <div className="mb-2 flex items-center gap-2">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br ${card.color} text-white shadow-sm ${card.shadow}`}>
-                <Icon size={13} />
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">{card.label}</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-50">{card.value}</div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 /* ─── Task Row ─── */
 
 function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) {
@@ -1072,10 +1065,10 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
   }
 
   return (
-    <div className="group rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.03]">
+    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       <div className="flex items-center gap-3">
         {/* Status Icon */}
-        <div className={`rounded-lg p-1.5 ${status.bg}`}>
+        <div className={`rounded-xl p-1.5 ${status.bg}`}>
           <StatusIcon size={16} className={status.color} />
         </div>
 
@@ -1114,7 +1107,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         {/* Delete */}
         <button
           onClick={onDelete}
-          className="rounded-md p-1 text-gray-300 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
+          className="rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400"
           title="删除记录"
         >
           <Trash2 size={13} />
@@ -1136,12 +1129,12 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-20 dark:border-white/[0.08]">
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
-        <ListTodo size={28} className="text-gray-400" />
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+        <ListTodo size={36} className="opacity-50" />
       </div>
-      <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">暂无后台任务</p>
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">编辑笔记时会自动生成 Embedding 和提取知识图谱</p>
+      <p className="text-sm font-medium">暂无后台任务</p>
+      <p className="mt-1 text-xs">编辑笔记时会自动生成 Embedding 和提取知识图谱</p>
     </div>
   )
 }

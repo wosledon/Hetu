@@ -1,7 +1,7 @@
 import { confirm } from '../components/confirm'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Star, Brain } from 'lucide-react'
+import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Star, Brain, X } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { memoryService } from '../services/memoryService'
 import type { IMemory } from '../types'
@@ -45,6 +45,7 @@ function importanceToStars(importance: number): number {
 export default function MemoriesPage() {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newContent, setNewContent] = useState('')
@@ -90,7 +91,20 @@ export default function MemoriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['memories'] }),
   })
 
-  const memories = searchQuery.trim() ? (searchResults ?? []) : (pagedData?.items ?? [])
+  const allMemories = searchQuery.trim() ? (searchResults ?? []) : (pagedData?.items ?? [])
+
+  const categories = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const m of pagedData?.items ?? []) {
+      const key = m.category || '未分类'
+      map.set(key, (map.get(key) || 0) + 1)
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1])
+  }, [pagedData])
+
+  const memories = activeCategory
+    ? allMemories.filter((m) => (m.category || '未分类') === activeCategory)
+    : allMemories
 
   const handleCreate = () => {
     if (!newContent.trim()) return
@@ -116,112 +130,91 @@ export default function MemoriesPage() {
     setEditImportance(memory.importance)
   }
 
+  const filterPill = (active: boolean) =>
+    active
+      ? 'bg-teal-500 text-white shadow-sm shadow-teal-500/20'
+      : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+
   return (
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-5xl px-6 py-8">
-            {/* Header */}
-            <div className="mb-6 flex items-center justify-between">
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-6xl px-8 py-8">
+            {/* 页头 */}
+            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/30">
-                  <Atom size={20} className="text-teal-600 dark:text-teal-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-sm shadow-teal-500/20">
+                  <Atom size={20} className="text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">长期记忆</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    共 {pagedData?.totalCount ?? 0} 条记忆
-                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">AI 在对话中自动提取的事实与偏好，可手动修正</p>
                 </div>
+              </div>
+              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{pagedData?.totalCount ?? 0}</b> 条记忆</span>
+                {categories.length > 0 && (
+                  <>
+                    <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                    <span><b className="text-sm font-semibold text-teal-600 dark:text-teal-400">{categories.length}</b> 个类别</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 工具栏：分类筛选 + 搜索 + 新建 */}
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+                >
+                  全部
+                  <span className="text-[11px] opacity-70">{pagedData?.totalCount ?? 0}</span>
+                </button>
+                {categories.map(([cat, count]) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
+                  >
+                    {cat}
+                    <span className="text-[11px] opacity-70">{count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
+                <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="语义搜索记忆..."
+                  className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-teal-950/40"
+                />
               </div>
               <button
                 onClick={() => setIsCreating(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-teal-500 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-600"
+                className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md active:scale-[0.97]"
               >
-                <Plus size={14} />
+                <Plus size={16} />
                 新建记忆
               </button>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-6">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="语义搜索记忆..."
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 shadow-sm outline-none transition-colors placeholder:text-gray-400 focus:border-teal-300 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-teal-600 dark:focus:ring-teal-900/30"
-              />
-            </div>
-
-            {/* Create form */}
-            {isCreating && (
-              <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50/50 p-4 dark:border-teal-800 dark:bg-teal-900/10">
-                <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">新建记忆</h3>
-                <textarea
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  placeholder="输入要记住的事实或偏好..."
-                  rows={3}
-                  className="mb-3 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-300 focus:ring-2 focus:ring-teal-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-teal-600"
-                />
-                <div className="mb-3 flex gap-3">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">类别</label>
-                    <input
-                      type="text"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      placeholder="如：偏好、身份、工作"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    />
-                  </div>
-                  <div className="w-40">
-                    <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                      重要性: {newImportance.toFixed(1)}
-                    </label>
-                    <input
-                      type="range"
-                      min={0.1}
-                      max={1}
-                      step={0.1}
-                      value={newImportance}
-                      onChange={(e) => setNewImportance(parseFloat(e.target.value))}
-                      className="w-full accent-teal-500"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => { setIsCreating(false); setNewContent(''); setNewCategory(''); setNewImportance(0.5) }}
-                    className="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleCreate}
-                    disabled={!newContent.trim() || createMutation.isPending}
-                    className="flex items-center gap-1 rounded-lg bg-teal-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
-                  >
-                    <Save size={14} />
-                    保存
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Memory list */}
+            {/* 记忆列表 */}
             {isLoading ? (
-              <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
               </div>
             ) : memories.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <Brain size={48} className="mb-4 opacity-30" />
-                <p className="text-sm">
-                  {searchQuery.trim() ? '没有找到匹配的记忆' : '还没有记忆，开始对话时会自动提取'}
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                  <Brain size={36} className="opacity-50" />
+                </div>
+                <p className="text-sm font-medium">
+                  {searchQuery.trim() ? '没有找到匹配的记忆' : activeCategory ? '该类别下暂无记忆' : '还没有记忆，开始对话时会自动提取'}
                 </p>
               </div>
             ) : (
@@ -229,29 +222,29 @@ export default function MemoriesPage() {
                 {memories.map((memory) => (
                   <div
                     key={memory.id}
-                    className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+                    className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
                   >
                     {editingId === memory.id ? (
-                      /* Edit mode */
+                      /* 编辑模式 */
                       <div>
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
                           rows={3}
-                          className="mb-3 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-teal-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                          className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-all focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-teal-950/40"
                         />
-                        <div className="mb-3 flex gap-3">
-                          <div className="flex-1">
+                        <div className="mb-3 flex flex-wrap gap-3">
+                          <div className="min-w-[160px] flex-1">
                             <input
                               type="text"
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
                               placeholder="类别"
-                              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                             />
                           </div>
                           <div className="w-40">
-                            <label className="mb-1 block text-xs text-gray-500">重要性: {editImportance.toFixed(1)}</label>
+                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">重要性: {editImportance.toFixed(1)}</label>
                             <input
                               type="range"
                               min={0.1}
@@ -266,13 +259,13 @@ export default function MemoriesPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => setEditingId(null)}
-                            className="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
                           >
                             取消
                           </button>
                           <button
                             onClick={() => handleUpdate(memory.id)}
-                            className="flex items-center gap-1 rounded-lg bg-teal-500 px-3 py-1.5 text-sm text-white hover:bg-teal-600"
+                            className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
                           >
                             <Save size={14} />
                             保存
@@ -280,11 +273,11 @@ export default function MemoriesPage() {
                         </div>
                       </div>
                     ) : (
-                      /* View mode */
+                      /* 查看模式 */
                       <div>
-                        <p className="mb-2 text-sm text-gray-800 dark:text-gray-200">{memory.content}</p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <p className="mb-2.5 text-sm leading-relaxed text-gray-800 dark:text-gray-200">{memory.content}</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
                             {memory.category && (
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${getCategoryColor(memory.category)}`}>
                                 <Tag size={10} />
@@ -299,22 +292,19 @@ export default function MemoriesPage() {
                                 <Star key={i} size={10} className="text-gray-300 dark:text-gray-600" />
                               ))}
                             </span>
-                            <span className="text-[11px] text-gray-400">
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500">
                               {memory.source === 'conversation' ? '对话提取' : '手动创建'}
                             </span>
                             {memory.score != null && (
-                              <span className="text-[11px] text-teal-500">
-                                相关度 {(memory.score * 100).toFixed(0)}%
-                              </span>
+                              <span className="text-[11px] text-teal-500">相关度 {(memory.score * 100).toFixed(0)}%</span>
                             )}
+                            <span className="text-[11px] text-gray-300 dark:text-gray-600">{formatTime(memory.lastAccessedAt)}</span>
                           </div>
-                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <span className="mr-2 text-[11px] text-gray-400">
-                              {formatTime(memory.lastAccessedAt)}
-                            </span>
+                          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                             <button
                               onClick={() => startEdit(memory)}
-                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+                              title="编辑"
                             >
                               <Pencil size={14} />
                             </button>
@@ -322,7 +312,8 @@ export default function MemoriesPage() {
                               onClick={() => {
                                 confirm({ message: '确定删除这条记忆？', onConfirm: () => deleteMutation.mutate(memory.id) })
                               }}
-                              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                              className="rounded-full p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                              title="删除"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -337,6 +328,75 @@ export default function MemoriesPage() {
           </div>
         </div>
       }
-    />
+    >
+      {/* 新建记忆对话框 */}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setIsCreating(false)}>
+          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <Atom size={18} className="text-teal-500" />
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">新建记忆</h3>
+              </div>
+              <button onClick={() => setIsCreating(false)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">内容</label>
+                <textarea
+                  autoFocus
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder="输入要记住的事实或偏好..."
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">类别</label>
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="如：偏好、身份、工作"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  重要性: {newImportance.toFixed(1)}
+                </label>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.1}
+                  value={newImportance}
+                  onChange={(e) => setNewImportance(parseFloat(e.target.value))}
+                  className="w-full accent-teal-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
+              <button
+                onClick={() => setIsCreating(false)}
+                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!newContent.trim() || createMutation.isPending}
+                className="rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {createMutation.isPending ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppLayout>
   )
 }
