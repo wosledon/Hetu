@@ -15,11 +15,17 @@ using Serilog;
 
 namespace Hetu.Api.Controllers;
 
-/// <summary>持久化到助手消息的工具调用流水条目（供前端瀑布流还原执行过程）</summary>
-public class ToolCallLogEntry
+/// <summary>
+/// 持久化到助手消息的瀑布流片段：按模型"文本 → 工具调用"的实际发生顺序记录，
+/// 前端据此穿插还原（旧格式为无 kind 的纯工具数组，前端兼容处理）。
+/// </summary>
+public class TimelineSegment
 {
-    public string Name { get; set; } = string.Empty;
-    public string Arguments { get; set; } = "{}";
+    /// <summary>text | tool</summary>
+    public string Kind { get; set; } = "text";
+    public string? Content { get; set; }
+    public string? Name { get; set; }
+    public string? Arguments { get; set; }
     public string? Result { get; set; }
     public bool IsError { get; set; }
 }
@@ -32,6 +38,7 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IWebSearchService _webSearchService;
+    private readonly SearchQueryRewriter _queryRewriter;
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
@@ -46,6 +53,7 @@ public class ChatMessagesController : ControllerBase
         IChatTopicService chatTopicService,
         ILLMProviderFactory llmProviderFactory,
         IWebSearchService webSearchService,
+        SearchQueryRewriter queryRewriter,
         ISemanticSearchService semanticSearchService,
         IMemoryService memoryService,
         IUnitOfWork unitOfWork,
@@ -59,6 +67,7 @@ public class ChatMessagesController : ControllerBase
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
         _webSearchService = webSearchService;
+        _queryRewriter = queryRewriter;
         _semanticSearchService = semanticSearchService;
         _memoryService = memoryService;
         _unitOfWork = unitOfWork;
@@ -153,14 +162,14 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, ct);
+        var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, provider, ct);
 
         var profile = BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
 
         var contentSb = new StringBuilder();
         var thinkingSb = new StringBuilder();
-        var toolCallLog = new List<ToolCallLogEntry>();
+        var timeline = new List<TimelineSegment>();
         var sessionTodos = new List<SessionTodo>();
         const int maxIterations = 15;
         var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
@@ -206,6 +215,12 @@ public class ChatMessagesController : ControllerBase
                 contentSb.Append(iterContent);
                 thinkingSb.Append(iterThinking);
 
+                // 有序流水：本轮按 思考 → 文本 → 工具调用 的发生顺序记录，前端才能穿插还原
+                if (iterThinking.Length > 0)
+                    timeline.Add(new TimelineSegment { Kind = "thought", Content = iterThinking.ToString() });
+                if (iterContent.Length > 0)
+                    timeline.Add(new TimelineSegment { Kind = "text", Content = iterContent.ToString() });
+
                 // 4. 追加新消息（下一轮会压缩）
                 chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
 
@@ -226,8 +241,9 @@ public class ChatMessagesController : ControllerBase
                 {
                     var call = pendingToolCalls.FirstOrDefault(c => c.Id == toolCallId);
                     if (call == null) continue;
-                    toolCallLog.Add(new ToolCallLogEntry
+                    timeline.Add(new TimelineSegment
                     {
+                        Kind = "tool",
                         Name = call.Name,
                         Arguments = call.Arguments,
                         Result = toolContent,
@@ -260,8 +276,8 @@ public class ChatMessagesController : ControllerBase
 
         if (!string.IsNullOrEmpty(finalContent))
         {
-            var toolCallsJson = toolCallLog.Count > 0
-                ? JsonSerializer.Serialize(toolCallLog, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+            var toolCallsJson = timeline.Count > 0
+                ? JsonSerializer.Serialize(timeline, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 : null;
             await _chatMessageService.SaveAssistantMessageAsync(topicId,
                 finalContent, modelId,
@@ -449,13 +465,28 @@ public class ChatMessagesController : ControllerBase
     }
 
     private async Task<(string? search, string? knowledge, string? memory)> InjectRagAsync(
-        SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, CancellationToken ct)
+        SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
 
         if (request.WebSearch)
         {
-            var results = await _webSearchService.SearchAsync(request.Content, 5, ct);
+            // 查询改写：口语化原文直接搜很难命中，先提炼关键词再搜（复用当前会话模型，失败则用原文）
+            var queries = await _queryRewriter.RewriteAsync(request.Content ?? string.Empty, provider, ct);
+
+            var merged = new List<Hetu.Shared.Chat.WebSearchResultDto>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var q in queries)
+            {
+                foreach (var r in await _webSearchService.SearchAsync(q, 5, ct))
+                {
+                    if (seen.Add(r.Url)) merged.Add(r);
+                }
+                // 免费搜索源有配额限制：首个关键词够用就不再发起更多请求
+                if (merged.Count >= 5) break;
+            }
+            var results = merged.Take(5).ToList();
+
             if (results.Count > 0)
             {
                 await writer.WriteJsonAsync(new { type = "search_results", results });
@@ -568,11 +599,7 @@ public class ChatMessagesController : ControllerBase
                 messages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
         }
 
-        // 也压缩 system prompt
-        if (!string.IsNullOrWhiteSpace(options.SystemPrompt) && options.SystemPrompt.Length > 200)
-        {
-            var compressed = await _compressionPipeline.CompressAsync(options.SystemPrompt, ct);
-            if (!string.IsNullOrWhiteSpace(compressed)) options.SystemPrompt = compressed;
-        }
+        // 注意：不压缩 system prompt。其中的"当前时间"会被数字归一化把年份替换成 [N]，
+        // 导致模型输出"当前（[N] 年 10 月 7 日）"这类错误日期；系统提示词是受控模板，压缩收益也甚微。
     }
 }

@@ -38,6 +38,18 @@ export interface ApprovalRequest {
   arguments: string
 }
 
+/** 瀑布流时间线片段：按 SSE 到达顺序记录，保证文本与工具调用穿插展示 */
+export interface TimelineItem {
+  kind: 'text' | 'thought' | 'tool'
+  /** text/thought：文本内容；tool：工具名 */
+  text?: string
+  name?: string
+  arguments?: string
+  result?: string
+  isError?: boolean
+  running?: boolean
+}
+
 export interface SearchResult {
   title: string
   url: string
@@ -62,6 +74,8 @@ export interface TopicStreamState {
   streamingContent: string
   streamingThinking: string
   showThinking: boolean
+  /** 有序瀑布流：文本/思考/工具调用按发生顺序排列 */
+  timeline: TimelineItem[]
   pendingUserMessage: string | null
   searchResults: SearchResult[]
   knowledgeResults: KnowledgeResult[]
@@ -88,6 +102,7 @@ const emptyTopic = (): TopicStreamState => ({
   streamingContent: '',
   streamingThinking: '',
   showThinking: false,
+  timeline: [],
   pendingUserMessage: null,
   searchResults: [],
   knowledgeResults: [],
@@ -126,6 +141,32 @@ interface ChatStreamStore {
 
 /** 每个话题进行中的流 AbortController（模块级，不进 zustand state） */
 const streamControllers = new Map<string, AbortController>()
+
+/** 追加时间线片段：同类文本/思考片段合并到上一条，保持穿插顺序 */
+function appendTimeline(list: TimelineItem[], item: TimelineItem): TimelineItem[] {
+  const last = list[list.length - 1]
+  if (last && last.kind === item.kind && item.kind !== 'tool') {
+    return [...list.slice(0, -1), { ...last, text: (last.text ?? '') + (item.text ?? '') }]
+  }
+  return [...list, item]
+}
+
+/** 工具调用入列；结果到达时回填到对应片段 */
+function withToolCall(list: TimelineItem[], call: { id: string; name: string; arguments: string }): TimelineItem[] {
+  return [...list, { kind: 'tool', name: call.name, arguments: call.arguments, running: true }]
+}
+
+function withToolResult(list: TimelineItem[], result: { id: string; name: string; content: string; isError?: boolean }): TimelineItem[] {
+  for (let i = list.length - 1; i >= 0; i--) {
+    const item = list[i]
+    if (item.kind === 'tool' && item.running && item.name === result.name) {
+      const next = [...list]
+      next[i] = { ...item, result: result.content, isError: result.isError, running: false }
+      return next
+    }
+  }
+  return list
+}
 
 export const chatStreamControl = {
   register: (topicId: string, controller: AbortController) => streamControllers.set(topicId, controller),
@@ -173,7 +214,11 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
         return {
           streams: {
             ...st.streams,
-            [topicId]: { ...cur, streamingContent: cur.streamingContent + text },
+            [topicId]: {
+              ...cur,
+              streamingContent: cur.streamingContent + text,
+              timeline: appendTimeline(cur.timeline, { kind: 'text', text }),
+            },
           },
         }
       }),
@@ -187,9 +232,11 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
         switch (chunk.type) {
           case 'content':
             next.streamingContent = cur.streamingContent + ((chunk.text as string) || '')
+            next.timeline = appendTimeline(cur.timeline, { kind: 'text', text: (chunk.text as string) || '' })
             break
           case 'thinking':
             next.streamingThinking = cur.streamingThinking + ((chunk.text as string) || '')
+            next.timeline = appendTimeline(cur.timeline, { kind: 'thought', text: (chunk.text as string) || '' })
             next.showThinking = true
             break
           case 'search_results':
@@ -204,11 +251,13 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
           case 'tool_call':
             if (!chunk.hidden) {
               next.toolCalls = [...cur.toolCalls, { id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string }]
+              next.timeline = withToolCall(cur.timeline, { id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string })
             }
             break
           case 'tool_result':
             if (!chunk.hidden) {
               next.toolResults = [...cur.toolResults, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean, collapsed: chunk.collapsed as boolean }]
+              next.timeline = withToolResult(cur.timeline, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean })
             }
             break
           case 'approval_request':
@@ -261,6 +310,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
       patch(topicId, {
         streamingContent: '',
         streamingThinking: '',
+        timeline: [],
         searchResults: [],
         knowledgeResults: [],
         memoryResults: [],

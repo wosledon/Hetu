@@ -124,7 +124,8 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<INoteAiService, NoteAiService>();
         services.AddScoped<IGraphService, GraphService>();
         services.AddScoped<IShareLinkService, ShareLinkService>();
-        services.AddScoped<IWebSearchService, BingWebSearchService>();
+        services.AddScoped<IWebSearchService, MultiSourceWebSearchService>();
+        services.AddScoped<SearchQueryRewriter>();
         services.AddScoped<IMemoryService, MemoryService>();
         services.AddScoped<ISkillService, SkillService>();
         services.AddScoped<ILocalSkillService, LocalSkillService>();

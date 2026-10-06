@@ -1,31 +1,65 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Search, Database, Atom, Copy, Check, Pencil, Trash2, X, User } from 'lucide-react'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatToolCallRow from './ChatToolCallRow'
 import type { IChatMessage } from '../types'
 
-interface IToolCallLogItem {
-  name: string
-  arguments: string
+interface ITimelineSegment {
+  kind?: string
+  content?: string
+  name?: string
+  arguments?: string
   result?: string
   isError?: boolean
+  /** 旧数据可能是 PascalCase */
+  Kind?: string
 }
 
-/** 兼容 camelCase / PascalCase 两种键名（历史数据可能是 PascalCase） */
-function parseToolCalls(json?: string): IToolCallLogItem[] {
+type HistorySegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'thought'; text: string }
+  | { kind: 'tool'; name: string; arguments: string; result?: string; isError?: boolean }
+
+/**
+ * 解析持久化的 ToolCallsJson：
+ * - 新格式：有序片段数组（{ kind: 'thought' | 'text' | 'tool', ... }），按发生顺序穿插
+ * - 旧格式：纯工具数组，退化为“工具组 → 正文”
+ */
+function parseHistorySegments(json?: string): HistorySegment[] {
   if (!json) return []
+  let parsed: unknown
   try {
-    const parsed = JSON.parse(json) as Array<Record<string, unknown>>
-    if (!Array.isArray(parsed)) return []
-    return parsed.map((raw) => ({
+    parsed = JSON.parse(json)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+
+  const hasKind = parsed.some((x) => x && typeof x === 'object' && 'kind' in (x as object))
+  if (!hasKind) {
+    // 旧格式：工具列表
+    return (parsed as Array<Record<string, unknown>>).map((raw) => ({
+      kind: 'tool' as const,
       name: String(raw.name ?? raw.Name ?? ''),
       arguments: String(raw.arguments ?? raw.Arguments ?? '{}'),
       result: (raw.result ?? raw.Result) as string | undefined,
       isError: Boolean(raw.isError ?? raw.IsError ?? false),
     }))
-  } catch {
-    return []
   }
+
+  return (parsed as ITimelineSegment[]).map((raw) => {
+    const kind = raw.kind ?? raw.Kind ?? 'text'
+    if (kind === 'tool') {
+      return {
+        kind: 'tool' as const,
+        name: String(raw.name ?? ''),
+        arguments: String(raw.arguments ?? '{}'),
+        result: raw.result,
+        isError: Boolean(raw.isError),
+      }
+    }
+    return { kind: (kind === 'thought' ? 'thought' : 'text') as 'thought' | 'text', text: String(raw.content ?? '') }
+  })
 }
 
 // Older messages persisted RAG results with PascalCase keys; normalize to camelCase.
@@ -59,8 +93,20 @@ export default memo(function ChatMessageItem({
   actionsDisabled,
   onToggleThinking, onCopy, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onEditContentChange,
 }: ChatMessageItemProps) {
-  const toolCalls = parseToolCalls(message.toolCallsJson)
+  const segments = parseHistorySegments(message.toolCallsJson)
   const isUser = message.role === 'user'
+  // 时间线里的思考块按“消息+片段序号”独立展开（父组件只管单块 thinkingContent 的场景）
+  const [openThoughts, setOpenThoughts] = useState<Set<string>>(new Set())
+  const toggleThought = (key: string) =>
+    setOpenThoughts((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  // 有序片段里已包含正文文本；旧格式的纯工具列表则回到“工具组 + 正文”布局
+  const interleaved = segments.some((s) => s.kind === 'text')
+  const isLegacy = segments.length > 0 && !interleaved
   return (
     <div className={`group relative flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       {isUser && (
@@ -102,7 +148,7 @@ export default memo(function ChatMessageItem({
             </div>
           ) : (
             <>
-              {message.role === 'assistant' && message.thinkingContent && (
+              {message.role === 'assistant' && message.thinkingContent && !segments.some((s) => s.kind === 'thought') && (
                 <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
                   <button
                     onClick={() => onToggleThinking(message.id)}
@@ -119,23 +165,71 @@ export default memo(function ChatMessageItem({
                   )}
                 </div>
               )}
-              {/* 工具调用流水：历史消息从 ToolCallsJson 还原（Copilot 式瀑布行） */}
-              {!isUser && toolCalls.length > 0 && (
-                <div className="mb-3 space-y-1">
-                  {toolCalls.map((tc, i) => (
-                    <ChatToolCallRow
-                      key={i}
-                      name={tc.name}
-                      args={tc.arguments ?? '{}'}
-                      result={tc.result}
-                      isError={tc.isError}
-                    />
-                  ))}
+              {/* 瀑布流时间线：思考/工具调用与文本按发生顺序穿插（新格式） */}
+              {!isUser && interleaved && (
+                <div className="space-y-2">
+                  {segments.map((seg, i) => {
+                    if (seg.kind === 'tool') {
+                      return (
+                        <ChatToolCallRow
+                          key={i}
+                          name={seg.name}
+                          args={seg.arguments}
+                          result={seg.result}
+                          isError={seg.isError}
+                        />
+                      )
+                    }
+                    if (seg.kind === 'thought') {
+                      const segKey = `${message.id}-${i}`
+                      const open = openThoughts.has(segKey)
+                      return (
+                        <div key={i} className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
+                          <button
+                            onClick={() => toggleThought(segKey)}
+                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
+                          >
+                            {open ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
+                            <Brain size={11} className="shrink-0 text-gray-400" />
+                            <span>深度思考</span>
+                          </button>
+                          {open && (
+                            <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
+                              <ThemedMarkdown source={seg.text} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={i} className="prose prose-sm dark:prose-invert max-w-none">
+                        <ThemedMarkdown source={seg.text} />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
+              {/* 旧格式：工具组集中展示，正文在后 */}
+              {!isUser && isLegacy && (
+                <div className="mb-3 space-y-1">
+                  {segments.map((seg, i) =>
+                    seg.kind === 'tool' ? (
+                      <ChatToolCallRow
+                        key={i}
+                        name={seg.name}
+                        args={seg.arguments}
+                        result={seg.result}
+                        isError={seg.isError}
+                      />
+                    ) : null
+                  )}
+                </div>
+              )}
+              {!interleaved && (
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <ThemedMarkdown source={message.content} />
               </div>
+              )}
               {message.role === 'assistant' && message.searchResultsJson && (() => {
                 try {
                   const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
@@ -227,34 +321,38 @@ export default memo(function ChatMessageItem({
               })()}
             </>
           )}
-          {!isEditing && (
-            <div className={`absolute -top-3 ${message.role === 'user' ? 'left-0' : 'right-0'} opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white px-1 py-0.5 shadow-sm dark:border-gray-700 dark:bg-gray-800`}>
-              <button
-                onClick={() => onCopy(message.id, message.content)}
-                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                title="复制"
-              >
-                {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-              </button>
-              <button
-                onClick={() => onStartEdit(message.id, message.content)}
-                disabled={actionsDisabled}
-                className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-50 dark:hover:text-gray-300"
-                title="编辑"
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                onClick={() => onDelete(message.id)}
-                disabled={actionsDisabled}
-                className="p-1 rounded text-gray-400 hover:text-red-500 disabled:opacity-50"
-                title="删除"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          )}
         </div>
+        {/* 操作栏：气泡下方的副标题行，图标弱化显示、悬停整行提亮 */}
+        {!isEditing && (
+          <div className="mt-1.5 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => onCopy(message.id, message.content)}
+              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              title="复制"
+              aria-label="复制"
+            >
+              {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+            </button>
+            <button
+              onClick={() => onStartEdit(message.id, message.content)}
+              disabled={actionsDisabled}
+              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              title="编辑"
+              aria-label="编辑"
+            >
+              <Pencil size={12} />
+            </button>
+            <button
+              onClick={() => onDelete(message.id)}
+              disabled={actionsDisabled}
+              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
+              title="删除"
+              aria-label="删除"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

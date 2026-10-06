@@ -61,6 +61,7 @@ export function useStreaming(topicId: string | undefined) {
     setStreamingThinking,
     showThinking: s.showThinking,
     setShowThinking,
+    timeline: s.timeline,
     isStreaming: s.isStreaming,
     pendingUserMessage: s.pendingUserMessage,
     setPendingUserMessage,

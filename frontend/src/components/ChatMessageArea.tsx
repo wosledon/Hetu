@@ -138,11 +138,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingContent, setStreamingContent,
     streamingThinking,
     showThinking, setShowThinking,
+    timeline,
     isStreaming, pendingUserMessage,
     streamingSearchResults,
     streamingKnowledgeResults,
     streamingMemoryResults,
-    streamingToolCalls, streamingToolResults,
+    streamingToolResults,
     streamingQuestions, setStreamingQuestions,
     questionAnswers, setQuestionAnswers,
     currentQuestionIndex, setCurrentQuestionIndex,
@@ -953,12 +954,53 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || streamingToolCalls.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || timeline.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
           <div className="flex flex-col">
-              {/* 瀑布流：思考/工具/引用/正文各自成块纵向堆叠，不用气泡包裹 */}
+              {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，不用气泡包裹 */}
               <div className="text-gray-800 dark:text-gray-100">
-                {/* Thinking block - show whenever thinking content exists */}
-                {streamingThinking && (
+                {timeline.map((item, i) => {
+                  if (item.kind === 'tool') {
+                    return (
+                      <div key={i} className="mb-2">
+                        <ChatToolCallRow
+                          name={item.name ?? ''}
+                          args={item.arguments ?? '{}'}
+                          result={item.result}
+                          isError={item.isError}
+                          running={item.running}
+                        />
+                      </div>
+                    )
+                  }
+                  if (item.kind === 'thought') {
+                    return (
+                      <div key={i} className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
+                        <button
+                          onClick={() => setShowThinking(!showThinking)}
+                          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
+                        >
+                          {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
+                          <Brain size={11} className="shrink-0 text-gray-400" />
+                          <span>深度思考</span>
+                        </button>
+                        {showThinking && (
+                          <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
+                            <ThemedMarkdown source={item.text ?? ''} />
+                            {i === timeline.length - 1 && <div ref={thinkingEndRef} />}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                  return (
+                    <div key={i} className="mb-3 prose prose-sm dark:prose-invert max-w-none">
+                      <ThemedMarkdown source={item.text ?? ''} />
+                      {i === timeline.length - 1 && <div ref={messagesEndRef} />}
+                    </div>
+                  )
+                })}
+                {/* 时间线为空但仍有思考内容的降级渲染 */}
+                {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
                     <button
                       onClick={() => setShowThinking(!showThinking)}
@@ -974,24 +1016,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         <div ref={thinkingEndRef} />
                       </div>
                     )}
-                  </div>
-                )}
-                {/* 工具调用流水：执行时间顺序展示（Copilot 式瀑布行） */}
-                {streamingToolCalls.length > 0 && (
-                  <div className="mb-3 space-y-1">
-                    {streamingToolCalls.map((tc, i) => {
-                      const result = streamingToolResults.find(r => r.id === tc.id)
-                      return (
-                        <ChatToolCallRow
-                          key={tc.id || i}
-                          name={tc.name}
-                          args={tc.arguments}
-                          result={result?.content}
-                          isError={result?.isError}
-                          running={!result}
-                        />
-                      )
-                    })}
                   </div>
                 )}
                 {/* Search results citations - show when web search was used */}
@@ -1071,14 +1095,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                     </div>
                   </div>
                 )}
-                {/* 正文（最终回答）：瀑布流末端 */}
-                {streamingContent && (
-                  <div className="mt-3 prose prose-sm dark:prose-invert max-w-none">
-                    <ThemedMarkdown source={streamingContent} />
-                  </div>
-                )}
-                {/* Loading dots - show only when streaming and no content yet */}
-                {!streamingContent && !streamingThinking && isStreaming && (
+                {/* Loading dots - show only when streaming and nothing rendered yet */}
+                {timeline.length === 0 && !streamingContent && !streamingThinking && isStreaming && (
                   <div className="flex items-center gap-1.5 py-1">
                     <Loader2 size={12} className="animate-spin text-gray-400" />
                     <span className="text-[11px] text-gray-400">思考中...</span>
