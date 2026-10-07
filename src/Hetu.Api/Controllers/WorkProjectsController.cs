@@ -1,5 +1,6 @@
 using Hetu.Api.Services;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -84,6 +85,49 @@ public class WorkProjectsController : ControllerBase
     [HttpGet("{id:guid}/approval-rules")]
     public Task<ApiResponse<List<WorkApprovalRuleDto>>> GetApprovalRules(Guid id, CancellationToken cancellationToken)
         => _approvalRuleService.GetByProjectAsync(id, cancellationToken);
+
+    /// <summary>
+    /// GitHub Copilot 资产：扫描项目 .github 目录下的指令 / 自定义智能体 / 提示词 / 技能。
+    /// 智能体会自动出现在 Work 会话的 Agent 下拉框中（前缀 copilot:），其正文作为 AgentPrompt 生效。
+    /// </summary>
+    [HttpGet("{id:guid}/copilot-assets")]
+    public async Task<ApiResponse<WorkCopilotAssetsDto>> GetCopilotAssets(Guid id, CancellationToken cancellationToken)
+    {
+        var project = await _projectService.GetByIdAsync(id, cancellationToken);
+        if (!project.Success || project.Data == null)
+            return ApiResponse<WorkCopilotAssetsDto>.Fail(project.Error ?? "项目不存在");
+
+        var assets = WorkCopilotAssets.Load(project.Data.RootPath);
+        var dto = new WorkCopilotAssetsDto
+        {
+            Agents = assets.Agents.Select(a => new WorkCopilotAgentDto
+            {
+                Id = $"copilot:{a.Name}",
+                Name = a.Name,
+                Description = a.Description,
+                Content = a.Body
+            }).ToList(),
+            Prompts = assets.Prompts.Select(p => new WorkCopilotAssetItemDto
+            {
+                Name = p.Name,
+                Description = p.Description,
+                FilePath = p.FilePath
+            }).ToList(),
+            Skills = assets.Skills.Select(s => new WorkCopilotAssetItemDto
+            {
+                Name = s.Name,
+                Description = s.Description,
+                FilePath = s.FilePath
+            }).ToList(),
+            Instructions = assets.Instructions.Select(i => new WorkCopilotAssetItemDto
+            {
+                Name = i.Label,
+                Description = i.Description ?? "",
+                FilePath = i.FilePath
+            }).ToList(),
+        };
+        return ApiResponse<WorkCopilotAssetsDto>.Ok(dto);
+    }
 
     [HttpPost("{id:guid}/approval-rules")]
     public Task<ApiResponse<WorkApprovalRuleDto>> CreateApprovalRule(Guid id, [FromBody] CreateWorkApprovalRuleRequest request, CancellationToken cancellationToken)

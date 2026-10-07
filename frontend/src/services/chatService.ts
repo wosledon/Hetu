@@ -52,6 +52,8 @@ export interface SendMessageRequest {
   toolApprovalOverrides?: Record<string, string>;
   /** 是否启用工具调用（Agent Loop） */
   enableTools?: boolean;
+  /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */
+  mentions?: { type: string; id: string }[];
 }
 
 export interface IWebSearchResult {

@@ -174,8 +174,39 @@ public class SendWorkMessageRequest
     public string? ReasoningEffort { get; set; }
     /// <summary>智能体（提示词预设）附加系统提示，切换 Agent 时传入</summary>
     public string? AgentPrompt { get; set; }
+    /// <summary>/prompt 模板：.github/prompts 下的文件相对路径，后端读取后注入 system prompt</summary>
+    public string? PromptFile { get; set; }
+    /// <summary>/skill 命令选择的技能名称（项目启用的技能）</summary>
+    public string? SkillName { get; set; }
     /// <summary>是否持久化用户消息；重新生成时传 false，避免历史里重复出现同一句输入</summary>
     public bool PersistUserMessage { get; set; } = true;
+}
+
+/// <summary>GitHub Copilot 资产：项目 .github 目录自动加载的指令/智能体/提示词/技能</summary>
+public class WorkCopilotAssetsDto
+{
+    public List<WorkCopilotAgentDto> Agents { get; set; } = [];
+    public List<WorkCopilotAssetItemDto> Prompts { get; set; } = [];
+    public List<WorkCopilotAssetItemDto> Skills { get; set; } = [];
+    public List<WorkCopilotAssetItemDto> Instructions { get; set; } = [];
+    public bool HasAssets => Agents.Count > 0 || Prompts.Count > 0 || Skills.Count > 0 || Instructions.Count > 0;
+}
+
+/// <summary>.github 自定义智能体；Content 为人设正文，切换该 Agent 时作为 AgentPrompt 下发</summary>
+public class WorkCopilotAgentDto
+{
+    /// <summary>固定前缀 copilot: + 名称，避免与提示词预设 ID 冲突</summary>
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+}
+
+public class WorkCopilotAssetItemDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
 }
 
 /// <summary>文件系统条目</summary>

@@ -208,6 +208,30 @@ export interface IWorkOpenApp {
   iconUrl?: string;
 }
 
+/** GitHub Copilot 资产：项目 .github 目录自动加载的指令/智能体/提示词/技能 */
+export interface IWorkCopilotAgent {
+  /** 形如 copilot:{name}，避免与提示词预设 ID 冲突 */
+  id: string;
+  name: string;
+  description: string;
+  /** 人设正文，选中该 Agent 时作为 agentPrompt 下发 */
+  content: string;
+}
+
+export interface IWorkCopilotAssetItem {
+  name: string;
+  description: string;
+  filePath: string;
+}
+
+export interface IWorkCopilotAssets {
+  agents: IWorkCopilotAgent[];
+  prompts: IWorkCopilotAssetItem[];
+  skills: IWorkCopilotAssetItem[];
+  instructions: IWorkCopilotAssetItem[];
+  hasAssets: boolean;
+}
+
 export interface IWorkGitFileStatus {
   path: string;
   /** M 修改 / A 新增 / D 删除 / R 重命名 / ?? 未跟踪 */

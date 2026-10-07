@@ -4,12 +4,14 @@ import {
   Send, Square, ChevronDown, ChevronRight, Loader2,
   ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX,
   ListChecks, Coins, User, Copy, Check, Braces, SquareCode, FolderOpen, SquareTerminal, Brain, Wrench, Bot,
-  Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote, PanelRightClose, PanelRightOpen,
+  Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote, PanelRightClose, PanelRightOpen, Zap,
 } from 'lucide-react'
-import { workSessionService, workProjectService, workOpenService, workCheckpointService } from '../../services/workService'
+import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
 import { promptPresetService } from '../../services/promptPresetService'
-import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp } from '../../types/work'
+import { skillService } from '../../services/skillService'
+import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
+import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -199,15 +201,101 @@ export default function WorkSessionArea({
   })
 
   // 智能体（提示词预设）与推理强度
-  const { data: agents = [] } = useQuery({
+  const { data: presetAgents = [] } = useQuery({
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
     staleTime: 5 * 60 * 1000,
   })
+  // GitHub Copilot 兼容：项目 .github 目录下的自定义智能体自动加载
+  const { data: copilotAssets } = useQuery({
+    queryKey: ['workCopilotAssets', session?.projectId],
+    queryFn: () => (session ? workProjectService.getCopilotAssets(session.projectId) : Promise.resolve(null)),
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+  })
+  const agents: { id: string; name: string; content: string }[] = [
+    ...(copilotAssets?.agents ?? []).map((a: IWorkCopilotAgent) => ({ id: a.id, name: `${a.name} · GitHub`, content: a.content })),
+    ...presetAgents,
+  ]
   const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
   const reasoningEffort = session && effortOverride?.sessionId === session.id ? effortOverride.value : ''
+
+  // @ 提及 / / 指令 浮层：输入中的查询词、选中项、文件候选
+  const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
+  const [menuIndex, setMenuIndex] = useState(0)
+  const [fileCandidates, setFileCandidates] = useState<string[]>([])
+  const [mentionedFiles, setMentionedFiles] = useState<string[]>([])
+  const [selectedPrompt, setSelectedPrompt] = useState<{ name: string; filePath: string } | null>(null)
+  const [selectedSkillName, setSelectedSkillName] = useState<string | null>(null)
+  const menuItemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const showInputMenu = inputMenu !== null && !isStreaming
+
+  // 项目启用的技能（skillIds 可能是 Guid 或 local:{dir}:{name}）
+  const { data: dbSkills = [] } = useQuery({ queryKey: ['skills'], queryFn: () => skillService.getAll() })
+  const { data: localSkills = [] } = useQuery({ queryKey: ['localSkills'], queryFn: () => skillService.getLocalSkills() })
+  const projectSkills = useMemo(() => {
+    const ids = project?.skillIds ?? []
+    const all = [
+      ...(dbSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>).filter(s => s.isEnabled).map(s => ({ id: s.id, name: s.name, description: s.description ?? '' })),
+      ...(localSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>).filter(s => s.isEnabled).map(s => ({ id: s.id, name: s.name, description: s.description ?? '' })),
+    ]
+    return all.filter(s => ids.includes(s.id))
+  }, [project?.skillIds, dbSkills, localSkills])
+
+  // 按 @ 查询词检索项目文件
+  useEffect(() => {
+    if (inputMenu?.kind !== 'mention' || !session) return
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const q = inputMenu.query.trim()
+      if (!q) {
+        if (!cancelled) setFileCandidates(activeFilePath ? [activeFilePath] : [])
+        return
+      }
+      try {
+        const hits = await workFileService.search(session.projectId, q, 8)
+        if (!cancelled) setFileCandidates(hits.map(h => h.path))
+      } catch {
+        if (!cancelled) setFileCandidates([])
+      }
+    }, 200)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [inputMenu, session, activeFilePath])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMenuIndex(0)
+  }, [inputMenu])
+
+  const menuItems: InputCommandItem[] = useMemo(() => {
+    if (!inputMenu) return []
+    const q = inputMenu.query.trim().toLowerCase()
+    if (inputMenu.kind === 'mention') {
+      const items: InputCommandItem[] = []
+      for (const a of copilotAssets?.agents ?? []) {
+        if (q && !a.name.toLowerCase().includes(q)) continue
+        items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: '.github 智能体', tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
+      }
+      for (const path of fileCandidates) {
+        if (q && !path.toLowerCase().includes(q)) continue
+        items.push({ key: `file:${path}`, label: path, description: '项目文件', icon: <FileCode size={14} className="text-blue-500" />, tag: '文件', tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' })
+      }
+      return items.slice(0, 20)
+    }
+    // / 指令：.github 提示词模板 + 项目技能
+    const items: InputCommandItem[] = []
+    for (const p of copilotAssets?.prompts ?? []) {
+      if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) continue
+      items.push({ key: `prompt:${p.name}:${p.filePath}`, label: `/${p.name}`, description: p.description, icon: <Zap size={14} className="text-amber-500" />, tag: '.github 模板', tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' })
+    }
+    for (const s of projectSkills) {
+      if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
+      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
+    }
+    return items.slice(0, 20)
+  }, [inputMenu, copilotAssets, fileCandidates, projectSkills, activeFilePath])
 
   // 上下文 chips：引用文件（受控于探索器）+ 注入的选中代码/粘贴路径
   const [injectedContexts, setInjectedContexts] = useState<{ id: string; kind: 'selection' | 'path'; label: string; text: string }[]>([])
@@ -360,12 +448,15 @@ export default function WorkSessionArea({
   }
 
   const handleSend = async () => {
-    if (!session || !input.trim() || isStreaming) return
+    if (!session || (!input.trim() && !selectedPrompt && !selectedSkillName) || isStreaming) return
     const content = input.trim()
     setInput('')
     setHistoryIndex(-1)
     setInputHistory((prev) => [...prev.slice(-49), content])
     setInjectedContexts([])
+    setMentionedFiles([])
+    setSelectedPrompt(null)
+    setSelectedSkillName(null)
     await runStream(buildContent(content), permissionMode)
   }
 
@@ -375,9 +466,65 @@ export default function WorkSessionArea({
     if (activeFilePath) parts.push(`【引用文件】${activeFilePath}`)
     for (const c of injectedContexts) {
       if (c.kind === 'selection') parts.push(`【选中代码 · ${c.label}】\n\`\`\`\n${c.text}\n\`\`\``)
+      else parts.push(`【引用文件】${c.label}`)
     }
+    for (const path of mentionedFiles) parts.push(`【引用文件】${path}`)
+    if (selectedPrompt) parts.push(`【提示词模板 /${selectedPrompt.name}】请按 .github 中该模板的步骤执行。`)
     if (parts.length === 0) return raw
     return `${parts.join('\n')}\n\n${raw}`
+  }
+
+  /** 选中 @ 智能体：切换本会话 Agent（与工具栏下拉一致），并移除输入中的 @查询词 */
+  const applyMenuAgent = (agentId: string) => {
+    if (session) setAgentOverride({ sessionId: session.id, value: agentId })
+    const at = input.lastIndexOf('@')
+    if (at >= 0) {
+      let end = at + 1
+      while (end < input.length && !/\s/.test(input[end])) end++
+      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
+      setInput(next)
+    }
+    setInputMenu(null)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  /** 选中 @ 文件：替换输入中的 @查询词 并加入引用 chips */
+  const applyMentionFile = (path: string) => {
+    const at = input.lastIndexOf('@')
+    if (at >= 0) {
+      let end = at + 1
+      while (end < input.length && !/\s/.test(input[end])) end++
+      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
+      setInput(next)
+    }
+    setMentionedFiles(prev => (prev.includes(path) ? prev : [...prev, path]))
+    setInputMenu(null)
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    })
+  }
+
+  /** 选中 / 指令：提示词模板或项目技能 */
+  const applySlashItem = (item: InputCommandItem) => {
+    if (item.key.startsWith('prompt:')) {
+      const rest = item.key.slice('prompt:'.length)
+      const sep = rest.indexOf(':')
+      const name = sep > 0 ? rest.slice(0, sep) : rest
+      const filePath = sep > 0 ? rest.slice(sep + 1) : ''
+      setSelectedPrompt({ name, filePath })
+    } else if (item.key.startsWith('skill:')) {
+      setSelectedSkillName(item.key.slice('skill:'.length))
+    }
+    // 移除输入框开头的 /查询词，保留其余内容
+    const spaceIdx = input.indexOf(' ')
+    const next = spaceIdx >= 0 ? input.slice(spaceIdx + 1) : ''
+    setInput(next.replace(/^\s+/, ''))
+    setInputMenu(null)
+    requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   /** 预设提示词直达发送（诊断 / 起步 chips / 后续建议共用） */
@@ -473,6 +620,8 @@ export default function WorkSessionArea({
           permissionMode: mode,
           reasoningEffort: reasoningEffort || undefined,
           agentPrompt: selectedAgentId ? agents.find((a) => a.id === selectedAgentId)?.content : undefined,
+          promptFile: selectedPrompt?.filePath || undefined,
+          skillName: selectedSkillName || undefined,
           persistUserMessage,
         },
         controller.signal,
@@ -844,12 +993,92 @@ export default function WorkSessionArea({
             </div>
           )}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800">
+            {/* @ 提及 / / 指令 浮层 */}
+            {showInputMenu && (
+              <InputCommandMenu
+                title={inputMenu.kind === 'mention' ? '输入 @ 引用智能体或文件' : '输入 / 使用 .github 模板或技能'}
+                items={menuItems}
+                selectedIndex={menuIndex}
+                onSelect={(item) => {
+                  if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
+                  else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
+                  else applySlashItem(item)
+                }}
+                itemRefs={menuItemRefs}
+                emptyHint={inputMenu.query.trim() ? '没有匹配项' : '输入关键词搜索...'}
+              />
+            )}
+            {/* 已选 @ 文件 / / 指令 chips */}
+            {(mentionedFiles.length > 0 || selectedPrompt || selectedSkillName) && (
+              <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
+                {mentionedFiles.map(path => (
+                  <span key={path} className="flex max-w-64 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                    <FileCode size={10} className="shrink-0" />
+                    <span className="truncate">{path}</span>
+                    <button onClick={() => setMentionedFiles(prev => prev.filter(p => p !== path))} aria-label="移除引用文件" className="shrink-0 rounded-full p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                      <X size={9} />
+                    </button>
+                  </span>
+                ))}
+                {selectedPrompt && (
+                  <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                    <Zap size={10} className="shrink-0" />/{selectedPrompt.name}
+                    <button onClick={() => setSelectedPrompt(null)} aria-label="移除提示词模板" className="shrink-0 rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/50">
+                      <X size={9} />
+                    </button>
+                  </span>
+                )}
+                {selectedSkillName && (
+                  <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300">
+                    <Braces size={10} className="shrink-0" />/{selectedSkillName}
+                    <button onClick={() => setSelectedSkillName(null)} aria-label="移除技能" className="shrink-0 rounded-full p-0.5 hover:bg-violet-100 dark:hover:bg-violet-900/50">
+                      <X size={9} />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setInput(value)
+                const cursor = e.target.selectionStart ?? value.length
+                const slash = extractSlashQuery(value, cursor)
+                if (slash !== null) setInputMenu({ kind: 'slash', query: slash })
+                else {
+                  const mention = extractMentionQuery(value, cursor)
+                  setInputMenu(mention !== null ? { kind: 'mention', query: mention } : null)
+                }
+              }}
               onPaste={handlePaste}
               onKeyDown={(e) => {
+                if (showInputMenu && menuItems.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    setMenuIndex(i => (i + 1) % menuItems.length)
+                    return
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    setMenuIndex(i => (i - 1 + menuItems.length) % menuItems.length)
+                    return
+                  }
+                  if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+                    e.preventDefault()
+                    const item = menuItems[menuIndex]
+                    if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
+                    else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
+                    else applySlashItem(item)
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setInputMenu(null)
+                    return
+                  }
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   handleSend()
@@ -870,7 +1099,7 @@ export default function WorkSessionArea({
                   else { setHistoryIndex(next); setInput(inputHistory[next]) }
                 }
               }}
-              placeholder="描述你要完成的开发任务，如：修复登录页的样式问题（↑ 回溯历史输入）"
+              placeholder="描述你要完成的开发任务，/ 用 .github 模板或技能，@ 引用智能体或文件（↑ 回溯历史输入）"
               rows={2}
               className="max-h-40 w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400"
             />
