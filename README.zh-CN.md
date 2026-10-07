@@ -150,6 +150,7 @@ Hetu/
 | `/settings`                      | 设置     | 应用 / AI / MCP / 数据库 / 回收站   |
 | `/share/:code`                   | 分享笔记 | 免登录只读阅读页                    |
 | `/models`、`/work`、`/workflows` | 占位页   | 为后续功能预留入口                  |
+| `/projects`                      | 项目     | 本地 / SSH 远程项目目录管理，支持分组与归类 |
 
 ## 🚀 快速开始
 

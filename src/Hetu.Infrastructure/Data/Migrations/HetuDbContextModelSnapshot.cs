@@ -528,6 +528,98 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.ToTable("KnowledgeItems");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.ManagedProject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DirectoryPath")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("LastOpenedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProjectType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Local");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SshAuthType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Key");
+
+                    b.Property<string>("SshHost")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SshKeyPath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SshPasswordProtected")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SshPort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SshUser")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("IsPinned");
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("ManagedProjects");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.McpServer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -869,6 +961,37 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.HasIndex("ParentId");
 
                     b.ToTable("Notebooks");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ProjectGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("ProjectGroups");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.PromptPreset", b =>
@@ -1845,6 +1968,16 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Navigation("Note");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.ManagedProject", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.ProjectGroup", "Group")
+                        .WithMany("Projects")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Group");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.MemoryEmbedding", b =>
                 {
                     b.HasOne("Hetu.Core.Entities.Memory", "Memory")
@@ -2016,6 +2149,11 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("Notes");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.ProjectGroup", b =>
+                {
+                    b.Navigation("Projects");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.Tag", b =>

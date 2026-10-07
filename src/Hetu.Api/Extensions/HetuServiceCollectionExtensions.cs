@@ -138,6 +138,7 @@ public static class HetuServiceCollectionExtensions
         AddProxyServices(services);
         AddWorkflowServices(services);
         AddWorkServices(services);
+        AddProjectServices(services);
 
         services.AddScoped<IExportService>(sp => new ExportService(
             sp.GetRequiredService<IUnitOfWork>(),
@@ -229,6 +230,13 @@ public static class HetuServiceCollectionExtensions
                 : new LocalCommandRunner(project.RootPath));
         });
         services.AddSingleton<WorkOpenInAppService>();
+    }
+
+    /// <summary>注册项目目录管理模块（本地 / SSH 项目目录的分组与归类）</summary>
+    private static void AddProjectServices(IServiceCollection services)
+    {
+        services.AddScoped<IManagedProjectService, ManagedProjectService>();
+        services.AddScoped<IProjectGroupService, ProjectGroupService>();
     }
 
     private static bool IsDefaultSqliteConnectionString(string connectionString) =>

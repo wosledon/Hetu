@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, LayoutGrid } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, LayoutGrid, FolderInput } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
 import { segmentButtonClass } from '../utils/styles'
@@ -17,6 +17,7 @@ const fixedNavItems = [
   { path: '/', label: '笔记', icon: BookOpen },
   { path: '/chat', label: '对话', icon: MessageSquare },
   { path: '/work', label: 'Code', icon: Code },
+  { path: '/projects', label: '项目', icon: FolderInput },
   { path: '/workflows', label: '工作流', icon: GitBranch },
   { path: '/search', label: '搜索', icon: Search },
 ] as const

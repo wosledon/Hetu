@@ -1,0 +1,112 @@
+namespace Hetu.Shared.Projects;
+
+public class ManagedProjectDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    /// <summary>项目类型：Local | Ssh</summary>
+    public string ProjectType { get; set; } = "Local";
+    /// <summary>项目目录（本地路径，或远程主机上的绝对路径）</summary>
+    public string DirectoryPath { get; set; } = string.Empty;
+    public string? SshHost { get; set; }
+    public int SshPort { get; set; } = 22;
+    public string? SshUser { get; set; }
+    /// <summary>SSH 认证方式：Key | Password | Agent</summary>
+    public string SshAuthType { get; set; } = "Key";
+    public string? SshKeyPath { get; set; }
+    /// <summary>是否已保存 SSH 密码（不回传明文）</summary>
+    public bool HasSshPassword { get; set; }
+    /// <summary>所属分组 ID；为空表示未分组</summary>
+    public Guid? GroupId { get; set; }
+    public string? GroupName { get; set; }
+    /// <summary>分类（单一归类）</summary>
+    public string? Category { get; set; }
+    /// <summary>标签（横向归类）</summary>
+    public List<string> Tags { get; set; } = [];
+    public bool IsPinned { get; set; }
+    public int SortOrder { get; set; }
+    public DateTimeOffset? LastOpenedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public class CreateManagedProjectRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    /// <summary>Local | Ssh</summary>
+    public string ProjectType { get; set; } = "Local";
+    public string DirectoryPath { get; set; } = string.Empty;
+    public string? SshHost { get; set; }
+    public int SshPort { get; set; } = 22;
+    public string? SshUser { get; set; }
+    /// <summary>Key | Password | Agent</summary>
+    public string SshAuthType { get; set; } = "Key";
+    public string? SshKeyPath { get; set; }
+    /// <summary>SSH 密码明文（保存时加密，仅创建/更新时接收）</summary>
+    public string? SshPassword { get; set; }
+    public Guid? GroupId { get; set; }
+    public string? Category { get; set; }
+    public List<string>? Tags { get; set; }
+}
+
+public class UpdateManagedProjectRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    /// <summary>Local | Ssh；传入时切换项目类型</summary>
+    public string? ProjectType { get; set; }
+    public string DirectoryPath { get; set; } = string.Empty;
+    public string? SshHost { get; set; }
+    public int? SshPort { get; set; }
+    public string? SshUser { get; set; }
+    /// <summary>Key | Password | Agent</summary>
+    public string? SshAuthType { get; set; }
+    public string? SshKeyPath { get; set; }
+    /// <summary>SSH 密码明文（null 保持不变，空串表示清除已存密码）</summary>
+    public string? SshPassword { get; set; }
+    /// <summary>目标分组 ID；显式传 null 表示移出分组（未分组）</summary>
+    public Guid? GroupId { get; set; }
+    public string? Category { get; set; }
+    public List<string>? Tags { get; set; }
+    public bool? IsPinned { get; set; }
+    public int SortOrder { get; set; }
+}
+
+public class ProjectSortItem
+{
+    public Guid Id { get; set; }
+    public int SortOrder { get; set; }
+}
+
+/// <summary>批量调整排序（拖拽排序后一次性持久化）</summary>
+public class SortProjectsRequest
+{
+    public List<ProjectSortItem> Items { get; set; } = [];
+}
+
+public class ProjectGroupDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int SortOrder { get; set; }
+    /// <summary>组内项目数量</summary>
+    public int ProjectCount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public class CreateProjectGroupRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}
+
+public class UpdateProjectGroupRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int SortOrder { get; set; }
+}
