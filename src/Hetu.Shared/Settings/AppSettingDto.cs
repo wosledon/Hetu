@@ -38,6 +38,8 @@ public class AppSettingsSnapshotDto
     public string SecondaryMenuStyle { get; set; } = "flat";
     /// <summary>主导航菜单样式：top（顶部横栏）或 vertical（左侧垂直胶囊）</summary>
     public string NavStyle { get; set; } = "top";
+    /// <summary>关闭主窗口时最小化到系统托盘、保持后台运行（仅桌面客户端生效）</summary>
+    public string CloseToTray { get; set; } = "true";
 }
 
 public class DatabaseConnectionRequest

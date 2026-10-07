@@ -292,6 +292,8 @@ Closes #42
 - sidecar 命名约定：`Hetu.Api-<rust-target-triple>(.exe)`，例 `Hetu.Api-x86_64-pc-windows-msvc.exe`
 - 后端通过 `HETU_DATA_DIR` 环境变量接收 OS 用户数据目录（SQLite/日志均落于此）
 - dev 期 Tauri 检测 5000 端口已有后端则复用，避免与开发者自己跑的 `dotnet run` 冲突
+- 关闭主窗口默认最小化到系统托盘（后端保持后台运行，设置项 `CloseToTray`，可在设置页关闭）；托盘菜单「退出 Hetu」才真正退出并结束后端
+- 退出清理后端子进程时 netstat/taskkill 需带 `CREATE_NO_WINDOW`，否则 Windows 会闪一下命令行窗口
 
 #### 数据库切换（SQLite / PostgreSQL）
 - 通过 `DatabaseProvider` 配置切换：`Sqlite`（默认）或 `Postgresql`

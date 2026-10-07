@@ -605,6 +605,32 @@ function AppSettingsSection({
           </p>
         </div>
       </div>
+
+      {/* Close To Tray */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">系统托盘</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">桌面客户端关闭主窗口后的行为</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">关闭窗口时最小化到托盘</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              开启后关闭主窗口不会退出程序，Hetu 与后台任务继续运行，可从托盘图标重新打开窗口；仅通过托盘菜单「退出 Hetu」才会真正退出
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.closeToTray !== 'false' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

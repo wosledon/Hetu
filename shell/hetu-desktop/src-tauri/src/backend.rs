@@ -79,9 +79,14 @@ impl BackendHandle {
 async fn kill_process_on_port(port: u16) {
     #[cfg(target_os = "windows")]
     {
+        /// Windows 创建进程标志：不弹出控制台窗口，避免退出时闪一下命令行。
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
         use tokio::process::Command;
-        // 找 LISTENING 的 PID
-        let output = match Command::new("netstat").args(["-ano", "-p", "tcp"]).output().await {
+
+        let mut netstat = Command::new("netstat");
+        netstat.creation_flags(CREATE_NO_WINDOW);
+        let output = match netstat.args(["-ano", "-p", "tcp"]).output().await {
             Ok(o) => o,
             Err(_) => return,
         };
@@ -92,7 +97,9 @@ async fn kill_process_on_port(port: u16) {
             // Proto Local Foreign State PID
             if cols.len() >= 5 && cols[3].eq_ignore_ascii_case("LISTENING") && cols[1].ends_with(&needle) {
                 if let Ok(pid) = cols[4].parse::<u32>() {
-                    let _ = Command::new("taskkill")
+                    let mut taskkill = Command::new("taskkill");
+                    taskkill.creation_flags(CREATE_NO_WINDOW);
+                    let _ = taskkill
                         .args(["/PID", &pid.to_string(), "/T", "/F"])
                         .output()
                         .await;

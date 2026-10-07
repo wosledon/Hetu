@@ -71,6 +71,7 @@ export interface IAppSettingsSnapshot {
   pinnedNavItems: string;
   secondaryMenuStyle: string;
   navStyle: string;
+  closeToTray: string;
 }
 
 export interface IAiProvider {
