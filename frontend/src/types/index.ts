@@ -456,3 +456,36 @@ export interface IKanbanTaskMove {
   beforeTaskId?: string | null;
   blockedReason?: string;
 }
+
+// ===== 收件箱通知 =====
+
+export type InboxLevel = 'Info' | 'Success' | 'Warning' | 'Error';
+export type InboxBatchAction = 'read' | 'unread' | 'archive' | 'unarchive' | 'delete';
+
+export interface IInboxNotification {
+  id: string;
+  category: string;
+  categoryKey: string;
+  level: InboxLevel;
+  title: string;
+  content?: string;
+  isRead: boolean;
+  isArchived: boolean;
+  occurrenceCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IInboxCategory {
+  category: string;
+  totalCount: number;
+  unreadCount: number;
+}
+
+export interface ICreateInboxNotificationRequest {
+  category: string;
+  categoryKey?: string;
+  level: InboxLevel;
+  title: string;
+  content?: string;
+}

@@ -179,6 +179,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IChatMessageService, ChatMessageService>();
         services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
         services.AddScoped<UsageService>();
+        services.AddScoped<InboxService>();
         services.AddScoped<CompressionPipelineService>();
     }
 
