@@ -99,7 +99,7 @@ function isOverdue(task: IKanbanTask): boolean {
 
 function formatDueDate(dueDate: string): string {
   const d = new Date(dueDate)
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 export default function KanbanPage() {
@@ -553,7 +553,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
       <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
         {task.assignee && <span className="flex items-center gap-1"><User size={11} />{task.assignee}</span>}
         {task.dueDate && (
-          <span className={`flex items-center gap-1 ${isOverdue(task) ? 'text-red-500' : ''}`}>
+          <span className={`flex items-center gap-1 ${isOverdue(task) ? 'text-red-500' : ''}`} title={formatDueDate(task.dueDate)}>
             {isOverdue(task) ? <AlertTriangle size={11} /> : <CalendarDays size={11} />}{formatDueDate(task.dueDate)}
           </span>
         )}
@@ -568,27 +568,26 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
         )}
       </div>
 
-      <div className="mt-2.5 flex items-center gap-1 border-t border-gray-50 pt-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 dark:border-gray-700/50">
+      {/* 操作区常驻显示：未悬停时保持弱化，避免卡片显得空荡 */}
+      <div className="mt-2.5 flex items-center gap-1 border-t border-gray-50 pt-2 dark:border-gray-700/50">
         {targets.map((status) => (
           <button
             key={status}
             onClick={() => onMove(status)}
             title={`流转到「${STATUS_LABELS[status]}」`}
-            className={`flex items-center gap-0.5 rounded-md px-1.5 py-1 text-[11px] transition-colors ${
-              status === 'Blocked'
-                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10'
-                : 'text-gray-500 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-indigo-400'
+            className={`flex items-center gap-0.5 rounded-md px-1.5 py-1 text-[11px] text-gray-400 transition-colors hover:text-indigo-600 dark:text-gray-500 dark:hover:text-indigo-400 ${
+              status === 'Blocked' ? 'hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             {status === 'Blocked' ? <AlertTriangle size={11} /> : <ChevronRight size={11} />}
             {STATUS_LABELS[status]}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-0.5">
-          <button onClick={onEdit} title="编辑" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
+        <div className="ml-auto flex items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
+          <button onClick={onEdit} title="编辑" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
             <Pencil size={12} />
           </button>
-          <button onClick={onDelete} title="删除" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700">
+          <button onClick={onDelete} title="删除" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700">
             <Trash2 size={12} />
           </button>
         </div>
