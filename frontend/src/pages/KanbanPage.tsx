@@ -218,7 +218,7 @@ export default function KanbanPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex h-full flex-col bg-gray-50 dark:bg-gray-950">
+        <div className="flex h-full min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
           {/* Header */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
             <div className="flex items-center gap-3">
