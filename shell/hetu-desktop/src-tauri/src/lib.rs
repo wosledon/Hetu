@@ -1,6 +1,7 @@
 mod backend;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use backend::{spawn_backend, BackendHandle};
 use serde::Serialize;
@@ -11,6 +12,9 @@ use tokio::sync::OnceCell;
 
 /// dev 模式下主窗口加载的前端开发服务器地址（与 `frontend/vite.config.ts` 的 `server.port` 一致）。
 const DEV_FRONTEND_URL: &str = "http://localhost:5174";
+
+/// 关闭主窗口时默认最小化到托盘（与后端 `CloseToTray` 设置默认值保持一致）。
+const CLOSE_TO_TRAY_DEFAULT: bool = true;
 
 /// 用一个 OnceCell 跟踪后端句柄，方便 RunEvent 阶段清理。
 static BACKEND: OnceCell<Arc<BackendHandle>> = OnceCell::const_new();
@@ -35,6 +39,7 @@ fn get_backend_info(state: tauri::State<'_, Arc<BackendHandle>>) -> BackendReady
 async fn open_main_window<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     // main 窗口由 tauri.conf.json 在启动时创建；托盘点击仅做显示/聚焦。
     if let Some(main) = app.get_webview_window("main") {
+        let _ = main.unminimize();
         main.show().map_err(|e| e.to_string())?;
         let _ = main.set_focus();
     }
@@ -143,9 +148,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { .. } = event {
-                if window.label() == "main" {
-                    // 当前策略：关闭主窗口即退出应用；如需改为托盘最小化，可调用 api.prevent_close() + window.hide()。
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // 开启"最小化到托盘"时阻止关闭并隐藏窗口：应用与后端子进程继续后台运行，
+                // 通过托盘图标可重新打开窗口，或经托盘菜单「退出 Hetu」真正退出。
+                if window.label() == "main" && should_minimize_to_tray(window.app_handle()) {
+                    api.prevent_close();
+                    let _ = window.hide();
                 }
             }
         })
@@ -183,6 +191,40 @@ fn navigate_main_window<R: Runtime>(app: &AppHandle<R>, backend_base_url: &str) 
     Ok(())
 }
 
+/// 读取 `CloseToTray` 设置：关闭主窗口时是否最小化到系统托盘。
+///
+/// 设置保存在后端 SQLite，关闭窗口事件在 UI 线程同步触发，
+/// 本地健康端点毫秒级返回；请求失败/后端未就绪时回落到默认值（后台运行）。
+fn should_minimize_to_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let Some(backend) = app.try_state::<Arc<BackendHandle>>() else {
+        return CLOSE_TO_TRAY_DEFAULT;
+    };
+    let url = format!("{}/api/settings/CloseToTray", backend.base_url);
+    tauri::async_runtime::block_on(fetch_close_to_tray(&url)).unwrap_or(CLOSE_TO_TRAY_DEFAULT)
+}
+
+/// 查询后端 `GET /api/settings/CloseToTray`；`Some(true/false)` 为已持久化的值，`None` 表示未设置或请求失败。
+async fn fetch_close_to_tray(url: &str) -> Option<bool> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_millis(600))
+        .build()
+        .ok()?;
+    let resp = client.get(url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let json: serde_json::Value = resp.json().await.ok()?;
+    let data = json.get("data")?;
+    if data.is_null() {
+        return None;
+    }
+    Some(
+        data.get("value")
+            .and_then(|v| v.as_str())
+            .is_some_and(|v| v.eq_ignore_ascii_case("true")),
+    )
+}
+
 /// 托盘菜单事件分发。
 fn handle_menu_event<R: Runtime>(handle: &AppHandle<R>, id: &str) {
     match id {
@@ -196,6 +238,7 @@ fn handle_menu_event<R: Runtime>(handle: &AppHandle<R>, id: &str) {
         }
         "tray-show" => {
             if let Some(window) = handle.get_webview_window("main") {
+                let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -231,6 +274,7 @@ fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             {
                 let handle = tray.app_handle();
                 if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.unminimize();
                     let _ = window.show();
                     let _ = window.set_focus();
                 }

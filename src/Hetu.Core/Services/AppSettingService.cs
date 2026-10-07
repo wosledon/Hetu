@@ -32,6 +32,7 @@ public class AppSettingService : IAppSettingService
             PinnedNavItems = await GetValueAsync("PinnedNavItems", "[]", cancellationToken),
             SecondaryMenuStyle = await GetValueAsync("SecondaryMenuStyle", "flat", cancellationToken),
             NavStyle = await GetValueAsync("NavStyle", "top", cancellationToken),
+            CloseToTray = await GetValueAsync("CloseToTray", "true", cancellationToken),
         };
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }
