@@ -118,6 +118,7 @@ public class ToolExecutionService
             workContext.DiagnosticsCommand = workScope.DiagnosticsCommand;
         }
         workContext.WriteEventAsync = writeJsonAsync;
+        workContext.Runner = workScope?.Runner;
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
         if (workScope?.RuntimeTools != null)
         {

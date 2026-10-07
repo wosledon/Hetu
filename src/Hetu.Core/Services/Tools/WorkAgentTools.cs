@@ -83,7 +83,10 @@ public class WorkTaskTool : IToolExecutor
         }
 
         var root = _context.ProjectRoot;
-        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        if (string.IsNullOrWhiteSpace(root))
+            return ToolExecutionResult.Error("项目根目录未设置");
+        // 远程项目根目录在远端，跳过本地存在性校验（工具执行时走远端 runner）
+        if (!_context.IsRemote && !Directory.Exists(root))
             return ToolExecutionResult.Error("项目根目录不存在");
 
         if (string.IsNullOrWhiteSpace(prompt))
@@ -297,8 +300,19 @@ public class WorkDiagnosticsTool : IToolExecutor
     public async Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default)
     {
         var root = _context.ProjectRoot;
-        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        if (string.IsNullOrWhiteSpace(root))
+            return ToolExecutionResult.Error("项目根目录未设置");
+
+        // 远端项目：先探测根目录是否可达，类型探测改读标记文件
+        if (_context.Runner is { IsRemote: true } remote)
+        {
+            var probe = await WorkRemoteFs.ListDirAsync(remote, root, "", cancellationToken);
+            if (probe.IsError) return ToolExecutionResult.Error($"项目根目录不可访问: {probe.Content}");
+        }
+        else if (!Directory.Exists(root))
+        {
             return ToolExecutionResult.Error("项目根目录不存在");
+        }
 
         string? customCommand = null;
         try

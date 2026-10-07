@@ -6,6 +6,7 @@ using Hetu.Core.Interfaces;
 using Hetu.Core.Profiles;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Work;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
@@ -31,6 +32,7 @@ public class WorkStreamController : ControllerBase
     private readonly AgentLoopService _agentLoop;
     private readonly ILocalSkillService _localSkillService;
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
+    private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -41,7 +43,8 @@ public class WorkStreamController : ControllerBase
         ToolRegistry toolRegistry,
         AgentLoopService agentLoop,
         ILocalSkillService localSkillService,
-        IWorkCodeIndexRefreshQueue codeIndexRefreshQueue)
+        IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
+        IWorkCommandRunnerFactory commandRunnerFactory)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -52,6 +55,7 @@ public class WorkStreamController : ControllerBase
         _agentLoop = agentLoop;
         _localSkillService = localSkillService;
         _codeIndexRefreshQueue = codeIndexRefreshQueue;
+        _commandRunnerFactory = commandRunnerFactory;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -83,9 +87,11 @@ public class WorkStreamController : ControllerBase
             return;
         }
 
+        // 项目命令执行器：SSH 项目的文件/命令工具全部走远端 shell 执行
+        var runner = _commandRunnerFactory.Create(project);
+
         // 权限模式：请求 > 会话持久值；请求里带了就顺带持久化
-        var permissionMode = ResolvePermissionMode(request, session);
-        if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
+        var permissionMode = ResolvePermissionMode(request, session);        if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
             !string.Equals(WorkToolPolicy.ToValue(permissionMode), session.PermissionMode, StringComparison.OrdinalIgnoreCase))
         {
             var entity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
@@ -264,7 +270,7 @@ public class WorkStreamController : ControllerBase
                 var oldContents = new Dictionary<string, string?>(StringComparer.Ordinal);
                 foreach (var change in planned)
                     oldContents[ChangeKey(change.ToolCallId, change.Path)] =
-                        await TryReadFileAsync(project.RootPath, change.Path, ct);
+                        await TryReadFileAsync(runner, project.RootPath, change.Path, ct);
 
                 // 改动执行前打检查点，支持整轮回滚
                 await CreateCheckpointAsync(project.Id, sessionId, iter, planned, ct, writer);
@@ -291,6 +297,8 @@ public class WorkStreamController : ControllerBase
                         ProjectId = project.Id,
                         ModelId = modelId,
                         DiagnosticsCommand = project.DiagnosticsCommand,
+                        // SSH 项目的文件/命令工具全部走远端执行
+                        Runner = runner,
                         RuntimeTools = runtimeTools
                     });
 
@@ -303,7 +311,7 @@ public class WorkStreamController : ControllerBase
                     {
                         var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
                         var oldContent = oldContents.GetValueOrDefault(toolCallKey);
-                        var newContent = await TryReadFileAsync(project.RootPath, change.Path, ct);
+                        var newContent = await TryReadFileAsync(runner, project.RootPath, change.Path, ct);
                         if (newContent == oldContent) continue;
 
                         var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";
@@ -646,11 +654,17 @@ public class WorkStreamController : ControllerBase
         }
     }
 
-    /// <summary>读取文件旧内容用于 diff，路径非法、文件不存在或不可读时返回 null</summary>
-    private static async Task<string?> TryReadFileAsync(string rootPath, string relativePath, CancellationToken ct)
+    /// <summary>读取文件旧内容用于 diff，路径非法、文件不存在或不可读时返回 null（支持 SSH 远端）</summary>
+    private static async Task<string?> TryReadFileAsync(IWorkCommandRunner runner, string rootPath, string relativePath, CancellationToken ct)
     {
         try
         {
+            if (runner.IsRemote)
+            {
+                var result = await runner.RunAsync($"cat {WorkRemoteFs.Quote(rootPath, relativePath)}", ct);
+                return result.ExitCode == 0 ? result.StdOut : null;
+            }
+
             var path = WorkPath.Resolve(rootPath, relativePath);
             return path != null && System.IO.File.Exists(path)
                 ? await System.IO.File.ReadAllTextAsync(path, ct)

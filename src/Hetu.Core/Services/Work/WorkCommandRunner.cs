@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text;
 using Hetu.Core.Entities;
+using Hetu.Core.Interfaces;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Hetu.Core.Services.Work;
 
@@ -208,4 +210,46 @@ public interface IWorkCommandRunnerFactory
 {
     Task<IWorkCommandRunner?> GetRunnerAsync(Guid projectId, CancellationToken ct = default);
     IWorkCommandRunner Create(WorkProject project);
+}
+
+/// <summary>按项目连接类型返回执行器；SSH 项目的密码在此解密</summary>
+public class WorkCommandRunnerFactory : IWorkCommandRunnerFactory
+{
+    private readonly IDataProtectionProvider _dataProtection;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public WorkCommandRunnerFactory(IDataProtectionProvider dataProtection, IUnitOfWork unitOfWork)
+    {
+        _dataProtection = dataProtection;
+        _unitOfWork = unitOfWork;
+    }
+
+    public IWorkCommandRunner Create(WorkProject project)
+    {
+        if (project == null) throw new ArgumentNullException(nameof(project));
+        if (!string.Equals(project.ConnectionType, "Ssh", StringComparison.OrdinalIgnoreCase))
+            return new LocalCommandRunner(project.RootPath);
+
+        string? Decrypt(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return null;
+            try
+            {
+                return System.Text.Encoding.UTF8.GetString(
+                    _dataProtection.CreateProtector("Hetu.Ssh").Unprotect(Convert.FromBase64String(value)));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        return new SshCommandRunner(project, Decrypt);
+    }
+
+    public async Task<IWorkCommandRunner?> GetRunnerAsync(Guid projectId, CancellationToken ct = default)
+    {
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, ct);
+        return project == null ? null : Create(project);
+    }
 }

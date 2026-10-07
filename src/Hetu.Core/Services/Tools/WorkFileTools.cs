@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Work;
 
 namespace Hetu.Core.Services.Tools;
 
@@ -13,6 +14,13 @@ public class WorkToolContext
     public Guid? ModelId { get; set; }
     /// <summary>项目自定义诊断命令</summary>
     public string? DiagnosticsCommand { get; set; }
+    /// <summary>
+    /// 项目命令执行器：本地项目直接操作文件系统，SSH 项目走远端 shell。
+    /// 为 null 时视为本地执行（兼容旧调用方）。
+    /// </summary>
+    public IWorkCommandRunner? Runner { get; set; }
+    /// <summary>是否 SSH 远程项目</summary>
+    public bool IsRemote => Runner is { IsRemote: true };
     /// <summary>SSE 事件通道，工具可借此推送进度（如子 Agent 执行步骤）</summary>
     public Func<object, Task>? WriteEventAsync { get; set; }
 }
@@ -26,6 +34,8 @@ public class WorkToolScope
     public Guid? ProjectId { get; set; }
     public Guid? ModelId { get; set; }
     public string? DiagnosticsCommand { get; set; }
+    /// <summary>项目命令执行器（SSH 项目为远端执行）</summary>
+    public IWorkCommandRunner? Runner { get; set; }
     /// <summary>运行时工具（如 MCP 适配器），需注册到执行作用域</summary>
     public IReadOnlyList<IToolExecutor>? RuntimeTools { get; set; }
 }
@@ -78,7 +88,16 @@ public class WorkListDirTool : IToolExecutor
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
+
+            if (_context.Runner is { IsRemote: true } remote)
+            {
+                if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
+                return await WorkRemoteFs.ListDirAsync(remote, root, rel, cancellationToken);
+            }
+
+            if (!Directory.Exists(root))
                 return ToolExecutionResult.Error("项目根目录不存在");
 
             var dir = WorkPath.Resolve(root, rel);
@@ -138,8 +157,19 @@ public class WorkReadFileTool : IToolExecutor
         {
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
+            int start = args.TryGetProperty("startLine", out var s) && s.TryGetInt32(out var sv) ? sv : 1;
+            int end = args.TryGetProperty("endLine", out var e) && e.TryGetInt32(out var ev) ? ev : 0;
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
+
+            if (_context.Runner is { IsRemote: true } remote)
+            {
+                if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
+                return await WorkRemoteFs.ReadFileAsync(remote, root, rel, start, end, cancellationToken);
+            }
+
+            if (!Directory.Exists(root))
                 return ToolExecutionResult.Error("项目根目录不存在");
 
             var file = WorkPath.Resolve(root, rel);
@@ -147,10 +177,8 @@ public class WorkReadFileTool : IToolExecutor
                 return ToolExecutionResult.Error($"文件不存在或超出项目范围: {rel}");
 
             var lines = await File.ReadAllLinesAsync(file, cancellationToken);
-            int start = args.TryGetProperty("startLine", out var s) && s.TryGetInt32(out var sv) ? sv : 1;
-            int end = args.TryGetProperty("endLine", out var e) && e.TryGetInt32(out var ev) ? ev : lines.Length;
             start = Math.Max(1, start);
-            end = Math.Min(lines.Length, end);
+            end = Math.Min(lines.Length, end <= 0 ? lines.Length : end);
             if (start > end) return ToolExecutionResult.Error("起始行大于结束行");
 
             var sb = new StringBuilder();
@@ -198,7 +226,14 @@ public class WorkWriteFileTool : IToolExecutor
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
             var content = args.TryGetProperty("content", out var c) ? c.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
+            if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
+
+            if (_context.Runner is { IsRemote: true } remote)
+                return await WorkRemoteFs.WriteFileAsync(remote, root, rel, content, cancellationToken);
+
+            if (!Directory.Exists(root))
                 return ToolExecutionResult.Error("项目根目录不存在");
 
             var file = WorkPath.Resolve(root, rel);
@@ -275,12 +310,24 @@ public class WorkRunCommandTool : IToolExecutor
                 : DefaultTimeoutSeconds;
 
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return ToolExecutionResult.Error("项目根目录不存在");
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
             if (string.IsNullOrWhiteSpace(command)) return ToolExecutionResult.Error("命令不能为空");
 
             var denial = CheckSafety(command);
             if (denial != null) return ToolExecutionResult.Error(denial);
+
+            // SSH 远程项目：命令在远端 shell 执行
+            if (_context.Runner is { IsRemote: true } remote)
+            {
+                var remoteCommand = string.IsNullOrWhiteSpace(cwd)
+                    ? command
+                    : $"cd {WorkRemoteFs.Quote(root, cwd)} && {command}";
+                return await WorkRemoteFs.RunShellAsync(remote, remoteCommand, cancellationToken);
+            }
+
+            if (!Directory.Exists(root))
+                return ToolExecutionResult.Error("项目根目录不存在");
 
             var workDir = root;
             if (!string.IsNullOrWhiteSpace(cwd))

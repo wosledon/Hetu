@@ -44,10 +44,18 @@ public class WorkGlobTool : IToolExecutor
             var limit = args.TryGetProperty("maxResults", out var mr) && mr.TryGetInt32(out var lv) ? Math.Clamp(lv, 1, MaxResults) : 200;
 
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return Task.FromResult(ToolExecutionResult.Error("项目根目录不存在"));
+            if (string.IsNullOrWhiteSpace(root))
+                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
             if (string.IsNullOrWhiteSpace(pattern))
                 return Task.FromResult(ToolExecutionResult.Error("pattern 不能为空"));
+            if (WorkRemoteFs.Escapes(subPath))
+                return Task.FromResult(ToolExecutionResult.Error($"目录不存在或超出项目范围: {subPath}"));
+
+            if (_context.Runner is { IsRemote: true } remote)
+                return WorkRemoteFs.GlobAsync(remote, root, subPath, pattern, limit, cancellationToken);
+
+            if (!Directory.Exists(root))
+                return Task.FromResult(ToolExecutionResult.Error("项目根目录不存在"));
 
             var normalized = pattern.Replace('\\', '/').TrimStart('/');
             if (!normalized.Contains('/')) normalized = "**/" + normalized;
@@ -170,10 +178,19 @@ public class WorkGrepTool : IToolExecutor
             var limit = args.TryGetProperty("maxResults", out var mr) && mr.TryGetInt32(out var lv) ? Math.Clamp(lv, 1, MaxResults) : 100;
 
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return ToolExecutionResult.Error("项目根目录不存在");
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
             if (string.IsNullOrWhiteSpace(pattern))
                 return ToolExecutionResult.Error("pattern 不能为空");
+            if (WorkRemoteFs.Escapes(subPath))
+                return ToolExecutionResult.Error($"目录不存在或超出项目范围: {subPath}");
+
+            // SSH 远程项目：远端 grep（POSIX ERE），跳过本地 .NET 正则编译
+            if (_context.Runner is { IsRemote: true } remote)
+                return await WorkRemoteFs.GrepAsync(remote, root, subPath, pattern, glob, caseSensitive, limit, cancellationToken);
+
+            if (!Directory.Exists(root))
+                return ToolExecutionResult.Error("项目根目录不存在");
 
             var options = RegexOptions.CultureInvariant | (caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase);
             Regex regex;
@@ -335,9 +352,16 @@ public class WorkApplyPatchTool : IToolExecutor
             var replaceAll = args.TryGetProperty("replaceAll", out var ra) && ra.ValueKind == JsonValueKind.True;
 
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return ToolExecutionResult.Error("项目根目录不存在");
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
             if (string.IsNullOrEmpty(search)) return ToolExecutionResult.Error("search 不能为空");
+            if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
+
+            if (_context.Runner is { IsRemote: true } remote)
+                return await WorkRemoteFs.ApplyPatchAsync(remote, root, rel, search, replace, replaceAll, cancellationToken);
+
+            if (!Directory.Exists(root))
+                return ToolExecutionResult.Error("项目根目录不存在");
 
             var file = WorkPath.Resolve(root, rel);
             if (file == null) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
@@ -417,7 +441,14 @@ public class WorkDeleteFileTool : IToolExecutor
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
+                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
+            if (WorkRemoteFs.Escapes(rel)) return Task.FromResult(ToolExecutionResult.Error($"路径超出项目范围: {rel}"));
+
+            if (_context.Runner is { IsRemote: true } remote)
+                return WorkRemoteFs.DeleteFileAsync(remote, root, rel, cancellationToken);
+
+            if (!Directory.Exists(root))
                 return Task.FromResult(ToolExecutionResult.Error("项目根目录不存在"));
 
             var file = WorkPath.Resolve(root, rel);
@@ -467,7 +498,15 @@ public class WorkMoveFileTool : IToolExecutor
             var from = args.TryGetProperty("from", out var f) ? f.GetString() ?? "" : "";
             var to = args.TryGetProperty("to", out var t) ? t.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
+                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
+            if (WorkRemoteFs.Escapes(from) || WorkRemoteFs.Escapes(to))
+                return Task.FromResult(ToolExecutionResult.Error("路径超出项目范围"));
+
+            if (_context.Runner is { IsRemote: true } remote)
+                return WorkRemoteFs.MoveFileAsync(remote, root, from, to, cancellationToken);
+
+            if (!Directory.Exists(root))
                 return Task.FromResult(ToolExecutionResult.Error("项目根目录不存在"));
 
             var source = WorkPath.Resolve(root, from);
@@ -531,8 +570,8 @@ public class WorkGitTool : IToolExecutor
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
             var gitArgs = args.TryGetProperty("args", out var a) ? a.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return ToolExecutionResult.Error("项目根目录不存在");
+            if (string.IsNullOrWhiteSpace(root))
+                return ToolExecutionResult.Error("项目根目录未设置");
             if (string.IsNullOrWhiteSpace(gitArgs)) return ToolExecutionResult.Error("args 不能为空");
 
             var tokens = gitArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -555,6 +594,10 @@ public class WorkGitTool : IToolExecutor
             {
                 return ToolExecutionResult.Error("work_git 不支持修改分支，请用 work_run_command");
             }
+
+            // SSH 远程项目：git 命令在远端执行
+            if (_context.Runner is { IsRemote: true } remote)
+                return await WorkRemoteFs.GitAsync(remote, $"--no-pager {gitArgs}", cancellationToken);
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {

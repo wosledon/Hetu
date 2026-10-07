@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WorkToolContext>();
         services.AddScoped<ToolRegistry>();
         services.AddScoped<PromptComposer>();
+        services.AddScoped<Hetu.Core.Services.Work.IWorkCommandRunnerFactory, Hetu.Core.Services.Work.WorkCommandRunnerFactory>();
         return services;
     }
 }
