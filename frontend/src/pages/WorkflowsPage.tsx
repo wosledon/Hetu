@@ -34,6 +34,7 @@ const AVAILABLE_TOOLS = [
   { name: 'delete_memory', label: '删除记忆' },
   { name: 'ask_question', label: '向用户提问' },
   { name: 'todo', label: '任务管理' },
+  { name: 'plan', label: '提交执行计划' },
   { name: 'create_scheduled_task', label: '创建定时任务' },
   { name: 'list_scheduled_tasks', label: '定时任务列表' },
   { name: 'delete_scheduled_task', label: '删除定时任务' },

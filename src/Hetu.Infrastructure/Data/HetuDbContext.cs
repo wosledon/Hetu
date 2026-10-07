@@ -33,6 +33,7 @@ public class HetuDbContext : DbContext
     public DbSet<KanbanTask> KanbanTasks => Set<KanbanTask>();
     public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
     public DbSet<ScheduledTaskExecution> ScheduledTaskExecutions => Set<ScheduledTaskExecution>();
+    public DbSet<InboxNotification> InboxNotifications => Set<InboxNotification>();
     public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
     public DbSet<NoteChunkEmbedding> NoteChunkEmbeddings => Set<NoteChunkEmbedding>();
     public DbSet<KnowledgeItem> KnowledgeItems => Set<KnowledgeItem>();
@@ -360,6 +361,20 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Result).HasMaxLength(2000);
             entity.HasIndex(e => e.ScheduledTaskId);
             entity.HasIndex(e => e.StartedAt);
+        });
+
+        modelBuilder.Entity<InboxNotification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CategoryKey).HasMaxLength(200);
+            entity.Property(e => e.Level).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Content).HasMaxLength(4000);
+            entity.HasIndex(e => e.CategoryKey);
+            entity.HasIndex(e => e.IsArchived);
+            entity.HasIndex(e => e.UpdatedAt);
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
         modelBuilder.Entity<KnowledgeItem>(entity =>

@@ -1,11 +1,13 @@
 import { type ReactNode, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, LayoutGrid, FolderInput } from 'lucide-react'
+import { Bot, BookOpen, Database, MessageSquare, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Code, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, LayoutGrid, FolderInput, Inbox } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
 import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
+import { inboxService } from '../services/inboxService'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -40,7 +42,25 @@ const allConfigurableItems = [
 const secondaryNavItems = [
   { path: '/proxy', label: '代理服务', icon: Waypoints },
   { path: '/usage', label: '用量统计', icon: Gauge },
+  { path: '/inbox', label: '收件箱', icon: Inbox },
 ] as const
+
+/** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
+function NavUnreadBadge() {
+  const { data } = useQuery({
+    queryKey: ['inbox', 'unread-count'],
+    queryFn: inboxService.getUnreadCount,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+  const count = data ?? 0
+  if (count <= 0) return null
+  return (
+    <span className="ml-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-medium leading-4 text-white">
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
 
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
   const navigate = useNavigate()
@@ -111,6 +131,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       >
         <Icon size={14} />
         {item.label}
+        {item.path === '/inbox' && <NavUnreadBadge />}
       </button>
     )
   }
@@ -133,6 +154,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       >
         <Icon size={18} />
         <span className="max-w-full truncate">{item.label}</span>
+        {item.path === '/inbox' && <NavUnreadBadge />}
       </button>
     )
   }

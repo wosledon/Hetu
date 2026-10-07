@@ -23,6 +23,7 @@ const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'))
 const ProxyPage = lazy(() => import('./pages/ProxyPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
+const InboxPage = lazy(() => import('./pages/InboxPage'))
 const AppsPage = lazy(() => import('./pages/AppsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
@@ -77,6 +78,7 @@ function App() {
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/proxy" element={<ProxyPage />} />
         <Route path="/usage" element={<UsagePage />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />

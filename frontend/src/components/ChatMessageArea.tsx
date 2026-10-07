@@ -14,9 +14,9 @@ import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
 import ChatToolCallRow from './ChatToolCallRow'
-import { TodoPanel, QuestionPanel } from './ChatStreamPanels'
 import Select from './Select'
 import ApprovalPanel from './ApprovalPanel'
+import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import InputCommandMenu, { extractMentionQuery, type InputCommandItem } from './InputCommandMenu'
@@ -149,11 +149,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingKnowledgeResults,
     streamingMemoryResults,
     streamingToolResults,
-    streamingQuestions, setStreamingQuestions,
-    questionAnswers, setQuestionAnswers,
-    currentQuestionIndex, setCurrentQuestionIndex,
-    streamingTodos,
-    todoPanelCollapsed, setTodoPanelCollapsed,
     approvalRequests,
     streamError, setStreamError,
     startStreaming, stopStreaming,
@@ -421,7 +416,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       return
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pendingUserMessage, streamingContent, streamingThinking, streamingQuestions, streamingTodos, isOrganizing, organizeResult, messagesLoading])
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, isOrganizing, organizeResult, messagesLoading])
 
   // Auto-scroll thinking block to bottom as thinking content streams in
   useEffect(() => {
@@ -436,7 +431,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     if (!topicId) return
     const s = useChatStreamStore.getState().streams[topicId]
-    if (s && !s.isStreaming && (s.streamingContent || s.streamingThinking || s.searchResults.length > 0 || s.knowledgeResults.length > 0 || s.memoryResults.length > 0 || s.toolResults.length > 0 || s.questions.length > 0 || s.todos.length > 0)) {
+    if (s && !s.isStreaming && (s.streamingContent || s.streamingThinking || s.searchResults.length > 0 || s.knowledgeResults.length > 0 || s.memoryResults.length > 0 || s.toolResults.length > 0)) {
       useChatStreamStore.getState().clearAfterPersist(topicId)
     }
     // Intentionally only react to messages list changes (post-stream refresh).
@@ -518,30 +513,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setCopiedMessageId(messageId)
     window.setTimeout(() => setCopiedMessageId(null), 1500)
   }, [])
-
-  const submitAllAnswers = async () => {
-    const toolCallId = streamingQuestions[0]?.toolCallId || ''
-    const allAnswered = streamingQuestions.every(q => questionAnswers[q.id])
-    if (!allAnswered) return
-
-    // Build combined answer JSON
-    const combined = streamingQuestions.map(q => ({
-      id: q.id,
-      question: q.question,
-      answer: questionAnswers[q.id],
-    }))
-
-    // Mark as answered and clear state — do not render answers in the UI
-    setStreamingQuestions([])
-    setQuestionAnswers({})
-    setCurrentQuestionIndex(0)
-
-    try {
-      await chatMessageService.submitAnswer(topic?.id, toolCallId, JSON.stringify(combined))
-    } catch (e) {
-      console.error('Failed to submit answers:', e)
-    }
-  }
 
   const applyPreset = (preset: IPromptPreset) => {
     setSelectedPreset(prev => prev?.id === preset.id ? null : preset)
@@ -828,6 +799,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     try {
       if (workflowToolCall.name === 'ask_question') {
         await chatMessageService.submitAnswer(sessionId, workflowToolCall.toolCallId, answer ?? '')
+      } else if (workflowToolCall.name === 'plan') {
+        await chatMessageService.submitPlanDecision(sessionId, workflowToolCall.toolCallId, approved, answer ?? '')
       } else {
         await chatMessageService.submitApproval(sessionId, workflowToolCall.toolCallId, approved)
       }
@@ -1092,7 +1065,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
 
         {/* Streaming response - show during and after stream until messages refresh */}
-        {(isStreaming || streamingContent || streamingThinking || timeline.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0 || streamingQuestions.length > 0 || streamingTodos.length > 0) && (
+        {(isStreaming || streamingContent || streamingThinking || timeline.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0) && (
           <div className="flex flex-col">
               {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，不用气泡包裹 */}
               <div className="text-gray-800 dark:text-gray-100">
@@ -1287,18 +1260,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         )}
         {/* Approval request panel */}
         <ApprovalPanel requests={approvalRequests} onApprove={handleApprove} />
-        {/* Todo progress panel - fixed above input */}
-        <TodoPanel todos={streamingTodos} collapsed={todoPanelCollapsed} onToggleCollapsed={setTodoPanelCollapsed} />
 
-        {/* Ask question panel - sequential one-at-a-time mode */}
-        <QuestionPanel
-          questions={streamingQuestions}
-          answers={questionAnswers}
-          currentIndex={currentQuestionIndex}
-          onAnswer={setQuestionAnswers}
-          onIndexChange={setCurrentQuestionIndex}
-          onSubmitAll={submitAllAnswers}
-        />
+        {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（对话页与编码页共用） */}
+        <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
 
         {/* Attached files */}
         {attachedFiles.length > 0 && (
