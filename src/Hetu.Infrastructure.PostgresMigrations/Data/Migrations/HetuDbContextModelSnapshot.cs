@@ -1205,6 +1205,13 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AgentType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("General");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1220,13 +1227,26 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<bool>("IsBuiltIn")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("ReasoningEffort")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SkillIds")
+                        .HasColumnType("text");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SubAgentIds")
+                        .HasColumnType("text");
 
                     b.Property<string>("ToolsConfig")
                         .HasColumnType("text");

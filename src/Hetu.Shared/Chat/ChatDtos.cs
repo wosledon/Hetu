@@ -209,6 +209,16 @@ public class PromptPresetDto
     public string? ToolsConfig { get; set; }
     public bool IsBuiltIn { get; set; }
     public int SortOrder { get; set; }
+    /// <summary>智能体类型：General（通用）| Professional（专业）</summary>
+    public string AgentType { get; set; } = "General";
+    /// <summary>专业智能体可管理的子智能体 ID 列表（JSON 数组）</summary>
+    public string? SubAgentIds { get; set; }
+    /// <summary>专业智能体绑定的模型 ID</summary>
+    public Guid? ModelId { get; set; }
+    /// <summary>专业智能体指定的模型推理强度</summary>
+    public string? ReasoningEffort { get; set; }
+    /// <summary>专业智能体可使用的技能 ID 列表（JSON 数组）</summary>
+    public string? SkillIds { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -220,6 +230,16 @@ public class CreatePromptPresetRequest
     public string Content { get; set; } = string.Empty;
     public string? Variables { get; set; }
     public string? ToolsConfig { get; set; }
+    /// <summary>智能体类型：General（通用）| Professional（专业）</summary>
+    public string AgentType { get; set; } = "General";
+    /// <summary>专业智能体可管理的子智能体 ID 列表（JSON 数组）</summary>
+    public string? SubAgentIds { get; set; }
+    /// <summary>专业智能体绑定的模型 ID</summary>
+    public Guid? ModelId { get; set; }
+    /// <summary>专业智能体指定的模型推理强度</summary>
+    public string? ReasoningEffort { get; set; }
+    /// <summary>专业智能体可使用的技能 ID 列表（JSON 数组）</summary>
+    public string? SkillIds { get; set; }
 }
 
 public class UpdatePromptPresetRequest
@@ -230,6 +250,16 @@ public class UpdatePromptPresetRequest
     public string? Variables { get; set; }
     public string? ToolsConfig { get; set; }
     public int SortOrder { get; set; }
+    /// <summary>智能体类型：General（通用）| Professional（专业）</summary>
+    public string AgentType { get; set; } = "General";
+    /// <summary>专业智能体可管理的子智能体 ID 列表（JSON 数组）</summary>
+    public string? SubAgentIds { get; set; }
+    /// <summary>专业智能体绑定的模型 ID</summary>
+    public Guid? ModelId { get; set; }
+    /// <summary>专业智能体指定的模型推理强度</summary>
+    public string? ReasoningEffort { get; set; }
+    /// <summary>专业智能体可使用的技能 ID 列表（JSON 数组）</summary>
+    public string? SkillIds { get; set; }
 }
 
 public class LocalPromptPresetDto

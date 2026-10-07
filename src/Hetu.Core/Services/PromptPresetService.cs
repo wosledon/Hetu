@@ -41,6 +41,11 @@ public class PromptPresetService : IPromptPresetService
             Variables = request.Variables,
             ToolsConfig = request.ToolsConfig,
             IsBuiltIn = false,
+            AgentType = NormalizeAgentType(request.AgentType),
+            SubAgentIds = request.SubAgentIds,
+            ModelId = request.ModelId,
+            ReasoningEffort = request.ReasoningEffort,
+            SkillIds = request.SkillIds,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -62,6 +67,11 @@ public class PromptPresetService : IPromptPresetService
         preset.Variables = request.Variables;
         preset.ToolsConfig = request.ToolsConfig;
         preset.SortOrder = request.SortOrder;
+        preset.AgentType = NormalizeAgentType(request.AgentType);
+        preset.SubAgentIds = request.SubAgentIds;
+        preset.ModelId = request.ModelId;
+        preset.ReasoningEffort = request.ReasoningEffort;
+        preset.SkillIds = request.SkillIds;
         preset.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.PromptPresets.UpdateAsync(preset, cancellationToken);
@@ -80,6 +90,48 @@ public class PromptPresetService : IPromptPresetService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromAsync(Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        var source = await _unitOfWork.PromptPresets.GetByIdAsync(sourceId, cancellationToken);
+        if (source == null) return ApiResponse<PromptPresetDto>.Fail("源智能体不存在");
+        if (string.Equals(source.AgentType, "Professional", StringComparison.OrdinalIgnoreCase))
+            return ApiResponse<PromptPresetDto>.Fail("源智能体已是专业智能体");
+
+        var preset = new PromptPreset
+        {
+            Id = Guid.NewGuid(),
+            Category = source.Category,
+            Name = await EnsureUniqueNameAsync(source.Name + " 专业版", cancellationToken),
+            Content = source.Content,
+            Variables = source.Variables,
+            ToolsConfig = source.ToolsConfig,
+            IsBuiltIn = false,
+            AgentType = "Professional",
+            SortOrder = source.SortOrder,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        await _unitOfWork.PromptPresets.AddAsync(preset, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse<PromptPresetDto>.Ok(Map(preset));
+    }
+
+    private async Task<string> EnsureUniqueNameAsync(string name, CancellationToken cancellationToken)
+    {
+        var existing = await _unitOfWork.PromptPresets.GetAllAsync(cancellationToken);
+        var names = new HashSet<string>(existing.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+        if (names.Add(name)) return name;
+        for (var i = 2; ; i++)
+        {
+            var candidate = $"{name} {i}";
+            if (names.Add(candidate)) return candidate;
+        }
+    }
+
+    private static string NormalizeAgentType(string? agentType)
+        => string.Equals(agentType, "Professional", StringComparison.OrdinalIgnoreCase) ? "Professional" : "General";
+
     private static PromptPresetDto Map(PromptPreset preset) => new()
     {
         Id = preset.Id,
@@ -90,6 +142,11 @@ public class PromptPresetService : IPromptPresetService
         ToolsConfig = preset.ToolsConfig,
         IsBuiltIn = preset.IsBuiltIn,
         SortOrder = preset.SortOrder,
+        AgentType = NormalizeAgentType(preset.AgentType),
+        SubAgentIds = preset.SubAgentIds,
+        ModelId = preset.ModelId,
+        ReasoningEffort = preset.ReasoningEffort,
+        SkillIds = preset.SkillIds,
         CreatedAt = preset.CreatedAt,
         UpdatedAt = preset.UpdatedAt
     };

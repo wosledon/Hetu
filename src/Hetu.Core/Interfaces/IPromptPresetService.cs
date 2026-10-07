@@ -10,6 +10,8 @@ public interface IPromptPresetService
     Task<ApiResponse<PromptPresetDto>> CreateAsync(CreatePromptPresetRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<PromptPresetDto>> UpdateAsync(Guid id, UpdatePromptPresetRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>从通用智能体克隆出一个专业智能体（复用其提示词与工具配置）</summary>
+    Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromAsync(Guid sourceId, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<PromptPresetDto>>> ExportAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<int>> ImportAsync(List<ImportPromptPresetItem> items, CancellationToken cancellationToken = default);
 }

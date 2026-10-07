@@ -154,11 +154,14 @@ public class ChatMessagesController : ControllerBase
 
         await MarkTopicOutdatedIfNeededAsync(topic, topicId, ct);
 
-        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(request.ModelId, topic.ModelId, ct);
+        var agentPreset = await ResolveAgentPresetAsync(request.AgentId, ct);
+        // 专业智能体可绑定模型：请求未指定模型时，优先于话题默认模型
+        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(
+            request.ModelId, agentPreset?.ModelId ?? topic.ModelId, ct);
         if (provider == null) { await writer.WriteErrorAsync("未找到可用的对话模型"); return; }
 
         var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);
-        var options = await BuildChatOptionsAsync(request, topic, modelId, ct);
+        var options = await BuildChatOptionsAsync(request, topic, modelId, agentPreset, ct);
 
         // 技能的 promptTemplate 组装进本轮用户消息：{{input}} 替换为 /name 之后的入参
         if (!string.IsNullOrWhiteSpace(request.SkillName))
@@ -368,7 +371,7 @@ public class ChatMessagesController : ControllerBase
     }
 
     private async Task<ChatOptions> BuildChatOptionsAsync(
-        SendMessageRequest request, ChatTopicDto topic, Guid? modelId, CancellationToken ct)
+        SendMessageRequest request, ChatTopicDto topic, Guid? modelId, PromptPreset? agentPreset, CancellationToken ct)
     {
         // ModelId 留空：provider 创建时已注入正确的模型名（_modelId），
         // 这里的 modelId 是数据库主键 Guid，绝不能当模型名发给 LLM。
@@ -396,8 +399,87 @@ public class ChatMessagesController : ControllerBase
             Locale = "zh-CN",
         });
 
-        await ApplyDeepThinkingAsync(request, options, modelId);
+        if (agentPreset != null && string.Equals(agentPreset.AgentType, "Professional", StringComparison.OrdinalIgnoreCase))
+        {
+            var capabilityPrompt = await BuildProfessionalCapabilityPromptAsync(agentPreset, ct);
+            if (!string.IsNullOrWhiteSpace(capabilityPrompt))
+            {
+                Log.Debug("[Agent] professional agent={AgentId} capability={Capability}", agentPreset.Id, capabilityPrompt);
+                options.SystemPrompt += "\n\n" + capabilityPrompt;
+            }
+        }
+
+        await ApplyDeepThinkingAsync(request, options, modelId, agentPreset?.ReasoningEffort);
         return options;
+    }
+
+    /// <summary>
+    /// 解析前端选择的智能体（AgentId）。本地/非法 ID 返回 null，回落到仅用 PresetSystemPrompt 的行为。
+    /// </summary>
+    private async Task<PromptPreset?> ResolveAgentPresetAsync(string? agentId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(agentId) || !Guid.TryParse(agentId, out var id)) return null;
+        return await _unitOfWork.PromptPresets.GetByIdAsync(id, ct);
+    }
+
+    /// <summary>
+    /// 组装专业智能体的能力说明：可管理的子智能体 + 可使用的技能，注入系统提示词。
+    /// </summary>
+    private async Task<string?> BuildProfessionalCapabilityPromptAsync(PromptPreset agent, CancellationToken ct)
+    {
+        var subAgentIds = ParseGuidList(agent.SubAgentIds);
+        var skillIds = ParseGuidList(agent.SkillIds);
+        if (subAgentIds.Count == 0 && skillIds.Count == 0) return null;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# 专业智能体能力");
+
+        if (subAgentIds.Count > 0)
+        {
+            var subAgents = (await _unitOfWork.PromptPresets.GetAllAsync(ct))
+                .Where(p => subAgentIds.Contains(p.Id) && p.Id != agent.Id)
+                .OrderBy(p => p.SortOrder)
+                .ToList();
+            if (subAgents.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## 可管理的子智能体");
+                foreach (var sub in subAgents)
+                    sb.AppendLine($"- {sub.Name}（{sub.Category}）");
+                sb.AppendLine("处理匹配某个子智能体专业领域的子任务时，以该子智能体的人设与职责范围内执行；不越出其能力范围。");
+            }
+        }
+
+        if (skillIds.Count > 0)
+        {
+            var skills = (await _unitOfWork.Skills.GetAllAsync(ct))
+                .Where(s => s.IsEnabled && skillIds.Contains(s.Id))
+                .OrderBy(s => s.SortOrder)
+                .ToList();
+            if (skills.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("## 可使用的技能");
+                foreach (var skill in skills)
+                    sb.AppendLine($"- /{skill.Name}：{skill.Description}");
+                sb.AppendLine("仅允许使用以上列出的技能；用户请求其他技能时，说明当前智能体无权使用该技能，建议切换到对应智能体。");
+            }
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static List<Guid> ParseGuidList(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new List<Guid>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<Guid>>(json, JsonDefaults.CaseInsensitive) ?? new List<Guid>();
+        }
+        catch (JsonException)
+        {
+            return new List<Guid>();
+        }
     }
 
     /// <summary>
@@ -458,9 +540,9 @@ public class ChatMessagesController : ControllerBase
         return trimmed;
     }
 
-    private async Task ApplyDeepThinkingAsync(SendMessageRequest request, ChatOptions options, Guid? modelId)
+    private async Task ApplyDeepThinkingAsync(SendMessageRequest request, ChatOptions options, Guid? modelId, string? agentReasoningEffort)
     {
-        if (!request.DeepThinking) return;
+        if (!request.DeepThinking && string.IsNullOrWhiteSpace(agentReasoningEffort)) return;
 
         AiModel? model = null;
         if (modelId.HasValue)
@@ -476,9 +558,13 @@ public class ChatMessagesController : ControllerBase
         }
         else if (reasoningMode == "native")
         {
-            var effort = !string.IsNullOrWhiteSpace(request.ReasoningEffort) ? request.ReasoningEffort : model?.ReasoningEffort;
+            var effort = !string.IsNullOrWhiteSpace(request.ReasoningEffort) ? request.ReasoningEffort
+                : !string.IsNullOrWhiteSpace(agentReasoningEffort) ? agentReasoningEffort
+                : model?.ReasoningEffort;
             if (!string.IsNullOrWhiteSpace(effort)) options.ReasoningEffort = effort;
             if (model?.ReasoningBudgetTokens is > 0) options.ReasoningBudgetTokens = model.ReasoningBudgetTokens;
+            Log.Debug("[Agent] reasoningEffort={Effort} (request={RequestEffort}, agent={AgentEffort}, model={ModelEffort})",
+                options.ReasoningEffort, request.ReasoningEffort, agentReasoningEffort, model?.ReasoningEffort);
         }
     }
 

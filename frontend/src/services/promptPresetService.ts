@@ -7,6 +7,11 @@ export interface CreatePromptPresetRequest {
   content: string;
   variables?: string;
   toolsConfig?: string;
+  agentType?: 'General' | 'Professional';
+  subAgentIds?: string;
+  modelId?: string;
+  reasoningEffort?: string;
+  skillIds?: string;
 }
 
 export interface UpdatePromptPresetRequest extends CreatePromptPresetRequest {
@@ -17,6 +22,8 @@ export const promptPresetService = {
   getAll: () => get<IPromptPreset[]>('/prompt-presets'),
   getById: (id: string) => get<IPromptPreset>(`/prompt-presets/${id}`),
   create: (data: CreatePromptPresetRequest) => post<IPromptPreset>('/prompt-presets', data),
+  /** 从通用智能体创建专业智能体 */
+  createProfessional: (id: string) => post<IPromptPreset>(`/prompt-presets/${id}/create-professional`),
   update: (id: string, data: UpdatePromptPresetRequest) => put<IPromptPreset>(`/prompt-presets/${id}`, data),
   delete: (id: string) => del<void>(`/prompt-presets/${id}`),
   export: () => get<IPromptPreset[]>('/prompt-presets/export'),

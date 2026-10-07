@@ -164,6 +164,16 @@ export interface IPromptPreset {
   toolsConfig?: string;
   isBuiltIn: boolean;
   sortOrder: number;
+  /** 智能体类型：General（通用）| Professional（专业） */
+  agentType: 'General' | 'Professional';
+  /** 专业智能体可管理的子智能体 ID 列表（JSON 数组） */
+  subAgentIds?: string;
+  /** 专业智能体绑定的模型 ID */
+  modelId?: string;
+  /** 专业智能体指定的模型推理强度：low | medium | high */
+  reasoningEffort?: string;
+  /** 专业智能体可使用的技能 ID 列表（JSON 数组） */
+  skillIds?: string;
   createdAt: string;
   updatedAt: string;
 }

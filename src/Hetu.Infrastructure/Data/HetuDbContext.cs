@@ -218,6 +218,8 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.AgentType).IsRequired().HasMaxLength(20).HasDefaultValue(AgentTypes.General);
+            entity.Property(e => e.ReasoningEffort).HasMaxLength(20);
         });
 
         modelBuilder.Entity<Skill>(entity =>
