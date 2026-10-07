@@ -41,8 +41,14 @@ public static class BuiltinProfiles
         AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "search_notes", "read_note", "create_note", "update_note",
-            "search_memory", "create_memory", "search_graph",
-            "search_web", "ask_question", "todo", "run_command",
+            "list_notes", "delete_note", "move_note",
+            "list_note_versions", "restore_note_version",
+            "list_notebooks", "create_notebook", "list_tags", "set_note_tags",
+            "list_knowledge_items",
+            "search_memory", "create_memory", "list_memories", "delete_memory",
+            "search_graph", "search_web", "ask_question", "todo", "run_command",
+            "create_scheduled_task", "list_scheduled_tasks", "delete_scheduled_task",
+            "list_skills",
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -168,8 +174,11 @@ public static class BuiltinProfiles
             """,
         AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "search_notes", "read_note", "search_graph",
-            "search_web", "ask_question", "todo",
+            "search_notes", "read_note", "list_notes", "list_notebooks", "list_tags",
+            "list_knowledge_items", "list_note_versions",
+            "search_graph", "search_web", "ask_question", "todo",
+            "search_memory", "list_memories", "list_skills",
+            "list_scheduled_tasks",
             // 写操作待协作权限模型确定后开放
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

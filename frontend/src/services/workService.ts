@@ -22,6 +22,7 @@ import type {
   IWorkGitStatus,
   IWorkGitFileContent,
   IWorkOpenApp,
+  IWorkCopilotAssets,
   WorkPermissionMode,
 } from '../types/work';
 
@@ -49,6 +50,8 @@ export const workProjectService = {
   /** 代码语义检索（需先建立索引） */
   searchCode: (id: string, query: string, limit = 8) =>
     get<IWorkCodeSearchHit[]>(`/work-projects/${id}/code-index/search`, { query, limit }),
+  /** GitHub Copilot 资产：.github 下的指令 / 智能体 / 提示词 / 技能（自动加载） */
+  getCopilotAssets: (id: string) => get<IWorkCopilotAssets>(`/work-projects/${id}/copilot-assets`),
 };
 
 export const workSessionService = {
@@ -72,6 +75,10 @@ export const workSessionService = {
       permissionMode?: WorkPermissionMode;
       reasoningEffort?: string;
       agentPrompt?: string;
+      /** /prompt 模板：.github/prompts 下的文件相对路径 */
+      promptFile?: string;
+      /** /skill 命令选择的技能名称 */
+      skillName?: string;
       persistUserMessage?: boolean;
     },
     signal?: AbortSignal,

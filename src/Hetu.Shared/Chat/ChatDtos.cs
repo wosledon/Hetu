@@ -121,6 +121,10 @@ public class SendMessageRequest
     /// </summary>
     public string? AgentId { get; set; }
     /// <summary>
+    /// 输入框 @ 引用的内容（笔记/笔记本/标签/知识项），后端解析为上下文注入
+    /// </summary>
+    public List<ChatMentionRef>? Mentions { get; set; }
+    /// <summary>
     /// 用户手动启用的工具名列表（为空则使用 Agent 默认或全部工具）
     /// </summary>
     public List<string>? EnabledTools { get; set; }
@@ -132,6 +136,13 @@ public class SendMessageRequest
     /// 是否启用工具调用（Agent Loop）
     /// </summary>
     public bool EnableTools { get; set; }
+}
+
+/// <summary>@ 引用：type 取值 note | notebook | tag | knowledge</summary>
+public class ChatMentionRef
+{
+    public string Type { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
 }
 
 public class ImageAttachment

@@ -143,8 +143,9 @@ public static class WorkProjectRules
     };
 
     /// <summary>
-    /// 读取项目规则文件（AGENTS.md / HETU.md / .cursorrules / .hetu/rules.md /
-    /// .github/copilot-instructions.md），拼成注入 system prompt 的上下文。
+    /// 读取项目规则文件（AGENTS.md / HETU.md / .hetu/rules.md / .cursorrules），
+    /// 拼成注入 system prompt 的上下文。
+    /// .github 目录下的 Copilot 指令/智能体/提示词由 <see cref="WorkCopilotAssets"/> 单独加载，不在此处重复。
     /// </summary>
     public static string LoadRuleContext(string root, int maxChars = MaxRuleFileChars)
     {
@@ -152,7 +153,7 @@ public static class WorkProjectRules
 
         var candidates = new[]
         {
-            "AGENTS.md", "HETU.md", ".hetu/rules.md", ".cursorrules", ".github/copilot-instructions.md"
+            "AGENTS.md", "HETU.md", ".hetu/rules.md", ".cursorrules"
         };
 
         var sb = new StringBuilder();

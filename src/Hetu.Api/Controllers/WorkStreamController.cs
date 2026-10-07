@@ -188,6 +188,36 @@ public class WorkStreamController : ControllerBase
         if (!string.IsNullOrWhiteSpace(ruleContext))
             systemPromptParts.Add($"\n项目规则（来自仓库内的约定文件，必须遵守）：\n{ruleContext}");
 
+        // GitHub Copilot 兼容：自动加载 .github 下的指令 / 智能体 / 提示词 / 技能
+        var copilotAssets = WorkCopilotAssets.Load(project.RootPath);
+        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, project.RootPath);
+        if (!string.IsNullOrWhiteSpace(copilotContext))
+            systemPromptParts.Add($"\n{copilotContext}");
+
+        // /prompt 模板：读取 .github/prompts 下的文件内容并注入 system prompt
+        if (!string.IsNullOrWhiteSpace(request.PromptFile))
+        {
+            var promptFull = WorkPath.Resolve(project.RootPath, request.PromptFile);
+            if (promptFull != null && System.IO.File.Exists(promptFull) && WorkProjectRules.IsProbablyText(promptFull))
+            {
+                try
+                {
+                    var promptBody = (await System.IO.File.ReadAllTextAsync(promptFull, ct)).Trim();
+                    var (_, promptInstruction) = WorkCopilotAssets.SplitPromptBody(promptBody);
+                    if (!string.IsNullOrWhiteSpace(promptInstruction))
+                        systemPromptParts.Add($"\n【/{Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(request.PromptFile))} 提示词模板（来自 {request.PromptFile}，本轮必须严格按此执行）】\n{promptInstruction}");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 模板文件不可读时不注入，让 Agent 按用户原文执行
+                }
+            }
+        }
+
+        // /skill 命令：提示 Agent 先用 work_skill 读取完整技能说明
+        if (!string.IsNullOrWhiteSpace(request.SkillName))
+            systemPromptParts.Add($"\n用户通过 /{request.SkillName} 选择了技能：请先调用 work_skill 读取「{request.SkillName}」的完整说明，再严格按说明执行。");
+
         var gitContext = await WorkProjectRules.BuildGitContextAsync(project.RootPath, ct);
         if (!string.IsNullOrWhiteSpace(gitContext))
             systemPromptParts.Add($"\n版本控制状态：\n{gitContext}");

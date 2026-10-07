@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User, AtSign, NotebookPen, Tag, Library } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
+import { searchService } from '../services/searchService'
+import { tagService } from '../services/tagService'
+import { noteService } from '../services/noteService'
+import { knowledgeItemService } from '../services/knowledgeBaseService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
@@ -15,6 +19,7 @@ import Select from './Select'
 import ApprovalPanel from './ApprovalPanel'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
+import InputCommandMenu, { extractMentionQuery, type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
@@ -198,6 +203,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
   const slashMenuRef = useRef<HTMLDivElement>(null)
   const slashItemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  // @ 提及：正在输入的查询词、浮层索引、已选中的引用 chips
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionMenuIndex, setMentionMenuIndex] = useState(0)
+  const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
+  const [noteCandidates, setNoteCandidates] = useState<{ id: string; title: string }[]>([])
+  const mentionMenuRef = useRef<HTMLDivElement>(null)
+  const mentionItemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -235,6 +247,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const { data: localPresets = [] } = useQuery({
     queryKey: ['localPromptPresets'],
     queryFn: () => promptPresetService.getLocal(),
+  })
+
+  // @ 提及数据源：标签 + 知识库（笔记按查询词动态检索）
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => tagService.getAll(),
+  })
+  const { data: knowledgeItems = [] } = useQuery({
+    queryKey: ['knowledgeItems'],
+    queryFn: () => knowledgeItemService.getList(),
+    staleTime: 5 * 60 * 1000,
   })
 
   const { data: aiModels = [] } = useQuery({
@@ -286,6 +309,94 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     slashItemRefs.current[slashMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [slashMenuIndex])
+
+  const showMentionMenu = mentionQuery !== null && !isStreaming
+
+  // 按 @ 查询词动态检索笔记（含笔记本/标签/知识库等静态候选）
+  useEffect(() => {
+    if (mentionQuery === null) return
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const result = mentionQuery.trim()
+          ? await searchService.searchNotes({ keyword: mentionQuery.trim(), page: 1, pageSize: 8 })
+          : await noteService.getList({ page: 1, pageSize: 8, includeDeleted: false })
+        if (!cancelled) {
+          setNoteCandidates(result.items.map(n => ({ id: n.id, title: n.title })))
+        }
+      } catch {
+        if (!cancelled) setNoteCandidates([])
+      }
+    }, 200)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [mentionQuery])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMentionMenuIndex(0)
+  }, [mentionQuery])
+
+  useEffect(() => {
+    mentionItemRefs.current[mentionMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [mentionMenuIndex])
+
+  const mentionItems: InputCommandItem[] = useMemo(() => {
+    if (mentionQuery === null) return []
+    const q = mentionQuery.trim().toLowerCase()
+    const items: InputCommandItem[] = []
+
+    for (const n of noteCandidates) {
+      if (q && !n.title.toLowerCase().includes(q)) continue
+      items.push({
+        key: `note:${n.id}`,
+        label: n.title || '（无标题）',
+        description: '笔记',
+        icon: <AtSign size={14} className="text-amber-500" />,
+        tag: '笔记',
+        tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+      })
+    }
+
+    const flattenNotebooks = (list: INotebook[]): INotebook[] =>
+      list.flatMap(nb => [nb, ...flattenNotebooks(nb.children ?? [])])
+    for (const nb of flattenNotebooks(notebooks)) {
+      if (q && !nb.name.toLowerCase().includes(q)) continue
+      items.push({
+        key: `notebook:${nb.id}`,
+        label: nb.name,
+        description: '笔记本',
+        icon: <NotebookPen size={14} className="text-blue-500" />,
+        tag: '笔记本',
+        tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+      })
+    }
+
+    for (const t of tags as Array<{ id: string; name: string; noteCount?: number }>) {
+      if (q && !t.name.toLowerCase().includes(q)) continue
+      items.push({
+        key: `tag:${t.id}`,
+        label: t.name,
+        description: `标签 · ${t.noteCount ?? 0} 篇笔记`,
+        icon: <Tag size={14} className="text-emerald-500" />,
+        tag: '标签',
+        tagClass: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+      })
+    }
+
+    for (const k of knowledgeItems as Array<{ id: string; title: string; type?: string }>) {
+      if (q && !k.title.toLowerCase().includes(q)) continue
+      items.push({
+        key: `knowledge:${k.id}`,
+        label: k.title,
+        description: '知识库',
+        icon: <Library size={14} className="text-violet-500" />,
+        tag: '知识库',
+        tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+      })
+    }
+
+    return items.slice(0, 20)
+  }, [mentionQuery, noteCandidates, notebooks, tags, knowledgeItems])
 
   // 监听组件可见性，切换回此会话时滚到底部
   useEffect(() => {
@@ -447,6 +558,29 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
   }
 
+  /** 选中一条 @ 提及：把输入框里的 @查询词 替换掉，并加入引用 chips */
+  const applyMention = (item: InputCommandItem | undefined) => {
+    if (!item) return
+    const [type, id] = item.key.split(':')
+    const at = input.lastIndexOf('@')
+    if (at >= 0) {
+      let end = at + 1
+      while (end < input.length && !/\s/.test(input[end])) end++
+      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
+      setInput(next)
+    }
+    setSelectedMentions(prev =>
+      prev.some(m => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
+    setMentionQuery(null)
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    })
+  }
+
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -467,12 +601,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   }
 
   const handleSend = async () => {
-    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0) || isStreaming) return
+    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0) || isStreaming) return
 
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
     const content = (slashPrefix + input.trim()).trim()
+    const mentions = selectedMentions.map(m => ({ type: m.type, id: m.id }))
     setInput('')
     setSelectedSlashItem(null)
+    setSelectedMentions([])
+    setMentionQuery(null)
     startStreaming(topic.id, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -576,6 +713,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         enableTools: toolCalling,
         // 始终下发全局审批模式：auto 也必须显式覆盖，否则各工具 DefaultApproval（如 run_command=Ask）仍会逐个询问
         toolApprovalOverrides: { '*': toolApprovalMode },
+        mentions: mentions.length > 0 ? mentions : undefined,
       }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
@@ -1177,6 +1315,39 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
         {/* Input area */}
         <div className="relative rounded-xl border border-gray-200 bg-white transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-blue-500">
+          {/* @ mention menu */}
+          {showMentionMenu && (
+            <div ref={mentionMenuRef}>
+              <InputCommandMenu
+                title="输入 @ 引用笔记 / 笔记本 / 标签 / 知识库"
+                items={mentionItems}
+                selectedIndex={mentionMenuIndex}
+                onSelect={applyMention}
+                itemRefs={mentionItemRefs}
+                emptyHint={mentionQuery?.trim() ? '没有匹配的引用' : '输入关键词搜索...'}
+              />
+            </div>
+          )}
+          {/* Selected @ mention chips */}
+          {selectedMentions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-0.5">
+              {selectedMentions.map((m) => (
+                <span
+                  key={`${m.type}:${m.id}`}
+                  className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                >
+                  <AtSign size={10} />
+                  {m.label}
+                  <button
+                    onClick={() => setSelectedMentions(prev => prev.filter(x => !(x.type === m.type && x.id === m.id)))}
+                    className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           {/* Slash command menu */}
           {showSlashMenu && filteredSlashItems.length > 0 && (
             <div
@@ -1240,8 +1411,35 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+              setInput(value)
+              const cursor = e.target.selectionStart ?? value.length
+              setMentionQuery(extractMentionQuery(value, cursor))
+            }}
             onKeyDown={(e) => {
+              if (showMentionMenu && mentionItems.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setMentionMenuIndex(i => (i + 1) % mentionItems.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setMentionMenuIndex(i => (i - 1 + mentionItems.length) % mentionItems.length)
+                  return
+                }
+                if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+                  e.preventDefault()
+                  applyMention(mentionItems[mentionMenuIndex])
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setMentionQuery(null)
+                  return
+                }
+              }
               if (showSlashMenu && filteredSlashItems.length > 0) {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault()
@@ -1288,7 +1486,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 ? (selectedSlashItem.description || '输入内容...')
                 : attachedFiles.length > 0
                   ? `已附加 ${attachedFiles.length} 张图片，输入消息...`
-                  : "输入消息，Enter 发送，/ 选择技能..."
+                  : "输入消息，Enter 发送，/ 选技能，@ 引用笔记..."
             }
             rows={2}
             className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
