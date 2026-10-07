@@ -108,8 +108,29 @@ public class SshCommandRunner : IWorkCommandRunner
     /// <summary>远端命令：cd 到项目根目录后执行</summary>
     public string BuildRemoteCommand(string command)
     {
-        var root = ShellQuote(_project.RootPath);
-        return $"cd {root} && {command}";
+        return $"cd {QuoteRootPath(_project.RootPath)} && {command}";
+    }
+
+    /// <summary>
+    /// 项目根目录的 shell 引用。波浪号必须保留展开（单引号会阻止展开导致 cd '~' 失败），
+    /// 其余路径用单引号安全包裹；双引号内的 $HOME 仍会展开且空格安全。
+    /// </summary>
+    private static string QuoteRootPath(string? root)
+    {
+        var value = (root ?? string.Empty).Trim();
+        if (value.Length == 0) return "\"$HOME\"";
+
+        // 兼容 Windows 习惯写法（\~、\~/x）归一为 ~ 形式
+        if (value.StartsWith("\\~")) value = "~" + value[2..];
+
+        if (value == "~") return "\"$HOME\"";
+        if (value.StartsWith("~/"))
+        {
+            var rest = value[2..].Replace("\"", "\\\"");
+            return rest.Length == 0 ? "\"$HOME\"" : $"\"$HOME/{rest}\"";
+        }
+
+        return ShellQuote(value);
     }
 
     public Task<WorkCommandResult> RunAsync(string command, CancellationToken ct = default) => RunAsync(command, null, ct);
