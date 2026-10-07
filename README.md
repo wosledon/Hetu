@@ -150,6 +150,7 @@ Frontend page map (routes in [`frontend/src/App.tsx`](frontend/src/App.tsx)):
 | `/settings`                      | Settings        | App / AI / MCP / Database / Trash           |
 | `/share/:code`                   | Shared note     | Public read-only viewer                     |
 | `/models`, `/work`, `/workflows` | Placeholders    | Reserved for upcoming surfaces              |
+| `/projects`                      | Projects        | Local / SSH project directory manager with groups & categories |
 
 ## 🚀 Quick Start
 

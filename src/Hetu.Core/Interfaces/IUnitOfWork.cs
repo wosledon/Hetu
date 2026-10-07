@@ -39,5 +39,7 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<WorkCheckpoint> WorkCheckpoints { get; }
     IRepository<WorkCheckpointFile> WorkCheckpointFiles { get; }
     IRepository<WorkCodeChunk> WorkCodeChunks { get; }
+    IRepository<ProjectGroup> ProjectGroups { get; }
+    IRepository<ManagedProject> ManagedProjects { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

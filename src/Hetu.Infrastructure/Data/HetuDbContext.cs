@@ -47,6 +47,8 @@ public class HetuDbContext : DbContext
     public DbSet<WorkCheckpoint> WorkCheckpoints => Set<WorkCheckpoint>();
     public DbSet<WorkCheckpointFile> WorkCheckpointFiles => Set<WorkCheckpointFile>();
     public DbSet<WorkCodeChunk> WorkCodeChunks => Set<WorkCodeChunk>();
+    public DbSet<ProjectGroup> ProjectGroups => Set<ProjectGroup>();
+    public DbSet<ManagedProject> ManagedProjects => Set<ManagedProject>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -493,6 +495,38 @@ public class HetuDbContext : DbContext
                 entity.Ignore(e => e.Vector);
                 entity.Property(e => e.Embedding).IsRequired();
             }
+        });
+
+        modelBuilder.Entity<ProjectGroup>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.HasIndex(e => e.SortOrder);
+        });
+
+        modelBuilder.Entity<ManagedProject>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.ProjectType).IsRequired().HasMaxLength(20).HasDefaultValue("Local");
+            entity.Property(e => e.DirectoryPath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.SshHost).HasMaxLength(500);
+            entity.Property(e => e.SshUser).HasMaxLength(200);
+            entity.Property(e => e.SshAuthType).IsRequired().HasMaxLength(20).HasDefaultValue("Key");
+            entity.Property(e => e.SshKeyPath).HasMaxLength(1000);
+            entity.Property(e => e.SshPasswordProtected).HasMaxLength(4000);
+            entity.Property(e => e.Category).HasMaxLength(100);
+            entity.Property(e => e.Tags).HasMaxLength(2000);
+            entity.HasOne(e => e.Group)
+                .WithMany(e => e.Projects)
+                .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.GroupId);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.IsPinned);
+            entity.HasIndex(e => e.SortOrder);
         });
 
         modelBuilder.Entity<WorkProject>(entity =>
