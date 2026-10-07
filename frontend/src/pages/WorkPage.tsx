@@ -92,6 +92,20 @@ export default function WorkPage() {
     }
   }, [])
 
+  // 窗口过窄时：面板自动收起，宽度钳制在可用空间内，避免对话区被压没
+  useEffect(() => {
+    const SIDEBAR_W = 240
+    const CHAT_MIN_W = 320
+    const clamp = () => {
+      const available = window.innerWidth - SIDEBAR_W - CHAT_MIN_W
+      setRightWidth((w) => Math.max(MIN_RIGHT_WIDTH, Math.min(w, Math.max(MIN_RIGHT_WIDTH, available))))
+      if (window.innerWidth < SIDEBAR_W + CHAT_MIN_W + MIN_RIGHT_WIDTH) setRightCollapsed(true)
+    }
+    clamp()
+    window.addEventListener('resize', clamp)
+    return () => window.removeEventListener('resize', clamp)
+  }, [])
+
   return (
     <AppLayout
       showSidebar={false}

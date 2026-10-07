@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi } from 'lucide-react'
-import { workProjectService, workSessionService, workSshService } from '../../services/workService'
+import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
+import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
+import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
 
@@ -13,6 +14,99 @@ interface WorkSidebarProps {
   onSelectSession: (session: IWorkSession) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
+}
+
+const joinDirPath = (base: string, name: string) => {
+  if (!base) return name
+  const sep = base.includes('\\') && !base.includes('/') ? '\\' : '/'
+  return base.endsWith(sep) ? base + name : `${base}${sep}${name}`
+}
+
+/** 目录选择面板：本地/远程目录逐级浏览，"选择当前目录"回填输入框 */
+function DirBrowser({
+  kind,
+  ssh,
+  onPick,
+  onClose,
+}: {
+  kind: 'local' | 'remote'
+  ssh?: { host: string; port: number; user?: string; authType?: string; keyPath?: string; password?: string }
+  onPick: (path: string) => void
+  onClose: () => void
+}) {
+  const [path, setPath] = useState('')
+  const listing = useQuery<IDirListing>({
+    queryKey: kind === 'local' ? ['workLocalDirs', path] : ['workRemoteDirs', ssh?.host, ssh?.port, ssh?.user, path],
+    queryFn: () => kind === 'local'
+      ? workBrowseService.localDirs(path || undefined)
+      : workSshService.remoteDirs({ ...ssh!, path: path || '~' }),
+    enabled: kind === 'local' || !!ssh?.host.trim(),
+    retry: false,
+  })
+  const data = listing.data
+
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-gray-700 dark:bg-gray-800/40">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <FolderOpen size={13} className="shrink-0 text-gray-400" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300" title={data?.current || ''}>
+          {data?.current || '—'}
+        </span>
+        <button
+          onClick={onClose}
+          className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+          title="关闭浏览"
+          aria-label="关闭目录浏览"
+        >
+          <X size={12} />
+        </button>
+      </div>
+      <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        {data?.parent !== null && data?.parent !== undefined && (
+          <button
+            onClick={() => setPath(data.parent!)}
+            className="flex w-full items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5 text-left text-[12px] text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
+            <CornerLeftUp size={12} className="shrink-0" />
+            上级目录
+          </button>
+        )}
+        {listing.isLoading && (
+          <div className="flex items-center gap-1.5 px-2.5 py-3 text-[12px] text-gray-400">
+            <Loader2 size={12} className="animate-spin" />读取中...
+          </div>
+        )}
+        {listing.isError && (
+          <div className="px-2.5 py-3 text-[12px] text-red-500">
+            {(listing.error as Error)?.message || '读取失败'}
+          </div>
+        )}
+        {data?.entries.filter((e) => e.isDirectory).map((entry) => (
+          <button
+            key={entry.name}
+            onClick={() => setPath(joinDirPath(data.current, entry.name))}
+            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] text-gray-700 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-blue-950/30"
+          >
+            <Folder size={12} className="shrink-0 text-blue-400" />
+            <span className="truncate">{entry.name}</span>
+            <ChevronRight size={11} className="ml-auto shrink-0 text-gray-300" />
+          </button>
+        ))}
+        {data && data.entries.filter((e) => e.isDirectory).length === 0 && !listing.isLoading && (
+          <div className="px-2.5 py-3 text-[12px] text-gray-400">没有子目录</div>
+        )}
+      </div>
+      <div className="mt-1.5 flex justify-end gap-1.5">
+        <button
+          onClick={() => { onPick(data?.current || path); onClose() }}
+          disabled={!data?.current}
+          className="rounded-lg bg-blue-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
+        >
+          选择当前目录
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /* ─── 新建项目对话框（本地 / SSH 远程） ─── */
@@ -30,8 +124,16 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [localBrowsing, setLocalBrowsing] = useState(false)
+  const [remoteBrowsing, setRemoteBrowsing] = useState(false)
 
   const { data: sshStatus } = useQuery({ queryKey: ['workSshStatus'], queryFn: workSshService.status })
+  const { data: sshConfigHosts = [] } = useQuery({
+    queryKey: ['workSshConfigHosts'],
+    queryFn: workSshService.configHosts,
+    enabled: mode === 'ssh',
+    retry: false,
+  })
 
   const create = useMutation({
     mutationFn: workProjectService.create,
@@ -113,7 +215,23 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
           {mode === 'local' ? (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">本地目录</label>
-              <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 D:\repos\MyProject 或 /home/me/project" className={`${inputCls} font-mono text-[13px]`} />
+              <div className="flex items-center gap-2">
+                <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 D:\repos\MyProject 或 /home/me/project" className={`${inputCls} font-mono text-[13px]`} />
+                <button
+                  onClick={() => setLocalBrowsing((v) => !v)}
+                  className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <FolderOpen size={13} />
+                  浏览
+                </button>
+              </div>
+              {localBrowsing && (
+                <DirBrowser
+                  kind="local"
+                  onPick={(p) => setRootPath(p)}
+                  onClose={() => setLocalBrowsing(false)}
+                />
+              )}
             </div>
           ) : (
             <>
@@ -130,6 +248,39 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                       查看安装指南 →
                     </a>
                   )}
+                </div>
+              )}
+
+              {/* 从本机 SSH 配置导入连接参数，避免重复填写 */}
+              {sshConfigHosts.length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    从本机 SSH 配置导入
+                    <span className="ml-1 text-[11px] font-normal text-gray-400">（~/.ssh/config，可选）</span>
+                  </label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const picked = sshConfigHosts.find((h) => h.alias === e.target.value)
+                      if (!picked) return
+                      setHost(picked.hostName || picked.alias)
+                      setPort(picked.port || 22)
+                      if (picked.user) setUser(picked.user)
+                      if (picked.identityFile)
+                      {
+                        setAuthType('Key')
+                        setKeyPath(picked.identityFile)
+                      }
+                    }}
+                    className={inputCls}
+                  >
+                    <option value="">选择已配置的主机…</option>
+                    {sshConfigHosts.map((h) => (
+                      <option key={h.alias} value={h.alias}>
+                        {h.alias}{h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}{h.user ? `（${h.user}）` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
@@ -171,7 +322,25 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
               )}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">远程项目目录</label>
-                <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 /home/me/projects/app（绝对路径）" className={`${inputCls} font-mono text-[13px]`} />
+                <div className="flex items-center gap-2">
+                  <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 /home/me/projects/app（绝对路径）" className={`${inputCls} font-mono text-[13px]`} />
+                  <button
+                    onClick={() => setRemoteBrowsing((v) => !v)}
+                    disabled={!host.trim()}
+                    className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  >
+                    <FolderOpen size={13} />
+                    浏览
+                  </button>
+                </div>
+                {remoteBrowsing && (
+                  <DirBrowser
+                    kind="remote"
+                    ssh={{ host: host.trim(), port, user: user.trim() || undefined, authType, keyPath: keyPath.trim() || undefined, password: password || undefined }}
+                    onPick={(p) => setRootPath(p)}
+                    onClose={() => setRemoteBrowsing(false)}
+                  />
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button

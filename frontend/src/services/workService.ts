@@ -127,9 +127,44 @@ export interface ISshTestResult {
   remoteBanner?: string
 }
 
+/** 目录列举（本地 / 远程通用） */
+export interface IDirListing {
+  current: string
+  parent?: string | null
+  entries: { name: string; isDirectory: boolean }[]
+}
+
+/** 本机 SSH 配置中的主机条目 */
+export interface ISshConfigHost {
+  alias: string
+  hostName?: string
+  user?: string
+  port: number
+  identityFile?: string
+}
+
+export interface ISshBrowseRequest {
+  host: string
+  port: number
+  user?: string
+  authType?: string
+  keyPath?: string
+  password?: string
+  path?: string
+}
+
 export const workSshService = {
   status: () => get<ISshStatus>('/work/ssh/status'),
   test: (data: ISshTestRequest) => post<ISshTestResult>('/work/ssh/test', data),
+  /** 本机 SSH 配置主机列表（~/.ssh/config） */
+  configHosts: () => get<ISshConfigHost[]>('/work/ssh/hosts'),
+  /** 远程目录列举 */
+  remoteDirs: (data: ISshBrowseRequest) => post<IDirListing>('/work/ssh/dirs', data),
+};
+
+export const workBrowseService = {
+  /** 本地目录列举；path 为空返回盘符 / 主目录 */
+  localDirs: (path?: string) => get<IDirListing>('/work/local/dirs', { path }),
 };
 
 export const workOpenService = {

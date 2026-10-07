@@ -42,12 +42,16 @@ interface ApprovalRequestView { id: string; name: string; arguments: string }
 interface QuestionRequestView { toolCallId: string; data: string }
 interface UsageView { promptTokens: number; completionTokens: number; cachedTokens: number; totalTokens: number; latencyMs: number }
 
-/** 流式执行时间线：工具 / 文件 / 检查点 / 子 Agent 按发生顺序 inline 展示 */
-type TimelineItem =
+/** 流式执行时间线：思考/正文/工具/文件/检查点/子 Agent 按发生顺序 inline 展示 */
+type StreamItem =
+  | { kind: 'thought'; seq: number; text: string }
+  | { kind: 'text'; seq: number; text: string }
   | { kind: 'tool'; seq: number; id: string; name: string; arguments: string; result?: string }
   | { kind: 'file'; seq: number; path: string; action: string }
   | { kind: 'checkpoint'; seq: number; id: string; label: string; fileCount: number }
   | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
+  | { kind: 'approval'; seq: number; id: string; name: string; arguments: string }
+  | { kind: 'question'; seq: number; toolCallId: string; data: string }
 
 type WorkStreamHandlers = {
   onContent: (text: string) => void
@@ -155,12 +159,9 @@ export default function WorkSessionArea({
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
-  const [thinking, setThinking] = useState('')
-  const [timeline, setTimeline] = useState<TimelineItem[]>([])
+  // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
+  const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
-  const [approvals, setApprovals] = useState<ApprovalRequestView[]>([])
-  const [questions, setQuestions] = useState<QuestionRequestView[]>([])
   const [pendingUser, setPendingUser] = useState<string | null>(null)
   const [answerDraft, setAnswerDraft] = useState('')
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
@@ -289,7 +290,7 @@ export default function WorkSessionArea({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent, timeline, approvals, questions])
+  }, [messages, streamItems])
 
   // 历史消息按时间线合并渲染（避免文本与文件变更被按类型拆分导致乱序）；
   // 子 Agent 的多条进度事件按 id 去重，仅保留最终状态
@@ -328,12 +329,8 @@ export default function WorkSessionArea({
     pendingUser !== null && lastUserMessage?.content !== pendingUser
 
   const resetStreamState = () => {
-    setStreamingContent('')
-    setThinking('')
-    setTimeline([])
+    setStreamItems([])
     setLiveUsage(null)
-    setApprovals([])
-    setQuestions([])
     seqRef.current = 0
   }
 
@@ -414,36 +411,55 @@ export default function WorkSessionArea({
     const controller = new AbortController()
     streamRef.current = controller
    const handlers: WorkStreamHandlers = {
-      onContent: (text) => setStreamingContent((prev) => prev + text),
-      onThought: (text) => setThinking((prev) => prev + text),
-      onToolCall: (tc) => setTimeline((prev) => {
+      onContent: (text) => setStreamItems((prev) => {
+        const last = prev[prev.length - 1]
+        // 连续的正文增量合并为一项，遇到其他事件就另起一项，保证顺序可见
+        if (last && last.kind === 'text') return [...prev.slice(0, -1), { ...last, text: last.text + text }]
+        return [...prev, { kind: 'text', seq: seqRef.current++, text }]
+      }),
+      onThought: (text) => setStreamItems((prev) => {
+        const last = prev[prev.length - 1]
+        if (last && last.kind === 'thought') return [...prev.slice(0, -1), { ...last, text: last.text + text }]
+        return [...prev, { kind: 'thought', seq: seqRef.current++, text }]
+      }),
+      onToolCall: (tc) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'tool' && x.id === tc.id)
         if (idx >= 0) {
           const next = [...prev]
-          next[idx] = { ...next[idx], ...tc } as TimelineItem
+          next[idx] = { ...next[idx], ...tc } as StreamItem
           return next
         }
-        return [...prev, { kind: 'tool', seq: seqRef.current++, ...tc } as TimelineItem]
+        return [...prev, { kind: 'tool', seq: seqRef.current++, ...tc } as StreamItem]
       }),
-      onToolResult: (id, result) => setTimeline((prev) =>
+      onToolResult: (id, result) => setStreamItems((prev) =>
         prev.map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result } : x)),
       ),
-      onFileChange: (fc) => setTimeline((prev) => {
-        const existing = prev.find((x) => x.kind === 'file' && x.path === fc.path)
-        if (existing) return prev.map((x) => (x === existing ? { ...x, ...fc } as TimelineItem : x))
-        return [...prev, { kind: 'file', seq: seqRef.current++, ...fc } as TimelineItem]
+      onFileChange: (fc) => setStreamItems((prev) => {
+        const idx = prev.findIndex((x) => x.kind === 'file' && x.path === fc.path)
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = { ...next[idx], ...fc } as StreamItem
+          return next
+        }
+        return [...prev, { kind: 'file', seq: seqRef.current++, ...fc } as StreamItem]
       }),
-      onApprovalRequest: (req) => setApprovals((prev) => [...prev.filter((x) => x.id !== req.id), req]),
-      onQuestion: (req) => setQuestions((prev) => [...prev.filter((x) => x.toolCallId !== req.toolCallId), req]),
-      onCheckpoint: (cp) => setTimeline((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as TimelineItem]),
-      onSubAgent: (sa) => setTimeline((prev) => {
+      onApprovalRequest: (req) => setStreamItems((prev) => [
+        ...prev.filter((x) => !(x.kind === 'approval' && x.id === req.id)),
+        { kind: 'approval', seq: seqRef.current++, ...req },
+      ]),
+      onQuestion: (req) => setStreamItems((prev) => [
+        ...prev.filter((x) => !(x.kind === 'question' && x.toolCallId === req.toolCallId)),
+        { kind: 'question', seq: seqRef.current++, ...req },
+      ]),
+      onCheckpoint: (cp) => setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem]),
+      onSubAgent: (sa) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'subagent' && x.id === sa.id)
         if (idx >= 0) {
           const next = [...prev]
-          next[idx] = { ...next[idx], ...sa } as TimelineItem
+          next[idx] = { ...next[idx], ...sa } as StreamItem
           return next
         }
-        return [...prev, { kind: 'subagent', seq: seqRef.current++, ...sa } as TimelineItem]
+        return [...prev, { kind: 'subagent', seq: seqRef.current++, ...sa } as StreamItem]
       }),
       onUsage: (usage) => setLiveUsage(usage),
     }
@@ -470,8 +486,6 @@ export default function WorkSessionArea({
     } finally {
       streamRef.current = null
       setIsStreaming(false)
-      setApprovals([])
-      setQuestions([])
       queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
       queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
@@ -483,7 +497,7 @@ export default function WorkSessionArea({
 
   const submitApproval = (id: string, approve: boolean) => {
     if (!session) return
-    setApprovals((prev) => prev.filter((x) => x.id !== id))
+    setStreamItems((prev) => prev.filter((x) => !(x.kind === 'approval' && x.id === id)))
     workSessionService.approve(session.id, id, approve).catch(() => {})
   }
 
@@ -491,7 +505,7 @@ export default function WorkSessionArea({
     if (!session || !answerDraft.trim()) return
     const answer = answerDraft.trim()
     setAnswerDraft('')
-    setQuestions((prev) => prev.filter((x) => x.toolCallId !== toolCallId))
+    setStreamItems((prev) => prev.filter((x) => !(x.kind === 'question' && x.toolCallId === toolCallId)))
     workSessionService.answer(session.id, toolCallId, answer).catch(() => {})
   }
 
@@ -639,7 +653,7 @@ export default function WorkSessionArea({
       </div>
 
       {/* 消息区：瀑布流 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
           {olderCount > 0 && (
             <button
@@ -682,27 +696,40 @@ export default function WorkSessionArea({
             </div>
           )}
 
-          {/* 本轮流式输出：思考 → 审批/追问 → 执行时间线 → 正文 */}
+          {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示 */}
           {isStreaming && (
             <div className="space-y-2">
-              {thinking && <ThoughtBlock text={thinking} streaming={isStreaming} />}
+              {streamItems.map((item) => {
+                if (item.kind === 'thought')
+                  return <ThoughtBlock key={`s${item.seq}`} text={item.text} streaming />
 
-              {approvals.map((req) => (
-                <ApprovalCard
-                  key={req.id}
-                  request={req}
-                  onApprove={() => submitApproval(req.id, true)}
-                  onDeny={() => submitApproval(req.id, false)}
-                />
-              ))}
+                if (item.kind === 'text')
+                  return (
+                    <div key={`s${item.seq}`} className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+                      <ThemedMarkdown
+                        source={item.text}
+                        onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
+                      />
+                      <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 animate-pulse bg-blue-500" aria-hidden />
+                    </div>
+                  )
 
-              {questions.length > 0 && (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-950/20">
-                  {questions.map((q) => (
-                    <div key={q.toolCallId} className="space-y-2">
+                if (item.kind === 'approval')
+                  return (
+                    <ApprovalCard
+                      key={`s${item.seq}`}
+                      request={item}
+                      onApprove={() => submitApproval(item.id, true)}
+                      onDeny={() => submitApproval(item.id, false)}
+                    />
+                  )
+
+                if (item.kind === 'question')
+                  return (
+                    <div key={`s${item.seq}`} className="space-y-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-950/20">
                       <div className="flex items-start gap-2">
                         <CircleHelp size={15} className="mt-0.5 shrink-0 text-indigo-500" />
-                        <p className="whitespace-pre-wrap text-[13px] text-gray-800 dark:text-gray-100">{questionText(q.data)}</p>
+                        <p className="whitespace-pre-wrap text-[13px] text-gray-800 dark:text-gray-100">{questionText(item.data)}</p>
                       </div>
                       <div className="flex items-end gap-2">
                         <textarea
@@ -713,7 +740,7 @@ export default function WorkSessionArea({
                           className="flex-1 resize-none rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-indigo-400 dark:border-indigo-800 dark:bg-gray-900"
                         />
                         <button
-                          onClick={() => submitAnswer(q.toolCallId)}
+                          onClick={() => submitAnswer(item.toolCallId)}
                           disabled={!answerDraft.trim()}
                           className="rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
                         >
@@ -721,23 +748,12 @@ export default function WorkSessionArea({
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
 
-              {timeline.map((item) => <TimelineRow key={item.seq} item={item} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />)}
+                return <TimelineRow key={`s${item.seq}`} item={item} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
+              })}
 
-              {streamingContent && (
-                <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
-                  <ThemedMarkdown
-                    source={streamingContent}
-                    onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
-                  />
-                  <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 animate-pulse bg-blue-500" aria-hidden />
-                </div>
-              )}
-
-              {!streamingContent && timeline.length === 0 && (
+              {streamItems.length === 0 && (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Loader2 size={14} className="animate-spin" />
                   思考中...
@@ -858,7 +874,7 @@ export default function WorkSessionArea({
               rows={2}
               className="max-h-40 w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400"
             />
-            <div className="flex flex-nowrap items-center gap-1.5 px-1.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 px-1.5 py-1.5">
               {modeIcon}
               <ToolbarSelect
                 value={permissionMode}
@@ -1186,7 +1202,7 @@ function MessageRow({ message, onOpenFilePath, onCodeAction }: { message: IWorkM
 }
 
 function TimelineRow({ item, onOpenFilePath, onRunCommand }: {
-  item: TimelineItem
+  item: Extract<StreamItem, { kind: 'tool' | 'file' | 'checkpoint' | 'subagent' }>
   onOpenFilePath?: (path: string) => void
   onRunCommand?: (command: string) => void
 }) {

@@ -309,7 +309,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         </nav>
         )}
         {moreMenu}
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">
         {showSidebar && <Sidebar />}
         <div className="flex min-w-0 flex-1">
           {children}

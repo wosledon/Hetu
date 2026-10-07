@@ -1,5 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { settingService } from './services/settingService'
+import { useUIStore } from './stores/uiStore'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
@@ -29,6 +31,28 @@ function RouteFallback() {
 }
 
 function App() {
+  // 启动时把服务端设置灌入 UI store：桌面壳/新安装的 localStorage 为空，
+  // 若不预热，导航样式、主题等会一直显示默认值，直到用户进一次设置页
+  useEffect(() => {
+    let alive = true
+    settingService.getSnapshot()
+      .then((snapshot) => {
+        if (!alive || !snapshot) return
+        const store = useUIStore.getState()
+        if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical') store.setNavStyle(snapshot.navStyle)
+        if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
+          store.setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
+        if (snapshot.theme === 'light' || snapshot.theme === 'dark' || snapshot.theme === 'system')
+          store.setTheme(snapshot.theme)
+        try {
+          const items = JSON.parse(snapshot.pinnedNavItems)
+          if (Array.isArray(items) && items.length > 0) store.setPinnedNavItems(items)
+        } catch { /* 解析失败时保留当前值 */ }
+      })
+      .catch(() => { /* 后端未就绪时保留本地默认值 */ })
+    return () => { alive = false }
+  }, [])
+
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>

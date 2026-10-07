@@ -37,7 +37,7 @@ function CodeBlockWithActions({ children, onCodeAction }: { children?: React.Rea
 
   return (
     <div className="group/code relative">
-      <pre>{children}</pre>
+      <pre className="overflow-x-auto">{children}</pre>
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-white/90 p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100 dark:bg-gray-900/90">
         <button
           onClick={copy}
