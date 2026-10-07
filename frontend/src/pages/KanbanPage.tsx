@@ -5,6 +5,7 @@ import {
   AlertTriangle, Archive, ChevronRight, User, CalendarDays,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import Select from '../components/Select'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
 import type {
@@ -57,6 +58,10 @@ const PRIORITY_META: Record<KanbanTaskPriority, { label: string; cls: string }> 
   High: { label: '高', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' },
   Urgent: { label: '紧急', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
+
+/** 表单下拉触发器：与弹窗内的输入框视觉保持一致 */
+const formSelectTriggerCls =
+  'flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700'
 
 const emptyForm: IKanbanTaskForm = {
   title: '', description: '', status: 'Backlog', priority: 'Medium',
@@ -379,25 +384,24 @@ export default function KanbanPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">状态</label>
-                      <select
+                      <Select
                         value={form.status}
-                        onChange={(e) => setForm({ ...form, status: e.target.value as KanbanTaskStatus })}
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        {COLUMNS.map((c) => <option key={c.status} value={c.status}>{c.label}</option>)}
-                      </select>
+                        onChange={(value) => setForm({ ...form, status: value as KanbanTaskStatus })}
+                        options={COLUMNS.map((c) => ({ value: c.status, label: c.label }))}
+                        triggerClassName={formSelectTriggerCls}
+                      />
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">优先级</label>
-                      <select
+                      <Select
                         value={form.priority}
-                        onChange={(e) => setForm({ ...form, priority: e.target.value as KanbanTaskPriority })}
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        {(Object.keys(PRIORITY_META) as KanbanTaskPriority[]).map((p) => (
-                          <option key={p} value={p}>{PRIORITY_META[p].label}</option>
-                        ))}
-                      </select>
+                        onChange={(value) => setForm({ ...form, priority: value as KanbanTaskPriority })}
+                        options={(Object.keys(PRIORITY_META) as KanbanTaskPriority[]).map((p) => ({
+                          value: p,
+                          label: PRIORITY_META[p].label,
+                        }))}
+                        triggerClassName={formSelectTriggerCls}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
