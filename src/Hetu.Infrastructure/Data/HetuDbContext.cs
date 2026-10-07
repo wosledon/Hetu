@@ -30,6 +30,7 @@ public class HetuDbContext : DbContext
     public DbSet<GraphRelation> GraphRelations => Set<GraphRelation>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
+    public DbSet<KanbanTask> KanbanTasks => Set<KanbanTask>();
     public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
     public DbSet<ScheduledTaskExecution> ScheduledTaskExecutions => Set<ScheduledTaskExecution>();
     public DbSet<NoteChunk> NoteChunks => Set<NoteChunk>();
@@ -329,6 +330,22 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.LastError).HasMaxLength(2000);
             entity.HasIndex(e => e.IsEnabled);
             entity.HasIndex(e => e.NextRunAt);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<KanbanTask>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Description).HasMaxLength(4000);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Priority).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Assignee).HasMaxLength(100);
+            entity.Property(e => e.Tags).HasMaxLength(500);
+            entity.Property(e => e.BlockedReason).HasMaxLength(1000);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.SortOrder);
             entity.HasIndex(e => e.IsDeleted);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });

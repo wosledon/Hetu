@@ -488,3 +488,6 @@ $RECYCLE.BIN/
 *.db-wal
 *.db-shm
 
+
+# impeccable 设计 hook 缓存
+.impeccable/

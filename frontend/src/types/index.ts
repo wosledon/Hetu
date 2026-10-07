@@ -397,3 +397,62 @@ export interface IMemory {
   updatedAt: string;
   score?: number;
 }
+
+/* ─── 任务看板 ─── */
+
+export type KanbanTaskStatus = 'Backlog' | 'Todo' | 'InProgress' | 'InReview' | 'Blocked' | 'Done' | 'Archived';
+export type KanbanTaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
+
+export interface IKanbanTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: KanbanTaskStatus;
+  priority: KanbanTaskPriority;
+  assignee?: string;
+  tags?: string;
+  dueDate?: string;
+  sortOrder: number;
+  blockedReason?: string;
+  completedAt?: string;
+  archivedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IKanbanTaskStats {
+  total: number;
+  active: number;
+  done: number;
+  archived: number;
+  overdue: number;
+  dueSoon: number;
+}
+
+export interface IKanbanBoard {
+  backlog: IKanbanTask[];
+  todo: IKanbanTask[];
+  inProgress: IKanbanTask[];
+  inReview: IKanbanTask[];
+  blocked: IKanbanTask[];
+  done: IKanbanTask[];
+  archived: IKanbanTask[];
+  stats: IKanbanTaskStats;
+}
+
+export interface IKanbanTaskForm {
+  title: string;
+  description: string;
+  status: KanbanTaskStatus;
+  priority: KanbanTaskPriority;
+  assignee: string;
+  tags: string;
+  dueDate: string;
+  blockedReason: string;
+}
+
+export interface IKanbanTaskMove {
+  status: KanbanTaskStatus;
+  beforeTaskId?: string | null;
+  blockedReason?: string;
+}
