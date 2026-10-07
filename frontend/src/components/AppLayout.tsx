@@ -20,7 +20,6 @@ const fixedNavItems = [
   { path: '/chat', label: '对话', icon: MessageSquare },
   { path: '/work', label: 'Code', icon: Code },
   { path: '/projects', label: '项目', icon: FolderInput },
-  { path: '/workflows', label: '工作流', icon: GitBranch },
   { path: '/search', label: '搜索', icon: Search },
 ] as const
 
@@ -36,6 +35,7 @@ const allConfigurableItems = [
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
   { path: '/apps', label: '应用', icon: AppWindow },
+  { path: '/workflows', label: '工作流', icon: GitBranch },
 ] as const
 
 // 右侧独立分组：代理与用量

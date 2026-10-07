@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, LayoutGrid } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, LayoutGrid, GitBranch } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -62,6 +62,7 @@ const configurableNavItems = [
   { path: '/memories', label: '记忆', icon: Atom },
   { path: '/models', label: '大模型', icon: Cpu },
   { path: '/apps', label: '应用', icon: AppWindow },
+  { path: '/workflows', label: '工作流', icon: GitBranch },
 ]
 
 export default function SettingsPage() {
