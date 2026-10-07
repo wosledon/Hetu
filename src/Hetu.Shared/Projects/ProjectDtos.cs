@@ -26,6 +26,8 @@ public class ManagedProjectDto
     public List<string> Tags { get; set; } = [];
     public bool IsPinned { get; set; }
     public int SortOrder { get; set; }
+    /// <summary>关联的 Code 工作区项目 ID；为空表示尚未与 Code 互通</summary>
+    public Guid? WorkProjectId { get; set; }
     public DateTimeOffset? LastOpenedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

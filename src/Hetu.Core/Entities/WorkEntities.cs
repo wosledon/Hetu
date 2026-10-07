@@ -30,6 +30,8 @@ public class WorkProject : BaseEntity
     public string? SkillIds { get; set; }
     /// <summary>诊断命令（构建/静态检查），供 work_diagnostics 使用；留空时按项目类型自动探测</summary>
     public string? DiagnosticsCommand { get; set; }
+    /// <summary>关联的项目管理条目（ManagedProject）；为空表示尚未与项目管理互通</summary>
+    public Guid? ManagedProjectId { get; set; }
     public List<WorkSession> Sessions { get; set; } = [];
 }
 

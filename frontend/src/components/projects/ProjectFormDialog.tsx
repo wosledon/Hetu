@@ -4,6 +4,7 @@ import {
   AlertCircle, Check, ChevronRight, CornerLeftUp, Folder, FolderOpen, HardDrive, Loader2, Server, Wifi, X,
 } from 'lucide-react'
 import { workSshService, workBrowseService } from '../../services/workService'
+import Select from '../Select'
 import type { IDirListing } from '../../services/workService'
 import type { IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest } from '../../types/project'
 
@@ -133,6 +134,8 @@ export default function ProjectFormDialog({
   const [error, setError] = useState('')
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [groupCreateOpen, setGroupCreateOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
 
   const { data: sshStatus } = useQuery({ queryKey: ['workSshStatus'], queryFn: workSshService.status })
   const { data: sshConfigHosts = [] } = useQuery({
@@ -146,12 +149,13 @@ export default function ProjectFormDialog({
   const tagOptions = Array.from(new Set(projects.flatMap((p) => p.tags)))
 
   const handleCreateGroup = async () => {
-    const groupName = window.prompt('新分组名称')
-    if (!groupName?.trim()) return
+    if (!newGroupName.trim()) return
     setCreatingGroup(true)
     try {
-      const created = await onCreateGroup(groupName.trim())
+      const created = await onCreateGroup(newGroupName.trim())
       setGroupId(created.id)
+      setNewGroupName('')
+      setGroupCreateOpen(false)
     } catch (e) {
       setError((e as Error).message || '创建分组失败')
     } finally {
@@ -239,19 +243,48 @@ export default function ProjectFormDialog({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">分组</label>
               <div className="flex items-center gap-2">
-                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
-                  <option value="">未分组</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
+                <Select
+                  value={groupId}
+                  onChange={setGroupId}
+                  options={[
+                    { value: '', label: '未分组' },
+                    ...groups.map((g) => ({ value: g.id, label: g.name })),
+                  ]}
+                  triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                />
                 <button
-                  onClick={() => void handleCreateGroup()}
-                  disabled={creatingGroup}
+                  onClick={() => setGroupCreateOpen((v) => !v)}
                   title="新建分组"
-                  className="shrink-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  aria-label="新建分组"
+                  aria-expanded={groupCreateOpen}
+                  className="shrink-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   +
                 </button>
               </div>
+              {groupCreateOpen && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); void handleCreateGroup() }
+                      if (e.key === 'Escape') { setGroupCreateOpen(false); setNewGroupName('') }
+                    }}
+                    placeholder="新分组名称"
+                    disabled={creatingGroup}
+                    className={inputCls}
+                  />
+                  <button
+                    onClick={() => void handleCreateGroup()}
+                    disabled={creatingGroup || !newGroupName.trim()}
+                    className="shrink-0 rounded-xl bg-blue-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
+                  >
+                    {creatingGroup ? <Loader2 size={13} className="animate-spin" /> : '确定'}
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">分类</label>
@@ -322,25 +355,23 @@ export default function ProjectFormDialog({
                     从本机 SSH 配置导入
                     <span className="ml-1 text-[11px] font-normal text-gray-400">（~/.ssh/config，可选）</span>
                   </label>
-                  <select
+                  <Select
                     value=""
-                    onChange={(e) => {
-                      const picked = sshConfigHosts.find((h) => h.alias === e.target.value)
+                    onChange={(alias) => {
+                      const picked = sshConfigHosts.find((h) => h.alias === alias)
                       if (!picked) return
                       setHost(picked.hostName || picked.alias)
                       setPort(picked.port || 22)
                       if (picked.user) setUser(picked.user)
                       if (picked.identityFile) { setAuthType('Key'); setKeyPath(picked.identityFile) }
                     }}
-                    className={inputCls}
-                  >
-                    <option value="">选择已配置的主机…</option>
-                    {sshConfigHosts.map((h) => (
-                      <option key={h.alias} value={h.alias}>
-                        {h.alias}{h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}{h.user ? `（${h.user}）` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="选择已配置的主机…"
+                    options={sshConfigHosts.map((h) => ({
+                      value: h.alias,
+                      label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? `（${h.user}）` : ''}`,
+                    }))}
+                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                  />
                 </div>
               )}
 
@@ -361,11 +392,16 @@ export default function ProjectFormDialog({
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">认证方式</label>
-                  <select value={authType} onChange={(e) => setAuthType(e.target.value)} className={inputCls}>
-                    <option value="Key">私钥文件</option>
-                    <option value="Password">密码</option>
-                    <option value="Agent">SSH Agent</option>
-                  </select>
+                  <Select
+                    value={authType}
+                    onChange={setAuthType}
+                    options={[
+                      { value: 'Key', label: '私钥文件' },
+                      { value: 'Password', label: '密码' },
+                      { value: 'Agent', label: 'SSH Agent' },
+                    ]}
+                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                  />
                 </div>
               </div>
               {authType === 'Key' && (

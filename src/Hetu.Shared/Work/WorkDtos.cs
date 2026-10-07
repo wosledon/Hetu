@@ -28,6 +28,16 @@ public class WorkProjectDto
     public string? DiagnosticsCommand { get; set; }
     /// <summary>代码语义索引状态</summary>
     public WorkCodeIndexStatusDto CodeIndex { get; set; } = new();
+    /// <summary>关联的项目管理条目 ID；为空表示未与项目管理互通</summary>
+    public Guid? ManagedProjectId { get; set; }
+    /// <summary>所属分组 ID（取自关联的项目管理条目）</summary>
+    public Guid? GroupId { get; set; }
+    /// <summary>所属分组名称</summary>
+    public string? GroupName { get; set; }
+    /// <summary>分类（取自关联的项目管理条目）</summary>
+    public string? Category { get; set; }
+    /// <summary>标签（取自关联的项目管理条目）</summary>
+    public List<string> Tags { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

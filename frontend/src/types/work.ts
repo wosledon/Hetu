@@ -30,6 +30,12 @@ export interface IWorkProject {
   skillIds: string[];
   diagnosticsCommand?: string;
   codeIndex: IWorkCodeIndexStatus;
+  /** 关联的项目管理条目 ID；为空表示未与项目管理互通 */
+  managedProjectId?: string;
+  groupId?: string;
+  groupName?: string;
+  category?: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }

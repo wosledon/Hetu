@@ -37,6 +37,8 @@ export interface IManagedProject {
   tags: string[]
   isPinned: boolean
   sortOrder: number
+  /** 关联的 Code 工作区项目 ID；为空表示尚未与 Code 互通 */
+  workProjectId?: string
   lastOpenedAt?: string
   createdAt: string
   updatedAt: string

@@ -26,11 +26,12 @@ public class ManagedProjectService : IManagedProjectService
         var projects = await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken);
         var groups = await _unitOfWork.ProjectGroups.GetAllAsync(cancellationToken);
         var groupNames = groups.ToDictionary(g => g.Id, g => g.Name);
+        var workProjectIdByManagedId = await LoadWorkProjectIdsAsync(cancellationToken);
         return ApiResponse<List<ManagedProjectDto>>.Ok(projects
             .OrderByDescending(p => p.IsPinned)
             .ThenBy(p => p.SortOrder)
             .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(p => Map(p, groupNames.GetValueOrDefault(p.GroupId ?? Guid.Empty)))
+            .Select(p => Map(p, groupNames.GetValueOrDefault(p.GroupId ?? Guid.Empty), workProjectIdByManagedId.GetValueOrDefault(p.Id)))
             .ToList());
     }
 
@@ -41,7 +42,8 @@ public class ManagedProjectService : IManagedProjectService
         string? groupName = null;
         if (project.GroupId is Guid groupId)
             groupName = (await _unitOfWork.ProjectGroups.GetByIdAsync(groupId, cancellationToken))?.Name;
-        return ApiResponse<ManagedProjectDto>.Ok(Map(project, groupName));
+        var workProjectId = (await _unitOfWork.WorkProjects.FindAsync(w => w.ManagedProjectId == id, cancellationToken)).FirstOrDefault()?.Id;
+        return ApiResponse<ManagedProjectDto>.Ok(Map(project, groupName, workProjectId));
     }
 
     public async Task<ApiResponse<ManagedProjectDto>> CreateAsync(CreateManagedProjectRequest request, CancellationToken cancellationToken = default)
@@ -66,6 +68,8 @@ public class ManagedProjectService : IManagedProjectService
         ApplySsh(project, request.ProjectType == "Ssh", request.SshHost, request.SshPort, request.SshUser, request.SshAuthType, request.SshKeyPath, request.SshPassword);
 
         await _unitOfWork.ManagedProjects.AddAsync(project, cancellationToken);
+        // 与 Code 工作区互通：登记项目同步生成对应的工作项目
+        await EnsureWorkProjectAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(project.Id, cancellationToken);
     }
@@ -112,6 +116,8 @@ public class ManagedProjectService : IManagedProjectService
         }
 
         await _unitOfWork.ManagedProjects.UpdateAsync(project, cancellationToken);
+        // 与 Code 工作区互通：名称 / 目录 / SSH 信息同步到对应工作项目
+        await EnsureWorkProjectAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(project.Id, cancellationToken);
     }
@@ -120,6 +126,13 @@ public class ManagedProjectService : IManagedProjectService
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(id, cancellationToken);
         if (project == null) return ApiResponse.Fail("项目不存在");
+        // 仅解除登记关系：Code 工作区项目（含会话）保留，避免误删工作数据
+        var linkedWork = await _unitOfWork.WorkProjects.FindAsync(w => w.ManagedProjectId == id, cancellationToken);
+        foreach (var work in linkedWork)
+        {
+            work.ManagedProjectId = null;
+            await _unitOfWork.WorkProjects.UpdateAsync(work, cancellationToken);
+        }
         await _unitOfWork.ManagedProjects.DeleteAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -242,7 +255,7 @@ public class ManagedProjectService : IManagedProjectService
         catch { return []; }
     }
 
-    private static ManagedProjectDto Map(ManagedProject project, string? groupName) => new()
+    private static ManagedProjectDto Map(ManagedProject project, string? groupName, Guid? workProjectId = null) => new()
     {
         Id = project.Id,
         Name = project.Name,
@@ -261,8 +274,79 @@ public class ManagedProjectService : IManagedProjectService
         Tags = DeserializeTags(project.Tags),
         IsPinned = project.IsPinned,
         SortOrder = project.SortOrder,
+        WorkProjectId = workProjectId,
         LastOpenedAt = project.LastOpenedAt,
         CreatedAt = project.CreatedAt,
         UpdatedAt = project.UpdatedAt,
     };
+
+    /// <summary>受管项目 ID → Code 工作项目 ID</summary>
+    private async Task<Dictionary<Guid, Guid>> LoadWorkProjectIdsAsync(CancellationToken cancellationToken)
+    {
+        var workProjects = await _unitOfWork.WorkProjects.GetAllAsync(cancellationToken);
+        return workProjects
+            .Where(w => w.ManagedProjectId != null)
+            .ToDictionary(w => w.ManagedProjectId!.Value, w => w.Id);
+    }
+
+    /// <summary>
+    /// 与 Code 工作区互通：找到（或创建）对应的工作项目，并同步名称 / 目录 / SSH 信息。
+    /// 匹配优先按关联 ID，其次按目录路径，便于两侧各自创建后自动归并。
+    /// </summary>
+    private async Task EnsureWorkProjectAsync(ManagedProject project, CancellationToken cancellationToken)
+    {
+        var work = (await _unitOfWork.WorkProjects.FindAsync(
+            w => w.ManagedProjectId == project.Id || w.RootPath == project.DirectoryPath, cancellationToken))
+            .OrderByDescending(w => w.ManagedProjectId == project.Id)
+            .FirstOrDefault();
+
+        if (work == null)
+        {
+            var existing = await _unitOfWork.WorkProjects.GetAllAsync(cancellationToken);
+            var created = new WorkProject
+            {
+                Id = Guid.NewGuid(),
+                Name = project.Name,
+                RootPath = project.DirectoryPath,
+                ConnectionType = project.ProjectType == "Ssh" ? "Ssh" : "Local",
+                ManagedProjectId = project.Id,
+                Description = project.Description,
+                SortOrder = existing.Count == 0 ? 0 : existing.Max(w => w.SortOrder) + 1,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            };
+            SyncSshToWorkProject(created, project);
+            await _unitOfWork.WorkProjects.AddAsync(created, cancellationToken);
+            return;
+        }
+
+        work.ManagedProjectId = project.Id;
+        work.Name = project.Name;
+        work.Description = project.Description;
+        work.RootPath = project.DirectoryPath;
+        work.ConnectionType = project.ProjectType == "Ssh" ? "Ssh" : "Local";
+        SyncSshToWorkProject(work, project);
+        work.UpdatedAt = DateTimeOffset.UtcNow;
+        await _unitOfWork.WorkProjects.UpdateAsync(work, cancellationToken);
+    }
+
+    private static void SyncSshToWorkProject(WorkProject work, ManagedProject project)
+    {
+        if (project.ProjectType != "Ssh")
+        {
+            work.SshHost = null;
+            work.SshPort = 22;
+            work.SshUser = null;
+            work.SshAuthType = "Key";
+            work.SshKeyPath = null;
+            work.SshPasswordProtected = null;
+            return;
+        }
+        work.SshHost = project.SshHost;
+        work.SshPort = project.SshPort is <= 0 or > 65535 ? 22 : project.SshPort;
+        work.SshUser = project.SshUser;
+        work.SshAuthType = project.SshAuthType;
+        work.SshKeyPath = project.SshKeyPath;
+        work.SshPasswordProtected = project.SshPasswordProtected;
+    }
 }

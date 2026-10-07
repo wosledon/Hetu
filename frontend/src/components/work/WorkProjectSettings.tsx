@@ -5,6 +5,7 @@ import { workProjectService } from '../../services/workService'
 import { mcpService } from '../../services/mcpService'
 import { skillService } from '../../services/skillService'
 import { useConfirm } from '../../components/confirm'
+import Select from '../Select'
 import type { IWorkProject } from '../../types/work'
 
 interface WorkProjectSettingsProps {
@@ -242,14 +243,15 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   placeholder="路径匹配（可选，如 src/*）"
                   className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
                 />
-                <select
+                <Select
                   value={ruleDecision}
-                  onChange={(e) => setRuleDecision(e.target.value as 'allow' | 'deny')}
-                  className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1 py-1 text-[11px] outline-none dark:border-gray-700 dark:bg-gray-800"
-                >
-                  <option value="allow">放行</option>
-                  <option value="deny">拒绝</option>
-                </select>
+                  onChange={(value) => setRuleDecision(value as 'allow' | 'deny')}
+                  options={[
+                    { value: 'allow', label: '放行' },
+                    { value: 'deny', label: '拒绝' },
+                  ]}
+                  triggerClassName="flex w-[70px] shrink-0 items-center justify-between gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none dark:border-gray-700 dark:bg-gray-800"
+                />
                 <button
                   onClick={() => ruleTool.trim() && createRule.mutate()}
                   disabled={!ruleTool.trim() || createRule.isPending}

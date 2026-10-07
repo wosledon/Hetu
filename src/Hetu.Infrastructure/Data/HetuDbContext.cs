@@ -543,6 +543,11 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.SshAuthType).IsRequired().HasMaxLength(20).HasDefaultValue("Key");
             entity.Property(e => e.SshKeyPath).HasMaxLength(1000);
             entity.Property(e => e.SshPasswordProtected).HasMaxLength(4000);
+            entity.HasOne<ManagedProject>()
+                .WithMany()
+                .HasForeignKey(e => e.ManagedProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.ManagedProjectId);
         });
 
         modelBuilder.Entity<WorkSession>(entity =>

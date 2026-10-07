@@ -26,10 +26,11 @@ public class WorkProjectService : IWorkProjectService
         var projects = await _unitOfWork.WorkProjects.GetAllAsync(cancellationToken);
         var sessions = await _unitOfWork.WorkSessions.GetAllAsync(cancellationToken);
         var countByProject = sessions.GroupBy(s => s.ProjectId).ToDictionary(g => g.Key, g => g.Count());
+        var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
         return ApiResponse<List<WorkProjectDto>>.Ok(projects
             .OrderBy(p => p.SortOrder)
             .ThenBy(p => p.Name)
-            .Select(p => Map(p, countByProject.GetValueOrDefault(p.Id)))
+            .Select(p => Map(p, countByProject.GetValueOrDefault(p.Id), null, managedById.GetValueOrDefault(p.ManagedProjectId ?? Guid.Empty), groupNames))
             .ToList());
     }
 
@@ -39,7 +40,8 @@ public class WorkProjectService : IWorkProjectService
         if (project == null) return ApiResponse<WorkProjectDto>.Fail("项目不存在");
         var count = (await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken)).Count;
         var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == id, cancellationToken);
-        return ApiResponse<WorkProjectDto>.Ok(Map(project, count, BuildIndexStatus(chunks)));
+        var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
+        return ApiResponse<WorkProjectDto>.Ok(Map(project, count, BuildIndexStatus(chunks), managedById.GetValueOrDefault(project.ManagedProjectId ?? Guid.Empty), groupNames));
     }
 
     public async Task<ApiResponse<WorkProjectDto>> CreateAsync(CreateWorkProjectRequest request, CancellationToken cancellationToken = default)
@@ -79,9 +81,14 @@ public class WorkProjectService : IWorkProjectService
         if (isRemote && !string.IsNullOrEmpty(request.SshPassword) && _dataProtection != null)
             project.SshPasswordProtected = Protect(request.SshPassword);
 
+        // 与项目管理互通：按目录找到已登记的项目，没有则代为登记
+        var managed = await EnsureManagedProjectAsync(project, cancellationToken);
+        project.ManagedProjectId = managed.Id;
+
         await _unitOfWork.WorkProjects.AddAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse<WorkProjectDto>.Ok(Map(project, 0));
+        var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
+        return ApiResponse<WorkProjectDto>.Ok(Map(project, 0, null, managedById.GetValueOrDefault(managed.Id), groupNames));
     }
 
     public async Task<ApiResponse<WorkProjectDto>> UpdateAsync(Guid id, UpdateWorkProjectRequest request, CancellationToken cancellationToken = default)
@@ -131,10 +138,27 @@ public class WorkProjectService : IWorkProjectService
         }
         project.UpdatedAt = DateTimeOffset.UtcNow;
 
+        // 与项目管理互通：名称 / 目录 / SSH 信息同步到已登记条目
+        var managed = project.ManagedProjectId is Guid managedId
+            ? await _unitOfWork.ManagedProjects.GetByIdAsync(managedId, cancellationToken)
+            : (await _unitOfWork.ManagedProjects.FindAsync(m => m.DirectoryPath == project.RootPath, cancellationToken)).FirstOrDefault();
+        if (managed != null)
+        {
+            if (project.ManagedProjectId != managed.Id) project.ManagedProjectId = managed.Id;
+            managed.Name = project.Name;
+            managed.Description = project.Description;
+            managed.ProjectType = project.ConnectionType == "Ssh" ? "Ssh" : "Local";
+            managed.DirectoryPath = project.RootPath;
+            SyncSshToManaged(managed, project);
+            managed.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.ManagedProjects.UpdateAsync(managed, cancellationToken);
+        }
+
         await _unitOfWork.WorkProjects.UpdateAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         var count = (await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken)).Count;
-        return ApiResponse<WorkProjectDto>.Ok(Map(project, count));
+        var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
+        return ApiResponse<WorkProjectDto>.Ok(Map(project, count, null, managedById.GetValueOrDefault(project.ManagedProjectId ?? Guid.Empty), groupNames));
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -147,7 +171,7 @@ public class WorkProjectService : IWorkProjectService
         return ApiResponse.Ok();
     }
 
-    private static WorkProjectDto Map(WorkProject project, int sessionCount, WorkCodeIndexStatusDto? codeIndex = null) => new()
+    private static WorkProjectDto Map(WorkProject project, int sessionCount, WorkCodeIndexStatusDto? codeIndex = null, ManagedProject? managed = null, Dictionary<Guid, string>? groupNames = null) => new()
     {
         Id = project.Id,
         Name = project.Name,
@@ -168,9 +192,73 @@ public class WorkProjectService : IWorkProjectService
         SkillIds = ParseStrings(project.SkillIds),
         DiagnosticsCommand = project.DiagnosticsCommand,
         CodeIndex = codeIndex ?? new WorkCodeIndexStatusDto(),
+        ManagedProjectId = project.ManagedProjectId,
+        GroupId = managed?.GroupId,
+        GroupName = managed?.GroupId is Guid gid ? groupNames?.GetValueOrDefault(gid) : null,
+        Category = managed?.Category,
+        Tags = DeserializeTags(managed?.Tags),
         CreatedAt = project.CreatedAt,
         UpdatedAt = project.UpdatedAt
     };
+
+    /// <summary>受管项目按 ID 索引，并带上分组名，用于回填分组 / 分类 / 标签</summary>
+    private async Task<(Dictionary<Guid, ManagedProject> ById, Dictionary<Guid, string> GroupNames)> LoadManagedAsync(CancellationToken cancellationToken)
+    {
+        var managed = await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken);
+        var groups = await _unitOfWork.ProjectGroups.GetAllAsync(cancellationToken);
+        return (managed.ToDictionary(m => m.Id), groups.ToDictionary(g => g.Id, g => g.Name));
+    }
+
+    /// <summary>按目录找到已登记的受管项目；没有则按工作项目信息代为登记</summary>
+    private async Task<ManagedProject> EnsureManagedProjectAsync(WorkProject project, CancellationToken cancellationToken)
+    {
+        var managed = (await _unitOfWork.ManagedProjects.FindAsync(
+            m => m.DirectoryPath == project.RootPath, cancellationToken)).FirstOrDefault();
+        if (managed != null) return managed;
+
+        var existing = await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken);
+        var created = new ManagedProject
+        {
+            Id = Guid.NewGuid(),
+            Name = project.Name,
+            Description = project.Description,
+            ProjectType = project.ConnectionType == "Ssh" ? "Ssh" : "Local",
+            DirectoryPath = project.RootPath,
+            SortOrder = existing.Count == 0 ? 0 : existing.Max(m => m.SortOrder) + 1,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        SyncSshToManaged(created, project);
+        await _unitOfWork.ManagedProjects.AddAsync(created, cancellationToken);
+        return created;
+    }
+
+    private static void SyncSshToManaged(ManagedProject managed, WorkProject project)
+    {
+        if (project.ConnectionType != "Ssh")
+        {
+            managed.SshHost = null;
+            managed.SshPort = 22;
+            managed.SshUser = null;
+            managed.SshAuthType = "Key";
+            managed.SshKeyPath = null;
+            managed.SshPasswordProtected = null;
+            return;
+        }
+        managed.SshHost = project.SshHost;
+        managed.SshPort = project.SshPort is <= 0 or > 65535 ? 22 : project.SshPort;
+        managed.SshUser = project.SshUser;
+        managed.SshAuthType = project.SshAuthType;
+        managed.SshKeyPath = project.SshKeyPath;
+        managed.SshPasswordProtected = project.SshPasswordProtected;
+    }
+
+    private static List<string> DeserializeTags(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
+        catch (JsonException) { return []; }
+    }
 
     private static WorkCodeIndexStatusDto BuildIndexStatus(IReadOnlyList<WorkCodeChunk> chunks) => new()
     {

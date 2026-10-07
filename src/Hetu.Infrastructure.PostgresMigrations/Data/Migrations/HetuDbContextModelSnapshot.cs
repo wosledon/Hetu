@@ -1720,6 +1720,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<Guid?>("ManagedProjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("McpServerIds")
                         .HasColumnType("text");
 
@@ -1769,6 +1772,8 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ManagedProjectId");
 
                     b.ToTable("WorkProjects");
                 });
@@ -2178,6 +2183,14 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WorkProject", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.ManagedProject", null)
+                        .WithMany()
+                        .HasForeignKey("ManagedProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.WorkSession", b =>

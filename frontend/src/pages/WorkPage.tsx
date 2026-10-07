@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import WorkSidebar from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
@@ -13,6 +14,7 @@ const MAX_RIGHT_WIDTH = 1200
 
 export default function WorkPage() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
   // 跨组件联动：当前打开文件 / 打开文件请求 / 终端命令请求 / 对话上下文注入 / 编辑器插入请求
@@ -32,7 +34,7 @@ export default function WorkPage() {
   })
 
   // 未显式选择时默认使用第一个项目
-  const selectedProject = preferredProject ?? projects[0] ?? null
+  const selectedProject = preferredProject ?? projects.find((p) => p.id === searchParams.get('project')) ?? projects[0] ?? null
 
   const handleSelectProject = (project: IWorkProject) => {
     setPreferredProject(project)

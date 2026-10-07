@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, Check, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Server, Settings2, Trash2, X,
+  AlertCircle, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Server, Settings2, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ProjectsSidebar from '../components/projects/ProjectsSidebar'
@@ -61,6 +62,7 @@ function avatarClass(name: string): string {
 }
 
 export default function ProjectsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [filter, setFilter] = useState<IProjectFilter>(ALL_PROJECTS_FILTER)
@@ -376,22 +378,33 @@ export default function ProjectsPage() {
                             {project.projectType === 'Local' ? (
                               <button
                                 onClick={() => openMutation.mutate(project.id)}
-                                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
                               >
                                 <HardDrive size={12} />
                                 打开目录
                               </button>
                             ) : (
-                              <span className="px-2 py-1 text-[11px] text-gray-400">
+                              <span
+                                className="min-w-0 max-w-[45%] shrink truncate px-2 py-1 text-[11px] text-gray-400"
+                                title={`${project.sshUser ? `${project.sshUser}@` : ''}${project.sshHost}:${project.sshPort}`}
+                              >
                                 {project.sshUser ? `${project.sshUser}@` : ''}{project.sshHost}:{project.sshPort}
                               </span>
                             )}
                             <button
                               onClick={() => copyPath(project)}
-                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
                             >
                               {copiedId === project.id ? <Check size={12} /> : <Copy size={12} />}
                               {copiedId === project.id ? '已复制' : '复制路径'}
+                            </button>
+                            {/* 与 Code 工作区互通：直接跳到对应工作项目 */}
+                            <button
+                              onClick={() => navigate(project.workProjectId ? `/work?project=${project.workProjectId}` : '/work')}
+                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                            >
+                              <Code size={12} />
+                              在 Code 中打开
                             </button>
                             <div className="relative ml-auto flex items-center gap-0.5">
                               <button

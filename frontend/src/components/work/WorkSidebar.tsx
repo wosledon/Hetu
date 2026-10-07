@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
+import Select from '../Select'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
@@ -258,10 +259,10 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                     从本机 SSH 配置导入
                     <span className="ml-1 text-[11px] font-normal text-gray-400">（~/.ssh/config，可选）</span>
                   </label>
-                  <select
+                  <Select
                     value=""
-                    onChange={(e) => {
-                      const picked = sshConfigHosts.find((h) => h.alias === e.target.value)
+                    onChange={(alias) => {
+                      const picked = sshConfigHosts.find((h) => h.alias === alias)
                       if (!picked) return
                       setHost(picked.hostName || picked.alias)
                       setPort(picked.port || 22)
@@ -272,15 +273,13 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                         setKeyPath(picked.identityFile)
                       }
                     }}
-                    className={inputCls}
-                  >
-                    <option value="">选择已配置的主机…</option>
-                    {sshConfigHosts.map((h) => (
-                      <option key={h.alias} value={h.alias}>
-                        {h.alias}{h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}{h.user ? `（${h.user}）` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="选择已配置的主机…"
+                    options={sshConfigHosts.map((h) => ({
+                      value: h.alias,
+                      label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? `（${h.user}）` : ''}`,
+                    }))}
+                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                  />
                 </div>
               )}
 
@@ -301,11 +300,16 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">认证方式</label>
-                  <select value={authType} onChange={(e) => setAuthType(e.target.value)} className={inputCls}>
-                    <option value="Key">私钥文件</option>
-                    <option value="Password">密码</option>
-                    <option value="Agent">SSH Agent</option>
-                  </select>
+                  <Select
+                    value={authType}
+                    onChange={setAuthType}
+                    options={[
+                      { value: 'Key', label: '私钥文件' },
+                      { value: 'Password', label: '密码' },
+                      { value: 'Agent', label: 'SSH Agent' },
+                    ]}
+                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                  />
                 </div>
               </div>
               {authType === 'Key' && (
@@ -658,6 +662,19 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
   const search = searchTerm.trim().toLowerCase()
   const filtered = projects.filter((p) => !search || p.name.toLowerCase().includes(search))
 
+  // 按分类分节展示：分类取自关联的项目管理条目，未分类的归到「未分类」
+  const sections = filtered.reduce<Array<[string, IWorkProject[]]>>((acc, p) => {
+    const name = p.category?.trim() || '未分类'
+    const last = acc[acc.length - 1]
+    if (last && last[0] === name) last[1].push(p)
+    else acc.push([name, [p]])
+    return acc
+  }, [])
+  sections.sort((a, b) =>
+    (a[0] === '未分类' ? 1 : 0) - (b[0] === '未分类' ? 1 : 0) ||
+    b[1].length - a[1].length ||
+    a[0].localeCompare(b[0]))
+
   const deleteProject = useMutation({
     mutationFn: workProjectService.delete,
     onSuccess: (_result, projectId) => {
@@ -725,27 +742,35 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
       )}
 
       <div className="flex-1 overflow-y-auto p-2">
-        {filtered.map((project) => (
-          <ProjectNode
-            key={project.id}
-            project={project}
-            expanded={search ? true : isExpanded(project.id)}
-            sessionQuery={search}
-            selectedProjectId={selectedProjectId}
-            selectedSessionId={selectedSessionId}
-            onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
-            onSelectProject={onSelectProject}
-            onSelectSession={onSelectSession}
-            onDeleteProject={(id) => {
-              const project = projects.find((p) => p.id === id)
-              confirm({
-                message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
-                onConfirm: () => deleteProject.mutate(id),
-              })
-            }}
-            onRenameProject={(p) => renameProject.mutate(p)}
-            onSessionDeleted={onSessionDeleted}
-          />
+        {sections.map(([category, items]) => (
+          <div key={category} className="mb-1">
+            <div className="flex items-center gap-1.5 px-2 py-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category}</span>
+              <span className="text-[10px] text-gray-300 dark:text-gray-600">{items.length}</span>
+            </div>
+            {items.map((project) => (
+              <ProjectNode
+                key={project.id}
+                project={project}
+                expanded={search ? true : isExpanded(project.id)}
+                sessionQuery={search}
+                selectedProjectId={selectedProjectId}
+                selectedSessionId={selectedSessionId}
+                onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
+                onSelectProject={onSelectProject}
+                onSelectSession={onSelectSession}
+                onDeleteProject={(id) => {
+                  const project = projects.find((p) => p.id === id)
+                  confirm({
+                    message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
+                    onConfirm: () => deleteProject.mutate(id),
+                  })
+                }}
+                onRenameProject={(p) => renameProject.mutate(p)}
+                onSessionDeleted={onSessionDeleted}
+              />
+            ))}
+          </div>
         ))}
         {projectActionError && (
           <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[11px] text-red-500 dark:bg-red-950/30 dark:text-red-400">
