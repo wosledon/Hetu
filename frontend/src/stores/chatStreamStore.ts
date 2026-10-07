@@ -1,22 +1,5 @@
 import { create } from 'zustand'
-
-export interface StreamingQuestion {
-  id: string
-  toolCallId: string
-  header: string
-  question: string
-  options?: Array<{ label: string; description?: string }>
-  allowCustom?: boolean
-  answered: boolean
-  answer?: string
-}
-
-export interface StreamingTodo {
-  id: string
-  title: string
-  description?: string
-  status: 'not-started' | 'in-progress' | 'completed'
-}
+import { useInteractionStore } from './interactionStore'
 
 export interface StreamingToolCall {
   id: string
@@ -82,11 +65,6 @@ export interface TopicStreamState {
   memoryResults: MemoryResult[]
   toolCalls: StreamingToolCall[]
   toolResults: StreamingToolResult[]
-  questions: StreamingQuestion[]
-  questionAnswers: Record<string, string>
-  currentQuestionIndex: number
-  todos: StreamingTodo[]
-  todoPanelCollapsed: boolean
   approvalRequests: ApprovalRequest[]
   usedWebSearch: boolean
   usedKnowledgeBase: boolean
@@ -109,11 +87,6 @@ const emptyTopic = (): TopicStreamState => ({
   memoryResults: [],
   toolCalls: [],
   toolResults: [],
-  questions: [],
-  questionAnswers: {},
-  currentQuestionIndex: 0,
-  todos: [],
-  todoPanelCollapsed: false,
   approvalRequests: [],
   usedWebSearch: false,
   usedKnowledgeBase: false,
@@ -131,12 +104,8 @@ interface ChatStreamStore {
   appendContent: (topicId: string, text: string) => void
   setStreamError: (topicId: string, message: string) => void
   clearAfterPersist: (topicId: string) => void
-  setQuestionAnswer: (topicId: string, qId: string, answer: string) => void
-  setQuestionIndex: (topicId: string, idx: number) => void
-  clearQuestions: (topicId: string) => void
   removeApproval: (topicId: string, id: string) => void
   setShowThinking: (topicId: string, v: boolean) => void
-  setTodoCollapsed: (topicId: string, v: boolean) => void
 }
 
 /** 每个话题进行中的流 AbortController（模块级，不进 zustand state） */
@@ -194,7 +163,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
         return { streams: { ...st.streams, [topicId]: { ...cur, ...updater(cur) } } }
       }),
 
-    start: (topicId, opts) =>
+    start: (topicId, opts) => {
       patch(topicId, {
         ...emptyTopic(),
         isStreaming: true,
@@ -203,7 +172,10 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
         usedKnowledgeBase: opts.knowledgeBase,
         usedMemory: opts.memory,
         startedAt: Date.now(),
-      }),
+      })
+      // 新流开始即清空上一轮的提问/任务/计划交互状态
+      useInteractionStore.getState().clear(topicId)
+    },
 
     stop: (topicId) =>
       patch(topicId, { isStreaming: false, pendingUserMessage: null, startedAt: 0 }),
@@ -227,6 +199,12 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
 
     handleChunk: (topicId, chunk) =>
       set((st) => {
+        // 交互型工具（question / todo / plan）走共享 interactionStore，对话页与编码页行为一致
+        if (chunk.type === 'question' || chunk.type === 'todo' || chunk.type === 'plan') {
+          useInteractionStore.getState().applyChunk(topicId, chunk)
+          return st
+        }
+
         const cur = st.streams[topicId] ?? emptyTopic()
         const next = { ...cur }
         switch (chunk.type) {
@@ -263,50 +241,11 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
           case 'approval_request':
             next.approvalRequests = [...cur.approvalRequests, { id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string }]
             break
-          case 'question': {
-            try {
-              const qData = typeof chunk.data === 'string' ? JSON.parse(chunk.data as string) : chunk.data
-              if (qData?.questions) {
-                const newQuestions = (qData.questions as Array<{ header?: string; question?: string; options?: Array<{ label: string; description?: string }>; allowCustom?: boolean }>).map((q, i) => ({
-                  id: `${chunk.toolCallId || 'q'}_${i}`,
-                  toolCallId: (chunk.toolCallId as string) || '',
-                  header: q.header || '问题',
-                  question: q.question || '',
-                  options: q.options,
-                  allowCustom: q.allowCustom !== false,
-                  answered: false,
-                  answer: undefined,
-                }))
-                next.questions = [...cur.questions, ...newQuestions]
-              }
-            } catch { /* ignore */ }
-            break
-          }
-          case 'todo': {
-            try {
-              const todoData = typeof chunk.data === 'string' ? JSON.parse(chunk.data as string) : chunk.data
-              if (Array.isArray(todoData?.todos) && todoData.todos.length > 0) {
-                next.todos = (todoData.todos as Array<{ id?: string; title?: string; description?: string; status?: StreamingTodo['status'] }>).map((t) => ({
-                  id: t.id || `t${Math.random().toString(36).slice(2)}`,
-                  title: t.title || '',
-                  description: t.description,
-                  status: t.status || 'not-started',
-                }))
-              } else if (todoData?.action === 'create' && todoData?.title) {
-                next.todos = [...cur.todos, { id: todoData.id || `t${cur.todos.length + 1}`, title: todoData.title, description: todoData.description, status: todoData.status || 'not-started' }]
-              } else if (todoData?.action === 'update' && todoData?.id) {
-                next.todos = cur.todos.map((t) => (t.id === todoData.id ? { ...t, status: todoData.status || t.status } : t))
-              } else if (todoData?.action === 'complete' && todoData?.id) {
-                next.todos = cur.todos.map((t) => (t.id === todoData.id ? { ...t, status: 'completed' } : t))
-              }
-            } catch { /* ignore */ }
-            break
-          }
         }
         return { streams: { ...st.streams, [topicId]: next } }
       }),
 
-    clearAfterPersist: (topicId) =>
+    clearAfterPersist: (topicId) => {
       patch(topicId, {
         streamingContent: '',
         streamingThinking: '',
@@ -316,28 +255,21 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
         memoryResults: [],
         toolCalls: [],
         toolResults: [],
-        questions: [],
-        todos: [],
         showThinking: false,
         usedWebSearch: false,
         usedKnowledgeBase: false,
         usedMemory: false,
-      }),
+      })
+      // 交互型工具状态同样在消息刷新后清理（已提交的提问/任务不再停留在抽屉）
+      useInteractionStore.getState().clear(topicId)
+    },
 
-    setQuestionAnswer: (topicId, qId, answer) =>
-      set((st) => {
-        const cur = st.streams[topicId] ?? emptyTopic()
-        return { streams: { ...st.streams, [topicId]: { ...cur, questionAnswers: { ...cur.questionAnswers, [qId]: answer } } } }
-      }),
-    setQuestionIndex: (topicId, idx) => patch(topicId, { currentQuestionIndex: idx }),
-    clearQuestions: (topicId) => patch(topicId, { questions: [], questionAnswers: {}, currentQuestionIndex: 0 }),
     removeApproval: (topicId, id) =>
       set((st) => {
         const cur = st.streams[topicId] ?? emptyTopic()
         return { streams: { ...st.streams, [topicId]: { ...cur, approvalRequests: cur.approvalRequests.filter((r) => r.id !== id) } } }
       }),
     setShowThinking: (topicId, v) => patch(topicId, { showThinking: v }),
-    setTodoCollapsed: (topicId, v) => patch(topicId, { todoPanelCollapsed: v }),
   }
 })
 

@@ -127,6 +127,14 @@ public class ChatMessagesController : ControllerBase
         return ApiResponse.Fail("未找到对应的审批请求");
     }
 
+    [HttpPost("plan")]
+    public ApiResponse SubmitPlanDecision([FromBody] PlanDecisionRequest request)
+    {
+        if (_toolExecution.TrySetPlanDecision(request.SessionId, request.ToolCallId, request.Approved, request.Feedback ?? string.Empty))
+            return ApiResponse.Ok();
+        return ApiResponse.Fail("未找到对应的计划确认请求");
+    }
+
     [HttpPost("topic/{topicId:guid}/stream")]
     public async Task Stream(Guid topicId, [FromBody] SendMessageRequest request, CancellationToken ct = default)
     {

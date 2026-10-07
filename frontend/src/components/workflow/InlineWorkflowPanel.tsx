@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MarkerType, type Node, type Edge, type NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck, HelpCircle, ChevronLeft, ChevronRight, ListChecks } from 'lucide-react'
 import WorkflowNodeComponent from './WorkflowNode'
 import { toFlowNode, type IWorkflowNodeData } from './workflowNodeModel'
 import type { IWorkflow, IWorkflowNode } from '../../types/workflow'
 import { renderToolName } from '../../utils/toolRendering'
+import QuestionFlow from '../tools/QuestionFlow'
+import PlanFlow from '../tools/PlanFlow'
+import type { InteractionPlan } from '../../stores/interactionStore'
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
@@ -134,6 +137,9 @@ export default function InlineWorkflowPanel({
         if (workflowToolCall.name === 'ask_question') {
           return <AskQuestionPanel arguments={workflowToolCall.arguments} onSubmit={(answer) => onToolApprove(true, answer)} />
         }
+        if (workflowToolCall.name === 'plan') {
+          return <WorkflowPlanPanel arguments={workflowToolCall.arguments} onSubmit={(approved, feedback) => onToolApprove(approved, feedback)} />
+        }
         return (
           <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
             <Circle size={14} className="text-amber-500 shrink-0" />
@@ -179,12 +185,13 @@ export default function InlineWorkflowPanel({
   )
 }
 
-// AskQuestion 面板：解析 arguments 中的 questions，渲染选项按钮
+
+// AskQuestion 面板：解析 arguments 中的 questions，复用共享 QuestionFlow 作答组件
 function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
   arguments: string
   onSubmit: (answer: string) => void
 }) {
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
   const [currentIdx, setCurrentIdx] = useState(0)
 
   const questions = useMemo(() => {
@@ -210,190 +217,81 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
     )
   }
 
+  const flowQuestions = questions.map((q, i) => ({
+    id: String(i),
+    toolCallId: '',
+    header: q.header || `问题 ${i + 1}`,
+    question: q.question || '',
+    options: q.options,
+  }))
+
   return (
     <div className="overflow-hidden border-t border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-indigo-50/60 dark:border-blue-800/50 dark:from-blue-950/40 dark:to-indigo-950/30">
-      {(() => {
-        const qi = Math.min(currentIdx, questions.length - 1)
-        const q = questions[qi]
-        if (!q) return null
-        const selected = selectedAnswers[qi]
-        const hasAnswer = !!selected
-        const isLast = qi === questions.length - 1
-        const isFirst = qi === 0
-        const allAnswered = questions.every((_, i) => selectedAnswers[i])
+      <QuestionFlow
+        questions={flowQuestions}
+        currentIndex={currentIdx}
+        answers={selectedAnswers}
+        onAnswer={(qid, value) => setSelectedAnswers(prev => ({ ...prev, [qid]: value }))}
+        onIndexChange={setCurrentIdx}
+        onSubmitAll={() => onSubmit(JSON.stringify(questions.map((q2, i2) => ({ id: i2, question: q2.question, answer: selectedAnswers[String(i2)] ?? '' }))))}
+      />
+    </div>
+  )
+}
 
-        return (
-          <div key={qi}>
-            {/* Header */}
-            <div className="flex items-center gap-2 border-b border-blue-100/80 bg-white/40 px-4 py-2.5 dark:border-blue-900/30 dark:bg-gray-900/20">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
-                <HelpCircle size={14} />
-              </div>
-              <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                {q.header || `问题 ${qi + 1}`}
-              </span>
-              <div className="ml-auto flex items-center gap-1.5">
-                <div className="flex items-center gap-1">
-                  {questions.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setCurrentIdx(i)}
-                      className={`h-1.5 rounded-full transition-all ${
-                        i === qi
-                          ? 'w-5 bg-blue-500'
-                          : selectedAnswers[i]
-                            ? 'w-1.5 bg-blue-400 hover:w-3'
-                            : 'w-1.5 bg-gray-300 hover:w-3 dark:bg-gray-600'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="ml-1 text-[10px] text-gray-500 tabular-nums dark:text-gray-400">
-                  {Object.keys(selectedAnswers).length} / {questions.length}
-                </span>
-              </div>
-            </div>
+// 计划工具面板：解析 arguments 中的 title/summary/steps，复用共享 PlanFlow 确认组件
+function WorkflowPlanPanel({ arguments: argsJson, onSubmit }: {
+  arguments: string
+  onSubmit: (approved: boolean, feedback: string) => void
+}) {
+  const [feedback, setFeedback] = useState('')
 
-            {/* Body */}
-            <div className="px-4 py-3">
-              <p className="mb-3 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                {q.question}
-              </p>
+  const plan = useMemo<InteractionPlan | null>(() => {
+    try {
+      let parsed = JSON.parse(argsJson) as Record<string, unknown>
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed) as Record<string, unknown>
+      if (typeof parsed?.title !== 'string') return null
+      const steps = Array.isArray(parsed.steps)
+        ? (parsed.steps as Array<Record<string, unknown>>)
+            .filter(s => s && typeof s.title === 'string')
+            .map((s, i) => ({
+              id: (typeof s.id === 'string' && s.id) || `p${i + 1}`,
+              title: s.title as string,
+              description: typeof s.description === 'string' ? s.description : undefined,
+              status: 'pending' as const,
+            }))
+        : []
+      return {
+        toolCallId: '',
+        title: parsed.title,
+        summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+        steps,
+        feedback: '',
+      }
+    } catch { return null }
+  }, [argsJson])
 
-              {/* Options */}
-              {q.options && q.options.length > 0 && (() => {
-                const maxLabelLen = Math.max(...q.options.map(o => (o.label || '').length))
-                const hasDescription = q.options.some(o => o.description)
-                const useListLayout = maxLabelLen > 8 || q.options.length > 4 || hasDescription
-                if (useListLayout) {
-                  return (
-                    <div className="mb-3 flex flex-col gap-1.5">
-                      {q.options.map((opt, oi) => (
-                        <button
-                          key={oi}
-                          onClick={() => {
-                            setSelectedAnswers(prev => ({ ...prev, [qi]: opt.label }))
-                            if (!isLast) setTimeout(() => setCurrentIdx(i => Math.min(questions.length - 1, i + 1)), 150)
-                          }}
-                          className={`group flex items-start gap-2.5 rounded-lg border px-3 py-2 text-left text-xs transition-all ${
-                            selected === opt.label
-                              ? 'border-blue-500 bg-blue-50 shadow-sm dark:bg-blue-950/40'
-                              : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-blue-700 dark:hover:bg-blue-900/20'
-                          }`}
-                        >
-                          <span className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                            selected === opt.label
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300 group-hover:border-blue-400 dark:border-gray-600'
-                          }`}>
-                            {selected === opt.label && <Check size={10} className="text-white" />}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className={`font-medium leading-relaxed ${
-                              selected === opt.label ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'
-                            }`}>
-                              {opt.label}
-                            </div>
-                            {opt.description && (
-                              <div className="mt-0.5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-                                {opt.description}
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )
-                }
-                return (
-                  <div className="mb-3 flex flex-wrap gap-1.5">
-                    {q.options.map((opt, oi) => (
-                      <button
-                        key={oi}
-                        onClick={() => {
-                          setSelectedAnswers(prev => ({ ...prev, [qi]: opt.label }))
-                          if (!isLast) setTimeout(() => setCurrentIdx(i => Math.min(questions.length - 1, i + 1)), 150)
-                        }}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                          selected === opt.label
-                            ? 'border-blue-500 bg-blue-500 text-white shadow-sm'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:border-blue-700 dark:hover:bg-blue-900/30'
-                        }`}
-                      >
-                        {selected === opt.label && <Check size={12} />}
-                        <span>{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )
-              })()}
+  if (!plan) {
+    return (
+      <div className="flex items-center gap-2 border-t border-teal-200 bg-teal-50 px-3 py-2.5 dark:border-teal-800 dark:bg-teal-950/30">
+        <ListChecks size={14} className="text-teal-500 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-teal-700 dark:text-teal-300">等待确认执行计划...</div>
+          <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
+        </div>
+        <button onClick={() => onSubmit(true, '')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> 通过</button>
+        <button onClick={() => onSubmit(false, '')} className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"><X size={11} /> 拒绝</button>
+      </div>
+    )
+  }
 
-              {/* Custom input */}
-              <input
-                type="text"
-                placeholder={hasAnswer && q.options?.some(o => o.label === selected) ? '或输入自定义回答（回车下一题）' : '输入回答...（回车下一题）'}
-                value={q.options?.some(o => o.label === selected) ? '' : (selected || '')}
-                onChange={(e) => setSelectedAnswers(prev => ({ ...prev, [qi]: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && selected) {
-                    e.preventDefault()
-                    if (isLast && allAnswered) {
-                      onSubmit(JSON.stringify(questions.map((q2, i2) => ({ id: i2, question: q2.question, answer: selectedAnswers[i2] ?? '' }))))
-                    } else if (!isLast) {
-                      setCurrentIdx(i => Math.min(questions.length - 1, i + 1))
-                    }
-                  }
-                }}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-200/50 dark:border-gray-700 dark:bg-gray-800/60 dark:placeholder:text-gray-500 dark:focus:ring-blue-900/40"
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-blue-100/80 bg-white/40 px-3 py-2 dark:border-blue-900/30 dark:bg-gray-900/20">
-              <button
-                onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
-                disabled={isFirst}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                  isFirst
-                    ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'
-                    : 'text-gray-600 hover:bg-blue-100/50 dark:text-gray-300 dark:hover:bg-blue-900/30'
-                }`}
-              >
-                <ChevronLeft size={14} /> 上一题
-              </button>
-              <span className="text-[10px] text-gray-400">
-                {qi + 1} / {questions.length}
-              </span>
-              {!isLast ? (
-                <button
-                  onClick={() => setCurrentIdx(i => Math.min(questions.length - 1, i + 1))}
-                  disabled={!hasAnswer}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                    hasAnswer
-                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
-                      : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                  }`}
-                >
-                  下一题 <ChevronRight size={14} />
-                </button>
-              ) : (
-                <button
-                  onClick={() => onSubmit(JSON.stringify(questions.map((q2, i2) => ({ id: i2, question: q2.question, answer: selectedAnswers[i2] ?? '' }))))}
-                  disabled={!allAnswered}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                    allAnswered
-                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
-                      : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                  }`}
-                >
-                  <Check size={14} /> 提交全部
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+  return (
+    <div className="overflow-hidden border-t border-teal-200/70 bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:border-teal-800/50 dark:from-teal-950/40 dark:to-emerald-950/30">
+      <PlanFlow
+        plan={{ ...plan, feedback }}
+        onFeedback={setFeedback}
+        onDecide={(approved) => onSubmit(approved, feedback)}
+      />
     </div>
   )
 }

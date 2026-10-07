@@ -46,7 +46,7 @@ public static class BuiltinProfiles
             "list_notebooks", "create_notebook", "list_tags", "set_note_tags",
             "list_knowledge_items",
             "search_memory", "create_memory", "list_memories", "delete_memory",
-            "search_graph", "search_web", "ask_question", "todo", "run_command",
+            "search_graph", "search_web", "ask_question", "todo", "plan", "run_command",
             "create_scheduled_task", "list_scheduled_tasks", "delete_scheduled_task",
             "list_skills",
         },
@@ -93,7 +93,7 @@ public static class BuiltinProfiles
             """,
         AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "run_command", "ask_question", "todo",
+            "run_command", "ask_question", "todo", "plan",
             // 未来扩展：read_file, write_file, list_dir, open_app...
         },
         MaxToolCallsPerTurn = 10,
@@ -141,7 +141,7 @@ public static class BuiltinProfiles
             "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
             "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
             "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
-            "ask_question", "todo",
+            "ask_question", "todo", "plan",
         },
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -176,7 +176,7 @@ public static class BuiltinProfiles
         {
             "search_notes", "read_note", "list_notes", "list_notebooks", "list_tags",
             "list_knowledge_items", "list_note_versions",
-            "search_graph", "search_web", "ask_question", "todo",
+            "search_graph", "search_web", "ask_question", "todo", "plan",
             "search_memory", "list_memories", "list_skills",
             "list_scheduled_tasks",
             // 写操作待协作权限模型确定后开放

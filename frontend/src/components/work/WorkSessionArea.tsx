@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Send, Square, ChevronDown, ChevronRight, Loader2,
-  ShieldCheck, ShieldOff, CircleHelp, History, PenLine, FilePlus, FileX,
+  ShieldCheck, ShieldOff, History, PenLine, FilePlus, FileX,
   ListChecks, Coins, User, Copy, Check, Braces, SquareCode, FolderOpen, SquareTerminal, Brain, Wrench, Bot,
   Plus, Download, Stethoscope, X, Play, RotateCcw, FileCode, Quote, PanelRightClose, PanelRightOpen, Zap,
 } from 'lucide-react'
@@ -16,6 +16,8 @@ import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { useConfirm } from '../../components/confirm'
+import ToolInteractionDrawer from '../ToolInteractionDrawer'
+import { useInteractionStore } from '../../stores/interactionStore'
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
@@ -41,7 +43,6 @@ interface WorkSessionAreaProps {
 
 interface FileChangeMeta { path: string; action: string }
 interface ApprovalRequestView { id: string; name: string; arguments: string }
-interface QuestionRequestView { toolCallId: string; data: string }
 interface UsageView { promptTokens: number; completionTokens: number; cachedTokens: number; totalTokens: number; latencyMs: number }
 
 /** 流式执行时间线：思考/正文/工具/文件/检查点/子 Agent 按发生顺序 inline 展示 */
@@ -53,7 +54,6 @@ type StreamItem =
   | { kind: 'checkpoint'; seq: number; id: string; label: string; fileCount: number }
   | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
   | { kind: 'approval'; seq: number; id: string; name: string; arguments: string }
-  | { kind: 'question'; seq: number; toolCallId: string; data: string }
 
 type WorkStreamHandlers = {
   onContent: (text: string) => void
@@ -62,7 +62,8 @@ type WorkStreamHandlers = {
   onToolResult: (id: string, content: string) => void
   onFileChange: (fc: FileChangeMeta) => void
   onApprovalRequest: (req: ApprovalRequestView) => void
-  onQuestion: (req: QuestionRequestView) => void
+  /** 交互型工具（question / todo / plan）：统一进共享 interactionStore，由输入框上方抽屉渲染 */
+  onInteraction: (evt: Record<string, unknown>) => void
   onCheckpoint: (cp: { id: string; label: string; fileCount: number }) => void
   onSubAgent: (sa: { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }) => void
   onUsage: (usage: UsageView) => void
@@ -82,7 +83,7 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     else if (evt.type === 'tool_result') handlers.onToolResult(evt.id, evt.content)
     else if (evt.type === 'file_change') handlers.onFileChange({ path: evt.path, action: evt.action })
     else if (evt.type === 'approval_request') handlers.onApprovalRequest({ id: evt.id, name: evt.name, arguments: evt.arguments })
-    else if (evt.type === 'question') handlers.onQuestion({ toolCallId: evt.toolCallId, data: evt.data })
+    else if (evt.type === 'question' || evt.type === 'todo' || evt.type === 'plan') handlers.onInteraction(evt)
     else if (evt.type === 'checkpoint') handlers.onCheckpoint({ id: evt.id, label: evt.label, fileCount: evt.fileCount })
     else if (evt.type === 'subagent') handlers.onSubAgent({ id: evt.id, description: evt.description, stage: evt.stage, tool: evt.tool, steps: evt.steps, message: evt.message })
     else if (evt.type === 'usage') handlers.onUsage({ promptTokens: evt.promptTokens, completionTokens: evt.completionTokens, cachedTokens: evt.cachedTokens, totalTokens: evt.totalTokens, latencyMs: evt.latencyMs })
@@ -165,7 +166,6 @@ export default function WorkSessionArea({
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
   const [pendingUser, setPendingUser] = useState<string | null>(null)
-  const [answerDraft, setAnswerDraft] = useState('')
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [openFeedback, setOpenFeedback] = useState('')
@@ -554,6 +554,7 @@ export default function WorkSessionArea({
     setIsStreaming(true)
     if (persistUserMessage) setPendingUser(content)
     resetStreamState()
+    useInteractionStore.getState().clear(session.id)
 
     const controller = new AbortController()
     streamRef.current = controller
@@ -594,10 +595,7 @@ export default function WorkSessionArea({
         ...prev.filter((x) => !(x.kind === 'approval' && x.id === req.id)),
         { kind: 'approval', seq: seqRef.current++, ...req },
       ]),
-      onQuestion: (req) => setStreamItems((prev) => [
-        ...prev.filter((x) => !(x.kind === 'question' && x.toolCallId === req.toolCallId)),
-        { kind: 'question', seq: seqRef.current++, ...req },
-      ]),
+      onInteraction: (evt) => useInteractionStore.getState().applyChunk(session.id, evt),
       onCheckpoint: (cp) => setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem]),
       onSubAgent: (sa) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'subagent' && x.id === sa.id)
@@ -648,14 +646,6 @@ export default function WorkSessionArea({
     if (!session) return
     setStreamItems((prev) => prev.filter((x) => !(x.kind === 'approval' && x.id === id)))
     workSessionService.approve(session.id, id, approve).catch(() => {})
-  }
-
-  const submitAnswer = (toolCallId: string) => {
-    if (!session || !answerDraft.trim()) return
-    const answer = answerDraft.trim()
-    setAnswerDraft('')
-    setStreamItems((prev) => prev.filter((x) => !(x.kind === 'question' && x.toolCallId === toolCallId)))
-    workSessionService.answer(session.id, toolCallId, answer).catch(() => {})
   }
 
   /** 导出会话为 Markdown */
@@ -873,32 +863,6 @@ export default function WorkSessionArea({
                     />
                   )
 
-                if (item.kind === 'question')
-                  return (
-                    <div key={`s${item.seq}`} className="space-y-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-950/20">
-                      <div className="flex items-start gap-2">
-                        <CircleHelp size={15} className="mt-0.5 shrink-0 text-indigo-500" />
-                        <p className="whitespace-pre-wrap text-[13px] text-gray-800 dark:text-gray-100">{questionText(item.data)}</p>
-                      </div>
-                      <div className="flex items-end gap-2">
-                        <textarea
-                          value={answerDraft}
-                          onChange={(e) => setAnswerDraft(e.target.value)}
-                          rows={2}
-                          placeholder="输入回答后发送"
-                          className="flex-1 resize-none rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-indigo-400 dark:border-indigo-800 dark:bg-gray-900"
-                        />
-                        <button
-                          onClick={() => submitAnswer(item.toolCallId)}
-                          disabled={!answerDraft.trim()}
-                          className="rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
-                        >
-                          回答
-                        </button>
-                      </div>
-                    </div>
-                  )
-
                 return <TimelineRow key={`s${item.seq}`} item={item} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
               })}
 
@@ -955,6 +919,8 @@ export default function WorkSessionArea({
       {/* 输入区：上下文 chips + 模式/Agent/模型/推理强度工具栏 */}
       <div className="bg-white p-3 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
+          {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（与对话页共用） */}
+          {session && <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />}
           {(activeFilePath || injectedContexts.length > 0) && (
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {activeFilePath && (
@@ -1577,16 +1543,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
   return String(n)
-}
-
-/** ask_question 的 arguments 形如 { "question": "..." }，解析失败时回退原文。 */
-function questionText(data: string): string {
-  try {
-    const parsed = JSON.parse(data) as { question?: string }
-    return parsed.question ?? data
-  } catch {
-    return data
-  }
 }
 
 function extractPath(argumentsJson: string): string | null {

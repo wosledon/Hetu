@@ -23,6 +23,7 @@ const TOOL_LABELS: Record<string, string> = {
   search_graph: '搜索图谱',
   ask_question: '提问',
   todo: '任务管理',
+  plan: '执行计划',
   run_command: '执行命令',
   create_scheduled_task: '创建定时任务',
   list_scheduled_tasks: '定时任务列表',
