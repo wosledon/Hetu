@@ -3,8 +3,6 @@ import { useChatStreamStore, getTopicStream } from '../stores/chatStreamStore'
 import type { ApprovalRequest, TopicStreamState } from '../stores/chatStreamStore'
 
 export type {
-  StreamingQuestion,
-  StreamingTodo,
   StreamingToolCall,
   StreamingToolResult,
   ApprovalRequest,
@@ -12,6 +10,13 @@ export type {
   KnowledgeResult,
   MemoryResult,
 } from '../stores/chatStreamStore'
+
+export type {
+  InteractionQuestion,
+  InteractionTodo,
+  InteractionPlan,
+  InteractionPlanStep,
+} from '../stores/interactionStore'
 
 type Setter<T> = (v: T | ((prev: T) => T)) => void
 
@@ -47,11 +52,6 @@ export function useStreaming(topicId: string | undefined) {
   const setStreamingKnowledgeResults = useStreamField(id, 'knowledgeResults')
   const setStreamingMemoryResults = useStreamField(id, 'memoryResults')
   const setStreamingToolResults = useStreamField(id, 'toolResults')
-  const setStreamingQuestions = useStreamField(id, 'questions')
-  const setQuestionAnswers = useStreamField(id, 'questionAnswers')
-  const setCurrentQuestionIndex = useStreamField(id, 'currentQuestionIndex')
-  const setStreamingTodos = useStreamField(id, 'todos')
-  const setTodoPanelCollapsed = useStreamField(id, 'todoPanelCollapsed')
   const setStreamError = useStreamField(id, 'streamError')
 
   return {
@@ -74,16 +74,6 @@ export function useStreaming(topicId: string | undefined) {
     streamingToolCalls: s.toolCalls,
     streamingToolResults: s.toolResults,
     setStreamingToolResults,
-    streamingQuestions: s.questions,
-    setStreamingQuestions,
-    questionAnswers: s.questionAnswers,
-    setQuestionAnswers,
-    currentQuestionIndex: s.currentQuestionIndex,
-    setCurrentQuestionIndex,
-    streamingTodos: s.todos,
-    setStreamingTodos,
-    todoPanelCollapsed: s.todoPanelCollapsed,
-    setTodoPanelCollapsed,
     approvalRequests: s.approvalRequests as ApprovalRequest[],
     streamError: s.streamError,
     setStreamError,

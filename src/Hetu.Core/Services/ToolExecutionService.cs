@@ -33,11 +33,35 @@ public class Session<T> where T : class, new()
     }
 }
 
+/// <summary>交互型工具：todo / ask_question / plan。</summary>
+/// 由 Agent Loop 拦截处理，不进入通用执行与权限审批流程，SSE 事件也不显示为普通工具调用。
+public static class InteractiveTools
+{
+    public const string Todo = "todo";
+    public const string AskQuestion = "ask_question";
+    public const string Plan = "plan";
+
+    public static bool IsInteractive(string? name) =>
+        name is Todo or AskQuestion or Plan;
+}
+
 /// <summary>Per-session state for pending interactive tool calls.</summary>
 public class SessionPendingState
 {
     public ConcurrentDictionary<string, TaskCompletionSource<string>> Questions = new();
     public ConcurrentDictionary<string, TaskCompletionSource<bool>> Approvals = new();
+    public ConcurrentDictionary<string, TaskCompletionSource<PlanDecision>> Plans = new();
+}
+
+/// <summary>用户对计划工具的决策：批准 / 驳回（可附修改意见）。</summary>
+public record PlanDecision(bool Approved, string Feedback)
+{
+    /// <summary>回传给模型的自然语言结论。</summary>
+    public string ToToolResult() => Approved
+        ? "用户已批准该计划，请严格按照计划的步骤依次执行。"
+        : string.IsNullOrWhiteSpace(Feedback)
+            ? "用户驳回了该计划，未给出原因。请修改计划后重新提交，不要继续执行。"
+            : $"用户驳回了该计划，修改意见：{Feedback}。请按意见调整后重新提交计划。";
 }
 
 /// <summary>
@@ -78,6 +102,18 @@ public class ToolExecutionService
             && state.Approvals.TryRemove(toolCallId, out var tcs))
         {
             tcs.TrySetResult(approved);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Submit a decision (approve/reject with optional feedback) for a pending plan in the given session.</summary>
+    public bool TrySetPlanDecision(string sessionId, string toolCallId, bool approved, string feedback)
+    {
+        if (_sessions.TryGet(sessionId, out var state)
+            && state.Plans.TryRemove(toolCallId, out var tcs))
+        {
+            tcs.TrySetResult(new PlanDecision(approved, feedback));
             return true;
         }
         return false;
@@ -128,7 +164,7 @@ public class ToolExecutionService
 
         foreach (var toolCall in toolCalls)
         {
-            bool isSilentTool = toolCall.Name is "todo" or "ask_question";
+            bool isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
 
             _logger.LogInformation("[ToolExec] writeJsonAsync tool_call id={Id} name={Name} session={SessionId}", toolCall.Id, toolCall.Name, sessionId);
             await writeJsonAsync(new
@@ -170,7 +206,7 @@ public class ToolExecutionService
             string resultContent;
             bool isError = false;
 
-            if (approval == ToolApprovalMode.Ask && toolCall.Name != "ask_question" && toolCall.Name != "todo")
+            if (approval == ToolApprovalMode.Ask && !InteractiveTools.IsInteractive(toolCall.Name))
             {
                 (resultContent, isError) = await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
             }
@@ -247,11 +283,14 @@ public class ToolExecutionService
     {
         try
         {
-            if (toolCall.Name == "ask_question")
+            if (toolCall.Name == InteractiveTools.AskQuestion)
                 return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct);
 
-            if (toolCall.Name == "todo")
+            if (toolCall.Name == InteractiveTools.Todo)
                 return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
+
+            if (toolCall.Name == InteractiveTools.Plan)
+                return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct);
 
             var result = await executor.ExecuteAsync(toolCall.Arguments, ct);
             return (result.Content, result.IsError);
@@ -286,6 +325,33 @@ public class ToolExecutionService
         finally
         {
             state.Questions.TryRemove(toolCall.Id, out _);
+        }
+    }
+
+    private async Task<(string content, bool isError)> HandlePlanAsync(
+        SessionPendingState state,
+        LlmToolCall toolCall,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct)
+    {
+        _logger.LogInformation("[ToolExec] plan pending toolCallId={ToolCallId}", toolCall.Id);
+        await writeJsonAsync(new { type = "plan", toolCallId = toolCall.Id, data = toolCall.Arguments });
+
+        var tcs = new TaskCompletionSource<PlanDecision>();
+        state.Plans[toolCall.Id] = tcs;
+
+        try
+        {
+            var decision = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
+            return (decision.ToToolResult(), false);
+        }
+        catch (TimeoutException)
+        {
+            return ("用户未在规定时间内确认计划，按驳回处理。请简化计划或直接执行最必要的步骤。", false);
+        }
+        finally
+        {
+            state.Plans.TryRemove(toolCall.Id, out _);
         }
     }
 

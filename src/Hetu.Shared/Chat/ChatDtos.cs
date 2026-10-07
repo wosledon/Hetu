@@ -173,6 +173,14 @@ public class ApprovalRequest
     public bool Approve { get; set; }
 }
 
+public class PlanDecisionRequest
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string ToolCallId { get; set; } = string.Empty;
+    public bool Approved { get; set; }
+    public string? Feedback { get; set; }
+}
+
 public class UpdateChatMessageRequest
 {
     public string Content { get; set; } = string.Empty;

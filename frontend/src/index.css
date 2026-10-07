@@ -129,6 +129,16 @@ body {
   100% { background-position: 200% 0; }
 }
 
+/* 输入框上方工具交互抽屉的滑入动画 */
+@keyframes drawerUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-drawer-up {
+  animation: drawerUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
