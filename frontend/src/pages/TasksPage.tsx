@@ -450,7 +450,7 @@ function ScheduledTaskRow({
         {/* Name + description */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={`truncate text-sm font-medium ${task.isEnabled ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
+            <span className={`block truncate text-sm font-medium ${task.isEnabled ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
               {task.name}
             </span>
             {!task.isEnabled && (
@@ -478,7 +478,7 @@ function ScheduledTaskRow({
             {task.targetName && (
               <>
                 <span>·</span>
-                <span className="truncate">{task.targetName}</span>
+                <span className="block min-w-0 truncate">{task.targetName}</span>
               </>
             )}
           </div>
@@ -1073,7 +1073,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         </div>
 
         {/* Type */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <TypeIcon size={14} className={typeInfo.color} />
           <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{typeInfo.label}</span>
         </div>
@@ -1081,9 +1081,9 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         {/* Entity */}
         <div className="min-w-0 flex-1">
           {task.entityTitle ? (
-            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{task.entityTitle}</span>
+            <span className="block truncate text-sm text-gray-700 dark:text-gray-300">{task.entityTitle}</span>
           ) : (
-            <span className="text-sm text-gray-400 dark:text-gray-500 font-mono text-xs">{task.entityId.slice(0, 8)}...</span>
+            <span className="block truncate font-mono text-xs text-gray-400 dark:text-gray-500">{task.entityId.slice(0, 8)}...</span>
           )}
         </div>
 
@@ -1107,7 +1107,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         {/* Delete */}
         <button
           onClick={onDelete}
-          className="rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+          className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400"
           title="删除记录"
         >
           <Trash2 size={13} />
