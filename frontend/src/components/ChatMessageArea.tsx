@@ -26,7 +26,7 @@ import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
-import type { IChatTopic, IPromptPreset, INotebook, IChatGroup } from '../types'
+import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -244,6 +244,24 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     queryFn: () => promptPresetService.getLocal(),
   })
 
+  // 专业智能体的技能白名单：选了指定了技能的专业智能体后，/ 菜单与技能识别只保留其可用技能。
+  // 存在无法映射到数据库技能的 ID（如本地技能）时放弃限制，避免误伤。
+  const allowedSkillNames = useMemo(() => {
+    const preset = selectedPreset
+    if (!preset || preset.agentType !== 'Professional' || !preset.skillIds) return null
+    let ids: unknown
+    try { ids = JSON.parse(preset.skillIds) } catch { return null }
+    if (!Array.isArray(ids) || ids.length === 0) return null
+    const names = new Set<string>()
+    for (const id of ids) {
+      if (typeof id !== 'string') return null
+      const skill = (skills as ISkill[]).find(s => s.id === id)
+      if (!skill) return null
+      names.add(skill.name)
+    }
+    return names
+  }, [selectedPreset, skills])
+
   // @ 提及数据源：标签 + 知识库（笔记按查询词动态检索）
   const { data: tags = [] } = useQuery({
     queryKey: ['tags'],
@@ -265,13 +283,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     const items: { key: string; label: string; description: string; icon: React.ReactNode; type: 'skill' | 'agent' }[] = []
     const seenNames = new Set<string>()
     for (const s of skills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
-      if (s.isEnabled && !seenNames.has(s.name)) {
+      if (s.isEnabled && !seenNames.has(s.name) && (!allowedSkillNames || allowedSkillNames.has(s.name))) {
         seenNames.add(s.name)
         items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description || '', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
       }
     }
     for (const s of localSkills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
-      if (s.isEnabled && !seenNames.has(s.name)) {
+      if (s.isEnabled && !seenNames.has(s.name) && (!allowedSkillNames || allowedSkillNames.has(s.name))) {
         seenNames.add(s.name)
         items.push({ key: `local:${s.name}`, label: `/${s.name}`, description: s.description || '', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
       }
@@ -283,7 +301,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       items.push({ key: `agent-local:${p.id}`, label: `/${p.name}`, description: p.category || '本地', icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
     }
     return items
-  }, [skills, localSkills, presets, localPresets])
+  }, [skills, localSkills, presets, localPresets, allowedSkillNames])
 
   const slashQuery = input.startsWith('/') && !input.includes(' ') ? input.slice(1).toLowerCase() : ''
   const showSlashMenu = !selectedSlashItem && slashQuery.length >= 0 && input.startsWith('/') && !input.includes(' ') && !isStreaming && slashItems.length > 0
@@ -658,7 +676,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       const name = skillMatch[1]
       const skill = skills.find((s) => s.name === name && s.isEnabled)
       const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
-      if (skill || localSkill) detectedSkillName = name
+      const skillAllowed = !allowedSkillNames || (!!skill && allowedSkillNames.has(skill.name)) || (!!localSkill && allowedSkillNames.has(localSkill.name))
+      if ((skill || localSkill) && skillAllowed) detectedSkillName = name
       const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
       if (preset) {
         detectedAgentId = preset.id
@@ -1230,9 +1249,31 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
       <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
         {selectedPreset && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20">
-            <Bot size={14} className="text-indigo-500" />
-            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">智能体：{selectedPreset.name}</span>
+          <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${
+            selectedPreset.agentType === 'Professional'
+              ? 'border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-900/20'
+              : 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20'
+          }`}>
+            {selectedPreset.agentType === 'Professional'
+              ? <Brain size={14} className="text-violet-500" />
+              : <Bot size={14} className="text-indigo-500" />}
+            <span className={`text-xs font-medium ${
+              selectedPreset.agentType === 'Professional'
+                ? 'text-violet-600 dark:text-violet-400'
+                : 'text-indigo-600 dark:text-indigo-400'
+            }`}>
+              智能体：{selectedPreset.name}
+            </span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+              selectedPreset.agentType === 'Professional'
+                ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
+            }`}>
+              {selectedPreset.agentType === 'Professional' ? '专业' : '通用'}
+            </span>
+            {allowedSkillNames && (
+              <span className="text-[10px] text-gray-400">仅可用 {allowedSkillNames.size} 个技能</span>
+            )}
             <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
           </div>
         )}
@@ -1504,9 +1545,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                               className={`w-full rounded-lg px-3 py-1.5 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                             >
                               <div className="flex items-center gap-2">
-                                <Bot size={12} className="shrink-0 text-indigo-400" />
+                                {p.agentType === 'Professional'
+                                  ? <Brain size={12} className="shrink-0 text-violet-400" />
+                                  : <Bot size={12} className="shrink-0 text-indigo-400" />}
                                 <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
-                                {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
+                                {p.agentType === 'Professional' && (
+                                  <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">专业</span>
+                                )}
+                                {selectedPreset?.id === p.id && <Check size={12} className="ml-auto shrink-0 text-indigo-500" />}
                               </div>
                             </button>
                           ))}
@@ -1522,6 +1568,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                               variables: p.variables,
                               toolsConfig: p.toolsConfig,
                               isBuiltIn: false,
+                              agentType: 'General',
                               sortOrder: 0,
                               createdAt: '',
                               updatedAt: '',

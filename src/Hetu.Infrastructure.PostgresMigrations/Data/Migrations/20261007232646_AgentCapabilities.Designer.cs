@@ -3,6 +3,7 @@ using System;
 using Hetu.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Pgvector;
 namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 {
     [DbContext(typeof(HetuDbContext))]
-    partial class HetuDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007232646_AgentCapabilities")]
+    partial class AgentCapabilities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1083,10 +1086,8 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.Property<string>("AgentType")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("General");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Category")
                         .IsRequired()

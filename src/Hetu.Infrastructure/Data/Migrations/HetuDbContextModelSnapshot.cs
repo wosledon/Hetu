@@ -1059,6 +1059,13 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AgentType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("General");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1074,13 +1081,26 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<bool>("IsBuiltIn")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ReasoningEffort")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SkillIds")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("SubAgentIds")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ToolsConfig")
                         .HasColumnType("TEXT");

@@ -42,6 +42,11 @@ public class PromptPresetsController : ControllerBase
     public Task<ApiResponse<PromptPresetDto>> Create([FromBody] CreatePromptPresetRequest request, CancellationToken cancellationToken)
         => _promptPresetService.CreateAsync(request, cancellationToken);
 
+    /// <summary>从通用智能体创建专业智能体：复用其提示词与工具配置，生成专业版草稿</summary>
+    [HttpPost("{id:guid}/create-professional")]
+    public Task<ApiResponse<PromptPresetDto>> CreateProfessionalFrom(Guid id, CancellationToken cancellationToken)
+        => _promptPresetService.CreateProfessionalFromAsync(id, cancellationToken);
+
     [HttpPut("{id:guid}")]
     public Task<ApiResponse<PromptPresetDto>> Update(Guid id, [FromBody] UpdatePromptPresetRequest request, CancellationToken cancellationToken)
         => _promptPresetService.UpdateAsync(id, request, cancellationToken);
