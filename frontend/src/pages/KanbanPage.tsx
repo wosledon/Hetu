@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
+import DatePicker from '../components/DatePicker'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
 import type {
@@ -376,9 +377,9 @@ export default function KanbanPage() {
                     <textarea
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      rows={3}
+                      rows={6}
                       placeholder="补充背景、验收标准等（可选）"
-                      className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
+                      className="w-full min-h-[120px] resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -416,11 +417,11 @@ export default function KanbanPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">截止日期</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         value={form.dueDate}
-                        onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+                        onChange={(dueDate) => setForm({ ...form, dueDate })}
+                        placeholder="未设置"
+                        triggerClassName={formSelectTriggerCls}
                       />
                     </div>
                   </div>
