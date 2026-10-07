@@ -128,6 +128,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<SearchQueryRewriter>();
         services.AddScoped<IMemoryService, MemoryService>();
         services.AddScoped<IKanbanTaskService, KanbanTaskService>();
+        services.AddScoped<IKanbanTaskExecutor, KanbanTaskExecutor>();
         services.AddScoped<ISkillService, SkillService>();
         services.AddScoped<ILocalSkillService, LocalSkillService>();
         services.AddScoped<IPromptPresetService, PromptPresetService>();

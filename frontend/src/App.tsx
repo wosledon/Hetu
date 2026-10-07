@@ -16,6 +16,7 @@ const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage'))
 const SharedNotePage = lazy(() => import('./pages/SharedNotePage'))
 const TasksPage = lazy(() => import('./pages/TasksPage'))
 const KanbanPage = lazy(() => import('./pages/KanbanPage'))
+const KanbanTaskDetailPage = lazy(() => import('./pages/KanbanTaskDetailPage'))
 const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
 const ModelsPage = lazy(() => import('./pages/ModelsPage'))
 const WorkPage = lazy(() => import('./pages/WorkPage'))
@@ -71,6 +72,7 @@ function App() {
         <Route path="/tasks/background" element={<TasksPage mode="background" />} />
         <Route path="/tasks/scheduled" element={<TasksPage mode="scheduled" />} />
         <Route path="/kanban" element={<KanbanPage />} />
+        <Route path="/kanban/:taskId" element={<KanbanTaskDetailPage />} />
         <Route path="/memories" element={<MemoriesPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/work" element={<WorkPage />} />

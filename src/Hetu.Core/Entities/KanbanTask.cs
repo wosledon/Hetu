@@ -38,7 +38,73 @@ public class KanbanTask : BaseEntity
     /// <summary>归档时间（Status 变为 Archived 时记录，看板仅展示 7 天内归档）</summary>
     public DateTimeOffset? ArchivedAt { get; set; }
 
+    /// <summary>关联的项目管理条目（任务在哪个项目中执行）</summary>
+    public Guid? ProjectId { get; set; }
+
+    /// <summary>关联的智能体（PromptPreset）；与 WorkflowId 至少其一非空时进入待办即自动触发</summary>
+    public Guid? AgentId { get; set; }
+
+    /// <summary>关联的工作流；进入待办即自动触发</summary>
+    public Guid? WorkflowId { get; set; }
+
+    /// <summary>最近一次自动触发的执行 ID（KanbanTaskRun）</summary>
+    public Guid? LastRunId { get; set; }
+
     /// <summary>是否软删除</summary>
     public bool IsDeleted { get; set; }
+}
+
+/// <summary>
+/// 任务评论 / 执行流水：PR-Issue 式时间线。
+/// 作者类型：User 用户 / Agent 智能体 / System 系统 / Workflow 工作流
+/// </summary>
+public class KanbanTaskComment : BaseEntity
+{
+    public Guid TaskId { get; set; }
+
+    /// <summary>User / Agent / System / Workflow</summary>
+    public string AuthorType { get; set; } = "User";
+
+    /// <summary>作者展示名（智能体名 / 工作流名 / 用户）</summary>
+    public string AuthorName { get; set; } = string.Empty;
+
+    /// <summary>正文（Markdown）</summary>
+    public string Content { get; set; } = string.Empty;
+
+    /// <summary>关联的执行记录（Agent/System 评论由某次执行产生）</summary>
+    public Guid? RunId { get; set; }
+
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>
+/// 任务执行记录：智能体或工作流的一次运行，含输入输出与状态
+/// </summary>
+public class KanbanTaskRun : BaseEntity
+{
+    public Guid TaskId { get; set; }
+
+    /// <summary>Agent / Workflow</summary>
+    public string Kind { get; set; } = "Agent";
+
+    /// <summary>触发来源：Todo 进入待办 / Comment 用户评论 / Manual 手动重跑</summary>
+    public string Trigger { get; set; } = "Todo";
+
+    /// <summary>Running / Succeeded / Failed</summary>
+    public string Status { get; set; } = "Running";
+
+    /// <summary>本次执行的提示词输入（任务简报 + 评论）</summary>
+    public string? Input { get; set; }
+
+    /// <summary>执行输出（智能体最终答复 / 工作流输出）</summary>
+    public string? Output { get; set; }
+
+    public string? Error { get; set; }
+
+    /// <summary>工作流运行时关联的 WorkflowRunId（Kind = Workflow）</summary>
+    public Guid? WorkflowRunId { get; set; }
+
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
 }
 

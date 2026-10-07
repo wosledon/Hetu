@@ -36,6 +36,21 @@ public class KanbanTasksController : ControllerBase
     public Task<ApiResponse<KanbanTaskDto>> Update(Guid id, [FromBody] UpdateKanbanTaskRequest request, CancellationToken cancellationToken)
         => _kanbanTaskService.UpdateAsync(id, request, cancellationToken);
 
+    /// <summary>任务详情：任务本体 + 时间线评论 + 执行记录</summary>
+    [HttpGet("{id:guid}/detail")]
+    public Task<ApiResponse<KanbanTaskDetailDto>> GetDetail(Guid id, CancellationToken cancellationToken)
+        => _kanbanTaskService.GetDetailAsync(id, cancellationToken);
+
+    /// <summary>提交评论；审核中/已阻塞且配置了智能体/工作流时，任务回到进行中并重新处理</summary>
+    [HttpPost("{id:guid}/comments")]
+    public Task<ApiResponse<KanbanTaskDetailDto>> AddComment(Guid id, [FromBody] CreateKanbanTaskCommentRequest request, CancellationToken cancellationToken)
+        => _kanbanTaskService.AddCommentAsync(id, request, cancellationToken);
+
+    /// <summary>手动重新触发一次执行（任务需在待办列）</summary>
+    [HttpPost("{id:guid}/rerun")]
+    public Task<ApiResponse<KanbanTaskDto>> Rerun(Guid id, CancellationToken cancellationToken)
+        => _kanbanTaskService.RerunAsync(id, cancellationToken);
+
     /// <summary>流转：移动到目标列并指定列内位置</summary>
     [HttpPut("{id:guid}/move")]
     public Task<ApiResponse<KanbanTaskDto>> Move(Guid id, [FromBody] MoveKanbanTaskRequest request, CancellationToken cancellationToken)

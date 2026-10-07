@@ -32,5 +32,8 @@ public class InboxNotification : BaseEntity
     /// <summary>合并次数：同一合并键累计触达次数（首次为 1）</summary>
     public int OccurrenceCount { get; set; } = 1;
 
+    /// <summary>点击通知跳转的应用内路径（如任务详情 /kanban/{taskId}）</summary>
+    public string? Link { get; set; }
+
     public bool IsDeleted { get; set; }
 }

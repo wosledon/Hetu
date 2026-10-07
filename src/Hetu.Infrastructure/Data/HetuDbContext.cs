@@ -31,6 +31,8 @@ public class HetuDbContext : DbContext
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
     public DbSet<KanbanTask> KanbanTasks => Set<KanbanTask>();
+    public DbSet<KanbanTaskComment> KanbanTaskComments => Set<KanbanTaskComment>();
+    public DbSet<KanbanTaskRun> KanbanTaskRuns => Set<KanbanTaskRun>();
     public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
     public DbSet<ScheduledTaskExecution> ScheduledTaskExecutions => Set<ScheduledTaskExecution>();
     public DbSet<InboxNotification> InboxNotifications => Set<InboxNotification>();
@@ -350,7 +352,34 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.SortOrder);
             entity.HasIndex(e => e.IsDeleted);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.AgentId);
+            entity.HasIndex(e => e.WorkflowId);
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<KanbanTaskComment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AuthorType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AuthorName).HasMaxLength(200);
+            entity.Property(e => e.Content).IsRequired();
+            entity.HasIndex(e => e.TaskId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<KanbanTaskRun>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Trigger).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Input);
+            entity.Property(e => e.Output);
+            entity.Property(e => e.Error).HasMaxLength(4000);
+            entity.HasIndex(e => e.TaskId);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         modelBuilder.Entity<ScheduledTaskExecution>(entity =>
@@ -371,6 +400,7 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Level).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Content).HasMaxLength(4000);
+            entity.Property(e => e.Link).HasMaxLength(500);
             entity.HasIndex(e => e.CategoryKey);
             entity.HasIndex(e => e.IsArchived);
             entity.HasIndex(e => e.UpdatedAt);

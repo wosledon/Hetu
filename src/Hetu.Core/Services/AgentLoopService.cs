@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Core.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,8 @@ public class AgentLoopRequest
     public Dictionary<string, ToolApprovalMode> ToolApprovals { get; set; } = new();
     public string SessionId { get; set; } = "";
     public IAgentLoopSink? Sink { get; set; }
+    /// <summary>工作项目作用域：非空时 work_* 工具在该项目目录（或 SSH 远端）内执行</summary>
+    public WorkToolScope? WorkScope { get; set; }
 }
 
 /// <summary>
@@ -232,7 +235,9 @@ public class AgentLoopService
                         _logger.LogInformation("[AgentLoop] ignoring event type={EventType}", tEl2.GetString());
                     }
                 },
-                ct);
+                ct,
+                decideToolCall: null,
+                workScope: request.WorkScope);
 
             foreach (var (toolCallId, content2, resultIsError) in toolResults)
             {

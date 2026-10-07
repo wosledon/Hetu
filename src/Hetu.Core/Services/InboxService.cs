@@ -90,6 +90,7 @@ public class InboxService
             notification.Level = level;
             notification.Title = title;
             notification.Content = content;
+            notification.Link = request.Link;
             notification.IsRead = false;
             notification.IsArchived = false;
             notification.OccurrenceCount += 1;
@@ -106,6 +107,7 @@ public class InboxService
                 Level = level,
                 Title = title,
                 Content = content,
+                Link = request.Link,
                 OccurrenceCount = 1,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -203,6 +205,7 @@ public class InboxService
         IsRead = n.IsRead,
         IsArchived = n.IsArchived,
         OccurrenceCount = n.OccurrenceCount,
+        Link = n.Link,
         CreatedAt = n.CreatedAt,
         UpdatedAt = n.UpdatedAt,
     };

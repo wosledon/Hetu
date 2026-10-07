@@ -1,6 +1,7 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Infrastructure.Data;
+using Hetu.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -235,6 +236,11 @@ public class BackgroundTaskProcessor : BackgroundService
             case BackgroundTaskType.GenerateKnowledgeItemEmbedding:
                 var kiEmbeddingService = sp.GetRequiredService<INoteEmbeddingService>();
                 await kiEmbeddingService.GenerateKnowledgeItemEmbeddingAsync(item.EntityId, ct);
+                break;
+
+            case BackgroundTaskType.KanbanTaskExecute:
+                var taskExecutor = sp.GetRequiredService<IKanbanTaskExecutor>();
+                await taskExecutor.ExecuteAsync(item.EntityId, ct);
                 break;
 
             default:

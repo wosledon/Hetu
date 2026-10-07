@@ -11,10 +11,12 @@ public class KanbanTaskService : IKanbanTaskService
     private static readonly TimeSpan ArchivedWindow = TimeSpan.FromDays(7);
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IKanbanTaskExecutor _executor;
 
-    public KanbanTaskService(IUnitOfWork unitOfWork)
+    public KanbanTaskService(IUnitOfWork unitOfWork, IKanbanTaskExecutor executor)
     {
         _unitOfWork = unitOfWork;
+        _executor = executor;
     }
 
     public async Task<ApiResponse<KanbanBoardDto>> GetBoardAsync(CancellationToken cancellationToken = default)
@@ -24,17 +26,17 @@ public class KanbanTaskService : IKanbanTaskService
 
         var board = new KanbanBoardDto
         {
-            Backlog = ColumnOf(tasks, KanbanTaskStatuses.Backlog),
-            Todo = ColumnOf(tasks, KanbanTaskStatuses.Todo),
-            InProgress = ColumnOf(tasks, KanbanTaskStatuses.InProgress),
-            InReview = ColumnOf(tasks, KanbanTaskStatuses.InReview),
-            Blocked = ColumnOf(tasks, KanbanTaskStatuses.Blocked),
-            Done = ColumnOf(tasks, KanbanTaskStatuses.Done),
-            Archived = tasks
+            Backlog = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.Backlog), cancellationToken),
+            Todo = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.Todo), cancellationToken),
+            InProgress = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.InProgress), cancellationToken),
+            InReview = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.InReview), cancellationToken),
+            Blocked = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.Blocked), cancellationToken),
+            Done = await EnrichAsync(ColumnEntitiesOf(tasks, KanbanTaskStatuses.Done), cancellationToken),
+            Archived = await EnrichAsync(tasks
                 .Where(t => t.Status == KanbanTaskStatuses.Archived)
                 .Where(t => t.ArchivedAt != null && t.ArchivedAt >= now - ArchivedWindow)
                 .OrderBy(t => t.SortOrder).ThenByDescending(t => t.ArchivedAt)
-                .Select(MapToDto).ToList(),
+                .ToList(), cancellationToken),
             Stats = BuildStats(tasks, now),
         };
 
@@ -45,7 +47,50 @@ public class KanbanTaskService : IKanbanTaskService
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
         if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
-        return ApiResponse<KanbanTaskDto>.Ok(MapToDto(task));
+        return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
+    }
+
+    /// <summary>批量回填：一次加载字典，避免 N+1 查询</summary>
+    private async Task<List<KanbanTaskDto>> EnrichAsync(List<KanbanTask> tasks, CancellationToken cancellationToken)
+    {
+        if (tasks.Count == 0) return [];
+
+        var projectIds = tasks.Where(t => t.ProjectId != null).Select(t => t.ProjectId!.Value).Distinct().ToList();
+        var agentIds = tasks.Where(t => t.AgentId != null).Select(t => t.AgentId!.Value).Distinct().ToList();
+        var workflowIds = tasks.Where(t => t.WorkflowId != null).Select(t => t.WorkflowId!.Value).Distinct().ToList();
+        var runIds = tasks.Where(t => t.LastRunId != null).Select(t => t.LastRunId!.Value).Distinct().ToList();
+        var taskIds = tasks.Select(t => t.Id).ToList();
+
+        var projectNames = projectIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken))
+                .Where(p => projectIds.Contains(p.Id)).ToDictionary(p => p.Id, p => p.Name);
+        var agentNames = agentIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.PromptPresets.GetAllAsync(cancellationToken))
+                .Where(p => agentIds.Contains(p.Id)).ToDictionary(p => p.Id, p => p.Name);
+        var workflowNames = workflowIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.Workflows.GetAllAsync(cancellationToken))
+                .Where(w => workflowIds.Contains(w.Id)).ToDictionary(w => w.Id, w => w.Name);
+        var runStatuses = runIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.KanbanTaskRuns.GetAllAsync(cancellationToken))
+                .Where(r => runIds.Contains(r.Id)).ToDictionary(r => r.Id, r => r.Status);
+        var commentCounts = (await _unitOfWork.KanbanTaskComments.GetAllAsync(cancellationToken))
+            .Where(c => !c.IsDeleted && taskIds.Contains(c.TaskId))
+            .GroupBy(c => c.TaskId).ToDictionary(g => g.Key, g => g.Count());
+
+        return tasks.Select(t =>
+        {
+            var dto = MapToDto(t);
+            if (t.ProjectId != null) dto.ProjectName = projectNames.GetValueOrDefault(t.ProjectId.Value);
+            if (t.AgentId != null) dto.AgentName = agentNames.GetValueOrDefault(t.AgentId.Value);
+            if (t.WorkflowId != null) dto.WorkflowName = workflowNames.GetValueOrDefault(t.WorkflowId.Value);
+            if (t.LastRunId != null) dto.LastRunStatus = runStatuses.GetValueOrDefault(t.LastRunId.Value);
+            dto.CommentCount = commentCounts.GetValueOrDefault(t.Id);
+            return dto;
+        }).ToList();
     }
 
     public async Task<ApiResponse<KanbanTaskDto>> CreateAsync(CreateKanbanTaskRequest request, CancellationToken cancellationToken = default)
@@ -68,6 +113,9 @@ public class KanbanTaskService : IKanbanTaskService
             BlockedReason = status == KanbanTaskStatuses.Blocked ? request.BlockedReason?.Trim() : null,
             CompletedAt = status == KanbanTaskStatuses.Done ? now : null,
             ArchivedAt = status == KanbanTaskStatuses.Archived ? now : null,
+            ProjectId = request.ProjectId,
+            AgentId = request.AgentId,
+            WorkflowId = request.WorkflowId,
             SortOrder = await NextSortOrderAsync(status, cancellationToken),
             CreatedAt = now,
             UpdatedAt = now,
@@ -76,7 +124,9 @@ public class KanbanTaskService : IKanbanTaskService
         await _unitOfWork.KanbanTasks.AddAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<KanbanTaskDto>.Ok(MapToDto(task));
+        await TriggerAutomationAsync(task, "Todo", cancellationToken);
+
+        return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
     }
 
     public async Task<ApiResponse<KanbanTaskDto>> UpdateAsync(Guid id, UpdateKanbanTaskRequest request, CancellationToken cancellationToken = default)
@@ -88,6 +138,7 @@ public class KanbanTaskService : IKanbanTaskService
             return ApiResponse<KanbanTaskDto>.Fail("任务标题不能为空");
 
         var status = NormalizeStatus(request.Status);
+        var statusChanged = task.Status != status;
         task.Title = request.Title.Trim();
         task.Description = request.Description?.Trim();
         task.Status = status;
@@ -95,6 +146,9 @@ public class KanbanTaskService : IKanbanTaskService
         task.Assignee = request.Assignee?.Trim();
         task.Tags = request.Tags?.Trim();
         task.DueDate = request.DueDate;
+        task.ProjectId = request.ProjectId;
+        task.AgentId = request.AgentId;
+        task.WorkflowId = request.WorkflowId;
         task.BlockedReason = status == KanbanTaskStatuses.Blocked
             ? (request.BlockedReason?.Trim() ?? task.BlockedReason)
             : null;
@@ -104,7 +158,9 @@ public class KanbanTaskService : IKanbanTaskService
         await _unitOfWork.KanbanTasks.UpdateAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<KanbanTaskDto>.Ok(MapToDto(task));
+        if (statusChanged) await TriggerAutomationAsync(task, "Todo", cancellationToken);
+
+        return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
     }
 
     public async Task<ApiResponse<KanbanTaskDto>> MoveAsync(Guid id, MoveKanbanTaskRequest request, CancellationToken cancellationToken = default)
@@ -131,8 +187,92 @@ public class KanbanTaskService : IKanbanTaskService
         await _unitOfWork.KanbanTasks.UpdateAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 预留：自动化规则钩子（如到期提醒、自动归档、流转通知）稍后实现
-        return ApiResponse<KanbanTaskDto>.Ok(MapToDto(task));
+        // 进入待办即触发自动处理（仅配置了智能体/工作流时）
+        await TriggerAutomationAsync(task, "Todo", cancellationToken);
+
+        return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
+    }
+
+    public async Task<ApiResponse<KanbanTaskDetailDto>> GetDetailAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail("任务不存在");
+
+        var comments = await _unitOfWork.KanbanTaskComments.FindAsync(c => c.TaskId == id, cancellationToken);
+        var runs = await _unitOfWork.KanbanTaskRuns.FindAsync(r => r.TaskId == id, cancellationToken);
+
+        return ApiResponse<KanbanTaskDetailDto>.Ok(new KanbanTaskDetailDto
+        {
+            Task = await EnrichDtoAsync(task, cancellationToken),
+            Comments = comments
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.CreatedAt)
+                .Select(MapComment).ToList(),
+            Runs = runs
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(MapRun).ToList(),
+        });
+    }
+
+    public async Task<ApiResponse<KanbanTaskDetailDto>> AddCommentAsync(
+        Guid id, CreateKanbanTaskCommentRequest request, CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail("任务不存在");
+
+        var content = request.Content?.Trim();
+        if (string.IsNullOrWhiteSpace(content)) return ApiResponse<KanbanTaskDetailDto>.Fail("评论内容不能为空");
+
+        var now = DateTimeOffset.UtcNow;
+        await _unitOfWork.KanbanTaskComments.AddAsync(new KanbanTaskComment
+        {
+            Id = Guid.NewGuid(),
+            TaskId = id,
+            AuthorType = "User",
+            AuthorName = "我",
+            Content = content,
+            CreatedAt = now,
+            UpdatedAt = now,
+        }, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 用户在审核中/已阻塞下提交评论：任务回到进行中，由智能体根据评论继续处理
+        var needsRework = request.TriggerAutomation
+            && (task.AgentId != null || task.WorkflowId != null)
+            && task.Status is KanbanTaskStatuses.InReview or KanbanTaskStatuses.Blocked;
+        if (needsRework)
+        {
+            task.Status = KanbanTaskStatuses.InProgress;
+            task.BlockedReason = null;
+            task.CompletedAt = null;
+            task.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.KanbanTasks.UpdateAsync(task, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _executor.TriggerAsync(id, "Comment", cancellationToken);
+        }
+
+        return await GetDetailAsync(id, cancellationToken);
+    }
+
+    public async Task<ApiResponse<KanbanTaskDto>> RerunAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
+        if (task.Status != KanbanTaskStatuses.Todo)
+            return ApiResponse<KanbanTaskDto>.Fail("仅待办状态的任务可以重新执行");
+
+        await TriggerAutomationAsync(task, "Manual", cancellationToken);
+        return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
+    }
+
+    /// <summary>
+    /// 进入待办（或手动重跑）时触发自动处理：只对配置了智能体/工作流的任务生效。
+    /// trigger 仅用于执行记录的来源标记，状态为待办时由执行器流转到进行中。
+    /// </summary>
+    private async Task TriggerAutomationAsync(KanbanTask task, string trigger, CancellationToken cancellationToken)
+    {
+        if (task.IsDeleted || task.Status != KanbanTaskStatuses.Todo) return;
+        await _executor.TriggerAsync(task.Id, trigger, cancellationToken);
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -209,6 +349,11 @@ public class KanbanTaskService : IKanbanTaskService
         .Select(MapToDto)
         .ToList();
 
+    private static List<KanbanTask> ColumnEntitiesOf(IReadOnlyList<KanbanTask> tasks, string status) => tasks
+        .Where(t => t.Status == status)
+        .OrderBy(t => t.SortOrder).ThenBy(t => t.CreatedAt)
+        .ToList();
+
     private static KanbanTaskStatsDto BuildStats(IReadOnlyList<KanbanTask> tasks, DateTimeOffset now)
     {
         var active = tasks.Where(t => t.Status is not (KanbanTaskStatuses.Archived));
@@ -255,7 +400,68 @@ public class KanbanTaskService : IKanbanTaskService
         BlockedReason = t.BlockedReason,
         CompletedAt = t.CompletedAt,
         ArchivedAt = t.ArchivedAt,
+        ProjectId = t.ProjectId,
+        AgentId = t.AgentId,
+        WorkflowId = t.WorkflowId,
+        LastRunId = t.LastRunId,
         CreatedAt = t.CreatedAt,
         UpdatedAt = t.UpdatedAt,
     };
+
+    private static KanbanTaskCommentDto MapComment(KanbanTaskComment c) => new()
+    {
+        Id = c.Id,
+        TaskId = c.TaskId,
+        AuthorType = c.AuthorType,
+        AuthorName = c.AuthorName,
+        Content = c.Content,
+        RunId = c.RunId,
+        CreatedAt = c.CreatedAt,
+    };
+
+    private static KanbanTaskRunDto MapRun(KanbanTaskRun r) => new()
+    {
+        Id = r.Id,
+        TaskId = r.TaskId,
+        Kind = r.Kind,
+        Trigger = r.Trigger,
+        Status = r.Status,
+        Output = r.Output,
+        Error = r.Error,
+        WorkflowRunId = r.WorkflowRunId,
+        StartedAt = r.StartedAt,
+        CompletedAt = r.CompletedAt,
+        CreatedAt = r.CreatedAt,
+    };
+
+    /// <summary>回填项目/智能体/工作流名称、最近执行状态与评论数</summary>
+    private async Task<KanbanTaskDto> EnrichDtoAsync(KanbanTask task, CancellationToken cancellationToken)
+    {
+        var dto = MapToDto(task);
+
+        if (task.ProjectId != null)
+        {
+            var project = await _unitOfWork.ManagedProjects.GetByIdAsync(task.ProjectId.Value, cancellationToken);
+            dto.ProjectName = project?.Name;
+        }
+        if (task.AgentId != null)
+        {
+            var agent = await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId.Value, cancellationToken);
+            dto.AgentName = agent?.Name;
+        }
+        if (task.WorkflowId != null)
+        {
+            var workflow = await _unitOfWork.Workflows.GetByIdAsync(task.WorkflowId.Value, cancellationToken);
+            dto.WorkflowName = workflow?.Name;
+        }
+        if (task.LastRunId != null)
+        {
+            var run = await _unitOfWork.KanbanTaskRuns.GetByIdAsync(task.LastRunId.Value, cancellationToken);
+            dto.LastRunStatus = run?.Status;
+        }
+
+        var comments = await _unitOfWork.KanbanTaskComments.FindAsync(c => c.TaskId == task.Id, cancellationToken);
+        dto.CommentCount = comments.Count(c => !c.IsDeleted);
+        return dto;
+    }
 }

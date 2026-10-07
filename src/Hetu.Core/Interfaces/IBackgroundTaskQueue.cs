@@ -7,7 +7,9 @@ public enum BackgroundTaskType
 {
     GenerateEmbedding,
     GraphExtract,
-    GenerateKnowledgeItemEmbedding
+    GenerateKnowledgeItemEmbedding,
+    /// <summary>看板任务自动执行（智能体 / 工作流）</summary>
+    KanbanTaskExecute
 }
 
 /// <summary>

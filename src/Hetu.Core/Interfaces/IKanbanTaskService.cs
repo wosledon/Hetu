@@ -11,6 +11,15 @@ public interface IKanbanTaskService
     /// <summary>获取单个任务</summary>
     Task<ApiResponse<KanbanTaskDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>任务详情：任务本体 + 时间线评论 + 执行记录</summary>
+    Task<ApiResponse<KanbanTaskDetailDto>> GetDetailAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>提交评论；审核中/已阻塞且配置了自动处理时，任务回到进行中并重新处理</summary>
+    Task<ApiResponse<KanbanTaskDetailDto>> AddCommentAsync(Guid id, CreateKanbanTaskCommentRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>手动重新触发一次执行（任务需在待办列）</summary>
+    Task<ApiResponse<KanbanTaskDto>> RerunAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>创建任务</summary>
     Task<ApiResponse<KanbanTaskDto>> CreateAsync(CreateKanbanTaskRequest request, CancellationToken cancellationToken = default);
 

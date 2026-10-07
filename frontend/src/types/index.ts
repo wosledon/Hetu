@@ -417,8 +417,48 @@ export interface IKanbanTask {
   blockedReason?: string;
   completedAt?: string;
   archivedAt?: string;
+  projectId?: string;
+  projectName?: string;
+  agentId?: string;
+  agentName?: string;
+  workflowId?: string;
+  workflowName?: string;
+  hasAutomation: boolean;
+  lastRunStatus?: 'Running' | 'Succeeded' | 'Failed';
+  lastRunId?: string;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IKanbanTaskComment {
+  id: string;
+  taskId: string;
+  authorType: 'User' | 'Agent' | 'System' | 'Workflow';
+  authorName: string;
+  content: string;
+  runId?: string;
+  createdAt: string;
+}
+
+export interface IKanbanTaskRun {
+  id: string;
+  taskId: string;
+  kind: 'Agent' | 'Workflow';
+  trigger: 'Todo' | 'Comment' | 'Manual';
+  status: 'Running' | 'Succeeded' | 'Failed';
+  output?: string;
+  error?: string;
+  workflowRunId?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface IKanbanTaskDetail {
+  task: IKanbanTask;
+  comments: IKanbanTaskComment[];
+  runs: IKanbanTaskRun[];
 }
 
 export interface IKanbanTaskStats {
@@ -450,6 +490,9 @@ export interface IKanbanTaskForm {
   tags: string;
   dueDate: string;
   blockedReason: string;
+  projectId: string;
+  agentId: string;
+  workflowId: string;
 }
 
 export interface IKanbanTaskMove {
@@ -473,6 +516,8 @@ export interface IInboxNotification {
   isRead: boolean;
   isArchived: boolean;
   occurrenceCount: number;
+  /** 点击通知跳转的应用内路径 */
+  link?: string;
   createdAt: string;
   updatedAt: string;
 }

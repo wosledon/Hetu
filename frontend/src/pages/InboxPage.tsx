@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { confirm } from '../components/confirm'
 import {
@@ -51,6 +52,7 @@ function formatTime(dateStr: string): string {
 }
 
 export default function InboxPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [archived, setArchived] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
@@ -125,6 +127,8 @@ export default function InboxPage() {
 
   const handleItemClick = (item: IInboxNotification) => {
     if (!item.isRead) markReadMutation.mutate({ id: item.id, isRead: true })
+    // 配置了跳转链接的通知（如看板任务）点击后进入对应页面
+    if (item.link) navigate(item.link)
   }
 
   return (

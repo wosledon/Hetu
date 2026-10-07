@@ -67,6 +67,21 @@ public class KanbanTaskDto
     public string? BlockedReason { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
     public DateTimeOffset? ArchivedAt { get; set; }
+    /// <summary>执行项目（项目管理条目）</summary>
+    public Guid? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
+    /// <summary>自动处理的智能体</summary>
+    public Guid? AgentId { get; set; }
+    public string? AgentName { get; set; }
+    /// <summary>自动处理的工作流</summary>
+    public Guid? WorkflowId { get; set; }
+    public string? WorkflowName { get; set; }
+    /// <summary>是否配置了自动处理（智能体或工作流）</summary>
+    public bool HasAutomation => AgentId != null || WorkflowId != null;
+    /// <summary>最近一次执行状态：Running / Succeeded / Failed</summary>
+    public string? LastRunStatus { get; set; }
+    public Guid? LastRunId { get; set; }
+    public int CommentCount { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -81,13 +96,14 @@ public class CreateKanbanTaskRequest
     public string? Tags { get; set; }
     public DateTimeOffset? DueDate { get; set; }
     public string? BlockedReason { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? AgentId { get; set; }
+    public Guid? WorkflowId { get; set; }
 }
 
 public class UpdateKanbanTaskRequest : CreateKanbanTaskRequest { }
 
-/// <summary>
-/// 流转请求：移动到目标列并指定列内位置
-/// </summary>
+/// <summary>流转请求：移动到目标列并指定列内位置</summary>
 public class MoveKanbanTaskRequest
 {
     public string Status { get; set; } = KanbanTaskStatuses.Backlog;
@@ -97,6 +113,53 @@ public class MoveKanbanTaskRequest
 
     /// <summary>阻塞原因（目标为 Blocked 时填写）</summary>
     public string? BlockedReason { get; set; }
+}
+
+/// <summary>任务评论（时间线条目）</summary>
+public class KanbanTaskCommentDto
+{
+    public Guid Id { get; set; }
+    public Guid TaskId { get; set; }
+    /// <summary>User / Agent / System / Workflow</summary>
+    public string AuthorType { get; set; } = "User";
+    public string AuthorName { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public Guid? RunId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class CreateKanbanTaskCommentRequest
+{
+    public string Content { get; set; } = string.Empty;
+    /// <summary>提交评论后是否让智能体/工作流根据评论继续处理（默认 true）</summary>
+    public bool TriggerAutomation { get; set; } = true;
+}
+
+/// <summary>任务执行记录</summary>
+public class KanbanTaskRunDto
+{
+    public Guid Id { get; set; }
+    public Guid TaskId { get; set; }
+    /// <summary>Agent / Workflow</summary>
+    public string Kind { get; set; } = "Agent";
+    /// <summary>Todo / Comment / Manual</summary>
+    public string Trigger { get; set; } = "Todo";
+    /// <summary>Running / Succeeded / Failed</summary>
+    public string Status { get; set; } = "Running";
+    public string? Output { get; set; }
+    public string? Error { get; set; }
+    public Guid? WorkflowRunId { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>任务详情：任务本体 + 时间线评论 + 执行记录</summary>
+public class KanbanTaskDetailDto
+{
+    public KanbanTaskDto Task { get; set; } = new();
+    public List<KanbanTaskCommentDto> Comments { get; set; } = [];
+    public List<KanbanTaskRunDto> Runs { get; set; } = [];
 }
 
 public class KanbanBoardDto

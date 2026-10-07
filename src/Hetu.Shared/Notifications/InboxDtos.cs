@@ -19,6 +19,7 @@ public static class InboxCategories
     public const string System = "系统";
     public const string ScheduledTask = "定时任务";
     public const string Workflow = "工作流";
+    public const string KanbanTask = "看板任务";
 }
 
 /// <summary>
@@ -44,6 +45,8 @@ public class InboxNotificationDto
     public bool IsRead { get; set; }
     public bool IsArchived { get; set; }
     public int OccurrenceCount { get; set; }
+    /// <summary>点击通知跳转的应用内路径（如 /kanban/{taskId}）</summary>
+    public string? Link { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -68,6 +71,8 @@ public class CreateInboxNotificationRequest
     public string Level { get; set; } = InboxLevels.Info;
     public string Title { get; set; } = string.Empty;
     public string? Content { get; set; }
+    /// <summary>点击通知跳转的应用内路径（如 /kanban/{taskId}）</summary>
+    public string? Link { get; set; }
 }
 
 /// <summary>

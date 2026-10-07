@@ -30,6 +30,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<ShareLink> ShareLinks { get; }
     public IRepository<TaskItem> TaskItems { get; }
     public IRepository<KanbanTask> KanbanTasks { get; }
+    public IRepository<KanbanTaskComment> KanbanTaskComments { get; }
+    public IRepository<KanbanTaskRun> KanbanTaskRuns { get; }
     public IRepository<ScheduledTask> ScheduledTasks { get; }
     public IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     public IRepository<InboxNotification> InboxNotifications { get; }
@@ -71,6 +73,8 @@ public class UnitOfWork : IUnitOfWork
         ShareLinks = new EfRepository<ShareLink>(context);
         TaskItems = new EfRepository<TaskItem>(context);
         KanbanTasks = new EfRepository<KanbanTask>(context);
+        KanbanTaskComments = new EfRepository<KanbanTaskComment>(context);
+        KanbanTaskRuns = new EfRepository<KanbanTaskRun>(context);
         ScheduledTasks = new EfRepository<ScheduledTask>(context);
         ScheduledTaskExecutions = new EfRepository<ScheduledTaskExecution>(context);
         InboxNotifications = new EfRepository<InboxNotification>(context);

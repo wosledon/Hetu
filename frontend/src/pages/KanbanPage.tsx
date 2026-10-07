@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   LayoutGrid, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2,
-  AlertTriangle, Archive, ChevronRight, User, CalendarDays,
+  AlertTriangle, Archive, ChevronRight, User, CalendarDays, Loader2, MessageSquare,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
+import { projectService } from '../services/projectService'
+import { promptPresetService } from '../services/promptPresetService'
+import { workflowService } from '../services/workflowService'
 import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
@@ -67,6 +71,7 @@ const formSelectTriggerCls =
 const emptyForm: IKanbanTaskForm = {
   title: '', description: '', status: 'Backlog', priority: 'Medium',
   assignee: '', tags: '', dueDate: '', blockedReason: '',
+  projectId: '', agentId: '', workflowId: '',
 }
 
 const COLUMN_STATUSES: KanbanTaskStatus[] = COLUMNS.map((c) => c.status)
@@ -103,6 +108,7 @@ function formatDueDate(dueDate: string): string {
 }
 
 export default function KanbanPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<IKanbanTaskForm>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -117,6 +123,11 @@ export default function KanbanPage() {
     queryKey: ['kanban-board'],
     queryFn: kanbanTaskService.getBoard,
   })
+
+  // 任务可绑定的项目 / 智能体 / 工作流
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectService.getAll })
+  const { data: agents = [] } = useQuery({ queryKey: ['promptPresets'], queryFn: promptPresetService.getAll })
+  const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
 
   useEffect(() => {
     if (!error) return
@@ -167,6 +178,9 @@ export default function KanbanPage() {
       tags: task.tags ?? '',
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
       blockedReason: task.blockedReason ?? '',
+      projectId: task.projectId ?? '',
+      agentId: task.agentId ?? '',
+      workflowId: task.workflowId ?? '',
     })
     setShowForm(true)
   }
@@ -322,12 +336,13 @@ export default function KanbanPage() {
                           key={task.id}
                           task={task}
                           isDragging={dragTaskId === task.id}
-                          onEdit={() => openEdit(task)}
+                          onEdit={(e) => { e.stopPropagation(); openEdit(task) }}
                           onDelete={() => confirm({
                             title: '删除任务',
                             message: `确定删除「${task.title}」吗？`,
                             onConfirm: () => deleteMutation.mutate(task.id),
                           })}
+                          onOpenDetail={() => navigate(`/kanban/${task.id}`)}
                           onDragStart={() => setDragTaskId(task.id)}
                           onDragEnd={() => { setDragTaskId(null); setDragOverColumn(null) }}
                           onMove={(status) => requestMove(task, status)}
@@ -425,6 +440,49 @@ export default function KanbanPage() {
                       />
                     </div>
                   </div>
+                  {/* 自动处理：指定项目 + 智能体/工作流后，进入待办即自动执行 */}
+                  <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-700 dark:bg-gray-700/20">
+                    <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
+                      指定智能体或工作流后，任务进入「待办」会自动处理，完成后进入「审核中」并通知你；在审核中提交评论会让其按评论继续修改。
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">项目</label>
+                        <Select
+                          value={form.projectId}
+                          onChange={(projectId) => setForm({ ...form, projectId })}
+                          placeholder="未指定"
+                          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                          triggerClassName={formSelectTriggerCls}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">智能体</label>
+                        <Select
+                          value={form.agentId}
+                          onChange={(agentId) => setForm({ ...form, agentId })}
+                          placeholder="未指定"
+                          searchable
+                          options={agents.map((a) => ({
+                            value: a.id,
+                            label: a.category ? `${a.name}（${a.category}）` : a.name,
+                          }))}
+                          triggerClassName={formSelectTriggerCls}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">工作流</label>
+                        <Select
+                          value={form.workflowId}
+                          onChange={(workflowId) => setForm({ ...form, workflowId })}
+                          placeholder="未指定"
+                          searchable
+                          options={workflows.map((w) => ({ value: w.id, label: w.name }))}
+                          triggerClassName={formSelectTriggerCls}
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">标签</label>
                     <input
@@ -504,21 +562,23 @@ export default function KanbanPage() {
 interface TaskCardProps {
   task: IKanbanTask
   isDragging: boolean
-  onEdit: () => void
+  onEdit: (e: React.MouseEvent) => void
   onDelete: () => void
+  onOpenDetail: () => void
   onDragStart: () => void
   onDragEnd: () => void
   onMove: (status: KanbanTaskStatus) => void
   onDropBefore: () => void
 }
 
-function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, onMove, onDropBefore }: TaskCardProps) {
+function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStart, onDragEnd, onMove, onDropBefore }: TaskCardProps) {
   const [dropAbove, setDropAbove] = useState(false)
   const targets = TRANSITIONS[task.status]
 
   return (
     <div
       draggable
+      onClick={onOpenDetail}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
       onDragEnd={onDragEnd}
       onDragOver={(e) => {
@@ -529,12 +589,17 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-grab rounded-xl border bg-white p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
+      className={`group cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
         isDragging ? 'opacity-40' : ''
-      } ${dropAbove ? 'border-indigo-400' : 'border-gray-100 dark:border-gray-700'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
+      } ${dropAbove ? 'border-indigo-400' : 'border-gray-100 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >
       <div className="flex items-start gap-2">
         <span className="text-sm font-medium leading-snug text-gray-800 dark:text-gray-100">{task.title}</span>
+        {task.lastRunStatus === 'Running' && (
+          <span className="flex shrink-0 items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+            <Loader2 size={10} className="animate-spin" />处理中
+          </span>
+        )}
         <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_META[task.priority].cls}`}>
           {PRIORITY_META[task.priority].label}
         </span>
@@ -548,6 +613,26 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
         <p className="mt-1.5 flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-600 dark:bg-red-500/10 dark:text-red-400">
           <AlertTriangle size={11} className="shrink-0" />{task.blockedReason}
         </p>
+      )}
+
+      {/* 自动处理来源：项目 / 智能体 / 工作流 */}
+      {task.hasAutomation && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {task.projectName && (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{task.projectName}</span>
+          )}
+          {task.agentName && (
+            <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">{task.agentName}</span>
+          )}
+          {task.workflowName && (
+            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{task.workflowName}</span>
+          )}
+          {task.commentCount > 0 && (
+            <span className="ml-auto flex items-center gap-1 text-[10px] text-gray-400">
+              <MessageSquare size={10} />{task.commentCount}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
@@ -573,7 +658,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
         {targets.map((status) => (
           <button
             key={status}
-            onClick={() => onMove(status)}
+            onClick={(e) => { e.stopPropagation(); onMove(status) }}
             title={`流转到「${STATUS_LABELS[status]}」`}
             className={`flex items-center gap-0.5 rounded-md px-1.5 py-1 text-[11px] text-gray-400 transition-colors hover:text-indigo-600 dark:text-gray-500 dark:hover:text-indigo-400 ${
               status === 'Blocked' ? 'hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -587,7 +672,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onDragStart, onDragEnd, 
           <button onClick={onEdit} title="编辑" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
             <Pencil size={12} />
           </button>
-          <button onClick={onDelete} title="删除" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700">
+          <button onClick={(e) => { e.stopPropagation(); onDelete() }} title="删除" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700">
             <Trash2 size={12} />
           </button>
         </div>
