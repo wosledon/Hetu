@@ -214,7 +214,7 @@ export default function KnowledgeBasePage() {
     }
     const c = config[type as keyof typeof config] || { label: type, className: 'bg-gray-100 text-gray-600' }
     return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${c.className}`}>
+      <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${c.className}`}>
         {getTypeIcon(type)}
         {c.label}
       </span>
@@ -477,7 +477,7 @@ export default function KnowledgeBasePage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             {getTypeBadge(item.type)}
-                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                               {item.title || '无标题'}
                             </p>
                           </div>

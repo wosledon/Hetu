@@ -4,6 +4,7 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Notes;
+using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services;
 
@@ -11,14 +12,16 @@ public class ChunkService : IChunkService
 {
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<ChunkService> _logger;
     private const int MaxChunkSize = 1500;  // 每块最大字符数
     private const int MinChunkSize = 200;   // 每块最小字符数
     private const int OverlapSize = 100;    // 块之间的重叠字符数
 
-    public ChunkService(ILLMProviderFactory llmProviderFactory, IUnitOfWork unitOfWork)
+    public ChunkService(ILLMProviderFactory llmProviderFactory, IUnitOfWork unitOfWork, ILogger<ChunkService> logger)
     {
         _llmProviderFactory = llmProviderFactory;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task<List<NoteChunk>> ChunkNoteAsync(Note note, CancellationToken cancellationToken = default)
@@ -103,16 +106,21 @@ public class ChunkService : IChunkService
             {
                 try
                 {
-                    return await LlmChunkAsync(text, llm, cancellationToken);
+                    var llmChunks = await LlmChunkAsync(text, llm, cancellationToken);
+                    if (llmChunks.Count > 0)
+                        return llmChunks;
+
+                    _logger.LogWarning("[Chunk] LLM 分块结果为空，回退到结构化分块");
                 }
-                catch
+                catch (Exception ex)
                 {
                     // LLM 失败时回退到结构化分块
+                    _logger.LogWarning(ex, "[Chunk] LLM 分块失败，回退到结构化分块");
                 }
             }
         }
 
-        // 未配置 LLM 或 LLM 不可用：纯物理分块
+        // 未配置 LLM、LLM 不可用或结果为空：纯物理分块
         return StructureChunkText(text);
     }
 
@@ -124,14 +132,19 @@ public class ChunkService : IChunkService
 
         try
         {
-            return await LlmChunkAsync(content, llm, cancellationToken);
+            var llmChunks = await LlmChunkAsync(content, llm, cancellationToken);
+            if (llmChunks.Count > 0)
+                return llmChunks;
+
+            _logger.LogWarning("[Chunk] LLM 分块结果为空，回退到结构化分块 noteId={NoteId}", note.Id);
         }
         catch (Exception ex)
         {
             // LLM chunking failed, fall back to structure chunking
-            System.Diagnostics.Debug.WriteLine($"[ChunkService] LLM chunking failed, falling back to structure: {ex.Message}");
-            return ChunkByStructure(note);
+            _logger.LogWarning(ex, "[Chunk] LLM chunking failed, falling back to structure: {Message}", ex.Message);
         }
+
+        return ChunkByStructure(note);
     }
 
     /// <summary>
@@ -176,6 +189,15 @@ public class ChunkService : IChunkService
             return new List<NoteChunk>();
 
         var chunks = ParseLlmChunks(result.Trim());
+        if (chunks.Count == 0)
+        {
+            var preview = result.Trim();
+            _logger.LogWarning(
+                "[Chunk] LLM 分块结果解析为空，响应长度={Length}，前缀={Prefix}",
+                result.Length,
+                preview.Length > 200 ? preview[..200] : preview);
+        }
+
         return chunks;
     }
 

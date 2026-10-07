@@ -343,8 +343,20 @@ public class NoteEmbeddingService : INoteEmbeddingService
         var chunks = await _chunkService.ChunkTextAsync(text, cancellationToken);
         if (chunks == null || chunks.Count == 0)
         {
-            _logger.LogWarning("[KI Embed] 分块结果为空 id={Id}", knowledgeItemId);
-            return;
+            // 兜底：整篇作为一个分块，避免任务"成功"但实际没有索引任何内容
+            _logger.LogWarning("[KI Embed] 分块结果为空，按整篇单块索引 id={Id}", knowledgeItemId);
+            chunks = new List<NoteChunk>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    ChunkIndex = 0,
+                    Content = text,
+                    ChunkMethod = "structure",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                }
+            };
         }
 
         _logger.LogInformation("[KI Embed] 分块完成 id={Id} chunkCount={Count}", knowledgeItemId, chunks.Count);
