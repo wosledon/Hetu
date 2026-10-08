@@ -1,12 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { Code, MessageSquare } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import ChatSidebar from '../components/ChatSidebar'
+import ChatTopicList from '../components/ChatTopicList'
+import ChatTree from '../components/ChatTree'
+import ChatMessageArea from '../components/ChatMessageArea'
 import WorkSidebar from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
+import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
+import { segmentButtonClass } from '../utils/styles'
+import { useUIStore } from '../stores/uiStore'
+import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
+
+type WorkTab = 'chat' | 'code'
 
 const DEFAULT_RIGHT_WIDTH = 560
 const MIN_RIGHT_WIDTH = 320
@@ -14,7 +25,64 @@ const MAX_RIGHT_WIDTH = 1200
 
 export default function WorkPage() {
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: WorkTab = searchParams.get('tab') === 'chat' ? 'chat' : 'code'
+  const setTab = (next: WorkTab) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'chat') params.set('tab', 'chat')
+    else params.delete('tab')
+    setSearchParams(params, { replace: true })
+  }
+
+  // —— 对话 Tab：分组/话题选择逻辑（原对话页）——
+  // undefined 表示跟随默认选择（主对话或首个分组/话题），null 表示显式清空
+  const [groupChoice, setGroupChoice] = useState<IChatGroup | null | undefined>(undefined)
+  const [topicChoice, setTopicChoice] = useState<IChatTopic | null | undefined>(undefined)
+  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
+  const collapsed = secondaryMenuStyle === 'collapsed'
+
+  // 主对话（全局主对话组 + 唯一主话题）
+  const { data: mainChat } = useQuery({
+    queryKey: ['chatMain'],
+    queryFn: chatGroupService.getMain,
+  })
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ['chatGroups'],
+    queryFn: chatGroupService.getAll,
+  })
+
+  const activeGroup = groupChoice ?? mainChat?.group ?? groups[0] ?? null
+
+  const { data: topics = [] } = useQuery({
+    queryKey: ['chatTopics', activeGroup?.id],
+    queryFn: () => (activeGroup ? chatTopicService.getByGroup(activeGroup.id) : Promise.resolve([])),
+    enabled: !!activeGroup,
+  })
+
+  // 主对话分组默认选中唯一的主话题，普通分组默认选中第一个话题
+  const defaultTopic = mainChat && activeGroup?.id === mainChat.group.id ? mainChat.topic : topics[0] ?? null
+  const activeTopic = topicChoice === undefined ? defaultTopic : topicChoice
+  const selectedMain = mainChat != null && activeTopic?.id === mainChat.topic.id
+
+  const handleSelectMain = useCallback(() => {
+    if (!mainChat) return
+    setGroupChoice(mainChat.group)
+    setTopicChoice(mainChat.topic)
+  }, [mainChat])
+
+  const handleSelectGroup = useCallback((group: IChatGroup) => {
+    setGroupChoice(group)
+    setTopicChoice(undefined)
+  }, [])
+
+  const handleSelectTopic = useCallback((topic: IChatTopic) => {
+    setTopicChoice(topic)
+  }, [])
+
+  const handleDeleteTopic = useCallback(() => setTopicChoice(null), [])
+
+  // —— Code Tab：项目/会话选择逻辑（原 Code 页）——
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
   // 跨组件联动：当前打开文件 / 打开文件请求 / 终端命令请求 / 对话上下文注入 / 编辑器插入请求
@@ -108,60 +176,129 @@ export default function WorkPage() {
     return () => window.removeEventListener('resize', clamp)
   }, [])
 
+  // 页内胶囊：切换对话 / Code 两种工作模式（由侧栏头部插槽渲染）
+  const modeSwitch = (
+    <div className="flex items-center gap-0.5 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
+      <button
+        onClick={() => setTab('chat')}
+        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${segmentButtonClass(tab === 'chat')}`}
+      >
+        <MessageSquare size={13} />
+        对话
+      </button>
+      <button
+        onClick={() => setTab('code')}
+        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${segmentButtonClass(tab === 'code')}`}
+      >
+        <Code size={13} />
+        Code
+      </button>
+    </div>
+  )
+
   return (
     <AppLayout
       showSidebar={false}
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
-          <WorkSidebar
-            selectedProjectId={selectedProject?.id}
-            selectedSessionId={selectedSession?.id}
-            onSelectProject={handleSelectProject}
-            onSelectSession={handleSelectSession}
-            onProjectDeleted={(projectId) => {
-              if (preferredProject?.id === projectId) setPreferredProject(null)
-              if (selectedSession?.projectId === projectId) setSelectedSession(null)
-            }}
-            onSessionDeleted={(sessionId) => {
-              if (selectedSession?.id === sessionId) setSelectedSession(null)
-            }}
-          />
-          <WorkSessionArea
-            project={selectedProject ?? undefined}
-            session={selectedSession ?? undefined}
-            onSessionUpdated={handleSessionUpdated}
-            onSessionCreated={handleSessionCreated}
-            activeFilePath={activeFilePath}
-            onClearActiveFile={() => setActiveFilePath(null)}
-            pendingContext={pendingContext}
-            onOpenFilePath={requestOpenFile}
-            onRunCommand={requestRunCommand}
-            onInsertCode={requestInsertText}
-            onTogglePanel={() => setRightCollapsed((v) => !v)}
-            panelOpen={!rightCollapsed}
-          />
-          {/* 面板收起时不常驻右侧：只在项目会话内通过会话头部按钮打开 */}
-          {!rightCollapsed && (
+          {tab === 'chat' ? (
             <>
-              <div
-                onMouseDown={onDragStart}
-                className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
-                title="拖拽调整右侧面板宽度"
-              >
-                <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
-              </div>
-              <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
-                <WorkExplorer
-                  key={selectedProject?.id}
-                  projectId={selectedProject?.id}
-                  sessionId={selectedSession?.id}
-                  onActiveFileChange={setActiveFilePath}
-                  openFileRequest={openFileRequest}
-                  onAddSelectionContext={addSelectionContext}
-                  insertRequest={insertRequest}
-                  commandRequest={terminalCommandRequest}
+              {collapsed ? (
+                <ChatTree
+                  mainChat={mainChat}
+                  selectedMain={selectedMain}
+                  selectedGroupId={activeGroup?.id}
+                  selectedTopicId={activeTopic?.id}
+                  onSelectGroup={handleSelectGroup}
+                  onSelectTopic={handleSelectTopic}
+                  onSelectMain={handleSelectMain}
+                  onDeleteTopic={handleDeleteTopic}
+                  modeSwitch={modeSwitch}
                 />
-              </div>
+              ) : (
+                <>
+                  <ChatSidebar
+                    mainChat={mainChat}
+                    selectedMain={selectedMain}
+                    selectedGroupId={activeGroup?.id}
+                    onSelectGroup={handleSelectGroup}
+                    onSelectMain={handleSelectMain}
+                    modeSwitch={modeSwitch}
+                  />
+                  <ChatTopicList
+                    groupId={activeGroup?.id}
+                    isMainGroup={selectedMain}
+                    selectedTopicId={activeTopic?.id}
+                    onSelectTopic={handleSelectTopic}
+                    onDeleteTopic={handleDeleteTopic}
+                  />
+                </>
+              )}
+              {activeTopic ? (
+                <ChatMessageArea
+                  key={activeTopic.id}
+                  topic={activeTopic}
+                  group={activeGroup ?? undefined}
+                  onTopicUpdated={setTopicChoice}
+                />
+              ) : (
+                <ChatMessageArea topic={undefined} group={activeGroup ?? undefined} onTopicUpdated={setTopicChoice} />
+              )}
+            </>
+          ) : (
+            <>
+              <WorkSidebar
+                selectedProjectId={selectedProject?.id}
+                selectedSessionId={selectedSession?.id}
+                onSelectProject={handleSelectProject}
+                onSelectSession={handleSelectSession}
+                onProjectDeleted={(projectId) => {
+                  if (preferredProject?.id === projectId) setPreferredProject(null)
+                  if (selectedSession?.projectId === projectId) setSelectedSession(null)
+                }}
+                onSessionDeleted={(sessionId) => {
+                  if (selectedSession?.id === sessionId) setSelectedSession(null)
+                }}
+                modeSwitch={modeSwitch}
+              />
+              <WorkSessionArea
+                project={selectedProject ?? undefined}
+                session={selectedSession ?? undefined}
+                onSessionUpdated={handleSessionUpdated}
+                onSessionCreated={handleSessionCreated}
+                activeFilePath={activeFilePath}
+                onClearActiveFile={() => setActiveFilePath(null)}
+                pendingContext={pendingContext}
+                onOpenFilePath={requestOpenFile}
+                onRunCommand={requestRunCommand}
+                onInsertCode={requestInsertText}
+                onTogglePanel={() => setRightCollapsed((v) => !v)}
+                panelOpen={!rightCollapsed}
+              />
+              {/* 面板收起时不常驻右侧：只在项目会话内通过会话头部按钮打开 */}
+              {!rightCollapsed && (
+                <>
+                  <div
+                    onMouseDown={onDragStart}
+                    className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
+                    title="拖拽调整右侧面板宽度"
+                  >
+                    <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
+                  </div>
+                  <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
+                    <WorkExplorer
+                      key={selectedProject?.id}
+                      projectId={selectedProject?.id}
+                      sessionId={selectedSession?.id}
+                      onActiveFileChange={setActiveFilePath}
+                      openFileRequest={openFileRequest}
+                      onAddSelectionContext={addSelectionContext}
+                      insertRequest={insertRequest}
+                      commandRequest={terminalCommandRequest}
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>

@@ -15,6 +15,8 @@ interface WorkSidebarProps {
   onSelectSession: (session: IWorkSession) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
+  /** 头部插槽：Work 页的对话/Code 模式胶囊 */
+  modeSwitch?: React.ReactNode
 }
 
 const joinDirPath = (base: string, name: string) => {
@@ -641,7 +643,7 @@ function ProjectNode({
   )
 }
 
-export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted }: WorkSidebarProps) {
+export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, modeSwitch }: WorkSidebarProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [searchTerm, setSearchTerm] = useState('')
@@ -709,24 +711,28 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
   return (
     <div className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
+        <div className="mb-2 flex items-center justify-center">
+          {modeSwitch ?? (
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="搜索项目或会话..."
+              className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
+            />
+          </div>
           <button
             onClick={() => setIsAdding(true)}
             title="新建项目"
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
           >
             <Plus size={14} />
           </button>
-        </div>
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索项目或会话..."
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
-          />
         </div>
       </div>
 

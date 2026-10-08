@@ -8,7 +8,6 @@ const TagsPage = lazy(() => import('./pages/TagsPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const ChatPage = lazy(() => import('./pages/ChatPage'))
 const GraphPage = lazy(() => import('./pages/GraphPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const SkillsPage = lazy(() => import('./pages/SkillsPage'))
@@ -62,7 +61,7 @@ function App() {
       <Routes>
         <Route path="/" element={<NotesPage />} />
         <Route path="/tags" element={<TagsPage />} />
-        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat" element={<Navigate to="/work" replace />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
