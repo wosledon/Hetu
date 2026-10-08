@@ -87,7 +87,9 @@ public class RunCommandTool : IToolExecutor
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
 
-            var command = root.GetProperty("command").GetString() ?? "";
+            var command = root.TryGetProperty("command", out var cmdProp) && cmdProp.ValueKind == JsonValueKind.String
+                ? cmdProp.GetString() ?? ""
+                : "";
             if (string.IsNullOrWhiteSpace(command))
                 return ToolExecutionResult.Error("command 参数不能为空");
 
@@ -149,8 +151,15 @@ public class RunCommandTool : IToolExecutor
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.StandardOutputEncoding = CmdEncoding.Oem;
+            process.StartInfo.StandardErrorEncoding = CmdEncoding.Oem;
 
             process.Start();
+
+            // 必须先并行读取管道再等待退出：输出超过管道缓冲区（约 4KB）时，
+            // 先等待退出会因管道写满而永久阻塞，表现为 30 秒超时
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(30));
@@ -165,9 +174,9 @@ public class RunCommandTool : IToolExecutor
                 return ToolExecutionResult.Error("命令执行超时（30 秒）");
             }
 
-            // Read output after process exits — avoids race with pipe closure
-            var outText = process.StandardOutput.ReadToEnd();
-            var errText = process.StandardError.ReadToEnd();
+            // 管道读取在退出后必然可完成
+            var outText = await stdoutTask;
+            var errText = await stderrTask;
 
             // Trim and limit output
             if (outText.Length > maxOutput)

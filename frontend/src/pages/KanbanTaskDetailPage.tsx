@@ -369,7 +369,7 @@ export default function KanbanTaskDetailPage() {
                 <section>
                   <h2 className="mb-4 flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 dark:text-gray-300">
                     <MessageSquare size={14} />执行过程与评论
-                    <span className="text-[11px] font-normal text-gray-400">{comments.length + runs.length}</span>
+                    <span className="text-[11px] font-normal text-gray-400">{comments.length + runs.length + 1}</span>
                   </h2>
 
                   {timeline.length <= 1 ? (
@@ -379,19 +379,11 @@ export default function KanbanTaskDetailPage() {
                   ) : (
                     <div className="space-y-4">
                       {timeline.map((item) => {
-                        if (item.kind === 'created') {
-                          return (
-                            <div key={item.key} className="flex items-stretch gap-3">
-                              <TimelineNode icon={<CircleDot size={13} className="text-gray-500" />} tone="bg-gray-100 dark:bg-gray-800" />
-                              <div className="min-w-0 flex-1 pb-1 text-[12px] text-gray-400">
-                                创建了任务 · {formatDateTime(item.at)}
-                              </div>
-                            </div>
-                          )
-                        }
-
-                        if (item.kind === 'comment') {
-                          const c = item.comment
+                        if (item.kind === 'created' || item.kind === 'comment') {
+                          // 「创建了任务」也按系统发送的消息展示
+                          const c = item.kind === 'comment'
+                            ? item.comment
+                            : { authorType: 'System' as const, authorName: '系统', createdAt: item.at, content: '创建了任务' }
                           const meta = AUTHOR_META[c.authorType] ?? AUTHOR_META.System
                           const Icon = meta.icon
                           return (
@@ -456,22 +448,24 @@ export default function KanbanTaskDetailPage() {
                               )}
 
                               {/* 详细工作过程：工具调用配对折叠，思考/输出/节点为轻量内容 */}
-                              {foldRunSteps(runSteps).map((entry, i) => {
-                                if (entry.kind === 'tool') {
-                                  return entry.items.length > 1
-                                    ? <ToolCallGroup key={i} items={entry.items} />
-                                    : (
-                                      <ChatToolCallRow
-                                        key={i}
-                                        name={entry.items[0].name}
-                                        args={entry.items[0].args}
-                                        result={entry.items[0].result}
-                                        isError={entry.items[0].isError}
-                                      />
-                                    )
-                                }
-                                return <StepRow key={i} step={entry.step} />
-                              })}
+                              <div className="mt-3 space-y-2">
+                                {foldRunSteps(runSteps).map((entry, i) => {
+                                  if (entry.kind === 'tool') {
+                                    return entry.items.length > 1
+                                      ? <ToolCallGroup key={i} items={entry.items} />
+                                      : (
+                                        <ChatToolCallRow
+                                          key={i}
+                                          name={entry.items[0].name}
+                                          args={entry.items[0].args}
+                                          result={entry.items[0].result}
+                                          isError={entry.items[0].isError}
+                                        />
+                                      )
+                                  }
+                                  return <StepRow key={i} step={entry.step} />
+                                })}
+                              </div>
 
                               {/* 输入 / 输出原文 */}
                               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">

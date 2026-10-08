@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Profiles;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Work;
@@ -122,7 +123,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         await _unitOfWork.KanbanTasks.UpdateAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var brief = await BuildBriefAsync(task, agentName, workflowName, projectName, rootPath, cancellationToken);
+        var brief = await BuildBriefAsync(task, agentName, workflowName, projectName, rootPath, runner?.IsRemote == true, cancellationToken);
         run.Input = brief;
         await _unitOfWork.KanbanTaskRuns.UpdateAsync(run, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -161,6 +162,14 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 var preset = await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId!.Value, cancellationToken)
                     ?? throw new InvalidOperationException("智能体不存在");
                 var tools = ParseTools(preset.ToolsConfig);
+                // 项目任务改用 work_* 工具集：本地与 SSH 远端统一走项目 runner；
+                // 通用 run_command 只在本机执行，项目场景下由 work_run_command 取代
+                if (!string.IsNullOrEmpty(rootPath))
+                    tools = tools
+                        .Where(t => !string.Equals(t, "run_command", StringComparison.OrdinalIgnoreCase))
+                        .Concat(BuiltinProfiles.Work.AllowedTools)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
                 var toolApprovals = tools.ToDictionary(t => t, _ => ToolApprovalMode.Auto);
                 // 通配兜底：未在智能体工具清单内的调用同样自动执行，不停下等待审批
                 toolApprovals["*"] = ToolApprovalMode.Auto;
@@ -487,7 +496,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
 
     /// <summary>组装任务简报：任务信息 + 项目路径 + 历史沟通记录</summary>
     private async Task<string> BuildBriefAsync(
-        KanbanTask task, string? agentName, string? workflowName, string? projectName, string? rootPath, CancellationToken ct)
+        KanbanTask task, string? agentName, string? workflowName, string? projectName, string? rootPath, bool isRemote, CancellationToken ct)
     {
         var comments = await _unitOfWork.KanbanTaskComments.FindAsync(c => c.TaskId == task.Id, ct);
         var sb = new StringBuilder();
@@ -499,7 +508,8 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         sb.AppendLine($"- 优先级：{task.Priority}");
         if (task.DueDate != null) sb.AppendLine($"- 截止日期：{task.DueDate:yyyy-MM-dd}");
         if (!string.IsNullOrWhiteSpace(projectName)) sb.AppendLine($"- 项目：{projectName}");
-        if (!string.IsNullOrWhiteSpace(rootPath)) sb.AppendLine($"- 项目目录：{rootPath}");
+        if (!string.IsNullOrWhiteSpace(rootPath))
+            sb.AppendLine(isRemote ? $"- 项目目录（SSH 远端）：{rootPath}" : $"- 项目目录：{rootPath}");
         if (!string.IsNullOrWhiteSpace(agentName)) sb.AppendLine($"- 执行智能体：{agentName}");
         if (!string.IsNullOrWhiteSpace(workflowName)) sb.AppendLine($"- 执行工作流：{workflowName}");
 
@@ -515,7 +525,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         }
 
         sb.AppendLine().AppendLine("## 完成要求");
-        sb.AppendLine("- 在项目目录内完成工作，必要时读取/修改文件、运行命令");
+        sb.AppendLine("- 在项目目录内完成工作：读取/修改文件、执行命令请使用 work_* 系列工具（路径相对项目根目录）");
         sb.AppendLine("- 缺少关键信息时使用 ask_question 提问，任务会阻塞并等待用户回答，不要臆测");
         sb.AppendLine("- 完成后用要点总结：做了什么、改了哪些文件、如何验证、遗留问题");
         sb.AppendLine("- 不要修改与本任务无关的内容");

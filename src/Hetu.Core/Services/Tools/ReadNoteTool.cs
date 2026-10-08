@@ -36,7 +36,10 @@ public class ReadNoteTool : IToolExecutor
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
 
-            var noteIdStr = root.GetProperty("noteId").GetString();
+            if (!root.TryGetProperty("noteId", out var noteIdProp) || noteIdProp.ValueKind != JsonValueKind.String)
+                return ToolExecutionResult.Error("缺少参数 noteId（笔记 ID 可通过 search_notes 获得）");
+
+            var noteIdStr = noteIdProp.GetString();
             if (!Guid.TryParse(noteIdStr, out var noteId))
                 return ToolExecutionResult.Error("无效的笔记 ID");
 

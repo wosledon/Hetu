@@ -346,6 +346,8 @@ public class WorkRunCommandTool : IToolExecutor
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
+                StandardOutputEncoding = CmdEncoding.Oem,
+                StandardErrorEncoding = CmdEncoding.Oem,
             };
             if (OperatingSystem.IsWindows())
             {

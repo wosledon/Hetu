@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Send, Square, ChevronDown, ChevronRight, Loader2,
@@ -15,7 +15,7 @@ import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWor
 import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
 import ToolCallGroup from '../ToolCallGroup'
-import { foldConsecutiveToolCalls } from '../../utils/toolRendering'
+import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
@@ -424,6 +424,12 @@ export default function WorkSessionArea({
   }, [orderedMessages])
   const visibleMessages = showOlder || lastUserIndex <= 0 ? orderedMessages : orderedMessages.slice(lastUserIndex)
   const olderCount = showOlder || lastUserIndex <= 0 ? 0 : lastUserIndex
+  // 历史消息同样折叠：两段输出之间的思考/工具调用合并为一组（与流式渲染、任务详情页一致）
+  const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
+  const renderProcessEntry = (item: ToolCallEntry) =>
+    item.kind === 'thought'
+      ? <ThoughtBlock text={item.text ?? ''} streaming={false} />
+      : <ToolCallRow name={item.name} args={item.args} result={item.result} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} />
  // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   const lastUserMessage = useMemo(
     () => [...messages].reverse().find((m) => m.role === 'user'),
@@ -818,11 +824,18 @@ export default function WorkSessionArea({
               <ChevronDown size={11} />展开更早的 {olderCount} 条消息
             </button>
           )}
-          {visibleMessages.map((msg) =>
-            isProcessMessage(msg)
+          {foldedHistory.map((entry, i) => {
+            if (entry.kind === 'tool') {
+              const only = entry.items[0]
+              return entry.items.length === 1
+                ? <Fragment key={only.id ?? i}>{renderProcessEntry(only)}</Fragment>
+                : <ToolCallGroup key={only.id ?? i} items={entry.items} renderItem={renderProcessEntry} />
+            }
+            const msg = entry.item
+            return isProcessMessage(msg)
               ? <ProcessMessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
-              : <MessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />,
-          )}
+              : <MessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
+          })}
 
           {/* 空会话：快捷起步 */}
           {!isStreaming && lastUserIndex < 0 && (
@@ -1438,6 +1451,18 @@ function ProcessMessageRow({ message, onOpenFilePath, onRunCommand }: {
 }
 
 const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
+
+/** 可折叠的过程消息：思考与工具调用（子 Agent、文件变更等保持独立行） */
+const isFoldableProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool'
+
+/** 过程消息 → 折叠条目（展示内容与 ProcessMessageRow 一致） */
+function toProcessEntry(message: IWorkMessage): ToolCallEntry {
+  if (message.type === 'thought')
+    return { id: message.id, kind: 'thought', name: '', args: message.content, text: message.content }
+  let meta: { name: string; arguments: string } = { name: '', arguments: '{}' }
+  try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
+  return { id: message.id, name: meta.name, args: meta.arguments, result: message.content }
+}
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 */
 function MessageRow({ message, onOpenFilePath, onCodeAction }: { message: IWorkMessage; onOpenFilePath?: (path: string) => void; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
