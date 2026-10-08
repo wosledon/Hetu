@@ -12,6 +12,8 @@ public interface IPromptPresetService
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     /// <summary>从通用智能体克隆出一个专业智能体（复用其提示词与工具配置）</summary>
     Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromAsync(Guid sourceId, CancellationToken cancellationToken = default);
+    /// <summary>从本地（目录扫描）通用智能体克隆出一个专业智能体</summary>
+    Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromLocalAsync(string localId, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<PromptPresetDto>>> ExportAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<int>> ImportAsync(List<ImportPromptPresetItem> items, CancellationToken cancellationToken = default);
 }
@@ -22,4 +24,10 @@ public class ImportPromptPresetItem
     public string Name { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string? Variables { get; set; }
+}
+
+/// <summary>从本地智能体创建专业智能体的请求（本地 ID 形如 local:{dir}:{name}）</summary>
+public class CreateProfessionalFromLocalRequest
+{
+    public string LocalId { get; set; } = string.Empty;
 }
