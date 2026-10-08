@@ -564,7 +564,8 @@ body {
 
 .hetu-milkdown-root .milkdown {
   min-height: 100%;
-  padding: 0 0.5rem;
+  /* 外层容器已提供 px-8 缩进，这里不再加左右内边距，保证工具条与正文左对齐 */
+  padding: 0;
   background: transparent;
 }
 

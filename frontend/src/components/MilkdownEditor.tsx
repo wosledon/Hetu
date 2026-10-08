@@ -472,13 +472,23 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         if (!editor) return
         const ctx = editor.ctx
         const view = ctx.get(editorViewCtx)
-        const { state } = view
-        const tr = state.tr.replaceSelectionWith(state.schema.text(text))
-        // 选中刚插入的文本
-        const insertPos = state.selection.from
-        tr.setSelection(TextSelection.create(tr.doc, insertPos, insertPos + text.length))
+        // 按 markdown 解析替换内容：保留段落/标题/列表等结构
+        const doc = ctx.get(parserCtx)(text)
+        if (!doc) return
+        const slice = new ProseSlice(doc.content, 0, 0)
+        const { selection } = view.state
+        const tr = view.state.tr
+        if (selection.empty) {
+          tr.replaceSelection(slice)
+        } else {
+          // 扩展到选区首尾所在的整个块再做替换：
+          // 直接在标题内替换块级内容会被 PM 整段塞进标题，导致“全都变成标题”
+          const $from = selection.$from
+          const $to = selection.$to
+          tr.replaceRange($from.before($from.depth), $to.after($to.depth), slice)
+        }
         view.dispatch(tr)
-        // 触发一次 onChange 同步
+        view.focus()
         const md = getMarkdown()
         lastEmittedRef.current = md
         onChangeRef.current?.(md)
