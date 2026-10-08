@@ -70,12 +70,12 @@ function App() {
         <Route path="/tasks" element={<Navigate to="/tasks/background" replace />} />
         <Route path="/tasks/background" element={<TasksPage mode="background" />} />
         <Route path="/tasks/scheduled" element={<TasksPage mode="scheduled" />} />
+        <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/kanban" element={<KanbanPage />} />
         <Route path="/kanban/:taskId" element={<KanbanTaskDetailPage />} />
         <Route path="/memories" element={<MemoriesPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/work" element={<WorkPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/proxy" element={<ProxyPage />} />
         <Route path="/usage" element={<UsagePage />} />
