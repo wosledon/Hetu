@@ -501,6 +501,8 @@ export interface IKanbanTaskForm {
   dueDate: string;
   blockedReason: string;
   projectId: string;
+  /** 自动处理选择：'' 未指定 | agent:{id} 专业智能体 | workflow:{id} 工作流 */
+  automation: string;
   agentId: string;
   workflowId: string;
 }

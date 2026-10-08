@@ -149,12 +149,15 @@ const AVAILABLE_TOOLS = [
   { name: 'run_command', label: '执行命令', category: '执行' },
 ] as const
 
+/** 表单内下拉触发器样式（含 flex 布局，避免文字与箭头换行） */
+const agentFormTriggerCls =
+  'flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 dark:border-gray-600 dark:bg-gray-700'
+
 export default function AgentsPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [typeFilter, setTypeFilter] = useState<'all' | 'General' | 'Professional'>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -191,7 +194,7 @@ export default function AgentsPage() {
     queryFn: () => promptPresetService.getDirectories(),
     enabled: showDirConfig,
   })
-  // 专业智能体配置数据源：模型 + 技能
+  // 专业智能体配置数据源：模型 + 技能（数据库 + 本地）
   const { data: models = [] } = useQuery({
     queryKey: ['aiModels'],
     queryFn: () => aiModelService.getAll(),
@@ -199,6 +202,10 @@ export default function AgentsPage() {
   const { data: skills = [] } = useQuery({
     queryKey: ['skills'],
     queryFn: () => skillService.getAll(),
+  })
+  const { data: localSkills = [] } = useQuery({
+    queryKey: ['localSkills'],
+    queryFn: () => skillService.getLocalSkills(),
   })
 
   const createMutation = useMutation({
@@ -257,17 +264,40 @@ export default function AgentsPage() {
   const filteredPresets = useMemo(() => {
     const keyword = search.trim().toLowerCase()
     return presets.filter(p => {
-      if (tab === 'database' && typeFilter !== 'all' && ((p as IPromptPreset).agentType ?? 'General') !== typeFilter) return false
       if (activeCategory && p.category !== activeCategory) return false
       if (keyword && !p.name.toLowerCase().includes(keyword) && !p.content.toLowerCase().includes(keyword)) return false
       return true
     })
-  }, [presets, search, activeCategory, typeFilter, tab])
+  }, [presets, search, activeCategory])
 
+  // 上下分栏：上为通用智能体，下为专业智能体（本地智能体均为通用）
+  const isLocalTab = tab === 'local'
+  const generalPresets = useMemo(
+    () => filteredPresets.filter(p => isLocalTab || ((p as IPromptPreset).agentType ?? 'General') === 'General'),
+    [filteredPresets, isLocalTab],
+  )
+  const professionalPresets = useMemo(
+    () => isLocalTab ? [] : filteredPresets.filter(p => ((p as IPromptPreset).agentType ?? 'General') === 'Professional'),
+    [filteredPresets, isLocalTab],
+  )
+
+  // 可管理的子智能体：仅专业智能体（排除自身，避免自引用）
+  const manageableAgents = useMemo(
+    () => dbPresets.filter(p => (p.agentType ?? 'General') === 'Professional' && p.id !== editingId),
+    [dbPresets, editingId],
+  )
+
+  // 「从通用智能体创建专业智能体」的源列表
   const generalAgents = useMemo(
     () => dbPresets.filter(p => (p.agentType ?? 'General') === 'General'),
     [dbPresets],
   )
+
+  // 可用技能：数据库技能 + 本地技能
+  const selectableSkills = useMemo(() => [
+    ...skills.map(s => ({ id: s.id, name: s.name, description: s.description, isEnabled: s.isEnabled, isLocal: false })),
+    ...localSkills.map(s => ({ id: s.id, name: s.name, description: s.description, isEnabled: s.isEnabled, isLocal: true })),
+  ], [skills, localSkills])
 
   const emptyForm = {
     category: '自定义', name: '', content: '',
@@ -577,27 +607,6 @@ export default function AgentsPage() {
               </button>
             ))}
           </div>
-          {tab === 'database' && (
-            <div className="flex items-center gap-1.5">
-              {([
-                { key: 'all' as const, label: '全部类型' },
-                { key: 'General' as const, label: '通用' },
-                { key: 'Professional' as const, label: '专业' },
-              ]).map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => setTypeFilter(typeFilter === t.key ? 'all' : t.key)}
-                  className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${
-                    typeFilter === t.key
-                      ? 'bg-violet-500 text-white shadow-sm shadow-violet-500/20'
-                      : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
             <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -661,31 +670,64 @@ export default function AgentsPage() {
           )}
         </div>
 
-        {/* 卡片网格 */}
+        {/* 智能体分栏：上「通用」，下「专业」（本地目录智能体均为通用） */}
         {tab === 'local' && localLoading ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
             <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
             <p className="text-sm">正在扫描本地智能体...</p>
           </div>
-        ) : filteredPresets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-              <Sparkles size={36} className="opacity-50" />
-            </div>
-            <p className="text-sm font-medium">{tab === 'local' ? '未发现本地智能体' : '暂无智能体'}</p>
-            {tab === 'local' ? (
-              <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-rose-500 hover:underline">
-                配置智能体目录
-              </button>
-            ) : (
-              <button onClick={openCreateForm} className="mt-2 text-xs text-rose-500 hover:underline">
-                创建第一个智能体
-              </button>
-            )}
-          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredPresets.map(p => renderPresetCard(p, tab === 'local'))}
+          <div className="space-y-8">
+            {[
+              { title: '通用智能体', desc: '提示词 + 工具配置', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
+              ...(isLocalTab ? [] : [{ title: '专业智能体', desc: '子智能体 / 绑定模型 / 推理强度 / 可用技能', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' }]),
+            ].map(section => {
+              const SectionIcon = section.icon
+              const empty = section.items.length === 0
+              return (
+                <section key={section.title}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${section.accent}`}>
+                      <SectionIcon size={15} />{section.title}
+                    </span>
+                    <span className="text-[11px] text-gray-400">{section.items.length} 个</span>
+                    <span className="text-[11px] text-gray-400">· {section.desc}</span>
+                    <span className={`ml-1 h-3.5 w-0.5 rounded-full ${section.bar}`} />
+                  </div>
+                  {empty ? (
+                    <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
+                      暂无{section.title}
+                      {!isLocalTab && (
+                        <button onClick={openCreateForm} className="ml-2 text-rose-500 hover:underline">
+                          创建{section.title}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {section.items.map(p => renderPresetCard(p, tab === 'local'))}
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+            {generalPresets.length === 0 && professionalPresets.length === 0 && (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                  <Sparkles size={36} className="opacity-50" />
+                </div>
+                <p className="text-sm font-medium">{tab === 'local' ? '未发现本地智能体' : '暂无智能体'}</p>
+                {tab === 'local' ? (
+                  <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-rose-500 hover:underline">
+                    配置智能体目录
+                  </button>
+                ) : (
+                  <button onClick={openCreateForm} className="mt-2 text-xs text-rose-500 hover:underline">
+                    创建第一个智能体
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -757,14 +799,13 @@ export default function AgentsPage() {
                     复用所选通用智能体的提示词与工具配置，快速生成专业版草稿后再继续配置。
                   </p>
                   <div className="flex gap-2">
-                    <select
+                    <Select
                       value={sourceAgentId}
-                      onChange={(e) => setSourceAgentId(e.target.value)}
-                      className="flex-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs outline-none dark:border-violet-700 dark:bg-gray-800"
-                    >
-                      <option value="">选择通用智能体...</option>
-                      {generalAgents.map(a => <option key={a.id} value={a.id}>{a.name}（{a.category}）</option>)}
-                    </select>
+                      onChange={setSourceAgentId}
+                      placeholder="选择通用智能体..."
+                      triggerClassName="flex-1 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs dark:border-violet-700 dark:bg-gray-800"
+                      options={generalAgents.map(a => ({ value: a.id, label: `${a.name}（${a.category}）` }))}
+                    />
                     <button
                       onClick={() => sourceAgentId && createProfessionalMutation.mutate(sourceAgentId)}
                       disabled={!sourceAgentId || createProfessionalMutation.isPending}
@@ -796,7 +837,7 @@ export default function AgentsPage() {
                         value={form.modelId}
                         onChange={(value) => setForm({ ...form, modelId: value })}
                         placeholder="跟随请求 / 话题"
-                        triggerClassName="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+                        triggerClassName={agentFormTriggerCls}
                         options={[
                           { value: '', label: '跟随请求 / 话题' },
                           ...models.filter(m => m.purpose === 'chat').map(m => ({ value: m.id, label: m.displayName })),
@@ -808,23 +849,24 @@ export default function AgentsPage() {
                       <Select
                         value={form.reasoningEffort}
                         onChange={(value) => setForm({ ...form, reasoningEffort: value })}
-                        triggerClassName="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+                        placeholder="跟随模型默认"
+                        triggerClassName={agentFormTriggerCls}
                         options={REASONING_EFFORT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       />
                     </div>
                   </div>
 
-                  {/* 可管理的子智能体 */}
+                  {/* 可管理的子智能体：仅专业智能体 */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
                       可管理的子智能体
-                      <span className="ml-1 font-normal text-gray-400">（{form.subAgentIds.length} 个）</span>
+                      <span className="ml-1 font-normal text-gray-400">（仅专业智能体，{form.subAgentIds.length} 个）</span>
                     </label>
                     <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600 dark:bg-gray-700/50">
-                      {generalAgents.length === 0 && (
-                        <p className="text-[10px] text-gray-400">暂无通用智能体可选</p>
+                      {manageableAgents.length === 0 && (
+                        <p className="text-[10px] text-gray-400">暂无可管理的专业智能体</p>
                       )}
-                      {generalAgents.map(a => {
+                      {manageableAgents.map(a => {
                         const checked = form.subAgentIds.includes(a.id)
                         return (
                           <button
@@ -846,32 +888,34 @@ export default function AgentsPage() {
                     </div>
                   </div>
 
-                  {/* 可使用的技能 */}
+                  {/* 可使用的技能：数据库技能 + 本地技能 */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
                       可使用的技能
-                      <span className="ml-1 font-normal text-gray-400">（{form.skillIds.length} 个，不选则不限制）</span>
+                      <span className="ml-1 font-normal text-gray-400">（含数据库与本地技能，{form.skillIds.length} 个，不选则不限制）</span>
                     </label>
                     <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600 dark:bg-gray-700/50">
-                      {skills.length === 0 && (
+                      {selectableSkills.length === 0 && (
                         <p className="text-[10px] text-gray-400">暂无技能可选</p>
                       )}
-                      {skills.filter(s => s.isEnabled).map(s => {
+                      {selectableSkills.map(s => {
                         const checked = form.skillIds.includes(s.id)
                         return (
                           <button
                             key={s.id}
+                            title={`${s.description || ''}${s.isLocal ? '（本地）' : ''}${s.isEnabled ? '' : '（已停用）'}`}
                             onClick={() => setForm({
                               ...form,
                               skillIds: checked ? form.skillIds.filter(x => x !== s.id) : [...form.skillIds, s.id],
                             })}
-                            className={`rounded-full px-2.5 py-1 text-[11px] transition-colors ${
+                            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition-colors ${
                               checked
                                 ? 'bg-amber-500 text-white'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500'
-                            }`}
+                            } ${s.isEnabled ? '' : 'opacity-50'}`}
                           >
                             /{s.name}
+                            {s.isLocal && <span className="text-[9px] opacity-70">本地</span>}
                           </button>
                         )
                       })}

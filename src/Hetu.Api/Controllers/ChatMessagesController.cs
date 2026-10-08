@@ -424,12 +424,13 @@ public class ChatMessagesController : ControllerBase
 
     /// <summary>
     /// 组装专业智能体的能力说明：可管理的子智能体 + 可使用的技能，注入系统提示词。
+    /// 技能支持数据库技能（Guid）与本地技能（local: 前缀 ID / 名称）。
     /// </summary>
     private async Task<string?> BuildProfessionalCapabilityPromptAsync(PromptPreset agent, CancellationToken ct)
     {
         var subAgentIds = ParseGuidList(agent.SubAgentIds);
-        var skillIds = ParseGuidList(agent.SkillIds);
-        if (subAgentIds.Count == 0 && skillIds.Count == 0) return null;
+        var skillRefs = ParseStringList(agent.SkillIds);
+        if (subAgentIds.Count == 0 && skillRefs.Count == 0) return null;
 
         var sb = new StringBuilder();
         sb.AppendLine("# 专业智能体能力");
@@ -450,18 +451,40 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        if (skillIds.Count > 0)
+        if (skillRefs.Count > 0)
         {
-            var skills = (await _unitOfWork.Skills.GetAllAsync(ct))
-                .Where(s => s.IsEnabled && skillIds.Contains(s.Id))
-                .OrderBy(s => s.SortOrder)
-                .ToList();
-            if (skills.Count > 0)
+            var dbSkillGuids = skillRefs
+                .Where(r => Guid.TryParse(r, out _))
+                .Select(Guid.Parse)
+                .ToHashSet();
+            var localResult = await _localSkillService.ScanAllAsync(ct);
+            var localSkills = localResult.Data ?? [];
+
+            var lines = new List<string>();
+            if (dbSkillGuids.Count > 0)
+            {
+                var dbSkills = (await _unitOfWork.Skills.GetAllAsync(ct))
+                    .Where(s => s.IsEnabled && dbSkillGuids.Contains(s.Id))
+                    .OrderBy(s => s.SortOrder)
+                    .ToList();
+                lines.AddRange(dbSkills.Select(s => $"- /{s.Name}：{s.Description}"));
+            }
+
+            // 非 Guid 的引用按本地技能匹配：local:{dir}:{name} 或技能名
+            var localRefs = skillRefs.Where(r => !Guid.TryParse(r, out _)).ToList();
+            foreach (var name in localRefs
+                .Select(refId => localSkills.FirstOrDefault(s => s.Id == refId)?.Name ?? refId)
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var skill = localSkills.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && s.IsEnabled);
+                if (skill != null) lines.Add($"- /{skill.Name}：{skill.Description}（本地）");
+            }
+
+            if (lines.Count > 0)
             {
                 sb.AppendLine();
                 sb.AppendLine("## 可使用的技能");
-                foreach (var skill in skills)
-                    sb.AppendLine($"- /{skill.Name}：{skill.Description}");
+                foreach (var line in lines) sb.AppendLine(line);
                 sb.AppendLine("仅允许使用以上列出的技能；用户请求其他技能时，说明当前智能体无权使用该技能，建议切换到对应智能体。");
             }
         }
@@ -479,6 +502,23 @@ public class ChatMessagesController : ControllerBase
         catch (JsonException)
         {
             return new List<Guid>();
+        }
+    }
+
+    /// <summary>解析混合 ID 列表（数据库 Guid 与本地技能 local: 前缀 ID）</summary>
+    private static List<string> ParseStringList(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new List<string>();
+        try
+        {
+            return (JsonSerializer.Deserialize<List<string>>(json, JsonDefaults.CaseInsensitive) ?? new List<string>())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .ToList();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
         }
     }
 

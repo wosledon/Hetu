@@ -71,7 +71,7 @@ const formSelectTriggerCls =
 const emptyForm: IKanbanTaskForm = {
   title: '', description: '', status: 'Backlog', priority: 'Medium',
   assignee: '', tags: '', dueDate: '', blockedReason: '',
-  projectId: '', agentId: '', workflowId: '',
+  projectId: '', automation: '', agentId: '', workflowId: '',
 }
 
 const COLUMN_STATUSES: KanbanTaskStatus[] = COLUMNS.map((c) => c.status)
@@ -124,10 +124,11 @@ export default function KanbanPage() {
     queryFn: kanbanTaskService.getBoard,
   })
 
-  // 任务可绑定的项目 / 智能体 / 工作流
+  // 任务可绑定的项目 / 专业智能体 / 工作流
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectService.getAll })
-  const { data: agents = [] } = useQuery({ queryKey: ['promptPresets'], queryFn: promptPresetService.getAll })
+  const { data: presets = [] } = useQuery({ queryKey: ['promptPresets'], queryFn: promptPresetService.getAll })
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
+  const professionalAgents = presets.filter(p => (p.agentType ?? 'General') === 'Professional')
 
   useEffect(() => {
     if (!error) return
@@ -179,6 +180,7 @@ export default function KanbanPage() {
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
       blockedReason: task.blockedReason ?? '',
       projectId: task.projectId ?? '',
+      automation: task.workflowId ? `workflow:${task.workflowId}` : task.agentId ? `agent:${task.agentId}` : '',
       agentId: task.agentId ?? '',
       workflowId: task.workflowId ?? '',
     })
@@ -193,8 +195,12 @@ export default function KanbanPage() {
 
   function handleSave() {
     if (!form.title.trim()) return
-    if (editingId) updateMutation.mutate({ id: editingId, data: form })
-    else createMutation.mutate(form)
+    // 自动处理：合并下拉二选一（专业智能体 / 工作流）
+    const agentId = form.automation.startsWith('agent:') ? form.automation.slice('agent:'.length) : ''
+    const workflowId = form.automation.startsWith('workflow:') ? form.automation.slice('workflow:'.length) : ''
+    const payload = { ...form, agentId, workflowId }
+    if (editingId) updateMutation.mutate({ id: editingId, data: payload })
+    else createMutation.mutate(payload)
   }
 
   /** 目标为已阻塞时先弹原因输入，其余直接流转 */
@@ -443,9 +449,9 @@ export default function KanbanPage() {
                   {/* 自动处理：指定项目 + 智能体/工作流后，进入待办即自动执行 */}
                   <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-700 dark:bg-gray-700/20">
                     <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-                      指定智能体或工作流后，任务进入「待办」会自动处理，完成后进入「审核中」并通知你；在审核中提交评论会让其按评论继续修改。
+                      指定专业智能体或工作流后，任务进入「待办」会自动处理，完成后进入「审核中」并通知你；在审核中提交评论会让其按评论继续修改。
                     </p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">项目</label>
                         <Select
@@ -457,27 +463,22 @@ export default function KanbanPage() {
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">智能体</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">自动处理（智能体 / 工作流）</label>
                         <Select
-                          value={form.agentId}
-                          onChange={(agentId) => setForm({ ...form, agentId })}
+                          value={form.automation}
+                          onChange={(automation) => setForm({ ...form, automation })}
                           placeholder="未指定"
                           searchable
-                          options={agents.map((a) => ({
-                            value: a.id,
-                            label: a.category ? `${a.name}（${a.category}）` : a.name,
-                          }))}
-                          triggerClassName={formSelectTriggerCls}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">工作流</label>
-                        <Select
-                          value={form.workflowId}
-                          onChange={(workflowId) => setForm({ ...form, workflowId })}
-                          placeholder="未指定"
-                          searchable
-                          options={workflows.map((w) => ({ value: w.id, label: w.name }))}
+                          options={[
+                            ...(professionalAgents.length > 0
+                              ? [{ value: '__agents', label: '— 专业智能体 —', disabled: true }]
+                              : []),
+                            ...professionalAgents.map((a) => ({ value: `agent:${a.id}`, label: a.name })),
+                            ...(workflows.length > 0
+                              ? [{ value: '__workflows', label: '— 工作流 —', disabled: true }]
+                              : []),
+                            ...workflows.map((w) => ({ value: `workflow:${w.id}`, label: w.name })),
+                          ]}
                           triggerClassName={formSelectTriggerCls}
                         />
                       </div>
