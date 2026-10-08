@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Check, Loader2, Play, Terminal, Wrench, X } from 'lucide-react'
+import { Brain, ChevronDown, ChevronRight, Check, Loader2, Play, Terminal, Wrench, X } from 'lucide-react'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
 
 export interface ChatToolCallRowProps {
@@ -9,6 +9,10 @@ export interface ChatToolCallRowProps {
   isError?: boolean
   /** 结果未到达即为执行中 */
   running?: boolean
+  /** 文本型行（思考 / 节点输出）：只展示一段文本，视觉与工具行保持一致 */
+  text?: string
+  /** 文本型行的标签，默认「思考」 */
+  label?: string
 }
 
 /** 从工具参数里提取最有信息量的摘要（路径 / 命令 / 查询） */
@@ -34,13 +38,15 @@ const TOOL_ICON: Record<string, typeof Wrench> = {
 }
 
 /**
- * Copilot 风格的瀑布流工具行：图标 + 工具名 + 目标/命令 + 状态，点击展开参数与结果。
- * 用于流式过程与历史回放（历史数据来自助手消息持久化的 ToolCallsJson）。
+ * Copilot 风格的瀑布流行：图标 + 名称 + 目标/命令 + 状态，点击展开详情。
+ * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
-export default function ChatToolCallRow({ name, args, result, isError, running }: ChatToolCallRowProps) {
+export default function ChatToolCallRow({ name, args, result, isError, running, text, label }: ChatToolCallRowProps) {
   const [open, setOpen] = useState(false)
-  const Icon = TOOL_ICON[name] ?? Wrench
-  const summary = summarizeArgs(name, args)
+  const isText = text !== undefined
+  const Icon = isText ? Brain : (TOOL_ICON[name] ?? Wrench)
+  const rowLabel = isText ? (label ?? '思考') : renderToolName(name)
+  const summary = isText ? null : summarizeArgs(name, args)
   const done = result !== undefined && !running
 
   return (
@@ -53,33 +59,43 @@ export default function ChatToolCallRow({ name, args, result, isError, running }
         >
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </button>
-        <Icon size={11} className={`shrink-0 ${name === 'run_command' ? 'text-emerald-500' : 'text-gray-400'}`} />
-        <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{renderToolName(name)}</span>
+        <Icon size={11} className={`shrink-0 ${isText || name !== 'run_command' ? 'text-gray-400' : 'text-emerald-500'}`} />
+        <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{rowLabel}</span>
         {summary && (
           <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400" title={summary}>{summary}</span>
         )}
         {!summary && <span className="flex-1" />}
-        {running
-          ? <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />
-          : done
-            ? isError
-              ? <X size={11} className="ml-auto shrink-0 text-red-500" />
-              : <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
-            : <Play size={11} className="ml-auto shrink-0 text-gray-300 dark:text-gray-600" />}
+        {!isText && (
+          running
+            ? <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />
+            : done
+              ? isError
+                ? <X size={11} className="ml-auto shrink-0 text-red-500" />
+                : <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
+              : <Play size={11} className="ml-auto shrink-0 text-gray-300 dark:text-gray-600" />
+        )}
       </div>
       {open && (
         <div className="border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
-          <pre className="overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-gray-500 dark:text-gray-400">
-            {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
-          </pre>
-          {result !== undefined && (
-            <pre className={`mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded p-2 text-[11px] ${
-              isError
-                ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300'
-                : 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-            }`}>
-              {renderToolResult(name, result, isError)}
+          {isText ? (
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+              {text}
             </pre>
+          ) : (
+            <>
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-gray-500 dark:text-gray-400">
+                {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
+              </pre>
+              {result !== undefined && (
+                <pre className={`mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded p-2 text-[11px] ${
+                  isError
+                    ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300'
+                    : 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                }`}>
+                  {renderToolResult(name, result, isError)}
+                </pre>
+              )}
+            </>
           )}
         </div>
       )}

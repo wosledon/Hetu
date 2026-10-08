@@ -200,6 +200,7 @@ public class KanbanTaskService : IKanbanTaskService
 
         var comments = await _unitOfWork.KanbanTaskComments.FindAsync(c => c.TaskId == id, cancellationToken);
         var runs = await _unitOfWork.KanbanTaskRuns.FindAsync(r => r.TaskId == id, cancellationToken);
+        var steps = await _unitOfWork.KanbanTaskRunSteps.FindAsync(s => s.TaskId == id, cancellationToken);
 
         return ApiResponse<KanbanTaskDetailDto>.Ok(new KanbanTaskDetailDto
         {
@@ -211,6 +212,9 @@ public class KanbanTaskService : IKanbanTaskService
             Runs = runs
                 .OrderByDescending(r => r.CreatedAt)
                 .Select(MapRun).ToList(),
+            Steps = steps
+                .OrderBy(s => s.Sequence).ThenBy(s => s.CreatedAt)
+                .Select(MapStep).ToList(),
         });
     }
 
@@ -426,12 +430,26 @@ public class KanbanTaskService : IKanbanTaskService
         Kind = r.Kind,
         Trigger = r.Trigger,
         Status = r.Status,
+        Input = r.Input,
         Output = r.Output,
         Error = r.Error,
         WorkflowRunId = r.WorkflowRunId,
         StartedAt = r.StartedAt,
         CompletedAt = r.CompletedAt,
         CreatedAt = r.CreatedAt,
+    };
+
+    private static KanbanTaskRunStepDto MapStep(KanbanTaskRunStep s) => new()
+    {
+        Id = s.Id,
+        TaskId = s.TaskId,
+        RunId = s.RunId,
+        Kind = s.Kind,
+        Title = s.Title,
+        Content = s.Content,
+        IsError = s.IsError,
+        Sequence = s.Sequence,
+        CreatedAt = s.CreatedAt,
     };
 
     /// <summary>回填项目/智能体/工作流名称、最近执行状态与评论数</summary>

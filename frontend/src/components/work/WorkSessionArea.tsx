@@ -14,6 +14,8 @@ import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCom
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
 import Select from '../Select'
+import ToolCallGroup from '../ToolCallGroup'
+import { foldConsecutiveToolCalls } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
@@ -379,6 +381,20 @@ export default function WorkSessionArea({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamItems])
+
+  // 两段输出之间的所有过程（工具调用、思考）折叠为一组，正文输出作为组分界
+  const foldedStreamItems = useMemo(
+    () => foldConsecutiveToolCalls(
+      streamItems,
+      (item) => item.kind === 'tool' || item.kind === 'thought',
+      (item) => item.kind === 'tool'
+        ? { id: item.id, name: item.name, args: item.arguments, result: item.result, running: item.result === undefined }
+        : item.kind === 'thought'
+          ? { id: `thought-${item.seq}`, kind: 'thought', name: '', args: item.text, text: item.text }
+          : { name: '', args: '{}' },
+    ),
+    [streamItems],
+  )
 
   // 历史消息按时间线合并渲染（避免文本与文件变更被按类型拆分导致乱序）；
   // 子 Agent 的多条进度事件按 id 去重，仅保留最终状态
@@ -838,7 +854,46 @@ export default function WorkSessionArea({
           {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示 */}
           {isStreaming && (
             <div className="space-y-2">
-              {streamItems.map((item) => {
+              {foldedStreamItems.map((entry, i) => {
+                if (entry.kind === 'tool') {
+                  const only = entry.items[0]
+                  // 单条过程：思考或工具调用，都用统一的行样式
+                  if (entry.items.length === 1) {
+                    return only.kind === 'thought'
+                        ? <ThoughtBlock key={`t${i}`} text={only.text ?? ''} streaming />
+                      : (
+                        <ToolCallRow
+                          key={`t${i}`}
+                          name={only.name}
+                          args={only.args}
+                          result={only.result}
+                          running={only.running}
+                          onOpenPath={onOpenFilePath}
+                          onRunCommand={onRunCommand}
+                        />
+                      )
+                  }
+                  return (
+                    <ToolCallGroup
+                      key={`t${i}`}
+                      items={entry.items}
+                      renderItem={(item) => item.kind === 'thought'
+                        ? <ThoughtBlock text={item.text ?? ''} streaming={false} />
+                        : (
+                          <ToolCallRow
+                            name={item.name}
+                            args={item.args}
+                            result={item.result}
+                            running={item.running}
+                            onOpenPath={onOpenFilePath}
+                            onRunCommand={onRunCommand}
+                          />
+                        )}
+                    />
+                  )
+                }
+
+                const item = entry.item
                 if (item.kind === 'thought')
                   return <ThoughtBlock key={`s${item.seq}`} text={item.text} streaming />
 

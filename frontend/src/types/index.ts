@@ -434,7 +434,7 @@ export interface IKanbanTask {
   workflowId?: string;
   workflowName?: string;
   hasAutomation: boolean;
-  lastRunStatus?: 'Running' | 'Succeeded' | 'Failed';
+  lastRunStatus?: 'Running' | 'Succeeded' | 'Failed' | 'WaitingAnswer';
   lastRunId?: string;
   commentCount: number;
   createdAt: string;
@@ -456,7 +456,8 @@ export interface IKanbanTaskRun {
   taskId: string;
   kind: 'Agent' | 'Workflow';
   trigger: 'Todo' | 'Comment' | 'Manual';
-  status: 'Running' | 'Succeeded' | 'Failed';
+  status: 'Running' | 'Succeeded' | 'Failed' | 'WaitingAnswer';
+  input?: string;
   output?: string;
   error?: string;
   workflowRunId?: string;
@@ -465,10 +466,28 @@ export interface IKanbanTaskRun {
   createdAt: string;
 }
 
+/** 执行过程步骤：思考 / 输出 / 工具调用 / 工具结果 / 工作流节点 */
+export type KanbanRunStepKind = 'Thought' | 'Text' | 'ToolCall' | 'ToolResult' | 'Node';
+
+export interface IKanbanTaskRunStep {
+  id: string;
+  taskId: string;
+  runId: string;
+  kind: KanbanRunStepKind;
+  /** 工具名 / 节点名（Thought、Text 为空） */
+  title?: string;
+  content: string;
+  isError: boolean;
+  /** 同一次执行内的顺序，越小越靠前 */
+  sequence: number;
+  createdAt: string;
+}
+
 export interface IKanbanTaskDetail {
   task: IKanbanTask;
   comments: IKanbanTaskComment[];
   runs: IKanbanTaskRun[];
+  steps: IKanbanTaskRunStep[];
 }
 
 export interface IKanbanTaskStats {
@@ -506,6 +525,14 @@ export interface IKanbanTaskForm {
   agentId: string;
   workflowId: string;
 }
+
+/** 提交载荷：可选字段留空时省略（而非空串，否则后端 Guid?/DateTimeOffset? 绑定失败返回 400） */
+export type IKanbanTaskSubmit = Omit<IKanbanTaskForm, 'dueDate' | 'projectId' | 'agentId' | 'workflowId'> & {
+  dueDate?: string;
+  projectId?: string;
+  agentId?: string;
+  workflowId?: string;
+};
 
 export interface IKanbanTaskMove {
   status: KanbanTaskStatus;

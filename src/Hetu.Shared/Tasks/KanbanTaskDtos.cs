@@ -144,8 +144,10 @@ public class KanbanTaskRunDto
     public string Kind { get; set; } = "Agent";
     /// <summary>Todo / Comment / Manual</summary>
     public string Trigger { get; set; } = "Todo";
-    /// <summary>Running / Succeeded / Failed</summary>
+    /// <summary>Running / Succeeded / Failed / WaitingAnswer（智能体提问等待回答）</summary>
     public string Status { get; set; } = "Running";
+    /// <summary>本次执行的提示词输入（任务简报 + 沟通记录）</summary>
+    public string? Input { get; set; }
     public string? Output { get; set; }
     public string? Error { get; set; }
     public Guid? WorkflowRunId { get; set; }
@@ -160,6 +162,25 @@ public class KanbanTaskDetailDto
     public KanbanTaskDto Task { get; set; } = new();
     public List<KanbanTaskCommentDto> Comments { get; set; } = [];
     public List<KanbanTaskRunDto> Runs { get; set; } = [];
+    /// <summary>执行过程步骤（按执行与顺序排列），时间线据此还原智能体/工作流的详细工作过程</summary>
+    public List<KanbanTaskRunStepDto> Steps { get; set; } = [];
+}
+
+/// <summary>执行过程步骤：思考 / 输出 / 工具调用 / 工具结果 / 工作流节点</summary>
+public class KanbanTaskRunStepDto
+{
+    public Guid Id { get; set; }
+    public Guid TaskId { get; set; }
+    public Guid RunId { get; set; }
+    /// <summary>Thought / Text / ToolCall / ToolResult / Node</summary>
+    public string Kind { get; set; } = "Text";
+    /// <summary>工具名 / 节点名（Thought、Text 为空）</summary>
+    public string? Title { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public bool IsError { get; set; }
+    /// <summary>同一次执行内的顺序，越小越靠前</summary>
+    public int Sequence { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public class KanbanBoardDto

@@ -108,3 +108,26 @@ public class KanbanTaskRun : BaseEntity
     public DateTimeOffset? CompletedAt { get; set; }
 }
 
+/// <summary>
+/// 任务执行过程步骤：智能体/工作流一次执行期间的思考、输出、工具调用与结果流水。
+/// 时间线按 Sequence 顺序展示，让执行过程可回溯（PR 式的 check run 详情）。
+/// </summary>
+public class KanbanTaskRunStep : BaseEntity
+{
+    public Guid TaskId { get; set; }
+    public Guid RunId { get; set; }
+
+    /// <summary>Thought / Text / ToolCall / ToolResult / Node</summary>
+    public string Kind { get; set; } = "Text";
+
+    /// <summary>工具名 / 节点名（Thought、Text 为空）</summary>
+    public string? Title { get; set; }
+
+    public string Content { get; set; } = string.Empty;
+
+    public bool IsError { get; set; }
+
+    /// <summary>同一次执行内的顺序，越小越靠前</summary>
+    public int Sequence { get; set; }
+}
+

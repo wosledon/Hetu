@@ -1,6 +1,6 @@
 import { get, post, put, del } from './api';
 import type {
-  IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskMove, IKanbanTaskDetail,
+  IKanbanBoard, IKanbanTask, IKanbanTaskSubmit, IKanbanTaskMove, IKanbanTaskDetail,
 } from '../types';
 
 export const kanbanTaskService = {
@@ -10,10 +10,10 @@ export const kanbanTaskService = {
   getDetail: (id: string) =>
     get<IKanbanTaskDetail>(`/kanban-tasks/${id}/detail`),
 
-  create: (data: IKanbanTaskForm) =>
+  create: (data: IKanbanTaskSubmit) =>
     post<IKanbanTask>('/kanban-tasks', data),
 
-  update: (id: string, data: IKanbanTaskForm) =>
+  update: (id: string, data: IKanbanTaskSubmit) =>
     put<IKanbanTask>(`/kanban-tasks/${id}`, data),
 
   move: (id: string, data: IKanbanTaskMove) =>

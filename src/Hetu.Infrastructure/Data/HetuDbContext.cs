@@ -33,6 +33,7 @@ public class HetuDbContext : DbContext
     public DbSet<KanbanTask> KanbanTasks => Set<KanbanTask>();
     public DbSet<KanbanTaskComment> KanbanTaskComments => Set<KanbanTaskComment>();
     public DbSet<KanbanTaskRun> KanbanTaskRuns => Set<KanbanTaskRun>();
+    public DbSet<KanbanTaskRunStep> KanbanTaskRunSteps => Set<KanbanTaskRunStep>();
     public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
     public DbSet<ScheduledTaskExecution> ScheduledTaskExecutions => Set<ScheduledTaskExecution>();
     public DbSet<InboxNotification> InboxNotifications => Set<InboxNotification>();
@@ -382,6 +383,17 @@ public class HetuDbContext : DbContext
             entity.Property(e => e.Error).HasMaxLength(4000);
             entity.HasIndex(e => e.TaskId);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<KanbanTaskRunStep>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Content).IsRequired();
+            entity.HasIndex(e => e.TaskId);
+            entity.HasIndex(e => e.RunId);
+            entity.HasIndex(e => e.Sequence);
         });
 
         modelBuilder.Entity<ScheduledTaskExecution>(entity =>

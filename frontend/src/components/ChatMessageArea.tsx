@@ -14,6 +14,8 @@ import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
 import ChatToolCallRow from './ChatToolCallRow'
+import ToolCallGroup from './ToolCallGroup'
+import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import Select from './Select'
 import ApprovalPanel from './ApprovalPanel'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
@@ -154,6 +156,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     startStreaming, stopStreaming,
   } = useStreaming(topicId)
 
+  // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
+  const foldedStreamTimeline = foldConsecutiveToolCalls(
+    timeline,
+    (item) => item.kind !== 'text',
+    (item) => item.kind === 'tool'
+      ? { kind: 'tool', name: item.name ?? '', args: item.arguments ?? '{}', result: item.result, isError: item.isError, running: item.running }
+      : item.kind === 'thought'
+        ? { kind: 'thought', name: '', args: item.text ?? '', text: item.text ?? '' }
+        : { kind: 'tool', name: '', args: '{}' },
+  )
+
   const streamWebSearch = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedWebSearch : false) ?? false)
   const streamKnowledgeBase = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedKnowledgeBase : false) ?? false)
   const streamMemory = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedMemory : false) ?? false)
@@ -193,7 +206,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState(() => cachedSettings.modelId ?? '')
-  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const [slashMenuIndex, setSlashMenuIndex] = useState(0)
   const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
   const slashMenuRef = useRef<HTMLDivElement>(null)
@@ -507,15 +519,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       toolApprovalMode,
     })
   }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
-
-  const toggleSavedThinking = useCallback((messageId: string) => {
-    setExpandedThinking(prev => {
-      const next = new Set(prev)
-      if (next.has(messageId)) next.delete(messageId)
-      else next.add(messageId)
-      return next
-    })
-  }, [])
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -1080,9 +1083,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               isEditing={editingMessageId === message.id}
               editingContent={editingMessageId === message.id ? editingContent : ''}
               isCopied={copiedMessageId === message.id}
-              thinkingExpanded={expandedThinking.has(message.id)}
               actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-              onToggleThinking={toggleSavedThinking}
               onCopy={copyMessage}
               onStartEdit={startEditingMessage}
               onSaveEdit={saveEditingMessage}
@@ -1115,40 +1116,37 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <div className="flex flex-col">
               {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，不用气泡包裹 */}
               <div className="text-gray-800 dark:text-gray-100">
-                {timeline.map((item, i) => {
-                  if (item.kind === 'tool') {
+                {foldedStreamTimeline.map((entry, i) => {
+                  if (entry.kind === 'tool') {
+                    const only = entry.items[0]
+                    // 单条过程：工具调用或思考，都直接用统一的行样式
+                    if (entry.items.length === 1) {
+                      return only.kind === 'thought'
+                        ? (
+                          <div key={i} className="mb-2">
+                            <ChatToolCallRow name="" args={only.text ?? ''} text={only.text ?? ''} label="思考" />
+                            {i === foldedStreamTimeline.length - 1 && <div ref={thinkingEndRef} />}
+                          </div>
+                        )
+                        : (
+                          <div key={i} className="mb-2">
+                            <ChatToolCallRow
+                              name={only.name}
+                              args={only.args}
+                              result={only.result}
+                              isError={only.isError}
+                              running={only.running}
+                            />
+                          </div>
+                        )
+                    }
                     return (
                       <div key={i} className="mb-2">
-                        <ChatToolCallRow
-                          name={item.name ?? ''}
-                          args={item.arguments ?? '{}'}
-                          result={item.result}
-                          isError={item.isError}
-                          running={item.running}
-                        />
+                        <ToolCallGroup items={entry.items} />
                       </div>
                     )
                   }
-                  if (item.kind === 'thought') {
-                    return (
-                      <div key={i} className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-                        <button
-                          onClick={() => setShowThinking(!showThinking)}
-                          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
-                        >
-                          {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
-                          <Brain size={11} className="shrink-0 text-gray-400" />
-                          <span>深度思考</span>
-                        </button>
-                        {showThinking && (
-                          <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
-                            <ThemedMarkdown source={item.text ?? ''} />
-                            {i === timeline.length - 1 && <div ref={thinkingEndRef} />}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  }
+                  const item = entry.item
                   return (
                     <div key={i} className="mb-3 prose prose-sm dark:prose-invert max-w-none">
                       <ThemedMarkdown source={item.text ?? ''} />

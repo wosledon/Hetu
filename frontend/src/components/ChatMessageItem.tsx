@@ -1,7 +1,9 @@
-import { memo, useState } from 'react'
-import { Brain, ChevronDown, ChevronRight, Search, Database, Atom, Copy, Check, Pencil, Trash2, X, User } from 'lucide-react'
+import { memo } from 'react'
+import { Search, Database, Atom, Copy, Check, Pencil, Trash2, X, User } from 'lucide-react'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatToolCallRow from './ChatToolCallRow'
+import ToolCallGroup from './ToolCallGroup'
+import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import type { IChatMessage } from '../types'
 
 interface ITimelineSegment {
@@ -76,9 +78,7 @@ interface ChatMessageItemProps {
   isEditing: boolean
   editingContent: string
   isCopied: boolean
-  thinkingExpanded: boolean
   actionsDisabled: boolean
-  onToggleThinking: (id: string) => void
   onCopy: (id: string, content: string) => void
   onStartEdit: (id: string, content: string) => void
   onSaveEdit: () => void
@@ -89,24 +89,30 @@ interface ChatMessageItemProps {
 
 /** 单条历史消息。memo 化后流式更新不会重渲染整个历史列表。 */
 export default memo(function ChatMessageItem({
-  message, isEditing, editingContent, isCopied, thinkingExpanded,
+  message, isEditing, editingContent, isCopied,
   actionsDisabled,
-  onToggleThinking, onCopy, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onEditContentChange,
+  onCopy, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onEditContentChange,
 }: ChatMessageItemProps) {
   const segments = parseHistorySegments(message.toolCallsJson)
   const isUser = message.role === 'user'
-  // 时间线里的思考块按“消息+片段序号”独立展开（父组件只管单块 thinkingContent 的场景）
-  const [openThoughts, setOpenThoughts] = useState<Set<string>>(new Set())
-  const toggleThought = (key: string) =>
-    setOpenThoughts((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
   // 有序片段里已包含正文文本；旧格式的纯工具列表则回到“工具组 + 正文”布局
   const interleaved = segments.some((s) => s.kind === 'text')
   const isLegacy = segments.length > 0 && !interleaved
+  // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
+  const foldedSegments = foldConsecutiveToolCalls(
+    segments,
+    (s) => s.kind === 'tool' || s.kind === 'thought',
+    (s) => s.kind === 'tool'
+      ? { kind: 'tool', name: s.name, args: s.arguments, result: s.result, isError: s.isError }
+      : { kind: 'thought', name: '', args: s.text, text: s.text },
+  )
+  const foldedLegacySegments = foldConsecutiveToolCalls(
+    segments.filter((s) => s.kind === 'tool'),
+    () => true,
+    (s) => s.kind === 'tool'
+      ? { kind: 'tool', name: s.name, args: s.arguments, result: s.result, isError: s.isError }
+      : { kind: 'tool', name: '', args: '{}' },
+  )
   return (
     <div className={`group relative flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       {isUser && (
@@ -149,61 +155,41 @@ export default memo(function ChatMessageItem({
           ) : (
             <>
               {message.role === 'assistant' && message.thinkingContent && !segments.some((s) => s.kind === 'thought') && (
-                <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-                  <button
-                    onClick={() => onToggleThinking(message.id)}
-                    className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
-                  >
-                    {thinkingExpanded ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
-                    <Brain size={11} className="shrink-0 text-gray-400" />
-                    <span>深度思考</span>
-                  </button>
-                  {thinkingExpanded && (
-                    <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
-                      <ThemedMarkdown source={message.thinkingContent} />
-                    </div>
-                  )}
+                <div className="mb-3">
+                  <ChatToolCallRow name="" args={message.thinkingContent} text={message.thinkingContent} label="思考" />
                 </div>
               )}
               {/* 瀑布流时间线：思考/工具调用与文本按发生顺序穿插（新格式） */}
               {!isUser && interleaved && (
                 <div className="space-y-2">
-                  {segments.map((seg, i) => {
-                    if (seg.kind === 'tool') {
-                      return (
-                        <ChatToolCallRow
-                          key={i}
-                          name={seg.name}
-                          args={seg.arguments}
-                          result={seg.result}
-                          isError={seg.isError}
-                        />
-                      )
+                  {foldedSegments.map((entry, i) => {
+                    if (entry.kind === 'tool') {
+                      const only = entry.items[0]
+                      // 单条过程：工具调用或思考，都直接用统一的行样式
+                      if (entry.items.length === 1) {
+                        return only.kind === 'thought'
+                          ? <ChatToolCallRow key={i} name="" args={only.text ?? ''} text={only.text ?? ''} label="思考" />
+                          : (
+                            <ChatToolCallRow
+                              key={i}
+                              name={only.name}
+                              args={only.args}
+                              result={only.result}
+                              isError={only.isError}
+                            />
+                          )
+                      }
+                      return <ToolCallGroup key={i} items={entry.items} />
                     }
+                    const seg = entry.item
                     if (seg.kind === 'thought') {
-                      const segKey = `${message.id}-${i}`
-                      const open = openThoughts.has(segKey)
                       return (
-                        <div key={i} className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-                          <button
-                            onClick={() => toggleThought(segKey)}
-                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
-                          >
-                            {open ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
-                            <Brain size={11} className="shrink-0 text-gray-400" />
-                            <span>深度思考</span>
-                          </button>
-                          {open && (
-                            <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
-                              <ThemedMarkdown source={seg.text} />
-                            </div>
-                          )}
-                        </div>
+                        <ChatToolCallRow key={i} name="" args={seg.text} text={seg.text} label="思考" />
                       )
                     }
                     return (
                       <div key={i} className="prose prose-sm dark:prose-invert max-w-none">
-                        <ThemedMarkdown source={seg.text} />
+                        <ThemedMarkdown source={seg.kind === 'text' ? seg.text : ''} />
                       </div>
                     )
                   })}
@@ -212,16 +198,20 @@ export default memo(function ChatMessageItem({
               {/* 旧格式：工具组集中展示，正文在后 */}
               {!isUser && isLegacy && (
                 <div className="mb-3 space-y-1">
-                  {segments.map((seg, i) =>
-                    seg.kind === 'tool' ? (
-                      <ChatToolCallRow
-                        key={i}
-                        name={seg.name}
-                        args={seg.arguments}
-                        result={seg.result}
-                        isError={seg.isError}
-                      />
-                    ) : null
+                  {foldedLegacySegments.map((entry, i) =>
+                    entry.kind === 'tool'
+                      ? entry.items.length > 1
+                        ? <ToolCallGroup key={i} items={entry.items} />
+                        : (
+                          <ChatToolCallRow
+                            key={i}
+                            name={entry.items[0].name}
+                            args={entry.items[0].args}
+                            result={entry.items[0].result}
+                            isError={entry.items[0].isError}
+                          />
+                        )
+                      : null
                   )}
                 </div>
               )}
