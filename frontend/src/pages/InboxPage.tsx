@@ -14,6 +14,8 @@ import {
   ArchiveRestore,
   Trash2,
   Check,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { inboxService } from '../services/inboxService'
@@ -112,18 +114,21 @@ export default function InboxPage() {
     setSelected(allSelected ? [] : items.map((n) => n.id))
   }
 
-  const runBatch = (action: InboxBatchAction) => {
-    if (selected.length === 0) return
+  const runBatch = (action: InboxBatchAction, ids?: string[]) => {
+    const targetIds = ids ?? selected
+    if (targetIds.length === 0) return
     if (action === 'delete') {
       confirm({
         title: '删除通知',
-        message: `确定删除选中的 ${selected.length} 条通知？`,
-        onConfirm: () => batchMutation.mutate({ ids: selected, action }),
+        message: `确定删除选中的 ${targetIds.length} 条通知？`,
+        onConfirm: () => batchMutation.mutate({ ids: targetIds, action }),
       })
       return
     }
-    batchMutation.mutate({ ids: selected, action })
+    batchMutation.mutate({ ids: targetIds, action })
   }
+
+  const unreadIds = items.filter((n) => !n.isRead).map((n) => n.id)
 
   const handleItemClick = (item: IInboxNotification) => {
     if (!item.isRead) markReadMutation.mutate({ id: item.id, isRead: true })
@@ -138,21 +143,33 @@ export default function InboxPage() {
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
           <div className="mx-auto max-w-4xl px-8 py-8">
             {/* Header */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-                  <Inbox size={20} className="text-white" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
+                  <Inbox size={22} className="text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">收件箱</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">应用内的通知汇总，支持归档与批量操作</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {archived ? '已归档的通知' : '任务执行结果与系统通知，点击可跳转详情'}
+                  </p>
                 </div>
               </div>
-              {!archived && (unreadCount ?? 0) > 0 && (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                  {unreadCount} 条未读
-                </span>
-              )}
+              <div className="ml-auto flex items-center gap-2">
+                {!archived && (unreadCount ?? 0) > 0 && (
+                  <>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                      {unreadCount} 条未读
+                    </span>
+                    <button
+                      onClick={() => runBatch('read', unreadIds)}
+                      className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <CheckCheck size={13} />全部已读
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* 归档切换 + 分类筛选 */}
@@ -213,135 +230,152 @@ export default function InboxPage() {
             </div>
 
             {/* 列表 */}
-            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-              {/* 工具栏：全选 + 批量操作 */}
-              <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
-                  />
-                  全选
-                </label>
-                {selected.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">已选 {selected.length} 条</span>
-                    <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-                    <BatchButton icon={CheckCheck} label="已读" onClick={() => runBatch('read')} />
-                    <BatchButton icon={MailOpen} label="未读" onClick={() => runBatch('unread')} />
-                    {archived ? (
-                      <BatchButton icon={ArchiveRestore} label="取消归档" onClick={() => runBatch('unarchive')} />
-                    ) : (
-                      <BatchButton icon={Archive} label="归档" onClick={() => runBatch('archive')} />
-                    )}
-                    <BatchButton icon={Trash2} label="删除" danger onClick={() => runBatch('delete')} />
-                  </div>
-                )}
+            {isLoading ? (
+              <div className="flex h-48 items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+                <Loader2 size={16} className="mr-2 animate-spin" />加载中…
               </div>
+            ) : items.length === 0 ? (
+              <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500">
+                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                  <Inbox size={28} className="opacity-50" />
+                </div>
+                <p className="text-[13px] font-medium">{archived ? '暂无归档通知' : '暂无通知'}</p>
+                <p className="text-[11px]">{archived ? '归档的通知会保留 30 天' : '任务处理完成、定时任务执行后都会在这里提醒'}</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {/* 工具栏：全选 + 批量操作 */}
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
+                    />
+                    全选
+                  </label>
+                  {selected.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                        已选 {selected.length} 条
+                      </span>
+                      <BatchButton icon={CheckCheck} label="已读" onClick={() => runBatch('read')} />
+                      <BatchButton icon={MailOpen} label="未读" onClick={() => runBatch('unread')} />
+                      {archived ? (
+                        <BatchButton icon={ArchiveRestore} label="取消归档" onClick={() => runBatch('unarchive')} />
+                      ) : (
+                        <BatchButton icon={Archive} label="归档" onClick={() => runBatch('archive')} />
+                      )}
+                      <BatchButton icon={Trash2} label="删除" danger onClick={() => runBatch('delete')} />
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">共 {items.length} 条，选中后可批量操作</span>
+                  )}
+                </div>
 
-              {isLoading ? (
-                <div className="flex h-40 items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                  加载中…
-                </div>
-              ) : items.length === 0 ? (
-                <div className="flex h-40 flex-col items-center justify-center gap-2 text-gray-400 dark:text-gray-500">
-                  <Inbox size={28} className="opacity-40" />
-                  <p className="text-xs">{archived ? '暂无归档通知' : '暂无通知'}</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {items.map((item) => {
-                    const level = LEVEL_STYLE[item.level] ?? LEVEL_STYLE.Info
-                    const LevelIcon = level.icon
-                    return (
-                      <li
-                        key={item.id}
-                        className={`group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03] ${
-                          item.isRead ? '' : 'bg-blue-50/40 dark:bg-blue-500/[0.04]'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedSet.has(item.id)}
-                          onChange={() => toggleSelect(item.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1 h-3.5 w-3.5 shrink-0 rounded border-gray-300 dark:border-gray-600"
-                        />
-                        <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${level.className}`}>
-                          <LevelIcon size={13} />
-                        </div>
-                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleItemClick(item)}>
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                              {item.title}
-                            </span>
-                            {item.occurrenceCount > 1 && (
-                              <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                                ×{item.occurrenceCount}
-                              </span>
-                            )}
-                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${getCategoryStyle(item.category)}`}>
-                              {item.category}
-                            </span>
-                            <span className="ml-auto shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
-                              {formatTime(item.updatedAt)}
-                            </span>
-                          </div>
-                          {item.content && (
-                            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                              {item.content}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                {items.map((item) => {
+                  const level = LEVEL_STYLE[item.level] ?? LEVEL_STYLE.Info
+                  const LevelIcon = level.icon
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleItemClick(item)}
+                      className={`group flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-all hover:shadow-sm ${
+                        item.isRead
+                          ? 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'
+                          : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 dark:border-gray-600"
+                      />
+
+                      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-black/[0.02] ${level.className}`}>
+                        <LevelIcon size={16} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           {!item.isRead && (
-                            <button
-                              title="标记已读"
-                              onClick={() => markReadMutation.mutate({ id: item.id, isRead: true })}
-                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                            >
-                              <Check size={14} />
-                            </button>
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" title="未读" />
                           )}
-                          {archived ? (
-                            <button
-                              title="取消归档"
-                              onClick={() => archiveMutation.mutate({ id: item.id, isArchived: false })}
-                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                            >
-                              <ArchiveRestore size={14} />
-                            </button>
-                          ) : (
-                            <button
-                              title="归档"
-                              onClick={() => archiveMutation.mutate({ id: item.id, isArchived: true })}
-                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                            >
-                              <Archive size={14} />
-                            </button>
+                          <span className={`truncate text-[13px] ${item.isRead ? 'text-gray-700 dark:text-gray-200' : 'font-semibold text-gray-900 dark:text-gray-100'}`}>
+                            {item.title}
+                          </span>
+                          {item.occurrenceCount > 1 && (
+                            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                              ×{item.occurrenceCount}
+                            </span>
                           )}
-                          <button
-                            title="删除"
-                            onClick={() =>
-                              confirm({
-                                title: '删除通知',
-                                message: '确定删除该通知？',
-                                onConfirm: () => deleteMutation.mutate(item.id),
-                              })
-                            }
-                            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryStyle(item.category)}`}>
+                            {item.category}
+                          </span>
+                          <span className="ml-auto shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+                            {formatTime(item.updatedAt)}
+                          </span>
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
+                        {item.content && (
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                            {item.content}
+                          </p>
+                        )}
+                        {item.link && (
+                          <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-300">
+                            查看详情<ChevronRight size={11} />
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
+                        <button
+                          title={item.isRead ? '标记未读' : '标记已读'}
+                          onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}
+                          className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+                        >
+                          {item.isRead ? <MailOpen size={14} /> : <Check size={14} />}
+                        </button>
+                        {archived ? (
+                          <button
+                            title="取消归档"
+                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}
+                            className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+                          >
+                            <ArchiveRestore size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            title="归档"
+                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}
+                            className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+                          >
+                            <Archive size={14} />
+                          </button>
+                        )}
+                        <button
+                          title="删除"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirm({
+                              title: '删除通知',
+                              message: '确定删除该通知？',
+                              onConfirm: () => deleteMutation.mutate(item.id),
+                            })
+                          }}
+                          className="rounded-lg p-1.5 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       }
