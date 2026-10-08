@@ -8,10 +8,12 @@ namespace Hetu.Core.Services;
 public class PromptPresetService : IPromptPresetService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalPromptPresetService _localPromptPresetService;
 
-    public PromptPresetService(IUnitOfWork unitOfWork)
+    public PromptPresetService(IUnitOfWork unitOfWork, ILocalPromptPresetService localPromptPresetService)
     {
         _unitOfWork = unitOfWork;
+        _localPromptPresetService = localPromptPresetService;
     }
 
     public async Task<ApiResponse<List<PromptPresetDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -108,6 +110,38 @@ public class PromptPresetService : IPromptPresetService
             IsBuiltIn = false,
             AgentType = "Professional",
             SortOrder = source.SortOrder,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        await _unitOfWork.PromptPresets.AddAsync(preset, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse<PromptPresetDto>.Ok(Map(preset));
+    }
+
+    /// <summary>
+    /// 从本地（目录扫描得到）通用智能体创建专业智能体：本地智能体不可编辑，
+    /// 需要落库为数据库中的专业智能体草稿后再继续配置。
+    /// </summary>
+    public async Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromLocalAsync(string localId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(localId))
+            return ApiResponse<PromptPresetDto>.Fail("本地智能体 ID 不能为空");
+
+        var localResult = await _localPromptPresetService.ScanAllAsync(cancellationToken);
+        var local = localResult.Data?.FirstOrDefault(p => p.Id == localId);
+        if (local == null) return ApiResponse<PromptPresetDto>.Fail("本地智能体不存在");
+
+        var preset = new PromptPreset
+        {
+            Id = Guid.NewGuid(),
+            Category = string.IsNullOrWhiteSpace(local.Category) ? "本地" : local.Category,
+            Name = await EnsureUniqueNameAsync(local.Name + " 专业版", cancellationToken),
+            Content = local.Content,
+            Variables = local.Variables,
+            ToolsConfig = local.ToolsConfig,
+            IsBuiltIn = false,
+            AgentType = "Professional",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };

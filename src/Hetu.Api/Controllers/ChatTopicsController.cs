@@ -41,6 +41,10 @@ public class ChatTopicsController : ControllerBase
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _chatTopicService.DeleteAsync(id, cancellationToken);
 
+    [HttpPost("{id:guid}/clear")]
+    public Task<ApiResponse> Clear(Guid id, CancellationToken cancellationToken)
+        => _chatTopicService.ClearAsync(id, cancellationToken);
+
     [HttpPost("{id:guid}/fork")]
     public Task<ApiResponse<ChatTopicDto>> Fork(Guid id, [FromQuery] Guid? branchMessageId = null, CancellationToken cancellationToken = default)
         => _chatTopicService.ForkAsync(id, branchMessageId, cancellationToken);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User, AtSign, NotebookPen, Tag, Library } from 'lucide-react'
+import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User, AtSign, NotebookPen, Tag, Library, Eraser } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
@@ -742,6 +742,23 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     },
   })
 
+  // 主对话全局唯一：清空旧消息，避免累积上下文污染后续对话
+  const clearTopicMutation = useMutation({
+    mutationFn: (topicId: string) => chatTopicService.clear(topicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatMessages', topic?.id] })
+      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+    },
+  })
+
+  const handleClearTopic = useCallback(() => {
+    if (!topic) return
+    confirm({
+      message: '确定清空主对话的所有消息吗？清空后不可恢复，后续对话将从头开始。',
+      onConfirm: () => clearTopicMutation.mutate(topic.id),
+    })
+  }, [confirm, topic, clearTopicMutation])
+
   const startEditingMessage = useCallback((messageId: string, content: string) => {
     setEditingMessageId(messageId)
     setEditingContent(content)
@@ -898,6 +915,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{messages.length} 条消息</p>
         </div>
         <div className="flex items-center gap-1">
+          {topic.isMain && (
+            <button
+              onClick={handleClearTopic}
+              disabled={isStreaming || clearTopicMutation.isPending}
+              className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-red-400"
+              title="清空主对话"
+            >
+              {clearTopicMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Eraser size={15} />}
+            </button>
+          )}
           <button
             onClick={() => { setShowSearch(!showSearch); if (showSearch) { setSearchQuery(''); setSearchResults([]) } }}
             className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}

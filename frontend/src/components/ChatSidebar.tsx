@@ -56,9 +56,11 @@ interface ChatSidebarProps {
   mainChat?: IMainChat
   selectedMain?: boolean
   onSelectMain?: () => void
+  /** 头部插槽：Work 页的对话/Code 模式胶囊 */
+  modeSwitch?: React.ReactNode
 }
 
-export default function ChatSidebar({ selectedGroupId, onSelectGroup, mainChat, selectedMain, onSelectMain }: ChatSidebarProps) {
+export default function ChatSidebar({ selectedGroupId, onSelectGroup, mainChat, selectedMain, onSelectMain, modeSwitch }: ChatSidebarProps) {
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
@@ -94,25 +96,30 @@ export default function ChatSidebar({ selectedGroupId, onSelectGroup, mainChat, 
   }
 
   return (
-    <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">会话组</h2>
+    <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-100 p-3 dark:border-gray-800">
+        <div className="mb-2 flex items-center justify-center">
+          {modeSwitch ?? (
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">会话组</h2>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索..."
+              className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600"
+            />
+          </div>
           <button
             onClick={() => setIsCreating(true)}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            title="新建会话组"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           >
             <Plus size={14} />
           </button>
-        </div>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索..."
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
-          />
         </div>
       </div>
 

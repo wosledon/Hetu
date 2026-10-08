@@ -87,6 +87,7 @@ export const chatTopicService = {
   create: (data: CreateChatTopicRequest) => post<IChatTopic>('/chat-topics', data),
   update: (id: string, data: UpdateChatTopicRequest) => put<IChatTopic>(`/chat-topics/${id}`, data),
   delete: (id: string) => del<void>(`/chat-topics/${id}`),
+  clear: (id: string) => post<void>(`/chat-topics/${id}/clear`),
   fork: (id: string, branchMessageId?: string) => {
     const params = branchMessageId ? `?branchMessageId=${branchMessageId}` : '';
     return post<IChatTopic>(`/chat-topics/${id}/fork${params}`);

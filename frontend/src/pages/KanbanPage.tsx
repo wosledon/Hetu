@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  LayoutGrid, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2,
+  SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2,
   AlertTriangle, Archive, ChevronRight, User, CalendarDays, Loader2, MessageSquare,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
@@ -249,7 +249,7 @@ export default function KanbanPage() {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:ring-indigo-500/20">
-                <LayoutGrid size={20} className="text-indigo-600 dark:text-indigo-400" />
+                <SquareKanban size={20} className="text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">任务看板</h1>
@@ -373,7 +373,7 @@ export default function KanbanPage() {
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                      <LayoutGrid size={16} className="text-indigo-600 dark:text-indigo-400" />
+                      <SquareKanban size={16} className="text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                       {editingId ? '编辑任务' : '新建任务'}
