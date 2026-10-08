@@ -130,6 +130,10 @@ public class ToolExecutionService
     /// <param name="workScope">
     /// 可选的工作项目作用域。工具在新作用域内执行，需显式传递，否则 work_* 文件工具取不到根目录与运行时工具。
     /// </param>
+    /// <param name="questionHandler">
+    /// 可选的提问处理器。非空时 ask_question 不走 SSE 会话等待（无人应答会 5 分钟超时跳过），
+    /// 改由该回调立即裁决——如后台任务可直接抛出异常中断执行并交由调用方决定是否阻塞等待用户。
+    /// </param>
     public async Task<List<(string toolCallId, string content, bool isError)>> ExecuteToolCallsAsync(
         string sessionId,
         List<LlmToolCall> toolCalls,
@@ -139,7 +143,8 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken cancellationToken,
         Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? decideToolCall = null,
-        WorkToolScope? workScope = null)
+        WorkToolScope? workScope = null,
+        Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         var results = new List<(string toolCallId, string content, bool isError)>();
         var state = _sessions.GetOrCreate(sessionId);
@@ -212,7 +217,7 @@ public class ToolExecutionService
             }
             else if (executor != null)
             {
-                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
+                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken, questionHandler);
             }
             else
             {
@@ -279,12 +284,18 @@ public class ToolExecutionService
         IToolExecutor executor,
         List<SessionTodo> sessionTodos,
         Func<object, Task> writeJsonAsync,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
+        // 提问处理器的裁决异常（如后台任务阻塞等待用户回答）必须中断执行，
+        // 不能被下面的通用 catch 降级为一条工具错误结果
+        if (toolCall.Name == InteractiveTools.AskQuestion && questionHandler != null)
+            return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, questionHandler);
+
         try
         {
             if (toolCall.Name == InteractiveTools.AskQuestion)
-                return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct);
+                return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, null);
 
             if (toolCall.Name == InteractiveTools.Todo)
                 return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
@@ -305,10 +316,15 @@ public class ToolExecutionService
         SessionPendingState state,
         LlmToolCall toolCall,
         Func<object, Task> writeJsonAsync,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         _logger.LogInformation("[ToolExec] ask_question pending toolCallId={ToolCallId}", toolCall.Id);
         await writeJsonAsync(new { type = "question", toolCallId = toolCall.Id, data = toolCall.Arguments });
+
+        // 后台执行（无人可通过 SSE 应答）时由调用方裁决，例如直接中断执行转人工
+        if (questionHandler != null)
+            return (await questionHandler(toolCall), false);
 
         var tcs = new TaskCompletionSource<string>();
         state.Questions[toolCall.Id] = tcs;

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Hetu.Core.Entities;
+using Hetu.Core.Interfaces;
 using Hetu.Shared.Workflow;
 
 namespace Hetu.Core.Services.Workflows;
@@ -37,6 +38,12 @@ public class ExecutionContext
 
     /// <summary>全局工具审批模式（auto/ask/bypass），Agent 节点未显式配置工具时生效</summary>
     public string? GlobalApprovalMode { get; set; }
+
+    /// <summary>
+    /// 提问处理器：非空时 Agent 节点的 ask_question 由该回调裁决（后台执行可中断转人工），
+    /// 为空时走 SSE 会话等待用户回答。
+    /// </summary>
+    public Func<LlmToolCall, Task<string>>? QuestionHandler { get; set; }
 
     /// <summary>工作流节点列表</summary>
     public List<NodeDto> Nodes { get; set; } = new();

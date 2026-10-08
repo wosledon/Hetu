@@ -35,6 +35,50 @@ export function renderToolName(name: string): string {
   return TOOL_LABELS[name] || name
 }
 
+/** 一次过程条目：工具调用 / 思考 / 工作流节点（折叠分组的最小单元） */
+export interface ToolCallEntry {
+  id?: string
+  name: string
+  args: string
+  result?: string
+  isError?: boolean
+  /** 结果未到达即为执行中 */
+  running?: boolean
+  /** 条目类型，默认 tool；thought=思考，node=工作流节点 */
+  kind?: 'tool' | 'thought' | 'node'
+  /** thought / node 的正文内容 */
+  text?: string
+}
+
+export type FoldedToolEntry<T> =
+  | { kind: 'tool'; items: ToolCallEntry[] }
+  | { kind: 'other'; item: T }
+
+/**
+ * 把有序序列折叠成展示项：两段输出之间的所有过程条目（工具调用、思考等）
+ * 合并为同一个组（组内保序），文本输出原样穿插保留，并作为组的边界。
+ */
+export function foldConsecutiveToolCalls<T>(
+  items: T[],
+  isProcess: (item: T) => boolean,
+  toEntry: (item: T) => ToolCallEntry,
+): FoldedToolEntry<T>[] {
+  const folded: FoldedToolEntry<T>[] = []
+  for (const item of items) {
+    if (isProcess(item)) {
+      const last = folded[folded.length - 1]
+      if (last && last.kind === 'tool') {
+        last.items.push(toEntry(item))
+        continue
+      }
+      folded.push({ kind: 'tool', items: [toEntry(item)] })
+      continue
+    }
+    folded.push({ kind: 'other', item })
+  }
+  return folded
+}
+
 export function renderToolResult(_name: string, content: string, isError?: boolean): React.ReactNode {
   if (isError) {
     return <span className="text-[11px]">{content}</span>

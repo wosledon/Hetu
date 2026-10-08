@@ -32,6 +32,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<KanbanTask> KanbanTasks { get; }
     public IRepository<KanbanTaskComment> KanbanTaskComments { get; }
     public IRepository<KanbanTaskRun> KanbanTaskRuns { get; }
+    public IRepository<KanbanTaskRunStep> KanbanTaskRunSteps { get; }
     public IRepository<ScheduledTask> ScheduledTasks { get; }
     public IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     public IRepository<InboxNotification> InboxNotifications { get; }
@@ -75,6 +76,7 @@ public class UnitOfWork : IUnitOfWork
         KanbanTasks = new EfRepository<KanbanTask>(context);
         KanbanTaskComments = new EfRepository<KanbanTaskComment>(context);
         KanbanTaskRuns = new EfRepository<KanbanTaskRun>(context);
+        KanbanTaskRunSteps = new EfRepository<KanbanTaskRunStep>(context);
         ScheduledTasks = new EfRepository<ScheduledTask>(context);
         ScheduledTaskExecutions = new EfRepository<ScheduledTaskExecution>(context);
         InboxNotifications = new EfRepository<InboxNotification>(context);

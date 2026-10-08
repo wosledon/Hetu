@@ -43,6 +43,11 @@ public class AgentLoopRequest
     public Dictionary<string, ToolApprovalMode> ToolApprovals { get; set; } = new();
     public string SessionId { get; set; } = "";
     public IAgentLoopSink? Sink { get; set; }
+    /// <summary>
+    /// 提问处理器：非空时 ask_question 由该回调裁决（后台任务可中断执行转人工），
+    /// 为空时走 SSE 会话等待用户回答。
+    /// </summary>
+    public Func<LlmToolCall, Task<string>>? QuestionHandler { get; set; }
     /// <summary>工作项目作用域：非空时 work_* 工具在该项目目录（或 SSH 远端）内执行</summary>
     public WorkToolScope? WorkScope { get; set; }
 }
@@ -237,7 +242,8 @@ public class AgentLoopService
                 },
                 ct,
                 decideToolCall: null,
-                workScope: request.WorkScope);
+                workScope: request.WorkScope,
+                questionHandler: request.QuestionHandler);
 
             foreach (var (toolCallId, content2, resultIsError) in toolResults)
             {

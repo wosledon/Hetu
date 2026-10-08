@@ -106,6 +106,7 @@ public class AgentNodeExecutor : INodeExecutor
             MaxToolCallsPerTurn = TryGetInt(config, "maxToolCallsPerTurn", 5),
             ToolApprovals = toolApprovals,
             SessionId = $"workflow-{ctx.RunId}-{node.Id}",
+            QuestionHandler = ctx.QuestionHandler,
             Sink = new CollectingAgentLoopSink(sink, ctx.RunId, node.Id)
         };
 

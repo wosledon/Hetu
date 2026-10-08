@@ -28,6 +28,7 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<KanbanTask> KanbanTasks { get; }
     IRepository<KanbanTaskComment> KanbanTaskComments { get; }
     IRepository<KanbanTaskRun> KanbanTaskRuns { get; }
+    IRepository<KanbanTaskRunStep> KanbanTaskRunSteps { get; }
     IRepository<ScheduledTask> ScheduledTasks { get; }
     IRepository<ScheduledTaskExecution> ScheduledTaskExecutions { get; }
     IRepository<InboxNotification> InboxNotifications { get; }

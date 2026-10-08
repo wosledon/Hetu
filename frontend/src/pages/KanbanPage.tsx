@@ -14,7 +14,7 @@ import { projectService } from '../services/projectService'
 import { promptPresetService } from '../services/promptPresetService'
 import { workflowService } from '../services/workflowService'
 import type {
-  IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskMove,
+  IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
 } from '../types'
 
@@ -145,7 +145,7 @@ export default function KanbanPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: IKanbanTaskForm }) => kanbanTaskService.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: IKanbanTaskSubmit }) => kanbanTaskService.update(id, data),
     onSuccess: () => { invalidate(); closeForm() },
     onError: (e: Error) => setError(e.message),
   })
@@ -198,7 +198,14 @@ export default function KanbanPage() {
     // 自动处理：合并下拉二选一（专业智能体 / 工作流）
     const agentId = form.automation.startsWith('agent:') ? form.automation.slice('agent:'.length) : ''
     const workflowId = form.automation.startsWith('workflow:') ? form.automation.slice('workflow:'.length) : ''
-    const payload = { ...form, agentId, workflowId }
+    // 可选字段留空时传 undefined 而非 ""，否则后端 Guid?/DateTimeOffset? 绑定失败返回 400
+    const payload = {
+      ...form,
+      dueDate: form.dueDate || undefined,
+      projectId: form.projectId || undefined,
+      agentId: agentId || undefined,
+      workflowId: workflowId || undefined,
+    }
     if (editingId) updateMutation.mutate({ id: editingId, data: payload })
     else createMutation.mutate(payload)
   }

@@ -55,18 +55,18 @@ public class WorkflowExecutionEngine
     }
 
     /// <summary>按工作流 ID 执行</summary>
-    public async Task<WorkflowRunResult> ExecuteAsync(Guid workflowId, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null)
+    public async Task<WorkflowRunResult> ExecuteAsync(Guid workflowId, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         var wf = await _unitOfWork.Workflows.GetByIdAsync(workflowId, ct);
         if (wf == null) return new WorkflowRunResult { Status = "Failed", Error = "工作流不存在" };
         if (!wf.IsEnabled) return new WorkflowRunResult { Status = "Failed", Error = "工作流已禁用" };
 
         var dto = Map(wf);
-        return await ExecuteAsync(dto, input, ct, depth, sink, chatTopicId, globalApprovalMode);
+        return await ExecuteAsync(dto, input, ct, depth, sink, chatTopicId, globalApprovalMode, questionHandler);
     }
 
     /// <summary>按工作流 DTO 执行（支持传入未持久化的定义）</summary>
-    public async Task<WorkflowRunResult> ExecuteAsync(WorkflowDto workflow, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null)
+    public async Task<WorkflowRunResult> ExecuteAsync(WorkflowDto workflow, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         var validation = WorkflowService.ValidateGraph(workflow);
         if (!validation.Valid)
@@ -97,6 +97,7 @@ public class WorkflowExecutionEngine
             Nodes = workflow.Nodes,
             Edges = workflow.Edges,
             GlobalApprovalMode = globalApprovalMode,
+            QuestionHandler = questionHandler,
             MaxTotalIterations = 100,
             MaxNodeVisits = 20
         };
