@@ -79,6 +79,25 @@ public class ChatTopicService : IChatTopicService
         return ApiResponse.Ok();
     }
 
+    /// <summary>
+    /// 清空话题的全部消息：主对话全局唯一，累积的旧上下文会污染后续对话，需可一键清理。
+    /// </summary>
+    public async Task<ApiResponse> ClearAsync(Guid topicId, CancellationToken cancellationToken = default)
+    {
+        var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
+        if (topic == null) return ApiResponse.Fail("话题不存在");
+
+        var messages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId, cancellationToken);
+        foreach (var message in messages)
+        {
+            await _unitOfWork.ChatMessages.DeleteAsync(message, cancellationToken);
+        }
+        await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse.Ok();
+    }
+
     private static ChatTopicDto Map(ChatTopic topic) => MapTopic(topic);
 
     /// <summary>话题 → DTO 映射（供主对话等跨服务复用）</summary>

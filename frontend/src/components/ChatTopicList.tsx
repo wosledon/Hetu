@@ -77,10 +77,10 @@ export default function ChatTopicList({ groupId, isMainGroup, selectedTopicId, o
   }, [topics, selectedTopicId, onSelectTopic])
 
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">话题</h2>
+    <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-100 p-3 dark:border-gray-800">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">话题</h2>
           <div className="flex items-center gap-1">
             {groupId && (
               <button

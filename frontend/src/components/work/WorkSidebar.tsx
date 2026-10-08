@@ -4,6 +4,7 @@ import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check,
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
+import { useUIStore } from '../../stores/uiStore'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
@@ -410,43 +411,33 @@ function resolveColor(project: IWorkProject): ProjectColor {
   return (c && COLOR_CLASSES[c as ProjectColor]) ? (c as ProjectColor) : PROJECT_COLORS[hashString(project.name) % PROJECT_COLORS.length]
 }
 
-function ProjectNode({
+/** 会话列表：树形模式下缩进挂在项目节点下，平铺模式下独立成第二栏 */
+function SessionList({
   project,
-  expanded,
   sessionQuery,
-  selectedProjectId,
+  indent,
   selectedSessionId,
-  onToggle,
   onSelectProject,
   onSelectSession,
-  onDeleteProject,
-  onRenameProject,
   onSessionDeleted,
 }: {
   project: IWorkProject
-  expanded: boolean
   sessionQuery: string
-  selectedProjectId?: string
+  indent: boolean
   selectedSessionId?: string
-  onToggle: () => void
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
-  onDeleteProject: (id: string) => void
-  onRenameProject: (p: IWorkProject) => void
   onSessionDeleted?: (sessionId: string) => void
 }) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
-  const [renaming, setRenaming] = useState(false)
-  const [setting, setSetting] = useState(false)
-  const [name, setName] = useState(project.name)
   const [actionError, setActionError] = useState('')
-  const color = resolveColor(project)
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
+  const [sessionName, setSessionName] = useState('')
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['workSessions', project.id, sessionQuery],
     queryFn: () => workProjectService.getSessions(project.id, sessionQuery || undefined),
-    enabled: expanded,
   })
 
   const createSession = useMutation({
@@ -492,20 +483,142 @@ function ProjectNode({
     })
   }
 
-  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
-  const [sessionName, setSessionName] = useState('')
+  const pad = indent ? { paddingLeft: '40px' } : undefined
+
+  return (
+    <div className="mt-0.5">
+      {actionError && (
+        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={indent ? { marginLeft: '40px' } : undefined}>
+          {actionError}
+        </div>
+      )}
+      {sessions.map((session) => {
+        const active = selectedSessionId === session.id
+        return (
+          <div
+            key={session.id}
+            onClick={() => { onSelectProject(project); onSelectSession(session) }}
+            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
+            style={pad}
+          >
+            <MessageSquare size={11} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
+            {renamingSessionId === session.id ? (
+              <input
+                autoFocus
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && sessionName.trim()) renameMutation.mutate({ id: session.id, title: sessionName.trim() })
+                  if (e.key === 'Escape') setRenamingSessionId(null)
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
+              />
+            ) : (
+              <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                {session.title || '新会话'}
+              </span>
+            )}
+            {renamingSessionId !== session.id && (
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
+                  title="重命名会话"
+                  aria-label="重命名会话"
+                  className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                >
+                  <Pencil size={10} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
+                  disabled={deleteSessionMutation.isPending}
+                  title="删除会话"
+                  aria-label="删除会话"
+                  className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700"
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {sessions.length === 0 && sessionQuery && (
+        <div className="py-0.5 text-[11px] text-gray-400" style={pad}>
+          无匹配会话
+        </div>
+      )}
+      {sessions.length === 0 && !sessionQuery ? (
+        <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '32px' } : undefined}>
+          <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
+          <span className="text-[11px] text-gray-400">还没有会话</span>
+          <button
+            onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+            className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+          >
+            新建会话
+          </button>
+        </div>
+      ) : (
+        sessions.length > 0 && (
+          <button
+            onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+            className="flex items-center gap-1 py-0.5 text-[11px] text-gray-400 transition-colors hover:text-blue-500"
+            style={pad}
+          >
+            <Plus size={10} /> 新建会话
+          </button>
+        )
+      )}
+    </div>
+  )
+}
+
+function ProjectNode({
+  project,
+  expanded,
+  sessionQuery,
+  flat,
+  selectedProjectId,
+  selectedSessionId,
+  onToggle,
+  onSelectProject,
+  onSelectSession,
+  onDeleteProject,
+  onRenameProject,
+  onSessionDeleted,
+}: {
+  project: IWorkProject
+  expanded: boolean
+  sessionQuery: string
+  flat?: boolean
+  selectedProjectId?: string
+  selectedSessionId?: string
+  onToggle: () => void
+  onSelectProject: (p: IWorkProject) => void
+  onSelectSession: (s: IWorkSession) => void
+  onDeleteProject: (id: string) => void
+  onRenameProject: (p: IWorkProject) => void
+  onSessionDeleted?: (sessionId: string) => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [setting, setSetting] = useState(false)
+  const [name, setName] = useState(project.name)
+  const color = resolveColor(project)
 
   return (
     <div className="mb-0.5">
       <div
-        onClick={() => { onSelectProject(project); onToggle() }}
+        onClick={() => { onSelectProject(project); if (!flat) onToggle() }}
         className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
           selectedProjectId === project.id ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
         }`}
       >
-        <button onClick={(e) => { e.stopPropagation(); onToggle() }} className="shrink-0 text-gray-400">
-          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        </button>
+        {!flat && (
+          <button onClick={(e) => { e.stopPropagation(); onToggle() }} className="shrink-0 text-gray-400">
+            {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          </button>
+        )}
         <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
           {expanded ? <FolderOpen size={11} /> : <Folder size={11} />}
         </div>
@@ -517,7 +630,6 @@ function ProjectNode({
             SSH
           </span>
         )}
-        <span className="shrink-0 text-[10px] text-gray-400">{project.sessionCount}</span>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); setSetting(true) }}
@@ -567,77 +679,16 @@ function ProjectNode({
         </div>
       )}
 
-      {expanded && (
-        <div className="mt-0.5">
-          {actionError && (
-            <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={{ marginLeft: '40px' }}>
-              {actionError}
-            </div>
-          )}
-          {sessions.map((session) => {
-            const active = selectedSessionId === session.id
-            return (
-              <div
-        key={session.id}
-        onClick={() => { if (!expanded) onToggle(); onSelectProject(project); onSelectSession(session) }}
-        className={`group flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
-        style={{ paddingLeft: '40px' }}
-              >
-        <MessageSquare size={11} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-        {renamingSessionId === session.id ? (
-          <input
-            autoFocus
-            value={sessionName}
-            onChange={(e) => setSessionName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && sessionName.trim()) renameMutation.mutate({ id: session.id, title: sessionName.trim() })
-              if (e.key === 'Escape') setRenamingSessionId(null)
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
-          />
-        ) : (
-          <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-            {session.title || '新会话'}
-          </span>
-        )}
-        {renamingSessionId !== session.id && (
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
-              title="重命名会话"
-              aria-label="重命名会话"
-              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-            >
-              <Pencil size={10} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
-              disabled={deleteSessionMutation.isPending}
-              title="删除会话"
-              aria-label="删除会话"
-              className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700"
-            >
-              <Trash2 size={10} />
-            </button>
-          </div>
-        )}
-              </div>
-            )
-          })}
-          {sessions.length === 0 && (
-            <div className="py-0.5 text-[11px] text-gray-400" style={{ paddingLeft: '40px' }}>
-              {sessionQuery ? '无匹配会话' : '空'}
-            </div>
-          )}
-          <button
-            onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
-            className="flex items-center gap-1 py-0.5 text-[11px] text-gray-400 transition-colors hover:text-blue-500"
-            style={{ paddingLeft: '40px' }}
-          >
-            <Plus size={10} /> 新建会话
-          </button>
-        </div>
+      {!flat && expanded && (
+        <SessionList
+          project={project}
+          sessionQuery={sessionQuery}
+          indent
+          selectedSessionId={selectedSessionId}
+          onSelectProject={onSelectProject}
+          onSelectSession={onSelectSession}
+          onSessionDeleted={onSessionDeleted}
+        />
       )}
     </div>
   )
@@ -708,84 +759,140 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     onError: (e: Error) => setProjectActionError(e.message || '重命名项目失败'),
   })
 
-  return (
-    <div className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-        <div className="mb-2 flex items-center justify-center">
-          {modeSwitch ?? (
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex-1">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索项目或会话..."
-              className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
-            />
-          </div>
-          <button
-            onClick={() => setIsAdding(true)}
-            title="新建项目"
-            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
+  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
+  const flat = secondaryMenuStyle === 'flat'
+  const selectedProject = projects.find((p) => p.id === selectedProjectId)
+
+  const header = (
+    <div className="border-b border-gray-100 p-3 dark:border-gray-800">
+      <div className="mb-2 flex items-center justify-center">
+        {modeSwitch ?? (
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
+        )}
       </div>
+      <div className="flex items-center gap-1.5">
+        <div className="relative flex-1">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="搜索项目或会话..."
+            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
+          />
+        </div>
+        <button
+          onClick={() => setIsAdding(true)}
+          title="新建项目"
+          className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  )
 
-      {isAdding && (
-        <CreateProjectDialog
-          onClose={() => setIsAdding(false)}
-          onCreated={(project) => {
-            setIsAdding(false)
-            setProjectExpanded(project.id, true)
-            onSelectProject(project)
-          }}
-        />
-      )}
+  const createDialog = isAdding && (
+    <CreateProjectDialog
+      onClose={() => setIsAdding(false)}
+      onCreated={(project) => {
+        setIsAdding(false)
+        setProjectExpanded(project.id, true)
+        onSelectProject(project)
+      }}
+    />
+  )
 
-      <div className="flex-1 overflow-y-auto p-2">
-        {sections.map(([category, items]) => (
-          <div key={category} className="mb-1">
+  const projectList = (
+    <>
+      {sections.map(([category, items]) => (
+        <div key={category} className="mb-1">
+          {sections.length > 1 && (
             <div className="flex items-center gap-1.5 px-2 py-1">
               <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category}</span>
               <span className="text-[10px] text-gray-300 dark:text-gray-600">{items.length}</span>
             </div>
-            {items.map((project) => (
-              <ProjectNode
-                key={project.id}
-                project={project}
-                expanded={search ? true : isExpanded(project.id)}
+          )}
+          {items.map((project) => (
+            <ProjectNode
+              key={project.id}
+              project={project}
+              flat={flat}
+              expanded={search ? true : isExpanded(project.id)}
+              sessionQuery={search}
+              selectedProjectId={selectedProjectId}
+              selectedSessionId={selectedSessionId}
+              onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
+              onSelectProject={onSelectProject}
+              onSelectSession={onSelectSession}
+              onDeleteProject={(id) => {
+                const project = projects.find((p) => p.id === id)
+                confirm({
+                  message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
+                  onConfirm: () => deleteProject.mutate(id),
+                })
+              }}
+              onRenameProject={(p) => renameProject.mutate(p)}
+              onSessionDeleted={onSessionDeleted}
+            />
+          ))}
+        </div>
+      ))}
+      {projectActionError && (
+        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[11px] text-red-500 dark:bg-red-950/30 dark:text-red-400">
+          {projectActionError}
+        </div>
+      )}
+      {filtered.length === 0 && (
+        <div className="py-8 text-center text-xs text-gray-400">暂无项目</div>
+      )}
+    </>
+  )
+
+  // 平铺：项目与会话分两栏并排（与对话页的双栏结构一致）
+  if (flat) {
+    return (
+      <div className="flex shrink-0">
+        <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          {header}
+          {createDialog}
+          <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
+        </div>
+        <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 p-3 dark:border-gray-800">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">会话</h2>
+              {selectedProject && (
+                <span className="min-w-0 truncate text-[10px] text-gray-400" title={selectedProject.name}>{selectedProject.name}</span>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {selectedProject ? (
+              <SessionList
+                project={selectedProject}
                 sessionQuery={search}
-                selectedProjectId={selectedProjectId}
+                indent={false}
                 selectedSessionId={selectedSessionId}
-                onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
                 onSelectProject={onSelectProject}
                 onSelectSession={onSelectSession}
-                onDeleteProject={(id) => {
-                  const project = projects.find((p) => p.id === id)
-                  confirm({
-                    message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
-                    onConfirm: () => deleteProject.mutate(id),
-                  })
-                }}
-                onRenameProject={(p) => renameProject.mutate(p)}
                 onSessionDeleted={onSessionDeleted}
               />
-            ))}
+            ) : (
+              <div className="py-8 text-center text-xs text-gray-400">选择项目查看会话</div>
+            )}
           </div>
-        ))}
-        {projectActionError && (
-          <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[11px] text-red-500 dark:bg-red-950/30 dark:text-red-400">
-            {projectActionError}
-          </div>
-        )}
-        {filtered.length === 0 && (
-          <div className="py-8 text-center text-xs text-gray-400">暂无项目</div>
-        )}
+        </div>
+      </div>
+    )
+  }
+
+  // 树形：项目下挂会议话列表，单栏展示
+  return (
+    <div className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      {header}
+      {createDialog}
+      <div className="flex-1 overflow-y-auto p-2">
+        {projectList}
       </div>
     </div>
   )
