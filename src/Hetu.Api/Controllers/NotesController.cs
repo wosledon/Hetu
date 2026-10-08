@@ -1,4 +1,5 @@
 using Hetu.Core.Interfaces;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notes;
 using Microsoft.AspNetCore.Mvc;
@@ -52,13 +53,33 @@ public class NotesController : ControllerBase
     public Task<ApiResponse> Move(Guid id, [FromBody] MoveNoteRequest request, CancellationToken cancellationToken)
         => _noteService.MoveAsync(id, request, cancellationToken);
 
+    /// <summary>SSE 摘要：逐字推送，错误以 [ERROR] 帧返回</summary>
     [HttpPost("{id:guid}/summarize")]
-    public IAsyncEnumerable<string> Summarize(Guid id, [FromBody] NoteAiRequest request, CancellationToken cancellationToken)
-        => _noteAiService.SummarizeAsync(id, request, cancellationToken);
+    public async Task Summarize(Guid id, [FromBody] NoteAiRequest request, CancellationToken cancellationToken)
+    {
+        Response.StartSseStream();
+        var writer = new Streaming.SseStreamWriter(Response, cancellationToken);
+        try
+        {
+            await foreach (var chunk in _noteAiService.SummarizeAsync(id, request, cancellationToken))
+                await writer.WriteTextAsync(chunk);
+        }
+        catch (OperationCanceledException) { /* 客户端断开 */ }
+    }
 
+    /// <summary>SSE 续写/行内 AI：逐字推送，错误以 [ERROR] 帧返回</summary>
     [HttpPost("{id:guid}/continue")]
-    public IAsyncEnumerable<string> Continue(Guid id, [FromBody] ContinueNoteRequest request, CancellationToken cancellationToken)
-        => _noteAiService.ContinueAsync(id, request, cancellationToken);
+    public async Task Continue(Guid id, [FromBody] ContinueNoteRequest request, CancellationToken cancellationToken)
+    {
+        Response.StartSseStream();
+        var writer = new Streaming.SseStreamWriter(Response, cancellationToken);
+        try
+        {
+            await foreach (var chunk in _noteAiService.ContinueAsync(id, request, cancellationToken))
+                await writer.WriteTextAsync(chunk);
+        }
+        catch (OperationCanceledException) { /* 客户端断开 */ }
+    }
 
     /// <summary>
     /// 为指定笔记生成/重建索引（加入后台队列）

@@ -59,7 +59,19 @@ public class LlmProviderFactory : ILLMProviderFactory
 
     private ILLMProvider CreateProvider(Core.Entities.AiProvider provider, string modelId)
     {
-        var apiKey = _protector.Unprotect(provider.EncryptedApiKey);
+        // API Key 用 DataProtection 加密存储：跨设备/旧版本/不同判别值加密的值无法解密，
+        // 此时给出可操作的提示，避免把 CryptographicException 直接抛成 500
+        string apiKey;
+        try
+        {
+            apiKey = _protector.Unprotect(provider.EncryptedApiKey);
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        {
+            throw new InvalidOperationException(
+                $"服务商「{provider.Name}」的 API Key 解密失败（可能由其他设备或旧版本写入），请在设置中重新填写该服务商的 API Key。",
+                ex);
+        }
         var httpClient = _httpClientFactory.CreateClient();
         httpClient.BaseAddress = new Uri(string.IsNullOrWhiteSpace(provider.BaseUrl)
             ? GetDefaultBaseUrl(provider.ProviderType)

@@ -25,6 +25,22 @@ import {
   Loader2,
   Network,
   AlertCircle,
+  Heading2,
+  Heading3,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code2,
+  Quote,
+  List,
+  ListOrdered,
+  ListTodo,
+  SquareCode,
+  Link2,
+  Table2,
+  Minus,
+  Workflow,
+  Square,
 } from 'lucide-react'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { TagInput } from './TagInput'
@@ -39,12 +55,53 @@ import { graphService } from '../services/graphService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
 
+/** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
+const AI_ACTION_PRESETS: Record<string, string> = {
+  continue: '',
+  polish: '请润色以下文本，优化表达，提升文采：',
+  translate: '请将以下文本翻译为其他语言：',
+  condense: '请简化以下表达，去除冗余：',
+  expand: '请丰富以下内容，添加细节：',
+  explain: '请解释以下文本含义：',
+  custom: '',
+}
+
+/** 浮动工具栏动作表：模块级定义，避免渲染期闭包引用 ref */
+interface FormatAction {
+  key: string
+  icon: React.ComponentType<{ size?: number }>
+  title: string
+  run: (md: MilkdownEditorHandle) => void
+}
+
+const FORMAT_ACTIONS: FormatAction[] = [
+  { key: 'h2', icon: Heading2, title: '二级标题', run: (md) => md.toggleHeading(2) },
+  { key: 'h3', icon: Heading3, title: '三级标题', run: (md) => md.toggleHeading(3) },
+  { key: 'bold', icon: Bold, title: '加粗', run: (md) => md.toggleBold() },
+  { key: 'italic', icon: Italic, title: '斜体', run: (md) => md.toggleItalic() },
+  { key: 'strike', icon: Strikethrough, title: '删除线', run: (md) => md.toggleStrikethrough() },
+  { key: 'code', icon: Code2, title: '行内代码', run: (md) => md.toggleInlineCode() },
+  { key: 'quote', icon: Quote, title: '引用', run: (md) => md.toggleBlockquote() },
+  { key: 'ul', icon: List, title: '无序列表', run: (md) => md.toggleBulletList() },
+  { key: 'ol', icon: ListOrdered, title: '有序列表', run: (md) => md.toggleOrderedList() },
+  { key: 'todo', icon: ListTodo, title: '待办列表', run: (md) => md.toggleTodo() },
+  { key: 'codeblock', icon: SquareCode, title: '代码块', run: (md) => md.insertCodeBlock() },
+]
+
 interface MarkdownEditorProps {
   note: INote | null
 }
 
-/** 剥离 AI 输出中的对话性前后缀与代码块包裹，保留正文 */
-function sanitizeAiResult(raw: string): string {
+/**
+ * 剥离 AI 输出中的对话性前后缀与代码块包裹，保留正文。
+ * 模型有时会把「标题 + 正文」挤在同一个标题行（如 "# 标题 正文…"），
+ * 解析后整段变成标题；此时按选中文本/笔记标题拆成标题行 + 正文段落，
+ * 其余 Markdown 结构（分节标题、列表等）原样保留。
+ */
+function sanitizeAiResult(
+  raw: string,
+  context: { noteTitle?: string; selectedText?: string } = {},
+): string {
   let text = raw.trim()
   // 去掉整体代码块包裹
   const fenceMatch = text.match(/^```[\w-]*\n([\s\S]*?)\n```$/)
@@ -54,7 +111,38 @@ function sanitizeAiResult(raw: string): string {
   while (lines.length > 1 && prefixRe.test(lines[0])) lines.shift()
   const suffixRe = /^\s*(?:[#>*\s-]*)(?:希望|如需|如果|若|以上[。！!]?|如需调整|欢迎提出|请告诉我|可以告诉我)[^\n]{0,40}$/
   while (lines.length > 1 && suffixRe.test(lines[lines.length - 1])) lines.pop()
-  return lines.join('\n').trim()
+
+  // 规范化行首标记：模型常输出「##标题」「-项目」这类缺少空格的写法， CommonMark 不识别
+  for (let i = 0; i < lines.length; i++) {
+    lines[i] = lines[i]
+      .replace(/^(\s*#{1,6})([^\s#])/, '$1 $2')
+      .replace(/^(\s*[-*+])([^\s*+-])/, '$1 $2')
+  }
+
+  let result = lines.join('\n').trim()
+
+  const prefixes = [context.noteTitle, context.selectedText]
+    .map((t) => (t ?? '').trim().replace(/^#+\s*/, ''))
+    .filter((t) => t.length >= 2)
+  if (prefixes.length > 0) {
+    const resultLines = result.split('\n')
+    const heading = resultLines[0].match(/^\s*(#{1,6})\s*(.+)$/)
+    if (heading && resultLines.length > 0) {
+      const headingText = heading[2].trim()
+      const matched = prefixes.find((p) =>
+        headingText.toLowerCase().startsWith(p.slice(0, Math.min(6, p.length)).toLowerCase()),
+      )
+      // 仅当标题行里混入了明显是正文的内容（较长或含句读）才拆分，避免误拆「## 测试概述」这类短标题
+      const extra = matched ? headingText.slice(matched.length).trim() : ''
+      const looksLikeProse = extra.length > 12 || /[，。；、,.;:！!？?]/.test(extra)
+      if (matched && extra && looksLikeProse) {
+        resultLines[0] = `${heading[1]} ${matched}`
+        resultLines.splice(1, 0, '', extra)
+        result = resultLines.join('\n').trim()
+      }
+    }
+  }
+  return result
 }
 
 export default function MarkdownEditor({ note }: MarkdownEditorProps) {
@@ -83,10 +171,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const [assistantCustomPrompt, setAssistantCustomPrompt] = useState('')
   const milkdownRef = useRef<MilkdownEditorHandle>(null)
   const inlineInputRef = useRef<HTMLTextAreaElement>(null)
+  const inlineAbortRef = useRef<AbortController | null>(null)
+  const assistantAbortRef = useRef<AbortController | null>(null)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const modelPickerRef = useRef<HTMLDivElement>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [copied, setCopied] = useState(false)
+  // 浮动格式工具栏：链接输入与分栏滚动同步
+  const [linkDraft, setLinkDraft] = useState<string | null>(null)
+  const editScrollRef = useRef<HTMLDivElement>(null)
+  const previewScrollRef = useRef<HTMLDivElement>(null)
+  const syncingScroll = useRef(false)
 
   // ── 模型选择 ──
   const { data: allModels = [] } = useQuery({
@@ -223,41 +318,62 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     context: 'inline' | 'assistant',
   ) => {
     if (!note) return
-    const systemPrompts: Record<typeof inlineAiAction, string> = {
-      continue: '',
-      polish: '请润色以下文本，优化表达，提升文采：',
-      translate: '请将以下文本翻译为其他语言：',
-      condense: '请简化以下表达，去除冗余：',
-      expand: '请丰富以下内容，添加细节：',
-      explain: '请解释以下文本含义：',
-      custom: customPrompt,
-    }
-    const systemPrompt = systemPrompts[action]
     const setLoading = context === 'inline' ? setInlineAiLoading : setAssistantLoading
     const setResult = context === 'inline' ? setInlineAiResult : setAssistantResult
+    const abortRef = context === 'inline' ? inlineAbortRef : assistantAbortRef
     const selection = context === 'inline' ? aiSelection : (milkdownRef.current?.getMarkdown() ?? '')
+    // 自定义输入（用户改过提示词）优先，否则用动作预设
+    const systemPrompt = customPrompt.trim() || AI_ACTION_PRESETS[action] || ''
     if (context === 'inline') setInlineAiAction(action)
     else setAssistantAction(action)
+
+    // 同一面板重复执行时先中止上一次请求
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
+    let acc = ''
     setResult('')
     try {
-      const result = await noteAiService.continue(note.id, { selectedText: selection || undefined, systemPrompt, modelId: selectedModelId || undefined })
-      setResult(result)
+      acc = await noteAiService.continue(
+        note.id,
+        { selectedText: selection || undefined, systemPrompt, modelId: selectedModelId || undefined },
+        {
+          signal: controller.signal,
+          // 流式逐段回显，用户无需等整段生成完
+          onDelta: (text) => { acc += text; setResult(acc) },
+        },
+      )
+      setResult(acc)
     } catch (err) {
-      setResult(`[ERROR] ${err instanceof Error ? err.message : 'AI 操作失败'}`)
+      const message = err instanceof Error ? err.message : 'AI 操作失败'
+      if (controller.signal.aborted) {
+        // 用户主动停止：保留已生成的部分
+        setResult(acc)
+        return
+      }
+      setResult(acc ? `${acc}\n\n[ERROR] ${message}` : `[ERROR] ${message}`)
     } finally {
       setLoading(false)
+      abortRef.current = null
     }
+  }
+
+  const handleStopAi = (context: 'inline' | 'assistant') => {
+    const abortRef = context === 'inline' ? inlineAbortRef : assistantAbortRef
+    abortRef.current?.abort()
   }
 
   /**
    * 由 MilkdownEditor 在选区变化时回调，更新行内 AI 浮窗的位置和选中文字。
+   * 行内 AI 面板不再随选中自动弹出（避免与格式工具栏叠加、误触），
+   * 改为由浮动工具栏上的「行内 AI」按钮显式打开。
    */
   const handleSelectionChange = useCallback((info: SelectionInfo) => {
     if (info.hasSelection && info.coords) {
       setAiSelection(info.text)
       setInlineCoords(info.coords)
-      setShowInlineAi(true)
     } else {
       setAiSelection('')
       setInlineCoords(null)
@@ -266,6 +382,39 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       }
     }
   }, [inlineAiLoading, inlineAiResult])
+
+  // 分栏模式：编辑区与预览区滚动同步（按滚动比例，避免循环触发）
+  const handleEditScroll = useCallback(() => {
+    if (syncingScroll.current) return
+    const edit = editScrollRef.current
+    const preview = previewScrollRef.current
+    if (!edit || !preview) return
+    const editMax = edit.scrollHeight - edit.clientHeight
+    const previewMax = preview.scrollHeight - preview.clientHeight
+    if (editMax <= 0 || previewMax <= 0) return
+    syncingScroll.current = true
+    preview.scrollTop = (edit.scrollTop / editMax) * previewMax
+    requestAnimationFrame(() => { syncingScroll.current = false })
+  }, [])
+
+  const handlePreviewScroll = useCallback(() => {
+    if (syncingScroll.current) return
+    const edit = editScrollRef.current
+    const preview = previewScrollRef.current
+    if (!edit || !preview) return
+    const editMax = edit.scrollHeight - edit.clientHeight
+    const previewMax = preview.scrollHeight - preview.clientHeight
+    if (editMax <= 0 || previewMax <= 0) return
+    syncingScroll.current = true
+    edit.scrollTop = (preview.scrollTop / previewMax) * editMax
+    requestAnimationFrame(() => { syncingScroll.current = false })
+  }, [])
+
+  // 工具栏命令统一入口：避免在渲染期读取 ref
+  const runFormat = useCallback((fn: (md: MilkdownEditorHandle) => void) => {
+    const md = milkdownRef.current
+    if (md) fn(md)
+  }, [])
 
   /** AI 助手按钮：打开/关闭固定面板 */
   const toggleAssistant = () => {
@@ -286,8 +435,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   const handleReplaceSelection = () => {
     if (!inlineAiResult || inlineAiResult.startsWith('[ERROR]')) return
-    const cleaned = sanitizeAiResult(inlineAiResult)
+    const cleaned = sanitizeAiResult(inlineAiResult, { noteTitle: note?.title, selectedText: aiSelection })
     if (!cleaned) return
+    // 选区丢失时 replaceSelection 会在光标处插入整段结果，导致内容重复；
+    // 此时拒绝替换并提示用户改用「追加」
+    const selection = milkdownRef.current?.getSelectionInfo()
+    if (!selection?.hasSelection) {
+      setInlineAiResult(`[ERROR] 编辑器选区已丢失，无法替换；可使用「追加」将结果插入文末。`)
+      return
+    }
     milkdownRef.current?.replaceSelection(cleaned)
     setInlineAiResult('')
     setAiSelection('')
@@ -400,6 +556,82 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       </div>
     )
   }
+
+  // 格式工具按钮组：常驻工具条与选中浮动工具栏共用
+  const formatToolbarContent = (
+    <>
+      {FORMAT_ACTIONS.map((item) => {
+        const Icon = item.icon
+        return (
+          <button
+            key={item.title}
+            title={item.title}
+            onClick={(e) => { e.preventDefault(); runFormat(item.run) }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
+          >
+            <Icon size={14} />
+          </button>
+        )
+      })}
+      <span className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+      <button
+        title="行内 AI（对选中文本执行）"
+        onClick={() => { setShowInlineAi(true); setInlineAiResult(''); setInlineCustomPrompt('') }}
+        className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+      >
+        <Sparkles size={14} />
+        AI
+      </button>
+      {linkDraft === null ? (
+        <>
+          <button
+            title='插入链接'
+            onClick={() => setLinkDraft('')}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
+          >
+            <Link2 size={14} />
+          </button>
+          <button
+            title='插入表格'
+            onClick={() => runFormat((md) => md.insertTable())}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
+          >
+            <Table2 size={14} />
+          </button>
+          <button
+            title='分割线'
+            onClick={() => runFormat((md) => md.insertDivider())}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            title='插入流程图（mermaid）'
+            onClick={() => runFormat((md) => md.insertDiagram())}
+            className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
+          >
+            <Workflow size={14} />
+            流程图
+          </button>
+        </>
+      ) : (
+        <input
+          autoFocus
+          value={linkDraft}
+          onChange={(e) => setLinkDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && linkDraft.trim()) {
+              runFormat((md) => md.insertLink(linkDraft.trim()))
+              setLinkDraft(null)
+            }
+            if (e.key === 'Escape') setLinkDraft(null)
+          }}
+          placeholder='输入链接地址后回车'
+          className="h-7 w-44 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[12px] outline-none dark:border-gray-600 dark:bg-gray-700"
+        />
+      )}
+    </>
+  )
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
@@ -628,22 +860,41 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
       <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
         {(viewMode === 'edit' || viewMode === 'split') && (
-          <div className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white px-8 py-5 dark:bg-gray-900`}>
-            <MilkdownEditor
-              key={noteId}
-              ref={milkdownRef}
-              initialMarkdown={noteContent}
-              onChange={handleContentChange}
-              onSelectionChange={handleSelectionChange}
-              placeholder="开始编写..."
-            />
+          <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white dark:bg-gray-900`}>
+            {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格 */}
+            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-gray-100 bg-white/90 px-8 py-1.5 backdrop-blur dark:border-gray-800/50 dark:bg-gray-900/90">
+              {formatToolbarContent}
+            </div>
+
+            <div className="px-8 py-5">
+              <MilkdownEditor
+                key={noteId}
+                ref={milkdownRef}
+                initialMarkdown={noteContent}
+                onChange={handleContentChange}
+                onSelectionChange={handleSelectionChange}
+                placeholder="开始编写..."
+              />
+            </div>
+
+            {/* 浮动格式工具栏：选中文本时出现在选区上方（mousedown 阻止默认行为以保留选区） */}
+            {inlineCoords && (
+              <div
+                className="animate-fade-in absolute z-30 max-w-[calc(100%-1rem)]"
+                style={{ top: Math.max(inlineCoords.top - 46, 4), left: inlineCoords.left }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-1 shadow-lg shadow-black/5 dark:border-gray-700 dark:bg-gray-800">
+                  {formatToolbarContent}
+                </div>
+              </div>
+            )}
 
             {showInlineAi && inlineCoords && (
               <div
                 className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
                 style={{ top: inlineCoords.top, left: inlineCoords.left }}
-              >
-                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+              >                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={13} className="text-indigo-500" />
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-200">行内 AI</span>
@@ -671,11 +922,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       ].map((a) => (
                         <button
                           key={a.key}
-                          onClick={() => {
-                            setInlineAiAction(a.key as typeof inlineAiAction)
-                            setInlineCustomPrompt('')
-                            handleAiExecuteFor(a.key as typeof inlineAiAction, '', 'inline')
-                          }}
+                      onClick={() => {
+                        setInlineAiAction(a.key as typeof inlineAiAction)
+                        setInlineCustomPrompt(AI_ACTION_PRESETS[a.key] ?? '')
+                        setInlineAiResult('')
+                        requestAnimationFrame(() => inlineInputRef.current?.focus())
+                      }}
                           className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
                             inlineAiAction === a.key
                               ? 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
@@ -782,6 +1034,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         {inlineAiLoading ? '生成中…' : '执行'}
                       </button>
                     )}
+                    {inlineAiLoading && (
+                      <button
+                        onClick={() => handleStopAi('inline')}
+                        className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                      >
+                        <Square size={11} />
+                        停止
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -789,7 +1050,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </div>
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
-          <div className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6 bg-gray-50/30 dark:bg-gray-950/50`}>
+          <div ref={previewScrollRef} onScroll={handlePreviewScroll} className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6 bg-gray-50/30 dark:bg-gray-950/50`}>
             <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
               <ThemedMarkdown source={content} />
             </div>
@@ -829,8 +1090,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       key={a.key}
                       onClick={() => {
                         setAssistantAction(a.key as typeof assistantAction)
-                        setAssistantCustomPrompt('')
-                        handleAiExecuteFor(a.key as typeof assistantAction, '', 'assistant')
+                        setAssistantCustomPrompt(AI_ACTION_PRESETS[a.key] ?? '')
+                        setAssistantResult('')
                       }}
                       className={`rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
                         assistantAction === a.key
@@ -927,6 +1188,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     >
                       <Send size={11} />
                       {assistantLoading ? '生成中…' : '执行'}
+                    </button>
+                  )}
+                  {assistantLoading && (
+                    <button
+                      onClick={() => handleStopAi('assistant')}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      <Square size={11} />
+                      停止
                     </button>
                   )}
                 </div>

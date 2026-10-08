@@ -27,6 +27,23 @@ public class SseStreamWriter
         await _response.Body.FlushAsync(_cancellationToken);
     }
 
+    /// <summary>
+    /// 写入含换行的原始文本（如笔记 AI 的流式正文）。
+    /// SSE 协议中每个 data: 行只能承载一行，直接拼接会把换行后的内容变成无前缀的裸行而被客户端丢弃，
+    /// 因此这里按行拆成多个 data: 行，客户端按协议用 \n 还原。
+    /// </summary>
+    public async Task WriteTextAsync(string data)
+    {
+        var sb = new StringBuilder();
+        foreach (var line in data.Replace("\r\n", "\n").Split('\n'))
+        {
+            sb.Append("data: ").Append(line).Append('\n');
+        }
+        sb.Append('\n');
+        await _response.WriteAsync(sb.ToString(), _cancellationToken);
+        await _response.Body.FlushAsync(_cancellationToken);
+    }
+
     public Task WriteJsonAsync(object payload)
         => WriteEventAsync(JsonSerializer.Serialize(payload, JsonDefaults.CamelCase));
 

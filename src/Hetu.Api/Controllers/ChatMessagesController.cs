@@ -156,8 +156,19 @@ public class ChatMessagesController : ControllerBase
 
         var agentPreset = await ResolveAgentPresetAsync(request.AgentId, ct);
         // 专业智能体可绑定模型：请求未指定模型时，优先于话题默认模型
-        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(
-            request.ModelId, agentPreset?.ModelId ?? topic.ModelId, ct);
+        (ILLMProvider? Provider, Guid? ModelId) resolved;
+        try
+        {
+            resolved = await _llmProviderFactory.ResolveAsync(
+                request.ModelId, agentPreset?.ModelId ?? topic.ModelId, ct);
+        }
+        catch (Exception ex)
+        {
+            // 模型解析异常（如 API Key 解密失败）转为 SSE 错误帧，前端可直接展示
+            await writer.WriteErrorAsync(ex.Message.Split('\n')[0]);
+            return;
+        }
+        var (provider, modelId) = resolved;
         if (provider == null) { await writer.WriteErrorAsync("未找到可用的对话模型"); return; }
 
         var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);

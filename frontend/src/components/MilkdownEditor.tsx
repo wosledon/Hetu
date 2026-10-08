@@ -22,7 +22,25 @@ import { $prose } from '@milkdown/kit/utils'
 import { codeBlockComponent, codeBlockConfig } from '@milkdown/kit/component/code-block'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
+import type { Node as ProseNode } from '@milkdown/kit/prose/model'
+import { Slice as ProseSlice } from '@milkdown/kit/prose/model'
 import type { MilkdownPlugin } from '@milkdown/ctx'
+import { callCommand } from '@milkdown/utils'
+import {
+  toggleStrongCommand,
+  toggleEmphasisCommand,
+  toggleInlineCodeCommand,
+  toggleLinkCommand,
+  wrapInBlockquoteCommand,
+  wrapInBulletListCommand,
+  wrapInOrderedListCommand,
+  createCodeBlockCommand,
+  insertHrCommand,
+  setBlockTypeCommand,
+} from '@milkdown/preset-commonmark'
+import { toggleStrikethroughCommand, insertTableCommand } from '@milkdown/preset-gfm'
+import { mermaidConfigCtx } from '@milkdown/plugin-diagram'
+import { mermaidConfig, isDarkTheme, fitMermaidLabels } from '../utils/mermaidTheme'
 import { languages } from '@codemirror/language-data'
 import { syntaxHighlighting, defaultHighlightStyle, indentUnit } from '@codemirror/language'
 import { EditorView as CMEditorView } from '@codemirror/view'
@@ -30,6 +48,9 @@ import { math } from '@milkdown/plugin-math'
 import { emoji } from '@milkdown/plugin-emoji'
 import { diagram } from '@milkdown/plugin-diagram'
 import '@milkdown/theme-nord/style.css'
+
+/** 流程图节点默认模板 */
+const MERMAID_TEMPLATE = 'graph TD\n    A[开始] --> B[结束]'
 
 export interface SelectionInfo {
   text: string
@@ -49,6 +70,27 @@ export interface MilkdownEditorHandle {
   focus: () => void
   /** 选中指定区间 [from, to) */
   selectRange: (from: number, to: number) => void
+  /** 在光标处插入 markdown（自动解析为块级节点） */
+  insertMarkdown: (md: string) => void
+  /** 在光标处插入纯文本（触发输入规则，如 "- [ ] " 转待办） */
+  insertText: (text: string) => void
+  /** 插入 mermaid 流程图块 */
+  insertDiagram: () => void
+  /** 格式命令（供浮动工具栏调用） */
+  toggleBold: () => void
+  toggleItalic: () => void
+  toggleStrikethrough: () => void
+  toggleInlineCode: () => void
+  toggleHeading: (level: number) => void
+  toggleParagraph: () => void
+  toggleBlockquote: () => void
+  toggleBulletList: () => void
+  toggleOrderedList: () => void
+  toggleTodo: () => void
+  insertCodeBlock: () => void
+  insertDivider: () => void
+  insertTable: () => void
+  insertLink: (href: string) => void
 }
 
 interface MilkdownEditorProps {
@@ -70,6 +112,148 @@ interface TrackedSelection {
 }
 
 const selectionPluginKey = new PluginKey<TrackedSelection | null>('hetu-selection-tracker')
+
+/**
+ * 流程图（mermaid）节点视图：
+ * - 预览态渲染 SVG，失败时回退展示源码与错误提示
+ * - 点击进入编辑态（多行文本框），失焦后保存并重新渲染
+ */
+class DiagramNodeView {
+  dom: HTMLElement
+  private node: ProseNode
+  private view: EditorView
+  private getPos: () => number
+  private editing = false
+  private renderToken = 0
+
+  constructor(node: ProseNode, view: EditorView, getPos: () => number) {
+    this.node = node
+    this.view = view
+    this.getPos = getPos
+    this.dom = document.createElement('div')
+    this.dom.className = 'hetu-diagram'
+    this.dom.addEventListener('click', this.handleClick)
+    this.renderPreview()
+  }
+
+  private handleClick = () => {
+    if (this.editing) return
+    this.editing = true
+    this.renderEditor()
+  }
+
+  private renderEditor() {
+    this.renderToken += 1
+    this.dom.innerHTML = ''
+    this.dom.classList.add('hetu-diagram-editing')
+    const textarea = document.createElement('textarea')
+    textarea.value = this.node.attrs.value || MERMAID_TEMPLATE
+    textarea.className = 'hetu-diagram-source'
+    textarea.rows = Math.min(20, textarea.value.split('\n').length + 2)
+    textarea.addEventListener('blur', () => this.commit(textarea.value))
+    textarea.addEventListener('keydown', (e) => {
+      e.stopPropagation()
+      if (e.key === 'Escape') textarea.blur()
+    })
+    this.dom.appendChild(textarea)
+    requestAnimationFrame(() => { textarea.focus(); textarea.select() })
+  }
+
+  private commit(value: string) {
+    this.editing = false
+    if (value !== (this.node.attrs.value || '')) {
+      const pos = this.getPos()
+      if (typeof pos === 'number') {
+        const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+          ...this.node.attrs,
+          value,
+        })
+        this.view.dispatch(tr)
+        return
+      }
+    }
+    this.renderPreview()
+  }
+
+  private async renderPreview() {
+    const token = ++this.renderToken
+    this.dom.classList.remove('hetu-diagram-editing')
+    const code = (this.node.attrs.value || '').trim()
+    this.dom.innerHTML = ''
+    if (!code) {
+      this.dom.appendChild(this.buildHint('空流程图，点击编辑'))
+      return
+    }
+    const loading = this.buildHint('流程图渲染中...')
+    this.dom.appendChild(loading)
+    try {
+      const mermaid = (await import('mermaid')).default
+      mermaid.initialize(mermaidConfig(isDarkTheme()))
+      const { svg } = await mermaid.render(`hetu-diagram-${Date.now()}-${Math.random().toString(36).slice(2)}`, code)
+      if (token !== this.renderToken) return
+      this.dom.innerHTML = ''
+      const holder = document.createElement('div')
+      holder.className = 'hetu-diagram-svg'
+      holder.innerHTML = svg
+      this.dom.appendChild(holder)
+      fitMermaidLabels(holder)
+      this.dom.appendChild(this.buildHint('点击编辑流程图'))
+    } catch (err) {
+      if (token !== this.renderToken) return
+      this.dom.innerHTML = ''
+      const box = document.createElement('div')
+      box.className = 'hetu-diagram-error'
+      const msg = document.createElement('div')
+      msg.className = 'hetu-diagram-error-msg'
+      msg.textContent = `流程图语法错误：${err instanceof Error ? err.message.split('\n')[0] : String(err)}`
+      const src = document.createElement('pre')
+      src.textContent = code
+      box.append(msg, src)
+      this.dom.appendChild(box)
+      this.dom.appendChild(this.buildHint('点击编辑修正'))
+    }
+  }
+
+  private buildHint(text: string): HTMLElement {
+    const hint = document.createElement('div')
+    hint.className = 'hetu-diagram-hint'
+    hint.textContent = text
+    return hint
+  }
+
+  /** 外部节点更新（如撤销/重做）后同步 */
+  update(node: ProseNode): boolean {
+    if (node.type !== this.node.type) return false
+    this.node = node
+    if (!this.editing) this.renderPreview()
+    return true
+  }
+
+  /** 编辑器内交互全部交给节点视图自身处理 */
+  stopEvent(): boolean {
+    return true
+  }
+
+  destroy() {
+    this.dom.removeEventListener('click', this.handleClick)
+    this.renderToken += 1
+  }
+}
+
+/** 注册流程图节点视图：插件默认只输出纯文本 div，这里替换为可渲染/可编辑的视图 */
+function diagramNodeViewPlugin(): MilkdownPlugin {
+  return $prose(() => {
+    return new Plugin({
+      key: new PluginKey('hetu-diagram-view'),
+      props: {
+        nodeViews: {
+          diagram: (node, view, getPos) =>
+            new DiagramNodeView(node, view, getPos as () => number),
+        },
+      },
+    })
+  })
+}
 
 /**
  * 监听 ProseMirror 选区变化的插件，在变化时通过回调通知宿主。
@@ -213,6 +397,12 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         .config((ctx) => {
           ctx.set(rootCtx, root)
           ctx.set(defaultValueCtx, initialMarkdownRef.current)
+          // 流程图主题跟随明暗模式
+          ctx.update(mermaidConfigCtx.key, (config) => ({
+            ...config,
+            startOnLoad: false,
+            securityLevel: 'loose',
+          }))
         })
         .config(nord)
         .config((ctx) =>
@@ -239,6 +429,7 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         .use(math)
         .use(emoji)
         .use(diagram)
+        .use(diagramNodeViewPlugin())
         .use(mdPlugin)
         .use(selPlugin)
         .use(autoParagraphPlugin)
@@ -281,13 +472,23 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         if (!editor) return
         const ctx = editor.ctx
         const view = ctx.get(editorViewCtx)
-        const { state } = view
-        const tr = state.tr.replaceSelectionWith(state.schema.text(text))
-        // 选中刚插入的文本
-        const insertPos = state.selection.from
-        tr.setSelection(TextSelection.create(tr.doc, insertPos, insertPos + text.length))
+        // 按 markdown 解析替换内容：保留段落/标题/列表等结构
+        const doc = ctx.get(parserCtx)(text)
+        if (!doc) return
+        const slice = new ProseSlice(doc.content, 0, 0)
+        const { selection } = view.state
+        const tr = view.state.tr
+        if (selection.empty) {
+          tr.replaceSelection(slice)
+        } else {
+          // 扩展到选区首尾所在的整个块再做替换：
+          // 直接在标题内替换块级内容会被 PM 整段塞进标题，导致“全都变成标题”
+          const $from = selection.$from
+          const $to = selection.$to
+          tr.replaceRange($from.before($from.depth), $to.after($to.depth), slice)
+        }
         view.dispatch(tr)
-        // 触发一次 onChange 同步
+        view.focus()
         const md = getMarkdown()
         lastEmittedRef.current = md
         onChangeRef.current?.(md)
@@ -362,6 +563,88 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
       [getEditor, getInstance],
     )
 
+    /** 通用命令执行：传入 preset 导出的命令对象（携带 commandsCtx key） */
+    const runCommand = useCallback(
+      (command: { key: unknown }, payload?: unknown) => {
+        const editor = getEditor() ?? getInstance()
+        if (!editor) return
+        editor.action(callCommand(command.key as string, payload))
+      },
+      [getEditor, getInstance],
+    )
+
+    /** 在光标处插入 markdown（解析为块级节点，替换当前空段落/选区） */
+    const insertMarkdown = useCallback(
+      (md: string) => {
+        const editor = getEditor() ?? getInstance()
+        if (!editor) return
+        const ctx = editor.ctx
+        const view = ctx.get(editorViewCtx)
+        const doc = ctx.get(parserCtx)(md)
+        if (!doc) return
+        const tr = view.state.tr.replaceSelection(new ProseSlice(doc.content, 0, 0))
+        view.dispatch(tr)
+        view.focus()
+        const serialized = ctx.get(serializerCtx)(view.state.doc)
+        lastEmittedRef.current = serialized
+        onChangeRef.current?.(serialized)
+      },
+      [getEditor, getInstance],
+    )
+
+    /** 在光标处插入纯文本（输入规则可将其转换为结构化节点） */
+    const insertText = useCallback(
+      (text: string) => {
+        const editor = getEditor() ?? getInstance()
+        if (!editor) return
+        const view = editor.ctx.get(editorViewCtx)
+        view.dispatch(view.state.tr.insertText(text))
+        view.focus()
+        const ctx = editor.ctx
+        const serialized = ctx.get(serializerCtx)(view.state.doc)
+        lastEmittedRef.current = serialized
+        onChangeRef.current?.(serialized)
+      },
+      [getEditor, getInstance],
+    )
+
+    /** 插入 mermaid 流程图块 */
+    const insertDiagram = useCallback(() => {
+      insertMarkdown(`\`\`\`mermaid\n${MERMAID_TEMPLATE}\n\`\`\``)
+    }, [insertMarkdown])
+
+    const toggleBold = useCallback(() => runCommand(toggleStrongCommand), [runCommand])
+    const toggleItalic = useCallback(() => runCommand(toggleEmphasisCommand), [runCommand])
+    const toggleStrikethrough = useCallback(() => runCommand(toggleStrikethroughCommand), [runCommand])
+    const toggleInlineCode = useCallback(() => runCommand(toggleInlineCodeCommand), [runCommand])
+    const toggleHeading = useCallback(
+      (level: number) =>
+        runCommand(setBlockTypeCommand, { nodeType: 'heading', attrs: { level } }),
+      [runCommand],
+    )
+    const toggleParagraph = useCallback(
+      () => runCommand(setBlockTypeCommand, { nodeType: 'paragraph' }),
+      [runCommand],
+    )
+    const toggleBlockquote = useCallback(() => runCommand(wrapInBlockquoteCommand), [runCommand])
+    const toggleBulletList = useCallback(() => runCommand(wrapInBulletListCommand), [runCommand])
+    const toggleOrderedList = useCallback(() => runCommand(wrapInOrderedListCommand), [runCommand])
+    const toggleTodo = useCallback(() => {
+      // 先确保是列表项，再插入 "[ ] " 触发任务列表输入规则
+      runCommand(wrapInBulletListCommand)
+      insertText('[ ] ')
+    }, [runCommand, insertText])
+    const insertCodeBlock = useCallback(() => runCommand(createCodeBlockCommand), [runCommand])
+    const insertDivider = useCallback(() => runCommand(insertHrCommand), [runCommand])
+    const insertTable = useCallback(
+      () => runCommand(insertTableCommand, { row: 3, col: 3 }),
+      [runCommand],
+    )
+    const insertLink = useCallback(
+      (href: string) => runCommand(toggleLinkCommand, { href }),
+      [runCommand],
+    )
+
     useImperativeHandle(
       ref,
       () => ({
@@ -372,6 +655,23 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         getSelectionInfo,
         focus,
         selectRange,
+        insertMarkdown,
+        insertText,
+        insertDiagram,
+        toggleBold,
+        toggleItalic,
+        toggleStrikethrough,
+        toggleInlineCode,
+        toggleHeading,
+        toggleParagraph,
+        toggleBlockquote,
+        toggleBulletList,
+        toggleOrderedList,
+        toggleTodo,
+        insertCodeBlock,
+        insertDivider,
+        insertTable,
+        insertLink,
       }),
       [
         getMarkdown,
@@ -381,6 +681,23 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
         getSelectionInfo,
         focus,
         selectRange,
+        insertMarkdown,
+        insertText,
+        insertDiagram,
+        toggleBold,
+        toggleItalic,
+        toggleStrikethrough,
+        toggleInlineCode,
+        toggleHeading,
+        toggleParagraph,
+        toggleBlockquote,
+        toggleBulletList,
+        toggleOrderedList,
+        toggleTodo,
+        insertCodeBlock,
+        insertDivider,
+        insertTable,
+        insertLink,
       ],
     )
 

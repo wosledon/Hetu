@@ -564,7 +564,8 @@ body {
 
 .hetu-milkdown-root .milkdown {
   min-height: 100%;
-  padding: 0 0.5rem;
+  /* 外层容器已提供 px-8 缩进，这里不再加左右内边距，保证工具条与正文左对齐 */
+  padding: 0;
   background: transparent;
 }
 
@@ -1150,4 +1151,239 @@ body {
 
 .dark .hetu-milkdown-root .ProseMirror td {
   border-color: rgba(255, 255, 255, 0.06);
+}
+/* ─── 编辑器内流程图（mermaid diagram 节点视图）─── */
+
+.hetu-diagram {
+  position: relative;
+  margin: 0.8em 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(249, 250, 251, 0.6);
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hetu-diagram:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 1px 8px rgba(99, 102, 241, 0.08);
+}
+
+.dark .hetu-diagram {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dark .hetu-diagram:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+.hetu-diagram-svg {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.hetu-diagram-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.hetu-diagram-hint {
+  margin-top: 0.4rem;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: rgba(107, 114, 128, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hetu-diagram:hover .hetu-diagram-hint {
+  opacity: 1;
+}
+
+.hetu-diagram-editing {
+  cursor: default;
+}
+
+.hetu-diagram-source {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.dark .hetu-diagram-source {
+  color: #d1d5db;
+}
+
+.hetu-diagram-error {
+  border-radius: 8px;
+  background: rgba(254, 242, 242, 0.8);
+  padding: 0.5rem 0.65rem;
+}
+
+.dark .hetu-diagram-error {
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.hetu-diagram-error-msg {
+  margin-bottom: 0.35rem;
+  font-size: 11px;
+  color: #dc2626;
+}
+
+.dark .hetu-diagram-error-msg {
+  color: #f87171;
+}
+
+.hetu-diagram-error pre {
+  margin: 0;
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+/* ─── 预览（wmde-markdown）细节优化 ─── */
+
+.wmde-markdown .code-lang {
+  padding: 0 0.25rem;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(107, 114, 128, 0.8);
+  pointer-events: none;
+}
+
+/* 段落间距：编辑器与预览保持一致（0.6em 合计），列表保持紧凑 */
+.wmde-markdown p {
+  margin: 0.3em 0 !important;
+}
+
+.wmde-markdown li {
+  margin: 0.1em 0 !important;
+}
+
+.wmde-markdown li > p {
+  margin: 0 !important;
+}
+
+.wmde-markdown ul,
+.wmde-markdown ol {
+  margin: 0.5em 0 !important;
+}
+
+/* 图片查看器（点击放大） */
+.md-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  cursor: zoom-out;
+}
+
+.md-image-viewer img {
+  max-width: 92vw;
+  max-height: 88vh;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── mermaid 图表细节美化（预览 .mermaid-container 与编辑器 .hetu-diagram-svg 共用） ─── */
+
+.mermaid-container,
+.hetu-diagram-svg {
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.mermaid-container svg,
+.hetu-diagram-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 节点：统一圆角与描边（不可加 filter：会改变 SVG 绘制顺序，把节点文字盖住） */
+.mermaid-container svg .node rect,
+.mermaid-container svg .node polygon,
+.mermaid-container svg .node circle,
+.mermaid-container svg .node ellipse,
+.mermaid-container svg .node path,
+.hetu-diagram-svg svg .node rect,
+.hetu-diagram-svg svg .node polygon,
+.hetu-diagram-svg svg .node circle,
+.hetu-diagram-svg svg .node ellipse,
+.hetu-diagram-svg svg .node path {
+  rx: 8px;
+  ry: 8px;
+  stroke-width: 1.5px;
+}
+
+/* 连线：柔化 */
+.mermaid-container svg .edgePath .path,
+.hetu-diagram-svg svg .edgePath .path {
+  stroke-width: 1.5px;
+}
+
+/* 箭头：略大且颜色跟随连线 */
+.mermaid-container svg .arrowheadPath,
+.hetu-diagram-svg svg .arrowheadPath {
+  stroke-width: 1.5px;
+}
+
+/* 连线标签：加白底胶囊，避免压在连线上看不清 */
+.mermaid-container svg .edgeLabel .label,
+.mermaid-container svg .edgeLabel foreignObject > div,
+.hetu-diagram-svg svg .edgeLabel .label,
+.hetu-diagram-svg svg .edgeLabel foreignObject > div {
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* 集群（子图） */
+.mermaid-container svg .cluster rect,
+.hetu-diagram-svg svg .cluster rect {
+  rx: 12px;
+  ry: 12px;
+  stroke-dasharray: 4 3;
+}
+
+/* 标题 */
+.mermaid-container svg .titleText,
+.hetu-diagram-svg svg .titleText {
+  font-weight: 600;
+}
+
+/* 时序图角色 */
+.mermaid-container svg .actor,
+.hetu-diagram-svg svg .actor {
+  rx: 8px;
+  ry: 8px;
+}
+
+/* 预览中的流程图容器：卡片化（编辑器内已由 .hetu-diagram 提供） */
+.wmde-markdown .mermaid-container {
+  margin: 0.6em 0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  background: rgba(249, 250, 251, 0.6);
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
+.dark .wmde-markdown .mermaid-container {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
 }
