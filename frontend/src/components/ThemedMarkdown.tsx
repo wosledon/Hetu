@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import { Copy, Check, ArrowUpFromLine } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
+import { mermaidConfig, fitMermaidLabels } from '../utils/mermaidTheme'
 
 /** 从 React 节点中提取纯文本 */
 function extractText(node: React.ReactNode): string {
@@ -17,7 +18,7 @@ function extractText(node: React.ReactNode): string {
   return ''
 }
 
-/** 代码块：右上角悬浮操作（复制 / 插入编辑器），mermaid 块除外 */
+/** 代码块：右上角悬浮操作（复制 / 插入编辑器）+ 语言标识，mermaid 块除外 */
 function CodeBlockWithActions({ children, onCodeAction }: { children?: React.ReactNode; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
   const [copied, setCopied] = useState(false)
   const codeEl = (Array.isArray(children) ? children[0] : children) as { props?: { className?: string } } | null
@@ -27,6 +28,8 @@ function CodeBlockWithActions({ children, onCodeAction }: { children?: React.Rea
   if (className.includes('mermaid')) {
     return <pre className="mermaid">{text}</pre>
   }
+
+  const language = className.replace(/language-/, '') || 'text'
 
   const copy = () => {
     navigator.clipboard.writeText(text)
@@ -39,6 +42,7 @@ function CodeBlockWithActions({ children, onCodeAction }: { children?: React.Rea
     <div className="group/code relative">
       <pre className="overflow-x-auto">{children}</pre>
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-white/90 p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100 dark:bg-gray-900/90">
+        <span className="code-lang">{language}</span>
         <button
           onClick={copy}
           title="复制代码"
@@ -66,11 +70,7 @@ function CodeBlockWithActions({ children, onCodeAction }: { children?: React.Rea
 let mermaidModulePromise: Promise<typeof import('mermaid')> | null = null
 async function loadMermaid(isDark: boolean) {
   const mod = await (mermaidModulePromise ??= import('mermaid'))
-  mod.default.initialize({
-    startOnLoad: false,
-    theme: isDark ? 'dark' : 'default',
-    securityLevel: 'loose',
-  })
+  mod.default.initialize(mermaidConfig(isDark))
   return mod.default
 }
 
@@ -92,6 +92,7 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
   const theme = useUIStore((state) => state.theme)
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
 
   // 初始化 mermaid（仅在文档含图表时加载依赖）
   useEffect(() => {
@@ -118,6 +119,7 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
           div.className = 'mermaid-container'
           div.innerHTML = svg
           el.replaceWith(div)
+          fitMermaidLabels(div)
         } catch {
           // mermaid 解析失败，保留原始代码块
         }
@@ -127,25 +129,30 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
     return () => { cancelled = true }
   }, [source, isDark])
 
-  // 预处理：修复 markdown 格式（不触碰 HTML 标签）
+  // 预处理：修复 markdown 格式（跳过代码块，避免破坏其中的内容）
   const processed = useMemo(() => {
     if (!source) return ''
 
-    let text = source
+    // 按代码围栏切分：仅处理非代码段，防止把代码里的 "- "、"# 注释" 等当作 markdown 改写
+    const segments = source.split(/(```[\s\S]*?(?:```|$))/g)
+    return segments
+      .map((segment) => {
+        if (segment.startsWith('```')) return segment
 
-    // 将行首的 ▪、•、· 等非标准列表符号转换为标准 - 标记
-    text = text.replace(/^[ \t]*[▪•·]\s+/gm, '- ')
+        let text = segment
 
-    // 将行首的数字+点/顿号列表（如 1、）转换为标准格式
-    text = text.replace(/^(\d+)[、.]\s/gm, '$1. ')
+        // 将行首的 ▪、•、· 等非标准列表符号转换为标准 - 标记
+        text = text.replace(/^[ \t]*[▪•·]\s+/gm, '- ')
 
-    // 在连续列表项之间确保有空行（提升段落间距）
-    text = text.replace(/\n- /g, '\n\n- ')
+        // 将行首的数字+点/顿号列表（如 1、）转换为标准格式
+        text = text.replace(/^(\d+)[、.]\s/gm, '$1. ')
 
-    // 修复标题后紧跟内容缺少空行的问题
-    text = text.replace(/^(#{1,6}\s+.+)\n([^\n#])/gm, '$1\n\n$2')
+        // 修复标题后紧跟内容缺少空行的问题
+        text = text.replace(/^(#{1,6}\s+.+)\n([^\n#])/gm, '$1\n\n$2')
 
-    return text
+        return text
+      })
+      .join('')
   }, [source])
 
   return (
@@ -155,10 +162,23 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
         rehypePlugins={[rehypeRaw, rehypeKatex]}
         components={{
           pre: ({ children }) => <CodeBlockWithActions onCodeAction={onCodeAction}>{children}</CodeBlockWithActions>,
+          img: ({ src, alt }) => (
+            <img
+              src={typeof src === 'string' ? src : ''}
+              alt={alt ?? ''}
+              loading="lazy"
+              onClick={() => setViewerSrc(typeof src === 'string' ? src : '')}
+            />
+          ),
         }}
       >
         {processed}
       </ReactMarkdown>
+      {viewerSrc && (
+        <div className="md-image-viewer" onClick={() => setViewerSrc(null)}>
+          <img src={viewerSrc} alt="预览图片" />
+        </div>
+      )}
     </div>
   )
 })

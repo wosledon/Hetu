@@ -61,7 +61,11 @@ export default function NoteList({
 
   const createNote = useMutation({
     mutationFn: noteService.create,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      // 新建后直接打开编辑器，给用户即时反馈
+      if (created) onSelectNote?.(created)
+    },
   })
 
   const deleteNote = useMutation({
@@ -121,7 +125,12 @@ export default function NoteList({
   }, [notebooks])
 
   const handleCreate = () => {
-    createNote.mutate({ title: '', content: '', notebookId: selectedNotebookId })
+    createNote.mutate({
+      title: '',
+      content: '',
+      // 「默认」是未筛选哨兵值，不能下发给后端（会被当作 GUID 解析失败）
+      notebookId: selectedNotebookId === DEFAULT_NOTEBOOK_ID ? undefined : selectedNotebookId,
+    })
   }
 
   const closeMenu = useCallback(() => setMenu(null), [])

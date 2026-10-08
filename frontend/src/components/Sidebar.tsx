@@ -129,18 +129,24 @@ function NotebookTreeItem({
           </div>
         ) : (
           <>
-            <div className="flex min-w-0 items-center space-x-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsExpanded((v) => !v)
-                }}
-                className={`shrink-0 text-gray-400 ${notebook.children.length === 0 ? 'invisible' : ''}`}
-              >
-                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
-              {isSelected ? <FolderOpen size={16} className="shrink-0 text-blue-500" /> : <Folder size={16} className="shrink-0 text-blue-500" />}
-              <span className={`min-w-0 flex-1 truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              {notebook.children.length > 0 ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExpanded((v) => !v)
+                  }}
+                  className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              ) : (
+                <span className="w-4 shrink-0" />
+              )}
+              {isSelected
+                ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
+                : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
+              <span className={`min-w-0 flex-1 truncate text-[13px] ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
             </div>
           </>
         )}
@@ -260,7 +266,10 @@ export default function Sidebar() {
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50">
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-3 flex shrink-0 items-center justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">笔记本</h2>
+          <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            笔记本
+            <span className="font-normal normal-case tracking-normal text-gray-300 dark:text-gray-600">{totalNotebooks}</span>
+          </h2>
           <button
             onClick={() => setIsAddingRoot(true)}
             title="新建笔记本"
@@ -271,7 +280,7 @@ export default function Sidebar() {
         </div>
         <div className="notebook-tree flex-1 space-y-0.5 overflow-y-auto">
           {isAddingRoot && (
-            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
               <Folder size={14} className="text-blue-500" />
               <input
                 autoFocus
@@ -296,19 +305,18 @@ export default function Sidebar() {
               setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
               navigate('/')
             }}
-            className={`group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-all ${
+            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all ${
               isDefaultSelected
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300'
-                : 'hover:bg-gray-100 dark:hover:bg-white/[0.06]'
+                ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
+                : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
             }`}
           >
-            <Folder size={14} className={isDefaultSelected ? 'text-blue-500' : 'text-gray-400'} />
-            <span className="flex-1 truncate text-sm">默认笔记本</span>
+            <span className="w-4 shrink-0" />
+            {isDefaultSelected
+              ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
+              : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
+            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>默认笔记本</span>
           </div>
-          {/* 分隔线 */}
-          {notebooks.length > 0 && (
-            <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
-          )}
           {/* 其他笔记本 */}
           {notebooks.map((notebook) => (
             <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
@@ -316,34 +324,26 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 笔记统计 */}
-      <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-gray-800/50">
-        <div className="grid grid-cols-2 gap-2">
-          <div
+      {/* 底部统计：紧凑单行，避免大数字卡片与整体风格冲突 */}
+      <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 dark:border-gray-800/50">
+        <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+          <button
             onClick={() => {
               setSelectedNotebookId(undefined)
               setSelectedTagId(undefined)
               navigate('/')
             }}
-            className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 transition-all hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-blue-500/40 dark:hover:bg-blue-950/20"
+            className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:text-blue-500"
+            title="查看全部笔记"
           >
-            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
-              <FileText size={11} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">笔记</span>
-            </div>
-            <div className="mt-0.5 text-lg font-semibold text-gray-700 dark:text-gray-200">
-              {totalNotes}
-            </div>
-          </div>
-          <div className="rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
-            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
-              <Folder size={11} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">笔记本</span>
-            </div>
-            <div className="mt-0.5 text-lg font-semibold text-gray-700 dark:text-gray-200">
-              {totalNotebooks}
-            </div>
-          </div>
+            <FileText size={11} />
+            {totalNotes} 篇笔记
+          </button>
+          <span className="h-2.5 w-px bg-gray-200 dark:bg-gray-700" />
+          <span className="flex items-center gap-1">
+            <Folder size={11} />
+            {totalNotebooks} 个笔记本
+          </span>
         </div>
       </div>
     </aside>
