@@ -37,6 +37,7 @@ public class WorkStreamController : ControllerBase
     private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly MentionContextBuilder _mentionContext;
     private readonly ChatContextInjector _contextInjector;
+    private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<WorkStreamController> _logger;
 
     public WorkStreamController(
@@ -53,6 +54,7 @@ public class WorkStreamController : ControllerBase
         ILlmUsageRecorder llmUsageRecorder,
         MentionContextBuilder mentionContext,
         ChatContextInjector contextInjector,
+        ContextCompactionService contextCompaction,
         ILogger<WorkStreamController> logger)
     {
         _unitOfWork = unitOfWork;
@@ -68,6 +70,7 @@ public class WorkStreamController : ControllerBase
         _llmUsageRecorder = llmUsageRecorder;
         _mentionContext = mentionContext;
         _contextInjector = contextInjector;
+        _contextCompaction = contextCompaction;
         _logger = logger;
     }
 
@@ -104,7 +107,11 @@ public class WorkStreamController : ControllerBase
         var runner = _commandRunnerFactory.Create(project);
 
         // 权限模式：请求 > 会话持久值；请求里带了就顺带持久化
-        var permissionMode = ResolvePermissionMode(request, session);        if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
+        // Agent 模式：autopilot 下询问档位提升为自动执行（计划/只读为用户显式约束，保持）
+        var permissionMode = AgentModePolicy.Apply(
+            request.AgentMode ?? session.AgentMode,
+            ResolvePermissionMode(request, session));
+        if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
             !string.Equals(WorkToolPolicy.ToValue(permissionMode), session.PermissionMode, StringComparison.OrdinalIgnoreCase))
         {
             var entity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
@@ -115,6 +122,19 @@ public class WorkStreamController : ControllerBase
                 await _unitOfWork.WorkSessions.UpdateAsync(entity, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
                 session.PermissionMode = entity.PermissionMode;
+            }
+        }
+        if (AgentModePolicy.IsValid(request.AgentMode) &&
+            !string.Equals(AgentModePolicy.Normalize(request.AgentMode), session.AgentMode, StringComparison.OrdinalIgnoreCase))
+        {
+            var entity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
+            if (entity != null)
+            {
+                entity.AgentMode = AgentModePolicy.Normalize(request.AgentMode);
+                entity.UpdatedAt = DateTimeOffset.UtcNow;
+                await _unitOfWork.WorkSessions.UpdateAsync(entity, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+                session.AgentMode = entity.AgentMode;
             }
         }
 
@@ -159,7 +179,21 @@ public class WorkStreamController : ControllerBase
         // 构建历史 + 工具
         var messagesResult = await _sessionService.GetMessagesAsync(sessionId, ct);
         var history = messagesResult.Data ?? [];
-        var chatMessages = BuildChatHistory(history, request.ContextWindow);
+
+        // 上下文超限自动压缩：占用达到窗口 80% 时先用当前模型压出摘要，再继续本轮
+        var autoSummary = await _contextCompaction.TryAutoCompactWorkAsync(sessionId, request.ContextWindow, ct);
+        if (autoSummary != null)
+        {
+            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = "上下文接近上限，已自动压缩为摘要" });
+            _logger.LogInformation("[Context] 自动压缩生效 sessionId={SessionId}", sessionId);
+        }
+
+        var sessionEntity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
+        var chatMessages = BuildChatHistory(
+            history,
+            request.ContextWindow,
+            autoSummary ?? sessionEntity?.ContextSummary,
+            sessionEntity?.ContextSummaryThroughMessageId);
 
         // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：与对话会话共用同一份注入规则
         var mentionCount = await _mentionContext.BuildAsync(request.Mentions, chatMessages, ct);
@@ -649,9 +683,23 @@ public class WorkStreamController : ControllerBase
     /// 历史压缩：保留最近 N 条文本消息，更早的内容折叠为一条摘要说明，
     /// 避免长会话把上下文窗口顶满。传入 contextWindow（token）时再按 ~3 字符/token 的预算从最早处裁剪。
     /// </summary>
-    private List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history, int? contextWindow = null)
+    private List<LlmChatMessage> BuildChatHistory(
+        List<WorkMessageDto> history,
+        int? contextWindow = null,
+        string? contextSummary = null,
+        Guid? summaryThroughMessageId = null)
     {
         var texts = history.Where(m => m.Type == "text").ToList();
+
+        // 已压缩部分：摘要覆盖的消息不再进入上下文，只保留摘要本身
+        var summarizedCount = 0;
+        if (summaryThroughMessageId is { } throughId && throughId != Guid.Empty)
+        {
+            var index = texts.FindIndex(m => m.Id == throughId);
+            if (index >= 0) summarizedCount = index + 1;
+        }
+        if (summarizedCount > 0) texts = texts.Skip(summarizedCount).ToList();
+
         List<LlmChatMessage> messages;
         if (texts.Count <= MaxHistoryMessages)
         {
@@ -670,6 +718,16 @@ public class WorkStreamController : ControllerBase
                 }
             };
             messages.AddRange(kept.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }));
+        }
+
+        // 摘要置于最前，替代被替换掉的历史
+        if (!string.IsNullOrWhiteSpace(contextSummary))
+        {
+            messages.Insert(0, new LlmChatMessage
+            {
+                Role = "user",
+                Content = $"（以下是此前会话的压缩摘要，原文已不再随上下文发送，可据此继续）\n{contextSummary}"
+            });
         }
 
         // 会话级上下文上限：按 ~3 字符/token 折算字符预算，从最早的消息开始裁剪

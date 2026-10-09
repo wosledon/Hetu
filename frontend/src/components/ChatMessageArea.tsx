@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
@@ -15,6 +15,8 @@ import AgentUsageBadge from './agent/AgentUsageBadge'
 import AgentTimeline from './agent/AgentTimeline'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
+import AgentContextUsage from './agent/AgentContextUsage'
+import type { IContextUsage } from '../types/context'
 import AgentReasoningSelect from './agent/AgentReasoningSelect'
 import AgentModelPicker from './agent/AgentModelPicker'
 import AgentPicker from './agent/AgentPicker'
@@ -260,9 +262,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   // 会话级上下文上限（token，空 = 模型支持的上限）
   const [contextWindow, setContextWindow] = useState<number | undefined>(cachedSettings.contextWindow ?? undefined)
 
+  // 会话信息：上下文占用 + 压缩提示（右下角环形进度 / 输入框上方提示条）
+  const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
+  const [compacting, setCompacting] = useState(false)
+  const [contextNotice, setContextNotice] = useState<string | null>(null)
+
   // Slash command menu items (db skills + local skills + agents)
   const slashItems = useMemo(() => {
     const items: { key: string; label: string; description: string; icon: React.ReactNode; type: 'skill' | 'agent' }[] = []
+    // 内置命令：压缩上下文（调用当前模型把较早历史压成摘要）
+    items.push({ key: 'command:compress', label: '/compress', description: '压缩上下文：调用当前模型把较早历史压成摘要', icon: <Gauge size={14} className="text-rose-500" />, type: 'skill' })
     const seenNames = new Set<string>()
     for (const s of skills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
       if (s.isEnabled && !seenNames.has(s.name) && (!allowedSkillNames || allowedSkillNames.has(s.name))) {
@@ -382,6 +391,31 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     setReasoningEffort(currentReasoningEffort)
   }, [currentReasoningEffort])
 
+  /** 拉取上下文占用（打开会话信息面板、发送完成、压缩后） */
+  const refreshContextUsage = useCallback(() => {
+    if (!topicId) return
+    // 未手动选择窗口时按当前模型的上限展示占用率
+    chatMessageService
+      .contextUsage(topicId, contextWindow ?? currentModel?.contextWindow)
+      .then(setContextUsage)
+      .catch(() => undefined)
+  }, [topicId, contextWindow, currentModel?.contextWindow])
+
+  /** /compress：调用当前模型把较早的历史压成摘要（原始消息仍保留在会话里） */
+  const compactContext = useCallback(async () => {
+    if (!topicId || compacting) return
+    setCompacting(true)
+    try {
+      const result = await chatMessageService.compact(topicId, { contextWindow, modelId: activeModelId || undefined })
+      setContextNotice(`已压缩 ${result.messageCount} 条早期消息为摘要（约 ${result.beforeTokens} → ${result.afterTokens} tokens）`)
+      refreshContextUsage()
+    } catch (err) {
+      setContextNotice(`压缩失败：${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setCompacting(false)
+    }
+  }, [topicId, compacting, contextWindow, activeModelId, refreshContextUsage])
+
   // 持久化会话级配置到 localStorage
   useEffect(() => {
     if (!topicId) return
@@ -397,6 +431,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       contextWindow,
     })
   }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, permissionMode, contextWindow])
+
+  // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
+  const messageCount = messages.length
+  useEffect(() => {
+    if (!topicId || isStreaming) return
+    refreshContextUsage()
+  }, [topicId, messageCount, isStreaming, refreshContextUsage])
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -470,6 +511,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   }
 
   const handleSend = async () => {
+    // /compress 命令：调用当前模型压缩上下文，不发消息
+    if (input.trim() === '/compress') {
+      setInput('')
+      setInputMenu(null)
+      await compactContext()
+      return
+    }
     if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0) || isStreaming) return
 
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
@@ -1045,6 +1093,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           </div>
         )}
 
+        {/* 上下文提示：自动压缩 / /compress 结果 */}
+        {contextNotice && (
+          <div className="mt-2 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <Gauge size={14} className="mt-0.5 shrink-0" />
+            <span className="min-w-0 flex-1">{contextNotice}</span>
+            <button onClick={() => setContextNotice(null)} className="shrink-0 text-amber-500 hover:text-amber-700 dark:hover:text-amber-200"><X size={13} /></button>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -1156,6 +1213,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     kind: 'slash' as const,
                     items: filteredSlashItems,
                     onSelect: (item: InputCommandItem) => {
+                      // 内置命令：压缩上下文（不发消息，直接调用模型压缩）
+                      if (item.key === 'command:compress') {
+                        setInput('')
+                        setInputMenu(null)
+                        void compactContext()
+                        return
+                      }
                       setSelectedSlashItem({
                         label: item.label,
                         icon: item.icon,
@@ -1224,6 +1288,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           onStop={handleStop}
           canSubmit={!!input.trim() || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
           hint="Shift + Enter 换行 · 支持粘贴文件"
+          trailing={
+            <AgentContextUsage
+              anchorToParent
+              usage={contextUsage}
+              onRefresh={refreshContextUsage}
+              onCompact={() => void compactContext()}
+              compacting={compacting}
+            />
+          }
           toolbar={
             <>
               {/* Attach file (only for vision-capable models) */}

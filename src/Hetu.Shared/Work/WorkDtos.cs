@@ -131,6 +131,10 @@ public class WorkSessionDto
     public Guid? ModelId { get; set; }
     /// <summary>plan | readonly | ask | auto | bypass</summary>
     public string PermissionMode { get; set; } = "ask";
+    /// <summary>Agent 模式：interactive（交互式，按权限模式确认）| autopilot（自动执行，无需逐步确认）</summary>
+    public string AgentMode { get; set; } = "interactive";
+    /// <summary>是否已有上下文摘要（/compress 或自动压缩产出）</summary>
+    public bool HasContextSummary { get; set; }
     public int MessageCount { get; set; }
     /// <summary>已完成的对话轮次</summary>
     public int TurnCount { get; set; }
@@ -148,6 +152,7 @@ public class CreateWorkSessionRequest
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? PermissionMode { get; set; }
+    public string? AgentMode { get; set; }
 }
 
 public class UpdateWorkSessionRequest
@@ -155,6 +160,7 @@ public class UpdateWorkSessionRequest
     public string Title { get; set; } = string.Empty;
     public Guid? ModelId { get; set; }
     public string? PermissionMode { get; set; }
+    public string? AgentMode { get; set; }
 }
 
 public class WorkMessageDto
@@ -182,6 +188,8 @@ public class SendWorkMessageRequest
     public string? ToolApprovalMode { get; set; }
     /// <summary>本轮权限模式（plan | readonly | ask | auto | bypass），传入时同时持久化到会话</summary>
     public string? PermissionMode { get; set; }
+    /// <summary>本轮 Agent 模式（interactive | autopilot），传入时同时持久化到会话</summary>
+    public string? AgentMode { get; set; }
     /// <summary>模型推理强度（low | medium | high），仅对原生推理模型生效</summary>
     public string? ReasoningEffort { get; set; }
     /// <summary>智能体（提示词预设）附加系统提示，切换 Agent 时传入</summary>

@@ -31,6 +31,7 @@ export type AgentEvent =
   | { type: 'knowledge_results'; results: unknown[] }
   | { type: 'memory_results'; results: unknown[] }
   | { type: 'debug'; text: string }
+  | { type: 'notice'; kind: string; text: string }
   | { type: 'done' }
   /** 已知类型之外的事件：保留原样，端上按需扩展而不丢帧 */
   | { type: 'unknown'; raw: Record<string, unknown> }
@@ -166,6 +167,8 @@ export function parseAgentFrame(data: string): ParseResult {
       return { event: { type: 'memory_results', results: arr(raw.results) } }
     case 'debug':
       return { event: { type: 'debug', text: str(raw.text) } }
+    case 'notice':
+      return { event: { type: 'notice', kind: str(raw.kind, 'info'), text: str(raw.text) } }
     case 'done':
       return { event: { type: 'done' } }
     default:

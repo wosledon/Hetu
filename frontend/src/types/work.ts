@@ -43,6 +43,9 @@ export interface IWorkProject {
 /** 工具调用权限模式：计划（只读调研）/ 只读 / 每次询问 / 自动放行写操作 / 全部放行 */
 export type WorkPermissionMode = 'plan' | 'readonly' | 'ask' | 'auto' | 'bypass';
 
+/** Agent 模式：交互式（按权限模式逐步确认）/ Autopilot（写操作自动执行） */
+export type WorkAgentMode = 'interactive' | 'autopilot';
+
 export interface IWorkSession {
   id: string;
   projectId: string;
@@ -50,6 +53,10 @@ export interface IWorkSession {
   modelId?: string;
   messageCount: number;
   permissionMode: WorkPermissionMode;
+  /** Agent 模式（interactive | autopilot） */
+  agentMode: WorkAgentMode;
+  /** 是否已有上下文摘要（/compress 或自动压缩产出） */
+  hasContextSummary?: boolean;
   turnCount: number;
   promptTokens: number;
   completionTokens: number;
@@ -183,12 +190,14 @@ export interface ICreateWorkSessionRequest {
   title: string;
   modelId?: string;
   permissionMode?: WorkPermissionMode;
+  agentMode?: WorkAgentMode;
 }
 
 export interface IUpdateWorkSessionRequest {
   title: string;
   modelId?: string;
   permissionMode?: WorkPermissionMode;
+  agentMode?: WorkAgentMode;
 }
 
 export interface IWorkCodeSearchHit {

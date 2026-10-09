@@ -1,5 +1,6 @@
 import { get, post, put, del } from './api';
 import type { IChatGroup, IChatTopic, IChatMessage, IMainChat } from '../types';
+import type { IContextUsage, ICompactContextRequest, ICompactContextResult } from '../types/context';
 
 // Re-export prompt preset types and service from dedicated module
 export { promptPresetService } from './promptPresetService';
@@ -131,6 +132,14 @@ export const chatMessageService = {
   /** 提交计划工具的用户决策（批准 / 驳回，可附修改意见） */
   submitPlanDecision: (sessionId: string | undefined, toolCallId: string, approved: boolean, feedback: string) =>
     post<void>('/chat-messages/plan', { sessionId, toolCallId, approved, feedback }),
+  /** 上下文占用（系统提示 / 历史 / 摘要），供输入框右侧会话信息面板 */
+  contextUsage: (topicId: string, contextWindow?: number) =>
+    get<IContextUsage>(`/chat-messages/topic/${topicId}/context-usage`, { contextWindow }),
+  /** 手动压缩上下文：调用当前大模型把较早历史压成摘要 */
+  compact: (topicId: string, data: ICompactContextRequest) =>
+    post<ICompactContextResult>(`/chat-messages/topic/${topicId}/compact`, data),
+  /** 清除上下文摘要，恢复完整历史 */
+  clearCompact: (topicId: string) => del<void>(`/chat-messages/topic/${topicId}/compact`),
   stream: (topicId: string, data: SendMessageRequest, signal?: AbortSignal): Promise<Response> =>
     fetch(`/api/chat-messages/topic/${topicId}/stream`, {
       method: 'POST',

@@ -27,5 +27,9 @@ public class ChatTopic : BaseEntity
     public Guid? BranchMessageId { get; set; }
     /// <summary>是否为主对话话题（主对话组内唯一的全局聊天话题）</summary>
     public bool IsMain { get; set; }
+    /// <summary>上下文摘要（/compress 手动压缩或超限自动压缩产出）</summary>
+    public string? ContextSummary { get; set; }
+    /// <summary>摘要覆盖到的消息 Id：该消息及更早的文本消息不再进入 LLM 上下文</summary>
+    public Guid? ContextSummaryThroughMessageId { get; set; }
     public List<ChatMessage> Messages { get; set; } = [];
 }

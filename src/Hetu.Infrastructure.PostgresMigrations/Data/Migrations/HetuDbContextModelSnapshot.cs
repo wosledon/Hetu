@@ -275,6 +275,12 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid?>("BranchMessageId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContextSummary")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ContextSummaryThroughMessageId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2141,11 +2147,21 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AgentMode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<long>("CachedTokens")
                         .HasColumnType("bigint");
 
                     b.Property<long>("CompletionTokens")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("ContextSummary")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ContextSummaryThroughMessageId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");

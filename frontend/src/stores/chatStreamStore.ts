@@ -87,6 +87,8 @@ export interface TopicStreamState {
   startedAt: number
   /** 本次流失败的原因；不随流式预览一起清空，直到下次发送才重置 */
   streamError: string
+  /** 后端上下文提示（自动压缩等），输入框上方提示条 */
+  notice: string
 }
 
 const emptyTopic = (): TopicStreamState => ({
@@ -108,6 +110,7 @@ const emptyTopic = (): TopicStreamState => ({
   usedMemory: false,
   startedAt: 0,
   streamError: '',
+  notice: '',
 })
 
 interface ChatStreamStore {
@@ -312,6 +315,10 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
               steps: chunk.steps as number | undefined,
               message: chunk.message as string | undefined,
             }]
+            break
+          case 'notice':
+            // 上下文提示（自动压缩等）：挂在流状态上，由会话区渲染成提示条
+            next.notice = String(chunk.text ?? '')
             break
           case 'done':
           case 'debug':

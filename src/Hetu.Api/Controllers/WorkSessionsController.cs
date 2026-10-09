@@ -1,5 +1,7 @@
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
 using Hetu.Shared.Common;
+using Hetu.Shared.Context;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +13,19 @@ public class WorkSessionsController : ControllerBase
 {
     private readonly IWorkSessionService _sessionService;
     private readonly IWorkCheckpointService _checkpointService;
+    private readonly ContextCompactionService _contextCompaction;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public WorkSessionsController(IWorkSessionService sessionService, IWorkCheckpointService checkpointService)
+    public WorkSessionsController(
+        IWorkSessionService sessionService,
+        IWorkCheckpointService checkpointService,
+        ContextCompactionService contextCompaction,
+        IUnitOfWork unitOfWork)
     {
         _sessionService = sessionService;
         _checkpointService = checkpointService;
+        _contextCompaction = contextCompaction;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpGet("{id:guid}")]
@@ -57,6 +67,31 @@ public class WorkSessionsController : ControllerBase
     [HttpDelete("messages/{messageId:guid}")]
     public Task<ApiResponse> DeleteMessage(Guid messageId, CancellationToken cancellationToken)
         => _sessionService.DeleteMessageAsync(messageId, cancellationToken);
+
+    /// <summary>上下文占用：窗口大小 + 系统提示/历史/摘要分块（供输入框右侧会话信息面板）</summary>
+    [HttpGet("{id:guid}/context-usage")]
+    public Task<ApiResponse<ContextUsageDto>> GetContextUsage(
+        Guid id, [FromQuery] int? contextWindow, CancellationToken cancellationToken)
+        => _contextCompaction.GetWorkUsageAsync(id, contextWindow, cancellationToken);
+
+    /// <summary>手动压缩上下文（/compress）：调用当前大模型把较早的历史压成摘要</summary>
+    [HttpPost("{id:guid}/compact")]
+    public Task<ApiResponse<CompactContextResultDto>> Compact(
+        Guid id, [FromBody] CompactContextRequest request, CancellationToken cancellationToken)
+        => _contextCompaction.CompactWorkAsync(id, request ?? new CompactContextRequest(), cancellationToken);
+
+    /// <summary>清除上下文摘要，恢复完整历史</summary>
+    [HttpDelete("{id:guid}/compact")]
+    public async Task<ApiResponse> ClearCompact(Guid id, CancellationToken cancellationToken)
+    {
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
+        if (session == null) return ApiResponse.Fail("会话不存在");
+        session.ContextSummary = null;
+        session.ContextSummaryThroughMessageId = null;
+        await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse.Ok();
+    }
 
     [HttpGet("{id:guid}/checkpoints")]
     public Task<ApiResponse<List<WorkCheckpointDto>>> GetCheckpoints(Guid id, CancellationToken cancellationToken)

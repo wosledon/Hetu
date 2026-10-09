@@ -1,4 +1,5 @@
 import { get, post, put, del } from './api';
+import type { IContextUsage, ICompactContextRequest, ICompactContextResult } from '../types/context';
 import type {
   IWorkProject,
   IWorkSession,
@@ -24,6 +25,7 @@ import type {
   IWorkOpenApp,
   IWorkCopilotAssets,
   WorkPermissionMode,
+  WorkAgentMode,
 } from '../types/work';
 
 export const workProjectService = {
@@ -64,6 +66,14 @@ export const workSessionService = {
   updateMessage: (messageId: string, content: string) =>
     put<IWorkMessage>(`/work-sessions/messages/${messageId}`, { content }),
   deleteMessage: (messageId: string) => del<void>(`/work-sessions/messages/${messageId}`),
+  /** 上下文占用（系统提示 / 历史 / 摘要），供输入框右侧会话信息面板 */
+  contextUsage: (id: string, contextWindow?: number) =>
+    get<IContextUsage>(`/work-sessions/${id}/context-usage`, { contextWindow }),
+  /** 手动压缩上下文：调用当前大模型把较早历史压成摘要 */
+  compact: (id: string, data: ICompactContextRequest) =>
+    post<ICompactContextResult>(`/work-sessions/${id}/compact`, data),
+  /** 清除上下文摘要，恢复完整历史 */
+  clearCompact: (id: string) => del<void>(`/work-sessions/${id}/compact`),
   getFileChanges: (id: string) => get<IWorkFileChange[]>(`/work-sessions/${id}/file-changes`),
   getCheckpoints: (id: string) => get<IWorkCheckpoint[]>(`/work-sessions/${id}/checkpoints`),
   addMessage: (id: string, data: { role: string; content: string; type?: string; metadata?: string }) =>
@@ -77,6 +87,8 @@ export const workSessionService = {
       enableTools?: boolean;
       toolApprovalMode?: string;
       permissionMode?: WorkPermissionMode;
+      /** Agent 模式：交互式 / autopilot（autopilot 下写操作不再逐步确认） */
+      agentMode?: WorkAgentMode;
       reasoningEffort?: string;
       agentPrompt?: string;
       /** /prompt 模板：.github/prompts 下的文件相对路径 */

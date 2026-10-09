@@ -11,6 +11,7 @@ using Hetu.Core.Services.Tools;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
+using Hetu.Shared.Context;
 using Hetu.Shared.Notes;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -34,6 +35,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ToolExecutionService _toolExecution;
     private readonly AgentLoopService _agentLoop;
     private readonly ILlmUsageRecorder _llmUsageRecorder;
+    private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<ChatMessagesController> _logger;
 
     public ChatMessagesController(
@@ -50,6 +52,7 @@ public class ChatMessagesController : ControllerBase
         ToolExecutionService toolExecution,
         AgentLoopService agentLoop,
         ILlmUsageRecorder llmUsageRecorder,
+        ContextCompactionService contextCompaction,
         ILogger<ChatMessagesController> logger)
     {
         _chatMessageService = chatMessageService;
@@ -65,6 +68,7 @@ public class ChatMessagesController : ControllerBase
         _toolExecution = toolExecution;
         _agentLoop = agentLoop;
         _llmUsageRecorder = llmUsageRecorder;
+        _contextCompaction = contextCompaction;
         _logger = logger;
     }
 
@@ -77,6 +81,31 @@ public class ChatMessagesController : ControllerBase
         [FromQuery] string keyword, [FromQuery] Guid? topicId = null,
         [FromQuery] Guid? groupId = null, CancellationToken ct = default)
         => _chatMessageService.SearchAsync(keyword, topicId, groupId, ct);
+
+    /// <summary>上下文占用：窗口大小 + 系统提示/历史/摘要分块（供输入框右侧会话信息面板）</summary>
+    [HttpGet("topic/{topicId:guid}/context-usage")]
+    public Task<ApiResponse<ContextUsageDto>> GetContextUsage(
+        Guid topicId, [FromQuery] int? contextWindow, CancellationToken ct)
+        => _contextCompaction.GetChatUsageAsync(topicId, contextWindow, ct);
+
+    /// <summary>手动压缩上下文（/compress）：调用当前大模型把较早的历史压成摘要</summary>
+    [HttpPost("topic/{topicId:guid}/compact")]
+    public Task<ApiResponse<CompactContextResultDto>> Compact(
+        Guid topicId, [FromBody] CompactContextRequest request, CancellationToken ct)
+        => _contextCompaction.CompactChatAsync(topicId, request ?? new CompactContextRequest(), ct);
+
+    /// <summary>清除上下文摘要，恢复完整历史</summary>
+    [HttpDelete("topic/{topicId:guid}/compact")]
+    public async Task<ApiResponse> ClearCompact(Guid topicId, CancellationToken ct)
+    {
+        var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, ct);
+        if (topic == null) return ApiResponse.Fail("话题不存在");
+        topic.ContextSummary = null;
+        topic.ContextSummaryThroughMessageId = null;
+        await _unitOfWork.ChatTopics.UpdateAsync(topic, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return ApiResponse.Ok();
+    }
 
     [HttpPost("topic/{topicId:guid}")]
     public Task<ApiResponse<ChatMessageDto>> CreateUserMessage(
@@ -152,7 +181,11 @@ public class ChatMessagesController : ControllerBase
         var (provider, modelId) = resolved;
         if (provider == null) { await writer.WriteErrorAsync("未找到可用的对话模型"); return; }
 
-        var chatMessages = await BuildChatHistoryAsync(topicId, request, provider, ct);
+        var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, provider, ct);
+        if (autoCompacted)
+        {
+            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = "上下文接近上限，已自动压缩为摘要" });
+        }
         var options = await BuildChatOptionsAsync(request, topic, modelId, agentPreset, ct);
 
         // 技能的 promptTemplate 组装进本轮用户消息：{{input}} 替换为 /name 之后的入参
@@ -320,7 +353,11 @@ public class ChatMessagesController : ControllerBase
         }
     }
 
-    private async Task<List<LlmChatMessage>> BuildChatHistoryAsync(
+    /// <summary>
+    /// 构建本轮对话历史：先按需自动压缩（超限），再跳过已被摘要覆盖的消息、把摘要置于最前，
+    /// 最后按会话级上下文预算裁剪最早的若干条。
+    /// </summary>
+    private async Task<(List<LlmChatMessage> Messages, bool AutoCompacted)> BuildChatHistoryAsync(
         Guid topicId, SendMessageRequest request, ILLMProvider provider, CancellationToken ct)
     {
         int? ctxSize = null;
@@ -329,7 +366,30 @@ public class ChatMessagesController : ControllerBase
             ctxSize = v;
 
         var history = await _chatMessageService.BuildHistoryAsync(topicId, ctxSize, ct);
+
+        // 上下文超限自动压缩：占用达到窗口 80% 时先用当前模型压出摘要，再继续本轮
+        var autoSummary = await _contextCompaction.TryAutoCompactChatAsync(topicId, request.ContextWindow, ct);
+        var autoCompacted = autoSummary != null;
+        if (autoCompacted) _logger.LogInformation("[Context] 自动压缩生效 topicId={TopicId}", topicId);
+
+        var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, ct);
+        autoSummary ??= topic?.ContextSummary;
+        var throughId = topic?.ContextSummaryThroughMessageId;
+        if (throughId is { } tid && tid != Guid.Empty)
+        {
+            var index = history.ToList().FindIndex(m => m.Id == tid);
+            if (index >= 0) history = history.Skip(index + 1).ToList();
+        }
+
         var messages = history.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
+        if (!string.IsNullOrWhiteSpace(autoSummary))
+        {
+            messages.Insert(0, new LlmChatMessage
+            {
+                Role = "user",
+                Content = $"（以下是此前对话的压缩摘要，原文已不再随上下文发送，可据此继续）\n{autoSummary}"
+            });
+        }
 
         // 会话级上下文上限（token）：按 ~3 字符/token 折算成字符预算，从最早的消息开始裁剪
         if (request.ContextWindow is > 0)
@@ -355,7 +415,7 @@ public class ChatMessagesController : ControllerBase
         {
             ChatContextInjector.AttachImages(request.Images, provider, messages);
         }
-        return messages;
+        return (messages, autoCompacted);
     }
 
     private async Task<ChatOptions> BuildChatOptionsAsync(

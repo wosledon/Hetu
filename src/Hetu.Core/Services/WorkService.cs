@@ -350,6 +350,7 @@ public class WorkSessionService : IWorkSessionService
             PermissionMode = WorkToolPolicy.IsValidValue(request.PermissionMode)
                 ? request.PermissionMode!.Trim().ToLowerInvariant()
                 : WorkToolPolicy.DefaultMode,
+            AgentMode = AgentModePolicy.Normalize(request.AgentMode),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -371,6 +372,12 @@ public class WorkSessionService : IWorkSessionService
             if (!WorkToolPolicy.IsValidValue(request.PermissionMode))
                 return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：plan | readonly | ask | auto | bypass");
             session.PermissionMode = request.PermissionMode.Trim().ToLowerInvariant();
+        }
+        if (!string.IsNullOrWhiteSpace(request.AgentMode))
+        {
+            if (!AgentModePolicy.IsValid(request.AgentMode))
+                return ApiResponse<WorkSessionDto>.Fail("Agent 模式非法，可选值：interactive | autopilot");
+            session.AgentMode = AgentModePolicy.Normalize(request.AgentMode);
         }
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -512,6 +519,8 @@ public class WorkSessionService : IWorkSessionService
         Title = session.Title,
         ModelId = session.ModelId,
         PermissionMode = string.IsNullOrWhiteSpace(session.PermissionMode) ? WorkToolPolicy.DefaultMode : session.PermissionMode,
+        AgentMode = AgentModePolicy.Normalize(session.AgentMode),
+        HasContextSummary = !string.IsNullOrWhiteSpace(session.ContextSummary),
         MessageCount = messageCount,
         TurnCount = session.TurnCount,
         PromptTokens = session.PromptTokens,
