@@ -100,6 +100,77 @@ public class ProjectGroupDto
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+/// <summary>项目 Wiki 文档（AI 依据项目目录资料生成）</summary>
+public class WikiDocumentDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    /// <summary>所属项目名称（列表展示用）</summary>
+    public string ProjectName { get; set; } = string.Empty;
+    /// <summary>所属 Wiki 套件 ID（一次生成的所有页面共享）</summary>
+    public Guid SetId { get; set; }
+    /// <summary>套件内排序：0 为总览页</summary>
+    public int SortOrder { get; set; }
+    public string Title { get; set; } = string.Empty;
+    /// <summary>规划阶段确定的内容要点</summary>
+    public string? Brief { get; set; }
+    /// <summary>Markdown 正文</summary>
+    public string Content { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>Wiki 套件（一次生成的总览 + 主题页），含过期状态</summary>
+public class WikiSetDto
+{
+    public Guid SetId { get; set; }
+    public Guid ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public int PageCount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>生成后项目文件又发生过变更，内容可能已过期</summary>
+    public bool IsStale { get; set; }
+    /// <summary>生成后被修改或新增的文件数</summary>
+    public int StaleFileCount { get; set; }
+    /// <summary>页面清单（标题 + 排序）</summary>
+    public List<WikiSetPageDto> Pages { get; set; } = [];
+}
+
+public class WikiSetPageDto
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+}
+
+/// <summary>Wiki 生成任务进度</summary>
+public class WikiGenerationJobDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    /// <summary>0=Queued, 1=Running, 2=Completed, 3=Failed</summary>
+    public int Status { get; set; }
+    public string Stage { get; set; } = string.Empty;
+    /// <summary>进度百分比 0-100</summary>
+    public int Progress { get; set; }
+    public int TotalPages { get; set; }
+    public int DonePages { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? ModelId { get; set; }
+    public Guid? SetId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+}
+
+/// <summary>发起 Wiki 生成请求</summary>
+public class GenerateWikiRequest
+{
+    /// <summary>指定生成所用模型；为空时用默认补全 / 对话模型</summary>
+    public Guid? ModelId { get; set; }
+}
+
 public class CreateProjectGroupRequest
 {
     public string Name { get; set; } = string.Empty;

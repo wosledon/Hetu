@@ -20,6 +20,7 @@ const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
 const ModelsPage = lazy(() => import('./pages/ModelsPage'))
 const WorkPage = lazy(() => import('./pages/WorkPage'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
+const WikiPage = lazy(() => import('./pages/WikiPage'))
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'))
 const ProxyPage = lazy(() => import('./pages/ProxyPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
@@ -71,6 +72,7 @@ function App() {
         <Route path="/tasks/background" element={<TasksPage mode="background" />} />
         <Route path="/tasks/scheduled" element={<TasksPage mode="scheduled" />} />
         <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/wiki" element={<WikiPage />} />
         <Route path="/kanban" element={<KanbanPage />} />
         <Route path="/kanban/:taskId" element={<KanbanTaskDetailPage />} />
         <Route path="/memories" element={<MemoriesPage />} />

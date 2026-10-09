@@ -52,6 +52,8 @@ public class HetuDbContext : DbContext
     public DbSet<WorkCodeChunk> WorkCodeChunks => Set<WorkCodeChunk>();
     public DbSet<ProjectGroup> ProjectGroups => Set<ProjectGroup>();
     public DbSet<ManagedProject> ManagedProjects => Set<ManagedProject>();
+    public DbSet<WikiDocument> WikiDocuments => Set<WikiDocument>();
+    public DbSet<WikiGenerationJob> WikiGenerationJobs => Set<WikiGenerationJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -571,6 +573,35 @@ public class HetuDbContext : DbContext
             entity.HasIndex(e => e.Category);
             entity.HasIndex(e => e.IsPinned);
             entity.HasIndex(e => e.SortOrder);
+        });
+
+        modelBuilder.Entity<WikiDocument>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Brief).HasMaxLength(1000);
+            entity.HasOne(e => e.Project)
+                .WithMany()
+                .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.SetId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<WikiGenerationJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Stage).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.ModelId).HasMaxLength(200);
+            entity.HasOne(e => e.Project)
+                .WithMany()
+                .HasForeignKey(e => e.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         modelBuilder.Entity<WorkProject>(entity =>

@@ -544,14 +544,12 @@ body {
 
 /* ===== Mermaid container ===== */
 .wmde-markdown .mermaid-container {
-  display: flex;
-  justify-content: center;
   margin: 1em 0;
-  overflow-x: auto;
 }
 
-.wmde-markdown .mermaid-container svg {
-  max-width: 100%;
+/* 缩放由 .mermaid-viewer 的 transform 控制，此处不能再压缩 SVG（特异性需高于上面那条） */
+.wmde-markdown .mermaid-container .mermaid-viewer svg {
+  max-width: none;
 }
 
 /* ===== Milkdown editor ===== */
@@ -1343,13 +1341,26 @@ body {
   stroke-width: 1.5px;
 }
 
-/* 连线标签：加白底胶囊，避免压在连线上看不清 */
+/* 标签：加白底胶囊，避免压在连线上看不清 */
 .mermaid-container svg .edgeLabel .label,
 .mermaid-container svg .edgeLabel foreignObject > div,
 .hetu-diagram-svg svg .edgeLabel .label,
 .hetu-diagram-svg svg .edgeLabel foreignObject > div {
   border-radius: 6px;
   font-size: 12px;
+}
+
+/*
+ * mermaid 标签内是 <p>，.wmde-markdown p 的 margin(0.3em) 与 line-height(1.85) 都带了 !important，
+ * 会把每行撑到 25.9px、内容比 mermaid 算出的盒高更大，第二行被 foreignObject 裁掉。
+ * 这里按 mermaid 自己的度量（line-height 1.5）重置，特异性也更高。
+ */
+.mermaid-container svg .nodeLabel p,
+.mermaid-container svg .edgeLabel p,
+.hetu-diagram-svg svg .nodeLabel p,
+.hetu-diagram-svg svg .edgeLabel p {
+  margin: 0 !important;
+  line-height: 1.5 !important;
 }
 
 /* 集群（子图） */
@@ -1379,11 +1390,83 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   background: rgba(249, 250, 251, 0.6);
-  padding: 0.75rem;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .dark .wmde-markdown .mermaid-container {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* ─── 图表交互（工具条 / 拖拽平移 / 缩放 / 全屏）─── */
+
+/* 工具条独立成行，避免遮住图表节点 */
+.mermaid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dark .mermaid-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mermaid-zoom-label {
+  min-width: 2.6rem;
+  margin-right: 0.15rem;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
+.mermaid-viewer {
+  position: relative;
+  max-height: 60vh;
+  padding: 10px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  /* 图表文字不可选中：拖拽时不会划出选中蓝底 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mermaid-viewer.is-panning {
+  cursor: grabbing;
+}
+
+.mermaid-canvas {
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 缩放由外层 transform 控制，SVG 不再被 max-width 压缩 */
+.wmde-markdown .mermaid-container .mermaid-viewer svg {
+  max-width: none;
+  height: auto;
+}
+
+/* 全屏：工具条与图表一起放大，图表区占满剩余高度 */
+.mermaid-container:fullscreen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: #f9fafb;
+}
+
+.dark .mermaid-container:fullscreen {
+  background: #0c0f1a;
+}
+
+.mermaid-container:fullscreen .mermaid-viewer {
+  flex: 1;
+  max-height: none;
 }

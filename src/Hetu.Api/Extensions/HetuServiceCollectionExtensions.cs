@@ -239,6 +239,7 @@ public static class HetuServiceCollectionExtensions
     {
         services.AddScoped<IManagedProjectService, ManagedProjectService>();
         services.AddScoped<IProjectGroupService, ProjectGroupService>();
+        services.AddScoped<IWikiService, WikiService>();
     }
 
     private static bool IsDefaultSqliteConnectionString(string connectionString) =>

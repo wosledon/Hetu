@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, Database, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Briefcase, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox } from 'lucide-react'
+import { Bot, BookOpen, BookText, Database, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Briefcase, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
@@ -25,6 +25,7 @@ const fixedNavItems = [
 
 const allConfigurableItems = [
   { path: '/tags', label: '标签', icon: Tag },
+  { path: '/wiki', label: 'Wiki', icon: BookText },
   { path: '/agents', label: '智能体', icon: Bot },
   { path: '/skills', label: '技能', icon: Zap },
   { path: '/knowledge-base', label: '知识库', icon: Database },
