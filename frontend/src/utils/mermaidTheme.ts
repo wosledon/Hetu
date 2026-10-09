@@ -109,6 +109,8 @@ export function mermaidConfig(isDark: boolean): MermaidConfig {
   return {
     startOnLoad: false,
     securityLevel: 'loose',
+    // 语法错误时不要向 body 注入报错图：该节点残留在 DOM 中会一直显示在页面底部（React 侧已用代码块兜底）
+    suppressErrorRendering: true,
     theme: 'base',
     themeVariables: isDark ? DARK_THEME_VARIABLES : LIGHT_THEME_VARIABLES,
     flowchart: {

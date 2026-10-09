@@ -641,7 +641,7 @@ public class WikiService : IWikiService
             请撰写本页内容（Markdown，中文）。要求：
             1. 只依据提供的资料撰写，不得编造资料中不存在的信息；资料缺失的部分简要说明即可；
             2. 用二级标题（##）组织小节，不要输出一级标题，不要输出页面导航章节；
-            3. 内容涉及结构、流程或模块关系时，使用 ```mermaid 代码块绘制相应图表（架构图 / 数据流图 / 时序图 / 类图等，按内容选择）；
+            3. 内容涉及结构、流程或模块关系时，使用 ```mermaid 代码块绘制相应图表，仅限 mermaid 支持的图类型（graph / flowchart / sequenceDiagram / classDiagram / stateDiagram / erDiagram / pie / gantt）；目录结构、文件树用 ```text 代码块表示，不要用 mermaid；
             4. 代码、类型、路径用行内代码标注；
             5. 语言简洁专业，避免空话；
             6. 直接输出 Markdown 正文，不要用代码块包裹整篇内容。
