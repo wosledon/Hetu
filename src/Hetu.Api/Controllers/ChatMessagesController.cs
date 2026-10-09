@@ -24,9 +24,6 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
-    private readonly IWebSearchService _webSearchService;
-    private readonly SearchQueryRewriter _queryRewriter;
-    private readonly ISemanticSearchService _semanticSearchService;
     private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalSkillService _localSkillService;
@@ -42,9 +39,6 @@ public class ChatMessagesController : ControllerBase
         IChatMessageService chatMessageService,
         IChatTopicService chatTopicService,
         ILLMProviderFactory llmProviderFactory,
-        IWebSearchService webSearchService,
-        SearchQueryRewriter queryRewriter,
-        ISemanticSearchService semanticSearchService,
         IMemoryService memoryService,
         IUnitOfWork unitOfWork,
         ILocalSkillService localSkillService,
@@ -59,9 +53,6 @@ public class ChatMessagesController : ControllerBase
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
-        _webSearchService = webSearchService;
-        _queryRewriter = queryRewriter;
-        _semanticSearchService = semanticSearchService;
         _memoryService = memoryService;
         _unitOfWork = unitOfWork;
         _localSkillService = localSkillService;
