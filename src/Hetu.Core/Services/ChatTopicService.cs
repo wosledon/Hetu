@@ -92,6 +92,15 @@ public class ChatTopicService : IChatTopicService
         {
             await _unitOfWork.ChatMessages.DeleteAsync(message, cancellationToken);
         }
+
+        // 消息清空后摘要随之失效，否则压缩摘要仍会作为上下文发送
+        if (!string.IsNullOrWhiteSpace(topic.ContextSummary) || topic.ContextSummaryThroughMessageId != null)
+        {
+            topic.ContextSummary = null;
+            topic.ContextSummaryThroughMessageId = null;
+            await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
+        }
+
         await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
