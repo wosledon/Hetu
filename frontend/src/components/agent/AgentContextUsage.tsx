@@ -65,7 +65,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
   const ratio = usage ? Math.min(1, Math.max(0, usage.ratio)) : 0
   const percent = Math.round(ratio * 100)
   const tone = ratioTone(ratio)
-  const radius = 7
+  const radius = 8
   const circumference = 2 * Math.PI * radius
 
   return (
@@ -81,14 +81,14 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
         aria-label="会话信息：上下文占用"
         className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
       >
-        <svg width="16" height="16" viewBox="0 0 18 18" className="shrink-0 -rotate-90">
-          <circle cx="9" cy="9" r={radius} fill="none" strokeWidth="2.5" className="stroke-gray-200 dark:stroke-gray-700" />
+        <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90">
+          <circle cx="10" cy="10" r={radius} fill="none" strokeWidth="3.5" className="stroke-gray-200 dark:stroke-gray-700" />
           <circle
-            cx="9"
-            cy="9"
+            cx="10"
+            cy="10"
             r={radius}
             fill="none"
-            strokeWidth="2.5"
+            strokeWidth="3.5"
             strokeLinecap="round"
             strokeDasharray={`${circumference}`}
             strokeDashoffset={`${circumference * (1 - ratio)}`}
@@ -118,7 +118,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
                 已用 <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.used)}</span>
               </div>
 
-              <div className="mb-2 flex h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+              <div className="mb-2.5 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                 {usage.parts.filter((p) => p.tokens > 0).map((p) => (
                   <div
                     key={p.key}
@@ -128,10 +128,10 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
                 ))}
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {usage.parts.map((p) => (
                   <div key={p.key} className="flex items-center gap-2 text-[11px]">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${PART_COLORS[p.key] ?? 'bg-gray-400'}`} />
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PART_COLORS[p.key] ?? 'bg-gray-400'}`} />
                     <span className="min-w-0 flex-1 truncate text-gray-600 dark:text-gray-300">{p.label}</span>
                     <span className="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">{formatTokens(p.tokens)}</span>
                     <span className="w-9 shrink-0 text-right tabular-nums text-gray-400">
@@ -151,22 +151,14 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
               </p>
 
               {(onCompact || onRefresh) && (
-                <div className="mt-2 flex items-center gap-1.5">
+                <div className="mt-3">
                   {onCompact && (
                     <button
                       onClick={onCompact}
                       disabled={compacting}
-                      className="rounded-md bg-violet-500 px-2 py-1 text-[10px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                      className="w-full rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
                     >
                       {compacting ? '压缩中...' : '压缩上下文'}
-                    </button>
-                  )}
-                  {onRefresh && (
-                    <button
-                      onClick={onRefresh}
-                      className="rounded-md px-2 py-1 text-[10px] text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
-                    >
-                      刷新
                     </button>
                   )}
                 </div>
