@@ -37,6 +37,7 @@ public class WorkStreamController : ControllerBase
     private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly MentionContextBuilder _mentionContext;
     private readonly ChatContextInjector _contextInjector;
+    private readonly ILogger<WorkStreamController> _logger;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -51,7 +52,8 @@ public class WorkStreamController : ControllerBase
         IWorkCommandRunnerFactory commandRunnerFactory,
         ILlmUsageRecorder llmUsageRecorder,
         MentionContextBuilder mentionContext,
-        ChatContextInjector contextInjector)
+        ChatContextInjector contextInjector,
+        ILogger<WorkStreamController> logger)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -66,6 +68,7 @@ public class WorkStreamController : ControllerBase
         _llmUsageRecorder = llmUsageRecorder;
         _mentionContext = mentionContext;
         _contextInjector = contextInjector;
+        _logger = logger;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -646,7 +649,7 @@ public class WorkStreamController : ControllerBase
     /// 历史压缩：保留最近 N 条文本消息，更早的内容折叠为一条摘要说明，
     /// 避免长会话把上下文窗口顶满。传入 contextWindow（token）时再按 ~3 字符/token 的预算从最早处裁剪。
     /// </summary>
-    private static List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history, int? contextWindow = null)
+    private List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history, int? contextWindow = null)
     {
         var texts = history.Where(m => m.Type == "text").ToList();
         List<LlmChatMessage> messages;
@@ -680,7 +683,13 @@ public class WorkStreamController : ControllerBase
                 total -= messages[start].Content?.Length ?? 0;
                 start++;
             }
-            if (start > 0) messages = messages.Skip(start).ToList();
+            if (start > 0)
+            {
+                messages = messages.Skip(start).ToList();
+                _logger.LogInformation(
+                    "[Context] 上下文上限 {Window} tokens：裁剪会话历史，保留 {Kept}/{Total} 条（约 {Chars} 字符）",
+                    contextWindow, messages.Count, messages.Count + start, total);
+            }
         }
 
         return messages;
