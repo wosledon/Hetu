@@ -54,10 +54,31 @@ public class CompressionPipelineService
         }, ct);
     }
 
-    /// <summary>执行压缩</summary>
-    public async Task<string> CompressAsync(string input, CancellationToken ct = default)
+    /// <summary>
+    /// 当前生效的压缩节点摘要（日志用）：列出真正会执行的节点；
+    /// LLM 摘要节点在 algorithmic 模式下不参与，明确写出来避免误以为它在跑。
+    /// </summary>
+    public async Task<string> DescribeAsync(CancellationToken ct = default)
     {
         var config = await GetConfigAsync(ct);
+        if (!config.Enabled) return "压缩管道已关闭（设置 → 压缩）";
+
+        var enabled = config.Nodes.Where(n => n.Enabled).OrderBy(n => n.Order).Select(n => n.Key).ToList();
+        if (enabled.Count == 0) return "压缩管道无启用节点";
+
+        var llmActive = config.Mode is "llm" or "hybrid" && enabled.Contains("llm_summary");
+        var nodes = enabled.Where(k => k != "llm_summary" || llmActive).ToList();
+        var suffix = llmActive
+            ? $"模式={config.Mode}"
+            : enabled.Contains("llm_summary")
+                ? $"模式={config.Mode}（llm_summary 已跳过，需切换为 llm/hybrid）"
+                : $"模式={config.Mode}";
+        return $"节点={string.Join(",", nodes)} {suffix}";
+    }
+
+    /// <summary>执行压缩</summary>
+    public async Task<string> CompressAsync(string input, CancellationToken ct = default)
+    {        var config = await GetConfigAsync(ct);
         if (string.IsNullOrWhiteSpace(input)) return input;
 
         // 总开关关闭或无任何节点启用则跳过

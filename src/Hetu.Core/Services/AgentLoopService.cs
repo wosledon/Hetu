@@ -243,6 +243,8 @@ public class AgentLoopService
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations;
         var threshold = request.CompressionThreshold > 0 ? request.CompressionThreshold : 500;
+        // 已压缩过的消息下标：长会话反复迭代时不再重复压缩（LLM 摘要模式尤其重要）
+        var compressedIndexes = new HashSet<int>();
 
         try
         {
@@ -255,16 +257,49 @@ public class AgentLoopService
                 // 每轮前压缩历史：长消息按压缩管道收敛，控制上下文膨胀
                 if (request.CompressHistory)
                 {
+                    if (iter == 0)
+                        _logger.LogInformation("[Compression] {Pipeline}", await _compressionPipeline.DescribeAsync(ct));
+
+                    var candidates = 0;
+                    var compressedCount = 0;
+                    var beforeChars = 0;
+                    var afterChars = 0;
                     for (int i = 0; i < chatMessages.Count; i++)
                     {
                         var msg = chatMessages[i];
                         if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < threshold) continue;
+                        if (!compressedIndexes.Add(i)) continue;
+                        candidates++;
+                        beforeChars += msg.Content.Length;
                         var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
                         if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
                         {
                             chatMessages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
+                            compressedCount++;
+                            afterChars += compressed.Length;
+                        }
+                        else
+                        {
+                            afterChars += msg.Content.Length;
                         }
                     }
+
+                    if (candidates > 0)
+                    {
+                        _logger.LogInformation(
+                            "[Compression] iter={Iter} 候选={Candidates} 条 实际压缩={Compressed} 条 字符 {Before} → {After}（阈值 {Threshold} 字符）",
+                            iter + 1, candidates, compressedCount, beforeChars, afterChars, threshold);
+                    }
+                    else if (iter == 0)
+                    {
+                        // 首轮没有达到阈值的消息：说明管道已加载但本轮无可压缩内容
+                        _logger.LogInformation(
+                            "[Compression] iter=1 无可压缩消息（阈值 {Threshold} 字符，消息数 {Count}）", threshold, chatMessages.Count);
+                    }
+                }
+                else if (iter == 0)
+                {
+                    _logger.LogInformation("[Compression] 本轮未启用历史压缩（CompressHistory=false）");
                 }
 
                 var (content, thinking, pendingToolCalls, usage) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
