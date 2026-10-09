@@ -10,8 +10,6 @@ export interface AgentContextUsageProps {
   /** 压缩上下文（/compress），压缩中禁用 */
   onCompact?: () => void
   compacting?: boolean
-  /** 面板相对外层定位容器（输入区）定位：放在输入框下方时不遮住输入框 */
-  anchorToParent?: boolean
   className?: string
 }
 
@@ -32,9 +30,24 @@ function ratioTone(ratio: number): { stroke: string; text: string } {
  * 会话信息：圆形进度条 + 占比，鼠标移入或点击展开明细（窗口 / 已用 / 各分块）。
  * 对话页与编码会话共用，放在输入框右下角。
  */
-export default function AgentContextUsage({ usage, onRefresh, onCompact, compacting = false, anchorToParent = false, className }: AgentContextUsageProps) {
+export default function AgentContextUsage({ usage, onRefresh, onCompact, compacting = false, className }: AgentContextUsageProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<number | null>(null)
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }
+  // 触发按钮与面板之间有一段间隙，延迟关闭让指针能移到面板上
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => setOpen(false), 400)
+  }
+
+  useEffect(() => () => cancelClose(), [])
 
   useEffect(() => {
     if (!open) return
@@ -58,9 +71,9 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
   return (
     <div
       ref={ref}
-      className={`${anchorToParent ? '' : 'relative '}flex shrink-0 items-center ${className ?? ''}`}
-      onMouseEnter={() => { setOpen(true); onRefresh?.() }}
-      onMouseLeave={() => setOpen(false)}
+      className={`relative flex shrink-0 items-center ${className ?? ''}`}
+      onMouseEnter={() => { cancelClose(); setOpen(true); onRefresh?.() }}
+      onMouseLeave={scheduleClose}
     >
       <button
         onClick={() => { setOpen((v) => !v); onRefresh?.() }}

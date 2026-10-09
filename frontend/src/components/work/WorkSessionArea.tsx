@@ -520,16 +520,15 @@ export default function WorkSessionArea({
     : reasoningEffortDefault(currentModel)
   const contextWindow = session && contextOverride?.sessionId === session.id ? contextOverride.value : undefined
 
-  // Agent 模式：交互式 / autopilot（autopilot 下写操作不再逐步确认），按会话缓存
+  // Agent 模式：交互式 / 托管执行（autopilot 下写操作不再逐步确认）。以服务端会话值为准，本地仅做乐观覆盖
   const [agentModeOverride, setAgentModeOverride] = useState<{ sessionId: string; value: AgentRunMode } | null>(null)
-  const agentMode = session && agentModeOverride?.sessionId === session.id
-    ? agentModeOverride.value
-    : parseAgentMode(cachedSettings.agentMode ?? session?.agentMode)
+  const agentMode = session
+    ? (agentModeOverride?.sessionId === session.id ? agentModeOverride.value : parseAgentMode(session.agentMode))
+    : parseAgentMode(cachedSettings.agentMode)
 
   const setAgentMode = (value: AgentRunMode) => {
     if (!session) return
     setAgentModeOverride({ sessionId: session.id, value })
-    saveTopicSettings(session.id, { ...loadTopicSettings(session.id), agentMode: value })
     workSessionService
       .update(session.id, { title: session.title, modelId: session.modelId, agentMode: value })
       .then((updated) => {
@@ -1348,7 +1347,6 @@ export default function WorkSessionArea({
           ) : undefined}
           trailing={
             <AgentContextUsage
-              anchorToParent
               usage={contextUsage}
               onRefresh={refreshContextUsage}
               onCompact={() => void compactContext()}
