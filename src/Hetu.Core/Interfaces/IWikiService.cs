@@ -33,6 +33,9 @@ public interface IWikiService
 
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>删除一整套 Wiki（该次生成的所有页面）</summary>
+    Task<ApiResponse> DeleteSetAsync(Guid setId, CancellationToken cancellationToken = default);
+
     /// <summary>导出一套 Wiki 为 zip（每页一个 Markdown + 目录索引）</summary>
     Task<ApiResponse<byte[]>> ExportSetAsync(Guid setId, CancellationToken cancellationToken = default);
 }

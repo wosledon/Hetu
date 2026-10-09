@@ -20,4 +20,6 @@ export const wikiService = {
   exportSet: (setId: string) =>
     api.get<Blob>(`/wiki/sets/${setId}/export`, { responseType: 'blob' }).then((response) => response.data),
   delete: (id: string) => del<void>(`/wiki/${id}`),
+  /** 删除一整套 Wiki（该次生成的所有页面） */
+  deleteSet: (setId: string) => del<void>(`/wiki/sets/${setId}`),
 }

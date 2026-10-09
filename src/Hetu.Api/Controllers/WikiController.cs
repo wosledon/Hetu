@@ -66,4 +66,9 @@ public class WikiController : ControllerBase
     [HttpDelete("{id:guid}")]
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _wikiService.DeleteAsync(id, cancellationToken);
+
+    /// <summary>删除一整套 Wiki（该次生成的所有页面）</summary>
+    [HttpDelete("sets/{setId:guid}")]
+    public Task<ApiResponse> DeleteSet(Guid setId, CancellationToken cancellationToken)
+        => _wikiService.DeleteSetAsync(setId, cancellationToken);
 }

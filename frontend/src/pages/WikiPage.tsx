@@ -166,6 +166,17 @@ export default function WikiPage() {
     onError: (e: Error) => showToast(false, e.message || '删除失败'),
   })
 
+  const deleteSetMutation = useMutation({
+    mutationFn: (setId: string) => wikiService.deleteSet(setId),
+    onSuccess: () => {
+      setSelectedSetId(null)
+      setSelectedDocId(null)
+      invalidateWiki()
+      showToast(true, '已删除这一套')
+    },
+    onError: (e: Error) => showToast(false, e.message || '删除失败'),
+  })
+
   const exportMutation = useMutation({
     mutationFn: (setId: string) => wikiService.exportSet(setId),
     onSuccess: (blob, setId) => {
@@ -348,6 +359,10 @@ export default function WikiPage() {
 
         {/* Wiki 套件与页面 */}
         <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Wiki 套件</h2>
+            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">每次「生成 Wiki」产生一套，下面展开是其章节与页面</p>
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto py-3">
             {setsLoading ? (
               <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
@@ -371,27 +386,43 @@ export default function WikiPage() {
               visibleSets.map((set) => {
                 const expanded = set.setId === selectedSet?.setId
                 return (
-                  <div key={set.setId}>
-                    <button
-                      onClick={() => selectSet(set.setId, set.projectId)}
-                      className={`flex w-full items-center gap-2 px-4 py-2 text-left transition-colors ${
+                  <div key={set.setId} className="group">
+                    <div
+                      className={`flex items-center gap-1 px-2 py-2 transition-colors ${
                         expanded
                           ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
                           : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
                       }`}
                     >
-                      <BookText size={13} className={`shrink-0 ${expanded ? 'text-emerald-500' : 'text-gray-400'}`} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={set.title}>
-                          {set.title}
+                      <button
+                        onClick={() => selectSet(set.setId, set.projectId)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        <BookText size={13} className={`shrink-0 ${expanded ? 'text-emerald-500' : 'text-gray-400'}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={set.title}>
+                            {set.title}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-gray-400">
+                            {!projectParam && `${set.projectName} · `}
+                            生成于 {formatTime(set.createdAt)} · {set.pageCount} 页
+                            {set.isStale && <span className="ml-1 text-amber-500">· 有更新</span>}
+                          </span>
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-gray-400">
-                          {!projectParam && `${set.projectName} · `}
-                          {formatTime(set.createdAt)} · {set.pageCount} 页
-                          {set.isStale && <span className="ml-1 text-amber-500">· 有更新</span>}
-                        </span>
-                      </span>
-                    </button>
+                      </button>
+                      <button
+                        onClick={() => confirm({
+                          title: '删除整套 Wiki',
+                          message: `删除「${set.title}」这套的全部 ${set.pageCount} 页文档？删除后不可恢复。`,
+                          onConfirm: () => deleteSetMutation.mutate(set.setId),
+                        })}
+                        title="删除这一套"
+                        aria-label="删除这一套"
+                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                     {expanded && renderSetTree(set)}
                   </div>
                 )
