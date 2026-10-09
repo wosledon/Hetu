@@ -15,6 +15,10 @@ interface AgentPickerProps {
   items: AgentPickerItem[]
   value?: string
   onSelect: (item: AgentPickerItem) => void
+  /** 项目分组：项目 .github 目录下的自定义智能体 */
+  projectItems?: AgentPickerItem[]
+  projectValue?: string
+  onSelectProject?: (item: AgentPickerItem) => void
   /** 工作流分组（仅对话侧可运行） */
   workflows?: AgentPickerItem[]
   workflowValue?: string
@@ -22,7 +26,10 @@ interface AgentPickerProps {
   title?: string
   placeholder?: string
   groupLabel?: string
+  /** 项目分组标题（默认「项目」） */
+  projectGroupLabel?: string
   emptyHint?: string
+  projectEmptyHint?: string
 }
 
 const ICONS = { bot: Bot, brain: Brain, git: GitBranch } as const
@@ -33,18 +40,23 @@ const BADGE_CLASSES: Record<string, string> = {
   '.github': 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
 }
 
-/** 智能体 / 工作流选择器：对话与 Code 会话共用同一套浮层，候选项按模式注入 */
+/** 智能体 / 项目 / 工作流选择器：对话与 Code 会话共用同一套浮层，候选项按模式注入 */
 export default function AgentPicker({
   items,
   value,
   onSelect,
+  projectItems = [],
+  projectValue,
+  onSelectProject,
   workflows = [],
   workflowValue,
   onSelectWorkflow,
   title = '智能体 / 工作流',
   placeholder = '智能体',
   groupLabel = '智能体',
+  projectGroupLabel = '项目',
   emptyHint = '暂无智能体',
+  projectEmptyHint = '当前项目未定义 .github 智能体',
 }: AgentPickerProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,9 +71,10 @@ export default function AgentPicker({
   }, [open])
 
   const selected = items.find((i) => i.id === value)
+  const selectedProject = projectItems.find((p) => p.id === projectValue)
   const selectedWorkflow = workflows.find((w) => w.id === workflowValue)
-  const active = !!selected || !!selectedWorkflow
-  const current = selectedWorkflow ?? selected
+  const active = !!selected || !!selectedProject || !!selectedWorkflow
+  const current = selectedWorkflow ?? selectedProject ?? selected
   const CurrentIcon = ICONS[current?.icon ?? 'bot']
 
   const renderItem = (item: AgentPickerItem, active: boolean, onClick: () => void) => {
@@ -99,12 +112,24 @@ export default function AgentPicker({
         title={title}
       >
         <CurrentIcon size={14} />
-        {selectedWorkflow?.name ?? selected?.name ?? placeholder}
+        {selectedWorkflow?.name ?? selectedProject?.name ?? selected?.name ?? placeholder}
         <ChevronDown size={10} />
       </button>
       {open && (
         <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
           <div className="max-h-72 overflow-y-auto p-1.5">
+            {/* 项目分组置顶：项目 .github 下的智能体与当前工作最相关 */}
+            {onSelectProject && (
+              <>
+                <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{projectGroupLabel}</div>
+                {projectItems.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-500">{projectEmptyHint}</div>
+                ) : (
+                  projectItems.map((p) => renderItem(p, p.id === projectValue, () => { onSelectProject(p); setOpen(false) }))
+                )}
+                <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+              </>
+            )}
             <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{groupLabel}</div>
             {items.length === 0 ? (
               <div className="p-3 text-center text-xs text-gray-500">{emptyHint}</div>

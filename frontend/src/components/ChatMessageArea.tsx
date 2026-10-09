@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
+import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
@@ -35,6 +36,8 @@ interface ChatMessageAreaProps {
   topic?: IChatTopic
   group?: IChatGroup
   onTopicUpdated?: (topic: IChatTopic) => void
+  /** 页面当前打开的项目（Code 视图挂载的 Work 项目）：用于按需加载其 .github 智能体 / 技能 / 模板 */
+  projectId?: string
 }
 
 
@@ -109,7 +112,7 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   }
 }
 
-export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMessageAreaProps) {
+export default function ChatMessageArea({ topic, group, onTopicUpdated, projectId }: ChatMessageAreaProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [input, setInput] = useState('')
@@ -209,6 +212,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     queryFn: () => promptPresetService.getLocal(),
   })
 
+  // 页面已打开项目时：加载该项目 .github 下的智能体 / 提示词 / 技能（与 Code 会话同一份资产）
+  const { data: copilotAssets } = useQuery({
+    queryKey: ['workCopilotAssets', projectId],
+    queryFn: () => (projectId ? workProjectService.getCopilotAssets(projectId) : Promise.resolve(null)),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  })
+  // 选中的项目资产：正文作为系统提示，与智能体预设走同一条下发链路
+  const [selectedProjectAsset, setSelectedProjectAsset] = useState<{ id: string; label: string; content: string } | null>(null)
+
   // 专业智能体的技能白名单：选了指定了技能的专业智能体后，/ 菜单与技能识别只保留其可用技能。
   // 存在无法映射到数据库技能的 ID（如本地技能）时放弃限制，避免误伤。
   const allowedSkillNames = useMemo(() => {
@@ -259,8 +272,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     for (const p of localPresets as Array<{ id: string; name: string; category: string }>) {
       items.push({ key: `agent-local:${p.id}`, label: `/${p.name}`, description: p.category || '本地', icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
     }
+    // 项目 .github 下的提示词模板与技能：正文随选中项作为系统提示下发
+    for (const p of copilotAssets?.prompts ?? []) {
+      if (!p.content) continue
+      items.push({ key: `project-prompt:${p.name}`, label: `/${p.name}`, description: p.description || '项目提示词模板', icon: <Zap size={14} className="text-amber-500" />, type: 'skill' })
+    }
+    for (const s of copilotAssets?.skills ?? []) {
+      if (!s.content) continue
+      items.push({ key: `project-skill:${s.name}`, label: `/${s.name}`, description: s.description || '项目技能', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
+    }
     return items
-  }, [skills, localSkills, presets, localPresets, allowedSkillNames])
+  }, [skills, localSkills, presets, localPresets, allowedSkillNames, copilotAssets])
 
   // 浮层状态由 AgentInputBox 探测回传；这里只按查询词过滤候选项
   const slashQuery = inputMenu?.kind === 'slash' ? inputMenu.query.toLowerCase() : null
@@ -494,7 +516,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch, knowledgeBase, memory,
-        presetSystemPrompt: detectedPresetContent || selectedPreset?.content || undefined,
+        presetSystemPrompt: detectedPresetContent || selectedProjectAsset?.content || selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
         skillName: detectedSkillName,
         agentId: detectedAgentId || selectedPreset?.id,
@@ -1011,6 +1033,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       </div>
 
       <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+        {selectedProjectAsset && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20">
+            <Bot size={14} className="text-indigo-500" />
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              项目智能体：{selectedProjectAsset.label}
+            </span>
+            <button onClick={() => setSelectedProjectAsset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
+          </div>
+        )}
         {selectedPreset && (
           <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${
             selectedPreset.agentType === 'Professional'
@@ -1115,6 +1146,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                         type: (item.type ?? 'skill') as 'skill' | 'agent',
                         description: item.description,
                       })
+                      // 项目 .github 的模板/技能：正文随本轮下发，作为系统提示
+                      if (item.key.startsWith('project-prompt:') || item.key.startsWith('project-skill:')) {
+                        const name = item.key.slice(item.key.indexOf(':') + 1)
+                        const asset = item.key.startsWith('project-prompt:')
+                          ? copilotAssets?.prompts.find((p) => p.name === name)
+                          : copilotAssets?.skills.find((s) => s.name === name)
+                        setSelectedProjectAsset(asset?.content
+                          ? { id: item.key, label: item.label, content: asset.content }
+                          : null)
+                      } else {
+                        setSelectedProjectAsset(null)
+                      }
                       setInput('')
                     },
                     emptyHint: '没有匹配的技能或智能体',
@@ -1190,6 +1233,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 ]}
                 value={selectedPreset?.id}
                 onSelect={(item) => {
+                  // 项目 .github 智能体：正文作为本轮系统提示下发（与 Code 会话同一份资产）
+                  const projectAgent = copilotAssets?.agents.find(a => a.id === item.id)
+                  if (projectAgent) {
+                    setSelectedProjectAsset({ id: item.id, label: projectAgent.name, content: projectAgent.content })
+                    setSelectedPreset(null)
+                    workflowRun.setWorkflow(null)
+                    return
+                  }
+                  setSelectedProjectAsset(null)
                   const preset = presets.find(p => p.id === item.id)
                   workflowRun.setWorkflow(null)
                   if (preset) {
@@ -1212,6 +1264,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                       updatedAt: '',
                     })
                   }
+                }}
+                projectItems={(copilotAssets?.agents ?? []).map(a => ({ id: a.id, name: a.name, description: a.description, icon: 'bot' as const }))}
+                projectValue={selectedProjectAsset && copilotAssets?.agents.some(a => a.id === selectedProjectAsset.id) ? selectedProjectAsset.id : undefined}
+                onSelectProject={(item) => {
+                  const agent = copilotAssets?.agents.find(a => a.id === item.id)
+                  if (!agent) return
+                  setSelectedProjectAsset({ id: item.id, label: agent.name, content: agent.content })
+                  setSelectedPreset(null)
+                  workflowRun.setWorkflow(null)
                 }}
                 workflows={availableWorkflows.map(w => ({ id: w.id, name: w.name, description: w.description, icon: 'git' as const }))}
                 workflowValue={runningWorkflow?.id}
