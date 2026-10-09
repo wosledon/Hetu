@@ -1,24 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, BookText, Check, FolderInput, Loader2, Server, Trash2, X } from 'lucide-react'
+import {
+  AlertCircle, BookText, Check, Cpu, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
+} from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ThemedMarkdown from '../components/ThemedMarkdown'
 import { projectService } from '../services/projectService'
 import { wikiService } from '../services/wikiService'
+import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
+import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
-import type { IWikiDocument } from '../types/wiki'
+import type { IWikiGenerationJob } from '../types/wiki'
 
-/** 一套 Wiki：一次生成的所有页面（总览 + 主题页） */
-interface WikiSet {
-  setId: string
-  projectId: string
-  projectName: string
-  title: string
-  createdAt: string
-  pages: IWikiDocument[]
-}
+const POLL_INTERVAL = 2000
+const IDLE_POLL_INTERVAL = 15000
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -44,6 +41,9 @@ export default function WikiPage() {
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
+  const [modelPickerOpen, setModelPickerOpen] = useState(false)
+  const [chosenModelId, setChosenModelId] = useState<string | undefined>(undefined)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const autoGenerateHandled = useRef(false)
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -51,10 +51,51 @@ export default function WikiPage() {
     queryFn: projectService.getAll,
   })
 
-  const { data: allDocs = [], isLoading: docsLoading } = useQuery({
+  const { data: sets = [], isLoading: setsLoading } = useQuery({
+    queryKey: ['wiki', 'sets'],
+    queryFn: () => wikiService.getSets(),
+  })
+
+  const { data: allDocs = [] } = useQuery({
     queryKey: ['wiki', 'all'],
     queryFn: () => wikiService.getAll(),
   })
+
+  const { data: models = [] } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: aiModelService.getAll,
+    staleTime: 60 * 1000,
+  })
+
+  // 进行中的任务：轮询进度；任务结束后刷新文档列表
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['wiki', 'jobs'],
+    queryFn: () => wikiService.getJobs(projectParam ?? undefined),
+    // 有进行中任务时高频轮询，否则低频兜底（捕捉其他入口发起的生成）
+    refetchInterval: (query) => {
+      const list = query.state.data as IWikiGenerationJob[] | undefined
+      const running = list?.some((j) => j.status === 0 || j.status === 1)
+      return running ? POLL_INTERVAL : IDLE_POLL_INTERVAL
+    },
+  })
+
+  const activeJob = useMemo(
+    () => jobs.find((j) => j.status === 0 || j.status === 1) ?? null,
+    [jobs],
+  )
+  const lastRunningJobId = useRef<string | null>(null)
+
+  useEffect(() => {
+    const runningId = activeJob?.id ?? null
+    // 任务从进行中消失：刷新文档与套件（不依赖 setState，避免级联渲染）
+    if (lastRunningJobId.current && !runningId) {
+      queryClient.invalidateQueries({ queryKey: ['wiki'] })
+    }
+    lastRunningJobId.current = runningId
+    // 生成完成后自动跳到最新一套： selectedSetId 仅在用户显式选择时设置
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    if (activeJob?.setId) setSelectedSetId(activeJob.setId)
+  }, [activeJob, queryClient])
 
   const orderedProjects = useMemo(
     () =>
@@ -72,67 +113,74 @@ export default function WikiPage() {
     [orderedProjects, projectParam],
   )
 
-  /** 按套件聚合：新套件在前，套件内总览在前 */
-  const sets = useMemo<WikiSet[]>(() => {
-    const bySet = new Map<string, IWikiDocument[]>()
-    for (const doc of allDocs) {
-      const list = bySet.get(doc.setId)
-      if (list) list.push(doc)
-      else bySet.set(doc.setId, [doc])
-    }
-    return [...bySet.values()]
-      .map((pages) => {
-        const sorted = [...pages].sort((a, b) => a.sortOrder - b.sortOrder)
-        return {
-          setId: sorted[0].setId,
-          projectId: sorted[0].projectId,
-          projectName: sorted[0].projectName,
-          title: sorted[0].title,
-          createdAt: sorted[0].createdAt,
-          pages: sorted,
-        }
-      })
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [allDocs])
-
   const visibleSets = useMemo(
     () => (projectParam ? sets.filter((s) => s.projectId === projectParam) : sets),
     [sets, projectParam],
   )
 
-  // 选中项：优先用户点选，列表变化（切换项目 / 删除 / 新生成）时回落到最新
   const selectedSet = visibleSets.find((s) => s.setId === selectedSetId) ?? visibleSets[0] ?? null
-  const selectedDoc = selectedSet
-    ? selectedSet.pages.find((p) => p.id === selectedDocId) ?? selectedSet.pages[0] ?? null
-    : null
+  const pagesOfSet = useMemo(
+    () =>
+      allDocs
+        .filter((d) => d.setId === selectedSet?.setId)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [allDocs, selectedSet],
+  )
+  const selectedDoc = pagesOfSet.find((p) => p.id === selectedDocId) ?? pagesOfSet[0] ?? null
 
   const showToast = (ok: boolean, text: string) => {
     setToast({ ok, text })
     window.setTimeout(() => setToast((t) => (t?.text === text ? null : t)), 2600)
   }
 
+  const invalidateWiki = () => {
+    queryClient.invalidateQueries({ queryKey: ['wiki'] })
+  }
+
   const generateMutation = useMutation({
-    mutationFn: (projectId: string) => wikiService.generate(projectId),
-    onSuccess: (doc) => {
-      queryClient.invalidateQueries({ queryKey: ['wiki', 'all'] })
-      setSelectedSetId(doc.setId)
-      setSelectedDocId(doc.id)
-      showToast(true, 'Wiki 已生成')
+    mutationFn: (projectId: string) => wikiService.generate(projectId, chosenModelId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wiki', 'jobs'] })
+      showToast(true, '已加入生成队列')
     },
-    onError: (e: Error) => showToast(false, e.message || '生成失败'),
+    onError: (e: Error) => showToast(false, e.message || '入队失败'),
+  })
+
+  const regenerateMutation = useMutation({
+    mutationFn: (id: string) => wikiService.regenerate(id),
+    onSuccess: (doc) => {
+      setSelectedDocId(doc.id)
+      invalidateWiki()
+      showToast(true, '页面已更新')
+    },
+    onError: (e: Error) => showToast(false, e.message || '重生成失败'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => wikiService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wiki', 'all'] })
       setSelectedDocId(null)
+      invalidateWiki()
       showToast(true, '已删除')
     },
     onError: (e: Error) => showToast(false, e.message || '删除失败'),
   })
 
-  // 从项目页带 generate=1 跳转进来：自动触发一次生成，并清掉 URL 参数
+  const exportMutation = useMutation({
+    mutationFn: (setId: string) => wikiService.exportSet(setId),
+    onSuccess: (blob, setId) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `wiki-${setId}.zip`
+      link.click()
+      URL.revokeObjectURL(url)
+      showToast(true, '已开始下载')
+    },
+    onError: (e: Error) => showToast(false, e.message || '导出失败'),
+  })
+
+  // 从项目页带 generate=1 跳转进来：自动入队一次生成，并清掉 URL 参数
   useEffect(() => {
     if (!autoGenerate || autoGenerateHandled.current || !projectParam) return
     autoGenerateHandled.current = true
@@ -144,7 +192,8 @@ export default function WikiPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate, projectParam])
 
-  const generating = generateMutation.isPending
+  const busy = activeJob != null && (activeJob.status === 0 || activeJob.status === 1)
+  const generating = busy || generateMutation.isPending
 
   const selectProject = (project: IManagedProject | null) => {
     const params = new URLSearchParams(searchParams)
@@ -153,7 +202,11 @@ export default function WikiPage() {
     setSearchParams(params, { replace: true })
   }
 
-  const pageCount = visibleSets.reduce((sum, s) => sum + s.pages.length, 0)
+  const chatModels = useMemo(
+    () => models.filter((m: IAiModel) => m.purpose !== 'embedding'),
+    [models],
+  )
+  const chosenModelName = chatModels.find((m) => m.id === chosenModelId)?.displayName
 
   return (
     <AppLayout showSidebar={false} mainContent={
@@ -212,7 +265,7 @@ export default function WikiPage() {
         {/* Wiki 套件与页面 */}
         <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="min-h-0 flex-1 overflow-y-auto py-3">
-            {docsLoading ? (
+            {setsLoading ? (
               <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
             ) : visibleSets.length === 0 ? (
               <div className="px-4 py-8 text-center">
@@ -220,7 +273,7 @@ export default function WikiPage() {
                 <p className="text-[12px] leading-relaxed text-gray-400">
                   {projectParam ? '该项目还没有 Wiki' : '还没有 Wiki 文档'}
                 </p>
-                {selectedProject?.projectType === 'Local' && (
+                {selectedProject && selectedProject.projectType === 'Local' && (
                   <button
                     onClick={() => generateMutation.mutate(selectedProject.id)}
                     disabled={generating}
@@ -228,9 +281,6 @@ export default function WikiPage() {
                   >
                     生成第一套
                   </button>
-                )}
-                {selectedProject && selectedProject.projectType !== 'Local' && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">远程（SSH）项目暂不支持生成 Wiki</p>
                 )}
               </div>
             ) : (
@@ -253,7 +303,8 @@ export default function WikiPage() {
                         </span>
                         <span className="mt-0.5 block truncate text-[11px] text-gray-400">
                           {!projectParam && `${set.projectName} · `}
-                          {formatTime(set.createdAt)} · {set.pages.length} 页
+                          {formatTime(set.createdAt)} · {set.pageCount} 页
+                          {set.isStale && <span className="ml-1 text-amber-500">· 有更新</span>}
                         </span>
                       </span>
                     </button>
@@ -270,6 +321,21 @@ export default function WikiPage() {
                         <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
                           {page.sortOrder === 0 ? '★ ' : ''}{page.title}
                         </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRegeneratingId(page.id)
+                            regenerateMutation.mutate(page.id)
+                          }}
+                          disabled={regeneratingId === page.id}
+                          title="用最新项目资料重生成此页"
+                          aria-label="重生成此页"
+                          className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100"
+                        >
+                          {regeneratingId === page.id
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : <RefreshCw size={12} />}
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -305,19 +371,75 @@ export default function WikiPage() {
                 {selectedProject ? `${selectedProject.name} · Wiki` : 'Wiki 文档'}
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                AI 依据项目本地目录资料生成的多页文档（总览 + 主题页 + 架构图） · {visibleSets.length} 套 / {pageCount} 页
+                AI 依据项目目录资料生成的多页文档（总览 + 主题页 + 图表） · {visibleSets.length} 套
+                {selectedSet && ` / 当前 ${selectedSet.pageCount} 页`}
+                {selectedSet?.isStale && ' · 项目有更新，可单页重生成'}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {selectedSet && (
+                <button
+                  onClick={() => exportMutation.mutate(selectedSet.setId)}
+                  disabled={exportMutation.isPending}
+                  title="导出这一套 Wiki（zip）"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  {exportMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  导出
+                </button>
+              )}
+
+              {/* 生成模型选择 */}
+              <div className="relative">
+                <button
+                  onClick={() => setModelPickerOpen((v) => !v)}
+                  title="选择生成所用模型"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <Cpu size={14} />
+                  <span className="max-w-[140px] truncate">{chosenModelName ?? '默认模型'}</span>
+                </button>
+                {modelPickerOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setModelPickerOpen(false)} />
+                    <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                      <button
+                        onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
+                        className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                          !chosenModelId
+                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
+                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        默认模型（补全）
+                      </button>
+                      {chatModels.map((model) => (
+                        <button
+                          key={model.id}
+                          onClick={() => { setChosenModelId(model.id); setModelPickerOpen(false) }}
+                          className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                            chosenModelId === model.id
+                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
+                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1 truncate" title={model.displayName}>
+                            {model.displayName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
-                disabled={!selectedProject || generating || selectedProject.projectType !== 'Local'}
+                disabled={!selectedProject || generating}
                 title={
                   !selectedProject
                     ? '请先选择项目'
-                    : selectedProject.projectType !== 'Local'
-                      ? '远程（SSH）项目暂不支持生成 Wiki'
-                      : '规划并生成整套 Wiki（多页，耗时较长）'
+                    : '规划并生成整套 Wiki（后台执行，可离开页面）'
                 }
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -340,10 +462,30 @@ export default function WikiPage() {
             </div>
           )}
 
-          {generating && (
-            <div className="flex shrink-0 items-center gap-2 bg-blue-50 px-6 py-2 text-[12px] text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">
-              <Loader2 size={13} className="animate-spin" />
-              正在规划分页并生成整套 Wiki，可能需要几分钟，请稍候…
+          {/* 生成进度 */}
+          {activeJob && (activeJob.status === 0 || activeJob.status === 1) && (
+            <div className="shrink-0 bg-blue-50 px-6 py-2.5 dark:bg-blue-950/30">
+              <div className="flex items-center gap-2 text-[12px] text-blue-600 dark:text-blue-300">
+                <Loader2 size={13} className="animate-spin" />
+                <span className="min-w-0 flex-1">
+                  {activeJob.stage}
+                  {activeJob.totalPages > 0 && `（已完成 ${activeJob.donePages}/${activeJob.totalPages} 页）`}
+                  {' · 后台生成中，可离开页面'}
+                </span>
+                <span className="shrink-0 tabular-nums">{activeJob.progress}%</span>
+              </div>
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/50">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                  style={{ width: `${Math.max(2, activeJob.progress)}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {activeJob && activeJob.status === 3 && (
+            <div className="flex shrink-0 items-center gap-2 bg-red-50 px-6 py-2 text-[12px] text-red-600 dark:bg-red-950/30 dark:text-red-300">
+              <AlertCircle size={13} />
+              <span className="min-w-0 flex-1">生成失败：{activeJob.errorMessage ?? '未知错误'}</span>
             </div>
           )}
 
@@ -354,7 +496,7 @@ export default function WikiPage() {
                 <BookText size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-300">从左侧选择一个项目</p>
                 <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-                  选择项目后可查看已生成的 Wiki，或点击「生成 Wiki」读取项目本地目录资料，由 AI 规划并撰写整套多页文档。
+                  选择项目后可阅读已生成的 Wiki，或点击「生成 Wiki」由 AI 规划并撰写整套多页文档（总览 + 主题页 + 图表）。
                 </p>
                 <button
                   onClick={() => navigate('/projects')}
@@ -369,9 +511,22 @@ export default function WikiPage() {
               {selectedDoc ? (
                 <article className="mx-auto max-w-4xl px-8 py-6">
                   <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
+                      <button
+                        onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
+                        disabled={regeneratingId === selectedDoc.id}
+                        title="用最新项目资料重生成此页"
+                        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800"
+                      >
+                        {regeneratingId === selectedDoc.id
+                          ? <Loader2 size={13} className="animate-spin" />
+                          : <RefreshCw size={13} />}
+                      </button>
+                    </div>
                     <p className="mt-1 text-[11px] text-gray-400">
                       {selectedDoc.projectName} · {formatTime(selectedDoc.createdAt)}
+                      {selectedDoc.brief && ` · ${selectedDoc.brief}`}
                     </p>
                   </header>
                   <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />

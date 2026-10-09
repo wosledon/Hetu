@@ -243,6 +243,13 @@ public class BackgroundTaskProcessor : BackgroundService
                 await taskExecutor.ExecuteAsync(item.EntityId, ct);
                 break;
 
+            case BackgroundTaskType.WikiGenerate:
+                var wikiService = sp.GetRequiredService<IWikiService>();
+                // 元数据携带指定的模型 Id（可空）
+                Guid? wikiModelId = Guid.TryParse(item.Metadata, out var parsedModelId) ? parsedModelId : null;
+                await wikiService.RunGenerationAsync(item.EntityId, wikiModelId, ct);
+                break;
+
             default:
                 _logger.LogWarning("未知的后台任务类型: {Type}", item.Type);
                 break;

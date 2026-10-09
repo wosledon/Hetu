@@ -45,5 +45,6 @@ public interface IUnitOfWork : IAsyncDisposable
     IRepository<ProjectGroup> ProjectGroups { get; }
     IRepository<ManagedProject> ManagedProjects { get; }
     IRepository<WikiDocument> WikiDocuments { get; }
+    IRepository<WikiGenerationJob> WikiGenerationJobs { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

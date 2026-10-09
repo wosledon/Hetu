@@ -9,7 +9,9 @@ public enum BackgroundTaskType
     GraphExtract,
     GenerateKnowledgeItemEmbedding,
     /// <summary>看板任务自动执行（智能体 / 工作流）</summary>
-    KanbanTaskExecute
+    KanbanTaskExecute,
+    /// <summary>项目 Wiki 生成（规划分页 + 多页 LLM 撰写）</summary>
+    WikiGenerate
 }
 
 /// <summary>
