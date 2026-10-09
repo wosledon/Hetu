@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
+import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
@@ -18,8 +18,8 @@ interface WorkSidebarProps {
   onSessionDeleted?: (sessionId: string) => void
   /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
   embedded?: boolean
-  /** 标题行由外层一级菜单渲染时隐藏，只保留搜索与新建入口 */
-  showTitle?: boolean
+  /** 搜索词由一级菜单输入框提供（同时用于会话检索） */
+  search?: string
 }
 
 const joinDirPath = (base: string, name: string) => {
@@ -406,6 +406,8 @@ interface WorkSidebarProps {
   onSessionDeleted?: (sessionId: string) => void
   /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
   embedded?: boolean
+  /** 搜索词由一级菜单输入框提供（同时用于会话检索） */
+  search?: string
 }
 
 const PROJECT_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -709,13 +711,22 @@ function ProjectNode({
   )
 }
 
-export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, embedded, showTitle }: WorkSidebarProps) {
+export interface WorkSidebarHandle {
+  /** 一级菜单的「＋」触发：打开新建项目对话框 */
+  startCreateProject: () => void
+}
+
+const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function WorkSidebar({
+  selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted,
+  embedded, search = '',
+}, ref) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
-  const [searchTerm, setSearchTerm] = useState('')
   const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
   const [isAdding, setIsAdding] = useState(false)
   const [projectActionError, setProjectActionError] = useState('')
+
+  useImperativeHandle(ref, () => ({ startCreateProject: () => setIsAdding(true) }), [])
 
   // 用户手动展开/折叠优先，未手动设置过的项目在选中时默认展开
   const isExpanded = (id: string) => expandedProjects.get(id) ?? id === selectedProjectId
@@ -727,8 +738,8 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     queryFn: workProjectService.getAll,
   })
 
-  const search = searchTerm.trim().toLowerCase()
-  const filtered = projects.filter((p) => !search || p.name.toLowerCase().includes(search))
+  const keyword = search.trim().toLowerCase()
+  const filtered = projects.filter((p) => !keyword || p.name.toLowerCase().includes(keyword))
 
   // 按分类分节展示：分类取自关联的项目管理条目，未分类的归到「未分类」
   const sections = filtered.reduce<Array<[string, IWorkProject[]]>>((acc, p) => {
@@ -777,34 +788,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
   const flat = secondaryMenuStyle === 'flat' && !embedded
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
-
-  const header = (
-    <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-      {showTitle !== false && (
-        <div className="mb-2 flex items-center justify-center">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
-        </div>
-      )}
-      <div className="flex items-center gap-1.5">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索项目或会话..."
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
-          />
-        </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          title="新建项目"
-          className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-    </div>
-  )
 
   const createDialog = isAdding && (
     <CreateProjectDialog
@@ -868,7 +851,6 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     return (
       <div className="flex shrink-0">
         <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-          {header}
           {createDialog}
           <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
         </div>
@@ -901,14 +883,15 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     )
   }
 
-  // 树形：项目下挂会议话列表，单栏展示（合并侧栏固定用此形态）
+  // 树形：项目下挂会议话列表，单栏展示（合并侧栏固定用此形态；搜索/新建由一级菜单提供）
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-60 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
-      {header}
       {createDialog}
       <div className="flex-1 overflow-y-auto p-2">
         {projectList}
       </div>
     </div>
   )
-}
+})
+
+export default WorkSidebar

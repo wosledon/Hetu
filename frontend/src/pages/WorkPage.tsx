@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, FolderInput, MessageSquare, Plus, Search } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import ChatTree from '../components/ChatTree'
+import ChatTree, { type ChatTreeHandle } from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
 import MainChatEntry from '../components/MainChatEntry'
-import WorkSidebar from '../components/work/WorkSidebar'
+import WorkSidebar, { type WorkSidebarHandle } from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
 import { chatGroupService, chatTopicService } from '../services/chatService'
@@ -39,23 +39,78 @@ const loadSections = (): SidebarSections => {
   }
 }
 
-/** 一级菜单标题行：折叠开关 + 名称 + 数量 */
-function SectionHeader({ title, count, expanded, onToggle }: {
+/** 一级菜单行：图标 + 名称 + 数量 + 搜索/新建；点击行本体折叠分区，搜索输入在行下方展开 */
+function SectionHeader({
+  icon: Icon,
+  title,
+  count,
+  expanded,
+  onToggle,
+  searchOpen,
+  onToggleSearch,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
+  onAdd,
+  addTitle,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>
   title: string
   count?: number
   expanded: boolean
   onToggle: () => void
+  searchOpen: boolean
+  onToggleSearch: () => void
+  searchValue: string
+  onSearchChange: (value: string) => void
+  searchPlaceholder: string
+  onAdd: () => void
+  addTitle: string
 }) {
+  const iconBtn = 'shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
   return (
-    <button
-      onClick={onToggle}
-      aria-expanded={expanded}
-      className="flex w-full shrink-0 items-center gap-1.5 border-b border-gray-100 px-2.5 py-2 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.04]"
-    >
-      <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${expanded ? '' : '-rotate-90'}`} />
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</span>
-      {count !== undefined && count > 0 && <span className="text-[10px] text-gray-400 dark:text-gray-500">{count}</span>}
-    </button>
+    <div className="shrink-0 border-b border-gray-100 dark:border-gray-800">
+      <div className="flex items-center gap-1 px-2 py-1.5">
+        <button
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]"
+        >
+          <ChevronDown size={15} className={`shrink-0 text-gray-400 transition-transform ${expanded ? '' : '-rotate-90'}`} />
+          <Icon size={16} className="shrink-0 text-gray-500 dark:text-gray-400" />
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</span>
+          {count !== undefined && count > 0 && (
+            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 text-[10px] font-medium leading-4 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+              {count}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={onToggleSearch}
+          title={searchOpen ? '收起搜索' : '搜索'}
+          aria-label="搜索"
+          aria-pressed={searchOpen}
+          className={`${iconBtn} ${searchOpen ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : ''}`}
+        >
+          <Search size={15} />
+        </button>
+        <button onClick={onAdd} title={addTitle} aria-label={addTitle} className={iconBtn}>
+          <Plus size={15} />
+        </button>
+      </div>
+      {searchOpen && (
+        <div className="relative px-2 pb-2">
+          <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            autoFocus
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -68,6 +123,13 @@ export default function WorkPage() {
   // 一级菜单展开状态：主对话始终可见，会话 / 项目可折叠
   const [sections, setSections] = useState<SidebarSections>(loadSections)
   const toggleSection = (key: keyof SidebarSections) => setSections((prev) => ({ ...prev, [key]: !prev[key] }))
+  // 一级菜单上的搜索与新建入口（搜索词下发给两个列表，新建交给子组件自己的流程）
+  const [chatSearch, setChatSearch] = useState('')
+  const [projectSearch, setProjectSearch] = useState('')
+  const [chatSearchOpen, setChatSearchOpen] = useState(false)
+  const [projectSearchOpen, setProjectSearchOpen] = useState(false)
+  const chatTreeRef = useRef<ChatTreeHandle>(null)
+  const workSidebarRef = useRef<WorkSidebarHandle>(null)
 
   useEffect(() => {
     localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(sections))
@@ -251,17 +313,26 @@ export default function WorkPage() {
 
             {/* 一级：会话（展开为会话组树） */}
             <SectionHeader
+              icon={MessageSquare}
               title="会话"
               count={groups.length}
               expanded={sections.chat}
               onToggle={() => toggleSection('chat')}
+              searchOpen={chatSearchOpen}
+              onToggleSearch={() => setChatSearchOpen((v) => !v)}
+              searchValue={chatSearch}
+              onSearchChange={setChatSearch}
+              searchPlaceholder="搜索会话组..."
+              onAdd={() => chatTreeRef.current?.startCreateGroup()}
+              addTitle="新建会话组"
             />
             {sections.chat && (
               <div className="flex min-h-0 flex-1 flex-col">
                 <ChatTree
+                  ref={chatTreeRef}
                   embedded
-                  showTitle={false}
                   hideMainChat
+                  search={chatSearch}
                   mainChat={mainChat}
                   selectedMain={view === 'chat' && selectedMain}
                   selectedGroupId={view === 'chat' ? activeGroup?.id : undefined}
@@ -276,16 +347,25 @@ export default function WorkPage() {
 
             {/* 一级：项目（展开为项目树，项目下挂会话） */}
             <SectionHeader
+              icon={FolderInput}
               title="项目"
               count={projects.length}
               expanded={sections.project}
               onToggle={() => toggleSection('project')}
+              searchOpen={projectSearchOpen}
+              onToggleSearch={() => setProjectSearchOpen((v) => !v)}
+              searchValue={projectSearch}
+              onSearchChange={setProjectSearch}
+              searchPlaceholder="搜索项目或会话..."
+              onAdd={() => workSidebarRef.current?.startCreateProject()}
+              addTitle="新建项目"
             />
             {sections.project && (
               <div className="flex min-h-0 flex-1 flex-col">
                 <WorkSidebar
+                  ref={workSidebarRef}
                   embedded
-                  showTitle={false}
+                  search={projectSearch}
                   selectedProjectId={view === 'code' ? selectedProject?.id : undefined}
                   selectedSessionId={view === 'code' ? selectedSession?.id : undefined}
                   onSelectProject={handleSelectProject}

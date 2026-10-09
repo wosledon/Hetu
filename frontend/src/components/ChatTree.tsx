@@ -1,5 +1,5 @@
 import { confirm } from './confirm'
-import { useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
@@ -7,7 +7,6 @@ import {
   ChevronRight,
   MessageSquare,
   Plus,
-  Search,
   Trash2,
   Code,
   BookOpen,
@@ -59,10 +58,8 @@ interface ChatTreeProps {
   onDeleteTopic?: (topicId: string) => void
   /** 嵌在合并侧栏里：不占固定宽度、不画右边框 */
   embedded?: boolean
-  /** 分区标题（默认「对话」） */
-  title?: string
-  /** 标题行由外层一级菜单渲染时隐藏，只保留搜索与新建入口 */
-  showTitle?: boolean
+  /** 搜索词由一级菜单输入框提供 */
+  search?: string
   /** 主对话已由外层置顶渲染时隐藏卡片 */
   hideMainChat?: boolean
 }
@@ -175,22 +172,31 @@ function GroupNode({
   )
 }
 
-export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic, embedded, title, showTitle, hideMainChat }: ChatTreeProps) {
+export interface ChatTreeHandle {
+  /** 一级菜单的「＋」触发：在列表顶部展开新建会话组输入 */
+  startCreateGroup: () => void
+}
+
+const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
+  mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain,
+  onDeleteTopic, embedded, search = '', hideMainChat,
+}, ref) {
   const queryClient = useQueryClient()
-  const [searchTerm, setSearchTerm] = useState('')
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
   const [isAddingGroup, setIsAddingGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
 
+  useImperativeHandle(ref, () => ({ startCreateGroup: () => setIsAddingGroup(true) }), [])
+
   const { data: groups = [] } = useQuery({
     queryKey: ['chatGroups'],
     queryFn: chatGroupService.getAll,
   })
 
-  const search = searchTerm.trim().toLowerCase()
-  const filteredGroups = groups.filter((g) => !search || g.name.toLowerCase().includes(search))
+  const keyword = search.trim().toLowerCase()
+  const filteredGroups = groups.filter((g) => !keyword || g.name.toLowerCase().includes(keyword))
 
   const closeTopicMenu = () => setTopicMenu(null)
 
@@ -234,32 +240,6 @@ export default function ChatTree({ mainChat, selectedMain, selectedGroupId, sele
 
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
-      <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-        {showTitle !== false && (
-          <div className="mb-2.5 flex items-center justify-center">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title ?? '对话'}</h2>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex-1">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索..."
-              className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
-            />
-          </div>
-          <button
-            onClick={() => setIsAddingGroup(true)}
-            title="新建会话组"
-            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-2">
         {mainChat && !hideMainChat && (
           <>
@@ -345,4 +325,6 @@ export default function ChatTree({ mainChat, selectedMain, selectedGroupId, sele
       )}
     </div>
   )
-}
+})
+
+export default ChatTree
