@@ -10,6 +10,8 @@ export interface AgentInputChip {
   /** blue=引用文件，amber=提示词/上下文，violet=技能 */
   tone?: 'blue' | 'amber' | 'violet'
   title?: string
+  /** 当前模型不支持该附件时：前边加感叹号并划掉（仍可移除） */
+  struck?: boolean
   onRemove: () => void
 }
 
@@ -196,10 +198,13 @@ export default function AgentInputBox({
                 <span
                   key={chip.id}
                   title={chip.title}
-                  className={`flex max-w-64 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${CHIP_TONES[chip.tone ?? 'blue']}`}
+                  className={`flex max-w-64 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${CHIP_TONES[chip.struck ? 'amber' : chip.tone ?? 'blue']}`}
                 >
+                  {chip.struck && (
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">!</span>
+                  )}
                   {chip.icon}
-                  <span className="truncate">{chip.label}</span>
+                  <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
                   <button
                     onClick={chip.onRemove}
                     aria-label={`移除 ${chip.label}`}

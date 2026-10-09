@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, AlertTriangle, User, Eraser } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
@@ -472,7 +472,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     startStreaming(topic.id, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
-    if (attachedFiles.length > 0) {
+    // 当前模型不支持视觉时忽略图片附件（对应 chip 已划掉提示）
+    if (attachedFiles.length > 0 && currentModel?.supportsVision) {
       for (const file of attachedFiles) {
         if (file.type.startsWith('image/')) {
           const base64 = await fileToBase64(file)
@@ -624,8 +625,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         if (file) files.push(file)
       }
     }
-    // 非视觉模型：粘贴图片不生效（输入区已提示「不支持视觉」）
-    if (files.length > 0 && currentModel?.supportsVision) {
+    // 粘贴的图片照常挂上 chip；当前模型不支持视觉时 chip 会带感叹号并划掉
+    if (files.length > 0) {
       e.preventDefault()
       setAttachedFiles(prev => [...prev, ...files])
     }
@@ -1179,6 +1180,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               id: `file:${i}`,
               label: file.name,
               icon: <FileText size={12} className="text-blue-500" />,
+              // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
+              struck: !currentModel?.supportsVision,
+              title: currentModel?.supportsVision ? file.name : `${file.name}（当前模型不支持图片输入，发送时会忽略）`,
               onRemove: () => removeAttachedFile(i),
             })),
             ...selectedMentions.map((m) => ({
@@ -1210,29 +1214,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           hint="Shift + Enter 换行 · 支持粘贴文件"
           toolbar={
             <>
-              {/* 图片附件：非视觉模型保留入口但置灰划掉，并在前面提示不支持 */}
-              {!currentModel?.supportsVision && (
-                <span
-                  className="flex shrink-0 items-center gap-1 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"
-                  title="当前模型不支持图片输入，如需附图请切换到支持视觉的模型"
+              {/* Attach file (only for vision-capable models) */}
+              {currentModel?.supportsVision && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title="附加图片"
                 >
-                  <AlertTriangle size={12} />
-                  不支持视觉
-                </span>
+                  <Plus size={16} />
+                </button>
               )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!currentModel?.supportsVision}
-                className={`flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
-                  currentModel?.supportsVision
-                    ? 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                    : 'cursor-not-allowed text-gray-300 line-through dark:text-gray-600'
-                }`}
-                title={currentModel?.supportsVision ? '附加图片' : '当前模型不支持图片输入'}
-              >
-                <Plus size={14} />
-                图片
-              </button>
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
               {/* Agent selector — 智能体 + 工作流合并（与 Code 会话共用同一浮层组件） */}
