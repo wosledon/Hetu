@@ -69,16 +69,20 @@ public class CompressionPipelineService
         var llmActive = config.Mode is "llm" or "hybrid" && enabled.Contains("llm_summary");
         var nodes = enabled.Where(k => k != "llm_summary" || llmActive).ToList();
         var suffix = llmActive
-            ? $"模式={config.Mode}"
+            ? $"模式={config.Mode}（LLM 摘要仅在 ≥{config.LlmThreshold} 字符时触发）"
             : enabled.Contains("llm_summary")
                 ? $"模式={config.Mode}（llm_summary 已跳过，需切换为 llm/hybrid）"
                 : $"模式={config.Mode}";
         return $"节点={string.Join(",", nodes)} {suffix}";
     }
 
-    /// <summary>执行压缩</summary>
+    /// <summary>
+    /// 执行压缩：算法节点对任意长度文本都生效；LLM 摘要节点仅当文本达到
+    /// <see cref="CompressionPipelineDto.LlmThreshold"/> 时触发（短文本不值得多花一次模型调用）。
+    /// </summary>
     public async Task<string> CompressAsync(string input, CancellationToken ct = default)
-    {        var config = await GetConfigAsync(ct);
+    {
+        var config = await GetConfigAsync(ct);
         if (string.IsNullOrWhiteSpace(input)) return input;
 
         // 总开关关闭或无任何节点启用则跳过
@@ -94,10 +98,14 @@ public class CompressionPipelineService
 
             if (node.Key == "llm_summary")
             {
-                if (config.Mode is "llm" or "hybrid" && _llmProviderFactory != null)
+                if (config.Mode is not ("llm" or "hybrid") || _llmProviderFactory == null) continue;
+                if (result.Length < Math.Max(0, config.LlmThreshold))
                 {
-                    result = await LlmCompressAsync(result, config, ct);
+                    _logger.LogDebug("[Compression] 跳过 LLM 摘要：{Len} 字符低于阈值 {Threshold}",
+                        result.Length, config.LlmThreshold);
+                    continue;
                 }
+                result = await LlmCompressAsync(result, config, ct);
                 continue;
             }
 

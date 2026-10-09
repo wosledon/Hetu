@@ -6,6 +6,10 @@ public class CompressionPipelineDto
     public string Mode { get; set; } = "algorithmic"; // algorithmic | llm | hybrid
     public string? LlmModelId { get; set; }
     public string? LlmSystemPrompt { get; set; } = "压缩以下文本，保留所有关键信息，尽可能减少 token 数量：";
+    /// <summary>
+    /// LLM 摘要触发阈值（字符）：算法节点对任意长度文本都生效，只有 LLM 摘要按阈值触发（避免为短文本多花一次模型调用）
+    /// </summary>
+    public int LlmThreshold { get; set; } = 500;
     public List<CompressionNodeDto> Nodes { get; set; } = new();
 }
 
@@ -24,6 +28,7 @@ public static class CompressionDefaults
     {
         Enabled = false,
         Mode = "algorithmic",
+        LlmThreshold = 500,
         Nodes = new List<CompressionNodeDto>
         {
             new() { Key = "dedup", Label = "去重合并", Description = "移除重复行和段落，保留首次出现", Enabled = true, Order = 1 },

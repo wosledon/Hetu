@@ -79,8 +79,6 @@ public class AgentLoopRequest
     public IAgentLoopHooks? Hooks { get; set; }
     /// <summary>是否在每轮前压缩历史消息（默认开，与对话页行为一致）</summary>
     public bool CompressHistory { get; set; } = true;
-    /// <summary>触发压缩的消息长度阈值（字符），默认 500</summary>
-    public int CompressionThreshold { get; set; } = 500;
     /// <summary>
     /// 提问处理器：非空时 ask_question 由该回调裁决（后台任务可中断执行转人工），
     /// 为空时走 SSE 会话等待用户回答。
@@ -242,7 +240,6 @@ public class AgentLoopService
         var chatMessages = new List<LlmChatMessage>(request.Messages);
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations;
-        var threshold = request.CompressionThreshold > 0 ? request.CompressionThreshold : 500;
         // 已压缩过的消息下标：长会话反复迭代时不再重复压缩（LLM 摘要模式尤其重要）
         var compressedIndexes = new HashSet<int>();
 
@@ -254,7 +251,7 @@ public class AgentLoopService
                 result.Iterations = iter + 1;
                 await sink.OnDebugAsync($"Agent 迭代 {iter + 1}，工具数={options.Tools?.Count ?? 0}");
 
-                // 每轮前压缩历史：长消息按压缩管道收敛，控制上下文膨胀
+                // 每轮前压缩历史：算法节点对任意长度生效，LLM 摘要由管道内部按阈值决定
                 if (request.CompressHistory)
                 {
                     if (iter == 0)
@@ -267,7 +264,7 @@ public class AgentLoopService
                     for (int i = 0; i < chatMessages.Count; i++)
                     {
                         var msg = chatMessages[i];
-                        if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < threshold) continue;
+                        if (string.IsNullOrWhiteSpace(msg.Content)) continue;
                         if (!compressedIndexes.Add(i)) continue;
                         candidates++;
                         beforeChars += msg.Content.Length;
@@ -287,14 +284,8 @@ public class AgentLoopService
                     if (candidates > 0)
                     {
                         _logger.LogInformation(
-                            "[Compression] iter={Iter} 候选={Candidates} 条 实际压缩={Compressed} 条 字符 {Before} → {After}（阈值 {Threshold} 字符）",
-                            iter + 1, candidates, compressedCount, beforeChars, afterChars, threshold);
-                    }
-                    else if (iter == 0)
-                    {
-                        // 首轮没有达到阈值的消息：说明管道已加载但本轮无可压缩内容
-                        _logger.LogInformation(
-                            "[Compression] iter=1 无可压缩消息（阈值 {Threshold} 字符，消息数 {Count}）", threshold, chatMessages.Count);
+                            "[Compression] iter={Iter} 候选={Candidates} 条 实际压缩={Compressed} 条 字符 {Before} → {After}",
+                            iter + 1, candidates, compressedCount, beforeChars, afterChars);
                     }
                 }
                 else if (iter == 0)

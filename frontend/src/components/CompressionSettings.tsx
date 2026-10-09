@@ -21,9 +21,9 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 const MODE_LABELS: Record<string, { label: string; desc: string }> = {
-  algorithmic: { label: '算法压缩', desc: '使用内置算法去重、归一化、停用词过滤等' },
-  llm: { label: 'LLM 压缩', desc: '使用 AI 模型智能摘要压缩文本' },
-  hybrid: { label: '混合压缩', desc: '先算法压缩、再 LLM 摘要，兼顾速度和效果' },
+  algorithmic: { label: '算法压缩', desc: '内置算法去重/归一化，任意长度文本都压缩' },
+  llm: { label: 'LLM 压缩', desc: 'AI 模型智能摘要，仅对超过阈值的文本触发' },
+  hybrid: { label: '混合压缩', desc: '先算法压缩、再 LLM 摘要（超过阈值时）' },
 }
 
 export default function CompressionSettings() {
@@ -104,6 +104,19 @@ export default function CompressionSettings() {
               searchable
               placeholder="选择模型"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">LLM 摘要触发阈值（字符）</label>
+            <input
+              type="number"
+              min={0}
+              value={draft.llmThreshold ?? 500}
+              onChange={(e) => saveNow({ ...draft, llmThreshold: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
+              className="w-40 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
+            />
+            <p className="mt-1 text-[11px] text-gray-400">
+              算法节点对任意长度文本都会压缩；只有 LLM 摘要按此阈值触发，避免短文本多花一次模型调用。
+            </p>
           </div>
         </div>
       )}

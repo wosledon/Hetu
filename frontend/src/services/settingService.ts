@@ -30,6 +30,8 @@ export interface CompressionPipelineConfig {
   mode: string; // algorithmic | llm | hybrid
   llmModelId?: string;
   llmSystemPrompt?: string;
+  /** LLM 摘要触发阈值（字符）：算法节点不限长度，LLM 摘要按此阈值触发 */
+  llmThreshold?: number;
   nodes: CompressionNodeConfig[];
 }
 
