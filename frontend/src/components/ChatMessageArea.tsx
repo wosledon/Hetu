@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, AlertTriangle, User, Eraser } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
@@ -24,6 +24,7 @@ import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import { type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
+import { reasoningEffortDefault } from '../utils/agentReasoning'
 import { useMentionItems } from '../hooks/useMentionItems'
 import { useWorkflowRun } from '../hooks/useWorkflowRun'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
@@ -360,10 +361,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const activeModelId =
     chatModels.length === 0 || chatModels.some((m) => m.id === selectedModelId) ? selectedModelId : ''
 
-  // Get current model's reasoning configuration
+  // 当前模型：视觉能力决定图片附件入口，档位列表决定推理强度候选项
   const currentModel = activeModelId ? chatModels.find(m => m.id === activeModelId) : chatModels.find(m => m.isDefault) ?? chatModels[0]
   const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
-  const currentReasoningEffort = currentModel?.reasoningEffort ?? 'medium'
+  // 推理强度按模型配置推导（models.dev 导入的档位优先）
+  const currentReasoningEffort = reasoningEffortDefault(currentModel)
 
   // Sync reasoning effort from model when model changes
   useEffect(() => {
@@ -622,7 +624,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         if (file) files.push(file)
       }
     }
-    if (files.length > 0) {
+    // 非视觉模型：粘贴图片不生效（输入区已提示「不支持视觉」）
+    if (files.length > 0 && currentModel?.supportsVision) {
       e.preventDefault()
       setAttachedFiles(prev => [...prev, ...files])
     }
@@ -1207,16 +1210,29 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           hint="Shift + Enter 换行 · 支持粘贴文件"
           toolbar={
             <>
-              {/* Attach file (only for vision-capable models) */}
-              {currentModel?.supportsVision && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                  title="附加图片"
+              {/* 图片附件：非视觉模型保留入口但置灰划掉，并在前面提示不支持 */}
+              {!currentModel?.supportsVision && (
+                <span
+                  className="flex shrink-0 items-center gap-1 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                  title="当前模型不支持图片输入，如需附图请切换到支持视觉的模型"
                 >
-                  <Plus size={16} />
-                </button>
+                  <AlertTriangle size={12} />
+                  不支持视觉
+                </span>
               )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!currentModel?.supportsVision}
+                className={`flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                  currentModel?.supportsVision
+                    ? 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                    : 'cursor-not-allowed text-gray-300 line-through dark:text-gray-600'
+                }`}
+                title={currentModel?.supportsVision ? '附加图片' : '当前模型不支持图片输入'}
+              >
+                <Plus size={14} />
+                图片
+              </button>
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
               {/* Agent selector — 智能体 + 工作流合并（与 Code 会话共用同一浮层组件） */}
@@ -1307,11 +1323,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
               <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
 
-              {/* 推理强度 / 深度思考：与编码会话共用同一组件 */}
+              {/* 推理强度 / 深度思考：档位按当前模型配置渲染（models.dev 的 effort 取值） */}
               <AgentReasoningSelect
                 value={reasoningEffort}
                 onChange={setReasoningEffort}
                 reasoningMode={currentReasoningMode}
+                model={currentModel}
                 enabled={deepThinking}
                 onEnabledChange={setDeepThinking}
               />

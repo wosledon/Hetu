@@ -63,6 +63,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ReasoningEfforts")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ReasoningMode")
                         .IsRequired()
                         .HasColumnType("TEXT");

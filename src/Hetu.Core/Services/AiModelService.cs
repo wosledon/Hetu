@@ -116,6 +116,7 @@ public class AiModelService : IAiModelService
         Dimensions = request.Dimensions,
         ReasoningMode = request.ReasoningMode ?? "none",
         ReasoningEffort = NormalizeEffort(request.ReasoningEffort) ?? "medium",
+        ReasoningEfforts = NormalizeEfforts(request.ReasoningEfforts),
         ReasoningBudgetTokens = request.ReasoningBudgetTokens,
         SupportsVision = request.SupportsVision,
         SupportsReasoning = request.SupportsReasoning,
@@ -146,6 +147,7 @@ public class AiModelService : IAiModelService
         model.Dimensions = request.Dimensions;
         model.ReasoningMode = request.ReasoningMode ?? model.ReasoningMode;
         model.ReasoningEffort = NormalizeEffort(request.ReasoningEffort) ?? model.ReasoningEffort;
+        model.ReasoningEfforts = NormalizeEfforts(request.ReasoningEfforts) ?? model.ReasoningEfforts;
         model.ReasoningBudgetTokens = request.ReasoningBudgetTokens ?? model.ReasoningBudgetTokens;
         model.SupportsVision = request.SupportsVision;
         model.SupportsReasoning = request.SupportsReasoning;
@@ -193,6 +195,23 @@ public class AiModelService : IAiModelService
         return trimmed.ToLowerInvariant();
     }
 
+    /// <summary>
+    /// 归一化推理强度档位列表（逗号分隔）：来自模型目录的可选档位，决定选择器的候选项。
+    /// 去重、去空、逐个走 NormalizeEffort（数字档位保留为预算 token 数）。
+    /// </summary>
+    private static string? NormalizeEfforts(string? efforts)
+    {
+        if (string.IsNullOrWhiteSpace(efforts)) return null;
+        var parts = efforts
+            .Split([',', '，', ';', '；', '|', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeEffort)
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return parts.Count > 0 ? string.Join(",", parts) : null;
+    }
+
     private static AiModelDto Map(AiModel model) => new()    {
         Id = model.Id,
         ProviderId = model.ProviderId,
@@ -204,6 +223,7 @@ public class AiModelService : IAiModelService
         Dimensions = model.Dimensions,
         ReasoningMode = model.ReasoningMode ?? "none",
         ReasoningEffort = NormalizeEffort(model.ReasoningEffort) ?? "medium",
+        ReasoningEfforts = model.ReasoningEfforts,
         ReasoningBudgetTokens = model.ReasoningBudgetTokens,
         SupportsVision = model.SupportsVision,
         SupportsReasoning = model.SupportsReasoning,

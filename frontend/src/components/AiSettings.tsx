@@ -48,6 +48,8 @@ function catalogDefaultEffort(model: CatalogModelInfo): string {
 
 /** 从模型目录条目生成模型创建请求（保留可编辑，用户仍可手动调整）。 */
 function catalogToModelRequest(providerId: string, model: CatalogModelInfo) {
+  // models.dev 的 reasoning_options.effort：随模型一起存下来，对话/Code 的强度选择器据此渲染
+  const efforts = model.reasoningEffortValues.join(',')
   if (!model.reasoning) {
     return {
       providerId,
@@ -66,6 +68,7 @@ function catalogToModelRequest(providerId: string, model: CatalogModelInfo) {
     contextWindow: model.contextWindow,
     reasoningMode: 'native',
     reasoningEffort: catalogDefaultEffort(model),
+    reasoningEfforts: efforts.length > 0 ? efforts : undefined,
     reasoningBudgetTokens: model.reasoningBudgetMin ?? undefined,
     supportsVision: model.supportsVision,
     supportsReasoning: true,
@@ -89,7 +92,7 @@ export default function AiSettings() {
   const [showModelForm, setShowModelForm] = useState(false)
   const [showFetchForm, setShowFetchForm] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
-  const [editingModel, setEditingModel] = useState<{ id: string; modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean } | null>(null)
+  const [editingModel, setEditingModel] = useState<{ id: string; modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningEfforts?: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean } | null>(null)
 
   const { data: providers = [] } = useQuery({
     queryKey: ['aiProviders'],
@@ -586,9 +589,9 @@ function ModelForm({
   onSubmit,
   onCancel,
 }: {
-  initialData?: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean }
+  initialData?: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningEfforts?: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean; isDefault: boolean }
   isEdit?: boolean
-  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
+  onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningEfforts?: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
   onCancel: () => void
 }) {
   const [modelId, setModelId] = useState(initialData?.modelId ?? '')
@@ -601,7 +604,12 @@ function ModelForm({
   const [reasoningEffort, setReasoningEffort] = useState(initialData?.reasoningEffort ?? 'medium')
   const [reasoningBudgetTokens, setReasoningBudgetTokens] = useState(initialData?.reasoningBudgetTokens?.toString() ?? '')
   const [customEffort, setCustomEffort] = useState(() => !!initialData && !DEFAULT_EFFORT_VALUES.includes(initialData.reasoningEffort))
-  const [catalogEffortValues, setCatalogEffortValues] = useState<string[]>([])
+  const [catalogEffortValues, setCatalogEffortValues] = useState<string[]>(() =>
+    (initialData?.reasoningEfforts ?? '')
+      .split(/[,;，；\s]+/)
+      .map((v) => v.trim().toLowerCase())
+      .filter((v) => v.length > 0),
+  )
   const [catalogBudgetMin, setCatalogBudgetMin] = useState<number | null>(null)
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogResults, setCatalogResults] = useState<CatalogModelInfo[]>([])
@@ -614,6 +622,23 @@ function ModelForm({
 
   const isChat = purpose === 'chat'
   const isEmbedding = purpose === 'embedding'
+
+  // 编辑已有模型且未存过档位时：自动从 models.dev 拉一次，补齐档位候选（仍需保存才落库）
+  useEffect(() => {
+    const modelId = initialData?.modelId
+    if (!modelId || initialData?.reasoningEfforts) return
+    let cancelled = false
+    lookupCatalogModel(modelId)
+      .then((model) => {
+        if (cancelled || !model) return
+        if (model.reasoningEffortValues.length > 0) setCatalogEffortValues(model.reasoningEffortValues)
+        if (model.reasoningBudgetMin) setCatalogBudgetMin(model.reasoningBudgetMin)
+      })
+      .catch(() => { /* 目录不可用时保持内置三档 */ })
+    return () => { cancelled = true }
+    // 仅在打开表单时执行一次：按模型 ID 去重
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.modelId])
 
   // models.dev 模型目录检索（防抖 350ms，关键词至少 2 个字符）
   useEffect(() => {
@@ -680,6 +705,8 @@ function ModelForm({
       dimensions: dimensions ? parseInt(dimensions) : undefined,
       reasoningMode: isChat ? reasoningMode : 'none',
       reasoningEffort: isChat ? reasoningEffort : 'medium',
+      // 档位列表随模型保存：来自 models.dev 的用目录值，否则存当前可选集合（对话/Code 选择器据此渲染）
+      reasoningEfforts: isChat && reasoningMode !== 'none' ? effortOptions.join(',') : undefined,
       reasoningBudgetTokens: isChat && reasoningBudgetTokens.trim() ? parseInt(reasoningBudgetTokens) : undefined,
       supportsVision: isChat ? supportsVision : false,
       supportsReasoning: isChat ? supportsReasoning : false,
