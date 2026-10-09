@@ -1,8 +1,8 @@
 using System.Text;
-using System.Text.RegularExpressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Projects;
 
@@ -28,6 +28,10 @@ public class WikiService : IWikiService
     private const int MaxTreeEntries = 300;
     /// <summary>全量扫描文件数上限（超出后停止收集）</summary>
     private const int MaxScannedFiles = 5000;
+    /// <summary>单套 Wiki 的主题页数量上限（不含总览）</summary>
+    private const int MaxModulePages = 6;
+    /// <summary>主题页并行生成的最大并发</summary>
+    private const int MaxPageConcurrency = 4;
 
     /// <summary>说明 / 依赖清单类文件名（完整名或不含扩展名命中均可）</summary>
     private static readonly HashSet<string> KeyFileNames = new(StringComparer.OrdinalIgnoreCase)
@@ -73,8 +77,11 @@ public class WikiService : IWikiService
         var projectNames = projects.ToDictionary(p => p.Id, p => p.Name);
         var query = docs.AsEnumerable();
         if (projectId is Guid pid) query = query.Where(d => d.ProjectId == pid);
+        // 按套件聚合：新套件在前，套件内按排序（总览在前）
         return ApiResponse<List<WikiDocumentDto>>.Ok(query
-            .OrderByDescending(d => d.CreatedAt)
+            .GroupBy(d => d.SetId)
+            .OrderByDescending(g => g.Max(d => d.CreatedAt))
+            .SelectMany(g => g.OrderBy(d => d.SortOrder))
             .Select(d => Map(d, projectNames.GetValueOrDefault(d.ProjectId)))
             .ToList());
     }
@@ -113,36 +120,63 @@ public class WikiService : IWikiService
         if (provider == null)
             return ApiResponse<WikiDocumentDto>.Fail("未找到可用的模型，请先在设置中配置大模型");
 
-        string content;
-        try
+        // 第一阶段：规划主题页（总览页单独在最后生成）
+        var plans = await PlanModulePagesAsync(provider, project, context, cancellationToken);
+        if (plans.Count == 0)
+            return ApiResponse<WikiDocumentDto>.Fail("未能规划出 Wiki 页面，请重试");
+
+        // 第二阶段：并行生成主题页；个别页面失败不阻塞整套
+        var setId = Guid.NewGuid();
+        using var throttle = new SemaphoreSlim(MaxPageConcurrency);
+        var pageTasks = plans.Select(async (plan, index) =>
         {
-            content = await provider.CompleteAsync(BuildUserPrompt(project, context), new CompletionOptions
+            await throttle.WaitAsync(cancellationToken);
+            try
             {
-                ModelId = string.Empty,
-                SystemPrompt = WikiSystemPrompt,
-                MaxTokens = 4096,
-            }, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<WikiDocumentDto>.Fail($"生成失败：{ex.Message.Split('\n')[0]}");
-        }
+                var content = await GeneratePageAsync(
+                    provider, project, context, plan.Title, plan.Brief,
+                    plans.Select(p => p.Title), cancellationToken);
+                if (string.IsNullOrWhiteSpace(content)) return null;
+                return new WikiDocument
+                {
+                    Id = Guid.NewGuid(),
+                    ProjectId = project.Id,
+                    SetId = setId,
+                    SortOrder = index + 1,
+                    Title = plan.Title,
+                    Content = content,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                };
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return null;
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        }).ToList();
+        var modulePages = (await Task.WhenAll(pageTasks)).Where(p => p != null).ToList()!;
+        if (modulePages.Count == 0)
+            return ApiResponse<WikiDocumentDto>.Fail("所有页面均生成失败，请检查模型配置后重试");
 
-        if (string.IsNullOrWhiteSpace(content))
-            return ApiResponse<WikiDocumentDto>.Fail("模型未返回内容，请重试");
+        // 第三阶段：总览页（携带真实页面清单做导航）
+        var overview = await GenerateOverviewAsync(provider, project, context, modulePages, cancellationToken);
+        overview.Id = Guid.NewGuid();
+        overview.ProjectId = project.Id;
+        overview.SetId = setId;
+        overview.SortOrder = 0;
+        overview.Title = project.Name;
+        overview.CreatedAt = DateTimeOffset.UtcNow;
+        overview.UpdatedAt = DateTimeOffset.UtcNow;
 
-        var doc = new WikiDocument
-        {
-            Id = Guid.NewGuid(),
-            ProjectId = project.Id,
-            Title = ExtractTitle(content, project.Name),
-            Content = content.Trim(),
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
-        await _unitOfWork.WikiDocuments.AddAsync(doc, cancellationToken);
+        await _unitOfWork.WikiDocuments.AddAsync(overview, cancellationToken);
+        foreach (var page in modulePages)
+            await _unitOfWork.WikiDocuments.AddAsync(page, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project.Name));
+        return ApiResponse<WikiDocumentDto>.Ok(Map(overview, project.Name));
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -154,31 +188,150 @@ public class WikiService : IWikiService
         return ApiResponse.Ok();
     }
 
-    /// <summary>取正文首个一级标题作为文档标题，没有则用项目名兜底</summary>
-    private static string ExtractTitle(string content, string projectName)
+    /// <summary>大纲规划：让模型按项目真实结构划分主题页；解析失败时回退默认分页</summary>
+    private async Task<List<WikiPagePlan>> PlanModulePagesAsync(
+        ILLMProvider provider, ManagedProject project, string context, CancellationToken cancellationToken)
     {
-        var match = Regex.Match(content, @"^#\s+(.+)$", RegexOptions.Multiline);
-        var title = match.Success ? match.Groups[1].Value.Trim().TrimEnd('#', ' ') : string.Empty;
-        return string.IsNullOrWhiteSpace(title) ? $"{projectName} Wiki" : title;
+        // JSON 模板含大量花括号，预计算避免与插值语法冲突
+        const string JsonSpec = "{\"pages\":[{\"title\":\"页面标题（12字以内）\",\"brief\":\"该页应涵盖的内容要点（60字以内）\"}]}";
+        var prompt = $"""
+            项目名称：{project.Name}
+            项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
+
+            【项目资料】
+            {context}
+
+            请为该项目规划一套 Wiki 文档的主题分页（DeepWiki 风格，不包含总览页，总览将单独生成）。
+            按项目的真实结构划分 2-{MaxModulePages} 个主题页，每个主题聚焦一个模块 / 领域 / 关注点（如架构设计、数据流、核心模块、API 参考、快速开始与配置等，按项目实际取舍）。
+            只输出 JSON，不要输出其他内容，格式如下：
+            {JsonSpec}
+            """;
+        List<WikiPagePlan> plans = [];
+        try
+        {
+            var response = await provider.CompleteAsync(prompt, new CompletionOptions
+            {
+                ModelId = string.Empty,
+                SystemPrompt = "你是资深软件架构师，擅长为代码仓库规划文档结构。",
+                MaxTokens = 2048,
+            }, cancellationToken);
+            var outline = LlmJsonExtractor.Deserialize<WikiOutline>(response);
+            if (outline != null)
+                plans = outline.Pages
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Title))
+                    .Select(p => new WikiPagePlan { Title = p.Title.Trim(), Brief = (p.Brief ?? string.Empty).Trim() })
+                    .Take(MaxModulePages)
+                    .ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 规划失败走默认分页，不阻塞整体生成
+        }
+
+        if (plans.Count == 0)
+            plans =
+            [
+                new() { Title = "项目概述与技术栈", Brief = "项目定位、核心特性、技术栈组成" },
+                new() { Title = "目录结构", Brief = "顶层目录职责与关键文件说明" },
+                new() { Title = "核心模块详解", Brief = "主要模块职责、关键类型与调用关系" },
+                new() { Title = "快速开始与配置", Brief = "环境要求、构建运行步骤、配置项" },
+            ];
+        return plans;
     }
 
-    private static string BuildUserPrompt(ManagedProject project, string context)
+    /// <summary>生成单个主题页</summary>
+    private async Task<string> GeneratePageAsync(
+        ILLMProvider provider,
+        ManagedProject project,
+        string context,
+        string pageTitle,
+        string pageBrief,
+        IEnumerable<string> siblingTitles,
+        CancellationToken cancellationToken)
     {
-        var description = string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description;
-        return $"""
+        var siblings = string.Join("、", siblingTitles.Where(t => t != pageTitle));
+        var prompt = $"""
             项目名称：{project.Name}
-            项目描述：{description}
+            项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
             项目目录：{project.DirectoryPath}
 
             【项目资料】
             {context}
 
-            请基于以上项目资料，为该项目生成一份 Wiki 文档（Markdown 格式）。要求：
+            【本页任务】
+            页面标题：{pageTitle}
+            内容要点：{pageBrief}
+            {($"同套其他页面：{siblings}（可在正文中按名称相互引用）")}
+
+            请撰写本页内容（Markdown，中文）。要求：
             1. 只依据提供的资料撰写，不得编造资料中不存在的信息；资料缺失的部分简要说明即可；
-            2. 使用二级标题分节，建议包含：项目概述、技术栈、目录结构、核心模块、快速开始（资料支持时）、配置说明（资料支持时）；
-            3. 语言简洁专业，避免空话；
-            4. 直接输出 Markdown 正文，不要用代码块包裹整篇文档。
+            2. 用二级标题（##）组织小节，不要输出一级标题，不要输出页面导航章节；
+            3. 在适合的位置必须使用 ```mermaid 代码块绘制图表（架构图 / 数据流图 / 时序图 / 类图等，按内容选择），至少一处；
+            4. 代码、类型、路径用行内代码标注；
+            5. 语言简洁专业，避免空话；
+            6. 直接输出 Markdown 正文，不要用代码块包裹整篇内容。
             """;
+        var content = await provider.CompleteAsync(prompt, new CompletionOptions
+        {
+            ModelId = string.Empty,
+            SystemPrompt = WikiSystemPrompt,
+            MaxTokens = 4096,
+        }, cancellationToken);
+        return content.Trim();
+    }
+
+    /// <summary>生成总览页：项目介绍 + 技术栈 + 架构图 + 真实页面导航；失败时回退纯文本总览</summary>
+    private async Task<WikiDocument> GenerateOverviewAsync(
+        ILLMProvider provider, ManagedProject project, string context, List<WikiDocument> modulePages, CancellationToken cancellationToken)
+    {
+        var nav = string.Join("\n", modulePages.Select(p => $"- {p.Title}"));
+        var prompt = $"""
+            项目名称：{project.Name}
+            项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
+            项目目录：{project.DirectoryPath}
+
+            【项目资料】
+            {context}
+
+            【本套件包含以下主题页】
+            {nav}
+
+            【本页任务】撰写总览页（Markdown，中文）。要求：
+            1. 只依据提供的资料撰写，不得编造；
+            2. 用二级标题（##）组织小节，依次涵盖：项目简介、核心特性、技术栈、总体架构；
+            3. 「总体架构」一节必须包含一个 ```mermaid 代码块绘制的架构图（graph 或 flowchart），清晰表达主要组件及其关系；
+            4. 最后一节为「文档导航」，用无序列表原样列出上述主题页标题；
+            5. 不要输出一级标题，不要用代码块包裹整篇内容。
+            """;
+        try
+        {
+            var content = await provider.CompleteAsync(prompt, new CompletionOptions
+            {
+                ModelId = string.Empty,
+                SystemPrompt = WikiSystemPrompt,
+                MaxTokens = 4096,
+            }, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(content))
+                return new WikiDocument { Content = content.Trim() };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 回退到纯文本总览
+        }
+
+        var description = string.IsNullOrWhiteSpace(project.Description) ? "" : $"\n\n{project.Description}";
+        return new WikiDocument
+        {
+            Content = $"""
+                ## 项目简介
+
+                {project.Name}{description}
+
+                ## 文档导航
+
+                {nav}
+                """,
+        };
     }
 
     /// <summary>
@@ -406,9 +559,24 @@ public class WikiService : IWikiService
         Id = doc.Id,
         ProjectId = doc.ProjectId,
         ProjectName = projectName,
+        SetId = doc.SetId,
+        SortOrder = doc.SortOrder,
         Title = doc.Title,
         Content = doc.Content,
         CreatedAt = doc.CreatedAt,
         UpdatedAt = doc.UpdatedAt,
     };
+
+    /// <summary>大纲中的单个主题页</summary>
+    private sealed class WikiPagePlan
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Brief { get; set; } = string.Empty;
+    }
+
+    /// <summary>大纲规划结果（LLM JSON 输出）</summary>
+    private sealed class WikiOutline
+    {
+        public List<WikiPagePlan> Pages { get; set; } = [];
+    }
 }

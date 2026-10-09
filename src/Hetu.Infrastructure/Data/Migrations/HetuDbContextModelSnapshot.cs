@@ -1611,6 +1611,12 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("SetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1624,6 +1630,8 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("SetId");
 
                     b.ToTable("WikiDocuments");
                 });

@@ -10,6 +10,16 @@ import { useConfirm } from '../components/confirm'
 import type { IManagedProject } from '../types/project'
 import type { IWikiDocument } from '../types/wiki'
 
+/** 一套 Wiki：一次生成的所有页面（总览 + 主题页） */
+interface WikiSet {
+  setId: string
+  projectId: string
+  projectName: string
+  title: string
+  createdAt: string
+  pages: IWikiDocument[]
+}
+
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
@@ -31,6 +41,7 @@ export default function WikiPage() {
   const projectParam = searchParams.get('project')
   const autoGenerate = searchParams.get('generate') === '1'
 
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
   const autoGenerateHandled = useRef(false)
@@ -61,22 +72,39 @@ export default function WikiPage() {
     [orderedProjects, projectParam],
   )
 
-  const docs = useMemo(
-    () => (projectParam ? allDocs.filter((d) => d.projectId === projectParam) : allDocs),
-    [allDocs, projectParam],
-  )
-
-  const docCountByProject = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const d of allDocs) map.set(d.projectId, (map.get(d.projectId) ?? 0) + 1)
-    return map
+  /** 按套件聚合：新套件在前，套件内总览在前 */
+  const sets = useMemo<WikiSet[]>(() => {
+    const bySet = new Map<string, IWikiDocument[]>()
+    for (const doc of allDocs) {
+      const list = bySet.get(doc.setId)
+      if (list) list.push(doc)
+      else bySet.set(doc.setId, [doc])
+    }
+    return [...bySet.values()]
+      .map((pages) => {
+        const sorted = [...pages].sort((a, b) => a.sortOrder - b.sortOrder)
+        return {
+          setId: sorted[0].setId,
+          projectId: sorted[0].projectId,
+          projectName: sorted[0].projectName,
+          title: sorted[0].title,
+          createdAt: sorted[0].createdAt,
+          pages: sorted,
+        }
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [allDocs])
 
-  // 选中项：优先用户点选的文档，列表变化（切换项目 / 删除 / 新生成）时回落到最新一篇
-  const selectedDoc = useMemo(
-    () => docs.find((d) => d.id === selectedDocId) ?? docs[0] ?? null,
-    [docs, selectedDocId],
+  const visibleSets = useMemo(
+    () => (projectParam ? sets.filter((s) => s.projectId === projectParam) : sets),
+    [sets, projectParam],
   )
+
+  // 选中项：优先用户点选，列表变化（切换项目 / 删除 / 新生成）时回落到最新
+  const selectedSet = visibleSets.find((s) => s.setId === selectedSetId) ?? visibleSets[0] ?? null
+  const selectedDoc = selectedSet
+    ? selectedSet.pages.find((p) => p.id === selectedDocId) ?? selectedSet.pages[0] ?? null
+    : null
 
   const showToast = (ok: boolean, text: string) => {
     setToast({ ok, text })
@@ -87,6 +115,7 @@ export default function WikiPage() {
     mutationFn: (projectId: string) => wikiService.generate(projectId),
     onSuccess: (doc) => {
       queryClient.invalidateQueries({ queryKey: ['wiki', 'all'] })
+      setSelectedSetId(doc.setId)
       setSelectedDocId(doc.id)
       showToast(true, 'Wiki 已生成')
     },
@@ -124,11 +153,13 @@ export default function WikiPage() {
     setSearchParams(params, { replace: true })
   }
 
+  const pageCount = visibleSets.reduce((sum, s) => sum + s.pages.length, 0)
+
   return (
     <AppLayout showSidebar={false} mainContent={
       <div className="flex h-full min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
         {/* 项目列表 */}
-        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -140,7 +171,7 @@ export default function WikiPage() {
             >
               <BookText size={14} className="shrink-0" />
               <span className="min-w-0 flex-1">全部文档</span>
-              <span className="shrink-0 text-[11px] text-gray-400">{allDocs.length}</span>
+              <span className="shrink-0 text-[11px] text-gray-400">{sets.length}</span>
             </button>
 
             <div className="mt-5 px-2.5">
@@ -154,7 +185,7 @@ export default function WikiPage() {
               ) : (
                 orderedProjects.map((project) => {
                   const active = project.id === projectParam
-                  const count = docCountByProject.get(project.id) ?? 0
+                  const count = sets.filter((s) => s.projectId === project.id).length
                   return (
                     <button
                       key={project.id}
@@ -178,6 +209,91 @@ export default function WikiPage() {
           </div>
         </aside>
 
+        {/* Wiki 套件与页面 */}
+        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="min-h-0 flex-1 overflow-y-auto py-3">
+            {docsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+            ) : visibleSets.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <BookText size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                <p className="text-[12px] leading-relaxed text-gray-400">
+                  {projectParam ? '该项目还没有 Wiki' : '还没有 Wiki 文档'}
+                </p>
+                {selectedProject?.projectType === 'Local' && (
+                  <button
+                    onClick={() => generateMutation.mutate(selectedProject.id)}
+                    disabled={generating}
+                    className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    生成第一套
+                  </button>
+                )}
+                {selectedProject && selectedProject.projectType !== 'Local' && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">远程（SSH）项目暂不支持生成 Wiki</p>
+                )}
+              </div>
+            ) : (
+              visibleSets.map((set) => {
+                const expanded = set.setId === selectedSet?.setId
+                return (
+                  <div key={set.setId}>
+                    <button
+                      onClick={() => { setSelectedSetId(set.setId); setSelectedDocId(null) }}
+                      className={`flex w-full items-center gap-2 px-4 py-2 text-left transition-colors ${
+                        expanded
+                          ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <BookText size={13} className={`shrink-0 ${expanded ? 'text-emerald-500' : 'text-gray-400'}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={set.title}>
+                          {set.title}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-gray-400">
+                          {!projectParam && `${set.projectName} · `}
+                          {formatTime(set.createdAt)} · {set.pages.length} 页
+                        </span>
+                      </span>
+                    </button>
+                    {expanded && set.pages.map((page) => (
+                      <div
+                        key={page.id}
+                        onClick={() => setSelectedDocId(page.id)}
+                        className={`group flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pl-7 pr-3 transition-colors ${
+                          page.id === selectedDoc?.id
+                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
+                          {page.sortOrder === 0 ? '★ ' : ''}{page.title}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirm({
+                              title: '删除页面',
+                              message: `删除「${page.title}」？删除后不可恢复。`,
+                              onConfirm: () => deleteMutation.mutate(page.id),
+                            })
+                          }}
+                          title="删除"
+                          aria-label="删除"
+                          className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </aside>
+
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
           <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
@@ -189,7 +305,7 @@ export default function WikiPage() {
                 {selectedProject ? `${selectedProject.name} · Wiki` : 'Wiki 文档'}
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                AI 依据项目本地目录资料生成的结构化文档 · 共 {docs.length} 篇
+                AI 依据项目本地目录资料生成的多页文档（总览 + 主题页 + 架构图） · {visibleSets.length} 套 / {pageCount} 页
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -201,7 +317,7 @@ export default function WikiPage() {
                     ? '请先选择项目'
                     : selectedProject.projectType !== 'Local'
                       ? '远程（SSH）项目暂不支持生成 Wiki'
-                      : '读取项目资料并生成 Wiki'
+                      : '规划并生成整套 Wiki（多页，耗时较长）'
                 }
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -227,98 +343,44 @@ export default function WikiPage() {
           {generating && (
             <div className="flex shrink-0 items-center gap-2 bg-blue-50 px-6 py-2 text-[12px] text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">
               <Loader2 size={13} className="animate-spin" />
-              正在读取项目资料并生成 Wiki，可能需要 1-2 分钟，请稍候…
+              正在规划分页并生成整套 Wiki，可能需要几分钟，请稍候…
             </div>
           )}
 
           {/* 内容区 */}
-          <div className="flex min-h-0 flex-1">
-            {!projectParam ? (
-              <div className="flex flex-1 items-center justify-center">
-                <div className="text-center">
-                  <BookText size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">从左侧选择一个项目</p>
-                  <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-                    选择项目后可查看已生成的 Wiki 文档，或点击「生成 Wiki」读取项目本地目录资料由 AI 撰写。
-                  </p>
-                  <button
-                    onClick={() => navigate('/projects')}
-                    className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                  >
-                    去项目页看看
-                  </button>
-                </div>
+          {!projectParam ? (
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <BookText size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">从左侧选择一个项目</p>
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
+                  选择项目后可查看已生成的 Wiki，或点击「生成 Wiki」读取项目本地目录资料，由 AI 规划并撰写整套多页文档。
+                </p>
+                <button
+                  onClick={() => navigate('/projects')}
+                  className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  去项目页看看
+                </button>
               </div>
-            ) : (
-              <>
-                {/* 文档列表 */}
-                <div className="w-52 shrink-0 overflow-y-auto border-r border-gray-100 py-3 dark:border-gray-800">
-                  {docsLoading ? (
-                    <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
-                  ) : docs.length === 0 ? (
-                    <div className="px-4 py-8 text-center">
-                      <p className="text-[12px] text-gray-400">该项目还没有 Wiki 文档</p>
-                      {selectedProject?.projectType === 'Local' && (
-                        <button
-                          onClick={() => generateMutation.mutate(selectedProject.id)}
-                          disabled={generating}
-                          className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          生成第一篇
-                        </button>
-                      )}
-                      {selectedProject?.projectType !== 'Local' && (
-                        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">远程（SSH）项目暂不支持生成 Wiki</p>
-                      )}
-                    </div>
-                  ) : (
-                    docs.map((doc: IWikiDocument) => (
-                      <div
-                        key={doc.id}
-                        onClick={() => setSelectedDocId(doc.id)}
-                        className={`group cursor-pointer border-l-2 px-4 py-2.5 transition-colors ${
-                          doc.id === selectedDocId
-                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20'
-                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        <p className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={doc.title}>
-                          {doc.title}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <span className="text-[11px] text-gray-400">{formatTime(doc.createdAt)}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              confirm({
-                                title: '删除 Wiki 文档',
-                                message: `删除「${doc.title}」？删除后不可恢复。`,
-                                onConfirm: () => deleteMutation.mutate(doc.id),
-                              })
-                            }}
-                            title="删除"
-                            aria-label="删除"
-                            className="ml-auto rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* 文档内容 */}
-                <div className="min-w-0 flex-1 overflow-y-auto bg-white px-8 py-6 dark:bg-gray-900">
-                  {selectedDoc ? (
-                    <ThemedMarkdown source={selectedDoc.content} className="max-w-3xl text-[13px]" />
-                  ) : (
-                    <p className="py-16 text-center text-xs text-gray-400">选择一篇文档查看</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+              {selectedDoc ? (
+                <article className="mx-auto max-w-4xl px-8 py-6">
+                  <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      {selectedDoc.projectName} · {formatTime(selectedDoc.createdAt)}
+                    </p>
+                  </header>
+                  <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />
+                </article>
+              ) : (
+                <p className="py-16 text-center text-xs text-gray-400">选择一套 Wiki 开始阅读</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     } />

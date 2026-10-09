@@ -107,6 +107,10 @@ public class WikiDocumentDto
     public Guid ProjectId { get; set; }
     /// <summary>所属项目名称（列表展示用）</summary>
     public string ProjectName { get; set; } = string.Empty;
+    /// <summary>所属 Wiki 套件 ID（一次生成的所有页面共享）</summary>
+    public Guid SetId { get; set; }
+    /// <summary>套件内排序：0 为总览页</summary>
+    public int SortOrder { get; set; }
     public string Title { get; set; } = string.Empty;
     /// <summary>Markdown 正文</summary>
     public string Content { get; set; } = string.Empty;

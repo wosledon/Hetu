@@ -583,6 +583,7 @@ public class HetuDbContext : DbContext
                 .HasForeignKey(e => e.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.SetId);
             entity.HasIndex(e => e.CreatedAt);
         });
 
