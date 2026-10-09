@@ -430,9 +430,12 @@ export interface IKanbanTask {
   completedAt?: string;
   archivedAt?: string;
   projectId?: string;
-  projectName?: string;
-  agentId?: string;
+  projectName?: string;  agentId?: string;
   agentName?: string;
+  /** 项目 .github 智能体正文（AgentId 为空时生效） */
+  agentPrompt?: string;
+  /** 项目 .github 智能体显示名 */
+  agentPromptName?: string;
   workflowId?: string;
   workflowName?: string;
   hasAutomation: boolean;
@@ -522,18 +525,23 @@ export interface IKanbanTaskForm {
   dueDate: string;
   blockedReason: string;
   projectId: string;
-  /** 自动处理选择：'' 未指定 | agent:{id} 专业智能体 | workflow:{id} 工作流 */
+  /** 自动处理选择：'' 未指定 | agent:{id} 专业智能体 | project-agent:{name} 项目 .github 智能体 | workflow:{id} 工作流 */
   automation: string;
   agentId: string;
   workflowId: string;
+  /** 选中 project-agent 时的正文与显示名（由项目 .github 资产加载得到） */
+  agentPrompt: string;
+  agentPromptName: string;
 }
 
 /** 提交载荷：可选字段留空时省略（而非空串，否则后端 Guid?/DateTimeOffset? 绑定失败返回 400） */
-export type IKanbanTaskSubmit = Omit<IKanbanTaskForm, 'dueDate' | 'projectId' | 'agentId' | 'workflowId'> & {
+export type IKanbanTaskSubmit = Omit<IKanbanTaskForm, 'dueDate' | 'projectId' | 'agentId' | 'workflowId' | 'agentPrompt' | 'agentPromptName'> & {
   dueDate?: string;
   projectId?: string;
   agentId?: string;
   workflowId?: string;
+  agentPrompt?: string;
+  agentPromptName?: string;
 };
 
 export interface IKanbanTaskMove {

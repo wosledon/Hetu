@@ -67,7 +67,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(taskId, cancellationToken);
         if (task == null || task.IsDeleted) return false;
-        if (task.AgentId == null && task.WorkflowId == null) return false;
+        if (!HasAutomation(task)) return false;
 
         await _taskQueue.QueueAsync(
             new BackgroundWorkItem(BackgroundTaskType.KanbanTaskExecute, taskId, trigger),
@@ -75,11 +75,15 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         return true;
     }
 
+    /// <summary>是否配置了自动处理：数据库智能体 / 项目 .github 智能体 / 工作流</summary>
+    private static bool HasAutomation(KanbanTask task)
+        => task.AgentId != null || task.WorkflowId != null || !string.IsNullOrWhiteSpace(task.AgentPrompt);
+
     public async Task<bool> ExecuteAsync(Guid taskId, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(taskId, cancellationToken);
         if (task == null || task.IsDeleted) return false;
-        if (task.AgentId == null && task.WorkflowId == null) return false;
+        if (!HasAutomation(task)) return false;
 
         // 已有执行中的运行则跳过，避免重复触发
         var runs = await _unitOfWork.KanbanTaskRuns.FindAsync(r => r.TaskId == taskId, cancellationToken);
@@ -100,9 +104,10 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         }
 
         var (projectName, rootPath, projectId, runner, diagnosticsCommand) = await ResolveWorkScopeAsync(task, cancellationToken);
+        // 项目 .github 智能体没有数据库记录，直接用任务上存的正文与名字
         var agentName = task.AgentId != null
             ? (await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId.Value, cancellationToken))?.Name
-            : null;
+            : task.AgentPromptName;
         var workflowName = task.WorkflowId != null
             ? (await _unitOfWork.Workflows.GetByIdAsync(task.WorkflowId.Value, cancellationToken))?.Name
             : null;
@@ -162,9 +167,21 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             }
             else
             {
-                var preset = await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId!.Value, cancellationToken)
-                    ?? throw new InvalidOperationException("智能体不存在");
-                var tools = ParseTools(preset.ToolsConfig);
+                // 数据库智能体用预设正文与工具清单；项目 .github 智能体用任务上存的正文 + 默认工具集
+                string systemPrompt;
+                List<string> tools;
+                if (task.AgentId != null)
+                {
+                    var preset = await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId.Value, cancellationToken)
+                        ?? throw new InvalidOperationException("智能体不存在");
+                    systemPrompt = preset.Content;
+                    tools = ParseTools(preset.ToolsConfig);
+                }
+                else
+                {
+                    systemPrompt = task.AgentPrompt!;
+                    tools = BuiltinProfiles.Work.AllowedTools.ToList();
+                }
                 // 项目任务改用 work_* 工具集：本地与 SSH 远端统一走项目 runner；
                 // 通用 run_command 只在本机执行，项目场景下由 work_run_command 取代
                 if (!string.IsNullOrEmpty(rootPath))
@@ -180,7 +197,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 var request = new AgentLoopRequest
                 {
                     ModelId = null,
-                    SystemPrompt = preset.Content,
+                    SystemPrompt = systemPrompt,
                     Messages = new List<LlmChatMessage> { new() { Role = "user", Content = brief } },
                     ToolNames = tools,
                     ToolApprovals = toolApprovals,

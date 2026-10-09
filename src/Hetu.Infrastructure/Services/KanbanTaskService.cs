@@ -115,6 +115,8 @@ public class KanbanTaskService : IKanbanTaskService
             ArchivedAt = status == KanbanTaskStatuses.Archived ? now : null,
             ProjectId = request.ProjectId,
             AgentId = request.AgentId,
+            AgentPrompt = request.AgentId == null ? request.AgentPrompt : null,
+            AgentPromptName = request.AgentId == null ? request.AgentPromptName?.Trim() : null,
             WorkflowId = request.WorkflowId,
             SortOrder = await NextSortOrderAsync(status, cancellationToken),
             CreatedAt = now,
@@ -148,6 +150,9 @@ public class KanbanTaskService : IKanbanTaskService
         task.DueDate = request.DueDate;
         task.ProjectId = request.ProjectId;
         task.AgentId = request.AgentId;
+        // 项目 .github 智能体与数据库智能体互斥：选了数据库智能体就清掉项目智能体正文
+        task.AgentPrompt = request.AgentId == null ? request.AgentPrompt : null;
+        task.AgentPromptName = request.AgentId == null ? request.AgentPromptName?.Trim() : null;
         task.WorkflowId = request.WorkflowId;
         task.BlockedReason = status == KanbanTaskStatuses.Blocked
             ? (request.BlockedReason?.Trim() ?? task.BlockedReason)
@@ -406,6 +411,8 @@ public class KanbanTaskService : IKanbanTaskService
         ArchivedAt = t.ArchivedAt,
         ProjectId = t.ProjectId,
         AgentId = t.AgentId,
+        AgentPrompt = t.AgentPrompt,
+        AgentPromptName = t.AgentPromptName,
         WorkflowId = t.WorkflowId,
         LastRunId = t.LastRunId,
         CreatedAt = t.CreatedAt,

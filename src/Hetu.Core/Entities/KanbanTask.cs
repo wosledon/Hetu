@@ -44,6 +44,15 @@ public class KanbanTask : BaseEntity
     /// <summary>关联的智能体（PromptPreset）；与 WorkflowId 至少其一非空时进入待办即自动触发</summary>
     public Guid? AgentId { get; set; }
 
+    /// <summary>
+    /// 项目 .github 智能体的正文（AgentId 为空时生效）：项目自定义智能体没有数据库主键，
+    /// 直接把正文存下来，执行时作为系统提示。
+    /// </summary>
+    public string? AgentPrompt { get; set; }
+
+    /// <summary>项目 .github 智能体的显示名（卡片/评论里展示）</summary>
+    public string? AgentPromptName { get; set; }
+
     /// <summary>关联的工作流；进入待办即自动触发</summary>
     public Guid? WorkflowId { get; set; }
 
