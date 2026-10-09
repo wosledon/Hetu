@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Code, MessageSquare } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import ChatSidebar from '../components/ChatSidebar'
-import ChatTopicList from '../components/ChatTopicList'
 import ChatTree from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
 import WorkSidebar from '../components/work/WorkSidebar'
@@ -12,12 +9,11 @@ import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
-import { segmentButtonClass } from '../utils/styles'
-import { useUIStore } from '../stores/uiStore'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
 
-type WorkTab = 'chat' | 'code'
+/** 合并后的会话页：上方「对话」，下方「项目」，共用同一套聊天区（Code 会话叠加项目能力） */
+type CodeView = 'chat' | 'code'
 
 const DEFAULT_RIGHT_WIDTH = 560
 const MIN_RIGHT_WIDTH = 320
@@ -26,20 +22,13 @@ const MAX_RIGHT_WIDTH = 1200
 export default function WorkPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab: WorkTab = searchParams.get('tab') === 'chat' ? 'chat' : 'code'
-  const setTab = (next: WorkTab) => {
-    const params = new URLSearchParams(searchParams)
-    if (next === 'chat') params.set('tab', 'chat')
-    else params.delete('tab')
-    setSearchParams(params, { replace: true })
-  }
+  // 右侧聊天区当前绑定的是对话话题还是项目会话
+  const [view, setView] = useState<CodeView>(searchParams.get('project') ? 'code' : 'chat')
 
-  // —— 对话 Tab：分组/话题选择逻辑（原对话页）——
+  // —— 对话：分组/话题选择（原对话页）——
   // undefined 表示跟随默认选择（主对话或首个分组/话题），null 表示显式清空
   const [groupChoice, setGroupChoice] = useState<IChatGroup | null | undefined>(undefined)
   const [topicChoice, setTopicChoice] = useState<IChatTopic | null | undefined>(undefined)
-  const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
-  const collapsed = secondaryMenuStyle === 'collapsed'
 
   // 主对话（全局主对话组 + 唯一主话题）
   const { data: mainChat } = useQuery({
@@ -69,20 +58,26 @@ export default function WorkPage() {
     if (!mainChat) return
     setGroupChoice(mainChat.group)
     setTopicChoice(mainChat.topic)
-  }, [mainChat])
+    setView('chat')
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [mainChat, setSearchParams])
 
   const handleSelectGroup = useCallback((group: IChatGroup) => {
     setGroupChoice(group)
     setTopicChoice(undefined)
-  }, [])
+    setView('chat')
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [setSearchParams])
 
   const handleSelectTopic = useCallback((topic: IChatTopic) => {
     setTopicChoice(topic)
-  }, [])
+    setView('chat')
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [setSearchParams])
 
   const handleDeleteTopic = useCallback(() => setTopicChoice(null), [])
 
-  // —— Code Tab：项目/会话选择逻辑（原 Code 页）——
+  // —— 项目：项目/会话选择（原 Code 页）——
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
   // 跨组件联动：当前打开文件 / 打开文件请求 / 终端命令请求 / 对话上下文注入 / 编辑器插入请求
@@ -106,10 +101,16 @@ export default function WorkPage() {
 
   const handleSelectProject = (project: IWorkProject) => {
     setPreferredProject(project)
+    setSelectedSession((prev) => (prev?.projectId === project.id ? prev : null))
+    setView('code')
+    const params = new URLSearchParams(searchParams)
+    params.set('project', project.id)
+    setSearchParams(params, { replace: true })
   }
 
   const handleSelectSession = (session: IWorkSession) => {
     setSelectedSession(session)
+    setView('code')
     queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
   }
 
@@ -121,6 +122,7 @@ export default function WorkPage() {
     queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
     queryClient.invalidateQueries({ queryKey: ['workProjects'] })
     setSelectedSession(session)
+    setView('code')
   }
 
   const requestOpenFile = (path: string) => setOpenFileRequest({ path, nonce: Date.now() })
@@ -164,7 +166,7 @@ export default function WorkPage() {
 
   // 窗口过窄时：面板自动收起，宽度钳制在可用空间内，避免对话区被压没
   useEffect(() => {
-    const SIDEBAR_W = 240
+    const SIDEBAR_W = 256
     const CHAT_MIN_W = 320
     const clamp = () => {
       const available = window.innerWidth - SIDEBAR_W - CHAT_MIN_W
@@ -176,80 +178,31 @@ export default function WorkPage() {
     return () => window.removeEventListener('resize', clamp)
   }, [])
 
-  // 页内胶囊：切换对话 / Code 两种工作模式（由侧栏头部插槽渲染）
-  const modeSwitch = (
-    <div className="flex items-center gap-0.5 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
-      <button
-        onClick={() => setTab('chat')}
-        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${segmentButtonClass(tab === 'chat')}`}
-      >
-        <MessageSquare size={13} />
-        对话
-      </button>
-      <button
-        onClick={() => setTab('code')}
-        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${segmentButtonClass(tab === 'code')}`}
-      >
-        <Code size={13} />
-        Code
-      </button>
-    </div>
-  )
-
   return (
     <AppLayout
       showSidebar={false}
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
-          {tab === 'chat' ? (
-            <>
-              {collapsed ? (
-                <ChatTree
-                  mainChat={mainChat}
-                  selectedMain={selectedMain}
-                  selectedGroupId={activeGroup?.id}
-                  selectedTopicId={activeTopic?.id}
-                  onSelectGroup={handleSelectGroup}
-                  onSelectTopic={handleSelectTopic}
-                  onSelectMain={handleSelectMain}
-                  onDeleteTopic={handleDeleteTopic}
-                  modeSwitch={modeSwitch}
-                />
-              ) : (
-                <>
-                  <ChatSidebar
-                    mainChat={mainChat}
-                    selectedMain={selectedMain}
-                    selectedGroupId={activeGroup?.id}
-                    onSelectGroup={handleSelectGroup}
-                    onSelectMain={handleSelectMain}
-                    modeSwitch={modeSwitch}
-                  />
-                  <ChatTopicList
-                    groupId={activeGroup?.id}
-                    isMainGroup={selectedMain}
-                    selectedTopicId={activeTopic?.id}
-                    onSelectTopic={handleSelectTopic}
-                    onDeleteTopic={handleDeleteTopic}
-                  />
-                </>
-              )}
-              {activeTopic ? (
-                <ChatMessageArea
-                  key={activeTopic.id}
-                  topic={activeTopic}
-                  group={activeGroup ?? undefined}
-                  onTopicUpdated={setTopicChoice}
-                />
-              ) : (
-                <ChatMessageArea topic={undefined} group={activeGroup ?? undefined} onTopicUpdated={setTopicChoice} />
-              )}
-            </>
-          ) : (
-            <>
+          {/* 左栏：上方对话、下方项目，右侧共用同一套聊天页面 */}
+          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex min-h-0 flex-[3] flex-col">
+              <ChatTree
+                embedded
+                mainChat={mainChat}
+                selectedMain={view === 'chat' && selectedMain}
+                selectedGroupId={view === 'chat' ? activeGroup?.id : undefined}
+                selectedTopicId={view === 'chat' ? activeTopic?.id : undefined}
+                onSelectGroup={handleSelectGroup}
+                onSelectTopic={handleSelectTopic}
+                onSelectMain={handleSelectMain}
+                onDeleteTopic={handleDeleteTopic}
+              />
+            </div>
+            <div className="flex min-h-0 flex-[2] flex-col border-t border-gray-200 dark:border-gray-800">
               <WorkSidebar
-                selectedProjectId={selectedProject?.id}
-                selectedSessionId={selectedSession?.id}
+                embedded
+                selectedProjectId={view === 'code' ? selectedProject?.id : undefined}
+                selectedSessionId={view === 'code' ? selectedSession?.id : undefined}
                 onSelectProject={handleSelectProject}
                 onSelectSession={handleSelectSession}
                 onProjectDeleted={(projectId) => {
@@ -259,8 +212,23 @@ export default function WorkPage() {
                 onSessionDeleted={(sessionId) => {
                   if (selectedSession?.id === sessionId) setSelectedSession(null)
                 }}
-                modeSwitch={modeSwitch}
               />
+            </div>
+          </div>
+
+          {view === 'chat' ? (
+            activeTopic ? (
+              <ChatMessageArea
+                key={activeTopic.id}
+                topic={activeTopic}
+                group={activeGroup ?? undefined}
+                onTopicUpdated={setTopicChoice}
+              />
+            ) : (
+              <ChatMessageArea topic={undefined} group={activeGroup ?? undefined} onTopicUpdated={setTopicChoice} />
+            )
+          ) : (
+            <>
               <WorkSessionArea
                 project={selectedProject ?? undefined}
                 session={selectedSession ?? undefined}

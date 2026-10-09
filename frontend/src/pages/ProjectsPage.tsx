@@ -400,7 +400,7 @@ export default function ProjectsPage() {
                             </button>
                             {/* 与 Code 工作区互通：直接跳到对应工作项目 */}
                             <button
-                              onClick={() => navigate(project.workProjectId ? `/work?project=${project.workProjectId}` : '/work')}
+                              onClick={() => navigate(project.workProjectId ? `/code?project=${project.workProjectId}` : '/code')}
                               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
                             >
                               <Code size={12} />

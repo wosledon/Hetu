@@ -57,8 +57,10 @@ interface ChatTreeProps {
   onSelectTopic: (topic: IChatTopic) => void
   onSelectMain?: () => void
   onDeleteTopic?: (topicId: string) => void
-  /** 头部插槽：Work 页的对话/Code 模式胶囊 */
-  modeSwitch?: React.ReactNode
+  /** 嵌在合并侧栏里：不占固定宽度、不画右边框 */
+  embedded?: boolean
+  /** 分区标题（默认「对话」） */
+  title?: string
 }
 
 interface TopicMenuState { x: number; y: number; topic: IChatTopic }
@@ -169,7 +171,7 @@ function GroupNode({
   )
 }
 
-export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic, modeSwitch }: ChatTreeProps) {
+export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic, embedded, title }: ChatTreeProps) {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
@@ -227,12 +229,10 @@ export default function ChatTree({ mainChat, selectedMain, selectedGroupId, sele
   }
 
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
       <div className="border-b border-gray-100 p-3 dark:border-gray-800">
         <div className="mb-2.5 flex items-center justify-center">
-          {modeSwitch ?? (
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">会话</h2>
-          )}
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title ?? '对话'}</h2>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1">

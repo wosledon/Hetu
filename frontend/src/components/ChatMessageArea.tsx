@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, AtSign, NotebookPen, Tag, Library, Eraser } from 'lucide-react'
-import { workflowService, streamWorkflowRun } from '../services/workflowService'
-import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
+import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
-import { searchService } from '../services/searchService'
-import { tagService } from '../services/tagService'
-import { noteService } from '../services/noteService'
-import { knowledgeItemService } from '../services/knowledgeBaseService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
@@ -22,13 +16,15 @@ import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
 import AgentReasoningSelect from './agent/AgentReasoningSelect'
 import AgentToolbarSelect from './agent/AgentToolbarSelect'
+import AgentPicker from './agent/AgentPicker'
 import { fromChatTimeline } from '../utils/agentTimeline'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
-import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
 import { type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
+import { useMentionItems } from '../hooks/useMentionItems'
+import { useWorkflowRun } from '../hooks/useWorkflowRun'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
@@ -165,28 +161,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? true)
   const [permissionMode, setPermissionMode] = useState<string>(() => cachedSettings.permissionMode ?? 'ask')
   const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
-  const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
-  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeState[]>([])
-  const [workflowRunId, setWorkflowRunId] = useState<string>('')
-  const [pendingApproval, setPendingApproval] = useState<{ nodeId: string; prompt: string; runId: string } | null>(null)
-  // 统一工作流工具交互：nodeId/toolCallId/name/arguments，name=ask_question 时显示提问面板，否则显示审批面板
-  const [workflowToolCall, setWorkflowToolCall] = useState<{ nodeId: string; toolCallId: string; name: string; arguments: string } | null>(null)
-  const [workflowError, setWorkflowError] = useState<string>('')
-  const { data: availableWorkflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
+  // 工作流运行（节点状态 / Human 审批 / Agent 工具交互）：与 Code 会话共用同一套逻辑
+  const workflowRun = useWorkflowRun(setStreamingContent)
+  const { workflow: runningWorkflow, nodes: workflowNodes, pendingApproval, toolCall: workflowToolCall, error: workflowError, workflows: availableWorkflows } = workflowRun
   const [showModelPicker, setShowModelPicker] = useState(false)
-  const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState(() => cachedSettings.modelId ?? '')
   const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
 
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
   const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
-  const [noteCandidates, setNoteCandidates] = useState<{ id: string; title: string }[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const agentPickerRef = useRef<HTMLDivElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
   const reasoningPickerRef = useRef<HTMLDivElement>(null)
   // 跟踪消息加载状态：首次加载无动画滚到底部
@@ -239,16 +227,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     return names
   }, [selectedPreset, skills])
 
-  // @ 提及数据源：标签 + 知识库（笔记按查询词动态检索）
-  const { data: tags = [] } = useQuery({
-    queryKey: ['tags'],
-    queryFn: () => tagService.getAll(),
-  })
-  const { data: knowledgeItems = [] } = useQuery({
-    queryKey: ['knowledgeItems'],
-    queryFn: () => knowledgeItemService.getList(),
-    staleTime: 5 * 60 * 1000,
-  })
+  // @ 提及数据源：笔记 / 笔记本 / 标签 / 知识库（与 Code 会话共用同一份候选构建）
+  const mentionQuery = inputMenu?.kind === 'mention' ? inputMenu.query : null
+  const showMentionMenu = inputMenu?.kind === 'mention' && !isStreaming
+  const mentionItems = useMentionItems(mentionQuery)
 
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
@@ -290,87 +272,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       item.label.toLowerCase().includes(slashQuery) || item.description.toLowerCase().includes(slashQuery)
     )
   }, [showSlashMenu, slashQuery, slashItems])
-
-  const mentionQuery = inputMenu?.kind === 'mention' ? inputMenu.query : null
-  const showMentionMenu = inputMenu?.kind === 'mention' && !isStreaming
-
-  // 按 @ 查询词动态检索笔记（含笔记本/标签/知识库等静态候选）
-  useEffect(() => {
-    if (mentionQuery === null) return
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      try {
-        const result = mentionQuery.trim()
-          ? await searchService.searchNotes({ keyword: mentionQuery.trim(), page: 1, pageSize: 8 })
-          : await noteService.getList({ page: 1, pageSize: 8, includeDeleted: false })
-        if (!cancelled) {
-          setNoteCandidates(result.items.map(n => ({ id: n.id, title: n.title })))
-        }
-      } catch {
-        if (!cancelled) setNoteCandidates([])
-      }
-    }, 200)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [mentionQuery])
-
-
-  const mentionItems: InputCommandItem[] = useMemo(() => {
-    if (mentionQuery === null) return []
-    const q = mentionQuery.trim().toLowerCase()
-    const items: InputCommandItem[] = []
-
-    for (const n of noteCandidates) {
-      if (q && !n.title.toLowerCase().includes(q)) continue
-      items.push({
-        key: `note:${n.id}`,
-        label: n.title || '（无标题）',
-        description: '笔记',
-        icon: <AtSign size={14} className="text-amber-500" />,
-        tag: '笔记',
-        tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-      })
-    }
-
-    const flattenNotebooks = (list: INotebook[]): INotebook[] =>
-      list.flatMap(nb => [nb, ...flattenNotebooks(nb.children ?? [])])
-    for (const nb of flattenNotebooks(notebooks)) {
-      if (q && !nb.name.toLowerCase().includes(q)) continue
-      items.push({
-        key: `notebook:${nb.id}`,
-        label: nb.name,
-        description: '笔记本',
-        icon: <NotebookPen size={14} className="text-blue-500" />,
-        tag: '笔记本',
-        tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-      })
-    }
-
-    for (const t of tags as Array<{ id: string; name: string; noteCount?: number }>) {
-      if (q && !t.name.toLowerCase().includes(q)) continue
-      items.push({
-        key: `tag:${t.id}`,
-        label: t.name,
-        description: `标签 · ${t.noteCount ?? 0} 篇笔记`,
-        icon: <Tag size={14} className="text-emerald-500" />,
-        tag: '标签',
-        tagClass: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-      })
-    }
-
-    for (const k of knowledgeItems as Array<{ id: string; title: string; type?: string }>) {
-      if (q && !k.title.toLowerCase().includes(q)) continue
-      items.push({
-        key: `knowledge:${k.id}`,
-        label: k.title,
-        description: '知识库',
-        icon: <Library size={14} className="text-violet-500" />,
-        tag: '知识库',
-        tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
-      })
-    }
-
-    return items.slice(0, 20)
-  }, [mentionQuery, noteCandidates, notebooks, tags, knowledgeItems])
 
   // 监听组件可见性，切换回此会话时滚到底部
   useEffect(() => {
@@ -421,9 +322,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node
-      if (showAgentPicker && agentPickerRef.current && !agentPickerRef.current.contains(target)) {
-        setShowAgentPicker(false)
-      }
       if (showModelPicker && modelPickerRef.current && !modelPickerRef.current.contains(target)) {
         setShowModelPicker(false)
       }
@@ -433,7 +331,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker])
+  }, [showModelPicker, showReasoningPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
   // 缓存的模型可能已被删除，模型列表加载后回退到默认模型
@@ -483,7 +381,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   const applyPreset = (preset: IPromptPreset) => {
     setSelectedPreset(prev => prev?.id === preset.id ? null : preset)
-    setShowAgentPicker(false)
   }
 
   const handleSearch = async () => {
@@ -563,56 +460,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
     // 如果选中了工作流，走工作流流式执行
     if (runningWorkflow) {
-      setWorkflowNodes([])
-      setWorkflowRunId('')
-      setPendingApproval(null)
-      setWorkflowToolCall(null)
-      setWorkflowError('')
-      const controller = new AbortController()
-      try {
-        await streamWorkflowRun(runningWorkflow.id, content, topic.id,
-          (evt: IWorkflowEvent) => {
-            switch (evt.type) {
-              case 'run_started':
-                if (evt.runId) setWorkflowRunId(evt.runId)
-                break
-              case 'node_started':
-                setWorkflowNodes((prev) => {
-                  const existing = prev.find(n => n.nodeId === evt.nodeId)
-                  if (existing) return prev.map(n => n.nodeId === evt.nodeId ? { ...n, status: 'running' } : n)
-                  return [...prev, { nodeId: evt.nodeId!, label: evt.label, nodeType: evt.nodeType, status: 'running' }]
-                })
-                break
-              case 'node_completed':
-                setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'success', output: evt.output } : n))
-                break
-              case 'node_failed':
-                setWorkflowNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'failed', output: evt.error } : n))
-                break
-              case 'human_approval_required':
-                setPendingApproval({ nodeId: evt.nodeId!, prompt: evt.prompt ?? '请确认是否继续执行', runId: evt.runId ?? workflowRunId })
-                break
-              case 'agent_tool_call':
-                setWorkflowToolCall({ nodeId: evt.nodeId!, toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
-                break
-              case 'run_completed':
-                setStreamingContent(evt.output ?? '工作流执行完成')
-                break
-              case 'run_failed':
-                setWorkflowError(evt.error ?? '')
-                setStreamingContent('工作流执行失败：' + (evt.error ?? ''))
-                break
-              case 'run_result':
-                if (evt.result?.error) setWorkflowError(evt.result.error)
-                setStreamingContent(evt.result?.output ?? evt.result?.error ?? '工作流执行完成')
-                break
-            }
-          },
-          (err) => { setStreamingContent('工作流执行失败：' + err) },
-          controller.signal,
-          permissionMode)
-      } catch { setStreamingContent('工作流执行异常') }
-      finally { stopStreaming(topic.id) }
+      await workflowRun.run(content, topic.id, permissionMode)
+      stopStreaming(topic.id)
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
       return
     }
@@ -766,34 +615,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
   }
 
-  // 工作流 Human 节点审批
-  const handleWorkflowApprove = async (runId: string, nodeId: string, approve: boolean) => {
-    setPendingApproval(null)
-    try {
-      await workflowService.approve(runId, nodeId, approve)
-    } catch {
-      // Ignore
-    }
-  }
-
-  // 工作流 Agent 工具交互提交（复用 chat-messages 的 answer/approve 端点）
-  const handleWorkflowToolApprove = async (approved: boolean, answer?: string) => {
-    if (!workflowToolCall || !topic) return
-    const sessionId = `workflow-${workflowRunId}-${workflowToolCall.nodeId}`
-    setWorkflowToolCall(null)
-    try {
-      if (workflowToolCall.name === 'ask_question') {
-        await chatMessageService.submitAnswer(sessionId, workflowToolCall.toolCallId, answer ?? '')
-      } else if (workflowToolCall.name === 'plan') {
-        await chatMessageService.submitPlanDecision(sessionId, workflowToolCall.toolCallId, approved, answer ?? '')
-      } else {
-        await chatMessageService.submitApproval(sessionId, workflowToolCall.toolCallId, approved)
-      }
-    } catch {
-      // Ignore
-    }
-  }
-
   const handleOrganize = async () => {
     if (!topic || isOrganizing || isStreaming) return
 
@@ -858,9 +679,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
-      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{topic.title}</h2>
+          <h2 className="flex items-center gap-2 truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+            {topic.title}
+          </h2>
           <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{messages.length} 条消息</p>
         </div>
         <div className="flex items-center gap-1">
@@ -1021,7 +845,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             <p className="max-w-xs text-sm text-gray-500">在下方输入消息开始对话，或从左侧选择一个已有话题继续</p>
           </div>
         )}
-        <div className="space-y-5">
+        <div className="mx-auto max-w-3xl space-y-5">
           {messages.map((message) => (
             <ChatMessageItem
               key={message.id}
@@ -1213,14 +1037,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             {allowedSkillNames && (
               <span className="text-[10px] text-gray-400">仅可用 {allowedSkillNames.size} 个技能</span>
             )}
-            <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
-          </div>
+            <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>          </div>
         )}
         {runningWorkflow && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20">
             <GitBranch size={14} className="text-blue-500" />
             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{runningWorkflow.name}</span>
-            <button onClick={() => setRunningWorkflow(null)} className="ml-auto text-blue-400 hover:text-blue-600"><X size={14} /></button>
+            <button onClick={() => workflowRun.setWorkflow(null)} className="ml-auto text-blue-400 hover:text-blue-600"><X size={14} /></button>
           </div>
         )}
         {/* 工作流独立面板：流程图 + 状态 + 交互 */}
@@ -1231,8 +1054,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               nodeStates={workflowNodes}
               pendingApproval={pendingApproval}
               workflowToolCall={workflowToolCall}
-              onApprove={handleWorkflowApprove}
-              onToolApprove={handleWorkflowToolApprove}
+              onApprove={workflowRun.approve}
+              onToolApprove={workflowRun.submitToolInteraction}
               isStreaming={isStreaming}
               error={workflowError}
             />
@@ -1353,111 +1176,50 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               )}
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
-              {/* Agent selector — 智能体 + 工作流合并 */}
-              <div className="relative" ref={agentPickerRef}>
-                <button
-                  onClick={() => { setShowAgentPicker(!showAgentPicker); setShowModelPicker(false) }}
-                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    selectedPreset || runningWorkflow
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  title="智能体 / 工作流"
-                >
-                  {runningWorkflow ? <GitBranch size={14} /> : <Bot size={14} />}
-                  {runningWorkflow ? runningWorkflow.name : selectedPreset ? selectedPreset.name : '智能体'}
-                  <ChevronDown size={10} />
-                </button>
-                {showAgentPicker && (
-                  <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <div className="max-h-72 overflow-y-auto p-1.5">
-                      {/* 智能体分组 */}
-                      <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">智能体</div>
-                      {presets.length === 0 && localPresets.length === 0 ? (
-                        <div className="p-3 text-center text-xs text-gray-500">暂无智能体</div>
-                      ) : (
-                        <>
-                          {presets.map(p => (
-                            <button
-                              key={p.id}
-                              onClick={() => { setRunningWorkflow(null); applyPreset(p); setShowAgentPicker(false) }}
-                              title={p.content.slice(0, 120)}
-                              className={`w-full rounded-lg px-3 py-1.5 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {p.agentType === 'Professional'
-                                  ? <Brain size={12} className="shrink-0 text-violet-400" />
-                                  : <Bot size={12} className="shrink-0 text-indigo-400" />}
-                                <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
-                                {p.agentType === 'Professional' && (
-                                  <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">专业</span>
-                                )}
-                                {selectedPreset?.id === p.id && <Check size={12} className="ml-auto shrink-0 text-indigo-500" />}
-                              </div>
-                            </button>
-                          ))}
-                          {localPresets.length > 0 && presets.length > 0 && (
-                            <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-                          )}
-                          {localPresets.map(p => {
-                            const pseudo: IPromptPreset = {
-                              id: p.id,
-                              category: p.category || '本地',
-                              name: p.name,
-                              content: p.content,
-                              variables: p.variables,
-                              toolsConfig: p.toolsConfig,
-                              isBuiltIn: false,
-                              agentType: 'General',
-                              sortOrder: 0,
-                              createdAt: '',
-                              updatedAt: '',
-                            }
-                            return (
-                              <button
-                                key={p.id}
-                                onClick={() => { setRunningWorkflow(null); applyPreset(pseudo); setShowAgentPicker(false) }}
-                                title={p.content.slice(0, 120)}
-                                className={`w-full rounded-lg px-3 py-1.5 text-left ${selectedPreset?.id === p.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Bot size={12} className="shrink-0 text-indigo-400" />
-                                  <span className={`text-xs font-medium ${selectedPreset?.id === p.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.name}</span>
-                                  <span className="rounded bg-amber-100 px-1 text-[9px] text-amber-600 dark:bg-amber-900/30">本地</span>
-                                  {selectedPreset?.id === p.id && <Check size={12} className="text-indigo-500" />}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </>
-                      )}
-                      {/* 工作流分组 */}
-                      {(presets.length > 0 || localPresets.length > 0) && (
-                        <div className="mb-1 mt-2 border-t border-gray-100 pt-2 dark:border-gray-700" />
-                      )}
-                      <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">工作流</div>
-                      {availableWorkflows.length === 0 ? (
-                        <div className="p-3 text-center text-xs text-gray-500">暂无工作流</div>
-                      ) : (
-                        availableWorkflows.map((w) => (
-                          <button
-                            key={w.id}
-                            onClick={() => { setSelectedPreset(null); setRunningWorkflow(w); setShowAgentPicker(false) }}
-                            title={w.description}
-                            className={`w-full rounded-lg px-3 py-1.5 text-left ${runningWorkflow?.id === w.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <GitBranch size={12} className="shrink-0 text-blue-500" />
-                              <span className={`text-xs font-medium ${runningWorkflow?.id === w.id ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{w.name}</span>
-                              {runningWorkflow?.id === w.id && <Check size={12} className="text-indigo-500" />}
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Agent selector — 智能体 + 工作流合并（与 Code 会话共用同一浮层组件） */}
+              <AgentPicker
+                items={[
+                  ...presets.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.content.slice(0, 120),
+                    icon: p.agentType === 'Professional' ? 'brain' as const : 'bot' as const,
+                    badge: p.agentType === 'Professional' ? '专业' : undefined,
+                  })),
+                  ...localPresets.map(p => ({ id: p.id, name: p.name, description: p.content.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
+                ]}
+                value={selectedPreset?.id}
+                onSelect={(item) => {
+                  const preset = presets.find(p => p.id === item.id)
+                  workflowRun.setWorkflow(null)
+                  if (preset) {
+                    applyPreset(preset)
+                    return
+                  }
+                  const local = localPresets.find(p => p.id === item.id)
+                  if (local) {
+                    applyPreset({
+                      id: local.id,
+                      category: local.category || '本地',
+                      name: local.name,
+                      content: local.content,
+                      variables: local.variables,
+                      toolsConfig: local.toolsConfig,
+                      isBuiltIn: false,
+                      agentType: 'General',
+                      sortOrder: 0,
+                      createdAt: '',
+                      updatedAt: '',
+                    })
+                  }
+                }}
+                workflows={availableWorkflows.map(w => ({ id: w.id, name: w.name, description: w.description, icon: 'git' as const }))}
+                workflowValue={runningWorkflow?.id}
+                onSelectWorkflow={(item) => {
+                  const workflow = availableWorkflows.find(w => w.id === item.id)
+                  if (workflow) { setSelectedPreset(null); workflowRun.setWorkflow(workflow) }
+                }}
+              />
 
               {/* 模型选择：与编码会话共用同一组件 */}
               <AgentToolbarSelect

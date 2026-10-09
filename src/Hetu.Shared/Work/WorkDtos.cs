@@ -1,3 +1,5 @@
+using Hetu.Shared.Chat;
+
 namespace Hetu.Shared.Work;
 
 public class WorkProjectDto
@@ -186,8 +188,10 @@ public class SendWorkMessageRequest
     public string? AgentPrompt { get; set; }
     /// <summary>/prompt 模板：.github/prompts 下的文件相对路径，后端读取后注入 system prompt</summary>
     public string? PromptFile { get; set; }
-    /// <summary>/skill 命令选择的技能名称（项目启用的技能）</summary>
+    /// <summary>/skill 命令选择的技能名称（项目启用的技能或 .github 技能）</summary>
     public string? SkillName { get; set; }
+    /// <summary>输入框 @ 引用的内容（type: note | notebook | tag | knowledge）</summary>
+    public List<ChatMentionRef>? Mentions { get; set; }
     /// <summary>是否持久化用户消息；重新生成时传 false，避免历史里重复出现同一句输入</summary>
     public bool PersistUserMessage { get; set; } = true;
 }

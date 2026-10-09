@@ -62,7 +62,9 @@ function App() {
       <Routes>
         <Route path="/" element={<NotesPage />} />
         <Route path="/tags" element={<TagsPage />} />
-        <Route path="/chat" element={<Navigate to="/work" replace />} />
+        <Route path="/chat" element={<Navigate to="/code" replace />} />
+        <Route path="/work" element={<Navigate to="/code" replace />} />
+        <Route path="/code" element={<WorkPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />

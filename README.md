@@ -149,7 +149,8 @@ Frontend page map (routes in [`frontend/src/App.tsx`](frontend/src/App.tsx)):
 | `/trash`                         | Trash           | Soft-deleted notes                          |
 | `/settings`                      | Settings        | App / AI / MCP / Database / Trash           |
 | `/share/:code`                   | Shared note     | Public read-only viewer                     |
-| `/models`, `/work`, `/workflows` | Placeholders    | Reserved for upcoming surfaces              |
+| `/models`, `/workflows`          | Placeholders    | Reserved for upcoming surfaces              |
+| `/code`                          | Code            | Chat + coding sessions (projects, files, workflows) |
 | `/projects`                      | Projects        | Local / SSH project directory manager with groups & categories |
 
 ## 🚀 Quick Start
@@ -244,7 +245,7 @@ npm run build
 
 - Anthropic does not currently expose a public embedding API — selecting Anthropic for `embedding` raises an explicit error.
 - MCP **SSE** transport is configurable but only **stdio** is wired up for tool execution.
-- `/models`, `/work`, `/workflows` pages are placeholders for upcoming features.
+- `/models`, `/workflows` pages are placeholders for upcoming features.
 - Full-text search across notes uses `LIKE`; an FTS5 / `tsvector` upgrade is planned.
 
 ## 🤝 Contributing
