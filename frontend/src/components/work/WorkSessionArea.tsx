@@ -5,7 +5,7 @@ import {
 
   ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Atom, Pencil, Trash2, AlertTriangle,
+  Globe, Database, Atom, Pencil, Trash2,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
@@ -410,8 +410,21 @@ export default function WorkSessionArea({
     ])
   }, [pendingContext])
 
-  /** 粘贴绝对路径 → 转为引用 chip（不放回输入框） */
+  /** 粘贴：图片转附件 chip（非视觉模型会带感叹号划掉）；绝对路径转为引用 chip（不放回输入框） */
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    // 剪贴板里的图片/文件：挂成附件（是否可用由当前模型的视觉能力决定）
+    const pastedFiles: File[] = []
+    for (const item of e.clipboardData?.items ?? []) {
+      if (item.kind !== 'file') continue
+      const file = item.getAsFile()
+      if (file) pastedFiles.push(file)
+    }
+    if (pastedFiles.length > 0) {
+      e.preventDefault()
+      setAttachedFiles((prev) => [...prev, ...pastedFiles])
+      return
+    }
+
     const text = e.clipboardData.getData('text/plain').trim()
     if (text.length > 260 || text.includes('\n')) return
     if (!/^[a-zA-Z]:[\\/]/.test(text) && !text.startsWith('\\\\')) return
@@ -601,11 +614,13 @@ export default function WorkSessionArea({
     setSelectedPrompt(null)
     setSelectedSkillName(null)
 
-    // 图片附件（视觉模型）：与对话页同一份 base64 组装
+    // 图片附件（视觉模型）：与对话页同一份 base64 组装；非视觉模型忽略（chip 已划掉提示）
     const images: { data: string; mimeType: string; fileName?: string }[] = []
-    for (const file of attachedFiles) {
-      if (file.type.startsWith('image/')) {
-        images.push({ data: await fileToBase64(file), mimeType: file.type, fileName: file.name })
+    if (currentModel?.supportsVision) {
+      for (const file of attachedFiles) {
+        if (file.type.startsWith('image/')) {
+          images.push({ data: await fileToBase64(file), mimeType: file.type, fileName: file.name })
+        }
       }
     }
     setAttachedFiles([])
@@ -1173,7 +1188,9 @@ export default function WorkSessionArea({
               id: `attach:${i}`,
               label: file.name,
               tone: 'amber' as const,
-              title: '图片附件',
+              // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
+              struck: !currentModel?.supportsVision,
+              title: currentModel?.supportsVision ? '图片附件' : `${file.name}（当前模型不支持图片输入，发送时会忽略）`,
               onRemove: () => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i)),
             })),
             ...(activeFilePath
@@ -1230,29 +1247,17 @@ export default function WorkSessionArea({
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
             <>
-              {/* 图片附件：非视觉模型保留入口但置灰划掉，并在前面提示不支持（与对话页一致） */}
-              {!currentModel?.supportsVision && (
-                <span
-                  className="flex shrink-0 items-center gap-1 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"
-                  title="当前模型不支持图片输入，如需附图请切换到支持视觉的模型"
+              {/* 图片附件：仅视觉模型可用（与对话页同一条件） */}
+              {currentModel?.supportsVision && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title="附加图片"
+                  aria-label="附加图片"
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                 >
-                  <AlertTriangle size={12} />
-                  不支持视觉
-                </span>
+                  <Plus size={15} />
+                </button>
               )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!currentModel?.supportsVision}
-                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
-                  currentModel?.supportsVision
-                    ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/60'
-                    : 'cursor-not-allowed text-gray-300 line-through dark:text-gray-600'
-                }`}
-                title={currentModel?.supportsVision ? '附加图片' : '当前模型不支持图片输入'}
-              >
-                <Plus size={13} />
-                图片
-              </button>
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
               {/* 权限模式 / Agent / 模型 / 推理强度：与对话页共用同一套选择器 */}
