@@ -327,7 +327,9 @@ export default function WorkPage() {
               addTitle="新建会话组"
             />
             {sections.chat && (
-              <div className="flex min-h-0 flex-1 flex-col">
+              // 会话列表按内容自然增高，浮动在下方的「项目」之上；超过侧栏一半高度时才固定并内部滚动
+              // 项目分区折叠时不再受一半限制，可用满整栏
+              <div className="flex min-h-0 shrink-0 flex-col" style={{ maxHeight: sections.project ? '50%' : '100%' }}>
                 <ChatTree
                   ref={chatTreeRef}
                   embedded
