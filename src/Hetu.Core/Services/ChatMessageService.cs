@@ -142,6 +142,7 @@ public class ChatMessageService : IChatMessageService
         ParentId = message.ParentId,
         ModelId = message.ModelId,
         TokensUsed = message.TokensUsed,
+        CachedTokens = message.CachedTokens,
         LatencyMs = message.LatencyMs,
         ThinkingContent = message.ThinkingContent,
         SearchResultsJson = message.SearchResultsJson,

@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
 
   ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Atom,
+  Globe, Database, Atom, Pencil, Trash2,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
@@ -251,6 +251,47 @@ export default function WorkSessionArea({
   const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
   const reasoningEffort = session && effortOverride?.sessionId === session.id ? effortOverride.value : ''
+
+  // 消息级操作：复制 / 编辑 / 删除（与对话页同一套交互）
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+
+  const copyMessage = useCallback((id: string, content: string) => {
+    navigator.clipboard.writeText(content)
+      .then(() => { setCopiedMessageId(id); window.setTimeout(() => setCopiedMessageId(null), 1500) })
+      .catch(() => {})
+  }, [])
+
+  const updateMessageMutation = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) => workSessionService.updateMessage(id, content),
+    onSuccess: () => {
+      if (session) queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
+      setEditingMessageId(null)
+      setEditingContent('')
+    },
+  })
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: (id: string) => workSessionService.deleteMessage(id),
+    onSuccess: () => {
+      if (session) queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
+      setEditingMessageId(null)
+      setEditingContent('')
+    },
+  })
+
+  const saveEditingMessage = () => {
+    if (!editingMessageId || !editingContent.trim()) return
+    updateMessageMutation.mutate({ id: editingMessageId, content: editingContent.trim() })
+  }
+
+  const deleteMessage = (id: string) => {
+    confirmRef.current({
+      message: '确定删除这条消息吗？',
+      onConfirm: () => deleteMessageMutation.mutate(id),
+    })
+  }
 
   // @ 提及 / / 指令 浮层：输入中的查询词、选中项、文件候选
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
@@ -947,7 +988,24 @@ export default function WorkSessionArea({
             const msg = entry.item
             return isProcessMessage(msg)
               ? <ProcessMessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
-              : <MessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
+              : (
+                <MessageRow
+                  key={msg.id}
+                  message={msg}
+                  onOpenFilePath={onOpenFilePath}
+                  onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
+                  isEditing={editingMessageId === msg.id}
+                  editingContent={editingMessageId === msg.id ? editingContent : ''}
+                  isCopied={copiedMessageId === msg.id}
+                  actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                  onCopy={copyMessage}
+                  onStartEdit={(id, content) => { setEditingMessageId(id); setEditingContent(content) }}
+                  onSaveEdit={saveEditingMessage}
+                  onCancelEdit={() => { setEditingMessageId(null); setEditingContent('') }}
+                  onDelete={deleteMessage}
+                  onEditContentChange={setEditingContent}
+                />
+              )
           })}
 
           {/* 空会话：快捷起步 */}
@@ -1357,27 +1415,123 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
   )
 }
 
-function UserBubble({ message }: { message: IWorkMessage }) {
+/** 消息级操作（复制 / 编辑 / 删除）：与对话页同一套交互 */
+interface MessageActions {
+  isEditing: boolean
+  editingContent: string
+  isCopied: boolean
+  actionsDisabled: boolean
+  onCopy: (id: string, content: string) => void
+  onStartEdit: (id: string, content: string) => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
+  onDelete: (id: string) => void
+  onEditContentChange: (value: string) => void
+}
+
+/** 编辑态编辑器：对话框（对话页）与编码会话共用同一份交互 */
+function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
+  value: string
+  disabled: boolean
+  onChange: (v: string) => void
+  onCancel: () => void
+  onSave: () => void
+}) {
   return (
-    <div className="flex flex-row-reverse gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
-        <User size={15} />
-      </div>
-      <div className="flex min-w-0 max-w-[85%] flex-col items-end">
-        <div className="flex items-center gap-2 px-1 pb-0.5">
-          <span className="text-[10px] font-medium text-gray-400">我</span>
-          <span className="text-[10px] text-gray-300 dark:text-gray-600">{formatTime(message.createdAt)}</span>
-        </div>
-        <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
-          {message.content}
-        </div>
+    <div className="space-y-2">
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="min-h-28 w-full rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+      />
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <X size={14} />
+        </button>
+        <button
+          onClick={onSave}
+          disabled={!value.trim() || disabled}
+          className="rounded bg-blue-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+        >
+          保存
+        </button>
       </div>
     </div>
   )
 }
 
-function AgentTextBlock({ message, onCodeAction }: { message: IWorkMessage; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
-  const [copied, setCopied] = useState(false)
+/** 操作栏：复制 / 编辑 / 删除，悬停整行提亮 */
+function MessageActionBar({ message, actions }: { message: IWorkMessage; actions: MessageActions }) {
+  return (
+    <div className="mt-1 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+      <button
+        onClick={() => actions.onCopy(message.id, message.content)}
+        title="复制"
+        aria-label="复制"
+        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+      >
+        {actions.isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+      </button>
+      <button
+        onClick={() => actions.onStartEdit(message.id, message.content)}
+        disabled={actions.actionsDisabled}
+        title="编辑"
+        aria-label="编辑"
+        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+      >
+        <Pencil size={12} />
+      </button>
+      <button
+        onClick={() => actions.onDelete(message.id)}
+        disabled={actions.actionsDisabled}
+        title="删除"
+        aria-label="删除"
+        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+}
+
+function UserBubble({ message, actions }: { message: IWorkMessage; actions?: MessageActions }) {
+  const editing = actions?.isEditing === true
+  return (
+    <div className="group flex flex-row-reverse gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+        <User size={15} />
+      </div>
+      <div className="flex min-w-0 max-w-[85%] flex-col items-end">
+        <div className="flex items-center gap-2 px-1 pb-0.5">
+          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">我</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
+        </div>
+        {editing && actions ? (
+          <div className="w-full min-w-[280px] rounded-2xl rounded-tr-sm border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900">
+            <MessageEditor
+              value={actions.editingContent}
+              disabled={actions.actionsDisabled}
+              onChange={actions.onEditContentChange}
+              onCancel={actions.onCancelEdit}
+              onSave={actions.onSaveEdit}
+            />
+          </div>
+        ) : (
+          <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+            {message.content}
+          </div>
+        )}
+        {!editing && actions && <MessageActionBar message={message} actions={actions} />}
+      </div>
+    </div>
+  )
+}
+
+function AgentTextBlock({ message, onCodeAction, actions }: {
+  message: IWorkMessage
+  onCodeAction?: (code: string, action: 'copy' | 'insert') => void
+  actions?: MessageActions
+}) {
   if (message.type === 'system') {
     return (
       <div className="flex justify-center">
@@ -1385,36 +1539,38 @@ function AgentTextBlock({ message, onCodeAction }: { message: IWorkMessage; onCo
       </div>
     )
   }
-  const copy = () => {
-    navigator.clipboard.writeText(message.content)
-      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
-      .catch(() => {})
-  }
+  const editing = actions?.isEditing === true
   return (
     <div className="group">
       <div className="mb-1 flex items-center gap-2">
-        <span className="text-[10px] font-medium text-gray-400">Agent</span>
-        <span className="text-[10px] text-gray-300 dark:text-gray-600">{formatTime(message.createdAt)}</span>
-        <button
-          onClick={copy}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-gray-800"
-        >
-          {copied ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-          {copied ? '已复制' : '复制'}
-        </button>
+        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Agent</span>
+        <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
       </div>
-      <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
-        <ThemedMarkdown source={message.content} onCodeAction={onCodeAction} />
-      </div>
-      {(message.totalTokens ?? 0) > 0 && (
-        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400">
-          <Coins size={10} />
-          <span>
-            {formatTokens(message.totalTokens ?? 0)} tokens
-            {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
-            {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
-          </span>
-        </div>
+      {editing && actions ? (
+        <MessageEditor
+          value={actions.editingContent}
+          disabled={actions.actionsDisabled}
+          onChange={actions.onEditContentChange}
+          onCancel={actions.onCancelEdit}
+          onSave={actions.onSaveEdit}
+        />
+      ) : (
+        <>
+          <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+            <ThemedMarkdown source={message.content} onCodeAction={onCodeAction} />
+          </div>
+          {(message.totalTokens ?? 0) > 0 && (
+            <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400">
+              <Coins size={10} />
+              <span>
+                {formatTokens(message.totalTokens ?? 0)} tokens
+                {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
+                {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
+              </span>
+            </div>
+          )}
+          {actions && <MessageActionBar message={message} actions={actions} />}
+        </>
       )}
     </div>
   )
@@ -1460,15 +1616,19 @@ function toProcessEntry(message: IWorkMessage): ToolCallEntry {
 }
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 / 检查点 */
-function MessageRow({ message, onOpenFilePath, onCodeAction }: { message: IWorkMessage; onOpenFilePath?: (path: string) => void; onCodeAction?: (code: string, action: 'copy' | 'insert') => void }) {
+function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {
+  message: IWorkMessage
+  onOpenFilePath?: (path: string) => void
+  onCodeAction?: (code: string, action: 'copy' | 'insert') => void
+} & MessageActions) {
   if (message.type === 'file_change') {
     let meta: FileChangeMeta = { path: '', action: 'write' }
     try { meta = JSON.parse(message.metadata ?? '{}') } catch { /* 使用默认值 */ }
     return <AgentFileChangeRow path={meta.path} action={meta.action} onOpenPath={onOpenFilePath} />
   }
   if (message.type === 'checkpoint') return <CheckpointRow message={message} />
-  if (message.role === 'user') return <UserBubble message={message} />
-  return <AgentTextBlock message={message} onCodeAction={onCodeAction} />
+  if (message.role === 'user') return <UserBubble message={message} actions={actions} />
+  return <AgentTextBlock message={message} onCodeAction={onCodeAction} actions={actions} />
 }
 
 /** 检查点行：会话内可直接回滚到该快照（与流式时间线共用 AgentCheckpointRow） */

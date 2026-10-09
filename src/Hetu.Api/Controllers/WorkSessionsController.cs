@@ -49,6 +49,15 @@ public class WorkSessionsController : ControllerBase
     public Task<ApiResponse<WorkMessageDto>> AddMessage(Guid id, [FromBody] AddWorkMessageRequest request, CancellationToken cancellationToken)
         => _sessionService.AddMessageAsync(id, request.Role, request.Content, request.Type, request.Metadata, cancellationToken: cancellationToken);
 
+    /// <summary>编辑消息正文（与对话页一致的复制/编辑/删除能力）</summary>
+    [HttpPut("messages/{messageId:guid}")]
+    public Task<ApiResponse<WorkMessageDto>> UpdateMessage(Guid messageId, [FromBody] UpdateWorkMessageRequest request, CancellationToken cancellationToken)
+        => _sessionService.UpdateMessageAsync(messageId, request.Content ?? string.Empty, cancellationToken);
+
+    [HttpDelete("messages/{messageId:guid}")]
+    public Task<ApiResponse> DeleteMessage(Guid messageId, CancellationToken cancellationToken)
+        => _sessionService.DeleteMessageAsync(messageId, cancellationToken);
+
     [HttpGet("{id:guid}/checkpoints")]
     public Task<ApiResponse<List<WorkCheckpointDto>>> GetCheckpoints(Guid id, CancellationToken cancellationToken)
         => _checkpointService.GetBySessionAsync(id, cancellationToken);
@@ -87,4 +96,9 @@ public class AddWorkMessageRequest
     public string Content { get; set; } = string.Empty;
     public string Type { get; set; } = "text";
     public string? Metadata { get; set; }
+}
+
+public class UpdateWorkMessageRequest
+{
+    public string? Content { get; set; }
 }

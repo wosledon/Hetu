@@ -466,6 +466,45 @@ public class WorkSessionService : IWorkSessionService
         return ApiResponse<WorkMessageDto>.Ok(Map(message));
     }
 
+    public async Task<ApiResponse<WorkMessageDto>> UpdateMessageAsync(Guid messageId, string content, CancellationToken cancellationToken = default)
+    {
+        var message = await _unitOfWork.WorkMessages.GetByIdAsync(messageId, cancellationToken);
+        if (message == null) return ApiResponse<WorkMessageDto>.Fail("消息不存在");
+
+        message.Content = content;
+        message.UpdatedAt = DateTimeOffset.UtcNow;
+        await _unitOfWork.WorkMessages.UpdateAsync(message, cancellationToken);
+
+        // 会话列表按 UpdatedAt 排序，编辑消息同样视为活跃
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(message.SessionId, cancellationToken);
+        if (session != null)
+        {
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse<WorkMessageDto>.Ok(Map(message));
+    }
+
+    public async Task<ApiResponse> DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken = default)
+    {
+        var message = await _unitOfWork.WorkMessages.GetByIdAsync(messageId, cancellationToken);
+        if (message == null) return ApiResponse.Fail("消息不存在");
+
+        await _unitOfWork.WorkMessages.DeleteAsync(message, cancellationToken);
+
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(message.SessionId, cancellationToken);
+        if (session != null)
+        {
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse.Ok();
+    }
+
     private static WorkSessionDto Map(WorkSession session, int messageCount) => new()
     {
         Id = session.Id,

@@ -25,6 +25,12 @@ public interface IWorkSessionService
 
     /// <summary>追加消息；传入 <paramref name="usage"/> 时同时记录本条 Token 消耗并累加到会话统计</summary>
     Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default);
+
+    /// <summary>修改一条消息正文（用户/助手文本消息，与对话页同样支持编辑）</summary>
+    Task<ApiResponse<WorkMessageDto>> UpdateMessageAsync(Guid messageId, string content, CancellationToken cancellationToken = default);
+
+    /// <summary>删除一条消息</summary>
+    Task<ApiResponse> DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>项目级工具审批规则（allow / deny）</summary>

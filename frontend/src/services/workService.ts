@@ -60,6 +60,10 @@ export const workSessionService = {
   update: (id: string, data: IUpdateWorkSessionRequest) => put<IWorkSession>(`/work-sessions/${id}`, data),
   delete: (id: string) => del<void>(`/work-sessions/${id}`),
   getMessages: (id: string) => get<IWorkMessage[]>(`/work-sessions/${id}/messages`),
+  /** 编辑消息正文（与对话页一致的复制/编辑/删除） */
+  updateMessage: (messageId: string, content: string) =>
+    put<IWorkMessage>(`/work-sessions/messages/${messageId}`, { content }),
+  deleteMessage: (messageId: string) => del<void>(`/work-sessions/messages/${messageId}`),
   getFileChanges: (id: string) => get<IWorkFileChange[]>(`/work-sessions/${id}/file-changes`),
   getCheckpoints: (id: string) => get<IWorkCheckpoint[]>(`/work-sessions/${id}/checkpoints`),
   addMessage: (id: string, data: { role: string; content: string; type?: string; metadata?: string }) =>

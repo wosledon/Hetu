@@ -1,9 +1,10 @@
 import { memo } from 'react'
-import { Search, Database, Atom, Copy, Check, Pencil, Trash2, X, User } from 'lucide-react'
+import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X, User } from 'lucide-react'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatToolCallRow from './ChatToolCallRow'
 import ToolCallGroup from './ToolCallGroup'
 import { foldConsecutiveToolCalls } from '../utils/toolRendering'
+import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
 
 interface ITimelineSegment {
@@ -123,7 +124,7 @@ export default memo(function ChatMessageItem({
       <div className={`flex min-w-0 flex-1 flex-col ${isUser ? 'items-end' : ''}`}>
         {isUser && (
           <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
           </div>
         )}
@@ -309,6 +310,16 @@ export default memo(function ChatMessageItem({
                   )
                 } catch { return null }
               })()}
+              {message.role === 'assistant' && (message.tokensUsed ?? 0) > 0 && (
+                <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400">
+                  <Coins size={10} />
+                  <span>
+                    {formatTokens(message.tokensUsed ?? 0)} tokens
+                    {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
+                    {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
+                  </span>
+                </div>
+              )}
             </>
           )}
         </div>
