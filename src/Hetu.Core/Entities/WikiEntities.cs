@@ -14,6 +14,8 @@ public class WikiDocument : BaseEntity
     /// <summary>套件内排序：0 为总览页</summary>
     public int SortOrder { get; set; }
     public string Title { get; set; } = string.Empty;
+    /// <summary>所属章节（父子级结构中的父级）；为空表示未分章</summary>
+    public string? Chapter { get; set; }
     /// <summary>规划阶段确定的内容要点（单页重生成时复用）</summary>
     public string? Brief { get; set; }
     /// <summary>Markdown 正文</summary>
@@ -36,6 +38,8 @@ public class WikiGenerationJob : BaseEntity
     public int TotalPages { get; set; }
     public int DonePages { get; set; }
     public string? ErrorMessage { get; set; }
+    /// <summary>部分页面失败时的提示（整套仍算完成）</summary>
+    public string? WarningMessage { get; set; }
     /// <summary>生成所用模型展示名（未指定时为默认模型）</summary>
     public string? ModelId { get; set; }
     /// <summary>完成后产生的 Wiki 套件 ID</summary>
