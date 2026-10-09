@@ -23,6 +23,13 @@ public class WikiService : IWikiService
     private const int SemanticHitsPerPage = 10;
     /// <summary>单页生成失败后的重试次数</summary>
     private const int PageRetryCount = 1;
+    /// <summary>重试前的退避等待</summary>
+    private static readonly TimeSpan RetryBackoff = TimeSpan.FromMilliseconds(800);
+    /// <summary>
+    /// 正文生成的 MaxTokens：推理模型会把额度花在思考上，4096 容易只剩空正文，
+    /// 且长页面（含图表）也更容易被截断，故取较大值。
+    /// </summary>
+    private const int ContentMaxTokens = 8192;
 
     private const string SystemPromptDocEngineer = "你是资深项目文档工程师，擅长阅读代码仓库并撰写准确、清晰的中文技术文档。";
     private const string SystemPromptArchitect = "你是资深软件架构师，擅长为代码仓库规划文档结构。";
@@ -345,7 +352,14 @@ public class WikiService : IWikiService
             try
             {
                 var page = await BuildPageAsync(provider, project, material, plan, siblingTitles, workProjectId, useSemantic, cancellationToken);
-                if (string.IsNullOrWhiteSpace(page.Content)) return string.Empty;
+                if (string.IsNullOrWhiteSpace(page.Content))
+                {
+                    // 推理模型常把额度花在思考上导致正文为空：记下来便于定位，并重试
+                    _logger.LogWarning("Wiki 页面「{Title}」第 {Attempt} 次返回空内容（模型可能为推理模型或触发限流）", plan.Title, attempt + 1);
+                    if (attempt == PageRetryCount) return string.Empty;
+                    await Task.Delay(RetryBackoff, cancellationToken);
+                    continue;
+                }
                 // 代码围栏成对却仍未闭合 = 模型输出被截断，续写一次把剩余内容补回来
                 if (CountFences(page.Content) % 2 == 1)
                 {
@@ -358,6 +372,7 @@ public class WikiService : IWikiService
             {
                 _logger.LogWarning(ex, "Wiki 页面「{Title}」生成失败（第 {Attempt} 次）", plan.Title, attempt + 1);
                 if (attempt == PageRetryCount) return string.Empty;
+                await Task.Delay(RetryBackoff, cancellationToken);
             }
         }
         return string.Empty;
@@ -399,7 +414,7 @@ public class WikiService : IWikiService
             {
                 ModelId = string.Empty,
                 SystemPrompt = SystemPromptDocEngineer,
-                MaxTokens = 4096,
+                MaxTokens = ContentMaxTokens,
             }, cancellationToken);
             if (string.IsNullOrWhiteSpace(content)) return string.Empty;
             // 模型偶尔会把提示词回显或拒答（「【已有内容】为空」之类），不能写进文档
@@ -636,7 +651,7 @@ public class WikiService : IWikiService
         {
             ModelId = string.Empty,
             SystemPrompt = SystemPromptDocEngineer,
-            MaxTokens = 4096,
+            MaxTokens = ContentMaxTokens,
         }, cancellationToken);
 
         return new WikiDocument { Title = plan.Title, Brief = plan.Brief, Content = content.Trim() };
@@ -681,7 +696,7 @@ public class WikiService : IWikiService
             {
                 ModelId = string.Empty,
                 SystemPrompt = SystemPromptDocEngineer,
-                MaxTokens = 4096,
+                MaxTokens = ContentMaxTokens,
             }, cancellationToken);
             if (!string.IsNullOrWhiteSpace(content))
                 return new WikiDocument { Title = project.Name, Content = content.Trim() };
@@ -841,3 +856,4 @@ public class WikiService : IWikiService
 
     #endregion
 }
+
