@@ -329,6 +329,14 @@ export default function WorkSessionArea({
   }, [dbSkills, localSkills])
   const projectSkillIds = useMemo(() => new Set(project?.skillIds ?? []), [project?.skillIds])
 
+  // 项目根目录文件：@ 未输入关键词时给出可直接引用的候选（Code 场景下文件比笔记更常用）
+  const { data: rootEntries = [] } = useQuery({
+    queryKey: ['workRootFiles', session?.projectId],
+    queryFn: () => workFileService.list(session!.projectId, ''),
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // 按 @ 查询词检索项目文件
   useEffect(() => {
     if (inputMenu?.kind !== 'mention' || !session) return
@@ -336,26 +344,31 @@ export default function WorkSessionArea({
     const timer = setTimeout(async () => {
       const q = inputMenu.query.trim()
       if (!q) {
-        if (!cancelled) setFileCandidates(activeFilePath ? [activeFilePath] : [])
+        // 未输入关键词：先给当前打开的文件，再补项目根目录下的文件
+        const defaults = [
+          ...(activeFilePath ? [activeFilePath] : []),
+          ...rootEntries.filter(e => !e.isDirectory).map(e => e.path),
+        ]
+        if (!cancelled) setFileCandidates([...new Set(defaults)].slice(0, 12))
         return
       }
       try {
-        const hits = await workFileService.search(session.projectId, q, 8)
-        if (!cancelled) setFileCandidates(hits.map(h => h.path))
+        const hits = await workFileService.search(session.projectId, q, 12)
+        if (!cancelled) setFileCandidates([...new Set(hits.map(h => h.path))].slice(0, 12))
       } catch {
         if (!cancelled) setFileCandidates([])
       }
     }, 200)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [inputMenu, session, activeFilePath])
+  }, [inputMenu, session, activeFilePath, rootEntries])
 
 
   const menuItems: InputCommandItem[] = useMemo(() => {
     if (!inputMenu) return []
     const q = inputMenu.query.trim().toLowerCase()
     if (inputMenu.kind === 'mention') {
-      // @ 引用：笔记 / 笔记本 / 标签 / 知识库（与对话页同源）+ 项目文件 + .github 智能体
-      const items: InputCommandItem[] = [...noteMentionItems]
+      // @ 引用：项目文件与项目 .github 智能体优先（Code 场景最常用），随后是笔记 / 笔记本 / 标签 / 知识库
+      const items: InputCommandItem[] = []
       for (const path of fileCandidates) {
         if (q && !path.toLowerCase().includes(q)) continue
         items.push({ key: `file:${path}`, label: path, description: '项目文件', icon: <FileCode size={14} className="text-blue-500" />, tag: '文件', tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' })
@@ -364,7 +377,8 @@ export default function WorkSessionArea({
         if (q && !a.name.toLowerCase().includes(q)) continue
         items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: '.github 智能体', tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
       }
-      return items.slice(0, 20)
+      items.push(...noteMentionItems)
+      return items.slice(0, 24)
     }
     // / 指令：技能（数据库 / 本地 / 项目启用 / .github）+ .github 提示词模板
     const items: InputCommandItem[] = []
