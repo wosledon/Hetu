@@ -17,9 +17,9 @@ import {
   Pencil,
   Check,
   X,
-  Home,
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
+import MainChatEntry from './MainChatEntry'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -61,6 +61,10 @@ interface ChatTreeProps {
   embedded?: boolean
   /** 分区标题（默认「对话」） */
   title?: string
+  /** 标题行由外层一级菜单渲染时隐藏，只保留搜索与新建入口 */
+  showTitle?: boolean
+  /** 主对话已由外层置顶渲染时隐藏卡片 */
+  hideMainChat?: boolean
 }
 
 interface TopicMenuState { x: number; y: number; topic: IChatTopic }
@@ -171,7 +175,7 @@ function GroupNode({
   )
 }
 
-export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic, embedded, title }: ChatTreeProps) {
+export default function ChatTree({ mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain, onDeleteTopic, embedded, title, showTitle, hideMainChat }: ChatTreeProps) {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
@@ -231,9 +235,11 @@ export default function ChatTree({ mainChat, selectedMain, selectedGroupId, sele
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
       <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-        <div className="mb-2.5 flex items-center justify-center">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title ?? '对话'}</h2>
-        </div>
+        {showTitle !== false && (
+          <div className="mb-2.5 flex items-center justify-center">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{title ?? '对话'}</h2>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -255,33 +261,14 @@ export default function ChatTree({ mainChat, selectedMain, selectedGroupId, sele
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {mainChat && (
-          <div
-            onClick={onSelectMain}
-            className={`mb-1.5 cursor-pointer rounded-lg border px-2 py-1.5 transition-all ${
-              selectedMain
-                ? 'border-indigo-300 bg-gradient-to-r from-indigo-500 to-blue-600 shadow-md shadow-indigo-500/20 dark:border-indigo-700'
-                : 'border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 hover:border-indigo-200 dark:border-indigo-900/60 dark:from-indigo-950/50 dark:to-blue-950/50 dark:hover:border-indigo-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${
-                selectedMain ? 'bg-white/25' : 'bg-gradient-to-br from-indigo-500 to-blue-600'
-              }`}>
-                <Home size={11} />
-              </div>
-              <span className={`min-w-0 flex-1 truncate text-sm font-medium ${selectedMain ? 'text-white' : 'text-gray-700 dark:text-gray-200'}`}>
-                主对话
-              </span>
-              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
-                selectedMain ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
-              }`}>
-                全局
-              </span>
+        {mainChat && !hideMainChat && (
+          <>
+            <div className="mb-1.5">
+              <MainChatEntry mainChat={mainChat} selected={selectedMain} onSelect={onSelectMain} />
             </div>
-          </div>
+            <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
+          </>
         )}
-        {mainChat && <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />}
         {isAddingGroup && (
           <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
             <Folder size={14} className="shrink-0 text-blue-500" />

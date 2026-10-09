@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ChatTree from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
+import MainChatEntry from '../components/MainChatEntry'
 import WorkSidebar from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
@@ -12,20 +14,49 @@ import { workProjectService } from '../services/workService'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
 
-/** 合并后的会话页：上方「对话」，下方「项目」，共用同一套聊天区（Code 会话叠加项目能力） */
+/** 合并后的会话页：左栏一级菜单「主对话 / 会话 / 项目」，右侧共用同一套聊天区（Code 会话叠加项目能力） */
 type CodeView = 'chat' | 'code'
 
 const DEFAULT_RIGHT_WIDTH = 560
 const MIN_RIGHT_WIDTH = 320
 const MAX_RIGHT_WIDTH = 1200
-/** 左栏「对话 / 项目」两段的高度比例（对话占比），拖动分隔条调整并持久化 */
-const SPLIT_STORAGE_KEY = 'hetu:code-sidebar-split'
-const MIN_SPLIT = 0.2
-const MAX_SPLIT = 0.8
+/** 一级菜单「会话 / 项目」展开状态（主对话始终为一级入口） */
+const SECTIONS_STORAGE_KEY = 'hetu:code-sidebar-sections'
 
-const loadSplit = (): number => {
-  const raw = Number(localStorage.getItem(SPLIT_STORAGE_KEY))
-  return Number.isFinite(raw) && raw >= MIN_SPLIT && raw <= MAX_SPLIT ? raw : 0.58
+interface SidebarSections {
+  chat: boolean
+  project: boolean
+}
+
+const loadSections = (): SidebarSections => {
+  try {
+    const raw = localStorage.getItem(SECTIONS_STORAGE_KEY)
+    if (!raw) return { chat: true, project: true }
+    const parsed = JSON.parse(raw) as Partial<SidebarSections>
+    return { chat: parsed.chat !== false, project: parsed.project !== false }
+  } catch {
+    return { chat: true, project: true }
+  }
+}
+
+/** 一级菜单标题行：折叠开关 + 名称 + 数量 */
+function SectionHeader({ title, count, expanded, onToggle }: {
+  title: string
+  count?: number
+  expanded: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="flex w-full shrink-0 items-center gap-1.5 border-b border-gray-100 px-2.5 py-2 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.04]"
+    >
+      <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${expanded ? '' : '-rotate-90'}`} />
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</span>
+      {count !== undefined && count > 0 && <span className="text-[10px] text-gray-400 dark:text-gray-500">{count}</span>}
+    </button>
+  )
 }
 
 export default function WorkPage() {
@@ -33,6 +64,14 @@ export default function WorkPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   // 右侧聊天区当前绑定的是对话话题还是项目会话
   const [view, setView] = useState<CodeView>(searchParams.get('project') ? 'code' : 'chat')
+
+  // 一级菜单展开状态：主对话始终可见，会话 / 项目可折叠
+  const [sections, setSections] = useState<SidebarSections>(loadSections)
+  const toggleSection = (key: keyof SidebarSections) => setSections((prev) => ({ ...prev, [key]: !prev[key] }))
+
+  useEffect(() => {
+    localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(sections))
+  }, [sections])
 
   // —— 对话：分组/话题选择（原对话页）——
   // undefined 表示跟随默认选择（主对话或首个分组/话题），null 表示显式清空
@@ -68,6 +107,7 @@ export default function WorkPage() {
     setGroupChoice(mainChat.group)
     setTopicChoice(mainChat.topic)
     setView('chat')
+    setSections((prev) => (prev.chat ? prev : { ...prev, chat: true }))
     setSearchParams(new URLSearchParams(), { replace: true })
   }, [mainChat, setSearchParams])
 
@@ -75,12 +115,14 @@ export default function WorkPage() {
     setGroupChoice(group)
     setTopicChoice(undefined)
     setView('chat')
+    setSections((prev) => (prev.chat ? prev : { ...prev, chat: true }))
     setSearchParams(new URLSearchParams(), { replace: true })
   }, [setSearchParams])
 
   const handleSelectTopic = useCallback((topic: IChatTopic) => {
     setTopicChoice(topic)
     setView('chat')
+    setSections((prev) => (prev.chat ? prev : { ...prev, chat: true }))
     setSearchParams(new URLSearchParams(), { replace: true })
   }, [setSearchParams])
 
@@ -99,10 +141,6 @@ export default function WorkPage() {
   const [rightCollapsed, setRightCollapsed] = useState(true)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
-  // 左栏两段比例（对话 : 项目），拖动分隔条调整
-  const [split, setSplit] = useState(loadSplit)
-  const splitDragging = useRef<{ startY: number; startSplit: number; height: number } | null>(null)
-  const sidebarRef = useRef<HTMLDivElement>(null)
 
   const { data: projects = [] } = useQuery({
     queryKey: ['workProjects'],
@@ -116,6 +154,7 @@ export default function WorkPage() {
     setPreferredProject(project)
     setSelectedSession((prev) => (prev?.projectId === project.id ? prev : null))
     setView('code')
+    setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
     const params = new URLSearchParams(searchParams)
     params.set('project', project.id)
     setSearchParams(params, { replace: true })
@@ -124,6 +163,7 @@ export default function WorkPage() {
   const handleSelectSession = (session: IWorkSession) => {
     setSelectedSession(session)
     setView('code')
+    setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
     queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
   }
 
@@ -136,6 +176,7 @@ export default function WorkPage() {
     queryClient.invalidateQueries({ queryKey: ['workProjects'] })
     setSelectedSession(session)
     setView('code')
+    setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
   }
 
   const requestOpenFile = (path: string) => setOpenFileRequest({ path, nonce: Date.now() })
@@ -143,41 +184,6 @@ export default function WorkPage() {
   const addSelectionContext = (path: string, text: string) =>
     setPendingContext({ kind: 'selection', path, text, nonce: Date.now() })
   const requestInsertText = (text: string) => setInsertRequest({ text, path: undefined, nonce: Date.now() })
-
-  // 拖拽调整左栏「对话 / 项目」两段高度比例
-  const onSplitDragStart = useCallback((e: React.MouseEvent) => {
-    const height = sidebarRef.current?.clientHeight ?? 0
-    if (height <= 0) return
-    e.preventDefault()
-    splitDragging.current = { startY: e.clientY, startSplit: split, height }
-    document.body.style.cursor = 'row-resize'
-    document.body.style.userSelect = 'none'
-  }, [split])
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const d = splitDragging.current
-      if (!d) return
-      const next = d.startSplit + (e.clientY - d.startY) / d.height
-      setSplit(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, next)))
-    }
-    const onUp = () => {
-      if (!splitDragging.current) return
-      splitDragging.current = null
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(SPLIT_STORAGE_KEY, String(split))
-  }, [split])
 
   // 拖拽调整右侧面板宽度
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -231,44 +237,69 @@ export default function WorkPage() {
       showSidebar={false}
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
-          {/* 左栏：上方对话、下方项目，右侧共用同一套聊天页面；中间分隔条可拖动调整比例 */}
-          <div ref={sidebarRef} className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex min-h-0 flex-col" style={{ height: `${split * 100}%` }}>
-              <ChatTree
-                embedded
+          {/* 左栏一级菜单：主对话（置顶） / 会话（会话组） / 项目（项目与会话） */}
+          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            {/* 一级：主对话 */}
+            <div className="shrink-0 p-2">
+              <MainChatEntry
+                variant="row"
                 mainChat={mainChat}
-                selectedMain={view === 'chat' && selectedMain}
-                selectedGroupId={view === 'chat' ? activeGroup?.id : undefined}
-                selectedTopicId={view === 'chat' ? activeTopic?.id : undefined}
-                onSelectGroup={handleSelectGroup}
-                onSelectTopic={handleSelectTopic}
-                onSelectMain={handleSelectMain}
-                onDeleteTopic={handleDeleteTopic}
+                selected={view === 'chat' && selectedMain}
+                onSelect={handleSelectMain}
               />
             </div>
-            <div
-              onMouseDown={onSplitDragStart}
-              title="拖拽调整「对话 / 项目」高度"
-              className="group relative h-px shrink-0 cursor-row-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
-            >
-              <span className="absolute -top-[3px] inset-x-0 h-[7px]" />
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <WorkSidebar
-                embedded
-                selectedProjectId={view === 'code' ? selectedProject?.id : undefined}
-                selectedSessionId={view === 'code' ? selectedSession?.id : undefined}
-                onSelectProject={handleSelectProject}
-                onSelectSession={handleSelectSession}
-                onProjectDeleted={(projectId) => {
-                  if (preferredProject?.id === projectId) setPreferredProject(null)
-                  if (selectedSession?.projectId === projectId) setSelectedSession(null)
-                }}
-                onSessionDeleted={(sessionId) => {
-                  if (selectedSession?.id === sessionId) setSelectedSession(null)
-                }}
-              />
-            </div>
+
+            {/* 一级：会话（展开为会话组树） */}
+            <SectionHeader
+              title="会话"
+              count={groups.length}
+              expanded={sections.chat}
+              onToggle={() => toggleSection('chat')}
+            />
+            {sections.chat && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <ChatTree
+                  embedded
+                  showTitle={false}
+                  hideMainChat
+                  mainChat={mainChat}
+                  selectedMain={view === 'chat' && selectedMain}
+                  selectedGroupId={view === 'chat' ? activeGroup?.id : undefined}
+                  selectedTopicId={view === 'chat' ? activeTopic?.id : undefined}
+                  onSelectGroup={handleSelectGroup}
+                  onSelectTopic={handleSelectTopic}
+                  onSelectMain={handleSelectMain}
+                  onDeleteTopic={handleDeleteTopic}
+                />
+              </div>
+            )}
+
+            {/* 一级：项目（展开为项目树，项目下挂会话） */}
+            <SectionHeader
+              title="项目"
+              count={projects.length}
+              expanded={sections.project}
+              onToggle={() => toggleSection('project')}
+            />
+            {sections.project && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <WorkSidebar
+                  embedded
+                  showTitle={false}
+                  selectedProjectId={view === 'code' ? selectedProject?.id : undefined}
+                  selectedSessionId={view === 'code' ? selectedSession?.id : undefined}
+                  onSelectProject={handleSelectProject}
+                  onSelectSession={handleSelectSession}
+                  onProjectDeleted={(projectId) => {
+                    if (preferredProject?.id === projectId) setPreferredProject(null)
+                    if (selectedSession?.projectId === projectId) setSelectedSession(null)
+                  }}
+                  onSessionDeleted={(sessionId) => {
+                    if (selectedSession?.id === sessionId) setSelectedSession(null)
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {view === 'chat' ? (

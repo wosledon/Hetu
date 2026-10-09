@@ -18,6 +18,8 @@ interface WorkSidebarProps {
   onSessionDeleted?: (sessionId: string) => void
   /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
   embedded?: boolean
+  /** 标题行由外层一级菜单渲染时隐藏，只保留搜索与新建入口 */
+  showTitle?: boolean
 }
 
 const joinDirPath = (base: string, name: string) => {
@@ -707,7 +709,7 @@ function ProjectNode({
   )
 }
 
-export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, embedded }: WorkSidebarProps) {
+export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, embedded, showTitle }: WorkSidebarProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [searchTerm, setSearchTerm] = useState('')
@@ -778,9 +780,11 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
 
   const header = (
     <div className="border-b border-gray-100 p-3 dark:border-gray-800">
-      <div className="mb-2 flex items-center justify-center">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
-      </div>
+      {showTitle !== false && (
+        <div className="mb-2 flex items-center justify-center">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         <div className="relative flex-1">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
