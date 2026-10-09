@@ -45,7 +45,7 @@ public class WorkGlobTool : IToolExecutor
 
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
+                return Task.FromResult(ToolExecutionResult.Error(WorkToolContext.NoProjectError));
             if (string.IsNullOrWhiteSpace(pattern))
                 return Task.FromResult(ToolExecutionResult.Error("pattern 不能为空"));
             if (WorkRemoteFs.Escapes(subPath))
@@ -179,7 +179,7 @@ public class WorkGrepTool : IToolExecutor
 
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
             if (string.IsNullOrWhiteSpace(pattern))
                 return ToolExecutionResult.Error("pattern 不能为空");
             if (WorkRemoteFs.Escapes(subPath))
@@ -353,7 +353,7 @@ public class WorkApplyPatchTool : IToolExecutor
 
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
             if (string.IsNullOrEmpty(search)) return ToolExecutionResult.Error("search 不能为空");
             if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
 
@@ -442,7 +442,7 @@ public class WorkDeleteFileTool : IToolExecutor
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
+                return Task.FromResult(ToolExecutionResult.Error(WorkToolContext.NoProjectError));
             if (WorkRemoteFs.Escapes(rel)) return Task.FromResult(ToolExecutionResult.Error($"路径超出项目范围: {rel}"));
 
             if (_context.Runner is { IsRemote: true } remote)
@@ -499,7 +499,7 @@ public class WorkMoveFileTool : IToolExecutor
             var to = args.TryGetProperty("to", out var t) ? t.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return Task.FromResult(ToolExecutionResult.Error("项目根目录未设置"));
+                return Task.FromResult(ToolExecutionResult.Error(WorkToolContext.NoProjectError));
             if (WorkRemoteFs.Escapes(from) || WorkRemoteFs.Escapes(to))
                 return Task.FromResult(ToolExecutionResult.Error("路径超出项目范围"));
 
@@ -571,7 +571,7 @@ public class WorkGitTool : IToolExecutor
             var gitArgs = args.TryGetProperty("args", out var a) ? a.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
             if (string.IsNullOrWhiteSpace(gitArgs)) return ToolExecutionResult.Error("args 不能为空");
 
             var tokens = gitArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries);

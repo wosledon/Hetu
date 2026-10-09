@@ -39,6 +39,21 @@ const AVAILABLE_TOOLS = [
   { name: 'list_scheduled_tasks', label: '定时任务列表' },
   { name: 'delete_scheduled_task', label: '删除定时任务' },
   { name: 'run_command', label: '执行命令' },
+  // 项目/文件类工具：工作流里的 Agent 节点同样可用（未挂载项目时调用会提示先打开项目）
+  { name: 'work_list_dir', label: '浏览目录' },
+  { name: 'work_read_file', label: '读取文件' },
+  { name: 'work_glob', label: '查找文件' },
+  { name: 'work_grep', label: '搜索代码' },
+  { name: 'work_write_file', label: '写入文件' },
+  { name: 'work_apply_patch', label: '局部修改' },
+  { name: 'work_delete_file', label: '删除文件' },
+  { name: 'work_move_file', label: '移动文件' },
+  { name: 'work_git', label: 'Git 操作' },
+  { name: 'work_run_command', label: '执行项目命令' },
+  { name: 'work_diagnostics', label: '构建诊断' },
+  { name: 'work_semantic_search', label: '语义检索代码' },
+  { name: 'work_task', label: '派子 Agent' },
+  { name: 'work_skill', label: '读取技能' },
 ]
 
 export default function WorkflowsPage() {

@@ -85,7 +85,7 @@ public class WorkTaskTool : IToolExecutor
 
         var root = _context.ProjectRoot;
         if (string.IsNullOrWhiteSpace(root))
-            return ToolExecutionResult.Error("项目根目录未设置");
+            return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
         // 远程项目根目录在远端，跳过本地存在性校验（工具执行时走远端 runner）
         if (!_context.IsRemote && !Directory.Exists(root))
             return ToolExecutionResult.Error("项目根目录不存在");
@@ -302,7 +302,7 @@ public class WorkDiagnosticsTool : IToolExecutor
     {
         var root = _context.ProjectRoot;
         if (string.IsNullOrWhiteSpace(root))
-            return ToolExecutionResult.Error("项目根目录未设置");
+            return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
 
         // 远端项目：先探测根目录是否可达，类型探测改读标记文件
         if (_context.Runner is { IsRemote: true } remote)
