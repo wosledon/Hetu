@@ -149,7 +149,8 @@ Hetu/
 | `/trash`                         | 回收站   | 软删除的笔记                        |
 | `/settings`                      | 设置     | 应用 / AI / MCP / 数据库 / 回收站   |
 | `/share/:code`                   | 分享笔记 | 免登录只读阅读页                    |
-| `/models`、`/work`、`/workflows` | 占位页   | 为后续功能预留入口                  |
+| `/models`、`/workflows`           | 占位页   | 为后续功能预留入口                  |
+| `/code`                          | Code     | 对话 + 编码会话（项目 / 文件 / 工作流） |
 | `/projects`                      | 项目     | 本地 / SSH 远程项目目录管理，支持分组与归类 |
 
 ## 🚀 快速开始
@@ -244,7 +245,7 @@ npm run build
 
 - Anthropic 暂未提供公开 Embedding API，把 Anthropic 用作 `embedding` 时会明确报错。
 - MCP 仅 **stdio** 通道可用，**SSE** 通道仅支持配置、尚未实现调用。
-- `/models`、`/work`、`/workflows` 当前为占位页，待后续功能落地。
+- `/models`、`/workflows` 当前为占位页，待后续功能落地。
 - 笔记全文搜索目前使用 `LIKE`，FTS5 / `tsvector` 升级在路线图中。
 
 ## 🤝 参与贡献

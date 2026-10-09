@@ -126,6 +126,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IShareLinkService, ShareLinkService>();
         services.AddScoped<IWebSearchService, MultiSourceWebSearchService>();
         services.AddScoped<SearchQueryRewriter>();
+        services.AddScoped<MentionContextBuilder>();
         services.AddScoped<IMemoryService, MemoryService>();
         services.AddScoped<IKanbanTaskService, KanbanTaskService>();
         services.AddScoped<IKanbanTaskExecutor, KanbanTaskExecutor>();

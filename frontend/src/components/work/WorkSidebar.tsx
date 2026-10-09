@@ -16,8 +16,8 @@ interface WorkSidebarProps {
   onSelectSession: (session: IWorkSession) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
-  /** 头部插槽：Work 页的对话/Code 模式胶囊 */
-  modeSwitch?: React.ReactNode
+  /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
+  embedded?: boolean
 }
 
 const joinDirPath = (base: string, name: string) => {
@@ -391,6 +391,19 @@ interface WorkSidebarProps {
   onSelectSession: (session: IWorkSession) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
+  /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
+  embedded?: boolean
+}
+
+interface WorkSidebarProps {
+  selectedProjectId?: string
+  selectedSessionId?: string
+  onSelectProject: (project: IWorkProject) => void
+  onSelectSession: (session: IWorkSession) => void
+  onProjectDeleted?: (projectId: string) => void
+  onSessionDeleted?: (sessionId: string) => void
+  /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
+  embedded?: boolean
 }
 
 const PROJECT_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -694,7 +707,7 @@ function ProjectNode({
   )
 }
 
-export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, modeSwitch }: WorkSidebarProps) {
+export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted, embedded }: WorkSidebarProps) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [searchTerm, setSearchTerm] = useState('')
@@ -760,15 +773,13 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
   })
 
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
-  const flat = secondaryMenuStyle === 'flat'
+  const flat = secondaryMenuStyle === 'flat' && !embedded
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
 
   const header = (
     <div className="border-b border-gray-100 p-3 dark:border-gray-800">
       <div className="mb-2 flex items-center justify-center">
-        {modeSwitch ?? (
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
-        )}
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">项目</h2>
       </div>
       <div className="flex items-center gap-1.5">
         <div className="relative flex-1">
@@ -886,9 +897,9 @@ export default function WorkSidebar({ selectedProjectId, selectedSessionId, onSe
     )
   }
 
-  // 树形：项目下挂会议话列表，单栏展示
+  // 树形：项目下挂会议话列表，单栏展示（合并侧栏固定用此形态）
   return (
-    <div className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-60 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
       {header}
       {createDialog}
       <div className="flex-1 overflow-y-auto p-2">

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Hetu.Api.Services;
 using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
@@ -34,6 +35,7 @@ public class WorkStreamController : ControllerBase
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
     private readonly ILlmUsageRecorder _llmUsageRecorder;
+    private readonly MentionContextBuilder _mentionContext;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -46,7 +48,8 @@ public class WorkStreamController : ControllerBase
         ILocalSkillService localSkillService,
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
         IWorkCommandRunnerFactory commandRunnerFactory,
-        ILlmUsageRecorder llmUsageRecorder)
+        ILlmUsageRecorder llmUsageRecorder,
+        MentionContextBuilder mentionContext)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -59,6 +62,7 @@ public class WorkStreamController : ControllerBase
         _codeIndexRefreshQueue = codeIndexRefreshQueue;
         _commandRunnerFactory = commandRunnerFactory;
         _llmUsageRecorder = llmUsageRecorder;
+        _mentionContext = mentionContext;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -150,6 +154,10 @@ public class WorkStreamController : ControllerBase
         var messagesResult = await _sessionService.GetMessagesAsync(sessionId, ct);
         var history = messagesResult.Data ?? [];
         var chatMessages = BuildChatHistory(history);
+
+        // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：与对话会话共用同一份注入规则
+        var mentionCount = await _mentionContext.BuildAsync(request.Mentions, chatMessages, ct);
+        if (mentionCount > 0) await writer.WriteJsonAsync(new { type = "mentions", count = mentionCount });
 
         var profile = BuiltinProfiles.Work;
         var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();

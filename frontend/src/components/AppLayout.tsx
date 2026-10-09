@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, BookText, Database, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, Briefcase, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox } from 'lucide-react'
+import { Bot, BookOpen, BookText, Code, Database, Network, Search, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
@@ -17,7 +17,7 @@ interface AppLayoutProps {
 
 const fixedNavItems = [
   { path: '/', label: '笔记', icon: BookOpen },
-  { path: '/work', label: 'Work', icon: Briefcase },
+  { path: '/code', label: 'Code', icon: Code },
   { path: '/projects', label: '项目', icon: FolderInput },
   { path: '/kanban', label: '任务看板', icon: SquareKanban },
   { path: '/search', label: '搜索', icon: Search },

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
 
-  ListChecks, Coins, User, Copy, Check, Braces, FolderOpen, SquareTerminal, Bot,
+  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch,
   Plus, Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
@@ -27,10 +27,14 @@ import AgentCheckpointRow from '../agent/AgentCheckpointRow'
 import AgentSubAgentRow from '../agent/AgentSubAgentRow'
 import AgentInputBox from '../agent/AgentInputBox'
 import AgentToolbarSelect from '../agent/AgentToolbarSelect'
+import AgentPicker from '../agent/AgentPicker'
 import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { useMentionItems } from '../../hooks/useMentionItems'
+import { useWorkflowRun } from '../../hooks/useWorkflowRun'
+import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
 import { useInteractionStore } from '../../stores/interactionStore'
@@ -204,10 +208,15 @@ export default function WorkSessionArea({
     staleTime: 5 * 60 * 1000,
   })
 
-  // 智能体（提示词预设）与推理强度
+  // 智能体：数据库智能体 + 本地智能体 + 项目 .github 目录自动加载的智能体（对话侧还有工作流）
   const { data: presetAgents = [] } = useQuery({
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const { data: localAgents = [] } = useQuery({
+    queryKey: ['localPromptPresets'],
+    queryFn: () => promptPresetService.getLocal(),
     staleTime: 5 * 60 * 1000,
   })
   // GitHub Copilot 兼容：项目 .github 目录下的自定义智能体自动加载
@@ -218,8 +227,9 @@ export default function WorkSessionArea({
     staleTime: 5 * 60 * 1000,
   })
   const agents: { id: string; name: string; content: string }[] = [
-    ...(copilotAssets?.agents ?? []).map((a: IWorkCopilotAgent) => ({ id: a.id, name: `${a.name} · GitHub`, content: a.content })),
+    ...(copilotAssets?.agents ?? []).map((a: IWorkCopilotAgent) => ({ id: a.id, name: a.name, content: a.content })),
     ...presetAgents,
+    ...localAgents.map((a: { id: string; name: string; content: string }) => ({ id: a.id, name: a.name, content: a.content })),
   ]
   const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
@@ -231,8 +241,16 @@ export default function WorkSessionArea({
 
   const [fileCandidates, setFileCandidates] = useState<string[]>([])
   const [mentionedFiles, setMentionedFiles] = useState<string[]>([])
+  const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
   const [selectedPrompt, setSelectedPrompt] = useState<{ name: string; filePath: string } | null>(null)
   const [selectedSkillName, setSelectedSkillName] = useState<string | null>(null)
+
+  // @ 引用笔记 / 笔记本 / 标签 / 知识库：与对话页共用同一份候选构建
+  const noteMentionItems = useMentionItems(inputMenu?.kind === 'mention' ? inputMenu.query : null)
+
+  // 工作流：与对话页共用同一套运行状态与交互（Code 会话不绑定话题，工作流独立运行）
+  const [workflowOutput, setWorkflowOutput] = useState('')
+  const workflowRun = useWorkflowRun(setWorkflowOutput)
 
 
 
@@ -273,18 +291,19 @@ export default function WorkSessionArea({
     if (!inputMenu) return []
     const q = inputMenu.query.trim().toLowerCase()
     if (inputMenu.kind === 'mention') {
-      const items: InputCommandItem[] = []
-      for (const a of copilotAssets?.agents ?? []) {
-        if (q && !a.name.toLowerCase().includes(q)) continue
-        items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: '.github 智能体', tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
-      }
+      // @ 引用：笔记 / 笔记本 / 标签 / 知识库（与对话页同源）+ 项目文件 + .github 智能体
+      const items: InputCommandItem[] = [...noteMentionItems]
       for (const path of fileCandidates) {
         if (q && !path.toLowerCase().includes(q)) continue
         items.push({ key: `file:${path}`, label: path, description: '项目文件', icon: <FileCode size={14} className="text-blue-500" />, tag: '文件', tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' })
       }
+      for (const a of copilotAssets?.agents ?? []) {
+        if (q && !a.name.toLowerCase().includes(q)) continue
+        items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: '.github 智能体', tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
+      }
       return items.slice(0, 20)
     }
-    // / 指令：.github 提示词模板 + 项目技能
+    // / 指令：.github 提示词模板 + 技能（项目启用技能 + .github 技能）
     const items: InputCommandItem[] = []
     for (const p of copilotAssets?.prompts ?? []) {
       if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) continue
@@ -294,8 +313,12 @@ export default function WorkSessionArea({
       if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
       items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
     }
+    for (const s of copilotAssets?.skills ?? []) {
+      if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
+      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '.github 技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
+    }
     return items.slice(0, 20)
-  }, [inputMenu, copilotAssets, fileCandidates, projectSkills, activeFilePath])
+  }, [inputMenu, noteMentionItems, copilotAssets, fileCandidates, projectSkills])
 
   // 上下文 chips：引用文件（受控于探索器）+ 注入的选中代码/粘贴路径
   const [injectedContexts, setInjectedContexts] = useState<{ id: string; kind: 'selection' | 'path'; label: string; text: string }[]>([])
@@ -443,9 +466,9 @@ export default function WorkSessionArea({
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/20">
             <Bot size={28} className="text-white" />
           </div>
-          <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">Code 模式</h3>
+          <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">Code 会话</h3>
           <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            选择左侧会话开始，或新建会话。编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
+            在左侧「项目」中选择会话开始，或新建会话。编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
           </p>
           {onTogglePanel && (
             <button
@@ -463,11 +486,22 @@ export default function WorkSessionArea({
 
   const handleSend = async () => {
     const content = input.trim()
+    // 选中工作流时：本轮交给工作流执行（与对话页同一套运行逻辑）
+    if (workflowRun.workflow) {
+      setInput('')
+      setInputHistory((prev) => [...prev.slice(-49), content])
+      setSelectedMentions([])
+      setMentionedFiles([])
+      setInjectedContexts([])
+      await workflowRun.run(buildContent(content), undefined, permissionMode)
+      return
+    }
     setInput('')
 
     setInputHistory((prev) => [...prev.slice(-49), content])
     setInjectedContexts([])
     setMentionedFiles([])
+    setSelectedMentions([])
     setSelectedPrompt(null)
     setSelectedSkillName(null)
     await runStream(buildContent(content), permissionMode)
@@ -487,30 +521,43 @@ export default function WorkSessionArea({
     return `${parts.join('\n')}\n\n${raw}`
   }
 
+  /** 移除输入框中正在输入的 @查询词 */
+  const stripMentionQuery = () => {
+    const at = input.lastIndexOf('@')
+    if (at < 0) return
+    let end = at + 1
+    while (end < input.length && !/\s/.test(input[end])) end++
+    setInput((input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, ''))
+  }
+
   /** 选中 @ 智能体：切换本会话 Agent（与工具栏下拉一致），并移除输入中的 @查询词 */
   const applyMenuAgent = (agentId: string) => {
     if (session) setAgentOverride({ sessionId: session.id, value: agentId })
-    const at = input.lastIndexOf('@')
-    if (at >= 0) {
-      let end = at + 1
-      while (end < input.length && !/\s/.test(input[end])) end++
-      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
-      setInput(next)
-    }
+    stripMentionQuery()
     setInputMenu(null)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   /** 选中 @ 文件：替换输入中的 @查询词 并加入引用 chips */
   const applyMentionFile = (path: string) => {
-    const at = input.lastIndexOf('@')
-    if (at >= 0) {
-      let end = at + 1
-      while (end < input.length && !/\s/.test(input[end])) end++
-      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
-      setInput(next)
-    }
+    stripMentionQuery()
     setMentionedFiles(prev => (prev.includes(path) ? prev : [...prev, path]))
+    setInputMenu(null)
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    })
+  }
+
+  /** 选中 @ 笔记/笔记本/标签/知识库：加入引用 chips，内容由后端按 id 注入 */
+  const applyMention = (item: InputCommandItem) => {
+    const [type, id] = item.key.split(':')
+    stripMentionQuery()
+    setSelectedMentions(prev =>
+      prev.some(m => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
     setInputMenu(null)
     requestAnimationFrame(() => {
       const el = textareaRef.current
@@ -633,6 +680,7 @@ export default function WorkSessionArea({
           agentPrompt: selectedAgentId ? agents.find((a) => a.id === selectedAgentId)?.content : undefined,
           promptFile: selectedPrompt?.filePath || undefined,
           skillName: selectedSkillName || undefined,
+          mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
           persistUserMessage,
         },
         controller.signal,
@@ -874,6 +922,40 @@ export default function WorkSessionArea({
               </div>
             )}
 
+          {/* 工作流：节点状态 / Human 审批 / Agent 工具交互（与对话页共用同一组件） */}
+          {workflowRun.workflow && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20">
+                <GitBranch size={14} className="shrink-0 text-blue-500" />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{workflowRun.workflow.name}</span>
+                <button
+                  onClick={() => workflowRun.setWorkflow(null)}
+                  aria-label="取消工作流"
+                  className="shrink-0 text-blue-400 hover:text-blue-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              {workflowRun.nodes.length > 0 && (
+                <InlineWorkflowPanel
+                  workflow={workflowRun.workflow}
+                  nodeStates={workflowRun.nodes}
+                  pendingApproval={workflowRun.pendingApproval}
+                  workflowToolCall={workflowRun.toolCall}
+                  onApprove={workflowRun.approve}
+                  onToolApprove={workflowRun.submitToolInteraction}
+                  isStreaming={isStreaming}
+                  error={workflowRun.error}
+                />
+              )}
+              {workflowOutput && (
+                <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+                  <ThemedMarkdown source={workflowOutput} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 计划模式：一键转执行 */}
           {permissionMode === 'plan' && !isStreaming && (            <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 dark:border-sky-800/50 dark:bg-sky-950/20">
               <ListChecks size={15} className="shrink-0 text-sky-500" />
@@ -931,6 +1013,7 @@ export default function WorkSessionArea({
                 onSelect: (item) => {
                   if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
                   else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
+                  else if (/^(note|notebook|tag|knowledge):/.test(item.key)) applyMention(item)
                   else applySlashItem(item)
                 },
                 emptyHint: inputMenu.query.trim() ? '没有匹配项' : '输入关键词搜索...',
@@ -959,6 +1042,12 @@ export default function WorkSessionArea({
               tone: 'blue' as const,
               onRemove: () => setMentionedFiles((prev) => prev.filter((p) => p !== path)),
             })),
+            ...selectedMentions.map((m) => ({
+              id: `${m.type}:${m.id}`,
+              label: m.label,
+              tone: 'blue' as const,
+              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
+            })),
             ...(selectedPrompt
               ? [{
                   id: `prompt:${selectedPrompt.filePath}`,
@@ -977,10 +1066,10 @@ export default function WorkSessionArea({
               : []),
           ]}
           aboveInput={session ? <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} /> : undefined}
-          placeholder="描述你要完成的开发任务，/ 用 .github 模板或技能，@ 引用智能体或文件（↑ 回溯历史输入）"
+          placeholder="描述你要完成的开发任务，/ 用模板或技能，@ 引用笔记、文件或智能体（↑ 回溯历史输入）"
           streaming={isStreaming}
           onStop={() => streamRef.current?.abort()}
-          canSubmit={!!session && (!!input.trim() || !!selectedPrompt || !!selectedSkillName)}
+          canSubmit={!!session && (!!input.trim() || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
           history={inputHistory}
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
@@ -990,11 +1079,27 @@ export default function WorkSessionArea({
                 value={permissionMode}
                 onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
               />
-              <AgentToolbarSelect
+              <AgentPicker
+                items={[
+                  ...(copilotAssets?.agents ?? []).map((a) => ({ id: a.id, name: a.name, description: a.description, icon: 'bot' as const, badge: '.github' })),
+                  ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
+                  ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
+                ]}
                 value={selectedAgentId}
-                onChange={(v) => session && setAgentOverride({ sessionId: session.id, value: v })}
-                title="智能体"
-                options={[{ value: '', label: '默认 Agent' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]}
+                onSelect={(item) => {
+                  workflowRun.setWorkflow(null)
+                  if (session) setAgentOverride({ sessionId: session.id, value: item.id })
+                }}
+                workflows={workflowRun.workflows.map((w) => ({ id: w.id, name: w.name, description: w.description, icon: 'git' as const }))}
+                workflowValue={workflowRun.workflow?.id}
+                onSelectWorkflow={(item) => {
+                  const workflow = workflowRun.workflows.find((w) => w.id === item.id)
+                  if (workflow) {
+                    if (session) setAgentOverride({ sessionId: session.id, value: '' })
+                    workflowRun.setWorkflow(workflow)
+                  }
+                }}
+                placeholder="默认 Agent"
               />
               <AgentToolbarSelect
                 value={selectedModelId}
@@ -1007,15 +1112,18 @@ export default function WorkSessionArea({
                 onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
                 reasoningMode={currentReasoningMode}
               />
-              <button
-                onClick={() => sendPreset(`运行构建诊断${project?.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
-                disabled={isStreaming}
-                title="运行构建诊断并汇报"
-                aria-label="运行构建诊断"
-                className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60"
-              >
-                <Stethoscope size={12} />诊断
-              </button>
+              {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}
+              {project && (
+                <button
+                  onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
+                  disabled={isStreaming}
+                  title="运行构建诊断并汇报"
+                  aria-label="运行构建诊断"
+                  className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60"
+                >
+                  <Stethoscope size={12} />诊断
+                </button>
+              )}
             </>
           }
         />
