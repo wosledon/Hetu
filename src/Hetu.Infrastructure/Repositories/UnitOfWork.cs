@@ -48,6 +48,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<WorkCodeChunk> WorkCodeChunks { get; }
     public IRepository<ProjectGroup> ProjectGroups { get; }
     public IRepository<ManagedProject> ManagedProjects { get; }
+    public IRepository<WikiDocument> WikiDocuments { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -92,6 +93,7 @@ public class UnitOfWork : IUnitOfWork
         WorkCodeChunks = new EfRepository<WorkCodeChunk>(context);
         ProjectGroups = new EfRepository<ProjectGroup>(context);
         ManagedProjects = new EfRepository<ManagedProject>(context);
+        WikiDocuments = new EfRepository<WikiDocument>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

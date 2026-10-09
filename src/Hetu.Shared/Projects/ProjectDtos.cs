@@ -100,6 +100,20 @@ public class ProjectGroupDto
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+/// <summary>项目 Wiki 文档（AI 依据项目目录资料生成）</summary>
+public class WikiDocumentDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    /// <summary>所属项目名称（列表展示用）</summary>
+    public string ProjectName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    /// <summary>Markdown 正文</summary>
+    public string Content { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 public class CreateProjectGroupRequest
 {
     public string Name { get; set; } = string.Empty;

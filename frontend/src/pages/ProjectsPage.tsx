@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Server, Settings2, Trash2, X,
+  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Server, Settings2, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ProjectsSidebar from '../components/projects/ProjectsSidebar'
@@ -405,6 +405,19 @@ export default function ProjectsPage() {
                             >
                               <Code size={12} />
                               在 Code 中打开
+                            </button>
+                            {/* 生成项目 Wiki：本地项目进入即触发生成，远程项目仅跳转（不支持） */}
+                            <button
+                              onClick={() => navigate(
+                                project.projectType === 'Local'
+                                  ? `/wiki?project=${project.id}&generate=1`
+                                  : `/wiki?project=${project.id}`,
+                              )}
+                              title={project.projectType === 'Local' ? '生成项目 Wiki 文档' : '远程（SSH）项目暂不支持生成 Wiki'}
+                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                            >
+                              <BookText size={12} />
+                              生成 Wiki
                             </button>
                             <div className="relative ml-auto flex items-center gap-0.5">
                               <button

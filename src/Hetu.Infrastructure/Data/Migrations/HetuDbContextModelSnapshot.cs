@@ -1595,6 +1595,39 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.ToTable("TaskItems");
                 });
 
+            modelBuilder.Entity("Hetu.Core.Entities.WikiDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("WikiDocuments");
+                });
+
             modelBuilder.Entity("Hetu.Core.Entities.WorkApprovalRule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2331,6 +2364,17 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Note");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.WikiDocument", b =>
+                {
+                    b.HasOne("Hetu.Core.Entities.ManagedProject", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.WorkCheckpointFile", b =>
