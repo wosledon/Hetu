@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Cpu, Search } from 'lucide-react'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
+import { segmentButtonClass } from '../../utils/styles'
 
 export interface ModelPickerModel {
   id: string
@@ -32,18 +33,17 @@ interface AgentModelPickerProps {
   placeholder?: string
 }
 
-/** 上下文档位：从 64k 起按常用档位向下取，且不超过模型支持的上限 */
-const CTX_STEPS = [64, 128, 200, 256, 400, 512, 1000, 2000]
-const MIN_CONTEXT_K = 64
+/** 上下文档位：只提供 512k / 256k / 128k 三档（均需不超过模型上限），外加「模型最大」一档 */
+const CTX_PRESETS_K = [512, 256, 128]
 
 const toK = (tokens: number) => Math.round(tokens / 1000)
-const formatK = (k: number) => `${k}k`
-const pillClass = (active: boolean) =>
-  `rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
-    active
-      ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
-      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50'
-  }`
+/** 1000k 及以上显示为 1m / 1.5m ... */
+const formatK = (k: number) => (k >= 1000 ? `${+(k / 1000).toFixed(k % 1000 === 0 ? 0 : 1)}m` : `${k}k`)
+/** 胶囊滑动 tab：外层分段容器 + 内层选中态填充 */
+const segmentGroupClass =
+  'flex flex-wrap items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]'
+const segmentItemClass = (active: boolean) =>
+  `rounded-full px-2 py-0.5 text-[11px] font-medium transition-all ${segmentButtonClass(active)}`
 
 /**
  * 模型 + 推理强度 + 上下文 三合一选择器（对话与 Code 共用）：
@@ -100,12 +100,11 @@ export default function AgentModelPicker({
   const flyoutModel = models.find((m) => m.id === hoveredId) ?? current ?? visibleModels[0]
   const flyoutSelected = flyoutModel?.id === effectiveModelId
 
-  /** 模型可用上下文档位：模型上限起向下到 64k 的常用档位 */
+  /** 模型可用上下文档位：模型上限 + 不超过上限的 512k/256k/128k */
   const ctxOptions = (model: ModelPickerModel): number[] => {
     const maxK = model.contextWindow && model.contextWindow > 0 ? toK(model.contextWindow) : 128
-    const steps = CTX_STEPS.filter((k) => k <= maxK && k >= MIN_CONTEXT_K)
-    const all = [...new Set([maxK, ...steps])].sort((a, b) => b - a)
-    return all.length > 0 ? all : [MIN_CONTEXT_K]
+    const presets = CTX_PRESETS_K.filter((k) => k < maxK)
+    return [maxK, ...presets]
   }
 
   const triggerLabel = [
@@ -202,7 +201,7 @@ export default function AgentModelPicker({
                 {flyoutModel.reasoningMode === 'native' && (
                   <div>
                     <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">推理强度</div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className={segmentGroupClass}>
                       {['', ...reasoningEffortOptions(flyoutModel)].map((l) => (
                         <button
                           key={l || 'default'}
@@ -210,7 +209,7 @@ export default function AgentModelPicker({
                             if (!flyoutSelected) onModelChange(flyoutModel.id)
                             onEffortChange(l)
                           }}
-                          className={pillClass(flyoutSelected ? effort === l : l === '')}
+                          className={segmentItemClass(flyoutSelected ? effort === l : l === '')}
                         >
                           {l ? `${reasoningEffortLabel(l)}强度` : '默认'}
                         </button>
@@ -225,7 +224,7 @@ export default function AgentModelPicker({
 
                 <div>
                   <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">上下文大小</div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className={segmentGroupClass}>
                     {ctxOptions(flyoutModel).map((k, idx) => {
                       const isMax = idx === 0
                       const active = flyoutSelected && !contextWindow ? isMax : flyoutSelected && toK(contextWindow ?? 0) === k
@@ -237,7 +236,7 @@ export default function AgentModelPicker({
                             onContextWindowChange(isMax ? undefined : k * 1000)
                           }}
                           title={isMax ? '模型支持的上限' : `限制为 ${formatK(k)}`}
-                          className={pillClass(active)}
+                          className={segmentItemClass(active)}
                         >
                           {formatK(k)}
                         </button>
@@ -245,7 +244,7 @@ export default function AgentModelPicker({
                     })}
                   </div>
                   <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">
-                    只能向下选择，最小 {MIN_CONTEXT_K}k；默认用模型支持的上限。
+                    只能向下选择；默认用模型支持的上限。
                   </p>
                 </div>
               </>
