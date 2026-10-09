@@ -12,6 +12,8 @@ public class AiModelDto
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    /// <summary>可选推理强度档位（逗号分隔，来自模型目录），决定对话/Code 选择器的候选项</summary>
+    public string? ReasoningEfforts { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }
@@ -32,6 +34,8 @@ public class CreateAiModelRequest
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    /// <summary>可选推理强度档位（逗号分隔）</summary>
+    public string? ReasoningEfforts { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }
@@ -49,6 +53,8 @@ public class UpdateAiModelRequest
     public int? Dimensions { get; set; }
     public string ReasoningMode { get; set; } = "none";
     public string ReasoningEffort { get; set; } = "medium";
+    /// <summary>可选推理强度档位（逗号分隔）</summary>
+    public string? ReasoningEfforts { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
     public bool SupportsVision { get; set; }
     public bool SupportsReasoning { get; set; }

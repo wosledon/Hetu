@@ -19,6 +19,11 @@ public class AiModel : BaseEntity
     /// </summary>
     public string ReasoningEffort { get; set; } = "medium";
     /// <summary>
+    /// 可选推理强度档位（逗号分隔，来自 models.dev 的 reasoning_options.effort）；
+    /// 为空时按内置三档（低/中/高）处理
+    /// </summary>
+    public string? ReasoningEfforts { get; set; }
+    /// <summary>
     /// 推理 Token 预算（Claude budget_tokens 风格；为空时按强度等级由 Provider 换算）
     /// </summary>
     public int? ReasoningBudgetTokens { get; set; }

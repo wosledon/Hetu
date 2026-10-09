@@ -5,7 +5,7 @@ import {
 
   ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Atom, Pencil, Trash2,
+  Globe, Database, Atom, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
@@ -33,6 +33,7 @@ import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
 import { useWorkflowRun } from '../../hooks/useWorkflowRun'
@@ -250,7 +251,6 @@ export default function WorkSessionArea({
   const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
-  const reasoningEffort = session && effortOverride?.sessionId === session.id ? effortOverride.value : ''
 
   // 消息级操作：复制 / 编辑 / 删除（与对话页同一套交互）
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
@@ -466,15 +466,16 @@ export default function WorkSessionArea({
       : parsePermissionMode(session?.permissionMode)
 
   // 当前生效模型的推理模式：决定推理强度控件是下拉（native）、开关（tag）还是不显示
-  const currentReasoningMode =
-    aiModels.find((m) => m.id === selectedModelId)?.reasoningMode ??
-    aiModels.find((m) => m.purpose === 'chat' && m.isDefault)?.reasoningMode ??
-    'none'
-  // 当前生效模型：视觉能力决定是否显示图片附件入口
+  // 当前生效模型：视觉能力决定图片附件入口，档位列表决定推理强度候选项
   const currentModel =
     aiModels.find((m) => m.id === selectedModelId) ??
     aiModels.find((m) => m.purpose === 'chat' && m.isDefault) ??
     aiModels.find((m) => m.purpose === 'chat')
+  const currentReasoningMode = currentModel?.reasoningMode ?? 'none'
+  // 未手动选择时按模型配置的强度（models.dev 导入的档位优先）
+  const reasoningEffort = session && effortOverride?.sessionId === session.id
+    ? effortOverride.value
+    : reasoningEffortDefault(currentModel)
 
   const setPermissionMode = (value: WorkPermissionMode) => {
     if (!session) return
@@ -1229,25 +1230,36 @@ export default function WorkSessionArea({
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
             <>
-              {/* 图片附件：仅视觉模型可用（与对话页同一条件） */}
-              {currentModel?.supportsVision && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  title="附加图片"
-                  aria-label="附加图片"
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              {/* 图片附件：非视觉模型保留入口但置灰划掉，并在前面提示不支持（与对话页一致） */}
+              {!currentModel?.supportsVision && (
+                <span
+                  className="flex shrink-0 items-center gap-1 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"
+                  title="当前模型不支持图片输入，如需附图请切换到支持视觉的模型"
                 >
-                  <Plus size={15} />
-                </button>
+                  <AlertTriangle size={12} />
+                  不支持视觉
+                </span>
               )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!currentModel?.supportsVision}
+                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
+                  currentModel?.supportsVision
+                    ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/60'
+                    : 'cursor-not-allowed text-gray-300 line-through dark:text-gray-600'
+                }`}
+                title={currentModel?.supportsVision ? '附加图片' : '当前模型不支持图片输入'}
+              >
+                <Plus size={13} />
+                图片
+              </button>
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
               {/* 权限模式 / Agent / 模型 / 推理强度：与对话页共用同一套选择器 */}
               <AgentPermissionSelect
                 value={permissionMode}
                 onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
-              />
-              <AgentPicker
+              />              <AgentPicker
                 items={[
                   ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
                   ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
@@ -1284,6 +1296,7 @@ export default function WorkSessionArea({
                 value={reasoningEffort}
                 onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
                 reasoningMode={currentReasoningMode}
+                model={currentModel}
                 enabled={deepThinking}
                 onEnabledChange={setDeepThinking}
               />

@@ -96,6 +96,8 @@ export interface IAiModel {
   dimensions?: number;
   reasoningMode: 'none' | 'tag' | 'native';
   reasoningEffort: string;
+  /** 可选推理强度档位（逗号分隔，来自模型目录 models.dev） */
+  reasoningEfforts?: string;
   reasoningBudgetTokens?: number;
   supportsVision: boolean;
   supportsReasoning: boolean;
