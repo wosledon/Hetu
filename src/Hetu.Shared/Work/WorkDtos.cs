@@ -231,6 +231,8 @@ public class WorkCopilotAssetItemDto
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
+    /// <summary>文件正文（提示词模板 / SKILL.md），对话侧可直接作为系统提示使用</summary>
+    public string Content { get; set; } = string.Empty;
 }
 
 /// <summary>文件系统条目</summary>

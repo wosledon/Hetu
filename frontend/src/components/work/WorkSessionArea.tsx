@@ -1235,12 +1235,17 @@ export default function WorkSessionArea({
               />
               <AgentPicker
                 items={[
-                  ...(copilotAssets?.agents ?? []).map((a) => ({ id: a.id, name: a.name, description: a.description, icon: 'bot' as const, badge: '.github' })),
                   ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
                   ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
                 ]}
                 value={selectedAgentId}
                 onSelect={(item) => {
+                  workflowRun.setWorkflow(null)
+                  if (session) setAgentOverride({ sessionId: session.id, value: item.id })
+                }}
+                projectItems={(copilotAssets?.agents ?? []).map((a) => ({ id: a.id, name: a.name, description: a.description, icon: 'bot' as const }))}
+                projectValue={selectedAgentId}
+                onSelectProject={(item) => {
                   workflowRun.setWorkflow(null)
                   if (session) setAgentOverride({ sessionId: session.id, value: item.id })
                 }}

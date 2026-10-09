@@ -228,6 +228,8 @@ export interface IWorkCopilotAssetItem {
   name: string;
   description: string;
   filePath: string;
+  /** 文件正文（提示词模板 / SKILL.md），对话侧可作为系统提示下发 */
+  content?: string;
 }
 
 export interface IWorkCopilotAssets {

@@ -111,13 +111,15 @@ public class WorkProjectsController : ControllerBase
             {
                 Name = p.Name,
                 Description = p.Description,
-                FilePath = p.FilePath
+                FilePath = p.FilePath,
+                Content = ReadAssetBody(p.FilePath)
             }).ToList(),
             Skills = assets.Skills.Select(s => new WorkCopilotAssetItemDto
             {
                 Name = s.Name,
                 Description = s.Description,
-                FilePath = s.FilePath
+                FilePath = s.FilePath,
+                Content = ReadAssetBody(s.FilePath)
             }).ToList(),
             Instructions = assets.Instructions.Select(i => new WorkCopilotAssetItemDto
             {
@@ -127,6 +129,25 @@ public class WorkProjectsController : ControllerBase
             }).ToList(),
         };
         return ApiResponse<WorkCopilotAssetsDto>.Ok(dto);
+    }
+
+    /// <summary>
+    /// 读取 .github 提示词 / 技能正文（对话侧要把它当系统提示用，编码侧由后端自行读取）。
+    /// 只读取小文本文件，异常时返回空串，不影响资产列表本身。
+    /// </summary>
+    private static string ReadAssetBody(string filePath)
+    {
+        const int maxChars = 12_000;
+        try
+        {
+            if (!System.IO.File.Exists(filePath) || !WorkProjectRules.IsProbablyText(filePath)) return string.Empty;
+            var text = System.IO.File.ReadAllText(filePath);
+            return text.Length > maxChars ? text[..maxChars] : text;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
     }
 
     [HttpPost("{id:guid}/approval-rules")]

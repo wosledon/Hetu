@@ -391,9 +391,15 @@ export default function WorkPage() {
                 topic={activeTopic}
                 group={activeGroup ?? undefined}
                 onTopicUpdated={setTopicChoice}
+                projectId={selectedProject?.id}
               />
             ) : (
-              <ChatMessageArea topic={undefined} group={activeGroup ?? undefined} onTopicUpdated={setTopicChoice} />
+              <ChatMessageArea
+                topic={undefined}
+                group={activeGroup ?? undefined}
+                onTopicUpdated={setTopicChoice}
+                projectId={selectedProject?.id}
+              />
             )
           ) : (
             <>
