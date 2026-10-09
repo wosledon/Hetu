@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw'
 import { Copy, Check, ArrowUpFromLine } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { mermaidConfig, fitMermaidLabels } from '../utils/mermaidTheme'
+import MermaidDiagram from './MermaidDiagram'
 
 /** 从 React 节点中提取纯文本 */
 function extractText(node: React.ReactNode): string {
@@ -28,7 +29,7 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
   if (className.includes('mermaid')) {
     // 图表已由 React 渲染为 SVG；未渲染成功时保留代码块原文
     return diagramSvg
-      ? <div className="mermaid-container" dangerouslySetInnerHTML={{ __html: diagramSvg }} />
+      ? <div className="mermaid-container"><MermaidDiagram svg={diagramSvg} /></div>
       : <pre className="mermaid">{text}</pre>
   }
 

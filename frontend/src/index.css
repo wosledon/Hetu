@@ -544,14 +544,12 @@ body {
 
 /* ===== Mermaid container ===== */
 .wmde-markdown .mermaid-container {
-  display: flex;
-  justify-content: center;
   margin: 1em 0;
-  overflow-x: auto;
 }
 
-.wmde-markdown .mermaid-container svg {
-  max-width: 100%;
+/* 缩放由 .mermaid-viewer 的 transform 控制，此处不能再压缩 SVG（特异性需高于上面那条） */
+.wmde-markdown .mermaid-container .mermaid-viewer svg {
+  max-width: none;
 }
 
 /* ===== Milkdown editor ===== */
@@ -1379,11 +1377,82 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   background: rgba(249, 250, 251, 0.6);
-  padding: 0.75rem;
-  overflow-x: auto;
+  padding: 0;
+  overflow: hidden;
 }
 
 .dark .wmde-markdown .mermaid-container {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* ─── 图表交互（拖拽平移 / 缩放 / 全屏）─── */
+.mermaid-viewer {
+  position: relative;
+  max-height: 70vh;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mermaid-viewer.is-panning {
+  cursor: grabbing;
+}
+
+.mermaid-canvas {
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 缩放由外层 transform 控制，SVG 不再被 max-width 压缩 */
+.wmde-markdown .mermaid-container .mermaid-viewer svg {
+  max-width: none;
+  height: auto;
+}
+
+.mermaid-toolbar {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mermaid-viewer:hover .mermaid-toolbar,
+.mermaid-viewer:focus-within .mermaid-toolbar,
+.mermaid-viewer:fullscreen .mermaid-toolbar {
+  opacity: 1;
+}
+
+.mermaid-zoom-label {
+  min-width: 2.75rem;
+  padding: 0 0.25rem;
+  text-align: center;
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  line-height: 1.75rem;
+}
+
+.dark .mermaid-zoom-label {
+  color: #d1d5db;
+  background: rgba(31, 41, 55, 0.85);
+}
+
+.mermaid-viewer:fullscreen {
+  max-height: none;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  cursor: grab;
+}
+
+.dark .mermaid-viewer:fullscreen {
+  background: #0c0f1a;
 }
