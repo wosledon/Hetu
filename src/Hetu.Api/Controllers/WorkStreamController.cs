@@ -36,6 +36,7 @@ public class WorkStreamController : ControllerBase
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
     private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly MentionContextBuilder _mentionContext;
+    private readonly ChatContextInjector _contextInjector;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -49,7 +50,8 @@ public class WorkStreamController : ControllerBase
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
         IWorkCommandRunnerFactory commandRunnerFactory,
         ILlmUsageRecorder llmUsageRecorder,
-        MentionContextBuilder mentionContext)
+        MentionContextBuilder mentionContext,
+        ChatContextInjector contextInjector)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -63,6 +65,7 @@ public class WorkStreamController : ControllerBase
         _commandRunnerFactory = commandRunnerFactory;
         _llmUsageRecorder = llmUsageRecorder;
         _mentionContext = mentionContext;
+        _contextInjector = contextInjector;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -159,6 +162,13 @@ public class WorkStreamController : ControllerBase
         var mentionCount = await _mentionContext.BuildAsync(request.Mentions, chatMessages, ct);
         if (mentionCount > 0) await writer.WriteJsonAsync(new { type = "mentions", count = mentionCount });
 
+        // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
+        ChatContextInjector.AttachImages(request.Images, provider, chatMessages);
+
+        // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件
+        await _contextInjector.InjectRagAsync(
+            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, provider, ct);
+
         var profile = BuiltinProfiles.Work;
         var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
         var systemPromptParts = new List<string>
@@ -240,15 +250,21 @@ public class WorkStreamController : ControllerBase
             SystemPrompt = string.Join("\n\n", systemPromptParts),
         };
 
-        // 推理强度：仅原生推理模型（reasoning_mode=native）生效，其余模型忽略
-        if (!string.IsNullOrWhiteSpace(request.ReasoningEffort))
+        // 推理强度 / 深度思考：native 模型用强度，tag 模型用系统提示（与对话会话同一套规则）
+        if (!string.IsNullOrWhiteSpace(request.ReasoningEffort) || request.DeepThinking)
         {
             var effortModelId = Guid.TryParse(request.ModelId, out var requestedEffortModel) ? requestedEffortModel : session.ModelId ?? Guid.Empty;
             var effortModel = effortModelId != Guid.Empty
                 ? await _unitOfWork.AiModels.GetByIdAsync(effortModelId, ct)
                 : await _unitOfWork.AiModels.GetDefaultByPurposeAsync("chat", ct);
-            if (effortModel != null && string.Equals(effortModel.ReasoningMode, "native", StringComparison.OrdinalIgnoreCase))
+            var reasoningMode = effortModel?.ReasoningMode;
+            if (effortModel != null && string.Equals(reasoningMode, "native", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(request.ReasoningEffort))
+            {
                 options.ReasoningEffort = request.ReasoningEffort;
+                if (effortModel.ReasoningBudgetTokens is > 0) options.ReasoningBudgetTokens = effortModel.ReasoningBudgetTokens;
+            }
+            ChatContextInjector.ApplyDeepThinking(request.DeepThinking, reasoningMode, options);
         }
 
         var overrides = new Dictionary<string, ToolApprovalMode>();

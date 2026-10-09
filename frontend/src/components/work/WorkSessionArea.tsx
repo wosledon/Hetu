@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
 
-  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch,
-  Plus, Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
+  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
+  Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
+  Globe, Database, Atom,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService } from '../../services/aiProviderService'
@@ -32,6 +33,7 @@ import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
 import { useWorkflowRun } from '../../hooks/useWorkflowRun'
 import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
@@ -177,6 +179,14 @@ export default function WorkSessionArea({
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [openFeedback, setOpenFeedback] = useState('')
+  // 会话级开关（与对话页共用同一套语义）：网络搜索 / 知识库 / 记忆 / 深度思考 + 图片附件
+  const cachedSettings = useMemo(() => loadTopicSettings(session?.id), [session?.id])
+  const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
+  const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
+  const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
+  const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
@@ -196,6 +206,12 @@ export default function WorkSessionArea({
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
     enabled: !!session,
   })
+
+  // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
+  useEffect(() => {
+    if (!session) return
+    saveTopicSettings(session.id, { webSearch, knowledgeBase, memory, deepThinking })
+  }, [session, webSearch, knowledgeBase, memory, deepThinking])
 
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
@@ -254,17 +270,23 @@ export default function WorkSessionArea({
 
 
 
-  // 项目启用的技能（skillIds 可能是 Guid 或 local:{dir}:{name}）
+  // 技能：数据库技能 + 本地技能目录（与对话页同源）+ 项目启用的技能（标记「项目」）
   const { data: dbSkills = [] } = useQuery({ queryKey: ['skills'], queryFn: () => skillService.getAll() })
   const { data: localSkills = [] } = useQuery({ queryKey: ['localSkills'], queryFn: () => skillService.getLocalSkills() })
-  const projectSkills = useMemo(() => {
-    const ids = project?.skillIds ?? []
-    const all = [
-      ...(dbSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>).filter(s => s.isEnabled).map(s => ({ id: s.id, name: s.name, description: s.description ?? '' })),
-      ...(localSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>).filter(s => s.isEnabled).map(s => ({ id: s.id, name: s.name, description: s.description ?? '' })),
-    ]
-    return all.filter(s => ids.includes(s.id))
-  }, [project?.skillIds, dbSkills, localSkills])
+  const enabledSkills = useMemo(() => {
+    const seen = new Set<string>()
+    const all: { id: string; name: string; description: string }[] = []
+    for (const s of [
+      ...(dbSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>),
+      ...(localSkills as Array<{ id: string; name: string; description?: string; isEnabled: boolean }>),
+    ]) {
+      if (!s.isEnabled || seen.has(s.name)) continue
+      seen.add(s.name)
+      all.push({ id: s.id, name: s.name, description: s.description ?? '' })
+    }
+    return all
+  }, [dbSkills, localSkills])
+  const projectSkillIds = useMemo(() => new Set(project?.skillIds ?? []), [project?.skillIds])
 
   // 按 @ 查询词检索项目文件
   useEffect(() => {
@@ -303,22 +325,23 @@ export default function WorkSessionArea({
       }
       return items.slice(0, 20)
     }
-    // / 指令：.github 提示词模板 + 技能（项目启用技能 + .github 技能）
+    // / 指令：技能（数据库 / 本地 / 项目启用 / .github）+ .github 提示词模板
     const items: InputCommandItem[] = []
     for (const p of copilotAssets?.prompts ?? []) {
       if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) continue
       items.push({ key: `prompt:${p.name}:${p.filePath}`, label: `/${p.name}`, description: p.description, icon: <Zap size={14} className="text-amber-500" />, tag: '.github 模板', tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' })
     }
-    for (const s of projectSkills) {
+    for (const s of enabledSkills) {
       if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
-      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
+      const inProject = projectSkillIds.has(s.id)
+      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: inProject ? '项目技能' : '技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
     }
     for (const s of copilotAssets?.skills ?? []) {
       if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
       items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '.github 技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
     }
     return items.slice(0, 20)
-  }, [inputMenu, noteMentionItems, copilotAssets, fileCandidates, projectSkills])
+  }, [inputMenu, noteMentionItems, copilotAssets, fileCandidates, enabledSkills, projectSkillIds])
 
   // 上下文 chips：引用文件（受控于探索器）+ 注入的选中代码/粘贴路径
   const [injectedContexts, setInjectedContexts] = useState<{ id: string; kind: 'selection' | 'path'; label: string; text: string }[]>([])
@@ -392,6 +415,11 @@ export default function WorkSessionArea({
     aiModels.find((m) => m.id === selectedModelId)?.reasoningMode ??
     aiModels.find((m) => m.purpose === 'chat' && m.isDefault)?.reasoningMode ??
     'none'
+  // 当前生效模型：视觉能力决定是否显示图片附件入口
+  const currentModel =
+    aiModels.find((m) => m.id === selectedModelId) ??
+    aiModels.find((m) => m.purpose === 'chat' && m.isDefault) ??
+    aiModels.find((m) => m.purpose === 'chat')
 
   const setPermissionMode = (value: WorkPermissionMode) => {
     if (!session) return
@@ -468,17 +496,29 @@ export default function WorkSessionArea({
           </div>
           <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">Code 会话</h3>
           <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            在左侧「项目」中选择会话开始，或新建会话。编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
+            在左侧「项目」中选择项目或会话开始；编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
           </p>
-          {onTogglePanel && (
-            <button
-              onClick={onTogglePanel}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-            >
-              <PanelRightOpen size={13} />
-              {panelOpen ? '收起工作面板' : '打开工作面板'}
-            </button>
-          )}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {project && (
+              <button
+                onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+                disabled={createSession.isPending}
+                className="inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
+              >
+                {createSession.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                在 {project.name} 新建会话
+              </button>
+            )}
+            {onTogglePanel && (
+              <button
+                onClick={onTogglePanel}
+                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+              >
+                <PanelRightOpen size={13} />
+                {panelOpen ? '收起工作面板' : '打开工作面板'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -504,8 +544,33 @@ export default function WorkSessionArea({
     setSelectedMentions([])
     setSelectedPrompt(null)
     setSelectedSkillName(null)
-    await runStream(buildContent(content), permissionMode)
+
+    // 图片附件（视觉模型）：与对话页同一份 base64 组装
+    const images: { data: string; mimeType: string; fileName?: string }[] = []
+    for (const file of attachedFiles) {
+      if (file.type.startsWith('image/')) {
+        images.push({ data: await fileToBase64(file), mimeType: file.type, fileName: file.name })
+      }
+    }
+    setAttachedFiles([])
+
+    await runStream(buildContent(content), permissionMode, true, images)
   }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    setAttachedFiles((prev) => [...prev, ...Array.from(files).filter((f) => f.type.startsWith('image/'))])
+    e.target.value = ''
+  }
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
 
   /** 把上下文 chips 组装进提示词 */
   const buildContent = (raw: string): string => {
@@ -609,7 +674,12 @@ export default function WorkSessionArea({
     await runStream(PLAN_EXECUTE_PROMPT, 'auto')
   }
 
-  const runStream = async (content: string, mode: WorkPermissionMode, persistUserMessage = true) => {
+  const runStream = async (
+    content: string,
+    mode: WorkPermissionMode,
+    persistUserMessage = true,
+    images: { data: string; mimeType: string; fileName?: string }[] = [],
+  ) => {
     if (!session) return
     setIsStreaming(true)
     if (persistUserMessage) setPendingUser(content)
@@ -681,6 +751,12 @@ export default function WorkSessionArea({
           promptFile: selectedPrompt?.filePath || undefined,
           skillName: selectedSkillName || undefined,
           mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
+          // 与对话会话共用同一套开关语义：网络搜索 / 知识库 / 记忆 / 深度思考
+          webSearch,
+          knowledgeBase,
+          memory,
+          deepThinking,
+          images: images.length > 0 ? images : undefined,
           persistUserMessage,
         },
         controller.signal,
@@ -1020,6 +1096,13 @@ export default function WorkSessionArea({
               }
             : null}
           chips={[
+            ...attachedFiles.map((file, i) => ({
+              id: `attach:${i}`,
+              label: file.name,
+              tone: 'amber' as const,
+              title: '图片附件',
+              onRemove: () => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i)),
+            })),
             ...(activeFilePath
               ? [{
                   id: `active:${activeFilePath}`,
@@ -1074,6 +1157,19 @@ export default function WorkSessionArea({
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
             <>
+              {/* 图片附件：仅视觉模型可用（与对话页同一条件） */}
+              {currentModel?.supportsVision && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title="附加图片"
+                  aria-label="附加图片"
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                >
+                  <Plus size={15} />
+                </button>
+              )}
+              <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
+
               {/* 权限模式 / Agent / 模型 / 推理强度：与对话页共用同一套选择器 */}
               <AgentPermissionSelect
                 value={permissionMode}
@@ -1111,7 +1207,50 @@ export default function WorkSessionArea({
                 value={reasoningEffort}
                 onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
                 reasoningMode={currentReasoningMode}
+                enabled={deepThinking}
+                onEnabledChange={setDeepThinking}
               />
+
+              <div className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+
+              {/* 与对话页一致的开关：网络搜索 / 知识库 / 记忆 */}
+              <button
+                onClick={() => setWebSearch(!webSearch)}
+                title="网络搜索"
+                aria-label="网络搜索"
+                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
+                  webSearch
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <Globe size={13} />网络搜索
+              </button>
+              <button
+                onClick={() => setKnowledgeBase(!knowledgeBase)}
+                title="知识库"
+                aria-label="知识库"
+                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
+                  knowledgeBase
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <Database size={13} />知识库
+              </button>
+              <button
+                onClick={() => setMemory(!memory)}
+                title="记忆"
+                aria-label="记忆"
+                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
+                  memory
+                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <Atom size={13} />记忆
+              </button>
+
               {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}
               {project && (
                 <button
