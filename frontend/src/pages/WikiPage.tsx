@@ -202,6 +202,17 @@ export default function WikiPage() {
     setSearchParams(params, { replace: true })
   }
 
+  /** 选中一套 Wiki；未按项目过滤时联动选中其所属项目，让页头与「生成 Wiki」指向正确项目 */
+  const selectSet = (setId: string, projectId: string) => {
+    setSelectedSetId(setId)
+    setSelectedDocId(null)
+    if (!projectParam && projectId) {
+      const params = new URLSearchParams(searchParams)
+      params.set('project', projectId)
+      setSearchParams(params, { replace: true })
+    }
+  }
+
   const chatModels = useMemo(
     () => models.filter((m: IAiModel) => m.purpose !== 'embedding'),
     [models],
@@ -289,7 +300,7 @@ export default function WikiPage() {
                 return (
                   <div key={set.setId}>
                     <button
-                      onClick={() => { setSelectedSetId(set.setId); setSelectedDocId(null) }}
+                      onClick={() => selectSet(set.setId, set.projectId)}
                       className={`flex w-full items-center gap-2 px-4 py-2 text-left transition-colors ${
                         expanded
                           ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
@@ -489,51 +500,53 @@ export default function WikiPage() {
             </div>
           )}
 
-          {/* 内容区 */}
-          {!projectParam ? (
+          {/* 内容区：有选中文档就渲染，与是否按项目过滤无关 */}
+          {selectedDoc ? (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+              <article className="mx-auto max-w-4xl px-8 py-6">
+                <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
+                    <button
+                      onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
+                      disabled={regeneratingId === selectedDoc.id}
+                      title="用最新项目资料重生成此页"
+                      className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800"
+                    >
+                      {regeneratingId === selectedDoc.id
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <RefreshCw size={13} />}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    {selectedDoc.projectName} · {formatTime(selectedDoc.createdAt)}
+                    {selectedDoc.brief && ` · ${selectedDoc.brief}`}
+                  </p>
+                </header>
+                <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />
+              </article>
+            </div>
+          ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
                 <BookText size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">从左侧选择一个项目</p>
-                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-                  选择项目后可阅读已生成的 Wiki，或点击「生成 Wiki」由 AI 规划并撰写整套多页文档（总览 + 主题页 + 图表）。
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {visibleSets.length > 0 ? '选择一套 Wiki 开始阅读' : '还没有 Wiki 文档'}
                 </p>
-                <button
-                  onClick={() => navigate('/projects')}
-                  className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  去项目页看看
-                </button>
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
+                  {visibleSets.length > 0
+                    ? '在中间栏选择一套 Wiki，再点选其中的页面阅读。'
+                    : '在「项目」页选择项目并生成 Wiki，AI 会读取项目目录资料，规划并撰写整套多页文档（总览 + 主题页 + 图表）。'}
+                </p>
+                {visibleSets.length === 0 && (
+                  <button
+                    onClick={() => navigate('/projects')}
+                    className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    去项目页看看
+                  </button>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-gray-900">
-              {selectedDoc ? (
-                <article className="mx-auto max-w-4xl px-8 py-6">
-                  <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
-                      <button
-                        onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
-                        disabled={regeneratingId === selectedDoc.id}
-                        title="用最新项目资料重生成此页"
-                        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800"
-                      >
-                        {regeneratingId === selectedDoc.id
-                          ? <Loader2 size={13} className="animate-spin" />
-                          : <RefreshCw size={13} />}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-[11px] text-gray-400">
-                      {selectedDoc.projectName} · {formatTime(selectedDoc.createdAt)}
-                      {selectedDoc.brief && ` · ${selectedDoc.brief}`}
-                    </p>
-                  </header>
-                  <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />
-                </article>
-              ) : (
-                <p className="py-16 text-center text-xs text-gray-400">选择一套 Wiki 开始阅读</p>
-              )}
             </div>
           )}
         </div>
