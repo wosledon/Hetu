@@ -113,16 +113,21 @@ export default function AgentModelPicker({
   const flyoutModel = models.find((m) => m.id === hoveredId) ?? current ?? visibleModels[0]
   const flyoutSelected = flyoutModel?.id === effectiveModelId
 
-  // 右侧推理/上下文面板纵向跟随当前（悬停）模型行，并保证整块面板留在容器内
+  // 右侧推理/上下文面板纵向对齐当前（悬停）模型行：以行中心对齐面板中心，并夹在容器内
   const flyoutRef = useRef<HTMLDivElement>(null)
+  const modelCardRef = useRef<HTMLDivElement>(null)
   const [flyoutTop, setFlyoutTop] = useState(0)
   const trackFlyout = (row: HTMLElement) => {
     const wrap = flyoutRef.current
-    const inner = wrap?.firstElementChild as HTMLElement | null
-    if (!wrap || !inner) return
-    const offset = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top
-    const max = Math.max(0, wrap.clientHeight - inner.offsetHeight)
-    setFlyoutTop(Math.max(0, Math.min(offset, max)))
+    const card = modelCardRef.current
+    if (!wrap || !card) return
+    const inner = wrap.firstElementChild as HTMLElement | null
+    if (!inner) return
+    const rowRect = row.getBoundingClientRect()
+    const wrapRect = wrap.getBoundingClientRect()
+    const centered = rowRect.top - wrapRect.top + rowRect.height / 2 - inner.offsetHeight / 2
+    const max = Math.max(0, card.offsetHeight - inner.offsetHeight)
+    setFlyoutTop(Math.max(0, Math.min(centered, max)))
   }
 
   /** 模型可用上下文档位：模型上限 + 不超过上限的 512k/256k/128k */
@@ -219,82 +224,86 @@ export default function AgentModelPicker({
       </div>
 
       {menu === 'model' && (
-        <div className="absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] items-stretch">
-          {/* 左：供应商（纵向，模型多时也能看全） */}
-          <div className="flex w-28 shrink-0 flex-col overflow-y-auto rounded-l-xl bg-white py-1 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            {tabs.map((p) => {
-              const active = !query && activeProvider === p.id
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => { setPickedProvider(p.id); setQuery(''); setHoveredId(null); setFlyoutTop(0) }}
-                  title={p.name}
-                  className={`flex items-center gap-1.5 px-2.5 py-2 text-left text-[11px] font-medium transition-colors ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-200'
-                  }`}
-                >
-                  <span className={`h-3.5 w-0.5 shrink-0 rounded-full ${active ? 'bg-indigo-500' : 'bg-transparent'}`} />
-                  <span className="truncate">{p.name}</span>
-                  <span className="ml-auto shrink-0 text-[10px] tabular-nums text-gray-400">
-                    {models.filter((m) => m.providerId === p.id).length}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* 中：搜索 + 模型列表 */}
-          <div className="flex w-60 shrink-0 flex-col bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div className="relative border-b border-gray-100 p-2 dark:border-gray-700">
-              <Search size={12} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索模型..."
-                className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-6 pr-2 text-[12px] outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900/60 dark:focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="max-h-80 overflow-y-auto p-1.5">
-              {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">暂无模型</div>}
-              {visibleModels.map((m) => {
-                const selected = m.id === effectiveModelId
+        <div className="absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] items-start">
+          {/* 一张卡片：左侧供应商纵列 + 右侧搜索与模型列表 */}
+          <div
+            ref={modelCardRef}
+            className="flex overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
+          >
+            <div className="flex w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 py-1 dark:border-gray-700">
+              {tabs.map((p) => {
+                const active = !query && activeProvider === p.id
                 return (
                   <button
-                    key={m.id}
-                    onMouseEnter={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
-                    onFocus={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
-                    onClick={(e) => {
-                      onModelChange(m.id)
-                      onEffortChange('')
-                      onContextWindowChange(undefined)
-                      setHoveredId(m.id)
-                      trackFlyout(e.currentTarget)
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-                      selected ? 'bg-indigo-50 dark:bg-indigo-900/25' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                    key={p.id}
+                    onClick={() => { setPickedProvider(p.id); setQuery(''); setHoveredId(null); setFlyoutTop(0) }}
+                    title={p.name}
+                    className={`flex items-center gap-1.5 px-2.5 py-2 text-left text-[11px] font-medium transition-colors ${
+                      active
+                        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-200'
                     }`}
                   >
-                    <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>
-                      {m.displayName}
+                    <span className={`h-3.5 w-0.5 shrink-0 rounded-full ${active ? 'bg-indigo-500' : 'bg-transparent'}`} />
+                    <span className="truncate">{p.name}</span>
+                    <span className="ml-auto shrink-0 text-[10px] tabular-nums text-gray-400">
+                      {models.filter((m) => m.providerId === p.id).length}
                     </span>
-                    {selected && <Check size={12} className="shrink-0 text-indigo-500" />}
                   </button>
                 )
               })}
             </div>
+
+            <div className="flex w-60 shrink-0 flex-col">
+              <div className="relative border-b border-gray-100 p-2 dark:border-gray-700">
+                <Search size={12} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="搜索模型..."
+                  className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-6 pr-2 text-[12px] outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900/60 dark:focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="max-h-80 min-h-56 overflow-y-auto p-1.5">
+                {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">暂无模型</div>}
+                {visibleModels.map((m) => {
+                  const selected = m.id === effectiveModelId
+                  return (
+                    <button
+                      key={m.id}
+                      onMouseEnter={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
+                      onFocus={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
+                      onClick={(e) => {
+                        onModelChange(m.id)
+                        onEffortChange('')
+                        onContextWindowChange(undefined)
+                        setHoveredId(m.id)
+                        trackFlyout(e.currentTarget)
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                        selected ? 'bg-indigo-50 dark:bg-indigo-900/25' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                      }`}
+                    >
+                      <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                        {m.displayName}
+                      </span>
+                      {selected && <Check size={12} className="shrink-0 text-indigo-500" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* 右：推理强度 / 上下文，纵向跟随当前模型行 */}
-          <div ref={flyoutRef} className="relative ml-2 w-56 shrink-0 self-stretch rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div className="absolute inset-x-0 p-3" style={{ top: flyoutTop }}>
+          {/* 右侧：推理强度 / 上下文，纵向对齐当前模型行 */}
+          <div ref={flyoutRef} className="relative ml-2 w-56 shrink-0">
+            <div className="absolute inset-x-0 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" style={{ top: flyoutTop }}>
               {!flyoutModel ? (
                 <div className="text-[11px] text-gray-400">选择一个模型后可调整推理强度与上下文</div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2.5">
                   <div className={panelTitleClass}>{flyoutModel.displayName}</div>
 
                   {flyoutModel.reasoningMode === 'native' && (
