@@ -1363,6 +1363,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 title="记忆"
               >
                 <Atom size={14} />
+                记忆
               </button>
             </>
           }
