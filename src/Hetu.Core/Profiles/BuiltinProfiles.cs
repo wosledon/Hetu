@@ -18,6 +18,13 @@ public static class BuiltinProfiles
         "search_graph", "search_web", "ask_question", "todo", "plan", "run_command",
         "create_scheduled_task", "list_scheduled_tasks", "delete_scheduled_task",
         "list_skills",
+        // 应用各能力面：项目 / 任务看板 / Wiki / 工作流 / 智能体 / 标签 / 知识库条目 / 收件箱 / 用量
+        "list_projects", "create_project", "update_project", "delete_project", "list_work_projects",
+        "list_kanban_tasks", "create_kanban_task", "update_kanban_task", "move_kanban_task", "delete_kanban_task",
+        "list_wiki_docs", "read_wiki_doc",
+        "list_workflows", "run_workflow", "list_agents", "use_skill",
+        "create_tag", "update_tag", "delete_tag", "read_knowledge_item",
+        "get_usage_stats", "list_inbox_items", "update_inbox_items",
     ];
 
     /// <summary>工作区 / 文件 / 命令类工具（挂载项目后可用；未挂载时工具会给出明确提示）</summary>
