@@ -9,11 +9,13 @@ public class NoteAiService : INoteAiService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
-    public NoteAiService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory)
+    public NoteAiService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
     }
 
     public async IAsyncEnumerable<string> SummarizeAsync(Guid noteId, NoteAiRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -55,7 +57,7 @@ public class NoteAiService : INoteAiService
         };
 
         // 逐字输出，异常（如 API Key 解密失败）以 [ERROR] 帧返回，前端可直接展示
-        await foreach (var content in StreamContentAsync(provider, prompt, options.SystemPrompt, cancellationToken))
+        await foreach (var content in StreamContentAsync(provider, prompt, options.SystemPrompt, _usageRecorder, noteId, cancellationToken))
         {
             yield return content;
         }
@@ -69,6 +71,8 @@ public class NoteAiService : INoteAiService
         ILLMProvider provider,
         string prompt,
         string systemPrompt,
+        ILlmUsageRecorder? usageRecorder = null,
+        Guid? noteId = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // 迭代器内 catch 块不能 yield，故把异常先落地为变量、在 try/catch 之外输出
@@ -78,8 +82,9 @@ public class NoteAiService : INoteAiService
             cancellationToken);
         await using var enumerator = stream.GetAsyncEnumerator(cancellationToken);
         var yielded = false;
+        var completed = false;
 
-        while (true)
+        while (!completed)
         {
             var moved = false;
             string? next = null;
@@ -88,6 +93,7 @@ public class NoteAiService : INoteAiService
             {
                 moved = await enumerator.MoveNextAsync();
                 if (moved) next = enumerator.Current;
+                else completed = true;
             }
             catch (OperationCanceledException)
             {
@@ -102,15 +108,23 @@ public class NoteAiService : INoteAiService
             {
                 // 已输出过内容时把错误附在后面，避免用户丢失已生成的部分
                 yield return yielded ? $"\n\n[ERROR] {error}" : $"[ERROR] {error}";
-                yield break;
+                completed = true;
             }
-            if (!moved) yield break;
-
-            if (TryExtractContent(next!, out var content) && content.Length > 0)
+            else if (!completed && TryExtractContent(next!, out var content) && content.Length > 0)
             {
                 yielded = true;
                 yield return content;
             }
+        }
+
+        // 非流式接口拿不到 usage，用输入规模估算后统一记入用量统计
+        if (usageRecorder != null)
+        {
+            await usageRecorder.RecordAsync(
+                LlmUsageSources.NoteAi, null,
+                refId: noteId,
+                inputTokens: LlmTokenEstimator.Estimate(systemPrompt) + LlmTokenEstimator.Estimate(prompt),
+                ct: cancellationToken);
         }
     }
 
@@ -181,7 +195,7 @@ public class NoteAiService : INoteAiService
             SystemPrompt = systemPrompt
         };
 
-        await foreach (var content in StreamContentAsync(provider, prompt, systemPrompt, cancellationToken))
+        await foreach (var content in StreamContentAsync(provider, prompt, systemPrompt, _usageRecorder, noteId, cancellationToken))
         {
             yield return content;
         }
@@ -223,3 +237,4 @@ public class NoteAiService : INoteAiService
                ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
     }
 }
+

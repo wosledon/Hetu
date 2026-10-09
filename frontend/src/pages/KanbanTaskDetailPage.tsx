@@ -8,11 +8,13 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ThemedMarkdown from '../components/ThemedMarkdown'
-import ChatToolCallRow from '../components/ChatToolCallRow'
-import ToolCallGroup from '../components/ToolCallGroup'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
-import type { ToolCallEntry } from '../utils/toolRendering'
+import { usageService } from '../services/usageService'
+import AgentUsageBadge from '../components/agent/AgentUsageBadge'
+import AgentTimeline from '../components/agent/AgentTimeline'
+import { fromRunSteps, type AgentTimelineItem } from '../utils/agentTimeline'
+import { type AgentUsage } from '../utils/agentStream'
 import type {
   IKanbanTask, IKanbanTaskComment, IKanbanTaskRun, IKanbanTaskRunStep,
   KanbanTaskPriority, KanbanTaskStatus,
@@ -93,74 +95,15 @@ function TimelineNode({ icon, tone }: { icon: React.ReactNode; tone: string }) {
   )
 }
 
-/** 过程步骤：输出直接作为正文文本；思考/节点用与工具调用一致的行样式（见 foldRunSteps） */
-function StepRow({ step }: { step: IKanbanTaskRunStep }) {
-  if (step.kind === 'Text') {
-    return (
-      <div className="text-[13px] leading-relaxed text-gray-700 dark:text-gray-300">
-        <ThemedMarkdown source={step.content} />
-      </div>
-    )
-  }
-  return (
-    <ChatToolCallRow
-      name={step.title ?? ''}
-      args={step.content}
-      text={step.content}
-      label={step.kind === 'Thought' ? '思考' : `节点 · ${step.title ?? ''}`}
-    />
-  )
-}
-
 /**
- * 整理一次执行的步骤流水：
- * - ToolResult 按先后顺序并入对应的 ToolCall（参数 + 结果一起展示）
- * - 两段输出之间的所有过程（工具调用、思考、节点）合并为一个折叠组
+ * 整理一次执行的步骤流水：ToolResult 并入对应的 ToolCall，
+ * 归一为 AgentTimelineItem 后由共享的 AgentTimeline 渲染
+ *（与对话页、编码会话同一套组件）。
  */
-type FoldedRunStep =
-  | { kind: 'tool'; items: ToolCallEntry[] }
-  | { kind: 'other'; step: IKanbanTaskRunStep }
-
-function foldRunSteps(steps: IKanbanTaskRunStep[]): FoldedRunStep[] {
-  const out: FoldedRunStep[] = []
-  const awaitingResult: ToolCallEntry[] = []
-
-  for (const step of steps) {
-    if (step.kind === 'ToolCall') {
-      const entry: ToolCallEntry = { id: step.id, name: step.title ?? '', args: step.content }
-      awaitingResult.push(entry)
-      const last = out[out.length - 1]
-      if (last && last.kind === 'tool') last.items.push(entry)
-      else out.push({ kind: 'tool', items: [entry] })
-      continue
-    }
-    if (step.kind === 'ToolResult') {
-      // 结果并入对应的调用，不单独占一行
-      const target = awaitingResult.shift()
-      if (target) {
-        target.result = step.content
-        target.isError = step.isError
-        continue
-      }
-    }
-    if (step.kind === 'Thought' || step.kind === 'Node') {
-      // 思考 / 节点输出并入当前折叠组（同样是过程，不是输出）
-      const entry: ToolCallEntry = {
-        id: step.id,
-        name: step.title ?? '',
-        args: step.content,
-        kind: step.kind === 'Thought' ? 'thought' : 'node',
-        text: step.content,
-      }
-      const last = out[out.length - 1]
-      if (last && last.kind === 'tool') last.items.push(entry)
-      else out.push({ kind: 'tool', items: [entry] })
-      continue
-    }
-    out.push({ kind: 'other', step })
-  }
-  return out
+function toRunTimeline(steps: IKanbanTaskRunStep[]): AgentTimelineItem[] {
+  return fromRunSteps(steps)
 }
+
 
 type TimelineItem =
   | { key: string; at: string; kind: 'created' }
@@ -183,6 +126,26 @@ export default function KanbanTaskDetailPage() {
       const running = query.state.data?.runs.some((r) => r.status === 'Running')
       return running ? 3000 : false
     },
+  })
+
+  // 看板任务的 LLM 用量：与对话页 / 编码会话共用同一徽标，数据来自统一用量表
+  const { data: taskUsage = null } = useQuery({
+    queryKey: ['usage-logs', 'kanban', taskId],
+    queryFn: async () => {
+      const logs = await usageService.getLogs(1, 50, 'kanban', taskId!)
+      if (logs.length === 0) return null
+      return logs.reduce<AgentUsage>(
+        (acc, l) => ({
+          promptTokens: acc.promptTokens + (l.inputTokens ?? 0),
+          completionTokens: acc.completionTokens + (l.outputTokens ?? 0),
+          cachedTokens: acc.cachedTokens + (l.cachedTokens ?? 0),
+          totalTokens: acc.totalTokens + (l.tokensUsed ?? 0),
+          latencyMs: acc.latencyMs + (l.latencyMs ?? 0),
+        }),
+        { promptTokens: 0, completionTokens: 0, cachedTokens: 0, totalTokens: 0, latencyMs: 0 },
+      )
+    },
+    enabled: !!taskId,
   })
 
   const invalidate = () => {
@@ -244,6 +207,7 @@ export default function KanbanTaskDetailPage() {
   const comments = data?.comments ?? []
   const runs = data?.runs ?? []
   const steps = data?.steps ?? []
+  // 看板任务的 LLM 用量：与对话页 / 编码会话共用同一徽标，数据来自统一用量表
   const running = runs.some((r) => r.status === 'Running')
   const canReview = task.status === 'InReview'
   const canRework = task.hasAutomation && (task.status === 'InReview' || task.status === 'Blocked')
@@ -432,7 +396,8 @@ export default function KanbanTaskDetailPage() {
                                 </span>
                                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
                                 <span className="text-[11px] text-gray-400">{TRIGGER_LABEL[run.trigger]}</span>
-                                <span className="ml-auto text-[11px] text-gray-400">
+                                <AgentUsageBadge usage={taskUsage} className="ml-auto" />
+                                <span className={`${taskUsage ? '' : 'ml-auto '}text-[11px] text-gray-400`}>
                                   {formatDateTime(run.startedAt ?? run.createdAt)}
                                   {run.completedAt && ` · 耗时 ${formatDuration(run.startedAt ?? run.createdAt, run.completedAt)}`}
                                 </span>
@@ -447,24 +412,9 @@ export default function KanbanTaskDetailPage() {
                                 <p className="mt-2 whitespace-pre-wrap break-words text-[12px] text-red-500">{run.error}</p>
                               )}
 
-                              {/* 详细工作过程：工具调用配对折叠，思考/输出/节点为轻量内容 */}
+                              {/* 详细工作过程：与对话页/编码会话共用 AgentTimeline */}
                               <div className="mt-3 space-y-2">
-                                {foldRunSteps(runSteps).map((entry, i) => {
-                                  if (entry.kind === 'tool') {
-                                    return entry.items.length > 1
-                                      ? <ToolCallGroup key={i} items={entry.items} />
-                                      : (
-                                        <ChatToolCallRow
-                                          key={i}
-                                          name={entry.items[0].name}
-                                          args={entry.items[0].args}
-                                          result={entry.items[0].result}
-                                          isError={entry.items[0].isError}
-                                        />
-                                      )
-                                  }
-                                  return <StepRow key={i} step={entry.step} />
-                                })}
+                                <AgentTimeline items={toRunTimeline(runSteps)} />
                               </div>
 
                               {/* 输入 / 输出原文 */}
@@ -638,3 +588,4 @@ export default function KanbanTaskDetailPage() {
     } />
   )
 }
+

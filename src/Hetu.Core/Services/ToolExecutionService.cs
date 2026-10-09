@@ -182,10 +182,17 @@ public class ToolExecutionService
             });
 
             var executor = toolRegistry.GetExecutor(toolCall.Name);
-            var approval = approvalOverrides.GetValueOrDefault(toolCall.Name,
-                approvalOverrides.GetValueOrDefault("*",
-                    executor?.DefaultApproval ?? ToolApprovalMode.Auto));
 
+            // 优先级：显式逐工具配置 > 策略模式（权限模式 / 项目规则） > 工具自身声明
+            ToolApprovalMode? explicitOverride = approvalOverrides.TryGetValue(toolCall.Name, out var byName)
+                ? byName
+                : approvalOverrides.TryGetValue("*", out var byWildcard)
+                    ? byWildcard
+                    : null;
+
+            var approval = explicitOverride ?? executor?.DefaultApproval ?? ToolApprovalMode.Auto;
+
+            // 策略只做"否决"与"补默认"：显式配置优先，项目规则仍可否决
             if (decideToolCall != null && !isSilentTool)
             {
                 var decision = decideToolCall(toolCall, approval);
@@ -205,7 +212,7 @@ public class ToolExecutionService
                     results.Add((toolCall.Id, denyMessage, true));
                     continue;
                 }
-                approval = decision.Mode;
+                approval = explicitOverride ?? decision.Mode;
             }
 
             string resultContent;

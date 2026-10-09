@@ -13,6 +13,10 @@ export interface ChatToolCallRowProps {
   text?: string
   /** 文本型行的标签，默认「思考」 */
   label?: string
+  /** 目标路径可点击时回调（编码会话：在编辑器中打开） */
+  onOpenPath?: (path: string) => void
+  /** 可运行命令可点击时回调（编码会话：在终端运行） */
+  onRunCommand?: (command: string) => void
 }
 
 /** 从工具参数里提取最有信息量的摘要（路径 / 命令 / 查询） */
@@ -35,19 +39,30 @@ function summarizeArgs(name: string, args: string): string | null {
 
 const TOOL_ICON: Record<string, typeof Wrench> = {
   run_command: Terminal,
+  work_run_command: Terminal,
+}
+
+/** 参数摘要指向文件路径的工具：只有这些才允许「在编辑器中打开」 */
+const FILE_TARGET_TOOLS = new Set([
+  'work_read_file', 'work_write_file', 'work_apply_patch', 'work_delete_file', 'work_move_file',
+])
+
+function isFileTarget(name: string): boolean {
+  return FILE_TARGET_TOOLS.has(name)
 }
 
 /**
  * Copilot 风格的瀑布流行：图标 + 名称 + 目标/命令 + 状态，点击展开详情。
  * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
-export default function ChatToolCallRow({ name, args, result, isError, running, text, label }: ChatToolCallRowProps) {
+export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand }: ChatToolCallRowProps) {
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
   const Icon = isText ? Brain : (TOOL_ICON[name] ?? Wrench)
   const rowLabel = isText ? (label ?? '思考') : renderToolName(name)
   const summary = isText ? null : summarizeArgs(name, args)
   const done = result !== undefined && !running
+  const canRun = !isText && !!onRunCommand && (name === 'run_command' || name === 'work_run_command')
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
@@ -62,9 +77,29 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         <Icon size={11} className={`shrink-0 ${isText || name !== 'run_command' ? 'text-gray-400' : 'text-emerald-500'}`} />
         <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{rowLabel}</span>
         {summary && (
-          <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400" title={summary}>{summary}</span>
+          onOpenPath && isFileTarget(name) ? (
+            <button
+              onClick={() => onOpenPath(summary)}
+              title="在编辑器中打开"
+              className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
+            >
+              {summary}
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400" title={summary}>{summary}</span>
+          )
         )}
         {!summary && <span className="flex-1" />}
+        {canRun && (
+          <button
+            onClick={() => onRunCommand?.(summary ?? '')}
+            title="在终端运行"
+            aria-label="在终端运行"
+            className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
+          >
+            <Play size={11} />
+          </button>
+        )}
         {!isText && (
           running
             ? <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />

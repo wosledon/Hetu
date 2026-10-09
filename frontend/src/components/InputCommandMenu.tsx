@@ -7,6 +7,8 @@ export interface InputCommandItem {
   icon: React.ReactNode
   tag?: string
   tagClass?: string
+  /** 条目附加类型（对话页 / 指令区分的 skill / agent），供选中后路由 */
+  type?: string
 }
 
 interface InputCommandMenuProps {

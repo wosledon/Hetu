@@ -8,7 +8,8 @@ import type {
   IWorkflowRun,
   IWorkflowRunDetail,
 } from '../types/workflow'
-import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
+import { consumeSseStream } from '../utils/sse'
+import { parseAgentFrame } from '../utils/agentStream'
 
 export const workflowService = {
   getAll: () => get<IWorkflow[]>('/workflows'),
@@ -56,12 +57,17 @@ export async function streamWorkflowRun(
     await consumeSseStream(
       response,
       ({ data }) => {
-        try {
-          onEvent(JSON.parse(data))
-        } catch {
-          // 非 JSON 帧，通常是以 [ERROR] 开头的流内错误
-          if (data.startsWith(SSE_ERROR_PREFIX)) onError(data.slice(SSE_ERROR_PREFIX.length).trim())
+        // 帧解析统一走 utils/agentStream：错误帧、非 JSON 帧与 JSON 事件一套逻辑
+        const { event, error, plainText } = parseAgentFrame(data)
+        if (error != null) {
+          onError(error)
+          return
         }
+        if (!event) {
+          if (plainText != null) onEvent({ type: 'content', text: plainText })
+          return
+        }
+        onEvent(event as unknown as { type: string; [key: string]: unknown })
       },
       { signal },
     )

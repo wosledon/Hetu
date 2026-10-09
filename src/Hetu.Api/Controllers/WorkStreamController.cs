@@ -33,6 +33,7 @@ public class WorkStreamController : ControllerBase
     private readonly ILocalSkillService _localSkillService;
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
+    private readonly ILlmUsageRecorder _llmUsageRecorder;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -44,7 +45,8 @@ public class WorkStreamController : ControllerBase
         AgentLoopService agentLoop,
         ILocalSkillService localSkillService,
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
-        IWorkCommandRunnerFactory commandRunnerFactory)
+        IWorkCommandRunnerFactory commandRunnerFactory,
+        ILlmUsageRecorder llmUsageRecorder)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -56,6 +58,7 @@ public class WorkStreamController : ControllerBase
         _localSkillService = localSkillService;
         _codeIndexRefreshQueue = codeIndexRefreshQueue;
         _commandRunnerFactory = commandRunnerFactory;
+        _llmUsageRecorder = llmUsageRecorder;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -241,161 +244,59 @@ public class WorkStreamController : ControllerBase
         }
 
         var overrides = new Dictionary<string, ToolApprovalMode>();
+        var allowedToolNames = request.EnableTools ? allowedTools : new List<string>();
         if (request.EnableTools)
         {
             options.Tools = _toolRegistry.ToToolDefinitions(allowedTools);
             options.ToolChoice = "auto";
         }
 
-        // Agent Loop
-        var contentSb = new StringBuilder();
-        var thinkingSb = new StringBuilder();
-        var sessionTodos = new List<SessionTodo>();
         var fileChanges = new List<object>();
-        var maxIterations = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : 30;
         var usageTotal = new WorkMessageUsage();
         var executedToolNames = new List<string>();
-        string? loopError = null;
+        var sink = new SseAgentSink(writer, this, sessionId);
+        var hooks = new WorkStreamHooks(this, sessionId, project, runner, writer, fileChanges, executedToolNames);
 
-        try
+        var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
-            for (int iter = 0; iter < maxIterations; iter++)
+            ModelId = modelId,
+            SystemPrompt = options.SystemPrompt ?? string.Empty,
+            Messages = chatMessages,
+            ToolNames = allowedToolNames,
+            McpServerIds = new List<Guid>(),
+            MaxIterations = profile.MaxAgentIterations,
+            MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
+            ToolApprovals = overrides,
+            SessionId = sessionId.ToString(),
+            Sink = sink,
+            Hooks = hooks,
+            EnableTools = request.EnableTools,
+            DecideToolCall = request.EnableTools
+                ? AgentToolPolicy.CreateDecider(
+                    _toolRegistry,
+                    new AgentPolicyContext { Mode = permissionMode, Rules = approvalRules })
+                : null,
+            WorkScope = new WorkToolScope
             {
-                var iterStart = DateTimeOffset.UtcNow;
-                var (iterContent, iterThinking, pendingToolCalls, usage) = await ChatStreamProcessor.ProcessStreamAsync(
-                    provider, chatMessages, options, writer, ct);
+                ProjectRoot = project.RootPath,
+                ProjectId = project.Id,
+                ModelId = modelId,
+                DiagnosticsCommand = project.DiagnosticsCommand,
+                // SSH 项目的文件/命令工具全部走远端执行
+                Runner = runner,
+                RuntimeTools = runtimeTools
+            },
+        }, ct);
 
-                contentSb.Append(iterContent);
-                thinkingSb.Append(iterThinking);
+        // 累计用量：以循环结果为准，前端顶栏实时值由 sink 已推送
+        if (loopResult.Usage.TotalTokens > 0) usageTotal.TotalTokens = loopResult.Usage.TotalTokens;
+        usageTotal.PromptTokens = loopResult.Usage.PromptTokens;
+        usageTotal.CompletionTokens = loopResult.Usage.CompletionTokens;
+        usageTotal.CachedTokens = loopResult.Usage.CachedTokens;
+        if (loopResult.Usage.TotalTokens > 0) usageTotal.LatencyMs = hooks.LastIterationMs;
 
-                // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）
-                if (!string.IsNullOrWhiteSpace(iterThinking.ToString()))
-                {
-                    await _sessionService.AddMessageAsync(
-                        sessionId, "assistant", iterThinking.ToString(), "thought",
-                        cancellationToken: CancellationToken.None);
-                }
-                AccumulateUsage(usageTotal, usage, (int)(DateTimeOffset.UtcNow - iterStart).TotalMilliseconds);
-                if (usage != null)
-                {
-                    await writer.WriteJsonAsync(new
-                    {
-                        type = "usage",
-                        promptTokens = usageTotal.PromptTokens,
-                        completionTokens = usageTotal.CompletionTokens,
-                        cachedTokens = usageTotal.CachedTokens,
-                        totalTokens = usageTotal.TotalTokens,
-                        latencyMs = usageTotal.LatencyMs
-                    });
-                }
-
-                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools)
-                    break;
-
-                chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
-
-                // 预解析本轮会改动哪些文件（供检查点 + 变更记录）
-                var planned = PlanFileMutations(pendingToolCalls);
-
-                var oldContents = new Dictionary<string, string?>(StringComparer.Ordinal);
-                foreach (var change in planned)
-                    oldContents[ChangeKey(change.ToolCallId, change.Path)] =
-                        await TryReadFileAsync(runner, project.RootPath, change.Path, ct);
-
-                // 改动执行前打检查点，支持整轮回滚
-                await CreateCheckpointAsync(project.Id, sessionId, iter, planned, ct, writer);
-
-                var toolResults = await _toolExecution.ExecuteToolCallsAsync(
-                    sessionId.ToString(),
-                    pendingToolCalls, overrides, sessionTodos,
-                    data => writer.WriteEventAsync(data),
-                    async payload =>
-                    {
-                        await writer.WriteJsonAsync(payload);
-                        await PersistSubagentEventAsync(sessionId, payload);
-                    },
-                    ct,
-                    (toolCall, defaultMode) =>
-                    {
-                        var targetPath = WorkToolPolicy.ExtractTargetPath(toolCall.Name, toolCall.Arguments);
-                        return WorkToolPolicy.Decide(
-                            _toolRegistry.GetExecutor(toolCall.Name), toolCall.Name, targetPath, permissionMode, approvalRules);
-                    },
-                    new WorkToolScope
-                    {
-                        ProjectRoot = project.RootPath,
-                        ProjectId = project.Id,
-                        ModelId = modelId,
-                        DiagnosticsCommand = project.DiagnosticsCommand,
-                        // SSH 项目的文件/命令工具全部走远端执行
-                        Runner = runner,
-                        RuntimeTools = runtimeTools
-                    });
-
-                executedToolNames.AddRange(pendingToolCalls.Select(c => c.Name));
-
-                // 文件变更事件 + 落库记录（供 diff 页展示）：以执行后的真实磁盘内容为准，失败的写操作不记变更
-                foreach (var change in planned)
-                {
-                    try
-                    {
-                        var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
-                        var oldContent = oldContents.GetValueOrDefault(toolCallKey);
-                        var newContent = await TryReadFileAsync(runner, project.RootPath, change.Path, ct);
-                        if (newContent == oldContent) continue;
-
-                        var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";
-                        await _unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
-                        {
-                            Id = Guid.NewGuid(),
-                            ProjectId = project.Id,
-                            SessionId = sessionId,
-                            FilePath = change.Path,
-                            OldContent = oldContent,
-                            NewContent = newContent ?? "",
-                            Action = action,
-                            CreatedAt = DateTimeOffset.UtcNow,
-                            UpdatedAt = DateTimeOffset.UtcNow
-                        }, ct);
-
-                        var evt = new { type = "file_change", path = change.Path, action };
-                        fileChanges.Add(evt);
-                        await writer.WriteJsonAsync(evt);
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-                    {
-                        Log.Warning(ex, "[WorkStream] 记录文件变更失败 path={Path}", change.Path);
-                    }
-                }
-
-                foreach (var (toolCallId, content, _) in toolResults)
-                {
-                    chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
-                    // 工具调用落库：参数进 metadata，结果截断进正文，供历史回放
-                    var call = pendingToolCalls?.FirstOrDefault(c => c.Id == toolCallId);
-                    await _sessionService.AddMessageAsync(
-                        sessionId, "assistant", Truncate(content ?? string.Empty), "tool",
-                        metadata: JsonSerializer.Serialize(new
-                        {
-                            name = call?.Name ?? string.Empty,
-                            arguments = call?.Arguments ?? string.Empty,
-                        }),
-                        cancellationToken: CancellationToken.None);
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Log.Information("[WorkStream] 用户中断 sessionId={SessionId}", sessionId);
-        }
-        catch (Exception ex)
-        {
-            loopError = ex.Message;
-            Log.Error(ex, "[WorkStream] Agent循环异常 sessionId={SessionId}", sessionId);
-            try { await writer.WriteErrorAsync($"处理请求时出错: {ex.Message}"); } catch { }
-        }
-
-        var finalContent = contentSb.ToString().Trim();
+        var loopError = loopResult.Error;
+        var finalContent = loopResult.Content.Trim();
         if (loopError != null && string.IsNullOrEmpty(finalContent))
             finalContent = $"处理请求时出错: {loopError}";
         // 模型只发起工具调用而没有正文时也要落库，否则下一轮会丢失这轮上下文
@@ -412,6 +313,15 @@ public class WorkStreamController : ControllerBase
                 usage: usageTotal.TotalTokens > 0 ? usageTotal : null,
                 cancellationToken: CancellationToken.None);
         }
+
+        await _llmUsageRecorder.RecordAsync(
+            LlmUsageSources.Work,
+            loopResult.Usage.TotalTokens > 0 ? loopResult.Usage : null,
+            refId: sessionId,
+            modelId: modelId,
+            latencyMs: usageTotal.LatencyMs > 0 ? usageTotal.LatencyMs : null,
+            contentPreview: request.Content,
+            ct: CancellationToken.None);
 
         // 保存文件变更事件消息（供历史回放展示）
         foreach (var change in fileChanges)
@@ -430,6 +340,168 @@ public class WorkStreamController : ControllerBase
         try { await _unitOfWork.SaveChangesAsync(ct); } catch { }
 
         await writer.WriteJsonAsync(new { type = "done" });
+    }
+
+    /// <summary>把 Agent Loop 事件写进 SSE 流。</summary>
+    private sealed class SseAgentSink : IAgentLoopSink
+    {
+        private readonly SseStreamWriter _writer;
+        private readonly WorkStreamController _owner;
+        private readonly Guid _sessionId;
+
+        public SseAgentSink(SseStreamWriter writer, WorkStreamController owner, Guid sessionId)
+        {
+            _writer = writer;
+            _owner = owner;
+            _sessionId = sessionId;
+        }
+
+        public Task OnContentAsync(string text) => _writer.WriteJsonAsync(new { type = "content", text });
+
+        public Task OnThinkingAsync(string text) => _writer.WriteJsonAsync(new { type = "thinking", text });
+
+        public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
+
+        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync($"处理请求时出错: {message}");
+
+        /// <summary>tool_call / tool_result / approval_request / question / todo / plan / subagent 一律直通写帧</summary>
+        public async Task OnEventAsync(object payload)
+        {
+            await _writer.WriteJsonAsync(payload);
+            await _owner.PersistSubagentEventAsync(_sessionId, payload);
+        }
+
+        public async Task OnUsageAsync(LlmUsage usage)
+        {
+            await _writer.WriteJsonAsync(new
+            {
+                type = "usage",
+                promptTokens = usage.PromptTokens,
+                completionTokens = usage.CompletionTokens,
+                cachedTokens = usage.CachedTokens,
+                totalTokens = usage.TotalTokens,
+                latencyMs = 0,
+            });
+        }
+    }
+
+    /// <summary>
+    /// 编码会话的执行过程钩子：思考落库、改动前打检查点、改动后记录文件变更与工具结果。
+    /// </summary>
+    private sealed class WorkStreamHooks : IAgentLoopHooks
+    {
+        private readonly WorkStreamController _owner;
+        private readonly Guid _sessionId;
+        private readonly WorkProject _project;
+        private readonly IWorkCommandRunner _runner;
+        private readonly SseStreamWriter _writer;
+        private readonly List<object> _fileChanges;
+        private readonly List<string> _executedToolNames;
+        private List<PlannedChange> _planned = new();
+        private readonly Dictionary<string, string?> _oldContents = new(StringComparer.Ordinal);
+        private int _iteration;
+        private System.Diagnostics.Stopwatch _iterationClock = System.Diagnostics.Stopwatch.StartNew();
+
+        public WorkStreamHooks(
+            WorkStreamController owner,
+            Guid sessionId,
+            WorkProject project,
+            IWorkCommandRunner runner,
+            SseStreamWriter writer,
+            List<object> fileChanges,
+            List<string> executedToolNames)
+        {
+            _owner = owner;
+            _sessionId = sessionId;
+            _project = project;
+            _runner = runner;
+            _writer = writer;
+            _fileChanges = fileChanges;
+            _executedToolNames = executedToolNames;
+        }
+
+        /// <summary>最近一次迭代耗时（Provider 未分批上报 latency 时用于会话累计）</summary>
+        public int LastIterationMs { get; private set; }
+
+        public async Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage)
+        {
+            _iteration = iteration;
+            LastIterationMs = (int)_iterationClock.ElapsedMilliseconds;
+            _iterationClock.Restart();
+
+            // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）
+            if (!string.IsNullOrWhiteSpace(thinking))
+            {
+                await _owner._sessionService.AddMessageAsync(
+                    _sessionId, "assistant", thinking, "thought",
+                    cancellationToken: CancellationToken.None);
+            }
+        }
+
+        public async Task BeforeToolCallsAsync(IReadOnlyList<LlmToolCall> toolCalls)
+        {
+            // 预解析本轮会改动哪些文件（供检查点 + 变更记录）
+            _planned = PlanFileMutations(toolCalls.ToList());
+            _oldContents.Clear();
+            foreach (var change in _planned)
+                _oldContents[ChangeKey(change.ToolCallId, change.Path)] =
+                    await TryReadFileAsync(_runner, _project.RootPath, change.Path, CancellationToken.None);
+
+            // 改动执行前打检查点，支持整轮回滚
+            await _owner.CreateCheckpointAsync(_project.Id, _sessionId, _iteration, _planned, CancellationToken.None, _writer);
+        }
+
+        public async Task AfterToolResultsAsync(IReadOnlyList<AgentToolExecution> results)
+        {
+            _executedToolNames.AddRange(results.Select(r => r.Call.Name));
+
+            // 文件变更事件 + 落库记录（供 diff 页展示）：以执行后的真实磁盘内容为准，失败的写操作不记变更
+            foreach (var change in _planned)
+            {
+                try
+                {
+                    var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
+                    _oldContents.TryGetValue(toolCallKey, out var oldContent);
+                    var newContent = await TryReadFileAsync(_runner, _project.RootPath, change.Path, CancellationToken.None);
+                    if (newContent == oldContent) continue;
+
+                    var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";
+                    await _owner._unitOfWork.WorkFileChanges.AddAsync(new WorkFileChange
+                    {
+                        Id = Guid.NewGuid(),
+                        ProjectId = _project.Id,
+                        SessionId = _sessionId,
+                        FilePath = change.Path,
+                        OldContent = oldContent,
+                        NewContent = newContent ?? "",
+                        Action = action,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    }, CancellationToken.None);
+
+                    var evt = new { type = "file_change", path = change.Path, action };
+                    _fileChanges.Add(evt);
+                    await _writer.WriteJsonAsync(evt);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                {
+                    Log.Warning(ex, "[WorkStream] 记录文件变更失败 path={Path}", change.Path);
+                }
+            }
+
+            // 工具调用落库：参数进 metadata，结果截断进正文，供历史回放
+            foreach (var result in results)
+            {
+                await _owner._sessionService.AddMessageAsync(
+                    _sessionId, "assistant", Truncate(result.Result ?? string.Empty), "tool",
+                    metadata: JsonSerializer.Serialize(new
+                    {
+                        name = result.Call.Name,
+                        arguments = result.Call.Arguments,
+                    }),
+                    cancellationToken: CancellationToken.None);
+            }
+        }
     }
 
     /// <summary>子 Agent 进度事件落库（仅 subagent 帧），供历史回放</summary>
@@ -483,17 +555,6 @@ public class WorkStreamController : ControllerBase
         }
 
         return WorkToolPolicy.Parse(session.PermissionMode);
-    }
-
-    /// <summary>累加一轮 LLM 调用的 Token 消耗</summary>
-    private static void AccumulateUsage(WorkMessageUsage total, LlmUsage? usage, int latencyMs)
-    {
-        if (usage == null) return;
-        total.PromptTokens += usage.PromptTokens;
-        total.CompletionTokens += usage.CompletionTokens;
-        total.CachedTokens += usage.CachedTokens;
-        total.TotalTokens += usage.TotalTokens > 0 ? usage.TotalTokens : usage.PromptTokens + usage.CompletionTokens;
-        total.LatencyMs += latencyMs;
     }
 
     /// <summary>解析项目上以 JSON 数组保存的 Guid 列表</summary>

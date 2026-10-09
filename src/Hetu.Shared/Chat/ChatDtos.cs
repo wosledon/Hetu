@@ -133,6 +133,11 @@ public class SendMessageRequest
     /// </summary>
     public Dictionary<string, string>? ToolApprovalOverrides { get; set; }
     /// <summary>
+    /// 会话权限模式：plan / readonly / ask / auto / bypass。
+    /// 与编码会话共用同一套五档语义，由后端按工具风险等级折算为逐次审批决策。
+    /// </summary>
+    public string? PermissionMode { get; set; }
+    /// <summary>
     /// 是否启用工具调用（Agent Loop）
     /// </summary>
     public bool EnableTools { get; set; }

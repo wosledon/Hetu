@@ -148,6 +148,7 @@ public static class HetuServiceCollectionExtensions
         services.AddSingleton<WebContentExtractor>();
         services.AddSingleton<ToolExecutionService>();
         services.AddToolExecutors();
+        services.AddScoped<ILlmUsageRecorder, LlmUsageRecorder>();
 
         return services;
     }

@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Streaming;
 using Hetu.Core.Utilities;
 
 namespace Hetu.Api.Streaming;
@@ -151,7 +152,7 @@ public class ThinkingTagStreamParser
 
 /// <summary>
 /// Processes a chat stream from an LLM provider, routing structured JSON deltas
-/// and raw text through the thinking tag parser.
+/// and raw text through the shared <see cref="LlmStreamParser"/>.
 /// </summary>
 public static class ChatStreamProcessor
 {
@@ -178,46 +179,34 @@ public static class ChatStreamProcessor
             else if (type == "content") contentSb.Append(text);
         }
 
-        var parser = new ThinkingTagStreamParser(EmitChunk);
+        var parser = new LlmStreamParser();
 
         await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, cancellationToken))
         {
-            // Try structured JSON (native thinking); anything else goes through tag parsing.
-            try
+            foreach (var chunk in parser.Parse(delta))
             {
-                using var doc = JsonDocument.Parse(delta);
-                var root = doc.RootElement;
-                if (root.ValueKind == JsonValueKind.Object
-                    && root.TryGetProperty("type", out var typeEl)
-                    && typeEl.ValueKind == JsonValueKind.String)
+                switch (chunk.Type)
                 {
-                    var typeStr = typeEl.GetString() ?? "";
-                    var text = root.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String
-                        ? textEl.GetString() ?? ""
-                        : "";
-                    switch (typeStr)
-                    {
-                        case "tool_calls":
-                            if (root.TryGetProperty("toolCalls", out var tcArray))
-                                pendingToolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(tcArray.GetRawText(), JsonDefaults.CamelCase);
-                            break;
-                        case "usage":
-                            if (root.TryGetProperty("usage", out var usageEl))
-                                usage = JsonSerializer.Deserialize<LlmUsage>(usageEl.GetRawText(), JsonDefaults.CamelCase);
-                            break;
-                        default:
-                            await EmitChunk(typeStr, text);
-                            break;
-                    }
-                    continue;
+                    case LlmStreamEventType.Content:
+                        await EmitChunk("content", chunk.Text);
+                        break;
+                    case LlmStreamEventType.Thinking:
+                        await EmitChunk("thinking", chunk.Text);
+                        break;
+                    case LlmStreamEventType.ToolCalls:
+                        pendingToolCalls = chunk.ToolCalls;
+                        break;
+                    case LlmStreamEventType.Usage:
+                        usage = chunk.Usage;
+                        break;
                 }
             }
-            catch (JsonException) { /* Not JSON, proceed with tag parsing */ }
-
-            await parser.ParseAsync(delta);
         }
 
-        await parser.FlushAsync();
+        foreach (var chunk in parser.Flush())
+        {
+            await EmitChunk(chunk.Type == LlmStreamEventType.Thinking ? "thinking" : "content", chunk.Text);
+        }
 
         return (contentSb, thinkingSb, pendingToolCalls, usage);
     }

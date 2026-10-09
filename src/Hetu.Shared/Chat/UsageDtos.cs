@@ -54,6 +54,19 @@ public class UsageStatsDto
     public List<UsageHourStat> WeekHourly { get; set; } = new();
     /// <summary>按模型聚合</summary>
     public List<UsageModelStat> ByModel { get; set; } = new();
+    /// <summary>按调用来源聚合（对话 / 编码会话 / 任务看板 / Wiki / ...）</summary>
+    public List<UsageSourceStat> BySource { get; set; } = new();
+}
+
+/// <summary>按调用来源聚合的用量</summary>
+public class UsageSourceStat
+{
+    /// <summary>chat / work / kanban / workflow / wiki / note-ai / organize / skill / graph / search / scheduled / proxy</summary>
+    public string Source { get; set; } = string.Empty;
+    /// <summary>来源中文名</summary>
+    public string SourceName { get; set; } = string.Empty;
+    public long Messages { get; set; }
+    public long Tokens { get; set; }
 }
 
 public class UsageLogDto
@@ -69,6 +82,8 @@ public class UsageLogDto
     public int? CachedTokens { get; set; }
     public int? LatencyMs { get; set; }
     public string ContentPreview { get; set; } = string.Empty;
-    /// <summary>"chat" | "proxy"</summary>
+    /// <summary>chat / work / kanban / workflow / wiki / note-ai / organize / skill / graph / search / scheduled / proxy</summary>
     public string Source { get; set; } = "chat";
+    /// <summary>来源中文名</summary>
+    public string SourceName { get; set; } = "对话";
 }

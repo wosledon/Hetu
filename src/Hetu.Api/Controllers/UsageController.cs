@@ -24,9 +24,14 @@ public class UsageController : ControllerBase
     }
 
     [HttpGet("logs")]
-    public async Task<ApiResponse<List<UsageLogDto>>> GetLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
+    public async Task<ApiResponse<List<UsageLogDto>>> GetLogs(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? source = null,
+        [FromQuery] Guid? refId = null,
+        CancellationToken ct = default)
     {
-        var logs = await _usageService.GetLogsAsync(page, pageSize, ct);
+        var logs = await _usageService.GetLogsAsync(page, pageSize, source, refId, ct);
         return ApiResponse<List<UsageLogDto>>.Ok(logs);
     }
 }

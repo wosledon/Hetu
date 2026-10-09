@@ -16,11 +16,13 @@ public class AgentNodeExecutor : INodeExecutor
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly AgentLoopService _agentLoopService;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AgentNodeExecutor> _logger;
-    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILogger<AgentNodeExecutor> logger)
+    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILlmUsageRecorder usageRecorder, ILogger<AgentNodeExecutor> logger)
     {
         _unitOfWork = unitOfWork;
         _agentLoopService = agentLoopService;
+        _usageRecorder = usageRecorder;
         _logger = logger;
     }
 
@@ -111,6 +113,13 @@ public class AgentNodeExecutor : INodeExecutor
         };
 
         var result = await _agentLoopService.RunAsync(request, ct);
+
+        // Agent 节点也是 LLM 调用方，统一记入用量统计
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Workflow,
+            result.Usage.TotalTokens > 0 ? result.Usage : null,
+            refId: ctx.RunId,
+            ct: ct);
 
         var agentOutput = result.Content;
         // 若 LLM 只返回了 thinking 没有 content，用 thinking 作为输出

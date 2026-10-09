@@ -33,12 +33,21 @@ export interface IUsageModelStat {
   cachedTokens: number
 }
 
+/** 按调用来源聚合的用量（对话 / 编码会话 / 任务看板 / Wiki / ...） */
+export interface IUsageSourceStat {
+  source: string
+  sourceName: string
+  messages: number
+  tokens: number
+}
+
 export interface IUsageStats {
   overview: IUsageOverview
   dailyTrend: IUsageDayStat[]
   yearDaily: IUsageDayStat[]
   weekHourly: IUsageHourStat[]
   byModel: IUsageModelStat[]
+  bySource: IUsageSourceStat[]
 }
 
 export interface IUsageLog {
@@ -53,10 +62,17 @@ export interface IUsageLog {
   cachedTokens: number | null
   latencyMs: number | null
   contentPreview: string
-  source: string // "chat" | "proxy"
+  /** chat / work / kanban / workflow / wiki / note-ai / organize / skill / graph / search / scheduled / proxy */
+  source: string
+  sourceName: string
 }
 
 export const usageService = {
   getStats: () => get<IUsageStats>('/usage/stats'),
-  getLogs: (page = 1, pageSize = 50) => get<IUsageLog[]>(`/usage/logs?page=${page}&pageSize=${pageSize}`),
+  getLogs: (page = 1, pageSize = 50, source?: string, refId?: string) =>
+    get<IUsageLog[]>(
+      `/usage/logs?page=${page}&pageSize=${pageSize}` +
+      (source ? `&source=${encodeURIComponent(source)}` : '') +
+      (refId ? `&refId=${encodeURIComponent(refId)}` : ''),
+    ),
 }

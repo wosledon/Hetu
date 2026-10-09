@@ -11,6 +11,7 @@ import {
   CalendarClock,
   Cpu,
   DatabaseZap,
+  Layers,
   Minimize2,
   Bot,
 } from 'lucide-react'
@@ -42,6 +43,7 @@ export default function UsagePage() {
 
   const overview = stats?.overview
   const byModel = stats?.byModel ?? []
+const bySource = stats?.bySource ?? []
 
   // 趋势区间：基于 365 天按天数据零填充构建
   const rangeDays = trendRange === '7d' ? 7 : trendRange === '30d' ? 30 : 90
@@ -278,6 +280,39 @@ export default function UsagePage() {
                           <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
                         )}
                       </div>
+
+                      {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <Layers size={15} className="text-sky-500" />
+                          调用来源
+                        </h3>
+                        {bySource.length === 0 ? (
+                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">暂无数据</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {bySource.map((s) => {
+                              const max = Math.max(...bySource.map(x => x.tokens), 1)
+                              return (
+                                <li key={s.source} className="flex items-center gap-2">
+                                  <span className="w-20 shrink-0 truncate text-[11px] text-gray-600 dark:text-gray-300" title={s.sourceName}>
+                                    {s.sourceName}
+                                  </span>
+                                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                                    <span
+                                      className="block h-full rounded-full bg-sky-500/70"
+                                      style={{ width: `${Math.round((s.tokens / max) * 100)}%` }}
+                                    />
+                                  </span>
+                                  <span className="w-14 shrink-0 text-right text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+                                    {s.tokens >= 1000 ? `${(s.tokens / 1000).toFixed(1)}k` : s.tokens}
+                                  </span>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </div>
                     </div>
 
                     {/* 热力图 */}
@@ -336,10 +371,15 @@ function UsageLogs() {
   })
 
   const models = useMemo(() => [...new Set(logs.map(l => l.modelName))].sort(), [logs])
+  const sources = useMemo(
+    () => [...new Map(logs.map(l => [l.source, l.sourceName || l.source])).entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [logs],
+  )
   const filtered = logs.filter(l => {
     if (modelFilter && l.modelName !== modelFilter) return false
-    if (sourceFilter === 'chat' && l.source !== 'chat') return false
-    if (sourceFilter === 'proxy' && l.source !== 'proxy') return false
+    if (sourceFilter && l.source !== sourceFilter) return false
     return true
   })
 
@@ -358,7 +398,7 @@ function UsageLogs() {
           <Select
             value={sourceFilter}
             onChange={setSourceFilter}
-            options={[{ value: '', label: '全部来源' }, { value: 'chat', label: '对话' }, { value: 'proxy', label: '代理' }]}
+            options={[{ value: '', label: '全部来源' }, ...sources]}
           />
           <Select
             value={modelFilter}
@@ -392,12 +432,8 @@ function UsageLogs() {
                 <tr key={log.messageId} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.02]">
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-500">{fmtTime(log.createdAt)}</td>
                   <td className="whitespace-nowrap py-2 pr-3">
-                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                      log.source === 'proxy'
-                        ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
-                        : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>
-                      {log.source === 'proxy' ? '代理' : '对话'}
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                      {log.sourceName || log.source}
                     </span>
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-600 dark:text-gray-300">{log.modelName}</td>

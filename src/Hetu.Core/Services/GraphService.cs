@@ -13,6 +13,7 @@ public class GraphService : IGraphService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly IMemoryCache _cache;
     private const string GraphCacheKey = "graph_data";
 
@@ -40,10 +41,11 @@ public class GraphService : IGraphService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, IMemoryCache cache)
+    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
         _cache = cache;
     }
 
@@ -338,6 +340,13 @@ public class GraphService : IGraphService
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。" },
             cancellationToken);
+
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Graph, null,
+            refId: noteId,
+            inputTokens: LlmTokenEstimator.Estimate(prompt),
+            contentPreview: note.Title,
+            ct: cancellationToken);
 
         var extracted = ParseExtractionResult(response);
         if (extracted == null)

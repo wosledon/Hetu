@@ -50,6 +50,11 @@ export interface SendMessageRequest {
   enabledTools?: string[];
   /** 用户/Agent 级别的工具审批模式覆盖 */
   toolApprovalOverrides?: Record<string, string>;
+  /**
+   * 会话权限模式：plan / readonly / ask / auto / bypass。
+   * 与编码会话共用同一套五档语义，由后端按工具风险等级折算为逐次审批决策。
+   */
+  permissionMode?: string;
   /** 是否启用工具调用（Agent Loop） */
   enableTools?: boolean;
   /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */

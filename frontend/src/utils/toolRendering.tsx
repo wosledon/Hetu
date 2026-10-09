@@ -29,6 +29,21 @@ const TOOL_LABELS: Record<string, string> = {
   list_scheduled_tasks: '定时任务列表',
   delete_scheduled_task: '删除定时任务',
   list_skills: '技能列表',
+  // 编码会话（work_*）工具：与对话页共用同一份标签表，保证时间线样式一致
+  work_list_dir: '浏览目录',
+  work_read_file: '读取文件',
+  work_glob: '查找文件',
+  work_grep: '搜索代码',
+  work_git: 'Git 操作',
+  work_apply_patch: '局部修改',
+  work_write_file: '写入文件',
+  work_delete_file: '删除文件',
+  work_move_file: '移动文件',
+  work_run_command: '执行命令',
+  work_diagnostics: '构建诊断',
+  work_semantic_search: '语义检索代码',
+  work_task: '派子 Agent',
+  work_skill: '读取技能',
 }
 
 export function renderToolName(name: string): string {

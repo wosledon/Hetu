@@ -8,7 +8,8 @@ export interface TopicSettings {
   knowledgeBase?: boolean
   memory?: boolean
   toolCalling?: boolean
-  toolApprovalMode?: 'auto' | 'ask' | 'bypass'
+  /** 权限模式五档：plan / readonly / ask / auto / bypass（与编码会话共用） */
+  permissionMode?: string
 }
 
 const KEY_PREFIX = 'hetu:topic-settings:'

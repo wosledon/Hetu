@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useInteractionStore } from './interactionStore'
+import { EMPTY_USAGE, parseAgentFrame, type AgentUsage } from '../utils/agentStream'
 
 export interface StreamingToolCall {
   id: string
@@ -23,7 +24,7 @@ export interface ApprovalRequest {
 
 /** 瀑布流时间线片段：按 SSE 到达顺序记录，保证文本与工具调用穿插展示 */
 export interface TimelineItem {
-  kind: 'text' | 'thought' | 'tool'
+  kind: 'text' | 'thought' | 'tool' | 'approval' | 'file' | 'checkpoint' | 'subagent'
   /** text/thought：文本内容；tool：工具名 */
   text?: string
   name?: string
@@ -31,6 +32,17 @@ export interface TimelineItem {
   result?: string
   isError?: boolean
   running?: boolean
+  /** file：文件路径；checkpoint/subagent：附加信息 */
+  path?: string
+  action?: string
+  id?: string
+  label?: string
+  fileCount?: number
+  description?: string
+  stage?: string
+  tool?: string
+  steps?: number
+  message?: string
 }
 
 export interface SearchResult {
@@ -66,6 +78,8 @@ export interface TopicStreamState {
   toolCalls: StreamingToolCall[]
   toolResults: StreamingToolResult[]
   approvalRequests: ApprovalRequest[]
+  /** 累计用量：编码会话顶栏与对话页用量徽标共用同一份快照 */
+  usage: AgentUsage
   usedWebSearch: boolean
   usedKnowledgeBase: boolean
   usedMemory: boolean
@@ -88,6 +102,7 @@ const emptyTopic = (): TopicStreamState => ({
   toolCalls: [],
   toolResults: [],
   approvalRequests: [],
+  usage: EMPTY_USAGE,
   usedWebSearch: false,
   usedKnowledgeBase: false,
   usedMemory: false,
@@ -101,6 +116,8 @@ interface ChatStreamStore {
   start: (topicId: string, opts: { content: string; webSearch: boolean; knowledgeBase: boolean; memory: boolean }) => void
   stop: (topicId: string) => void
   handleChunk: (topicId: string, chunk: Record<string, unknown>) => void
+  /** 解析一帧 SSE data 并分发（对话 / 编码会话 / 工作流共用同一解析器） */
+  handleFrame: (topicId: string, data: string) => void
   appendContent: (topicId: string, text: string) => void
   setStreamError: (topicId: string, message: string) => void
   clearAfterPersist: (topicId: string) => void
@@ -146,7 +163,7 @@ export const chatStreamControl = {
   },
 }
 
-export const useChatStreamStore = create<ChatStreamStore>((set) => {
+export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
   const patch = (topicId: string, partial: Partial<TopicStreamState>) =>
     set((st) => ({
       streams: {
@@ -197,6 +214,25 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
 
     setStreamError: (topicId, message) => patch(topicId, { streamError: message }),
 
+    /** 解析一帧 SSE data 并分发；错误帧转 streamError，非 JSON 帧按正文追加 */
+    handleFrame: (topicId, data) => {
+      const { event, error, plainText } = parseAgentFrame(data)
+      if (error != null) {
+        patch(topicId, { streamError: error })
+        return
+      }
+      if (plainText != null) {
+        get().appendContent(topicId, plainText)
+        return
+      }
+      if (!event) return
+      if (event.type === 'question' || event.type === 'todo' || event.type === 'plan') {
+        useInteractionStore.getState().applyChunk(topicId, event as unknown as Record<string, unknown>)
+        return
+      }
+      get().handleChunk(topicId, event as unknown as Record<string, unknown>)
+    },
+
     handleChunk: (topicId, chunk) =>
       set((st) => {
         // 交互型工具（question / todo / plan）走共享 interactionStore，对话页与编码页行为一致
@@ -240,6 +276,45 @@ export const useChatStreamStore = create<ChatStreamStore>((set) => {
             break
           case 'approval_request':
             next.approvalRequests = [...cur.approvalRequests, { id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string }]
+            next.timeline = [...cur.timeline, { kind: 'approval', id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string }]
+            break
+          case 'usage':
+            next.usage = {
+              promptTokens: (chunk.promptTokens as number) || 0,
+              completionTokens: (chunk.completionTokens as number) || 0,
+              cachedTokens: (chunk.cachedTokens as number) || 0,
+              totalTokens: (chunk.totalTokens as number) || 0,
+              latencyMs: (chunk.latencyMs as number) || 0,
+            }
+            break
+          case 'file_change':
+            next.timeline = [...cur.timeline, {
+              kind: 'file',
+              path: chunk.path as string,
+              action: chunk.action as string,
+            }]
+            break
+          case 'checkpoint':
+            next.timeline = [...cur.timeline, {
+              kind: 'checkpoint',
+              id: chunk.id as string,
+              label: chunk.label as string,
+              fileCount: (chunk.fileCount as number) || 0,
+            }]
+            break
+          case 'subagent':
+            next.timeline = [...cur.timeline, {
+              kind: 'subagent',
+              id: chunk.id as string,
+              description: chunk.description as string,
+              stage: chunk.stage as string,
+              tool: chunk.tool as string | undefined,
+              steps: chunk.steps as number | undefined,
+              message: chunk.message as string | undefined,
+            }]
+            break
+          case 'done':
+          case 'debug':
             break
         }
         return { streams: { ...st.streams, [topicId]: next } }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, Square, AlertCircle, User, AtSign, NotebookPen, Tag, Library, Eraser } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, AtSign, NotebookPen, Tag, Library, Eraser } from 'lucide-react'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
@@ -13,15 +13,20 @@ import { knowledgeItemService } from '../services/knowledgeBaseService'
 import { aiModelService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
-import ChatToolCallRow from './ChatToolCallRow'
-import ToolCallGroup from './ToolCallGroup'
-import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import Select from './Select'
-import ApprovalPanel from './ApprovalPanel'
+
+import AgentApprovalCard from './agent/AgentApprovalCard'
+import AgentUsageBadge from './agent/AgentUsageBadge'
+import AgentTimeline from './agent/AgentTimeline'
+import AgentInputBox from './agent/AgentInputBox'
+import AgentPermissionSelect from './agent/AgentPermissionSelect'
+import AgentReasoningSelect from './agent/AgentReasoningSelect'
+import AgentToolbarSelect from './agent/AgentToolbarSelect'
+import { fromChatTimeline } from '../utils/agentTimeline'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import type { WorkflowNodeState } from './workflow/InlineWorkflowPanel'
-import InputCommandMenu, { extractMentionQuery, type InputCommandItem } from './InputCommandMenu'
+import { type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
@@ -36,23 +41,6 @@ interface ChatMessageAreaProps {
   onTopicUpdated?: (topic: IChatTopic) => void
 }
 
-/** 现代 LLM 常见的推理强度等级（后端按模型能力透传或换算为对应 API 参数） */
-const REASONING_EFFORT_LEVELS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max']
-
-const REASONING_EFFORT_LABELS: Record<string, string> = {
-  off: '关闭',
-  none: '关闭',
-  minimal: '最低',
-  low: '低',
-  medium: '中',
-  high: '高',
-  xhigh: '超高',
-  max: '最大',
-}
-
-function reasoningEffortLabel(effort: string): string {
-  return REASONING_EFFORT_LABELS[effort] ?? (/^\d+$/.test(effort) ? `${effort} tokens` : effort)
-}
 
 function findNotebookName(notebooks: INotebook[], id: string): string {
   for (const nb of notebooks) {
@@ -108,17 +96,8 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
     const response = await startRequest(controller.signal)
     await consumeSseStream(
       response,
-      ({ data }) => {
-        if (data.startsWith(SSE_ERROR_PREFIX)) {
-          store.setStreamError(topicId, data.slice(SSE_ERROR_PREFIX.length).trim())
-          return
-        }
-        try {
-          store.handleChunk(topicId, JSON.parse(data))
-        } catch {
-          store.appendContent(topicId, data)
-        }
-      },
+      // 帧解析统一走 utils/agentStream：错误帧、交互事件、usage/文件/检查点等全事件集
+      ({ data }) => store.handleFrame(topicId, data),
       { signal: controller.signal },
     )
   } catch (error) {
@@ -152,20 +131,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     streamingMemoryResults,
     streamingToolResults,
     approvalRequests,
+    usage,
     streamError, setStreamError,
     startStreaming, stopStreaming,
   } = useStreaming(topicId)
 
   // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
-  const foldedStreamTimeline = foldConsecutiveToolCalls(
-    timeline,
-    (item) => item.kind !== 'text',
-    (item) => item.kind === 'tool'
-      ? { kind: 'tool', name: item.name ?? '', args: item.arguments ?? '{}', result: item.result, isError: item.isError, running: item.running }
-      : item.kind === 'thought'
-        ? { kind: 'thought', name: '', args: item.text ?? '', text: item.text ?? '' }
-        : { kind: 'tool', name: '', args: '{}' },
-  )
+  // （折叠逻辑已内聚到 AgentTimeline，这里不再单独预折叠）
 
   const streamWebSearch = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedWebSearch : false) ?? false)
   const streamKnowledgeBase = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedKnowledgeBase : false) ?? false)
@@ -191,9 +163,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
   const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
   const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? true)
-  const [toolApprovalMode, setToolApprovalMode] = useState<'auto' | 'ask' | 'bypass'>(() => cachedSettings.toolApprovalMode ?? 'ask')
-  const [showApprovalPicker, setShowApprovalPicker] = useState(false)
-  const approvalPickerRef = useRef<HTMLDivElement>(null)
+  const [permissionMode, setPermissionMode] = useState<string>(() => cachedSettings.permissionMode ?? 'ask')
   const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNodeState[]>([])
@@ -206,17 +176,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState(() => cachedSettings.modelId ?? '')
-  const [slashMenuIndex, setSlashMenuIndex] = useState(0)
   const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
-  const slashMenuRef = useRef<HTMLDivElement>(null)
-  const slashItemRefs = useRef<(HTMLButtonElement | null)[]>([])
-  // @ 提及：正在输入的查询词、浮层索引、已选中的引用 chips
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
-  const [mentionMenuIndex, setMentionMenuIndex] = useState(0)
+
+  const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
   const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
   const [noteCandidates, setNoteCandidates] = useState<{ id: string; title: string }[]>([])
-  const mentionMenuRef = useRef<HTMLDivElement>(null)
-  const mentionItemRefs = useRef<(HTMLButtonElement | null)[]>([])
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -315,8 +280,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     return items
   }, [skills, localSkills, presets, localPresets, allowedSkillNames])
 
-  const slashQuery = input.startsWith('/') && !input.includes(' ') ? input.slice(1).toLowerCase() : ''
-  const showSlashMenu = !selectedSlashItem && slashQuery.length >= 0 && input.startsWith('/') && !input.includes(' ') && !isStreaming && slashItems.length > 0
+  // 浮层状态由 AgentInputBox 探测回传；这里只按查询词过滤候选项
+  const slashQuery = inputMenu?.kind === 'slash' ? inputMenu.query.toLowerCase() : null
+  const showSlashMenu = inputMenu?.kind === 'slash' && !selectedSlashItem && !isStreaming && slashItems.length > 0
   const filteredSlashItems = useMemo(() => {
     if (!showSlashMenu) return []
     if (!slashQuery) return slashItems
@@ -325,17 +291,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     )
   }, [showSlashMenu, slashQuery, slashItems])
 
-  // Reset slash menu index when items change, and auto-scroll selected item into view
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSlashMenuIndex(0)
-  }, [filteredSlashItems.length])
-
-  useEffect(() => {
-    slashItemRefs.current[slashMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [slashMenuIndex])
-
-  const showMentionMenu = mentionQuery !== null && !isStreaming
+  const mentionQuery = inputMenu?.kind === 'mention' ? inputMenu.query : null
+  const showMentionMenu = inputMenu?.kind === 'mention' && !isStreaming
 
   // 按 @ 查询词动态检索笔记（含笔记本/标签/知识库等静态候选）
   useEffect(() => {
@@ -356,14 +313,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     return () => { cancelled = true; clearTimeout(timer) }
   }, [mentionQuery])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMentionMenuIndex(0)
-  }, [mentionQuery])
-
-  useEffect(() => {
-    mentionItemRefs.current[mentionMenuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [mentionMenuIndex])
 
   const mentionItems: InputCommandItem[] = useMemo(() => {
     if (mentionQuery === null) return []
@@ -481,13 +430,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       if (showReasoningPicker && reasoningPickerRef.current && !reasoningPickerRef.current.contains(target)) {
         setShowReasoningPicker(false)
       }
-      if (showApprovalPicker && approvalPickerRef.current && !approvalPickerRef.current.contains(target)) {
-        setShowApprovalPicker(false)
-      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showAgentPicker, showModelPicker, showReasoningPicker, showApprovalPicker])
+  }, [showAgentPicker, showModelPicker, showReasoningPicker])
 
   const chatModels = aiModels.filter((model) => model.purpose === 'chat' && model.providerId)
   // 缓存的模型可能已被删除，模型列表加载后回退到默认模型
@@ -516,9 +462,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
       knowledgeBase,
       memory,
       toolCalling,
-      toolApprovalMode,
+      permissionMode,
     })
-  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, toolApprovalMode])
+  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, permissionMode])
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -563,7 +509,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     }
     setSelectedMentions(prev =>
       prev.some(m => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
-    setMentionQuery(null)
+    setInputMenu(null)
     requestAnimationFrame(() => {
       const el = textareaRef.current
       if (el) {
@@ -601,7 +547,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
     setInput('')
     setSelectedSlashItem(null)
     setSelectedMentions([])
-    setMentionQuery(null)
+    setInputMenu(null)
     startStreaming(topic.id, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -664,7 +610,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
           },
           (err) => { setStreamingContent('工作流执行失败：' + err) },
           controller.signal,
-          toolApprovalMode)
+          permissionMode)
       } catch { setStreamingContent('工作流执行异常') }
       finally { stopStreaming(topic.id) }
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
@@ -705,7 +651,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         agentId: detectedAgentId || selectedPreset?.id,
         enableTools: toolCalling,
         // 始终下发全局审批模式：auto 也必须显式覆盖，否则各工具 DefaultApproval（如 run_command=Ask）仍会逐个询问
-        toolApprovalOverrides: { '*': toolApprovalMode },
+        permissionMode,
         mentions: mentions.length > 0 ? mentions : undefined,
       }, signal),
     ).finally(() => {
@@ -1092,9 +1038,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               onEditContentChange={setEditingContent}
             />
           ))}
-        </div>
-
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
+        {/* 与流式回复同在 space-y-5 容器内：否则流式期间回复会贴着用户气泡（完成后进入容器才恢复间距） */}
         {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt - 2000) && (
           <div className="flex flex-row-reverse gap-3">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
@@ -1114,46 +1059,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
         {/* Streaming response - show during and after stream until messages refresh */}
         {(isStreaming || streamingContent || streamingThinking || timeline.length > 0 || streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0 || streamingToolResults.length > 0) && (
           <div className="flex flex-col">
-              {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，不用气泡包裹 */}
+              {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，与编码会话/任务看板共用 AgentTimeline */}
               <div className="text-gray-800 dark:text-gray-100">
-                {foldedStreamTimeline.map((entry, i) => {
-                  if (entry.kind === 'tool') {
-                    const only = entry.items[0]
-                    // 单条过程：工具调用或思考，都直接用统一的行样式
-                    if (entry.items.length === 1) {
-                      return only.kind === 'thought'
-                        ? (
-                          <div key={i} className="mb-2">
-                            <ChatToolCallRow name="" args={only.text ?? ''} text={only.text ?? ''} label="思考" />
-                            {i === foldedStreamTimeline.length - 1 && <div ref={thinkingEndRef} />}
-                          </div>
-                        )
-                        : (
-                          <div key={i} className="mb-2">
-                            <ChatToolCallRow
-                              name={only.name}
-                              args={only.args}
-                              result={only.result}
-                              isError={only.isError}
-                              running={only.running}
-                            />
-                          </div>
-                        )
-                    }
-                    return (
-                      <div key={i} className="mb-2">
-                        <ToolCallGroup items={entry.items} />
-                      </div>
-                    )
-                  }
-                  const item = entry.item
-                  return (
-                    <div key={i} className="mb-3 prose prose-sm dark:prose-invert max-w-none">
-                      <ThemedMarkdown source={item.text ?? ''} />
-                      {i === timeline.length - 1 && <div ref={messagesEndRef} />}
-                    </div>
-                  )
-                })}
+                <AgentTimeline
+                  items={fromChatTimeline(timeline)}
+                  streaming={isStreaming}
+                  onApprove={handleApprove}
+                />
+                {timeline.length > 0 && <div ref={thinkingEndRef} />}
                 {/* 时间线为空但仍有思考内容的降级渲染 */}
                 {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
@@ -1260,6 +1173,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
               </div>
           </div>
         )}
+        </div>
 
         {streamError && (
           <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
@@ -1324,208 +1238,109 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
             />
           </div>
         )}
-        {/* Approval request panel */}
-        <ApprovalPanel requests={approvalRequests} onApprove={handleApprove} />
+        {/* 工具审批卡片：与编码会话共用同一组件 */}
+        {approvalRequests.map((req) => (
+          <div key={req.id} className="mb-2">
+            <AgentApprovalCard
+              request={req}
+              onApprove={() => handleApprove(req.id, true)}
+              onDeny={() => handleApprove(req.id, false)}
+            />
+          </div>
+        ))}
+
+        {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
+        {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
 
         {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（对话页与编码页共用） */}
         <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
 
-        {/* Attached files */}
-        {attachedFiles.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {attachedFiles.map((file, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800">
-                <FileText size={12} className="text-blue-500" />
-                <span className="max-w-[120px] truncate text-gray-700 dark:text-gray-300">{file.name}</span>
-                <button onClick={() => removeAttachedFile(i)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
-              </div>
-            ))}
+        {/* 工具审批卡片：与编码会话共用同一组件 */}
+        {approvalRequests.map((req) => (
+          <div key={req.id} className="mb-2">
+            <AgentApprovalCard
+              request={req}
+              onApprove={() => handleApprove(req.id, true)}
+              onDeny={() => handleApprove(req.id, false)}
+            />
           </div>
-        )}
+        ))}
 
-        {/* Input area */}
-        <div className="relative rounded-xl border border-gray-200 bg-white transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-blue-500">
-          {/* @ mention menu */}
-          {showMentionMenu && (
-            <div ref={mentionMenuRef}>
-              <InputCommandMenu
-                title="输入 @ 引用笔记 / 笔记本 / 标签 / 知识库"
-                items={mentionItems}
-                selectedIndex={mentionMenuIndex}
-                onSelect={applyMention}
-                itemRefs={mentionItemRefs}
-                emptyHint={mentionQuery?.trim() ? '没有匹配的引用' : '输入关键词搜索...'}
-              />
-            </div>
-          )}
-          {/* Selected @ mention chips */}
-          {selectedMentions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-0.5">
-              {selectedMentions.map((m) => (
-                <span
-                  key={`${m.type}:${m.id}`}
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                >
-                  <AtSign size={10} />
-                  {m.label}
-                  <button
-                    onClick={() => setSelectedMentions(prev => prev.filter(x => !(x.type === m.type && x.id === m.id)))}
-                    className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
-                  >
-                    <X size={10} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          {/* Slash command menu */}
-          {showSlashMenu && filteredSlashItems.length > 0 && (
-            <div
-              ref={slashMenuRef}
-              className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-            >
-              <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
-                输入 / 选择技能或智能体
-              </div>
-              {filteredSlashItems.map((item, i) => (
-                <button
-                  key={item.key}
-                  ref={el => { slashItemRefs.current[i] = el }}
-                  onClick={() => {
-                    setSelectedSlashItem({ label: item.label, icon: item.icon, type: item.type, description: item.description })
-                    setInput('')
-                    textareaRef.current?.focus()
-                  }}
-                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
-                    i === slashMenuIndex
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50'
-                  }`}
-                >
-                  <span className="text-base">{item.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium">{item.label}</div>
-                    <div className="truncate text-[11px] text-gray-400">{item.description}</div>
-                  </div>
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
-                    item.type === 'skill'
-                      ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'
-                      : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                  }`}>
-                    {item.type === 'skill' ? '技能' : '智能体'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {/* Selected slash command chip */}
-          {selectedSlashItem && (
-            <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-0.5">
-              <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${
-                selectedSlashItem.type === 'skill'
-                  ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-              }`}>
-                <span>{selectedSlashItem.icon}</span>
-                <span>{selectedSlashItem.label}</span>
-                <button
-                  onClick={() => setSelectedSlashItem(null)}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
-                >
-                  <X size={10} />
-                </button>
-              </span>
-            </div>
-          )}
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              const value = e.target.value
-              setInput(value)
-              const cursor = e.target.selectionStart ?? value.length
-              setMentionQuery(extractMentionQuery(value, cursor))
-            }}
-            onKeyDown={(e) => {
-              if (showMentionMenu && mentionItems.length > 0) {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault()
-                  setMentionMenuIndex(i => (i + 1) % mentionItems.length)
-                  return
-                }
-                if (e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  setMentionMenuIndex(i => (i - 1 + mentionItems.length) % mentionItems.length)
-                  return
-                }
-                if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
-                  e.preventDefault()
-                  applyMention(mentionItems[mentionMenuIndex])
-                  return
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setMentionQuery(null)
-                  return
-                }
-              }
-              if (showSlashMenu && filteredSlashItems.length > 0) {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault()
-                  setSlashMenuIndex(i => (i + 1) % filteredSlashItems.length)
-                  return
-                }
-                if (e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  setSlashMenuIndex(i => (i - 1 + filteredSlashItems.length) % filteredSlashItems.length)
-                  return
-                }
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  const selected = filteredSlashItems[slashMenuIndex]
-                  if (selected) {
-                    setSelectedSlashItem({ label: selected.label, icon: selected.icon, type: selected.type, description: selected.description })
-                    setInput('')
-                  }
-                  return
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setInput('')
-                  return
-                }
-                if (e.key === 'Tab') {
-                  e.preventDefault()
-                  const selected = filteredSlashItems[slashMenuIndex]
-                  if (selected) {
-                    setSelectedSlashItem({ label: selected.label, icon: selected.icon, type: selected.type, description: selected.description })
-                    setInput('')
-                  }
-                  return
-                }
-              }
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-            onPaste={handlePaste}
-            placeholder={
-              selectedSlashItem
-                ? (selectedSlashItem.description || '输入内容...')
-                : attachedFiles.length > 0
-                  ? `已附加 ${attachedFiles.length} 张图片，输入消息...`
-                  : "输入消息，Enter 发送，/ 选技能，@ 引用笔记..."
-            }
-            rows={2}
-            className="w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
-          />
+        {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
+        {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
 
-          {/* Toolbar */}
-          <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-            {/* Left tools */}
-            <div className="flex items-center gap-0.5">
+        {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（对话页与编码页共用） */}
+        <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
+
+        {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有 */}
+        <AgentInputBox
+          value={input}
+          onChange={(v) => setInput(v)}
+          onMenuChange={setInputMenu}
+          onSubmit={handleSend}
+          onPaste={handlePaste}
+          textareaRef={textareaRef}
+          menu={showSlashMenu
+            ? (filteredSlashItems.length > 0
+                ? {
+                    kind: 'slash' as const,
+                    items: filteredSlashItems,
+                    onSelect: (item: InputCommandItem) => {
+                      setSelectedSlashItem({
+                        label: item.label,
+                        icon: item.icon,
+                        type: (item.type ?? 'skill') as 'skill' | 'agent',
+                        description: item.description,
+                      })
+                      setInput('')
+                    },
+                    emptyHint: '没有匹配的技能或智能体',
+                  }
+                : null)
+            : (showMentionMenu && mentionItems.length > 0
+                ? {
+                    kind: 'mention' as const,
+                    items: mentionItems,
+                    onSelect: applyMention,
+                    emptyHint: mentionQuery?.trim() ? '没有匹配的引用' : '输入关键词搜索...',
+                  }
+                : null)}
+          chips={[
+            ...attachedFiles.map((file, i) => ({
+              id: `file:${i}`,
+              label: file.name,
+              icon: <FileText size={12} className="text-blue-500" />,
+              onRemove: () => removeAttachedFile(i),
+            })),
+            ...selectedMentions.map((m) => ({
+              id: `${m.type}:${m.id}`,
+              label: m.label,
+              tone: 'blue' as const,
+              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
+            })),
+            ...(selectedSlashItem
+              ? [{
+                  id: `slash:${selectedSlashItem.label}`,
+                  label: selectedSlashItem.label,
+                  tone: 'violet' as const,
+                  title: selectedSlashItem.description,
+                  onRemove: () => setSelectedSlashItem(null),
+                }]
+              : []),
+          ]}
+          placeholder={
+            selectedSlashItem
+              ? (selectedSlashItem.description || '输入内容...')
+              : attachedFiles.length > 0
+                ? `已附加 ${attachedFiles.length} 张图片，输入消息...`
+                : '输入消息，Enter 发送，/ 选技能，@ 引用笔记...'
+          }
+          streaming={isStreaming}
+          onStop={handleStop}
+          canSubmit={!!input.trim() || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
+          hint="Shift + Enter 换行 · 支持粘贴文件"
+          toolbar={
+            <>
               {/* Attach file (only for vision-capable models) */}
               {currentModel?.supportsVision && (
                 <button
@@ -1644,155 +1459,39 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 )}
               </div>
 
-              {/* Model selector */}
-              <div className="relative" ref={modelPickerRef}>
-                <button
-                  onClick={() => { setShowModelPicker(!showModelPicker); setShowAgentPicker(false) }}
-                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    activeModelId
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  title="选择模型"
-                >
-                  {activeModelId ? chatModels.find(m => m.id === activeModelId)?.displayName || '默认模型' : '默认模型'}
-                  <ChevronDown size={10} />
-                </button>
-                {showModelPicker && (
-                  <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <div className="max-h-48 overflow-y-auto p-1.5">
-                      <button
-                        onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs ${!activeModelId ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                      >
-                        默认模型
-                      </button>
-                      {chatModels.map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}
-                          className={`w-full rounded-lg px-3 py-2 text-left text-xs ${activeModelId === m.id ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                        >
-                          {m.displayName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-
-              {/* Tool calling toggle + approval picker */}
-              <div className="relative flex items-center" ref={approvalPickerRef}>
-                {toolCalling && (
-                  <button
-                    onClick={() => setShowApprovalPicker(!showApprovalPicker)}
-                    className={`flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[10px] font-medium transition-colors ${
-                      toolApprovalMode === 'ask'
-                        ? 'text-blue-500'
-                        : toolApprovalMode === 'bypass'
-                          ? 'text-red-500'
-                          : 'text-amber-500'
-                    } hover:bg-gray-100 dark:hover:bg-gray-700`}
-                    title="审批模式"
-                  >
-                    {toolApprovalMode === 'ask' ? '询问' : toolApprovalMode === 'bypass' ? '静默' : '自动'}
-                    <ChevronDown size={10} />
-                  </button>
-                )}
+              {/* 模型选择：与编码会话共用同一组件 */}
+              <AgentToolbarSelect
+                value={activeModelId}
+                onChange={setSelectedModelId}
+                title="选择模型"
+                options={[{ value: '', label: '默认模型' }, ...chatModels.map((m) => ({ value: m.id, label: m.displayName }))]}
+                />
+                <div className="flex items-center gap-1">
+                {toolCalling && <AgentPermissionSelect value={permissionMode} onChange={setPermissionMode} />}
                 <button
                   onClick={() => setToolCalling(!toolCalling)}
-                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                  className={`flex h-[26px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
                     toolCalling
                       ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
                   }`}
                   title="工具调用"
                 >
-                  <Zap size={14} />
+                  <Zap size={13} />
                   工具
                 </button>
-                {showApprovalPicker && (
-                  <div className="absolute bottom-full left-0 z-50 mb-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                    <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">审批模式</div>
-                    {([
-                      { value: 'auto', label: '自动执行', desc: '工具自动运行，结果正常展示', color: 'text-amber-600 dark:text-amber-400' },
-                      { value: 'ask', label: '询问确认', desc: '执行前暂停等待确认', color: 'text-blue-600 dark:text-blue-400' },
-                      { value: 'bypass', label: '静默执行', desc: '工具自动运行，结果折叠', color: 'text-red-600 dark:text-red-400' },
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => { setToolApprovalMode(opt.value); setShowApprovalPicker(false) }}
-                        className={`flex w-full flex-col px-3 py-1.5 text-left transition-colors ${
-                          toolApprovalMode === opt.value
-                            ? 'bg-gray-100 dark:bg-gray-700/50'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        }`}
-                      >
-                        <span className={`text-xs font-medium ${opt.color}`}>{opt.label}</span>
-                        <span className="text-[10px] text-gray-400">{opt.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
 
-              {/* Deep thinking - dynamic based on model reasoning mode */}
-              {currentReasoningMode === 'tag' && (
-                <button
-                  onClick={() => setDeepThinking(!deepThinking)}
-                  className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                    deepThinking
-                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                  }`}
-                  title="深度思考"
-                >
-                  <Brain size={14} />
-                  深度思考
-                </button>
-              )}
-              {currentReasoningMode === 'native' && (
-                <div className="relative" ref={reasoningPickerRef}>
-                  <button
-                    onClick={() => setShowReasoningPicker(!showReasoningPicker)}
-                    className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                      deepThinking
-                        ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                    }`}
-                    title="推理强度"
-                  >
-                    <Brain size={14} />
-                    {reasoningEffortLabel(reasoningEffort)}
-                    <ChevronDown size={10} />
-                  </button>
-                  {showReasoningPicker && (
-                    <div className="absolute bottom-full left-0 mb-2 w-32 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                      <div className="p-1.5">
-                        {REASONING_EFFORT_LEVELS.map(level => (
-                          <button
-                            key={level}
-                            onClick={() => { setReasoningEffort(level); setDeepThinking(true); setShowReasoningPicker(false) }}
-                            className={`w-full rounded-lg px-3 py-1.5 text-left text-xs ${reasoningEffort === level ? 'bg-violet-50 text-violet-600 dark:bg-violet-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                          >
-                            {REASONING_EFFORT_LABELS[level]}强度
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => { setDeepThinking(false); setShowReasoningPicker(false) }}
-                          className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          关闭
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* 推理强度 / 深度思考：与编码会话共用同一组件 */}
+              <AgentReasoningSelect
+                value={reasoningEffort}
+                onChange={setReasoningEffort}
+                reasoningMode={currentReasoningMode}
+                enabled={deepThinking}
+                onEnabledChange={setDeepThinking}
+              />
 
               {/* Web search toggle */}
               <button
@@ -1833,33 +1532,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated }: ChatMe
                 title="记忆"
               >
                 <Atom size={14} />
-                记忆
               </button>
-            </div>
-
-            {/* Send / Stop button */}
-            {isStreaming ? (
-              <button
-                onClick={handleStop}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500 text-white shadow-sm transition-all hover:bg-red-600"
-                title="停止生成"
-              >
-                <Square size={13} fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() && attachedFiles.length === 0}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm transition-all hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
-              >
-                <Send size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <p className="mt-1.5 text-center text-[10px] text-gray-400">Shift + Enter 换行 · 支持粘贴文件</p>
+            </>
+          }
+        />
       </div>
     </div>
   )
 }
+
+
+
+
+
+

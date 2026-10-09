@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
 using Hetu.Shared.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -12,13 +13,16 @@ namespace Hetu.Infrastructure.ScheduledTasks;
 public class AiTaskScheduledTaskExecutor : IScheduledTaskExecutor
 {
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AiTaskScheduledTaskExecutor> _logger;
 
     public AiTaskScheduledTaskExecutor(
         ILLMProviderFactory llmProviderFactory,
+        ILlmUsageRecorder usageRecorder,
         ILogger<AiTaskScheduledTaskExecutor> logger)
     {
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
         _logger = logger;
     }
 
@@ -46,6 +50,13 @@ public class AiTaskScheduledTaskExecutor : IScheduledTaskExecutor
             [new LlmChatMessage { Role = "user", Content = prompt }],
             options,
             cancellationToken);
+
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Scheduled, null,
+            refId: task.Id,
+            inputTokens: LlmTokenEstimator.Estimate(options.SystemPrompt) + LlmTokenEstimator.Estimate(prompt),
+            contentPreview: task.Name,
+            ct: cancellationToken);
 
         return Truncate(result);
     }

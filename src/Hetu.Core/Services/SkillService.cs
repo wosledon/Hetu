@@ -10,11 +10,13 @@ public class SkillService : ISkillService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
-    public SkillService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory)
+    public SkillService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
     }
 
     public async Task<ApiResponse<List<SkillDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -138,6 +140,12 @@ public class SkillService : ISkillService
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
 
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Skill, null,
+            inputTokens: LlmTokenEstimator.Estimate(systemPrompt) + LlmTokenEstimator.Estimate(prompt),
+            contentPreview: input,
+            ct: cancellationToken);
+
         return ApiResponse<string>.Ok(result);
     }
 
@@ -156,6 +164,12 @@ public class SkillService : ISkillService
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
+
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Skill, null,
+            inputTokens: LlmTokenEstimator.Estimate(systemPrompt) + LlmTokenEstimator.Estimate(prompt),
+            contentPreview: input,
+            ct: cancellationToken);
 
         return ApiResponse<string>.Ok(result);
     }

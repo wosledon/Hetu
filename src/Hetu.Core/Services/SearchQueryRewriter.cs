@@ -11,6 +11,7 @@ namespace Hetu.Core.Services;
 public class SearchQueryRewriter
 {
     private readonly ILogger<SearchQueryRewriter> _logger;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     // 部分模型（native 推理模式）对 completion 请求只回推理内容、正文为空：
     // 一旦发现就直接降级为原文检索，避免每条消息都白跑一次 LLM 调用
@@ -27,9 +28,10 @@ public class SearchQueryRewriter
 - 提取不出有效信息时，输出用户原文
 """;
 
-    public SearchQueryRewriter(ILogger<SearchQueryRewriter> logger)
+    public SearchQueryRewriter(ILogger<SearchQueryRewriter> logger, ILlmUsageRecorder usageRecorder)
     {
         _logger = logger;
+        _usageRecorder = usageRecorder;
     }
 
     /// <summary>返回改写后的关键词列表（至少一个：失败时退化为原文）</summary>
@@ -51,6 +53,12 @@ public class SearchQueryRewriter
                 Temperature = 0.2,
                 MaxTokens = 120,
             }, cts.Token);
+
+            await _usageRecorder.RecordAsync(
+                LlmUsageSources.Search, null,
+                inputTokens: LlmTokenEstimator.Estimate(SystemPrompt) + LlmTokenEstimator.Estimate(question),
+                contentPreview: question,
+                ct: cancellationToken);
 
             _logger.LogDebug("查询改写原始输出：{Raw}", (raw ?? string.Empty).Replace("\n", " / ")[..Math.Min(200, (raw ?? string.Empty).Length)]);
 

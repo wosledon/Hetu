@@ -13,12 +13,14 @@ public class ChatOrganizeService : IChatOrganizeService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly INoteService _noteService;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
-    public ChatOrganizeService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, INoteService noteService)
+    public ChatOrganizeService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, INoteService noteService, ILlmUsageRecorder usageRecorder)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _noteService = noteService;
+        _usageRecorder = usageRecorder;
     }
 
     public async IAsyncEnumerable<string> OrganizeTopicAsync(
@@ -90,6 +92,13 @@ public class ChatOrganizeService : IChatOrganizeService
 
         var organizedContent = sb.ToString().Trim();
         var title = ExtractTitle(organizedContent) ?? $"{topic.Title} 整理";
+
+        await _usageRecorder.RecordAsync(
+            LlmUsageSources.Organize, null,
+            refId: topicId,
+            inputTokens: LlmTokenEstimator.Estimate(prompt),
+            contentPreview: title,
+            ct: cancellationToken);
 
         var createResult = await _noteService.CreateAsync(new CreateNoteRequest
         {

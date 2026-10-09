@@ -39,6 +39,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private readonly WorkflowExecutionEngine _workflowEngine;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly InboxService _inbox;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<KanbanTaskExecutor> _logger;
 
     public KanbanTaskExecutor(
@@ -48,6 +49,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         WorkflowExecutionEngine workflowEngine,
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
+        ILlmUsageRecorder usageRecorder,
         ILogger<KanbanTaskExecutor> logger)
     {
         _unitOfWork = unitOfWork;
@@ -56,6 +58,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         _workflowEngine = workflowEngine;
         _runnerFactory = runnerFactory;
         _inbox = inbox;
+        _usageRecorder = usageRecorder;
         _logger = logger;
     }
 
@@ -200,6 +203,14 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 output = agentResult.Content;
                 if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(agentResult.Thinking))
                     output = agentResult.Thinking!;
+
+                // 看板任务同样是 LLM 调用方，统一记入用量统计
+                await _usageRecorder.RecordAsync(
+                    LlmUsageSources.Kanban,
+                    agentResult.Usage.TotalTokens > 0 ? agentResult.Usage : null,
+                    refId: taskId,
+                    contentPreview: output,
+                    ct: cancellationToken);
             }
 
             if (string.IsNullOrWhiteSpace(output))

@@ -6,6 +6,7 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Profiles;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
@@ -14,21 +15,6 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
 namespace Hetu.Api.Controllers;
-
-/// <summary>
-/// 持久化到助手消息的瀑布流片段：按模型"文本 → 工具调用"的实际发生顺序记录，
-/// 前端据此穿插还原（旧格式为无 kind 的纯工具数组，前端兼容处理）。
-/// </summary>
-public class TimelineSegment
-{
-    /// <summary>text | tool</summary>
-    public string Kind { get; set; } = "text";
-    public string? Content { get; set; }
-    public string? Name { get; set; }
-    public string? Arguments { get; set; }
-    public string? Result { get; set; }
-    public bool IsError { get; set; }
-}
 
 [ApiController]
 [Route("api/chat-messages")]
@@ -49,7 +35,8 @@ public class ChatMessagesController : ControllerBase
     private readonly ToolRegistry _toolRegistry;
     private readonly PromptComposer _promptComposer;
     private readonly ToolExecutionService _toolExecution;
-    private readonly CompressionPipelineService _compressionPipeline;
+    private readonly AgentLoopService _agentLoop;
+    private readonly ILlmUsageRecorder _llmUsageRecorder;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -67,7 +54,8 @@ public class ChatMessagesController : ControllerBase
         ToolRegistry toolRegistry,
         PromptComposer promptComposer,
         ToolExecutionService toolExecution,
-        CompressionPipelineService compressionPipeline)
+        AgentLoopService agentLoop,
+        ILlmUsageRecorder llmUsageRecorder)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -84,7 +72,8 @@ public class ChatMessagesController : ControllerBase
         _toolRegistry = toolRegistry;
         _promptComposer = promptComposer;
         _toolExecution = toolExecution;
-        _compressionPipeline = compressionPipeline;
+        _agentLoop = agentLoop;
+        _llmUsageRecorder = llmUsageRecorder;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -199,108 +188,41 @@ public class ChatMessagesController : ControllerBase
         var profile = BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
 
-        var contentSb = new StringBuilder();
-        var thinkingSb = new StringBuilder();
-        var timeline = new List<TimelineSegment>();
-        var sessionTodos = new List<SessionTodo>();
-        const int maxIterations = 15;
-        var maxIter = profile.MaxAgentIterations > 0 ? profile.MaxAgentIterations : maxIterations;
         var sw = Stopwatch.StartNew();
-        int totalTokens = 0, cachedTokens = 0, totalPrompt = 0, totalCompletion = 0, estimatedInput = 0, estimatedCompressed = 0;
-        bool hasUsage = false;
-        var cancelled = false;
-        string? loopError = null;
+        int estimatedInput = 0, estimatedCompressed = 0;
+        var sink = new SseAgentSink(writer);
 
-        try
+        var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
-            for (int iter = 0; iter < maxIter; iter++)
-            {
-                // 1. 压缩前估算原始 Token
-                estimatedInput += EstimateTokens(chatMessages, options);
-
-                // 2. 压缩本轮消息并估算压缩后 Token
-                await CompressChatHistoryAsync(chatMessages, options, ct);
-                estimatedCompressed += EstimateTokens(chatMessages, options);
-
-                // 3. LLM 调用
-                await writer.WriteDebugAsync($"Iteration {iter + 1}, tools={options.Tools?.Count ?? 0}");
-
-                var (iterContent, iterThinking, pendingToolCalls, iterUsage) = await ChatStreamProcessor.ProcessStreamAsync(
-                    provider, chatMessages, options, writer, ct);
-
-                if (iterUsage != null)
-                {
-                    hasUsage = true;
-                    totalTokens += iterUsage.TotalTokens;
-                    totalPrompt += iterUsage.PromptTokens;
-                    totalCompletion += iterUsage.CompletionTokens;
-                    cachedTokens += iterUsage.CachedTokens;
-                }
-
-                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !useToolCalling)
-                {
-                    contentSb.Append(iterContent);
-                    thinkingSb.Append(iterThinking);
-                    break;
-                }
-
-                contentSb.Append(iterContent);
-                thinkingSb.Append(iterThinking);
-
-                // 有序流水：本轮按 思考 → 文本 → 工具调用 的发生顺序记录，前端才能穿插还原
-                if (iterThinking.Length > 0)
-                    timeline.Add(new TimelineSegment { Kind = "thought", Content = iterThinking.ToString() });
-                if (iterContent.Length > 0)
-                    timeline.Add(new TimelineSegment { Kind = "text", Content = iterContent.ToString() });
-
-                // 4. 追加新消息（下一轮会压缩）
-                chatMessages.Add(new LlmChatMessage { Role = "assistant", Content = iterContent.ToString(), ToolCalls = pendingToolCalls });
-
-                var toolResults = await _toolExecution.ExecuteToolCallsAsync(
-                    topicId.ToString(),
-                    pendingToolCalls, approvalOverrides, sessionTodos,
-                    data => writer.WriteEventAsync(data),
-                    payload => writer.WriteJsonAsync(payload),
-                    ct);
-
-                foreach (var (toolCallId, content, _) in toolResults)
-                {
-                    chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = content });
-                }
-
-                // 记录工具调用流水，随助手消息持久化（前端瀑布流还原执行过程）
-                foreach (var (toolCallId, toolContent, isError) in toolResults)
-                {
-                    var call = pendingToolCalls.FirstOrDefault(c => c.Id == toolCallId);
-                    if (call == null) continue;
-                    timeline.Add(new TimelineSegment
-                    {
-                        Kind = "tool",
-                        Name = call.Name,
-                        Arguments = call.Arguments,
-                        Result = toolContent,
-                        IsError = isError,
-                    });
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            cancelled = true;
-            Log.Information("[Stream] 用户中断生成 topicId={TopicId}", topicId);
-        }
-        catch (Exception ex)
-        {
-            loopError = ex.Message;
-            Log.Error(ex, "[Stream] Agent循环异常 topicId={TopicId}", topicId);
-            try { await writer.WriteErrorAsync($"处理请求时出错: {ex.Message}"); } catch { }
-        }
+            // Provider 已在上面解析（含 API Key 解密失败的友好报错），此处复用同一实例
+            ModelId = modelId,
+            SystemPrompt = options.SystemPrompt ?? string.Empty,
+            Messages = chatMessages,
+            ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
+            McpServerIds = new List<Guid>(),
+            MaxIterations = profile.MaxAgentIterations,
+            MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
+            ToolApprovals = approvalOverrides,
+            SessionId = topicId.ToString(),
+            Sink = sink,
+            EnableTools = useToolCalling,
+            // 权限模式与编码会话共用五档语义（plan/readonly/ask/auto/bypass），
+            // 由统一策略按工具风险等级折算；未指定时回落到 ask（写操作需确认）
+            DecideToolCall = useToolCalling
+                ? AgentToolPolicy.CreateDecider(
+                    _toolRegistry,
+                    new AgentPolicyContext { Mode = WorkToolPolicy.Parse(request.PermissionMode) })
+                : null,
+            Hooks = new ChatEstimateHooks(chatMessages, options, () => estimatedInput, v => estimatedInput = v, () => estimatedCompressed, v => estimatedCompressed = v),
+        }, ct);
 
         sw.Stop();
         var latencyMs = (int)sw.ElapsedMilliseconds;
+        var cancelled = loopResult.Cancelled;
+        var loopError = loopResult.Error;
 
         // 中断或正常完成都保存已生成的部分内容
-        var finalContent = contentSb.ToString();
+        var finalContent = loopResult.Content;
         if (cancelled)
             finalContent += "\n\n*（已停止生成）*";
         else if (finalContent.Trim().Length == 0 && loopError != null)
@@ -308,26 +230,90 @@ public class ChatMessagesController : ControllerBase
 
         if (!string.IsNullOrEmpty(finalContent))
         {
-            var toolCallsJson = timeline.Count > 0
-                ? JsonSerializer.Serialize(timeline, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+            var toolCallsJson = loopResult.Timeline.Count > 0
+                ? JsonSerializer.Serialize(loopResult.Timeline, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 : null;
             await _chatMessageService.SaveAssistantMessageAsync(topicId,
                 finalContent, modelId,
-                thinkingSb.Length > 0 ? thinkingSb.ToString() : null,
+                !string.IsNullOrEmpty(loopResult.Thinking) ? loopResult.Thinking : null,
                 searchJson, kbJson, memJson,
-                hasUsage ? totalTokens : null,
-                hasUsage ? cachedTokens : null,
+                loopResult.Usage.TotalTokens > 0 ? loopResult.Usage.TotalTokens : null,
+                loopResult.Usage.CachedTokens > 0 ? loopResult.Usage.CachedTokens : null,
                 latencyMs,
                 inputTokens: estimatedInput,
                 compressedTokens: estimatedCompressed,
-                outputTokens: hasUsage ? totalCompletion : null,
+                outputTokens: loopResult.Usage.CompletionTokens > 0 ? loopResult.Usage.CompletionTokens : null,
                 toolCallsJson: toolCallsJson,
                 cancellationToken: CancellationToken.None);
         }
 
+        await _llmUsageRecorder.RecordAsync(
+            LlmUsageSources.Chat,
+            loopResult.Usage.TotalTokens > 0 ? loopResult.Usage : null,
+            refId: topicId,
+            modelId: modelId,
+            inputTokens: estimatedInput,
+            compressedTokens: estimatedCompressed,
+            latencyMs: latencyMs,
+            contentPreview: request.Content,
+            ct: CancellationToken.None);
+
         if (!cancelled && request.Memory)
         {
             try { await _memoryService.TryAutoExtractAsync(topicId, ct); } catch { }
+        }
+    }
+
+    /// <summary>把 Agent Loop 事件写进 SSE 流。</summary>
+    private sealed class SseAgentSink : IAgentLoopSink
+    {
+        private readonly SseStreamWriter _writer;
+
+        public SseAgentSink(SseStreamWriter writer) => _writer = writer;
+
+        public Task OnContentAsync(string text) => _writer.WriteJsonAsync(new { type = "content", text });
+
+        public Task OnThinkingAsync(string text) => _writer.WriteJsonAsync(new { type = "thinking", text });
+
+        public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
+
+        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync($"处理请求时出错: {message}");
+
+        /// <summary>tool_call / tool_result / approval_request / question / todo / plan 一律直通写帧</summary>
+        public Task OnEventAsync(object payload) => _writer.WriteJsonAsync(payload);
+
+        public Task OnUsageAsync(LlmUsage usage) => Task.CompletedTask;
+    }
+
+    /// <summary>对话页的 token 估算钩子：每轮前后各估一次，产出压缩前后的输入规模。</summary>
+    private sealed class ChatEstimateHooks : IAgentLoopHooks
+    {
+        private readonly List<LlmChatMessage> _messages;
+        private readonly ChatOptions _options;
+        private readonly Func<int> _getInput;
+        private readonly Action<int> _setInput;
+        private readonly Func<int> _getCompressed;
+        private readonly Action<int> _setCompressed;
+
+        public ChatEstimateHooks(
+            List<LlmChatMessage> messages,
+            ChatOptions options,
+            Func<int> getInput, Action<int> setInput,
+            Func<int> getCompressed, Action<int> setCompressed)
+        {
+            _messages = messages;
+            _options = options;
+            _getInput = getInput;
+            _setInput = setInput;
+            _getCompressed = getCompressed;
+            _setCompressed = setCompressed;
+        }
+
+        public Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage)
+        {
+            _setInput(_getInput() + EstimateTokens(_messages, _options));
+            _setCompressed(_getCompressed() + EstimateTokens(_messages, _options));
+            return Task.CompletedTask;
         }
     }
 
@@ -826,20 +812,5 @@ public class ChatMessagesController : ControllerBase
             + (options.SystemPrompt?.Length ?? 0)
             + (options.Tools?.Sum(t => JsonSerializer.Serialize(t).Length) ?? 0);
         return (int)Math.Ceiling(chars / 3.0);
-    }
-
-    private async Task CompressChatHistoryAsync(List<LlmChatMessage> messages, ChatOptions options, CancellationToken ct)
-    {
-        for (int i = 0; i < messages.Count; i++)
-        {
-            var msg = messages[i];
-            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.Length < 500) continue;
-            var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
-            if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
-                messages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
-        }
-
-        // 注意：不压缩 system prompt。其中的"当前时间"会被数字归一化把年份替换成 [N]，
-        // 导致模型输出"当前（[N] 年 10 月 7 日）"这类错误日期；系统提示词是受控模板，压缩收益也甚微。
     }
 }

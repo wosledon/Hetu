@@ -15,6 +15,8 @@ public class SearchMemoryTool : IToolExecutor
     public string Name => "search_memory";
     public string Description => "搜索记忆（用户偏好、历史信息）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
+
+    public ToolRisk Risk => ToolRisk.Read;
     public string? UsageGuideline => "在需要参考用户长期偏好、过往结论或重要事实时调用；与 search_notes 互补——记忆偏个人偏好，笔记偏知识内容。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
@@ -65,3 +67,4 @@ public class SearchMemoryTool : IToolExecutor
         }
     }
 }
+

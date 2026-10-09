@@ -39,6 +39,7 @@ public class WikiService : IWikiService
     private readonly IWorkCodeIndexService _codeIndexService;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly IBackgroundTaskQueue _taskQueue;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<WikiService> _logger;
 
     public WikiService(
@@ -47,6 +48,7 @@ public class WikiService : IWikiService
         IWorkCodeIndexService codeIndexService,
         IWorkCommandRunnerFactory runnerFactory,
         IBackgroundTaskQueue taskQueue,
+        ILlmUsageRecorder usageRecorder,
         ILogger<WikiService> logger)
     {
         _unitOfWork = unitOfWork;
@@ -54,8 +56,18 @@ public class WikiService : IWikiService
         _codeIndexService = codeIndexService;
         _runnerFactory = runnerFactory;
         _taskQueue = taskQueue;
+        _usageRecorder = usageRecorder;
         _logger = logger;
     }
+
+    /// <summary>Wiki 生成统一记用量：非流式接口拿不到 usage，按输入规模估算</summary>
+    private Task RecordWikiUsageAsync(string prompt, string? preview, Guid? projectId, CancellationToken ct)
+        => _usageRecorder.RecordAsync(
+            LlmUsageSources.Wiki, null,
+            refId: projectId,
+            inputTokens: LlmTokenEstimator.Estimate(prompt),
+            contentPreview: preview,
+            ct: ct);
 
     #region 查询
 
@@ -416,6 +428,8 @@ public class WikiService : IWikiService
                 SystemPrompt = SystemPromptDocEngineer,
                 MaxTokens = ContentMaxTokens,
             }, cancellationToken);
+
+            await RecordWikiUsageAsync(prompt, null, null, cancellationToken);
             if (string.IsNullOrWhiteSpace(content)) return string.Empty;
             // 模型偶尔会把提示词回显或拒答（「【已有内容】为空」之类），不能写进文档
             if (content.Contains("【已有内容】") || content.Contains("未提供") || content.Contains("无法判断"))
@@ -574,6 +588,8 @@ public class WikiService : IWikiService
                 SystemPrompt = SystemPromptArchitect,
                 MaxTokens = 3072,
             }, cancellationToken);
+
+            await RecordWikiUsageAsync(prompt, null, project.Id, cancellationToken);
             var outline = LlmJsonExtractor.Deserialize<WikiOutline>(response);
             if (outline != null)
             {
@@ -654,6 +670,8 @@ public class WikiService : IWikiService
             MaxTokens = ContentMaxTokens,
         }, cancellationToken);
 
+            await RecordWikiUsageAsync(prompt, plan.Title, project.Id, cancellationToken);
+
         return new WikiDocument { Title = plan.Title, Brief = plan.Brief, Content = content.Trim() };
     }
 
@@ -698,6 +716,8 @@ public class WikiService : IWikiService
                 SystemPrompt = SystemPromptDocEngineer,
                 MaxTokens = ContentMaxTokens,
             }, cancellationToken);
+
+            await RecordWikiUsageAsync(prompt, project.Name, project.Id, cancellationToken);
             if (!string.IsNullOrWhiteSpace(content))
                 return new WikiDocument { Title = project.Name, Content = content.Trim() };
         }
@@ -856,4 +876,5 @@ public class WikiService : IWikiService
 
     #endregion
 }
+
 

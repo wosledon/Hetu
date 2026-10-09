@@ -50,6 +50,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<ManagedProject> ManagedProjects { get; }
     public IRepository<WikiDocument> WikiDocuments { get; }
     public IRepository<WikiGenerationJob> WikiGenerationJobs { get; }
+    public IRepository<LlmUsageLog> LlmUsageLogs { get; }
 
     public UnitOfWork(HetuDbContext context)
     {
@@ -96,6 +97,7 @@ public class UnitOfWork : IUnitOfWork
         ManagedProjects = new EfRepository<ManagedProject>(context);
         WikiDocuments = new EfRepository<WikiDocument>(context);
         WikiGenerationJobs = new EfRepository<WikiGenerationJob>(context);
+            LlmUsageLogs = new EfRepository<LlmUsageLog>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
