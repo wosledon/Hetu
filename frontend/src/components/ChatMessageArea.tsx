@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bot, FileText, Search, GitBranch, Check, X, Plus, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, Check, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
@@ -179,7 +179,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
   const reasoningPickerRef = useRef<HTMLDivElement>(null)
@@ -392,17 +391,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   }, [currentReasoningEffort])
 
   /** 拉取上下文占用（打开会话信息面板、发送完成、压缩后） */
-  const refreshContextUsage = useCallback(() => {
+  const refreshContextUsage = () => {
     if (!topicId) return
     // 未手动选择窗口时按当前模型的上限展示占用率
     chatMessageService
       .contextUsage(topicId, contextWindow ?? currentModel?.contextWindow)
       .then(setContextUsage)
       .catch(() => undefined)
-  }, [topicId, contextWindow, currentModel?.contextWindow])
+  }
 
   /** /compress：调用当前模型把较早的历史压成摘要（原始消息仍保留在会话里） */
-  const compactContext = useCallback(async () => {
+  const compactContext = async () => {
     if (!topicId || compacting) return
     setCompacting(true)
     try {
@@ -414,7 +413,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     } finally {
       setCompacting(false)
     }
-  }, [topicId, compacting, contextWindow, activeModelId, refreshContextUsage])
+  }
 
   // 持久化会话级配置到 localStorage
   useEffect(() => {
@@ -436,8 +435,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const messageCount = messages.length
   useEffect(() => {
     if (!topicId || isStreaming) return
-    refreshContextUsage()
-  }, [topicId, messageCount, isStreaming, refreshContextUsage])
+    // 未手动选择窗口时按当前模型的上限展示占用率
+    chatMessageService
+      .contextUsage(topicId, contextWindow ?? currentModel?.contextWindow)
+      .then(setContextUsage)
+      .catch(() => undefined)
+  }, [topicId, messageCount, isStreaming, contextWindow, currentModel?.contextWindow])
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -662,14 +665,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const deleteMessage = useCallback((messageId: string) => {
     confirm({ message: '确定删除这条消息吗？', onConfirm: () => deleteMessageMutate(messageId) })
   }, [confirm, deleteMessageMutate])
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'))
-    setAttachedFiles(prev => [...prev, ...imageFiles])
-    e.target.value = ''
-  }
 
   const removeAttachedFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index))
@@ -1298,17 +1293,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           }
           toolbar={
             <>
-              {/* Attach file (only for vision-capable models) */}
-              {currentModel?.supportsVision && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                  title="附加图片"
-                >
-                  <Plus size={16} />
-                </button>
-              )}
-              <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
+              {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型粘贴后会带感叹号划掉） */}
 
               {/* Agent selector — 智能体 + 工作流合并（与 Code 会话共用同一浮层组件） */}
               <AgentPicker

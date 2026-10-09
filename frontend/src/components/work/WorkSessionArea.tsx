@@ -200,7 +200,6 @@ export default function WorkSessionArea({
   const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
   const [compacting, setCompacting] = useState(false)
   const [contextNotice, setContextNotice] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
@@ -551,17 +550,17 @@ export default function WorkSessionArea({
   }
 
   /** 拉取上下文占用（打开会话信息面板、发送完成、压缩后） */
-  const refreshContextUsage = useCallback(() => {
+  const refreshContextUsage = () => {
     if (!session) return
     // 未手动选择窗口时按当前模型的上限展示占用率
     workSessionService
       .contextUsage(session.id, contextWindow ?? currentModel?.contextWindow)
       .then(setContextUsage)
       .catch(() => undefined)
-  }, [session, contextWindow, currentModel?.contextWindow])
+  }
 
   /** /compress：调用当前模型把较早的历史压成摘要（原始消息保留在会话里） */
-  const compactContext = useCallback(async () => {
+  const compactContext = async () => {
     if (!session || compacting) return
     setCompacting(true)
     try {
@@ -573,7 +572,7 @@ export default function WorkSessionArea({
     } finally {
       setCompacting(false)
     }
-  }, [session, compacting, contextWindow, refreshContextUsage])
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -582,8 +581,12 @@ export default function WorkSessionArea({
   // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
   useEffect(() => {
     if (!session?.id || isStreaming) return
-    refreshContextUsage()
-  }, [session?.id, session?.messageCount, isStreaming, refreshContextUsage])
+    // 未手动选择窗口时按当前模型的上限展示占用率
+    workSessionService
+      .contextUsage(session.id, contextWindow ?? currentModel?.contextWindow)
+      .then(setContextUsage)
+      .catch(() => undefined)
+  }, [session?.id, session?.messageCount, isStreaming, contextWindow, currentModel?.contextWindow])
 
   // 两段输出之间的所有过程（工具调用、思考）折叠为一组，正文输出作为组分界
 
@@ -712,13 +715,6 @@ export default function WorkSessionArea({
     setAttachedFiles([])
 
     await runStream(buildContent(content), permissionMode, true, images)
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-    setAttachedFiles((prev) => [...prev, ...Array.from(files).filter((f) => f.type.startsWith('image/'))])
-    e.target.value = ''
   }
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -1371,18 +1367,7 @@ export default function WorkSessionArea({
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
             <>
-              {/* 图片附件：仅视觉模型可用（与对话页同一条件） */}
-              {currentModel?.supportsVision && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  title="附加图片"
-                  aria-label="附加图片"
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                >
-                  <Plus size={15} />
-                </button>
-              )}
-              <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
+              {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型的粘贴会带感叹号划掉） */}
 
               {/* 智能体 / 模型 / 推理强度：与对话页共用同一套选择器（Agent 模式与审批模式已移到输入框下方） */}
               <AgentPicker

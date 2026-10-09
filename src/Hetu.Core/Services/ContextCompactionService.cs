@@ -104,13 +104,22 @@ public class ContextCompactionService
 
         var historyTokens = LlmTokenEstimator.Estimate(messages.Skip(summarized).Select(m => m.Text));
         var summaryTokens = LlmTokenEstimator.Estimate(summary);
-        var realPrompt = messages.LastOrDefault(m => m.PromptTokens is > 0).PromptTokens ?? 0;
 
-        // 系统提示与工具说明无法直接量出：优先用上一轮真实 prompt tokens 反推，其次给经验值
-        var systemTokens = realPrompt > 0
-            ? Math.Max(0, realPrompt - historyTokens - summaryTokens)
-            : systemFallbackTokens;
-        var used = realPrompt > 0 ? realPrompt : systemTokens + historyTokens + summaryTokens;
+        // 系统提示与工具说明无法直接量出：用上一轮真实 prompt tokens 减去当时随上下文发送的历史，
+        // 反推出「系统提示 + 工具」的固定开销；拿不到真实用量时用经验值。
+        var usageIndex = messages.FindLastIndex(m => m.PromptTokens is > 0);
+        var systemTokens = systemFallbackTokens;
+        if (usageIndex >= 0)
+        {
+            var promptTokens = messages[usageIndex].PromptTokens!.Value;
+            // 那一轮发送的历史：该消息之前的全部消息（压缩覆盖部分若当时已存在，则计入摘要而非历史）
+            var historyThen = LlmTokenEstimator.Estimate(messages.Take(usageIndex).Select(m => m.Text));
+            var summaryThen = summarized > 0 && usageIndex >= summarized ? summaryTokens : 0;
+            systemTokens = Math.Max(0, promptTokens - historyThen - summaryThen);
+        }
+
+        // 已用 = 当前上下文（系统提示 + 摘要 + 未被压缩的历史），压缩后立刻下降
+        var used = systemTokens + summaryTokens + historyTokens;
 
         return new ContextUsageDto
         {
@@ -120,7 +129,7 @@ public class ContextCompactionService
             SummarizedMessages = summarized,
             Parts =
             [
-                new ContextUsagePartDto { Key = "system", Label = "系统提示与工具", Tokens = systemTokens, Chars = systemTokens * LlmTokenEstimator.CharsPerToken, Estimated = realPrompt <= 0 },
+                new ContextUsagePartDto { Key = "system", Label = "系统提示与工具", Tokens = systemTokens, Chars = systemTokens * LlmTokenEstimator.CharsPerToken, Estimated = usageIndex < 0 },
                 new ContextUsagePartDto { Key = "history", Label = "历史消息", Tokens = historyTokens, Chars = historyChars },
                 new ContextUsagePartDto { Key = "summary", Label = "上下文摘要", Tokens = summaryTokens, Chars = summaryChars },
             ],
