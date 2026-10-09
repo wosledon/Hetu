@@ -35,6 +35,8 @@ internal static class WikiContextCollector
     private const int MaxTreeEntries = 300;
     private const int MaxScannedFiles = 5000;
     private const int RemoteReadBytes = 8192;
+    /// <summary>远端 find 单次列举上限（先多取，再按忽略规则过滤后截断）</summary>
+    private const int RemoteFindLimit = 20000;
 
     /// <summary>远端 find 剪枝的内置目录（与本地 <see cref="WorkProjectRules"/> 内置目录保持一致）</summary>
     private static readonly string[] RemoteIgnoredDirNames =
@@ -126,22 +128,9 @@ internal static class WikiContextCollector
             return new WikiSourceMaterial { Failure = $"创建远端连接失败：{ex.Message.Split('\n')[0]}" };
         }
 
-        var listing = await runner.RunAsync(BuildRemoteFindCommand(), ct);
-        if (listing.ExitCode != 0 || string.IsNullOrWhiteSpace(listing.StdOut))
-            return new WikiSourceMaterial { Failure = $"读取远端目录失败：{(string.IsNullOrWhiteSpace(listing.StdErr) ? "未知错误" : listing.StdErr.Split('\n')[0])}" };
-
-        var files = new List<string>();
-        foreach (var raw in listing.StdOut.Split('\n'))
-        {
-            var line = raw.Trim();
-            if (line.Length == 0) continue;
-            var relative = ToRelative(workProject.RootPath, line);
-            if (relative == null) continue;
-            if (files.Count >= MaxScannedFiles) break;
-            files.Add(relative);
-        }
+        var files = await ListRemoteFilesAsync(runner, ct);
         if (files.Count == 0)
-            return new WikiSourceMaterial { Failure = "远端目录为空" };
+            return new WikiSourceMaterial { Failure = "远端目录为空（或全部被忽略规则过滤）" };
 
         var sb = new StringBuilder();
         sb.AppendLine("## 目录结构（远端，深度不超过 3 层，已忽略构建 / 依赖目录）");
@@ -327,7 +316,44 @@ internal static class WikiContextCollector
     private static string BuildRemoteFindCommand()
     {
         var prune = string.Join(" -o ", RemoteIgnoredDirNames.Select(n => $"-name {n}"));
-        return $"find . -type d \\( {prune} \\) -prune -o -type f -print 2>/dev/null | head -n {MaxScannedFiles}";
+        return $"find . -type d \\( {prune} \\) -prune -o -type f -print 2>/dev/null | head -n {RemoteFindLimit}";
+    }
+
+    /// <summary>读取远端 .gitignore / .hetuignore 规则（与本地 LoadIgnorePatterns 同语义）</summary>
+    private static async Task<List<string>> ReadRemoteIgnorePatternsAsync(IWorkCommandRunner runner, CancellationToken ct)
+    {
+        // cat 在其中一个文件缺失时返回非零，但 stdout 仍含已读到的内容：以输出为准
+        var result = await runner.RunAsync("cat .gitignore .hetuignore 2>/dev/null", ct);
+        if (string.IsNullOrWhiteSpace(result.StdOut)) return [];
+        var patterns = new List<string>();
+        foreach (var raw in result.StdOut.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            patterns.Add(line);
+        }
+        return patterns;
+    }
+
+    /// <summary>远端文件相对路径列表：先按内置目录剪枝，再按远端忽略规则过滤</summary>
+    private static async Task<List<string>> ListRemoteFilesAsync(IWorkCommandRunner runner, CancellationToken ct)
+    {
+        var listing = await runner.RunAsync(BuildRemoteFindCommand(), ct);
+        if (listing.ExitCode != 0 || string.IsNullOrWhiteSpace(listing.StdOut)) return [];
+
+        var patterns = await ReadRemoteIgnorePatternsAsync(runner, ct);
+        var files = new List<string>();
+        foreach (var raw in listing.StdOut.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var relative = ToRelative(runner.RootPath, line);
+            if (relative == null) continue;
+            if (WorkProjectRules.IsIgnored(patterns, relative)) continue;
+            if (files.Count >= MaxScannedFiles) break;
+            files.Add(relative);
+        }
+        return files;
     }
 
     private static async Task<string> ReadRemoteHeadAsync(IWorkCommandRunner runner, string relative, int maxChars, CancellationToken ct)
@@ -582,10 +608,22 @@ internal static class WikiContextCollector
         var runner = runnerFactory.Create(workProject);
         var iso = generatedAt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss");
         var prune = string.Join(" -o ", RemoteIgnoredDirNames.Select(n => $"-name {n}"));
-        var command = $"find . -type d \\( {prune} \\) -prune -o -type f -newermt '{iso}' -print 2>/dev/null | wc -l";
+        // 只列举变更文件（不远端计数），按 .gitignore / .hetuignore 过滤后统计
+        var command = $"find . -type d \\( {prune} \\) -prune -o -type f -newermt '{iso}' -print 2>/dev/null | head -n 2000";
         var result = await runner.RunAsync(command, ct);
         if (result.ExitCode != 0) return (0, false);
-        var count = int.TryParse(result.StdOut.Trim(), out var parsed) ? parsed : 0;
+
+        var patterns = await ReadRemoteIgnorePatternsAsync(runner, ct);
+        var count = 0;
+        foreach (var raw in result.StdOut.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var relative = ToRelative(runner.RootPath, line);
+            if (relative == null) continue;
+            if (WorkProjectRules.IsIgnored(patterns, relative)) continue;
+            count++;
+        }
         return (count, count > 0);
     }
 

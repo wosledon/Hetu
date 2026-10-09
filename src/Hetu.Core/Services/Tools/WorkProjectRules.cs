@@ -41,8 +41,25 @@ public static class WorkProjectRules
             if (BuiltinDirs.Contains(segment)) return true;
         }
 
+        return IsIgnored(LoadIgnorePatterns(root), normalized);
+    }
+
+    /// <summary>
+    /// 按显式规则列表判断相对路径是否应被忽略（不含内置目录判断之外的根目录逻辑）。
+    /// 供远端项目使用：规则内容通过 shell 读取后传入，复用同一套匹配语义。
+    /// </summary>
+    public static bool IsIgnored(IReadOnlyList<string> patterns, string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').TrimStart('/');
+        if (string.IsNullOrEmpty(normalized)) return false;
+
+        foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (BuiltinDirs.Contains(segment)) return true;
+        }
+
         var ignored = false;
-        foreach (var pattern in LoadIgnorePatterns(root))
+        foreach (var pattern in patterns)
         {
             var negate = pattern.StartsWith('!');
             var body = negate ? pattern[1..] : pattern;
