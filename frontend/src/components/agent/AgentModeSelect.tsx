@@ -1,4 +1,4 @@
-import { Bot, Rocket } from 'lucide-react'
+import { MessagesSquare, Rocket } from 'lucide-react'
 import AgentToolbarSelect from './AgentToolbarSelect'
 import { AGENT_MODES, agentModeMeta } from '../../utils/agentMode'
 
@@ -8,8 +8,8 @@ export interface AgentModeSelectProps {
   className?: string
 }
 
-const MODE_ICONS: Record<string, typeof Bot> = {
-  interactive: Bot,
+const MODE_ICONS: Record<string, typeof MessagesSquare> = {
+  interactive: MessagesSquare,
   autopilot: Rocket,
 }
 
@@ -30,7 +30,7 @@ export default function AgentModeSelect({ value, onChange, className }: AgentMod
           label: m.label,
           description: m.description,
           icon: (() => {
-            const OptIcon = MODE_ICONS[m.value] ?? Bot
+            const OptIcon = MODE_ICONS[m.value] ?? MessagesSquare
             return <OptIcon size={13} className={agentModeMeta(m.value).cls} />
           })(),
         }))}

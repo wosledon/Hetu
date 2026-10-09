@@ -1290,7 +1290,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           hint="Shift + Enter 换行 · 支持粘贴文件"
           trailing={
             <AgentContextUsage
-              anchorToParent
               usage={contextUsage}
               onRefresh={refreshContextUsage}
               onCompact={() => void compactContext()}
