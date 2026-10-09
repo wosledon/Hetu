@@ -477,6 +477,18 @@ public class WikiService : IWikiService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> DeleteSetAsync(Guid setId, CancellationToken cancellationToken = default)
+    {
+        var docs = (await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken))
+            .Where(d => d.SetId == setId)
+            .ToList();
+        if (docs.Count == 0) return ApiResponse.Fail("Wiki 套件不存在");
+        foreach (var doc in docs)
+            await _unitOfWork.WikiDocuments.DeleteAsync(doc, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse.Ok();
+    }
+
     public async Task<ApiResponse<byte[]>> ExportSetAsync(Guid setId, CancellationToken cancellationToken = default)
     {
         var docs = (await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken))
