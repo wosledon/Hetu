@@ -18,6 +18,15 @@ type CodeView = 'chat' | 'code'
 const DEFAULT_RIGHT_WIDTH = 560
 const MIN_RIGHT_WIDTH = 320
 const MAX_RIGHT_WIDTH = 1200
+/** 左栏「对话 / 项目」两段的高度比例（对话占比），拖动分隔条调整并持久化 */
+const SPLIT_STORAGE_KEY = 'hetu:code-sidebar-split'
+const MIN_SPLIT = 0.2
+const MAX_SPLIT = 0.8
+
+const loadSplit = (): number => {
+  const raw = Number(localStorage.getItem(SPLIT_STORAGE_KEY))
+  return Number.isFinite(raw) && raw >= MIN_SPLIT && raw <= MAX_SPLIT ? raw : 0.58
+}
 
 export default function WorkPage() {
   const queryClient = useQueryClient()
@@ -90,6 +99,10 @@ export default function WorkPage() {
   const [rightCollapsed, setRightCollapsed] = useState(true)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
+  // 左栏两段比例（对话 : 项目），拖动分隔条调整
+  const [split, setSplit] = useState(loadSplit)
+  const splitDragging = useRef<{ startY: number; startSplit: number; height: number } | null>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
   const { data: projects = [] } = useQuery({
     queryKey: ['workProjects'],
@@ -130,6 +143,41 @@ export default function WorkPage() {
   const addSelectionContext = (path: string, text: string) =>
     setPendingContext({ kind: 'selection', path, text, nonce: Date.now() })
   const requestInsertText = (text: string) => setInsertRequest({ text, path: undefined, nonce: Date.now() })
+
+  // 拖拽调整左栏「对话 / 项目」两段高度比例
+  const onSplitDragStart = useCallback((e: React.MouseEvent) => {
+    const height = sidebarRef.current?.clientHeight ?? 0
+    if (height <= 0) return
+    e.preventDefault()
+    splitDragging.current = { startY: e.clientY, startSplit: split, height }
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+  }, [split])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const d = splitDragging.current
+      if (!d) return
+      const next = d.startSplit + (e.clientY - d.startY) / d.height
+      setSplit(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, next)))
+    }
+    const onUp = () => {
+      if (!splitDragging.current) return
+      splitDragging.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(SPLIT_STORAGE_KEY, String(split))
+  }, [split])
 
   // 拖拽调整右侧面板宽度
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -183,9 +231,9 @@ export default function WorkPage() {
       showSidebar={false}
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
-          {/* 左栏：上方对话、下方项目，右侧共用同一套聊天页面 */}
-          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex min-h-0 flex-[3] flex-col">
+          {/* 左栏：上方对话、下方项目，右侧共用同一套聊天页面；中间分隔条可拖动调整比例 */}
+          <div ref={sidebarRef} className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex min-h-0 flex-col" style={{ height: `${split * 100}%` }}>
               <ChatTree
                 embedded
                 mainChat={mainChat}
@@ -198,7 +246,14 @@ export default function WorkPage() {
                 onDeleteTopic={handleDeleteTopic}
               />
             </div>
-            <div className="flex min-h-0 flex-[2] flex-col border-t border-gray-200 dark:border-gray-800">
+            <div
+              onMouseDown={onSplitDragStart}
+              title="拖拽调整「对话 / 项目」高度"
+              className="group relative h-px shrink-0 cursor-row-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
+            >
+              <span className="absolute -top-[3px] inset-x-0 h-[7px]" />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">
               <WorkSidebar
                 embedded
                 selectedProjectId={view === 'code' ? selectedProject?.id : undefined}
@@ -230,6 +285,7 @@ export default function WorkPage() {
           ) : (
             <>
               <WorkSessionArea
+                key={selectedSession?.id ?? 'no-session'}
                 project={selectedProject ?? undefined}
                 session={selectedSession ?? undefined}
                 onSessionUpdated={handleSessionUpdated}

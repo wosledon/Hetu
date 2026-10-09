@@ -81,6 +81,13 @@ export const workSessionService = {
       skillName?: string;
       /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */
       mentions?: { type: string; id: string }[];
+      /** 网络搜索 / 知识库 / 记忆 / 深度思考：与对话会话共用同一套开关语义 */
+      webSearch?: boolean;
+      knowledgeBase?: boolean;
+      memory?: boolean;
+      deepThinking?: boolean;
+      /** 图片附件（视觉模型多模态输入） */
+      images?: { data: string; mimeType: string; fileName?: string }[];
       persistUserMessage?: boolean;
     },
     signal?: AbortSignal,

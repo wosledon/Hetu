@@ -192,6 +192,16 @@ public class SendWorkMessageRequest
     public string? SkillName { get; set; }
     /// <summary>输入框 @ 引用的内容（type: note | notebook | tag | knowledge）</summary>
     public List<ChatMentionRef>? Mentions { get; set; }
+    /// <summary>本轮启用网络搜索（与对话会话共用同一套 RAG 注入）</summary>
+    public bool WebSearch { get; set; }
+    /// <summary>本轮启用知识库检索</summary>
+    public bool KnowledgeBase { get; set; }
+    /// <summary>本轮启用长期记忆检索</summary>
+    public bool Memory { get; set; }
+    /// <summary>深度思考开关（reasoning_mode=tag 的模型靠系统提示强制先思考）</summary>
+    public bool DeepThinking { get; set; }
+    /// <summary>图片附件（视觉模型多模态输入）</summary>
+    public List<ImageAttachment>? Images { get; set; }
     /// <summary>是否持久化用户消息；重新生成时传 false，避免历史里重复出现同一句输入</summary>
     public bool PersistUserMessage { get; set; } = true;
 }

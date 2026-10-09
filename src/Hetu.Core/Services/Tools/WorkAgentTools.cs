@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
+using Hetu.Shared.AI;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hetu.Core.Services.Tools;
@@ -501,22 +502,24 @@ public class WorkSemanticSearchTool : IToolExecutor
     }
 }
 
-/// <summary>调用已启用的本地技能（读取 SKILL.md 正文并返回）</summary>
+/// <summary>按名称加载技能：数据库技能 / 本地技能目录 / 项目 .github 技能（读取正文并返回）</summary>
 public class WorkUseSkillTool : IToolExecutor
 {
     private const int MaxBodyChars = 8000;
 
     private readonly WorkToolContext _context;
     private readonly ILocalSkillService _localSkillService;
+    private readonly ISkillService _skillService;
 
-    public WorkUseSkillTool(WorkToolContext context, ILocalSkillService localSkillService)
+    public WorkUseSkillTool(WorkToolContext context, ILocalSkillService localSkillService, ISkillService skillService)
     {
         _context = context;
         _localSkillService = localSkillService;
+        _skillService = skillService;
     }
 
     public string Name => "work_skill";
-    public string Description => "按名称加载某个已启用技能的完整说明（SKILL.md 正文），然后按说明完成后续步骤";
+    public string Description => "按名称加载某个已启用技能的完整说明，然后按说明完成后续步骤（覆盖数据库技能、本地技能目录与项目 .github/skills）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
     public ToolRisk Risk => ToolRisk.Read;
     public string? UsageGuideline => "system prompt 里列出的技能只给了名称和一句话描述；当某个技能明显匹配当前任务时，先调用本工具读取完整说明再动手。";
@@ -548,39 +551,104 @@ public class WorkUseSkillTool : IToolExecutor
         if (string.IsNullOrWhiteSpace(name))
             return ToolExecutionResult.Error("name 不能为空");
 
+        // 1) 本地技能目录（含项目启用的技能）
         var scanner = await _localSkillService.ScanAllAsync(cancellationToken);
         var skills = scanner.Data ?? [];
         var skill = skills.FirstOrDefault(s =>
             string.Equals(s.Id, name, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
 
-        if (skill == null)
+        if (skill != null)
         {
-            var available = string.Join("、", skills.Where(s => s.IsEnabled).Select(s => s.Name).Take(20));
-            return ToolExecutionResult.Error($"未找到技能「{name}」。已启用技能：{(available.Length > 0 ? available : "（无）")}");
+            if (!skill.IsEnabled)
+                return ToolExecutionResult.Error($"技能「{skill.Name}」当前已禁用，请先在设置中启用。");
+
+            string body;
+            try
+            {
+                body = File.Exists(skill.FilePath)
+                    ? await File.ReadAllTextAsync(skill.FilePath, cancellationToken)
+                    : "（技能文件不存在或已被删除）";
+            }
+            catch (Exception ex)
+            {
+                return ToolExecutionResult.Error($"读取技能文件失败：{ex.Message}");
+            }
+
+            return BuildResult(skill.Name, skill.Category, body);
         }
 
-        if (!skill.IsEnabled)
-            return ToolExecutionResult.Error($"技能「{skill.Name}」当前已禁用，请先在设置中启用。");
+        // 2) 项目 .github/skills 下的技能
+        if (!string.IsNullOrWhiteSpace(_context.ProjectRoot))
+        {
+            var copilotSkill = WorkCopilotAssets.Load(_context.ProjectRoot).Skills.FirstOrDefault(s =>
+                string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (copilotSkill != null)
+            {
+                try
+                {
+                    var body = File.Exists(copilotSkill.FilePath)
+                        ? await File.ReadAllTextAsync(copilotSkill.FilePath, cancellationToken)
+                        : "（技能文件不存在或已被删除）";
+                    return BuildResult(copilotSkill.Name, ".github", body);
+                }
+                catch (Exception ex)
+                {
+                    return ToolExecutionResult.Error($"读取技能文件失败：{ex.Message}");
+                }
+            }
+        }
 
-        string body;
+        // 3) 数据库技能（设置页维护的技能库）
+        var dbSkills = (await _skillService.GetAllAsync(cancellationToken)).Data ?? [];
+        var dbSkill = dbSkills.FirstOrDefault(s =>
+            string.Equals(s.Id.ToString(), name, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (dbSkill != null)
+        {
+            if (!dbSkill.IsEnabled)
+                return ToolExecutionResult.Error($"技能「{dbSkill.Name}」当前已禁用，请先在设置中启用。");
+
+            var body = ResolveDbSkillBody(dbSkill);
+            return body.Length > 0
+                ? BuildResult(dbSkill.Name, dbSkill.Category, body)
+                : ToolExecutionResult.Error($"技能「{dbSkill.Name}」未配置提示词内容（systemPrompt / promptTemplate 都为空）。");
+        }
+
+        var available = string.Join("、", skills.Where(s => s.IsEnabled).Select(s => s.Name).Take(20));
+        return ToolExecutionResult.Error($"未找到技能「{name}」。已启用技能：{(available.Length > 0 ? available : "（无）")}");
+    }
+
+    /// <summary>数据库技能的正文：优先 promptTemplate，其次 systemPrompt（Config 为 JSON）</summary>
+    private static string ResolveDbSkillBody(SkillDto skill)
+    {
         try
         {
-            body = File.Exists(skill.FilePath)
-                ? await File.ReadAllTextAsync(skill.FilePath, cancellationToken)
-                : "（技能文件不存在或已被删除）";
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(skill.Config) ? "{}" : skill.Config);
+            var root = doc.RootElement;
+            foreach (var key in new[] { "promptTemplate", "systemPrompt" })
+            {
+                if (root.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
+                {
+                    var text = value.GetString();
+                    if (!string.IsNullOrWhiteSpace(text)) return text;
+                }
+            }
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            return ToolExecutionResult.Error($"读取技能文件失败：{ex.Message}");
+            // Config 非法时按空处理
         }
+        return string.Empty;
+    }
 
+    private ToolExecutionResult BuildResult(string name, string? category, string body)
+    {
         if (body.Length > MaxBodyChars)
-            body = body[..MaxBodyChars] + $"\n…（正文已截断，共 {body.Length} 字符，完整文件：{skill.FilePath}）";
-
+            body = body[..MaxBodyChars] + "\n…（正文已截断）";
         if (!string.IsNullOrWhiteSpace(_context.ProjectRoot))
             body = body.Replace("{{projectRoot}}", _context.ProjectRoot);
-
-        return ToolExecutionResult.Success($"技能 {skill.Name}（{skill.Category}）说明：\n\n{body}");
+        return ToolExecutionResult.Success($"技能 {name}（{category}）说明：\n\n{body}");
     }
 }
