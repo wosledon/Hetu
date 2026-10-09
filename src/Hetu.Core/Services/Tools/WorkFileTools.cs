@@ -8,6 +8,11 @@ namespace Hetu.Core.Services.Tools;
 /// <summary>当前请求作用域内的工作项目上下文（由 Work 流式控制器设置）</summary>
 public class WorkToolContext
 {
+    /// <summary>未挂载项目时的统一提示：知识助手/编码会话共用工具集，但项目类工具需要项目上下文</summary>
+    public const string NoProjectError =
+        "当前会话未挂载项目：文件、命令与检索类工具需要先在 Code 视图打开项目后使用。" +
+        "未挂载时可以把文件内容粘贴或 @ 引用进对话，或让用户改用 Code 视图继续。";
+
     public string? ProjectRoot { get; set; }
     public Guid? ProjectId { get; set; }
     /// <summary>当前会话绑定的对话模型，供 work_task 子 Agent 复用</summary>
@@ -89,7 +94,7 @@ public class WorkListDirTool : IToolExecutor
             var rel = args.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
 
             if (_context.Runner is { IsRemote: true } remote)
             {
@@ -161,7 +166,7 @@ public class WorkReadFileTool : IToolExecutor
             int end = args.TryGetProperty("endLine", out var e) && e.TryGetInt32(out var ev) ? ev : 0;
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
 
             if (_context.Runner is { IsRemote: true } remote)
             {
@@ -227,7 +232,7 @@ public class WorkWriteFileTool : IToolExecutor
             var content = args.TryGetProperty("content", out var c) ? c.GetString() ?? "" : "";
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
             if (WorkRemoteFs.Escapes(rel)) return ToolExecutionResult.Error($"路径超出项目范围: {rel}");
 
             if (_context.Runner is { IsRemote: true } remote)
@@ -311,7 +316,7 @@ public class WorkRunCommandTool : IToolExecutor
 
             var root = _context.ProjectRoot;
             if (string.IsNullOrWhiteSpace(root))
-                return ToolExecutionResult.Error("项目根目录未设置");
+                return ToolExecutionResult.Error(WorkToolContext.NoProjectError);
             if (string.IsNullOrWhiteSpace(command)) return ToolExecutionResult.Error("命令不能为空");
 
             var denial = CheckSafety(command);

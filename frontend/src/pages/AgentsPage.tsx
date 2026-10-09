@@ -148,6 +148,21 @@ const AVAILABLE_TOOLS = [
   { name: 'list_scheduled_tasks', label: '定时任务列表', category: '执行' },
   { name: 'delete_scheduled_task', label: '删除定时任务', category: '执行' },
   { name: 'run_command', label: '执行命令', category: '执行' },
+  // 项目/文件类工具：与知识助手共用同一份工具集，未挂载项目时调用会提示先打开项目
+  { name: 'work_list_dir', label: '浏览目录', category: '文件' },
+  { name: 'work_read_file', label: '读取文件', category: '文件' },
+  { name: 'work_glob', label: '查找文件', category: '文件' },
+  { name: 'work_grep', label: '搜索代码', category: '文件' },
+  { name: 'work_write_file', label: '写入文件', category: '文件' },
+  { name: 'work_apply_patch', label: '局部修改', category: '文件' },
+  { name: 'work_delete_file', label: '删除文件', category: '文件' },
+  { name: 'work_move_file', label: '移动文件', category: '文件' },
+  { name: 'work_git', label: 'Git 操作', category: '执行' },
+  { name: 'work_run_command', label: '执行项目命令', category: '执行' },
+  { name: 'work_diagnostics', label: '构建诊断', category: '执行' },
+  { name: 'work_semantic_search', label: '语义检索代码', category: '文件' },
+  { name: 'work_task', label: '派子 Agent', category: '交互' },
+  { name: 'work_skill', label: '读取技能', category: '交互' },
 ] as const
 
 /** 表单内下拉触发器样式（含 flex 布局，避免文字与箭头换行） */

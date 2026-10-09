@@ -6,6 +6,35 @@ namespace Hetu.Core.Profiles;
 /// </summary>
 public static class BuiltinProfiles
 {
+    /// <summary>知识 / 笔记 / 记忆类工具（两个会话人格共用的基础能力）</summary>
+    private static readonly string[] KnowledgeTools =
+    [
+        "search_notes", "read_note", "create_note", "update_note",
+        "list_notes", "delete_note", "move_note",
+        "list_note_versions", "restore_note_version",
+        "list_notebooks", "create_notebook", "list_tags", "set_note_tags",
+        "list_knowledge_items",
+        "search_memory", "create_memory", "list_memories", "delete_memory",
+        "search_graph", "search_web", "ask_question", "todo", "plan", "run_command",
+        "create_scheduled_task", "list_scheduled_tasks", "delete_scheduled_task",
+        "list_skills",
+    ];
+
+    /// <summary>工作区 / 文件 / 命令类工具（挂载项目后可用；未挂载时工具会给出明确提示）</summary>
+    private static readonly string[] WorkspaceTools =
+    [
+        "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
+        "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
+        "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
+    ];
+
+    /// <summary>
+    /// 两个会话人格共用同一份内置工具集：能力一致，差异只在是否挂载项目
+    /// （知识助手没有项目上下文，文件/命令类工具会提示需要先在 Code 视图打开项目）。
+    /// </summary>
+    private static HashSet<string> SharedTools() =>
+        new(KnowledgeTools.Concat(WorkspaceTools), StringComparer.OrdinalIgnoreCase);
+
     /// <summary>知识助手 —— 当前 Hetu 笔记/对话场景的默认人格</summary>
     public static readonly RuntimeProfile Knowledge = new()
     {
@@ -15,14 +44,15 @@ public static class BuiltinProfiles
         IdentityPrompt = """
             你是 Hetu 知识助手，一款本地优先的 AI 增强知识管理工具的对话引擎。
             你服务于单个个人用户，工作在他们的笔记、对话与记忆库之内。
-            你不是通用聊天机器人，不是桌面操作员，也不是协作机器人——
-            如果用户希望执行桌面操作或多人协作，请提示他们切换到对应的 Hetu Agent 模式。
+            除了笔记与记忆，你也可以在挂载了项目时读写代码文件、执行命令、跑构建诊断；
+            未挂载项目时文件/命令类工具会提示先在 Code 视图打开项目，此时以笔记、记忆与检索能力为主。
             """,
         PrinciplePrompt = """
             - 准确优先于速度：不确定时使用检索工具或调用 ask_question 澄清，禁止臆测与编造
             - 引用优先于陈述：基于笔记内容作答时，必须用 [[笔记标题]] 标注来源
             - 简洁优先于啰嗦：直接给出结论，不复述用户提问、不无意义寒暄
             - 主动整理：从对话中识别可沉淀为笔记或长期记忆的内容，必要时建议或主动调用相应工具
+            - 先看后改：挂载项目后需要改文件时，先用 work_read_file / work_glob / work_grep 确认现状，再动手
             - 诚实：不知道就说不知道；工具失败如实告知；明确区分"事实"与"推断"
             """,
         FormatPrompt = """
@@ -38,23 +68,12 @@ public static class BuiltinProfiles
             - 不泄露 API Key、密码、Token 等敏感配置
             - 涉及破坏性操作（删除笔记、清空数据、覆盖文件）必须先用 ask_question 与用户确认
             """,
-        AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "search_notes", "read_note", "create_note", "update_note",
-            "list_notes", "delete_note", "move_note",
-            "list_note_versions", "restore_note_version",
-            "list_notebooks", "create_notebook", "list_tags", "set_note_tags",
-            "list_knowledge_items",
-            "search_memory", "create_memory", "list_memories", "delete_memory",
-            "search_graph", "search_web", "ask_question", "todo", "plan", "run_command",
-            "create_scheduled_task", "list_scheduled_tasks", "delete_scheduled_task",
-            "list_skills",
-        },
+        AllowedTools = SharedTools(),
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
         },
-        MaxToolCallsPerTurn = 5,
-        MaxAgentIterations = 15,
+        MaxToolCallsPerTurn = 10,
+        MaxAgentIterations = 30,
     };
 
     /// <summary>桌面 Agent —— 未来扩展，拥有系统级工具</summary>
@@ -136,13 +155,7 @@ public static class BuiltinProfiles
             高风险操作（删除文件、覆盖已有文件、绑定端口/安装依赖等）会被权限系统拦截或要求用户确认；
             被拒绝时不要绕过，改为向用户说明并请求授权。
             """,
-        AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
-            "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
-            "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
-            "ask_question", "todo", "plan",
-        },
+        AllowedTools = SharedTools(),
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
         },
