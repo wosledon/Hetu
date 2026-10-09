@@ -128,15 +128,18 @@ export default function ToolsPage() {
   }, [tools, keyword, group, profile])
 
   return (
-    <AppLayout mainContent={
-      <div className="mx-auto max-w-5xl px-6 py-6">
+    <AppLayout
+      showSidebar={false}
+      mainContent={
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-5xl px-8 py-8">
         <div className="mb-5 flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            <Terminal size={18} />
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 shadow-sm shadow-slate-500/20">
+            <Terminal size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">内置工具</h1>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">内置工具</h1>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               共 {tools.length} 个内置工具 · 对话与 Code 共用同一套能力，区别只是 Code 会挂载项目上下文
             </p>
           </div>
@@ -196,7 +199,9 @@ export default function ToolsPage() {
             {filtered.map((t) => <ToolCard key={t.name} tool={t} />)}
           </div>
         )}
-      </div>
-    } />
+          </div>
+        </div>
+      }
+    />
   )
 }
