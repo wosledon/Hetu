@@ -44,6 +44,12 @@ public class WorkSession : BaseEntity
     public Guid? ModelId { get; set; }
     /// <summary>权限模式：plan | readonly | ask | auto | bypass</summary>
     public string PermissionMode { get; set; } = "ask";
+    /// <summary>Agent 模式：interactive（交互式，写操作按权限模式确认）| autopilot（自动执行）</summary>
+    public string AgentMode { get; set; } = "interactive";
+    /// <summary>上下文摘要（/compress 手动压缩或超限自动压缩产出）</summary>
+    public string? ContextSummary { get; set; }
+    /// <summary>摘要覆盖到的消息 Id：该消息及更早的文本消息不再进入 LLM 上下文</summary>
+    public Guid? ContextSummaryThroughMessageId { get; set; }
     /// <summary>已完成的对话轮次</summary>
     public int TurnCount { get; set; }
     /// <summary>累计输入 Token</summary>

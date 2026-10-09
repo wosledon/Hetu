@@ -10,6 +10,8 @@ export interface TopicSettings {
   toolCalling?: boolean
   /** 权限模式五档：plan / readonly / ask / auto / bypass（与编码会话共用） */
   permissionMode?: string
+  /** Agent 模式：interactive（交互式）/ autopilot（自动执行），仅 Code 会话使用 */
+  agentMode?: string
   /** 会话级上下文上限（token），空 = 模型支持的上限 */
   contextWindow?: number
 }

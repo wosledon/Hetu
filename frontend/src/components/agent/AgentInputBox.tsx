@@ -45,6 +45,10 @@ export interface AgentInputBoxProps {
   chips?: AgentInputChip[]
   /** 各端自有控件（附件/智能体/模型/工具开关 或 权限模式/Agent/模型/推理强度） */
   toolbar?: ReactNode
+  /** 右下角发送键左侧的控件（如会话信息：上下文占用） */
+  trailing?: ReactNode
+  /** 聊天框下方左侧控件（如 Agent 模式 / 审批模式），与右侧的 trailing 同一行 */
+  footerLeading?: ReactNode
   /** 输入框上方的插槽（工具交互抽屉等） */
   aboveInput?: ReactNode
   placeholder?: string
@@ -93,6 +97,8 @@ export default function AgentInputBox({
   menu,
   chips = [],
   toolbar,
+  trailing,
+  footerLeading,
   aboveInput,
   placeholder = '输入消息，Enter 发送...',
   busy = false,
@@ -176,7 +182,7 @@ export default function AgentInputBox({
 
   return (
     <div className="bg-white p-3 dark:bg-gray-900">
-      <div className="mx-auto max-w-3xl">
+      <div className="relative mx-auto max-w-3xl">
         {aboveInput}
         <div className="relative rounded-xl border border-gray-200 bg-white shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800">
           {showMenu && menu && (
@@ -255,7 +261,14 @@ export default function AgentInputBox({
           </div>
         </div>
 
-        {hint && <p className="mt-1.5 text-center text-[10px] text-gray-400">{hint}</p>}
+        {/* 聊天框下方：左侧 Agent 模式/审批模式，中间提示文字，右侧会话信息（上下文占用） */}
+        {(hint || trailing || footerLeading) && (
+          <div className="mt-1.5 flex items-center gap-2">
+            {footerLeading && <div className="flex shrink-0 items-center gap-1">{footerLeading}</div>}
+            {hint && <p className="min-w-0 flex-1 truncate text-[10px] text-gray-400">{hint}</p>}
+            {trailing && <div className="flex shrink-0 items-center gap-1">{trailing}</div>}
+          </div>
+        )}
       </div>
     </div>
   )

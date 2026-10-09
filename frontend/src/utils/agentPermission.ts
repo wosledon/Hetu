@@ -1,10 +1,10 @@
 /** 权限模式五档。对话页与编码会话共用同一套语义（取编码会话原有、更丰富的模型）。 */
 export const AGENT_PERMISSION_MODES = [
-  { value: 'plan', label: '计划（只调研）' },
-  { value: 'readonly', label: '只读' },
-  { value: 'ask', label: '写入需确认' },
-  { value: 'auto', label: '自动执行' },
-  { value: 'bypass', label: '全部放行' },
+  { value: 'plan', label: '计划（只调研）', description: '只读调研，先产出计划，由你确认后再执行' },
+  { value: 'readonly', label: '只读', description: '只允许读取，拒绝一切写入与命令执行' },
+  { value: 'ask', label: '写入需确认', description: '写文件 / 跑命令前逐个询问你的确认' },
+  { value: 'auto', label: '自动执行', description: '写操作直接执行，不再逐个询问' },
+  { value: 'bypass', label: '全部放行', description: '包括高风险操作在内全部直接执行' },
 ] as const
 
 export type AgentPermissionMode = (typeof AGENT_PERMISSION_MODES)[number]['value']

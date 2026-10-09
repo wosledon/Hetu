@@ -1,8 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, type ReactNode } from 'react'
 
 export interface AgentToolbarSelectOption {
   value: string
   label: string
+  /** 选项图标（与触发器前面的图标同一套） */
+  icon?: ReactNode
+  /** 副标题：一句话说明该项含义/影响 */
+  description?: string
 }
 
 export interface AgentToolbarSelectProps {
@@ -47,7 +51,7 @@ export default function AgentToolbarSelect({
         </svg>
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-64 min-w-32 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-72 min-w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -55,13 +59,21 @@ export default function AgentToolbarSelect({
                 onChange(opt.value)
                 setOpen(false)
               }}
-              className={`block w-full px-3 py-1.5 text-left text-[11px] transition-colors ${
+              className={`flex w-full items-start gap-2 px-3 py-1.5 text-left transition-colors ${
                 opt.value === value
-                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
-                  : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/60'
+                  ? 'bg-blue-50 dark:bg-blue-900/30'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
               }`}
             >
-              {opt.label}
+              {opt.icon && <span className="mt-0.5 shrink-0">{opt.icon}</span>}
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[11px] font-medium ${opt.value === value ? 'text-blue-600 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}>
+                  {opt.label}
+                </span>
+                {opt.description && (
+                  <span className="mt-0.5 block text-[10px] leading-snug text-gray-400 dark:text-gray-500">{opt.description}</span>
+                )}
+              </span>
             </button>
           ))}
         </div>

@@ -5,7 +5,7 @@ import {
 
   ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Atom, Pencil, Trash2,
+  Globe, Database, Atom, Pencil, Trash2, Gauge,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService, aiProviderService } from '../../services/aiProviderService'
@@ -30,6 +30,10 @@ import AgentInputBox from '../agent/AgentInputBox'
 import AgentModelPicker from '../agent/AgentModelPicker'
 import AgentPicker from '../agent/AgentPicker'
 import AgentPermissionSelect from '../agent/AgentPermissionSelect'
+import AgentModeSelect from '../agent/AgentModeSelect'
+import AgentContextUsage from '../agent/AgentContextUsage'
+import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
+import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
@@ -91,6 +95,8 @@ type WorkStreamHandlers = {
   onCheckpoint: (cp: { id: string; label: string; fileCount: number }) => void
   onSubAgent: (sa: { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }) => void
   onUsage: (usage: UsageView) => void
+  /** 上下文提示（自动压缩等），显示在输入框上方 */
+  onNotice: (text: string) => void
 }
 
 /**
@@ -143,6 +149,9 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     case 'usage':
       handlers.onUsage(event)
       break
+    case 'notice':
+      handlers.onNotice(event.text)
+      break
     case 'debug':
     case 'done':
     case 'search_results':
@@ -187,6 +196,10 @@ export default function WorkSessionArea({
   const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
   const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  // 会话信息：上下文占用 + 压缩提示（右下角环形进度 / 输入框上方提示条）
+  const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
+  const [compacting, setCompacting] = useState(false)
+  const [contextNotice, setContextNotice] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -394,6 +407,10 @@ export default function WorkSessionArea({
     }
     // / 指令：技能（数据库 / 本地 / 项目启用 / .github）+ .github 提示词模板
     const items: InputCommandItem[] = []
+    // 内置命令：压缩上下文（调用当前模型把较早历史压成摘要）
+    if (!q || 'compress'.includes(q) || '压缩'.includes(q)) {
+      items.push({ key: 'command:compress', label: '/compress', description: '压缩上下文：调用当前模型把较早历史压成摘要', icon: <Gauge size={14} className="text-rose-500" />, tag: '命令', tagClass: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' })
+    }
     for (const p of copilotAssets?.prompts ?? []) {
       if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) continue
       items.push({ key: `prompt:${p.name}:${p.filePath}`, label: `/${p.name}`, description: p.description, icon: <Zap size={14} className="text-amber-500" />, tag: '.github 模板', tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' })
@@ -503,6 +520,25 @@ export default function WorkSessionArea({
     : reasoningEffortDefault(currentModel)
   const contextWindow = session && contextOverride?.sessionId === session.id ? contextOverride.value : undefined
 
+  // Agent 模式：交互式 / autopilot（autopilot 下写操作不再逐步确认），按会话缓存
+  const [agentModeOverride, setAgentModeOverride] = useState<{ sessionId: string; value: AgentRunMode } | null>(null)
+  const agentMode = session && agentModeOverride?.sessionId === session.id
+    ? agentModeOverride.value
+    : parseAgentMode(cachedSettings.agentMode ?? session?.agentMode)
+
+  const setAgentMode = (value: AgentRunMode) => {
+    if (!session) return
+    setAgentModeOverride({ sessionId: session.id, value })
+    saveTopicSettings(session.id, { ...loadTopicSettings(session.id), agentMode: value })
+    workSessionService
+      .update(session.id, { title: session.title, modelId: session.modelId, agentMode: value })
+      .then((updated) => {
+        onSessionUpdated?.(updated)
+        queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
+      })
+      .catch(() => setAgentModeOverride(null))
+  }
+
   const setPermissionMode = (value: WorkPermissionMode) => {
     if (!session) return
     setPendingMode({ sessionId: session.id, value })
@@ -515,9 +551,40 @@ export default function WorkSessionArea({
       .catch(() => setPendingMode(null))
   }
 
+  /** 拉取上下文占用（打开会话信息面板、发送完成、压缩后） */
+  const refreshContextUsage = useCallback(() => {
+    if (!session) return
+    // 未手动选择窗口时按当前模型的上限展示占用率
+    workSessionService
+      .contextUsage(session.id, contextWindow ?? currentModel?.contextWindow)
+      .then(setContextUsage)
+      .catch(() => undefined)
+  }, [session, contextWindow, currentModel?.contextWindow])
+
+  /** /compress：调用当前模型把较早的历史压成摘要（原始消息保留在会话里） */
+  const compactContext = useCallback(async () => {
+    if (!session || compacting) return
+    setCompacting(true)
+    try {
+      const result = await workSessionService.compact(session.id, { contextWindow, modelId: session.modelId })
+      setContextNotice(`已压缩 ${result.messageCount} 条早期消息为摘要（约 ${result.beforeTokens} → ${result.afterTokens} tokens）`)
+      refreshContextUsage()
+    } catch (err) {
+      setContextNotice(`压缩失败：${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setCompacting(false)
+    }
+  }, [session, compacting, contextWindow, refreshContextUsage])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamItems])
+
+  // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
+  useEffect(() => {
+    if (!session?.id || isStreaming) return
+    refreshContextUsage()
+  }, [session?.id, session?.messageCount, isStreaming, refreshContextUsage])
 
   // 两段输出之间的所有过程（工具调用、思考）折叠为一组，正文输出作为组分界
 
@@ -608,6 +675,13 @@ export default function WorkSessionArea({
 
   const handleSend = async () => {
     const content = input.trim()
+    // /compress 命令：调用当前模型压缩上下文，不发消息
+    if (content === '/compress') {
+      setInput('')
+      setInputHistory((prev) => [...prev.slice(-49), content])
+      await compactContext()
+      return
+    }
     // 选中工作流时：本轮交给工作流执行（与对话页同一套运行逻辑）
     if (workflowRun.workflow) {
       setInput('')
@@ -821,6 +895,7 @@ export default function WorkSessionArea({
         return [...prev, { kind: 'subagent', seq: seqRef.current++, ...sa } as StreamItem]
       }),
       onUsage: (usage) => setLiveUsage(usage),
+      onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
     }
      try {
       const response = await workSessionService.stream(
@@ -837,6 +912,8 @@ export default function WorkSessionArea({
           mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
           // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
           contextWindow,
+          // Agent 模式：交互式逐步确认 / autopilot 自动执行
+          agentMode,
           // 与对话会话共用同一套开关语义：网络搜索 / 知识库 / 记忆 / 深度思考
           webSearch,
           knowledgeBase,
@@ -1190,6 +1267,7 @@ export default function WorkSessionArea({
                 kind: inputMenu.kind,
                 items: menuItems,
                 onSelect: (item) => {
+                  if (item.key === 'command:compress') { setInput(''); void compactContext(); return }
                   if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
                   else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
                   else if (/^(note|notebook|tag|knowledge):/.test(item.key)) applyMention(item)
@@ -1253,7 +1331,40 @@ export default function WorkSessionArea({
                 }]
               : []),
           ]}
-          aboveInput={session ? <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} /> : undefined}
+          aboveInput={session ? (
+            <>
+              {/* 上下文提示：自动压缩 / /compress 结果 */}
+              {contextNotice && (
+                <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  <Gauge size={13} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0 flex-1">{contextNotice}</span>
+                  <button onClick={() => setContextNotice(null)} aria-label="关闭提示" className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+              <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />
+            </>
+          ) : undefined}
+          trailing={
+            <AgentContextUsage
+              anchorToParent
+              usage={contextUsage}
+              onRefresh={refreshContextUsage}
+              onCompact={() => void compactContext()}
+              compacting={compacting}
+            />
+          }
+          footerLeading={session ? (
+            <>
+              {/* Agent 模式 + 审批模式：放在聊天框下方（左下角） */}
+              <AgentModeSelect value={agentMode} onChange={(v) => setAgentMode(v as AgentRunMode)} />
+              <AgentPermissionSelect
+                value={permissionMode}
+                onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
+              />
+            </>
+          ) : undefined}
           placeholder="描述你要完成的开发任务，/ 用模板或技能，@ 引用笔记、文件或智能体（↑ 回溯历史输入）"
           streaming={isStreaming}
           onStop={() => streamRef.current?.abort()}
@@ -1275,11 +1386,8 @@ export default function WorkSessionArea({
               )}
               <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
 
-              {/* 权限模式 / Agent / 模型 / 推理强度：与对话页共用同一套选择器 */}
-              <AgentPermissionSelect
-                value={permissionMode}
-                onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
-              />              <AgentPicker
+              {/* 智能体 / 模型 / 推理强度：与对话页共用同一套选择器（Agent 模式与审批模式已移到输入框下方） */}
+              <AgentPicker
                 items={[
                   ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
                   ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: '本地' })),

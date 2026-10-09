@@ -18,6 +18,26 @@ public enum WorkPermissionMode
     Bypass
 }
 
+/// <summary>Agent 模式：交互式（按权限模式逐步确认）/ Autopilot（自动执行，不逐步确认）</summary>
+public static class AgentModePolicy
+{
+    public const string Interactive = "interactive";
+    public const string Autopilot = "autopilot";
+
+    public static bool IsValid(string? value)
+        => string.Equals(value?.Trim(), Interactive, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(value?.Trim(), Autopilot, StringComparison.OrdinalIgnoreCase);
+
+    public static string Normalize(string? value)
+        => string.Equals(value?.Trim(), Autopilot, StringComparison.OrdinalIgnoreCase) ? Autopilot : Interactive;
+
+    /// <summary>
+    /// Autopilot 下不再逐步确认：询问档位提升为自动执行；计划/只读档位是用户显式约束，保持不变。
+    /// </summary>
+    public static WorkPermissionMode Apply(string? agentMode, WorkPermissionMode mode)
+        => Normalize(agentMode) == Autopilot && mode == WorkPermissionMode.Ask ? WorkPermissionMode.Auto : mode;
+}
+
 /// <summary>单个工具调用的审批决策</summary>
 /// <param name="Allowed">是否允许执行</param>
 /// <param name="Mode">执行时的审批模式</param>
