@@ -52,6 +52,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, RunWorkflowTool>();
         services.AddScoped<IToolExecutor, ListAgentsTool>();
         services.AddScoped<IToolExecutor, UseSkillTool>();
+        // 内置技能 / 智能体 / 工作流的增删改
+        services.AddScoped<IToolExecutor, CreateSkillTool>();
+        services.AddScoped<IToolExecutor, UpdateSkillTool>();
+        services.AddScoped<IToolExecutor, DeleteSkillTool>();
+        services.AddScoped<IToolExecutor, CreateAgentTool>();
+        services.AddScoped<IToolExecutor, UpdateAgentTool>();
+        services.AddScoped<IToolExecutor, DeleteAgentTool>();
+        services.AddScoped<IToolExecutor, CreateWorkflowTool>();
+        services.AddScoped<IToolExecutor, UpdateWorkflowTool>();
+        services.AddScoped<IToolExecutor, DeleteWorkflowTool>();
         services.AddScoped<IToolExecutor, CreateTagTool>();
         services.AddScoped<IToolExecutor, UpdateTagTool>();
         services.AddScoped<IToolExecutor, DeleteTagTool>();
