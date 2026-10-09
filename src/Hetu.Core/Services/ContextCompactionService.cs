@@ -102,6 +102,22 @@ public class ContextCompactionService
         var historyChars = messages.Skip(summarized).Sum(m => (long)m.Text.Length);
         var summaryChars = summary?.Length ?? 0;
 
+        // 空会话（清空后或还没开始）：上下文里什么都没有，占用显示为 0
+        if (messages.Count == 0 && summaryChars == 0)
+        {
+            return new ContextUsageDto
+            {
+                Window = window,
+                Used = 0,
+                Parts =
+                [
+                    new ContextUsagePartDto { Key = "system", Label = "系统提示与工具", Tokens = 0, Chars = 0 },
+                    new ContextUsagePartDto { Key = "history", Label = "历史消息", Tokens = 0, Chars = 0 },
+                    new ContextUsagePartDto { Key = "summary", Label = "上下文摘要", Tokens = 0, Chars = 0 },
+                ],
+            };
+        }
+
         var historyTokens = LlmTokenEstimator.Estimate(messages.Skip(summarized).Select(m => m.Text));
         var summaryTokens = LlmTokenEstimator.Estimate(summary);
 
