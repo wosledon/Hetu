@@ -73,11 +73,15 @@ public class KanbanTaskDto
     /// <summary>自动处理的智能体</summary>
     public Guid? AgentId { get; set; }
     public string? AgentName { get; set; }
+    /// <summary>项目 .github 智能体正文（AgentId 为空时生效）</summary>
+    public string? AgentPrompt { get; set; }
+    /// <summary>项目 .github 智能体显示名</summary>
+    public string? AgentPromptName { get; set; }
     /// <summary>自动处理的工作流</summary>
     public Guid? WorkflowId { get; set; }
     public string? WorkflowName { get; set; }
-    /// <summary>是否配置了自动处理（智能体或工作流）</summary>
-    public bool HasAutomation => AgentId != null || WorkflowId != null;
+    /// <summary>是否配置了自动处理（数据库智能体 / 项目 .github 智能体 / 工作流）</summary>
+    public bool HasAutomation => AgentId != null || WorkflowId != null || !string.IsNullOrWhiteSpace(AgentPrompt);
     /// <summary>最近一次执行状态：Running / Succeeded / Failed</summary>
     public string? LastRunStatus { get; set; }
     public Guid? LastRunId { get; set; }
@@ -98,6 +102,10 @@ public class CreateKanbanTaskRequest
     public string? BlockedReason { get; set; }
     public Guid? ProjectId { get; set; }
     public Guid? AgentId { get; set; }
+    /// <summary>项目 .github 智能体正文（选择项目自定义智能体时传入）</summary>
+    public string? AgentPrompt { get; set; }
+    /// <summary>项目 .github 智能体显示名</summary>
+    public string? AgentPromptName { get; set; }
     public Guid? WorkflowId { get; set; }
 }
 

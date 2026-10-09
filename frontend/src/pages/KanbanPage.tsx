@@ -13,6 +13,7 @@ import { kanbanTaskService } from '../services/kanbanTaskService'
 import { projectService } from '../services/projectService'
 import { promptPresetService } from '../services/promptPresetService'
 import { workflowService } from '../services/workflowService'
+import { workProjectService } from '../services/workService'
 import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
@@ -72,6 +73,7 @@ const emptyForm: IKanbanTaskForm = {
   title: '', description: '', status: 'Backlog', priority: 'Medium',
   assignee: '', tags: '', dueDate: '', blockedReason: '',
   projectId: '', automation: '', agentId: '', workflowId: '',
+  agentPrompt: '', agentPromptName: '',
 }
 
 const COLUMN_STATUSES: KanbanTaskStatus[] = COLUMNS.map((c) => c.status)
@@ -130,6 +132,16 @@ export default function KanbanPage() {
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
   const professionalAgents = presets.filter(p => (p.agentType ?? 'General') === 'Professional')
 
+  // 选中的项目若已与 Code 项目互通，自动加载其 .github 智能体，作为「项目」分组候选
+  const linkedWorkProjectId = projects.find(p => p.id === form.projectId)?.workProjectId ?? ''
+  const { data: copilotAssets } = useQuery({
+    queryKey: ['workCopilotAssets', linkedWorkProjectId],
+    queryFn: () => workProjectService.getCopilotAssets(linkedWorkProjectId),
+    enabled: !!linkedWorkProjectId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const projectAgents = copilotAssets?.agents ?? []
+
   useEffect(() => {
     if (!error) return
     const timer = setTimeout(() => setError(''), 4000)
@@ -180,9 +192,17 @@ export default function KanbanPage() {
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
       blockedReason: task.blockedReason ?? '',
       projectId: task.projectId ?? '',
-      automation: task.workflowId ? `workflow:${task.workflowId}` : task.agentId ? `agent:${task.agentId}` : '',
+      automation: task.workflowId
+        ? `workflow:${task.workflowId}`
+        : task.agentId
+          ? `agent:${task.agentId}`
+          : task.agentPrompt
+            ? `project-agent:${task.agentPromptName ?? ''}`
+            : '',
       agentId: task.agentId ?? '',
       workflowId: task.workflowId ?? '',
+      agentPrompt: task.agentPrompt ?? '',
+      agentPromptName: task.agentPromptName ?? '',
     })
     setShowForm(true)
   }
@@ -195,9 +215,12 @@ export default function KanbanPage() {
 
   function handleSave() {
     if (!form.title.trim()) return
-    // 自动处理：合并下拉二选一（专业智能体 / 工作流）
+    // 自动处理：合并下拉二选一（专业智能体 / 项目智能体 / 工作流）
     const agentId = form.automation.startsWith('agent:') ? form.automation.slice('agent:'.length) : ''
     const workflowId = form.automation.startsWith('workflow:') ? form.automation.slice('workflow:'.length) : ''
+    // 项目 .github 智能体：正文随任务保存，执行时作为系统提示
+    const agentPrompt = form.automation.startsWith('project-agent:') ? form.agentPrompt : ''
+    const agentPromptName = agentPrompt ? form.agentPromptName : ''
     // 可选字段留空时传 undefined 而非 ""，否则后端 Guid?/DateTimeOffset? 绑定失败返回 400
     const payload = {
       ...form,
@@ -205,6 +228,8 @@ export default function KanbanPage() {
       projectId: form.projectId || undefined,
       agentId: agentId || undefined,
       workflowId: workflowId || undefined,
+      agentPrompt: agentPrompt || undefined,
+      agentPromptName: agentPromptName || undefined,
     }
     if (editingId) updateMutation.mutate({ id: editingId, data: payload })
     else createMutation.mutate(payload)
@@ -473,10 +498,23 @@ export default function KanbanPage() {
                         <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">自动处理（智能体 / 工作流）</label>
                         <Select
                           value={form.automation}
-                          onChange={(automation) => setForm({ ...form, automation })}
+                          onChange={(automation) => {
+                            // 项目智能体选项带正文：选中时一并写入表单，其余选项清空
+                            const projectAgent = projectAgents.find(a => `project-agent:${a.name}` === automation)
+                            setForm({
+                              ...form,
+                              automation,
+                              agentPrompt: projectAgent?.content ?? '',
+                              agentPromptName: projectAgent?.name ?? '',
+                            })
+                          }}
                           placeholder="未指定"
                           searchable
                           options={[
+                            ...(projectAgents.length > 0
+                              ? [{ value: '__project', label: '— 项目 —', disabled: true }]
+                              : []),
+                            ...projectAgents.map((a) => ({ value: `project-agent:${a.name}`, label: a.name })),
                             ...(professionalAgents.length > 0
                               ? [{ value: '__agents', label: '— 专业智能体 —', disabled: true }]
                               : []),
@@ -488,6 +526,11 @@ export default function KanbanPage() {
                           ]}
                           triggerClassName={formSelectTriggerCls}
                         />
+                        {projectAgents.length > 0 && (
+                          <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                            已加载项目 .github 下的 {projectAgents.length} 个智能体
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -631,6 +674,11 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           )}
           {task.agentName && (
             <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">{task.agentName}</span>
+          )}
+          {!task.agentName && task.agentPromptName && (
+            <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
+              {task.agentPromptName}
+            </span>
           )}
           {task.workflowName && (
             <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{task.workflowName}</span>

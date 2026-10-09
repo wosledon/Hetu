@@ -469,6 +469,12 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid?>("AgentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AgentPrompt")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AgentPromptName")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset?>("ArchivedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -764,6 +770,54 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasIndex("UpdatedAt");
 
                     b.ToTable("KnowledgeItems");
+                });
+
+            modelBuilder.Entity("Hetu.Core.Entities.LlmUsageLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CachedTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompressedTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentPreview")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LatencyMs")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("RefId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("TokensUsed")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("LlmUsageLogs");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.ManagedProject", b =>
