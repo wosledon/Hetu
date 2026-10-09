@@ -144,6 +144,8 @@ export interface IChatMessage {
   parentId?: string;
   modelId?: string;
   tokensUsed?: number;
+  /** 命中缓存的 Token 数 */
+  cachedTokens?: number;
   latencyMs?: number;
   thinkingContent?: string;
   searchResultsJson?: string;

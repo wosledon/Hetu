@@ -79,6 +79,8 @@ public class ChatMessageDto
     public Guid? ParentId { get; set; }
     public Guid? ModelId { get; set; }
     public int? TokensUsed { get; set; }
+    /// <summary>命中缓存的 Token 数（用于展示缓存占比）</summary>
+    public int? CachedTokens { get; set; }
     public int? LatencyMs { get; set; }
     public string? ThinkingContent { get; set; }
     public string? SearchResultsJson { get; set; }
