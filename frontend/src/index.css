@@ -1417,7 +1417,13 @@ body {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  opacity: 0;
+  padding: 0.15rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(4px);
+  /* 默认半透明常驻，保证可发现；悬停时完全清晰 */
+  opacity: 0.6;
   transition: opacity 0.15s ease;
 }
 
@@ -1425,6 +1431,11 @@ body {
 .mermaid-viewer:focus-within .mermaid-toolbar,
 .mermaid-viewer:fullscreen .mermaid-toolbar {
   opacity: 1;
+}
+
+.dark .mermaid-toolbar {
+  background: rgba(31, 41, 55, 0.78);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .mermaid-zoom-label {
