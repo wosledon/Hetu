@@ -385,21 +385,30 @@ public class WikiService : IWikiService
     {
         try
         {
+            // 注意：^0 在 C# 索引里等于长度（空区间），必须用「从起始位置」的索引取尾部
+            var tail = existing.Length > 6000 ? existing[^6000..] : existing;
             var prompt = $"""
                 以下是一篇 Wiki 页面已生成的内容，输出在末尾被截断（最后的代码块没有闭合）。
                 请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释，保持原有格式续写下去。
                 若截断处位于代码块内，请先补全该代码块（含收尾的 ```）。
 
                 【已有内容】
-                {existing[^Math.Max(0, existing.Length - 6000)..]}
+                {tail}
                 """;
-            var tail = await provider.CompleteAsync(prompt, new CompletionOptions
+            var content = await provider.CompleteAsync(prompt, new CompletionOptions
             {
                 ModelId = string.Empty,
                 SystemPrompt = SystemPromptDocEngineer,
                 MaxTokens = 4096,
             }, cancellationToken);
-            return string.IsNullOrWhiteSpace(tail) ? string.Empty : "\n" + tail.Trim();
+            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+            // 模型偶尔会把提示词回显或拒答（「【已有内容】为空」之类），不能写进文档
+            if (content.Contains("【已有内容】") || content.Contains("未提供") || content.Contains("无法判断"))
+            {
+                _logger.LogWarning("Wiki 续写返回了非内容文本，已丢弃");
+                return string.Empty;
+            }
+            return "\n" + content.Trim();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

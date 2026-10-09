@@ -125,7 +125,7 @@ function quoteLabels(line: string): string {
   let i = 0
   while (i < line.length) {
     const ch = line[i]
-    // [[...]]（子程序）与 {...} / [...] 两类标签
+    // [[...]]（子程序）与 {...} / [...] 三类标签；括号按深度配对，兼容标签内嵌套括号
     const doubled = line.startsWith('[[', i)
     const open = doubled ? '[[' : ch === '{' ? '{' : ch === '[' ? '[' : null
     if (!open) {
@@ -134,7 +134,28 @@ function quoteLabels(line: string): string {
       continue
     }
     const close = open === '[[' ? ']]' : open === '{' ? '}' : ']'
-    const end = line.indexOf(close, i + open.length)
+    // 深度配对：标签内还可能出现同类型括号（如 B1[标记 [Fact] 的方法]）
+    let depth = 0
+    let j = i
+    let end = -1
+    while (j < line.length) {
+      if (line.startsWith(open, j)) {
+        depth++
+        j += open.length
+        continue
+      }
+      if (line.startsWith(close, j)) {
+        depth--
+        if (depth === 0) {
+          end = j
+          break
+        }
+        j += close.length
+        continue
+      }
+      j++
+    }
+    // 没有配对收尾（如 classDiagram 的成员行）：原样保留
     if (end < 0) {
       out += line.slice(i)
       break
