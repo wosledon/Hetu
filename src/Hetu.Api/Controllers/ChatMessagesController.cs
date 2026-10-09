@@ -34,6 +34,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ToolExecutionService _toolExecution;
     private readonly AgentLoopService _agentLoop;
     private readonly ILlmUsageRecorder _llmUsageRecorder;
+    private readonly ILogger<ChatMessagesController> _logger;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -48,7 +49,8 @@ public class ChatMessagesController : ControllerBase
         PromptComposer promptComposer,
         ToolExecutionService toolExecution,
         AgentLoopService agentLoop,
-        ILlmUsageRecorder llmUsageRecorder)
+        ILlmUsageRecorder llmUsageRecorder,
+        ILogger<ChatMessagesController> logger)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -63,6 +65,7 @@ public class ChatMessagesController : ControllerBase
         _toolExecution = toolExecution;
         _agentLoop = agentLoop;
         _llmUsageRecorder = llmUsageRecorder;
+        _logger = logger;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -339,7 +342,13 @@ public class ChatMessagesController : ControllerBase
                 total -= messages[start].Content?.Length ?? 0;
                 start++;
             }
-            if (start > 0) messages = messages.Skip(start).ToList();
+            if (start > 0)
+            {
+                messages = messages.Skip(start).ToList();
+                _logger.LogInformation(
+                    "[Context] 上下文上限 {Window} tokens：裁剪历史消息，保留 {Kept}/{Total} 条（约 {Chars} 字符）",
+                    request.ContextWindow, messages.Count, messages.Count + start, total);
+            }
         }
 
         if (request.Images is { Count: > 0 })
