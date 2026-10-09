@@ -156,7 +156,7 @@ public class WorkStreamController : ControllerBase
         // 构建历史 + 工具
         var messagesResult = await _sessionService.GetMessagesAsync(sessionId, ct);
         var history = messagesResult.Data ?? [];
-        var chatMessages = BuildChatHistory(history);
+        var chatMessages = BuildChatHistory(history, request.ContextWindow);
 
         // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：与对话会话共用同一份注入规则
         var mentionCount = await _mentionContext.BuildAsync(request.Mentions, chatMessages, ct);
@@ -644,25 +644,45 @@ public class WorkStreamController : ControllerBase
 
     /// <summary>
     /// 历史压缩：保留最近 N 条文本消息，更早的内容折叠为一条摘要说明，
-    /// 避免长会话把上下文窗口顶满。
+    /// 避免长会话把上下文窗口顶满。传入 contextWindow（token）时再按 ~3 字符/token 的预算从最早处裁剪。
     /// </summary>
-    private static List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history)
+    private static List<LlmChatMessage> BuildChatHistory(List<WorkMessageDto> history, int? contextWindow = null)
     {
         var texts = history.Where(m => m.Type == "text").ToList();
+        List<LlmChatMessage> messages;
         if (texts.Count <= MaxHistoryMessages)
-            return texts.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
-
-        var omitted = texts.Count - MaxHistoryMessages;
-        var kept = texts.Skip(omitted).ToList();
-        var messages = new List<LlmChatMessage>
         {
-            new()
+            messages = texts.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
+        }
+        else
+        {
+            var omitted = texts.Count - MaxHistoryMessages;
+            var kept = texts.Skip(omitted).ToList();
+            messages = new List<LlmChatMessage>
             {
-                Role = "user",
-                Content = $"（本会话更早的 {omitted} 条消息因上下文长度限制已被省略，请基于后续对话继续。已修改的文件可重新读取确认。）"
+                new()
+                {
+                    Role = "user",
+                    Content = $"（本会话更早的 {omitted} 条消息因上下文长度限制已被省略，请基于后续对话继续。已修改的文件可重新读取确认。）"
+                }
+            };
+            messages.AddRange(kept.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }));
+        }
+
+        // 会话级上下文上限：按 ~3 字符/token 折算字符预算，从最早的消息开始裁剪
+        if (contextWindow is > 0)
+        {
+            var charBudget = (long)contextWindow.Value * 3;
+            var total = messages.Sum(m => (long)(m.Content?.Length ?? 0));
+            var start = 0;
+            while (start < messages.Count - 1 && total > charBudget)
+            {
+                total -= messages[start].Content?.Length ?? 0;
+                start++;
             }
-        };
-        messages.AddRange(kept.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }));
+            if (start > 0) messages = messages.Skip(start).ToList();
+        }
+
         return messages;
     }
 

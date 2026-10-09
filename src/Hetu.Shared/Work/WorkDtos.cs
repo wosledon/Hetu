@@ -192,6 +192,8 @@ public class SendWorkMessageRequest
     public string? SkillName { get; set; }
     /// <summary>输入框 @ 引用的内容（type: note | notebook | tag | knowledge）</summary>
     public List<ChatMentionRef>? Mentions { get; set; }
+    /// <summary>会话级上下文上限（token）：按该预算裁剪历史，为空表示用模型支持的上限</summary>
+    public int? ContextWindow { get; set; }
     /// <summary>本轮启用网络搜索（与对话会话共用同一套 RAG 注入）</summary>
     public bool WebSearch { get; set; }
     /// <summary>本轮启用知识库检索</summary>

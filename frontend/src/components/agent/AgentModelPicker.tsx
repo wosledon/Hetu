@@ -1,0 +1,258 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronDown, Cpu, Search } from 'lucide-react'
+import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
+
+export interface ModelPickerModel {
+  id: string
+  displayName: string
+  providerId: string
+  contextWindow?: number
+  reasoningMode?: string | null
+  reasoningEffort?: string | null
+  reasoningEfforts?: string | null
+}
+
+export interface ModelPickerProvider {
+  id: string
+  name: string
+}
+
+interface AgentModelPickerProps {
+  models: ModelPickerModel[]
+  providers: ModelPickerProvider[]
+  modelId: string
+  onModelChange: (id: string) => void
+  /** 会话级推理强度（'' = 模型默认），仅 native 模型可调 */
+  effort: string
+  onEffortChange: (value: string) => void
+  /** 会话级上下文上限（token），空 = 模型支持的上限 */
+  contextWindow?: number
+  onContextWindowChange: (value?: number) => void
+  /** 触发按钮文案前缀（默认「模型」） */
+  placeholder?: string
+}
+
+/** 上下文档位：从 64k 起按常用档位向下取，且不超过模型支持的上限 */
+const CTX_STEPS = [64, 128, 200, 256, 400, 512, 1000, 2000]
+const MIN_CONTEXT_K = 64
+
+const toK = (tokens: number) => Math.round(tokens / 1000)
+const formatK = (k: number) => `${k}k`
+const pillClass = (active: boolean) =>
+  `rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+    active
+      ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50'
+  }`
+
+/**
+ * 模型 + 推理强度 + 上下文 三合一选择器（对话与 Code 共用）：
+ * 左侧按供应商 tab 选模型，右侧对当前（悬停/选中）模型用胶囊选择推理强度与上下文大小；
+ * 触发按钮展示为「模型 · 推理强度 · 上下文大小」。
+ */
+export default function AgentModelPicker({
+  models,
+  providers,
+  modelId,
+  onModelChange,
+  effort,
+  onEffortChange,
+  contextWindow,
+  onContextWindowChange,
+  placeholder = '模型',
+}: AgentModelPickerProps) {
+  const [open, setOpen] = useState(false)
+  // 手动切换过的供应商 tab；未手动切换时跟随当前模型所在供应商
+  const [pickedProvider, setPickedProvider] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  // 悬停的模型：右侧胶囊面板优先跟随它
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const current = models.find((m) => m.id === modelId) ?? models.find((m) => m.providerId) ?? models[0]
+  // 未显式选择模型时，回退展示的模型同样视作选中
+  const effectiveModelId = modelId || current?.id || ''
+  const currentEffort = (effort || current?.reasoningEffort || '').trim().toLowerCase()
+  const currentCtxK = contextWindow && contextWindow > 0 ? toK(contextWindow) : current?.contextWindow ? toK(current.contextWindow) : undefined
+
+  useEffect(() => {
+    if (!open) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [open])
+
+  /** 供应商 tab：仅有模型的供应商，保持 providers 顺序 */
+  const tabs = useMemo(
+    () => providers.filter((p) => models.some((m) => m.providerId === p.id)),
+    [providers, models],
+  )
+  const activeProvider = pickedProvider ?? current?.providerId ?? tabs[0]?.id ?? ''
+
+  const visibleModels = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (q) return models.filter((m) => m.displayName.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
+    return models.filter((m) => m.providerId === activeProvider)
+  }, [models, activeProvider, query])
+
+  const flyoutModel = models.find((m) => m.id === hoveredId) ?? current ?? visibleModels[0]
+  const flyoutSelected = flyoutModel?.id === effectiveModelId
+
+  /** 模型可用上下文档位：模型上限起向下到 64k 的常用档位 */
+  const ctxOptions = (model: ModelPickerModel): number[] => {
+    const maxK = model.contextWindow && model.contextWindow > 0 ? toK(model.contextWindow) : 128
+    const steps = CTX_STEPS.filter((k) => k <= maxK && k >= MIN_CONTEXT_K)
+    const all = [...new Set([maxK, ...steps])].sort((a, b) => b - a)
+    return all.length > 0 ? all : [MIN_CONTEXT_K]
+  }
+
+  const triggerLabel = [
+    current?.displayName ?? placeholder,
+    currentEffort ? `${reasoningEffortLabel(currentEffort)}强度` : null,
+    currentCtxK ? formatK(currentCtxK) : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={() => {
+          if (!open) { setPickedProvider(null); setQuery(''); setHoveredId(null) }
+          setOpen(!open)
+        }}
+        title="模型 / 推理强度 / 上下文"
+        className={`flex max-w-64 items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+          open
+            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        <Cpu size={14} className="shrink-0" />
+        <span className="truncate">{triggerLabel}</span>
+        <ChevronDown size={10} className="shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+          {/* 左：供应商 tab + 模型列表 */}
+          <div className="flex w-60 flex-col border-r border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-2 pt-2 dark:border-gray-700">
+              {tabs.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => { setPickedProvider(p.id); setQuery(''); setHoveredId(null) }}
+                  className={`shrink-0 rounded-t-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    !query && activeProvider === p.id
+                      ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-300'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative border-b border-gray-100 p-2 dark:border-gray-700">
+              <Search size={12} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索模型..."
+                className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-6 pr-2 text-[12px] outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900/60 dark:focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-1.5">
+              {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">暂无模型</div>}
+              {visibleModels.map((m) => {
+                const selected = m.id === effectiveModelId
+                return (
+                  <button
+                    key={m.id}
+                    onMouseEnter={() => setHoveredId(m.id)}
+                    onClick={() => {
+                      onModelChange(m.id)
+                      onEffortChange('')
+                      onContextWindowChange(undefined)
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                      selected ? 'bg-indigo-50 dark:bg-indigo-900/25' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                    }`}
+                  >
+                    <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                      {m.displayName}
+                    </span>
+                    {selected && <Check size={12} className="shrink-0 text-indigo-500" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 右：当前（悬停）模型的推理强度 / 上下文胶囊 */}
+          <div className="flex w-56 flex-col gap-3 p-3">
+            {!flyoutModel ? (
+              <div className="text-[11px] text-gray-400">选择一个模型后可调整推理强度与上下文</div>
+            ) : (
+              <>
+                <div className="truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">{flyoutModel.displayName}</div>
+
+                {flyoutModel.reasoningMode === 'native' && (
+                  <div>
+                    <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">推理强度</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['', ...reasoningEffortOptions(flyoutModel)].map((l) => (
+                        <button
+                          key={l || 'default'}
+                          onClick={() => {
+                            if (!flyoutSelected) onModelChange(flyoutModel.id)
+                            onEffortChange(l)
+                          }}
+                          className={pillClass(flyoutSelected ? effort === l : l === '')}
+                        >
+                          {l ? `${reasoningEffortLabel(l)}强度` : '默认'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {flyoutModel.reasoningMode === 'tag' && (
+                  <div className="text-[10px] text-gray-400">该模型用「深度思考」开关控制推理</div>
+                )}
+
+                <div>
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">上下文大小</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ctxOptions(flyoutModel).map((k, idx) => {
+                      const isMax = idx === 0
+                      const active = flyoutSelected && !contextWindow ? isMax : flyoutSelected && toK(contextWindow ?? 0) === k
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => {
+                            if (!flyoutSelected) onModelChange(flyoutModel.id)
+                            onContextWindowChange(isMax ? undefined : k * 1000)
+                          }}
+                          title={isMax ? '模型支持的上限' : `限制为 ${formatK(k)}`}
+                          className={pillClass(active)}
+                        >
+                          {formatK(k)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">
+                    只能向下选择，最小 {MIN_CONTEXT_K}k；默认用模型支持的上限。
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
