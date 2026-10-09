@@ -45,6 +45,8 @@ export default function AgentToolbarSelect({
         title={title ?? current?.label}
         className={className}
       >
+        {/* 图标跟随当前选项，放在触发器内部，不再单独展示 */}
+        {current?.icon && <span className="shrink-0">{current.icon}</span>}
         <span className="truncate">{current?.label ?? '未选择'}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0 opacity-60">
           <path d="m6 9 6 6 6-6" />

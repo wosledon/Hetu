@@ -1,7 +1,7 @@
-/** Agent 模式：交互式逐步确认 / 自动巡航（Autopilot）自动执行（Code 模式专用） */
+/** Agent 模式：交互式逐步确认 / 托管执行（Autopilot）自动执行（Code 模式专用） */
 export const AGENT_MODES = [
   { value: 'interactive', label: '交互式', description: '每个写操作都按审批模式确认后再执行' },
-  { value: 'autopilot', label: '自动巡航', description: '自动执行写操作，不再逐步确认（Autopilot）' },
+  { value: 'autopilot', label: '托管执行', description: '自动执行写操作，不再逐步确认（Autopilot）' },
 ] as const
 
 export type AgentRunMode = (typeof AGENT_MODES)[number]['value']

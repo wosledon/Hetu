@@ -26,11 +26,9 @@ const MODE_ICONS: Record<string, typeof ShieldCheck> = {
  */
 export default function AgentPermissionSelect({ value, onChange, className }: AgentPermissionSelectProps) {
   const meta = permissionModeMeta(value)
-  const Icon = MODE_ICONS[value] ?? ShieldCheck
 
   return (
     <div className={`flex shrink-0 items-center gap-1 ${className ?? ''}`}>
-      <Icon size={13} className={meta.cls} />
       <AgentToolbarSelect
         value={value}
         onChange={onChange}
