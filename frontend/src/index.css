@@ -1341,13 +1341,26 @@ body {
   stroke-width: 1.5px;
 }
 
-/* 连线标签：加白底胶囊，避免压在连线上看不清 */
+/* 标签：加白底胶囊，避免压在连线上看不清 */
 .mermaid-container svg .edgeLabel .label,
 .mermaid-container svg .edgeLabel foreignObject > div,
 .hetu-diagram-svg svg .edgeLabel .label,
 .hetu-diagram-svg svg .edgeLabel foreignObject > div {
   border-radius: 6px;
   font-size: 12px;
+}
+
+/*
+ * mermaid 标签内是 <p>，.wmde-markdown p 的 margin(0.3em) 与 line-height(1.85) 都带了 !important，
+ * 会把每行撑到 25.9px、内容比 mermaid 算出的盒高更大，第二行被 foreignObject 裁掉。
+ * 这里按 mermaid 自己的度量（line-height 1.5）重置，特异性也更高。
+ */
+.mermaid-container svg .nodeLabel p,
+.mermaid-container svg .edgeLabel p,
+.hetu-diagram-svg svg .nodeLabel p,
+.hetu-diagram-svg svg .edgeLabel p {
+  margin: 0 !important;
+  line-height: 1.5 !important;
 }
 
 /* 集群（子图） */
@@ -1419,6 +1432,9 @@ body {
   overflow: hidden;
   cursor: grab;
   touch-action: none;
+  /* 图表文字不可选中：拖拽时不会划出选中蓝底 */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .mermaid-viewer.is-panning {

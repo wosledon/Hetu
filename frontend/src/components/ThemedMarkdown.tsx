@@ -6,7 +6,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import { Copy, Check, ArrowUpFromLine } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
-import { mermaidConfig, fitMermaidLabels } from '../utils/mermaidTheme'
+import { mermaidConfig } from '../utils/mermaidTheme'
 import MermaidDiagram from './MermaidDiagram'
 
 /** 从 React 节点中提取纯文本 */
@@ -260,13 +260,7 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
       .join('')
   }, [source])
 
-  // CJK 标签宽度修正：图表 SVG 进入 DOM 后统一适配（React 渲染，无 DOM 所有权冲突）
-  useEffect(() => {
-    if (!containerRef.current) return
-    const containers = containerRef.current.querySelectorAll<HTMLElement>('.mermaid-container')
-    if (containers.length === 0) return
-    containers.forEach(fitMermaidLabels)
-  }, [diagrams, processed])
+  // CJK 标签宽度修正已由 MermaidDiagram 自行处理（它自己持有 SVG，且需在字体加载后重算）
 
   return (
     <div ref={containerRef} className={`wmde-markdown ${isDark ? 'dark' : ''} ${className ?? ''}`}>

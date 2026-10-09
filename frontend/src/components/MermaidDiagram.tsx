@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react'
+import { fitMermaidLabels } from '../utils/mermaidTheme'
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 4
@@ -27,12 +28,20 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [panning, setPanning] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  /** 用户是否手动调整过视图：调整后容器 resize 不再自动适配 */
+  const [userAdjusted, setUserAdjusted] = useState(false)
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
 
   /** 画布未变换时的布局尺寸（offsetWidth 不受 transform 影响） */
   const canvasSize = useCallback(() => {
     const canvas = viewportRef.current?.querySelector<HTMLElement>('.mermaid-canvas')
     return { width: canvas?.offsetWidth ?? 0, height: canvas?.offsetHeight ?? 0 }
+  }, [])
+
+  /** 撑开 CJK 标签框：mermaid 对中文宽度度量偏小，默认高度会裁掉第二行 */
+  const expandLabels = useCallback(() => {
+    const viewport = viewportRef.current
+    if (viewport) fitMermaidLabels(viewport)
   }, [])
 
   /** 缩放到完整可见并居中 */
@@ -54,11 +63,31 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
     })
   }, [canvasSize])
 
-  // 首帧与 SVG 变化后适配一次（被 max-height 裁切的图会缩到完整可见）
+  // 布局后立即适配：useLayoutEffect 保证 DOM 已提交，offsetWidth 可读到真实尺寸
+  useLayoutEffect(() => {
+    expandLabels()
+    fit()
+  }, [expandLabels, fit, svg])
+
+  // 字体加载完成后标签尺寸会变（CJK 回退字体 → 系统中文字体）：重新撑标签并适配
   useEffect(() => {
-    const raf = requestAnimationFrame(fit)
-    return () => cancelAnimationFrame(raf)
-  }, [fit, svg])
+    let alive = true
+    void document.fonts?.ready.then(() => {
+      if (!alive) return
+      expandLabels()
+      fit()
+    }).catch(() => { /* 个别环境无 fonts API，忽略 */ })
+    return () => { alive = false }
+  }, [expandLabels, fit, svg])
+
+  // 容器尺寸变化（窗口缩放、侧栏折叠）时重新适配；用户手动调整过则保留其视图
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => { if (!userAdjusted) fit() })
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [fit, userAdjusted])
 
   // Ctrl/⌘ + 滚轮缩放（普通滚轮保持页面滚动）；原生监听以支持 preventDefault
   useEffect(() => {
@@ -76,6 +105,7 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
         setOffset((o) => ({ x: px - ratio * (px - o.x), y: py - ratio * (py - o.y) }))
         return next
       })
+      setUserAdjusted(true)
     }
     viewport.addEventListener('wheel', onWheel, { passive: false })
     return () => viewport.removeEventListener('wheel', onWheel)
@@ -110,6 +140,13 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
       setOffset((o) => ({ x: cx - ratio * (cx - o.x), y: cy - ratio * (cy - o.y) }))
       return next
     })
+    setUserAdjusted(true)
+  }
+
+  const fitNow = () => {
+    expandLabels()
+    fit()
+    setUserAdjusted(false)
   }
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -148,12 +185,7 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
         <button className={buttonClass} onClick={() => zoomBy(ZOOM_STEP)} title="放大" aria-label="放大">
           <Plus size={13} />
         </button>
-        <button
-          className={buttonClass}
-          onClick={fit}
-          title="适应视图"
-          aria-label="适应视图"
-        >
+        <button className={buttonClass} onClick={fitNow} title="适应视图" aria-label="适应视图">
           <RotateCcw size={13} />
         </button>
         <button
