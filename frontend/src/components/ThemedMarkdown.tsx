@@ -28,8 +28,9 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
 
   if (className.includes('mermaid')) {
     // 图表已由 React 渲染为 SVG；未渲染成功时保留代码块原文
+    // MermaidDiagram 根节点即 .mermaid-container，这里不要再包一层
     return diagramSvg
-      ? <div className="mermaid-container"><MermaidDiagram svg={diagramSvg} /></div>
+      ? <MermaidDiagram svg={diagramSvg} />
       : <pre className="mermaid">{text}</pre>
   }
 

@@ -1377,7 +1377,6 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   background: rgba(249, 250, 251, 0.6);
-  padding: 0;
   overflow: hidden;
 }
 
@@ -1386,10 +1385,37 @@ body {
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* ─── 图表交互（拖拽平移 / 缩放 / 全屏）─── */
+/* ─── 图表交互（工具条 / 拖拽平移 / 缩放 / 全屏）─── */
+
+/* 工具条独立成行，避免遮住图表节点 */
+.mermaid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dark .mermaid-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mermaid-zoom-label {
+  min-width: 2.6rem;
+  margin-right: 0.15rem;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
 .mermaid-viewer {
   position: relative;
-  max-height: 70vh;
+  max-height: 60vh;
+  padding: 10px;
   overflow: hidden;
   cursor: grab;
   touch-action: none;
@@ -1410,60 +1436,21 @@ body {
   height: auto;
 }
 
-.mermaid-toolbar {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
+/* 全屏：工具条与图表一起放大，图表区占满剩余高度 */
+.mermaid-container:fullscreen {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.15rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(4px);
-  /* 默认半透明常驻，保证可发现；悬停时完全清晰 */
-  opacity: 0.6;
-  transition: opacity 0.15s ease;
-}
-
-.mermaid-viewer:hover .mermaid-toolbar,
-.mermaid-viewer:focus-within .mermaid-toolbar,
-.mermaid-viewer:fullscreen .mermaid-toolbar {
-  opacity: 1;
-}
-
-.dark .mermaid-toolbar {
-  background: rgba(31, 41, 55, 0.78);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.mermaid-zoom-label {
-  min-width: 2.75rem;
-  padding: 0 0.25rem;
-  text-align: center;
-  font-size: 11px;
-  color: #6b7280;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 6px;
-  line-height: 1.75rem;
-}
-
-.dark .mermaid-zoom-label {
-  color: #d1d5db;
-  background: rgba(31, 41, 55, 0.85);
-}
-
-.mermaid-viewer:fullscreen {
-  max-height: none;
+  flex-direction: column;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: none;
+  border-radius: 0;
   background: #f9fafb;
-  cursor: grab;
 }
 
-.dark .mermaid-viewer:fullscreen {
+.dark .mermaid-container:fullscreen {
   background: #0c0f1a;
+}
+
+.mermaid-container:fullscreen .mermaid-viewer {
+  flex: 1;
+  max-height: none;
 }
