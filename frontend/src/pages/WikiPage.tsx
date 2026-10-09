@@ -12,7 +12,7 @@ import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
-import type { IWikiGenerationJob } from '../types/wiki'
+import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -213,6 +213,79 @@ export default function WikiPage() {
     }
   }
 
+  const pageRow = (page: IWikiSetPage, indent: string) => (
+    <div
+      key={page.id}
+      onClick={() => setSelectedDocId(page.id)}
+      className={`group flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pr-3 transition-colors ${
+        page.id === selectedDoc?.id
+          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20'
+          : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+      }`}
+      style={{ paddingLeft: indent }}
+    >
+      <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
+        {page.sortOrder === 0 ? '★ ' : ''}{page.title}
+      </span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          setRegeneratingId(page.id)
+          regenerateMutation.mutate(page.id)
+        }}
+        disabled={regeneratingId === page.id}
+        title="用最新项目资料重生成此页"
+        aria-label="重生成此页"
+        className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100"
+      >
+        {regeneratingId === page.id
+          ? <Loader2 size={12} className="animate-spin" />
+          : <RefreshCw size={12} />}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          confirm({
+            title: '删除页面',
+            message: `删除「${page.title}」？删除后不可恢复。`,
+            onConfirm: () => deleteMutation.mutate(page.id),
+          })
+        }}
+        title="删除"
+        aria-label="删除"
+        className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+
+  /** 套件内的父子级树：总览 → 章节（父） → 页面（子）；无章节时平铺 */
+  const renderSetTree = (set: IWikiSet) => {
+    const ordered = [...set.pages].sort((a, b) => a.sortOrder - b.sortOrder)
+    const nodes: React.ReactNode[] = []
+    let currentChapter: string | null | undefined
+
+    for (const page of ordered) {
+      if (page.sortOrder === 0) {
+        nodes.push(pageRow(page, '1.75rem'))
+        continue
+      }
+      if (page.chapter !== currentChapter) {
+        currentChapter = page.chapter
+        if (page.chapter) {
+          nodes.push(
+            <div key={`chapter-${page.chapter}`} className="px-4 pb-0.5 pt-2 text-[11px] font-medium text-gray-400">
+              {page.chapter}
+            </div>
+          )
+        }
+      }
+      nodes.push(pageRow(page, page.chapter ? '2.75rem' : '1.75rem'))
+    }
+    return nodes
+  }
+
   const chatModels = useMemo(
     () => models.filter((m: IAiModel) => m.purpose !== 'embedding'),
     [models],
@@ -319,58 +392,13 @@ export default function WikiPage() {
                         </span>
                       </span>
                     </button>
-                    {expanded && set.pages.map((page) => (
-                      <div
-                        key={page.id}
-                        onClick={() => setSelectedDocId(page.id)}
-                        className={`group flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pl-7 pr-3 transition-colors ${
-                          page.id === selectedDoc?.id
-                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20'
-                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
-                          {page.sortOrder === 0 ? '★ ' : ''}{page.title}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setRegeneratingId(page.id)
-                            regenerateMutation.mutate(page.id)
-                          }}
-                          disabled={regeneratingId === page.id}
-                          title="用最新项目资料重生成此页"
-                          aria-label="重生成此页"
-                          className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100"
-                        >
-                          {regeneratingId === page.id
-                            ? <Loader2 size={12} className="animate-spin" />
-                            : <RefreshCw size={12} />}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            confirm({
-                              title: '删除页面',
-                              message: `删除「${page.title}」？删除后不可恢复。`,
-                              onConfirm: () => deleteMutation.mutate(page.id),
-                            })
-                          }}
-                          title="删除"
-                          aria-label="删除"
-                          className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
+                    {expanded && renderSetTree(set)}
                   </div>
                 )
               })
             )}
           </div>
         </aside>
-
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
           <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
@@ -497,6 +525,14 @@ export default function WikiPage() {
             <div className="flex shrink-0 items-center gap-2 bg-red-50 px-6 py-2 text-[12px] text-red-600 dark:bg-red-950/30 dark:text-red-300">
               <AlertCircle size={13} />
               <span className="min-w-0 flex-1">生成失败：{activeJob.errorMessage ?? '未知错误'}</span>
+            </div>
+          )}
+
+          {/* 部分页面失败：整套仍可用，提示可单独重试 */}
+          {activeJob && activeJob.status === 2 && activeJob.warningMessage && (
+            <div className="flex shrink-0 items-center gap-2 bg-amber-50 px-6 py-2 text-[12px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle size={13} />
+              <span className="min-w-0 flex-1">{activeJob.warningMessage}</span>
             </div>
           )}
 

@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Work;
@@ -17,9 +18,11 @@ namespace Hetu.Core.Services;
 /// </summary>
 public class WikiService : IWikiService
 {
-    private const int MaxModulePages = 6;
+    private const int MaxModulePages = 10;
     private const int MaxPageConcurrency = 4;
     private const int SemanticHitsPerPage = 10;
+    /// <summary>单页生成失败后的重试次数</summary>
+    private const int PageRetryCount = 1;
 
     private const string SystemPromptDocEngineer = "你是资深项目文档工程师，擅长阅读代码仓库并撰写准确、清晰的中文技术文档。";
     private const string SystemPromptArchitect = "你是资深软件架构师，擅长为代码仓库规划文档结构。";
@@ -84,7 +87,7 @@ public class WikiService : IWikiService
                 PageCount = g.Count(),
                 CreatedAt = g.Min(d => d.CreatedAt),
                 Pages = g.OrderBy(d => d.SortOrder)
-                    .Select(d => new WikiSetPageDto { Id = d.Id, Title = d.Title, SortOrder = d.SortOrder })
+                    .Select(d => new WikiSetPageDto { Id = d.Id, Title = d.Title, SortOrder = d.SortOrder, Chapter = d.Chapter })
                     .ToList(),
             })
             .OrderByDescending(s => s.CreatedAt)
@@ -249,32 +252,33 @@ public class WikiService : IWikiService
 
         var setId = Guid.NewGuid();
         var donePages = 0;
+        var failedPages = new List<string>();
         using var throttle = new SemaphoreSlim(MaxPageConcurrency);
         var pageTasks = plans.Select(async plan =>
         {
             await throttle.WaitAsync(cancellationToken);
             try
             {
-                var page = await BuildPageAsync(provider, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, cancellationToken);
-                if (string.IsNullOrWhiteSpace(page.Content)) return null;
+                // 失败重试 + 截断续写，尽量把该拿到的页面拿到
+                var content = await GeneratePageWithRetryAsync(provider, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, cancellationToken);
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    lock (failedPages) failedPages.Add(plan.Title);
+                    return null;
+                }
                 return new WikiDocument
                 {
                     Id = Guid.NewGuid(),
                     ProjectId = project.Id,
                     SetId = setId,
                     SortOrder = plan.Index + 1,
-                    Title = page.Title,
-                    Brief = page.Brief,
-                    Content = page.Content,
+                    Title = plan.Title,
+                    Chapter = plan.Chapter,
+                    Brief = plan.Brief,
+                    Content = content,
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow,
                 };
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // 单页失败不阻塞整套
-                _logger.LogWarning(ex, "Wiki 页面「{Title}」生成失败", plan.Title);
-                return null;
             }
             finally
             {
@@ -315,10 +319,92 @@ public class WikiService : IWikiService
         job.Progress = 100;
         job.DonePages = modulePages.Count + 1;
         job.SetId = setId;
+        // 失败不静默：告知用户哪些页面没拿到，可单独重试
+        job.WarningMessage = failedPages.Count == 0
+            ? null
+            : $"{failedPages.Count} 个页面生成失败（可点页面上的 ↺ 单独重试）：{string.Join("、", failedPages)}";
         job.CompletedAt = DateTimeOffset.UtcNow;
         job.UpdatedAt = job.CompletedAt.Value;
         await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>生成单页并按需重试；彻底失败返回空串</summary>
+    private async Task<string> GeneratePageWithRetryAsync(
+        ILLMProvider provider,
+        ManagedProject project,
+        WikiSourceMaterial material,
+        WikiPagePlan plan,
+        IEnumerable<string> siblingTitles,
+        Guid? workProjectId,
+        bool useSemantic,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt <= PageRetryCount; attempt++)
+        {
+            try
+            {
+                var page = await BuildPageAsync(provider, project, material, plan, siblingTitles, workProjectId, useSemantic, cancellationToken);
+                if (string.IsNullOrWhiteSpace(page.Content)) return string.Empty;
+                // 代码围栏成对却仍未闭合 = 模型输出被截断，续写一次把剩余内容补回来
+                if (CountFences(page.Content) % 2 == 1)
+                {
+                    var tail = await ContinueTruncatedAsync(provider, page.Content, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(tail)) page.Content += tail;
+                }
+                return page.Content;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Wiki 页面「{Title}」生成失败（第 {Attempt} 次）", plan.Title, attempt + 1);
+                if (attempt == PageRetryCount) return string.Empty;
+            }
+        }
+        return string.Empty;
+    }
+
+    private static int CountFences(string content)
+        => Regex.Matches(content, "```").Count;
+
+    /// <summary>把页面清单按章节组织成缩进导航文本</summary>
+    private static string BuildNavText(List<WikiDocument> pages)
+    {
+        var sb = new StringBuilder();
+        foreach (var group in pages.GroupBy(p => p.Chapter))
+        {
+            var chapter = group.Key;
+            if (!string.IsNullOrWhiteSpace(chapter)) sb.AppendLine($"- {chapter}");
+            foreach (var page in group)
+                sb.AppendLine(string.IsNullOrWhiteSpace(chapter) ? $"- {page.Title}" : $"  - {page.Title}");
+        }
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>续写被截断的内容：从截断处接着输出，避免重复已有部分</summary>
+    private async Task<string> ContinueTruncatedAsync(ILLMProvider provider, string existing, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var prompt = $"""
+                以下是一篇 Wiki 页面已生成的内容，输出在末尾被截断（最后的代码块没有闭合）。
+                请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释，保持原有格式续写下去。
+                若截断处位于代码块内，请先补全该代码块（含收尾的 ```）。
+
+                【已有内容】
+                {existing[^Math.Max(0, existing.Length - 6000)..]}
+                """;
+            var tail = await provider.CompleteAsync(prompt, new CompletionOptions
+            {
+                ModelId = string.Empty,
+                SystemPrompt = SystemPromptDocEngineer,
+                MaxTokens = 4096,
+            }, cancellationToken);
+            return string.IsNullOrWhiteSpace(tail) ? string.Empty : "\n" + tail.Trim();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return string.Empty;
+        }
     }
 
     public async Task<ApiResponse<WikiDocumentDto>> RegeneratePageAsync(Guid id, CancellationToken cancellationToken = default)
@@ -429,7 +515,7 @@ public class WikiService : IWikiService
     private async Task<List<WikiPagePlan>> PlanModulePagesAsync(
         ILLMProvider provider, ManagedProject project, WikiSourceMaterial material, CancellationToken cancellationToken)
     {
-        const string JsonSpec = "{\"pages\":[{\"title\":\"页面标题（12字以内）\",\"brief\":\"该页应涵盖的内容要点（60字以内）\"}]}";
+        const string JsonSpec = "{\"chapters\":[{\"title\":\"章节标题（10字以内）\",\"pages\":[{\"title\":\"页面标题（12字以内）\",\"brief\":\"该页应涵盖的内容要点（60字以内）\"}]}]}";
         var prompt = $"""
             项目名称：{project.Name}
             项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
@@ -437,8 +523,9 @@ public class WikiService : IWikiService
             【项目资料】
             {material.BaseContext}
 
-            请为该项目规划一套 Wiki 文档的主题分页（DeepWiki 风格，不包含总览页，总览将单独生成）。
-            按项目的真实结构划分 2-{MaxModulePages} 个主题页，每个主题聚焦一个模块 / 领域 / 关注点（如架构设计、数据流、核心模块、API 参考、快速开始与配置等，按项目实际取舍）。
+            请为该项目规划一套 Wiki 文档的章节与页面（DeepWiki 风格，父子级结构：章节为父级、页面为子级；总览页单独生成，不在此列）。
+            按项目的真实结构划分 2-4 个章节，每章 1-3 个页面，总页面数 4-{MaxModulePages} 个。
+            每个页面聚焦一个模块 / 领域 / 关注点（如架构设计、数据流、核心模块、API 参考、快速开始与配置等，按项目实际取舍）。
             只输出 JSON，不要输出其他内容，格式如下：
             {JsonSpec}
             """;
@@ -449,15 +536,28 @@ public class WikiService : IWikiService
             {
                 ModelId = string.Empty,
                 SystemPrompt = SystemPromptArchitect,
-                MaxTokens = 2048,
+                MaxTokens = 3072,
             }, cancellationToken);
             var outline = LlmJsonExtractor.Deserialize<WikiOutline>(response);
             if (outline != null)
-                plans = outline.Pages
-                    .Where(p => !string.IsNullOrWhiteSpace(p.Title))
-                    .Select((p, i) => new WikiPagePlan { Index = i, Title = p.Title.Trim(), Brief = (p.Brief ?? string.Empty).Trim() })
-                    .Take(MaxModulePages)
-                    .ToList();
+            {
+                var index = 0;
+                foreach (var chapter in outline.Chapters.Where(c => !string.IsNullOrWhiteSpace(c.Title)))
+                {
+                    var chapterTitle = chapter.Title.Trim();
+                    foreach (var page in chapter.Pages.Where(p => !string.IsNullOrWhiteSpace(p.Title)))
+                    {
+                        if (plans.Count >= MaxModulePages) break;
+                        plans.Add(new WikiPagePlan
+                        {
+                            Index = index++,
+                            Chapter = chapterTitle,
+                            Title = page.Title.Trim(),
+                            Brief = (page.Brief ?? string.Empty).Trim(),
+                        });
+                    }
+                }
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -467,10 +567,10 @@ public class WikiService : IWikiService
         if (plans.Count == 0)
             plans =
             [
-                new WikiPagePlan { Index = 0, Title = "项目概述与技术栈", Brief = "项目定位、核心特性、技术栈组成" },
-                new WikiPagePlan { Index = 1, Title = "目录结构", Brief = "顶层目录职责与关键文件说明" },
-                new WikiPagePlan { Index = 2, Title = "核心模块详解", Brief = "主要模块职责、关键类型与调用关系" },
-                new WikiPagePlan { Index = 3, Title = "快速开始与配置", Brief = "环境要求、构建运行步骤、配置项" },
+                new WikiPagePlan { Index = 0, Chapter = "项目概览", Title = "项目概述与技术栈", Brief = "项目定位、核心特性、技术栈组成" },
+                new WikiPagePlan { Index = 1, Chapter = "项目概览", Title = "目录结构", Brief = "顶层目录职责与关键文件说明" },
+                new WikiPagePlan { Index = 2, Chapter = "核心实现", Title = "核心模块详解", Brief = "主要模块职责、关键类型与调用关系" },
+                new WikiPagePlan { Index = 3, Chapter = "使用指南", Title = "快速开始与配置", Brief = "环境要求、构建运行步骤、配置项" },
             ];
         return plans;
     }
@@ -531,7 +631,8 @@ public class WikiService : IWikiService
         bool useSemantic,
         CancellationToken cancellationToken)
     {
-        var nav = string.Join("\n", modulePages.Select(p => $"- {p.Title}"));
+        // 章节 → 页面 的导航结构，供总览页列出真实目录
+        var nav = BuildNavText(modulePages);
         var codeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, "总体架构 核心组件 数据流", cancellationToken);
 
         var prompt = $"""
@@ -542,14 +643,14 @@ public class WikiService : IWikiService
             【项目资料】
             {material.BaseContext}
             {codeContext}
-            【本套件包含以下主题页】
+            【本套件包含以下章节与页面】
             {nav}
 
             【本页任务】撰写总览页（Markdown，中文）。要求：
             1. 只依据提供的资料撰写，不得编造；
             2. 用二级标题（##）组织小节，依次涵盖：项目简介、核心特性、技术栈、总体架构；
             3. 「总体架构」一节必须包含一个 ```mermaid 代码块绘制的架构图（graph 或 flowchart），清晰表达主要组件及其关系；
-            4. 最后一节为「文档导航」，用无序列表原样列出上述主题页标题；
+            4. 最后一节为「文档导航」，按上面的章节层级用无序列表原样列出（章节与其下页面）；
             5. 不要输出一级标题，不要用代码块包裹整篇内容。
             """;
 
@@ -657,6 +758,7 @@ public class WikiService : IWikiService
         SetId = doc.SetId,
         SortOrder = doc.SortOrder,
         Title = doc.Title,
+        Chapter = doc.Chapter,
         Brief = doc.Brief,
         Content = doc.Content,
         CreatedAt = doc.CreatedAt,
@@ -674,6 +776,7 @@ public class WikiService : IWikiService
         TotalPages = job.TotalPages,
         DonePages = job.DonePages,
         ErrorMessage = job.ErrorMessage,
+        WarningMessage = job.WarningMessage,
         ModelId = job.ModelId,
         SetId = job.SetId,
         CreatedAt = job.CreatedAt,
@@ -691,6 +794,8 @@ public class WikiService : IWikiService
     private sealed class WikiPagePlan
     {
         public int Index { get; set; }
+        /// <summary>所属章节（父子级结构中的父级）</summary>
+        public string? Chapter { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Brief { get; set; } = string.Empty;
     }
@@ -698,6 +803,12 @@ public class WikiService : IWikiService
     /// <summary>大纲规划结果（LLM JSON 输出）</summary>
     private sealed class WikiOutline
     {
+        public List<WikiOutlineChapter> Chapters { get; set; } = [];
+    }
+
+    private sealed class WikiOutlineChapter
+    {
+        public string Title { get; set; } = string.Empty;
         public List<WikiOutlinePage> Pages { get; set; } = [];
     }
 

@@ -112,6 +112,8 @@ public class WikiDocumentDto
     /// <summary>套件内排序：0 为总览页</summary>
     public int SortOrder { get; set; }
     public string Title { get; set; } = string.Empty;
+    /// <summary>所属章节（父子级结构中的父级）</summary>
+    public string? Chapter { get; set; }
     /// <summary>规划阶段确定的内容要点</summary>
     public string? Brief { get; set; }
     /// <summary>Markdown 正文</summary>
@@ -142,6 +144,8 @@ public class WikiSetPageDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public int SortOrder { get; set; }
+    /// <summary>所属章节（父子级结构中的父级）</summary>
+    public string? Chapter { get; set; }
 }
 
 /// <summary>Wiki 生成任务进度</summary>
@@ -158,6 +162,7 @@ public class WikiGenerationJobDto
     public int TotalPages { get; set; }
     public int DonePages { get; set; }
     public string? ErrorMessage { get; set; }
+    public string? WarningMessage { get; set; }
     public string? ModelId { get; set; }
     public Guid? SetId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

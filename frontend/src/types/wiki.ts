@@ -8,6 +8,8 @@ export interface IWikiDocument {
   /** 套件内排序：0 为总览页 */
   sortOrder: number
   title: string
+  /** 所属章节（父子级结构中的父级） */
+  chapter?: string
   /** 规划阶段确定的内容要点 */
   brief?: string
   content: string
@@ -34,6 +36,8 @@ export interface IWikiSetPage {
   id: string
   title: string
   sortOrder: number
+  /** 所属章节（父子级结构中的父级） */
+  chapter?: string
 }
 
 /** Wiki 生成任务进度：0=排队中 1=生成中 2=已完成 3=失败 */
@@ -47,6 +51,8 @@ export interface IWikiGenerationJob {
   totalPages: number
   donePages: number
   errorMessage?: string
+  /** 部分页面失败时的提示（整套仍算完成） */
+  warningMessage?: string
   modelId?: string
   setId?: string
   createdAt: string

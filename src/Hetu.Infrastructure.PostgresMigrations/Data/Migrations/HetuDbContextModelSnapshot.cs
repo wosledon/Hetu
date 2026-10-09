@@ -1627,6 +1627,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<string>("Chapter")
+                        .HasColumnType("text");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1707,6 +1710,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WarningMessage")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
