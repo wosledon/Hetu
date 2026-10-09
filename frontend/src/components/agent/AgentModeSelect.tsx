@@ -18,11 +18,9 @@ const MODE_ICONS: Record<string, typeof Bot> = {
  */
 export default function AgentModeSelect({ value, onChange, className }: AgentModeSelectProps) {
   const meta = agentModeMeta(value)
-  const Icon = MODE_ICONS[value] ?? MODE_ICONS.interactive
 
   return (
     <div className={`flex shrink-0 items-center gap-1 ${className ?? ''}`}>
-      <Icon size={13} className={meta.cls} />
       <AgentToolbarSelect
         value={value}
         onChange={onChange}
