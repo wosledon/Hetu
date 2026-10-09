@@ -8,7 +8,7 @@ import {
   Globe, Database, Atom, Pencil, Trash2,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
-import { aiModelService } from '../../services/aiProviderService'
+import { aiModelService, aiProviderService } from '../../services/aiProviderService'
 import { promptPresetService } from '../../services/promptPresetService'
 import { skillService } from '../../services/skillService'
 import { type InputCommandItem } from '../InputCommandMenu'
@@ -27,7 +27,7 @@ import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
 import AgentSubAgentRow from '../agent/AgentSubAgentRow'
 import AgentInputBox from '../agent/AgentInputBox'
-import AgentToolbarSelect from '../agent/AgentToolbarSelect'
+import AgentModelPicker from '../agent/AgentModelPicker'
 import AgentPicker from '../agent/AgentPicker'
 import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
@@ -219,6 +219,12 @@ export default function WorkSessionArea({
     queryFn: () => aiModelService.getAll(),
   })
 
+  const { data: providers = [] } = useQuery({
+    queryKey: ['aiProviders'],
+    queryFn: () => aiProviderService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  })
+
   const { data: openApps = [] } = useQuery({
     queryKey: ['workOpenApps'],
     queryFn: () => workOpenService.apps(),
@@ -250,7 +256,13 @@ export default function WorkSessionArea({
   ]
   const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
+  // 会话级上下文上限（token），空 = 模型支持的上限
+  const [contextOverride, setContextOverride] = useState<{ sessionId: string; value: number } | null>(null)
   const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
+  const setContextWindow = (value?: number) => {
+    if (!session) return
+    setContextOverride(value === undefined ? null : { sessionId: session.id, value })
+  }
 
   // 消息级操作：复制 / 编辑 / 删除（与对话页同一套交互）
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
@@ -489,6 +501,7 @@ export default function WorkSessionArea({
   const reasoningEffort = session && effortOverride?.sessionId === session.id
     ? effortOverride.value
     : reasoningEffortDefault(currentModel)
+  const contextWindow = session && contextOverride?.sessionId === session.id ? contextOverride.value : undefined
 
   const setPermissionMode = (value: WorkPermissionMode) => {
     if (!session) return
@@ -822,6 +835,8 @@ export default function WorkSessionArea({
           promptFile: selectedPrompt?.filePath || undefined,
           skillName: selectedSkillName || undefined,
           mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
+          // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
+          contextWindow,
           // 与对话会话共用同一套开关语义：网络搜索 / 知识库 / 记忆 / 深度思考
           webSearch,
           knowledgeBase,
@@ -1291,16 +1306,30 @@ export default function WorkSessionArea({
                 }}
                 placeholder="默认 Agent"
               />
-              <AgentToolbarSelect
-                value={selectedModelId}
-                onChange={(v) => setSelectedModelId(v)}
-                title="模型"
-                options={[{ value: '', label: '默认模型' }, ...aiModels.filter((m) => m.purpose === 'chat').map((m) => ({ value: m.id, label: m.displayName }))]}
+              <AgentModelPicker
+                models={aiModels
+                  .filter((m) => m.purpose === 'chat' && m.providerId)
+                  .map((m) => ({
+                    id: m.id,
+                    displayName: m.displayName,
+                    providerId: m.providerId,
+                    contextWindow: m.contextWindow,
+                    reasoningMode: m.reasoningMode,
+                    reasoningEffort: m.reasoningEffort,
+                    reasoningEfforts: m.reasoningEfforts,
+                  }))}
+                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
+                modelId={selectedModelId}
+                onModelChange={(id) => { setSelectedModelId(id); setEffortOverride(null); setContextOverride(null) }}
+                effort={reasoningEffort}
+                onEffortChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
+                contextWindow={contextWindow}
+                onContextWindowChange={setContextWindow}
               />
               <AgentReasoningSelect
                 value={reasoningEffort}
                 onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
-                reasoningMode={currentReasoningMode}
+                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
                 model={currentModel}
                 enabled={deepThinking}
                 onEnabledChange={setDeepThinking}

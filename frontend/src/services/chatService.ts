@@ -59,6 +59,8 @@ export interface SendMessageRequest {
   enableTools?: boolean;
   /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */
   mentions?: { type: string; id: string }[];
+  /** 会话级上下文上限（token），空 = 模型支持的上限 */
+  contextWindow?: number;
 }
 
 export interface IWebSearchResult {

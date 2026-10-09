@@ -328,6 +328,20 @@ public class ChatMessagesController : ControllerBase
         var history = await _chatMessageService.BuildHistoryAsync(topicId, ctxSize, ct);
         var messages = history.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
 
+        // 会话级上下文上限（token）：按 ~3 字符/token 折算成字符预算，从最早的消息开始裁剪
+        if (request.ContextWindow is > 0)
+        {
+            var charBudget = (long)request.ContextWindow.Value * 3;
+            var total = messages.Sum(m => (long)(m.Content?.Length ?? 0));
+            var start = 0;
+            while (start < messages.Count - 1 && total > charBudget)
+            {
+                total -= messages[start].Content?.Length ?? 0;
+                start++;
+            }
+            if (start > 0) messages = messages.Skip(start).ToList();
+        }
+
         if (request.Images is { Count: > 0 })
         {
             ChatContextInjector.AttachImages(request.Images, provider, messages);

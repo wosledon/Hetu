@@ -5,7 +5,7 @@ import { chatMessageService, chatTopicService, promptPresetService } from '../se
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
-import { aiModelService } from '../services/aiProviderService'
+import { aiModelService, aiProviderService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
 import ChatMessageItem from './ChatMessageItem'
 import Select from './Select'
@@ -16,7 +16,7 @@ import AgentTimeline from './agent/AgentTimeline'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
 import AgentReasoningSelect from './agent/AgentReasoningSelect'
-import AgentToolbarSelect from './agent/AgentToolbarSelect'
+import AgentModelPicker from './agent/AgentModelPicker'
 import AgentPicker from './agent/AgentPicker'
 import { fromChatTimeline } from '../utils/agentTimeline'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
@@ -251,6 +251,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     queryFn: () => aiModelService.getAll(),
   })
 
+  const { data: providers = [] } = useQuery({
+    queryKey: ['aiProviders'],
+    queryFn: () => aiProviderService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 会话级上下文上限（token，空 = 模型支持的上限）
+  const [contextWindow, setContextWindow] = useState<number | undefined>(cachedSettings.contextWindow ?? undefined)
+
   // Slash command menu items (db skills + local skills + agents)
   const slashItems = useMemo(() => {
     const items: { key: string; label: string; description: string; icon: React.ReactNode; type: 'skill' | 'agent' }[] = []
@@ -385,8 +394,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       memory,
       toolCalling,
       permissionMode,
+      contextWindow,
     })
-  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, permissionMode])
+  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, permissionMode, contextWindow])
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -527,6 +537,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         // 始终下发全局审批模式：auto 也必须显式覆盖，否则各工具 DefaultApproval（如 run_command=Ask）仍会逐个询问
         permissionMode,
         mentions: mentions.length > 0 ? mentions : undefined,
+        // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
+        contextWindow,
       }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
@@ -1289,13 +1301,25 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 }}
               />
 
-              {/* 模型选择：与编码会话共用同一组件 */}
-              <AgentToolbarSelect
-                value={activeModelId}
-                onChange={setSelectedModelId}
-                title="选择模型"
-                options={[{ value: '', label: '默认模型' }, ...chatModels.map((m) => ({ value: m.id, label: m.displayName }))]}
-                />
+              {/* 模型 · 推理强度 · 上下文 三合一选择器（与编码会话共用） */}
+              <AgentModelPicker
+                models={chatModels.map((m) => ({
+                  id: m.id,
+                  displayName: m.displayName,
+                  providerId: m.providerId,
+                  contextWindow: m.contextWindow,
+                  reasoningMode: m.reasoningMode,
+                  reasoningEffort: m.reasoningEffort,
+                  reasoningEfforts: m.reasoningEfforts,
+                }))}
+                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
+                modelId={activeModelId}
+                onModelChange={setSelectedModelId}
+                effort={reasoningEffort}
+                onEffortChange={setReasoningEffort}
+                contextWindow={contextWindow}
+                onContextWindowChange={setContextWindow}
+              />
                 <div className="flex items-center gap-1">
                 {toolCalling && <AgentPermissionSelect value={permissionMode} onChange={setPermissionMode} />}
                 <button
@@ -1314,11 +1338,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
               <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
 
-              {/* 推理强度 / 深度思考：档位按当前模型配置渲染（models.dev 的 effort 取值） */}
+              {/* 推理强度 / 深度思考：tag 模型用开关；native 模型的强度已并入模型选择器 */}
               <AgentReasoningSelect
                 value={reasoningEffort}
                 onChange={setReasoningEffort}
-                reasoningMode={currentReasoningMode}
+                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
                 model={currentModel}
                 enabled={deepThinking}
                 onEnabledChange={setDeepThinking}

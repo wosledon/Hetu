@@ -90,6 +90,8 @@ export const workSessionService = {
       knowledgeBase?: boolean;
       memory?: boolean;
       deepThinking?: boolean;
+      /** 会话级上下文上限（token），空 = 模型支持的上限 */
+      contextWindow?: number;
       /** 图片附件（视觉模型多模态输入） */
       images?: { data: string; mimeType: string; fileName?: string }[];
       persistUserMessage?: boolean;

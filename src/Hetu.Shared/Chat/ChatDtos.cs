@@ -127,6 +127,11 @@ public class SendMessageRequest
     /// </summary>
     public List<ChatMentionRef>? Mentions { get; set; }
     /// <summary>
+    /// 会话级上下文上限（token）：选择更小的上下文窗口时，历史消息按该预算裁剪；
+    /// 为空表示用模型支持的上限
+    /// </summary>
+    public int? ContextWindow { get; set; }
+    /// <summary>
     /// 用户手动启用的工具名列表（为空则使用 Agent 默认或全部工具）
     /// </summary>
     public List<string>? EnabledTools { get; set; }
