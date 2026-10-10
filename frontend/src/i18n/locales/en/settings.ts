@@ -385,6 +385,9 @@ export default {
     viewVersion: 'Version and updates',
     desktopOnly: 'Automatic updates are only available in the desktop app; for the browser version download the new release from GitHub Releases.',
     releaseNotes: 'Release notes',
+    currentNotes: "What's new in this version",
+    currentNotesEmpty: 'No release notes found for this version (dev builds may not have a release).',
+    viewOnGitHub: 'View on GitHub',
     sourceHint: 'Update packages come from GitHub Releases (primary) with ghproxy.net / gh-proxy.com acceleration mirrors as fallback',
   },
 }

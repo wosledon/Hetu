@@ -5,6 +5,8 @@ import { AlertCircle, CheckCircle2, Download, Loader2, RefreshCw, RotateCw, X } 
 import { useUpdateStore } from '../stores/updateStore'
 import { updateService } from '../services/updateService'
 import { useAppVersion } from '../hooks/useAppVersion'
+import { useReleaseNotes } from '../hooks/useReleaseNotes'
+import { openRepo } from '../utils/repo'
 import { isTauriAclError } from '../utils/tauri'
 
 function formatSize(bytes: number): string {
@@ -23,6 +25,10 @@ export default function UpdatePanel() {
   const percent = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null
   const errorText = isTauriAclError(error) ? t('update.notAvailable') : (error ?? '')
   const version = useAppVersion()
+  // 没有可用更新时，展示「本版本更新内容」（按版本号从 GitHub Release 取，带缓存）
+  // 注意：hook 必须在任何 early return 之前调用，面板关闭时传 null 让它什么都不做
+  const showCurrentNotes = status !== 'available' && status !== 'downloading' && status !== 'installed'
+  const { notes: currentNotes, loading: notesLoading } = useReleaseNotes(showCurrentNotes && panelOpen ? version : null)
 
   useEffect(() => {
     if (!panelOpen) return
@@ -101,6 +107,33 @@ export default function UpdatePanel() {
                 <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
                   {info.notes}
                 </pre>
+              </div>
+            )}
+
+            {showCurrentNotes && (
+              <div className="mt-3">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.currentNotes')}</p>
+                  <button
+                    onClick={openRepo}
+                    className="text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+                  >
+                    {t('update.viewOnGitHub')}
+                  </button>
+                </div>
+                {notesLoading ? (
+                  <p className="rounded-xl bg-gray-50 px-3 py-3 text-[12px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500">
+                    {t('common:loading')}
+                  </p>
+                ) : currentNotes ? (
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
+                    {currentNotes.body}
+                  </pre>
+                ) : (
+                  <p className="rounded-xl bg-gray-50 px-3 py-3 text-[12px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500">
+                    {t('update.currentNotesEmpty')}
+                  </p>
+                )}
               </div>
             )}
 
