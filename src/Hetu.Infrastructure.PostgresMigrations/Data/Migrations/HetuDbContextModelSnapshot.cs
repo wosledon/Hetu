@@ -992,6 +992,13 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("LastAccessedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(50)

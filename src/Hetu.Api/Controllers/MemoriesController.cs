@@ -17,8 +17,14 @@ public class MemoriesController : ControllerBase
     }
 
     [HttpGet]
-    public Task<ApiResponse<PagedResult<MemoryDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
-        => _memoryService.GetAllAsync(page, pageSize, cancellationToken);
+    public Task<ApiResponse<PagedResult<MemoryDto>>> GetAll(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? scope = null, CancellationToken cancellationToken = default)
+        => _memoryService.GetAllAsync(page, pageSize, scope, cancellationToken);
+
+    /// <summary>手动执行一次 Dream 记忆巩固（合并 / 衰减 / 遗忘），返回统计</summary>
+    [HttpPost("dream")]
+    public Task<ApiResponse<DreamResultDto>> Dream(CancellationToken cancellationToken)
+        => _memoryService.DreamConsolidateAsync(cancellationToken);
 
     [HttpPost("search")]
     public Task<ApiResponse<List<MemoryDto>>> Search([FromBody] MemorySearchRequest request, CancellationToken cancellationToken)
@@ -39,4 +45,9 @@ public class MemoriesController : ControllerBase
     [HttpPost("extract/{topicId:guid}")]
     public Task<ApiResponse<List<MemoryDto>>> Extract(Guid topicId, CancellationToken cancellationToken)
         => _memoryService.ExtractFromConversationAsync(topicId, cancellationToken);
+
+    /// <summary>从 Code 会话手动提取项目记忆（需会话关联受管项目）</summary>
+    [HttpPost("extract-work/{sessionId:guid}")]
+    public Task<ApiResponse<List<MemoryDto>>> ExtractWork(Guid sessionId, CancellationToken cancellationToken)
+        => _memoryService.ExtractFromWorkSessionAsync(sessionId, cancellationToken);
 }

@@ -6,6 +6,7 @@ using Hetu.Core.Utilities;
 using Hetu.Infrastructure.Data;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
+using Hetu.Shared.Settings;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public class MemoryService : IMemoryService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly IAppSettingService _appSettingService;
     private readonly HetuDbContext _dbContext;
     private readonly ILogger<MemoryService> _logger;
 
@@ -36,25 +38,42 @@ public class MemoryService : IMemoryService
         IUnitOfWork unitOfWork,
         IEmbeddingProviderFactory embeddingProviderFactory,
         ILLMProviderFactory llmProviderFactory,
+        IAppSettingService appSettingService,
         HetuDbContext dbContext,
         ILogger<MemoryService> logger)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
         _llmProviderFactory = llmProviderFactory;
+        _appSettingService = appSettingService;
         _dbContext = dbContext;
         _logger = logger;
     }
 
-    public async Task<ApiResponse<PagedResult<MemoryDto>>> GetAllAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<PagedResult<MemoryDto>>> GetAllAsync(int page = 1, int pageSize = 50, string? scope = null, CancellationToken cancellationToken = default)
     {
-        var all = await _unitOfWork.Memories.FindAsync(m => !m.IsDeleted, cancellationToken);
+        var all = await _unitOfWork.Memories.FindAsync(
+            m => !m.IsDeleted && (string.IsNullOrWhiteSpace(scope) || m.Scope == scope),
+            cancellationToken);
+
+        // 项目记忆回填项目名，列表直接展示
+        var projectIds = all.Where(m => m.ProjectId != null).Select(m => m.ProjectId!.Value).Distinct().ToList();
+        var projectNames = projectIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken))
+                .Where(p => projectIds.Contains(p.Id)).ToDictionary(p => p.Id, p => p.Name);
+
         var totalCount = all.Count;
         var items = all
             .OrderByDescending(m => m.LastAccessedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(MapToDto)
+            .Select(m =>
+            {
+                var dto = MapToDto(m);
+                if (m.ProjectId != null) dto.ProjectName = projectNames.GetValueOrDefault(m.ProjectId.Value);
+                return dto;
+            })
             .ToList();
 
         return ApiResponse<PagedResult<MemoryDto>>.Ok(new PagedResult<MemoryDto>
@@ -71,7 +90,8 @@ public class MemoryService : IMemoryService
         if (string.IsNullOrWhiteSpace(query))
             return ApiResponse<List<MemoryDto>>.Ok([]);
 
-        var results = await SearchWithScoreAsync(query, topK, cancellationToken);
+        // 管理端搜索：跨全部作用域展示，不做过滤
+        var results = await SearchWithScoreAsync(query, topK, null, null, applyScope: false, cancellationToken);
         return ApiResponse<List<MemoryDto>>.Ok(results);
     }
 
@@ -80,11 +100,20 @@ public class MemoryService : IMemoryService
         if (string.IsNullOrWhiteSpace(request.Content))
             return ApiResponse<MemoryDto>.Fail("记忆内容不能为空");
 
+        var scope = NormalizeScope(request.Scope);
+        if (scope == MemoryScopes.Project && request.ProjectId == null)
+            return ApiResponse<MemoryDto>.Fail("项目记忆必须指定项目");
+        // 会话记忆只能由对话提取产生（需要绑定会话），手动创建不接受
+        if (scope == MemoryScopes.Session)
+            return ApiResponse<MemoryDto>.Fail("会话记忆由对话自动提取产生，请选择全局或项目作用域");
+
         var memory = new Memory
         {
             Id = Guid.NewGuid(),
             Content = request.Content.Trim(),
             Source = "manual",
+            Scope = scope,
+            ProjectId = scope == MemoryScopes.Project ? request.ProjectId : null,
             Category = request.Category,
             Importance = Math.Clamp(request.Importance, 0f, 1f),
             LastAccessedAt = DateTimeOffset.UtcNow,
@@ -98,7 +127,9 @@ public class MemoryService : IMemoryService
         // 生成并存储 embedding
         await EmbedAndStoreAsync(memory, cancellationToken);
 
-        return ApiResponse<MemoryDto>.Ok(MapToDto(memory));
+        var dto = MapToDto(memory);
+        await EnrichProjectNameAsync(dto, cancellationToken);
+        return ApiResponse<MemoryDto>.Ok(dto);
     }
 
     public async Task<ApiResponse<MemoryDto>> UpdateAsync(Guid id, UpdateMemoryRequest request, CancellationToken cancellationToken = default)
@@ -107,9 +138,18 @@ public class MemoryService : IMemoryService
         if (memory == null || memory.IsDeleted)
             return ApiResponse<MemoryDto>.Fail("记忆不存在");
 
+        var scope = NormalizeScope(request.Scope);
+        if (scope == MemoryScopes.Project && request.ProjectId == null)
+            return ApiResponse<MemoryDto>.Fail("项目记忆必须指定项目");
+        if (scope == MemoryScopes.Session && memory.TopicId == null)
+            return ApiResponse<MemoryDto>.Fail("该记忆未绑定会话，无法设为会话作用域");
+
         memory.Content = request.Content.Trim();
         memory.Category = request.Category;
         memory.Importance = Math.Clamp(request.Importance, 0f, 1f);
+        memory.Scope = scope;
+        memory.ProjectId = scope == MemoryScopes.Project ? request.ProjectId : null;
+        // TopicId 保留不清：会话记忆「晋升」为全局后仍可切回会话作用域
         memory.UpdatedAt = DateTimeOffset.UtcNow;
 
         // GetByIdAsync 走 AsNoTracking，必须显式挂回上下文，否则这些改动 SaveChanges 不会写入
@@ -119,7 +159,17 @@ public class MemoryService : IMemoryService
         // 内容变更，重新生成 embedding
         await EmbedAndStoreAsync(memory, cancellationToken);
 
-        return ApiResponse<MemoryDto>.Ok(MapToDto(memory));
+        var dto = MapToDto(memory);
+        await EnrichProjectNameAsync(dto, cancellationToken);
+        return ApiResponse<MemoryDto>.Ok(dto);
+    }
+
+    /// <summary>项目作用域记忆回填项目名（详情/创建/提取返回体）</summary>
+    private async Task EnrichProjectNameAsync(MemoryDto dto, CancellationToken cancellationToken)
+    {
+        if (dto.ProjectId == null) return;
+        var project = await _unitOfWork.ManagedProjects.GetByIdAsync(dto.ProjectId.Value, cancellationToken);
+        dto.ProjectName = project?.Name;
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -133,6 +183,8 @@ public class MemoryService : IMemoryService
         // 同上：不挂回上下文的话接口会返回 200，但记忆仍在列表里（用户看到「删除失败」）
         await _unitOfWork.Memories.UpdateAsync(memory, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // 一并清掉向量，避免已删除的记忆还能被语义检索命中
+        await RemoveEmbeddingsAsync(memory.Id, cancellationToken);
 
         return ApiResponse.Ok();
     }
@@ -199,9 +251,9 @@ public class MemoryService : IMemoryService
             {
                 if (string.IsNullOrWhiteSpace(fact.Content)) continue;
 
-                // 检查是否与已有记忆重复
+                // 检查是否与已有记忆重复（仅吸收同归属的记忆，避免把别的会话/项目的记忆当成同一段）
                 var existing = await FindSimilarMemoryAsync(fact.Content, 0.9, cancellationToken);
-                if (existing != null)
+                if (existing != null && existing.Scope == MemoryScopes.Session && existing.TopicId == topicId)
                 {
                     // 更新已有记忆的访问时间
                     existing.LastAccessedAt = DateTimeOffset.UtcNow;
@@ -215,6 +267,8 @@ public class MemoryService : IMemoryService
                     Id = Guid.NewGuid(),
                     Content = fact.Content.Trim(),
                     Source = "conversation",
+                    // 对话提取的记忆默认归属该会话（Dream 巩固时可与全局/项目记忆合并晋升）
+                    Scope = MemoryScopes.Session,
                     TopicId = topicId,
                     Category = fact.Category,
                     Importance = Math.Clamp(fact.Importance, 0.1f, 1f),
@@ -283,18 +337,158 @@ public class MemoryService : IMemoryService
         return result.Success ? result.Data ?? [] : [];
     }
 
-    public async Task<List<MemoryDto>> RetrieveForContextAsync(string query, int topK = 5, CancellationToken cancellationToken = default)
+    // ── Code 会话（编码会话）→ 项目记忆 ────────────────
+
+    /// <summary>
+    /// 触发判定：每累计 10 条用户消息提取一次（取模触发，无需跨会话的水位记录；
+    /// 重复内容由「同归属相似度去重」吸收）。
+    /// </summary>
+    public async Task<List<MemoryDto>> TryAutoExtractWorkAsync(Guid workSessionId, CancellationToken cancellationToken = default)
     {
-        return await SearchWithScoreAsync(query, topK, cancellationToken);
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(workSessionId, cancellationToken);
+        if (session == null) return [];
+
+        // 未关联受管项目的 Code 会话不提取：项目事实写进全局记忆会污染其它上下文
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+        if (project?.ManagedProjectId == null) return [];
+
+        var userMessages = await _unitOfWork.WorkMessages.FindAsync(
+            m => m.SessionId == workSessionId && m.Role == "user", cancellationToken);
+        var totalCount = userMessages.Count();
+        if (totalCount == 0 || totalCount % AutoExtractInterval != 0) return [];
+
+        var result = await ExtractFromWorkSessionAsync(workSessionId, cancellationToken);
+        return result.Success ? result.Data ?? [] : [];
+    }
+
+    public async Task<ApiResponse<List<MemoryDto>>> ExtractFromWorkSessionAsync(Guid workSessionId, CancellationToken cancellationToken = default)
+    {
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(workSessionId, cancellationToken);
+        if (session == null) return ApiResponse<List<MemoryDto>>.Fail("会话不存在");
+
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+        var managedProjectId = project?.ManagedProjectId;
+        if (managedProjectId == null)
+            return ApiResponse<List<MemoryDto>>.Ok([]); // 未关联受管项目：无可归属的项目记忆
+
+        var history = await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == workSessionId, cancellationToken);
+        var messages = history.OrderBy(m => m.CreatedAt).ToList();
+        if (messages.Count < 2)
+            return ApiResponse<List<MemoryDto>>.Ok([]);
+
+        var provider = await CreateFastProviderAsync(cancellationToken);
+        if (provider == null)
+            return ApiResponse<List<MemoryDto>>.Fail("未配置快速模型，无法提取记忆");
+
+        var conversationText = new StringBuilder();
+        foreach (var msg in messages.TakeLast(20))
+        {
+            var role = msg.Role == "user" ? "用户" : "助手";
+            conversationText.AppendLine($"{role}: {msg.Content}");
+        }
+
+        var extractPrompt = $""""
+你是一个项目记忆提取助手。请从以下编码会话中提取值得沉淀到「项目记忆」的事实，供后续会话复用。
+
+规则：
+1. 只提取与当前项目相关的长效信息：技术栈与版本、架构与目录约定、关键决策及原因、命名/代码风格约定、环境与部署要点、踩坑结论
+2. 每条记忆独立、完整、可脱离上下文理解；不要提取临时的调试过程、一次性命令输出、与本项目无关的通用知识
+3. 评估重要性（0-1）：0.9-1.0 架构级决策/硬性约定；0.7-0.8 重要实现约定；0.5-0.6 一般项目事实；0.3-0.4 次要信息
+4. 尽量去重
+5. 返回 JSON 数组
+
+会话内容（项目：{project.Name}）：
+{conversationText}
+
+请返回 JSON 数组，每项包含 content（事实文本）、importance（0-1）、category（类别，如"项目约定"/"技术栈"/"决策"/"踩坑"）。
+如果没有值得记忆的内容，返回空数组 []。只返回 JSON，不要其他文字。
+"""";
+
+        try
+        {
+            var response = await provider.ChatAsync(
+                [new LlmChatMessage { Role = "user", Content = extractPrompt }],
+                new ChatOptions { Stream = false, Temperature = 0.3 },
+                cancellationToken);
+
+            var extracted = LlmJsonExtractor.Deserialize<List<ExtractedFact>>(response);
+            if (extracted == null || extracted.Count == 0)
+                return ApiResponse<List<MemoryDto>>.Ok([]);
+
+            var createdMemories = new List<MemoryDto>();
+            foreach (var fact in extracted)
+            {
+                if (string.IsNullOrWhiteSpace(fact.Content)) continue;
+
+                var existing = await FindSimilarMemoryAsync(fact.Content, 0.9, cancellationToken);
+                if (existing != null && existing.Scope == MemoryScopes.Project && existing.ProjectId == managedProjectId)
+                {
+                    existing.LastAccessedAt = DateTimeOffset.UtcNow;
+                    existing.AccessCount++;
+                    var touched = MapToDto(existing);
+                    touched.ProjectName = project.Name;
+                    createdMemories.Add(touched);
+                    continue;
+                }
+
+                var memory = new Memory
+                {
+                    Id = Guid.NewGuid(),
+                    Content = fact.Content.Trim(),
+                    Source = "work",
+                    Scope = MemoryScopes.Project,
+                    ProjectId = managedProjectId,
+                    Category = fact.Category,
+                    Importance = Math.Clamp(fact.Importance, 0.1f, 1f),
+                    LastAccessedAt = DateTimeOffset.UtcNow,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+
+                await _unitOfWork.Memories.AddAsync(memory, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await EmbedAndStoreAsync(memory, cancellationToken);
+
+                var createdDto = MapToDto(memory);
+                createdDto.ProjectName = project.Name;
+                createdMemories.Add(createdDto);
+            }
+
+            _logger.LogInformation("[Memory] Code 会话 {SessionId} 提取项目记忆 {Count} 条（项目 {ProjectId}）",
+                workSessionId, createdMemories.Count, managedProjectId);
+
+            return ApiResponse<List<MemoryDto>>.Ok(createdMemories);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<MemoryDto>>.Fail($"记忆提取失败：{ex.Message}");
+        }
+    }
+
+    public async Task<List<MemoryDto>> RetrieveForContextAsync(string query, int topK = 5, Guid? topicId = null, Guid? projectId = null, CancellationToken cancellationToken = default)
+    {
+        return await SearchWithScoreAsync(query, topK, topicId, projectId, applyScope: true, cancellationToken);
     }
 
     // ── 私有方法 ────────────────────────────────────────
 
+    /// <summary>作用域归属：全局始终命中；会话记忆仅命中所属会话；项目记忆仅命中所属项目</summary>
+    private static bool InScope(Memory m, Guid? topicId, Guid? projectId) => m.Scope switch
+    {
+        MemoryScopes.Session => topicId != null && m.TopicId == topicId,
+        MemoryScopes.Project => projectId != null && m.ProjectId == projectId,
+        _ => true,
+    };
+
+    private static string NormalizeScope(string? scope) =>
+        MemoryScopes.All.Contains(scope ?? "") ? scope! : MemoryScopes.Global;
+
     /// <summary>
     /// 语义搜索 + 回归权重评分
-    /// Score = α × similarity + β × importance + γ × recency_decay + δ × access_frequency
+    /// Score = α × similarity + β × importance + γ × recency_decay + δ × access_frequency + 作用域加成
     /// </summary>
-    private async Task<List<MemoryDto>> SearchWithScoreAsync(string query, int topK, CancellationToken cancellationToken)
+    private async Task<List<MemoryDto>> SearchWithScoreAsync(
+        string query, int topK, Guid? topicId, Guid? projectId, bool applyScope, CancellationToken cancellationToken)
     {
         float[] queryEmbedding;
         try
@@ -311,8 +505,8 @@ public class MemoryService : IMemoryService
             return [];
         }
 
-        // 从 vec 表中获取最近邻（多取一些，后续用回归权重重排序）
-        var candidateCount = topK * 3;
+        // 从 vec 表中获取最近邻（多取一些，后续按作用域过滤 + 回归权重重排序）
+        var candidateCount = topK * 5;
         var candidates = await SearchVecMemoryEmbeddingsAsync(queryEmbedding, candidateCount, cancellationToken);
 
         if (candidates.Count == 0)
@@ -320,13 +514,16 @@ public class MemoryService : IMemoryService
 
         var now = DateTimeOffset.UtcNow;
         var memoryIds = candidates.Select(c => c.MemoryId).ToList();
-        var memories = await _unitOfWork.Memories.FindAsync(m => memoryIds.Contains(m.Id), cancellationToken);
+        var memories = await _unitOfWork.Memories.FindAsync(
+            m => memoryIds.Contains(m.Id) && !m.IsDeleted, cancellationToken);
         var memoryDict = memories.ToDictionary(m => m.Id);
 
         var scored = new List<(Memory Memory, double Score, double Similarity)>();
         foreach (var (memoryId, similarity) in candidates)
         {
             if (!memoryDict.TryGetValue(memoryId, out var memory)) continue;
+            // 作用域过滤：只保留「全局 ∪ 当前会话 ∪ 当前项目」的记忆（管理端搜索不过滤）
+            if (applyScope && !InScope(memory, topicId, projectId)) continue;
 
             var daysSinceAccess = (now - memory.LastAccessedAt).TotalDays;
             var recencyDecay = Math.Exp(-DecayLambda * daysSinceAccess);
@@ -335,7 +532,9 @@ public class MemoryService : IMemoryService
             var score = Alpha * similarity
                        + Beta * memory.Importance
                        + Gamma * recencyDecay
-                       + Delta * accessFreq;
+                       + Delta * accessFreq
+                       // 作用域加成：会话/项目这类更贴近当前上下文的记忆优先于泛化的全局记忆
+                       + (memory.Scope == MemoryScopes.Global ? 0 : 0.05);
 
             scored.Add((memory, score, similarity));
         }
@@ -356,10 +555,18 @@ public class MemoryService : IMemoryService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // 回填项目名（会话/项目记忆在注入上下文时按「[作用域·项目] 内容」展示）
+        var resultProjectIds = result.Select(x => x.Memory.ProjectId).Where(p => p != null).Select(p => p!.Value).Distinct().ToList();
+        var resultProjectNames = resultProjectIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken))
+                .Where(p => resultProjectIds.Contains(p.Id)).ToDictionary(p => p.Id, p => p.Name);
+
         return result.Select(x =>
         {
             var dto = MapToDto(x.Memory);
             dto.Score = x.Score;
+            if (x.Memory.ProjectId != null) dto.ProjectName = resultProjectNames.GetValueOrDefault(x.Memory.ProjectId.Value);
             return dto;
         }).ToList();
     }
@@ -569,6 +776,205 @@ public class MemoryService : IMemoryService
         }
     }
 
+    // ── Dream 记忆巩固 ────────────────────────────────
+
+    private const string DreamConfigKey = "DreamConfig";
+
+    public async Task<DreamConfigDto> GetDreamConfigAsync(CancellationToken cancellationToken = default)
+    {
+        var setting = await _appSettingService.GetAsync(DreamConfigKey, cancellationToken);
+        if (setting?.Data == null || string.IsNullOrWhiteSpace(setting.Data.Value))
+            return new DreamConfigDto();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<DreamConfigDto>(setting.Data.Value) ?? new DreamConfigDto();
+        }
+        catch
+        {
+            return new DreamConfigDto();
+        }
+    }
+
+    public async Task SaveDreamConfigAsync(DreamConfigDto config, CancellationToken cancellationToken = default)
+    {
+        config.IntervalHours = Math.Clamp(config.IntervalHours, 1, 24 * 30);
+        config.MergeThreshold = Math.Clamp(config.MergeThreshold, 0.5f, 0.99f);
+        config.DecayDays = Math.Clamp(config.DecayDays, 1, 3650);
+        config.ForgetDays = Math.Clamp(Math.Max(config.ForgetDays, config.DecayDays), config.DecayDays, 3650);
+        config.ForgetBelowImportance = Math.Clamp(config.ForgetBelowImportance, 0.01f, 1f);
+
+        // 保存配置不覆盖「最近执行时间」（由巩固流程单独刷新）
+        var existing = await GetDreamConfigAsync(cancellationToken);
+        config.LastRunAt ??= existing.LastRunAt;
+
+        await _appSettingService.SetAsync(new UpdateAppSettingRequest
+        {
+            Key = DreamConfigKey,
+            Value = System.Text.Json.JsonSerializer.Serialize(config)
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Dream 记忆巩固（模拟人类睡眠期的记忆整理）：
+    /// 1) 合并——相似度 ≥ 阈值的记忆并为一条，重要性取高、频率求和、作用域保留更公共的；
+    /// 2) 衰减——DecayDays 未被想起的记忆重要性 ×0.8；
+    /// 3) 遗忘——ForgetDays 未想起且重要性低于阈值的清除（软删 + 移除向量）。
+    /// </summary>
+    public async Task<ApiResponse<DreamResultDto>> DreamConsolidateAsync(CancellationToken cancellationToken = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var config = await GetDreamConfigAsync(cancellationToken);
+            var now = DateTimeOffset.UtcNow;
+            var memories = (await _unitOfWork.Memories.FindAsync(m => !m.IsDeleted, cancellationToken)).ToList();
+            int merged = 0, decayed = 0, forgotten = 0;
+
+            // ── 1) 合并：按 embedding 相似度聚类（贪心：与簇代表比较） ──
+            var memoryIds = memories.Select(m => m.Id).ToList();
+            var embDict = new Dictionary<Guid, float[]>();
+            if (memoryIds.Count > 0)
+            {
+                foreach (var emb in await _unitOfWork.MemoryEmbeddings.FindAsync(e => memoryIds.Contains(e.MemoryId), cancellationToken))
+                {
+                    if (emb.Embedding is { Length: > 0 })
+                        embDict[emb.MemoryId] = BytesToFloatArray(emb.Embedding);
+                }
+            }
+
+            var clusters = new List<List<Memory>>();
+            foreach (var m in memories)
+            {
+                List<Memory>? target = null;
+                if (embDict.TryGetValue(m.Id, out var vec))
+                {
+                    foreach (var cluster in clusters)
+                    {
+                        if (!embDict.TryGetValue(cluster[0].Id, out var repVec)) continue;
+                        if (CosineSimilarity(vec, repVec) >= config.MergeThreshold)
+                        {
+                            target = cluster;
+                            break;
+                        }
+                    }
+                }
+                if (target != null) target.Add(m);
+                else clusters.Add([m]);
+            }
+
+            foreach (var cluster in clusters.Where(c => c.Count > 1))
+            {
+                // keeper：重要性最高 → 作用域更公共（Global > Project > Session）→ 更早创建
+                var keeper = cluster
+                    .OrderByDescending(m => m.Importance)
+                    .ThenBy(m => ScopeRank(m.Scope))
+                    .ThenBy(m => m.CreatedAt)
+                    .First();
+                var absorbed = cluster.Where(x => x.Id != keeper.Id).ToList();
+
+                foreach (var m in absorbed)
+                {
+                    m.IsDeleted = true;
+                    m.UpdatedAt = now;
+                    await _unitOfWork.Memories.UpdateAsync(m, cancellationToken);
+                    await RemoveEmbeddingsAsync(m.Id, cancellationToken);
+                }
+
+                keeper.Importance = Math.Min(1f, keeper.Importance + 0.05f);
+                keeper.AccessCount += absorbed.Sum(x => x.AccessCount);
+                keeper.LastAccessedAt = cluster.Max(x => x.LastAccessedAt);
+                keeper.UpdatedAt = now;
+                await _unitOfWork.Memories.UpdateAsync(keeper, cancellationToken);
+                merged += absorbed.Count;
+            }
+
+            // ── 2) 衰减 + 3) 遗忘 ──
+            foreach (var m in memories.Where(x => !x.IsDeleted))
+            {
+                var days = (now - m.LastAccessedAt).TotalDays;
+                if (days > config.ForgetDays && m.Importance < config.ForgetBelowImportance)
+                {
+                    m.IsDeleted = true;
+                    m.UpdatedAt = now;
+                    await _unitOfWork.Memories.UpdateAsync(m, cancellationToken);
+                    await RemoveEmbeddingsAsync(m.Id, cancellationToken);
+                    forgotten++;
+                    continue;
+                }
+                if (days > config.DecayDays && m.Importance > 0.05f)
+                {
+                    m.Importance = Math.Max(0.05f, m.Importance * 0.8f);
+                    m.UpdatedAt = now;
+                    await _unitOfWork.Memories.UpdateAsync(m, cancellationToken);
+                    decayed++;
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var remaining = (await _unitOfWork.Memories.FindAsync(m => !m.IsDeleted, cancellationToken)).Count;
+            config.LastRunAt = now;
+            await SaveDreamConfigAsync(config, cancellationToken);
+
+            sw.Stop();
+            _logger.LogInformation(
+                "[Dream] 记忆巩固完成：合并 {Merged} · 衰减 {Decayed} · 遗忘 {Forgotten} · 剩余 {Remaining}（{Ms}ms）",
+                merged, decayed, forgotten, remaining, sw.ElapsedMilliseconds);
+
+            return ApiResponse<DreamResultDto>.Ok(new DreamResultDto
+            {
+                RanAt = now,
+                Merged = merged,
+                Decayed = decayed,
+                Forgotten = forgotten,
+                Remaining = remaining,
+                DurationMs = sw.ElapsedMilliseconds
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dream 记忆巩固失败");
+            return ApiResponse<DreamResultDto>.Fail($"记忆巩固失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>作用域公共程度：全局最公共，项目次之，会话最私有（合并时优先保留公共侧）</summary>
+    private static int ScopeRank(string scope) => scope switch
+    {
+        MemoryScopes.Global => 0,
+        MemoryScopes.Project => 1,
+        _ => 2,
+    };
+
+    /// <summary>移除记忆向量（embedding 行 + SQLite vec 虚拟表），避免已删除的记忆继续被检索命中</summary>
+    private async Task RemoveEmbeddingsAsync(Guid memoryId, CancellationToken cancellationToken)
+    {
+        var rows = await _unitOfWork.MemoryEmbeddings.FindAsync(e => e.MemoryId == memoryId, cancellationToken);
+        foreach (var row in rows)
+            await _unitOfWork.MemoryEmbeddings.DeleteAsync(row, cancellationToken);
+
+        if (_dbContext.Database.IsSqlite())
+        {
+            try
+            {
+                await using var connection = _dbContext.Database.GetDbConnection();
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync(cancellationToken);
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = "DELETE FROM vec_memory_embeddings WHERE memory_id = @id";
+                var param = cmd.CreateParameter();
+                param.ParameterName = "@id";
+                param.Value = memoryId.ToString();
+                cmd.Parameters.Add(param);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // vec 表可能不存在
+            }
+        }
+    }
+
     private async Task<ILLMProvider?> CreateFastProviderAsync(CancellationToken cancellationToken)
     {
         // 优先使用快速模型
@@ -589,6 +995,9 @@ public class MemoryService : IMemoryService
         Content = m.Content,
         Source = m.Source,
         TopicId = m.TopicId,
+        // 存量数据迁移前可能为空串，统一按全局展示
+        Scope = string.IsNullOrEmpty(m.Scope) ? MemoryScopes.Global : m.Scope,
+        ProjectId = m.ProjectId,
         Category = m.Category,
         Importance = m.Importance,
         AccessCount = m.AccessCount,

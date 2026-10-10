@@ -151,6 +151,39 @@ body {
   animation: pulseSoft 2.5s ease-in-out infinite;
 }
 
+/* ===== 记忆星空：入场 / 微光 / Dream 夜波 ===== */
+@keyframes starIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: var(--star-o, 1); transform: scale(1); }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: var(--star-o, 1); }
+  50% { opacity: calc(var(--star-o, 1) * 0.7); }
+}
+
+/* 萤火虫的随机游走由 JS（rAF）驱动，见 MemoriesPage 的随机目标点逻辑；此处只保留呼吸与 Dream 夜波 */
+@keyframes dreamRipple {
+  0% { r: 80; opacity: 0.42; }
+  100% { r: 1500; opacity: 0; }
+}
+
+.dream-ripple {
+  fill: none;
+  stroke: rgba(129, 140, 248, 0.45);
+  stroke-width: 1.5;
+  animation: dreamRipple 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.star-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.star-dot:hover {
+  transform: scale(1.45);
+}
+
 /* ===== Glass morphism nav ===== */
 .glass-nav {
   background: rgba(255, 255, 255, 0.78);

@@ -35,10 +35,12 @@ public class ChatContextInjector
 
     public sealed record RagResult(string? SearchJson, string? KnowledgeJson, string? MemoryJson);
 
-    /// <summary>按开关注入网络搜索 / 知识库 / 记忆上下文，并通过 SSE 推送检索结果。</summary>
+    /// <summary>按开关注入网络搜索 / 知识库 / 记忆上下文，并通过 SSE 推送检索结果。
+    /// topicId / projectId 决定记忆检索的作用域：全局 ∪ 当前会话 ∪ 当前项目。</summary>
     public async Task<RagResult> InjectRagAsync(
         bool webSearch, bool knowledgeBase, bool memory, string content,
-        List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider, CancellationToken ct)
+        List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider,
+        Guid? topicId, Guid? projectId, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
 
@@ -91,7 +93,7 @@ public class ChatContextInjector
         {
             try
             {
-                var memories = await _memoryService.RetrieveForContextAsync(content, 5, ct);
+                var memories = await _memoryService.RetrieveForContextAsync(content, 5, topicId, projectId, ct);
                 if (memories.Count > 0)
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });
@@ -167,7 +169,17 @@ public class ChatContextInjector
     {
         var sb = new StringBuilder("以下是从你的长期记忆中检索到的相关信息：\n\n");
         foreach (var m in memories)
-            sb.AppendLine($"- [{m.Category}] {m.Content}");
+        {
+            // 作用域标签：全局 / 会话 / 项目·项目名，让模型知道这条记忆的适用范围
+            var scope = m.Scope switch
+            {
+                MemoryScopes.Session => "会话",
+                MemoryScopes.Project => m.ProjectName != null ? $"项目·{m.ProjectName}" : "项目",
+                _ => "全局",
+            };
+            var category = string.IsNullOrWhiteSpace(m.Category) ? scope : $"{scope}·{m.Category}";
+            sb.AppendLine($"- [{category}] {m.Content}");
+        }
         return sb.ToString();
     }
 }

@@ -15,11 +15,13 @@ public class SettingsController : ControllerBase
 {
     private readonly IAppSettingService _appSettingService;
     private readonly CompressionPipelineService _compressionService;
+    private readonly IMemoryService _memoryService;
 
-    public SettingsController(IAppSettingService appSettingService, CompressionPipelineService compressionService)
+    public SettingsController(IAppSettingService appSettingService, CompressionPipelineService compressionService, IMemoryService memoryService)
     {
         _appSettingService = appSettingService;
         _compressionService = compressionService;
+        _memoryService = memoryService;
     }
 
     [HttpGet]
@@ -39,6 +41,18 @@ public class SettingsController : ControllerBase
     {
         var config = await _compressionService.GetConfigAsync(ct);
         return ApiResponse<CompressionPipelineDto>.Ok(config);
+    }
+
+    /// <summary>Dream（记忆巩固）配置：自动开关、周期与巩固阈值</summary>
+    [HttpGet("dream")]
+    public async Task<ApiResponse<DreamConfigDto>> GetDreamConfig(CancellationToken ct)
+        => ApiResponse<DreamConfigDto>.Ok(await _memoryService.GetDreamConfigAsync(ct));
+
+    [HttpPut("dream")]
+    public async Task<ApiResponse> SetDreamConfig([FromBody] DreamConfigDto config, CancellationToken ct)
+    {
+        await _memoryService.SaveDreamConfigAsync(config ?? new DreamConfigDto(), ct);
+        return ApiResponse.Ok();
     }
 
     [HttpPut("compression")]

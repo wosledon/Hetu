@@ -162,6 +162,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IBackgroundTaskCoordinator, BackgroundTaskCoordinator>();
         services.AddHostedService<BackgroundTaskProcessor>();
         services.AddHostedService<TrashCleanupService>();
+        services.AddHostedService<DreamMemoryService>();
         services.AddHostedService<AutoOrganizeService>();
         services.AddHostedService<ScheduledTaskRunner>();
 

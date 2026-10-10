@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
@@ -9,6 +9,7 @@ import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
 import McpServerManager from '../components/McpServerManager'
 import CompressionSettings from '../components/CompressionSettings'
+import DreamSettings from '../components/DreamSettings'
 import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
@@ -16,7 +17,7 @@ import { aiProviderService } from '../services/aiProviderService'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost' | 'about'
+type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
   { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
@@ -24,6 +25,7 @@ const settingsSections = [
   { key: 'models', label: '默认模型', description: '场景模型分配', icon: Cpu },
   { key: 'ai', label: '供应商配置', description: 'AI 供应商与模型管理', icon: Bot },
   { key: 'cost', label: '成本控制', description: '压缩管道节省 Token', icon: Coins },
+  { key: 'memory', label: '记忆 Dream', description: '记忆巩固与自动遗忘', icon: Brain },
   { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
   { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
   { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
@@ -267,6 +269,7 @@ export default function SettingsPage() {
                   {activeSection === 'ai' && <AiSettings />}
 
                   {activeSection === 'cost' && <CompressionSettings />}
+                  {activeSection === 'memory' && <DreamSettings />}
 
                   {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
 
