@@ -7,5 +7,15 @@
       "binaries/wwwroot/**/*": "wwwroot/",
       "binaries/sqlite-vec/*": "sqlite-vec/"
     }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/wosledon/Hetu/releases/latest/download/latest-slim.json",
+        "https://ghproxy.net/https://github.com/wosledon/Hetu/releases/latest/download/latest-slim-mirror.json",
+        "https://gh-proxy.com/https://github.com/wosledon/Hetu/releases/latest/download/latest-slim-mirror2.json",
+        "https://ghfast.top/https://github.com/wosledon/Hetu/releases/latest/download/latest-slim-mirror3.json"
+      ]
+    }
   }
 }

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppWindow, BookOpen, Code, GitBranch, Layers, MessageSquare, ShieldCheck, Star } from 'lucide-react'
+import { AppWindow, BookOpen, Code, GitBranch, Layers, MessageSquare, RefreshCw, ShieldCheck, Star } from 'lucide-react'
 import { systemService } from '../services/systemService'
+import { updateService } from '../services/updateService'
+import { useUpdateStore } from '../stores/updateStore'
 import { isTauri } from '../utils/tauri'
 
 const ABOUT_FEATURES = [
@@ -24,7 +26,9 @@ const ABOUT_STACK = [
 /** 设置页「关于」：产品定位、核心能力、技术栈与运行环境 */
 export default function AboutSection({ appName }: { appName: string }) {
   const { t } = useTranslation('settings')
+  const { status, info, downloaded, total, error, check, install, restart } = useUpdateStore()
   const [version, setVersion] = useState<string | null>(null)
+  const percent = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null
   const runtime = useMemo(() => ({
     apiBase: `${window.location.protocol}//${window.location.host}`,
     isDesktop: isTauri(),
@@ -124,6 +128,82 @@ export default function AboutSection({ appName }: { appName: string }) {
           </div>
         </dl>
       </div>
+
+      {/* 软件更新（桌面壳内可用） */}
+      {updateService.supported() && (
+        <div>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">{t('update.title')}</h3>
+          <div className="rounded-xl border border-gray-100 p-4 dark:border-white/[0.06]">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-medium text-gray-700 dark:text-gray-200">
+                  {t('update.current', { version: version ? `v${version}` : '…' })}
+                </div>
+                <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+                  {status === 'available' && info
+                    ? t('update.found', { version: `v${info.version}` })
+                    : status === 'downloading'
+                      ? t('update.downloading', { percent: percent ?? '…' })
+                      : status === 'installed'
+                        ? t('update.installed', { version: `v${info?.version ?? ''}` })
+                        : status === 'checking'
+                          ? t('update.checking')
+                          : status === 'up-to-date'
+                            ? t('update.upToDate')
+                            : status === 'error'
+                              ? t('update.failedWith', { error: error ?? '' })
+                              : t('update.hint')}
+                </p>
+              </div>
+
+              {status === 'available' && (
+                <button
+                  onClick={() => void install()}
+                  className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  {t('update.installNow')}
+                </button>
+              )}
+              {status === 'installed' && (
+                <button
+                  onClick={() => void restart()}
+                  className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  {t('update.restart')}
+                </button>
+              )}
+              {(status === 'idle' || status === 'up-to-date' || status === 'error') && (
+                <button
+                  onClick={() => void check()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.04]"
+                >
+                  <RefreshCw size={12} />
+                  {t('update.check')}
+                </button>
+              )}
+            </div>
+
+            {status === 'downloading' && (
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                <div className="h-full rounded-full bg-blue-500 transition-[width] duration-300" style={{ width: `${percent ?? 8}%` }} />
+              </div>
+            )}
+
+            {status === 'available' && info?.notes && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-[12px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  {t('update.releaseNotes')}
+                </summary>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
+                  {info.notes}
+                </pre>
+              </details>
+            )}
+
+            <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('update.sourceHint')}</p>
+          </div>
+        </div>
+      )}
 
       {/* 隐私与开源 */}
       <div className="space-y-2.5 rounded-xl bg-blue-50/70 p-4 dark:bg-blue-950/20">

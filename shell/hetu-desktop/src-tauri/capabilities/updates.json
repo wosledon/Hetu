@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "updates",
+  "description": "允许主窗口（页面由本地后端 http://127.0.0.1:端口 提供）检查并安装更新",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
+  "permissions": [
+    "updater:default",
+    "process:allow-restart"
+  ]
+}
