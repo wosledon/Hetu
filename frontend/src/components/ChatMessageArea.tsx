@@ -1101,43 +1101,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       </div>
 
       <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-        {selectedProjectAsset && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20">
-            <Bot size={14} className="text-indigo-500" />
-            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-              项目智能体：{selectedProjectAsset.label}
-            </span>
-            <button onClick={() => setSelectedProjectAsset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>
-          </div>
-        )}
-        {selectedPreset && (
-          <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 ${
-            selectedPreset.agentType === 'Professional'
-              ? 'border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-900/20'
-              : 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20'
-          }`}>
-            {selectedPreset.agentType === 'Professional'
-              ? <Brain size={14} className="text-violet-500" />
-              : <Bot size={14} className="text-indigo-500" />}
-            <span className={`text-xs font-medium ${
-              selectedPreset.agentType === 'Professional'
-                ? 'text-violet-600 dark:text-violet-400'
-                : 'text-indigo-600 dark:text-indigo-400'
-            }`}>
-              智能体：{selectedPreset.name}
-            </span>
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-              selectedPreset.agentType === 'Professional'
-                ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-                : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
-            }`}>
-              {selectedPreset.agentType === 'Professional' ? '专业' : '通用'}
-            </span>
-            {allowedSkillNames && (
-              <span className="text-[10px] text-gray-400">仅可用 {allowedSkillNames.size} 个技能</span>
-            )}
-            <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>          </div>
-        )}
+        {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
         {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
           <div className="mb-3">
