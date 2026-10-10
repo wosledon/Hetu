@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
+import GithubEntry from './GithubEntry'
 import UpdateBanner from './UpdateBanner'
 import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
@@ -256,6 +257,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
       <div className="flex-1" data-rail-spacer="" />
 
+      <GithubEntry variant="rail" />
+
       <button
         onClick={() => navigate('/settings')}
         title={t('nav:settings')}
@@ -322,6 +325,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </div>
         </div>
         <div className="flex items-center justify-end gap-2">
+          <GithubEntry variant="top" />
           <button
             onClick={() => navigate('/settings')}
             className={`rounded-lg p-2 transition-all ${

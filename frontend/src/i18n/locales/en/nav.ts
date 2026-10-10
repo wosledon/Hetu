@@ -26,4 +26,7 @@ export default {
   newNote: 'New note',
   pinNav: 'Pin to navigation',
   unpinNav: 'Remove from navigation',
+  github: 'GitHub repository',
+  githubShort: 'GitHub',
+  githubWithStars: 'View {{repo}} on GitHub ({{count}} stars)',
 }

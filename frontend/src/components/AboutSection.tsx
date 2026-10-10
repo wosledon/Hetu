@@ -4,6 +4,7 @@ import { AppWindow, BookOpen, Code, GitBranch, Layers, MessageSquare, RefreshCw,
 import { systemService } from '../services/systemService'
 import { updateService } from '../services/updateService'
 import { useUpdateStore } from '../stores/updateStore'
+import { openRepo, useRepoStars } from '../hooks/useRepoStars'
 import { isTauri } from '../utils/tauri'
 
 const ABOUT_FEATURES = [
@@ -27,6 +28,7 @@ const ABOUT_STACK = [
 export default function AboutSection({ appName }: { appName: string }) {
   const { t } = useTranslation('settings')
   const { status, info, downloaded, total, error, check, install, restart } = useUpdateStore()
+  const stars = useRepoStars()
   const [version, setVersion] = useState<string | null>(null)
   const percent = total && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : null
   const runtime = useMemo(() => ({
@@ -214,11 +216,16 @@ export default function AboutSection({ appName }: { appName: string }) {
           </span>
         </p>
         <button
-          onClick={() => window.open('https://github.com/wosledon/Hetu', '_blank', 'noopener')}
+          onClick={openRepo}
           className="flex items-center gap-1.5 text-[12px] font-medium text-blue-700 transition-colors hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
         >
           <Star size={13} />
           {t('about.viewSource')}
+          {stars != null && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100/80 px-1.5 py-0.5 text-[11px] tabular-nums text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+              ★ {stars}
+            </span>
+          )}
         </button>
       </div>
     </section>
