@@ -17,8 +17,9 @@ public class PromptComposer
     }
 
     /// <summary>
-    /// 按 [Profile 身份] → [Agent 预设] → [工具约束] → [上下文] → [Topic 覆盖] 顺序拼接。
+    /// 按 [Profile 身份] → [Agent 预设] → [Skill 指令] → [上下文] → [Topic 覆盖] 顺序拼接。
     /// 任一段为空则跳过该段，不留空行。
+    /// 工具清单/使用约定不在这里拼：由 Agent Loop 按本次实际生效的工具（含 MCP 运行时工具）统一注入。
     /// </summary>
     public string Compose(PromptComposeContext ctx)
     {
@@ -56,11 +57,9 @@ public class PromptComposer
             AppendSection(sb, "当前技能", ctx.SkillPrompt!);
         }
 
-        // [3] 工具约束（只描述启用 ∩ profile 允许的工具）
-        var effectiveTools = ResolveEffectiveTools(profile, ctx.EnabledTools);
-        AppendToolSection(sb, profile, effectiveTools);
-
-        // [4] 上下文（时间、主题等运行时信息）
+        // [3] 上下文（时间、主题等运行时信息）
+        // 工具清单与使用约定由 Agent Loop 统一注入（它才知道本次实际生效的工具，含 MCP 运行时工具），
+        // 这里不再拼一份，否则同一次请求的系统提示里工具说明会出现两遍
         var contextLines = BuildContextLines(ctx);
         if (contextLines.Count > 0)
             AppendSection(sb, "上下文", string.Join("\n", contextLines));
@@ -85,35 +84,6 @@ public class PromptComposer
             .Where(name => _toolRegistry.GetExecutor(name) != null)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-    }
-
-    private void AppendToolSection(StringBuilder sb, RuntimeProfile profile, List<string> effectiveTools)
-    {
-        if (effectiveTools.Count == 0) return;
-
-        var inner = new StringBuilder();
-        inner.AppendLine($"- 单轮回复内工具调用尽量不超过 {profile.MaxToolCallsPerTurn} 次；能直接回答的问题不要无脑调用工具");
-        inner.AppendLine("- 工具调用失败最多重试 1 次，仍失败则切换策略或如实告知用户");
-        inner.AppendLine("- 不要在正文中自述「调用了哪个工具」，直接给结果");
-        inner.AppendLine();
-        inner.AppendLine($"本会话可用的工具（共 {effectiveTools.Count} 个）：");
-
-        foreach (var name in effectiveTools)
-        {
-            var executor = _toolRegistry.GetExecutor(name);
-            if (executor is null) continue;
-            var guideline = executor.UsageGuideline;
-            if (string.IsNullOrWhiteSpace(guideline))
-            {
-                inner.AppendLine($"- `{name}`：{executor.Description}");
-            }
-            else
-            {
-                inner.AppendLine($"- `{name}`：{guideline}");
-            }
-        }
-
-        AppendSection(sb, "工具使用约定", inner.ToString().TrimEnd());
     }
 
     private static List<string> BuildContextLines(PromptComposeContext ctx)
@@ -163,7 +133,6 @@ public class PromptComposeContext
     public string? TopicCustomPrompt { get; init; }
     public string? AssistantName { get; init; }
     public string? AssistantPersona { get; init; }
-    public IReadOnlyList<string>? EnabledTools { get; init; }
     public DateTimeOffset? Now { get; init; }
     public string? TopicTitle { get; init; }
     public string? Locale { get; init; }

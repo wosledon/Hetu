@@ -238,7 +238,7 @@ public class ChatMessagesController : ControllerBase
                     _toolRegistry,
                     new AgentPolicyContext { Mode = WorkToolPolicy.Parse(request.PermissionMode) })
                 : null,
-            Hooks = new ChatEstimateHooks(chatMessages, options, () => estimatedInput, v => estimatedInput = v, () => estimatedCompressed, v => estimatedCompressed = v),
+            Hooks = new ChatEstimateHooks(chatMessages, options, v => estimatedInput = v, v => estimatedCompressed = v),
         }, ct);
 
         sw.Stop();
@@ -314,34 +314,37 @@ public class ChatMessagesController : ControllerBase
         public Task OnUsageAsync(LlmUsage usage) => Task.CompletedTask;
     }
 
-    /// <summary>对话页的 token 估算钩子：每轮前后各估一次，产出压缩前后的输入规模。</summary>
+    /// <summary>对话页的 token 估算钩子：每轮估算本轮请求的上下文规模（不累加）。</summary>
     private sealed class ChatEstimateHooks : IAgentLoopHooks
     {
         private readonly List<LlmChatMessage> _messages;
         private readonly ChatOptions _options;
-        private readonly Func<int> _getInput;
         private readonly Action<int> _setInput;
-        private readonly Func<int> _getCompressed;
         private readonly Action<int> _setCompressed;
 
         public ChatEstimateHooks(
             List<LlmChatMessage> messages,
             ChatOptions options,
-            Func<int> getInput, Action<int> setInput,
-            Func<int> getCompressed, Action<int> setCompressed)
+            Action<int> setInput,
+            Action<int> setCompressed)
         {
             _messages = messages;
             _options = options;
-            _getInput = getInput;
             _setInput = setInput;
-            _getCompressed = getCompressed;
             _setCompressed = setCompressed;
         }
 
         public Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage)
         {
-            _setInput(_getInput() + EstimateTokens(_messages, _options));
-            _setCompressed(_getCompressed() + EstimateTokens(_messages, _options));
+            // 只记本轮「首次请求」的上下文规模，不是逐轮累加：
+            // 累加等于把「系统提示与工具」按迭代次数放大，上下文占用面板正是用它反推固定开销
+            // （越用越大，并会提前触发自动压缩）。
+            if (iteration == 0)
+            {
+                var tokens = EstimateTokens(_messages, _options);
+                _setInput(tokens);
+                _setCompressed(tokens);
+            }
             return Task.CompletedTask;
         }
     }
@@ -445,7 +448,6 @@ public class ChatMessagesController : ControllerBase
             TopicCustomPrompt = topic.CustomSystemPrompt,
             AssistantName = assistantName,
             AssistantPersona = assistantPersona,
-            EnabledTools = request.EnableTools ? request.EnabledTools : null,
             Now = DateTimeOffset.Now,
             TopicTitle = topic.Title,
             Locale = "zh-CN",
