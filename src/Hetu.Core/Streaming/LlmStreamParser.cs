@@ -15,15 +15,22 @@ public enum LlmStreamEventType
     ToolCalls,
     /// <summary>用量统计（流末一次性给出）</summary>
     Usage,
+    /// <summary>
+    /// 流结束原因（OpenAI finish_reason / Anthropic stop_reason）：
+    /// length / max_tokens 表示被输出上限截断，消费方可据此续写。
+    /// </summary>
+    Finish,
 }
 
-/// <summary>单个解析结果。ToolCalls / Usage 事件只在流末出现一次。</summary>
+/// <summary>单个解析结果。ToolCalls / Usage / Finish 事件只在流末出现一次。</summary>
 public sealed class LlmStreamChunk
 {
     public required LlmStreamEventType Type { get; init; }
     public string Text { get; init; } = string.Empty;
     public List<LlmToolCall>? ToolCalls { get; init; }
     public LlmUsage? Usage { get; init; }
+    /// <summary>Finish 事件的结束原因；其余事件为空</summary>
+    public string? Reason { get; init; }
 }
 
 /// <summary>
@@ -105,6 +112,14 @@ public sealed class LlmStreamParser
                         ? JsonSerializer.Deserialize<LlmUsage>(usageEl.GetRawText(), JsonDefaults.CamelCase)
                         : null;
                     chunks = new[] { new LlmStreamChunk { Type = LlmStreamEventType.Usage, Usage = usage } };
+                    return true;
+                }
+                case "finish":
+                {
+                    var reason = root.TryGetProperty("reason", out var reasonEl) && reasonEl.ValueKind == JsonValueKind.String
+                        ? reasonEl.GetString()
+                        : null;
+                    chunks = new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = reason } };
                     return true;
                 }
                 default:

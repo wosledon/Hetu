@@ -72,10 +72,12 @@ public class ChatOrganizeService : IChatOrganizeService
             try
             {
                 using var doc = System.Text.Json.JsonDocument.Parse(delta);
-                if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
-                    doc.RootElement.TryGetProperty("text", out var textEl))
+                // 带 type 的结构化事件（content/thinking/finish/usage…）只收 content，其余丢弃；
+                // 不带 type 的合法 JSON 视为模型正文原样保留
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("type", out var typeEl))
                 {
-                    if (typeEl.GetString() == "content")
+                    if (typeEl.GetString() == "content" && doc.RootElement.TryGetProperty("text", out var textEl))
                         sb.Append(textEl.GetString());
                 }
                 else

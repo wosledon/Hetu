@@ -56,6 +56,9 @@ public class AnthropicLlmProvider : ILLMProvider
         var currentToolName = "";
         var currentToolArgs = new StringBuilder();
         var hasToolUse = false;
+        // message_start 给输入侧用量，message_delta 给输出侧用量，合起来才是完整用量
+        var streamInputTokens = 0;
+        var streamCachedTokens = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -78,6 +81,13 @@ public class AnthropicLlmProvider : ILLMProvider
 
             switch (evt?.Type)
             {
+                case "message_start":
+                    {
+                        streamInputTokens = evt.Message?.Usage?.InputTokens ?? 0;
+                        streamCachedTokens = evt.Message?.Usage?.CacheReadInputTokens ?? 0;
+                        break;
+                    }
+
                 case "content_block_start":
                     {
                         var block = evt.ContentBlock;
@@ -133,12 +143,41 @@ public class AnthropicLlmProvider : ILLMProvider
                         break;
                     }
 
+                case "message_delta":
+                    {
+                        // 输出侧用量与停止原因在同一个事件里：先上报用量，再透传结束原因（max_tokens = 被截断可续写）
+                        var outputTokens = evt.Usage?.OutputTokens ?? 0;
+                        if (streamInputTokens > 0 || outputTokens > 0)
+                        {
+                            yield return JsonSerializer.Serialize(new
+                            {
+                                type = "usage",
+                                usage = new
+                                {
+                                    promptTokens = streamInputTokens,
+                                    completionTokens = outputTokens,
+                                    totalTokens = streamInputTokens + outputTokens,
+                                    cachedTokens = streamCachedTokens,
+                                },
+                            }, JsonOptionsOut);
+                        }
+                        var stop = evt.Delta?.StopReason;
+                        if (!string.IsNullOrEmpty(stop))
+                        {
+                            yield return JsonSerializer.Serialize(new { type = "finish", reason = stop }, JsonOptionsOut);
+                        }
+                        break;
+                    }
+
                 case "message_stop":
                     {
                         yield break;
                     }
             }
         }
+
+        // 未等到 message_delta 就断流：按正常结束兜底，避免消费方拿不到结束原因
+        yield return JsonSerializer.Serialize(new { type = "finish", reason = "stop" }, JsonOptionsOut);
     }
 
     public async Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default)
@@ -358,6 +397,22 @@ public class AnthropicLlmProvider : ILLMProvider
         public string? Type { get; set; }
         public AnthropicStreamDelta? Delta { get; set; }
         public AnthropicContentBlock? ContentBlock { get; set; }
+        /// <summary>message_start 携带的消息体（含 input_tokens 用量）</summary>
+        public AnthropicStreamMessage? Message { get; set; }
+        /// <summary>message_delta 携带的累计用量（output_tokens）</summary>
+        public AnthropicUsage? Usage { get; set; }
+    }
+
+    private class AnthropicStreamMessage
+    {
+        public AnthropicUsage? Usage { get; set; }
+    }
+
+    private class AnthropicUsage
+    {
+        public int InputTokens { get; set; }
+        public int OutputTokens { get; set; }
+        public int CacheReadInputTokens { get; set; }
     }
 
     private class AnthropicStreamDelta
@@ -366,5 +421,7 @@ public class AnthropicLlmProvider : ILLMProvider
         public string? Text { get; set; }
         public string? Thinking { get; set; }
         public string? PartialJson { get; set; }
+        /// <summary>message_delta 携带的停止原因（end_turn / max_tokens / tool_use…）</summary>
+        public string? StopReason { get; set; }
     }
 }
