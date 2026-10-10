@@ -8,6 +8,7 @@ using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Hetu.Infrastructure.Services;
 
@@ -17,6 +18,7 @@ public class MemoryService : IMemoryService
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly HetuDbContext _dbContext;
+    private readonly ILogger<MemoryService> _logger;
 
     // 回归权重参数
     private const double Alpha = 0.4;   // 语义相似度权重
@@ -34,12 +36,14 @@ public class MemoryService : IMemoryService
         IUnitOfWork unitOfWork,
         IEmbeddingProviderFactory embeddingProviderFactory,
         ILLMProviderFactory llmProviderFactory,
-        HetuDbContext dbContext)
+        HetuDbContext dbContext,
+        ILogger<MemoryService> logger)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
         _llmProviderFactory = llmProviderFactory;
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<PagedResult<MemoryDto>>> GetAllAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
@@ -108,6 +112,8 @@ public class MemoryService : IMemoryService
         memory.Importance = Math.Clamp(request.Importance, 0f, 1f);
         memory.UpdatedAt = DateTimeOffset.UtcNow;
 
+        // GetByIdAsync 走 AsNoTracking，必须显式挂回上下文，否则这些改动 SaveChanges 不会写入
+        memory = await _unitOfWork.Memories.UpdateAsync(memory, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 内容变更，重新生成 embedding
@@ -124,6 +130,8 @@ public class MemoryService : IMemoryService
 
         memory.IsDeleted = true;
         memory.UpdatedAt = DateTimeOffset.UtcNow;
+        // 同上：不挂回上下文的话接口会返回 200，但记忆仍在列表里（用户看到「删除失败」）
+        await _unitOfWork.Memories.UpdateAsync(memory, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ApiResponse.Ok();
@@ -288,13 +296,14 @@ public class MemoryService : IMemoryService
     /// </summary>
     private async Task<List<MemoryDto>> SearchWithScoreAsync(string query, int topK, CancellationToken cancellationToken)
     {
-        var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
-        if (embeddingProvider == null)
-            return [];
-
         float[] queryEmbedding;
         try
         {
+            // 提供方创建也可能抛（API Key 解不开），一起兜住：搜索失败退化为空结果，而不是 500
+            var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
+            if (embeddingProvider == null)
+                return [];
+
             queryEmbedding = await embeddingProvider.EmbedAsync(query.Trim(), cancellationToken);
         }
         catch
@@ -335,19 +344,24 @@ public class MemoryService : IMemoryService
         var result = scored
             .OrderByDescending(x => x.Score)
             .Take(topK)
-            .Select(x =>
-            {
-                // 更新访问时间
-                x.Memory.LastAccessedAt = now;
-                x.Memory.AccessCount++;
-                var dto = MapToDto(x.Memory);
-                dto.Score = x.Score;
-                return dto;
-            })
             .ToList();
 
+        // 更新访问时间（同样要挂回上下文，否则热度权重永远不变）
+        foreach (var (memory, _, _) in result)
+        {
+            memory.LastAccessedAt = now;
+            memory.AccessCount++;
+            await _unitOfWork.Memories.UpdateAsync(memory, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return result;
+
+        return result.Select(x =>
+        {
+            var dto = MapToDto(x.Memory);
+            dto.Score = x.Score;
+            return dto;
+        }).ToList();
     }
 
     private async Task<List<(Guid MemoryId, double Similarity)>> SearchVecMemoryEmbeddingsAsync(float[] queryEmbedding, int topK, CancellationToken cancellationToken)
@@ -463,11 +477,12 @@ public class MemoryService : IMemoryService
 
     private async Task<Memory?> FindSimilarMemoryAsync(string content, double threshold, CancellationToken cancellationToken)
     {
-        var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
-        if (embeddingProvider == null) return null;
-
         try
         {
+            // 同上：提供方创建失败（API Key 解不开）不能把「新建记忆」整条路径打挂
+            var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
+            if (embeddingProvider == null) return null;
+
             var embedding = await embeddingProvider.EmbedAsync(content.Trim(), cancellationToken);
             var candidates = await SearchVecMemoryEmbeddingsAsync(embedding, 1, cancellationToken);
             if (candidates.Count > 0 && candidates[0].Item2 >= threshold)
@@ -485,11 +500,13 @@ public class MemoryService : IMemoryService
 
     private async Task EmbedAndStoreAsync(Memory memory, CancellationToken cancellationToken)
     {
-        var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
-        if (embeddingProvider == null) return;
-
         try
         {
+            // 取 embedding 提供方也可能失败（例如 API Key 解不开），必须在 try 内：
+            // 否则「编辑记忆」会因为 embedding 生成不了而整个 500，尽管内容本身已经存好了
+            var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
+            if (embeddingProvider == null) return;
+
             var vector = await embeddingProvider.EmbedAsync(memory.Content, cancellationToken);
 
             // 删除旧的 embedding
@@ -517,9 +534,10 @@ public class MemoryService : IMemoryService
                 await SyncToVecTableAsync(memory.Id, vector, cancellationToken);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // embedding 存储失败不阻塞主流程
+            // embedding 失败不阻塞主流程（内容本身已落库），但要留下可查的日志
+            _logger.LogWarning(ex, "记忆 {MemoryId} 的 embedding 生成/写入失败，本次跳过", memory.Id);
         }
     }
 
