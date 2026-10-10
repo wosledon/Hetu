@@ -9,11 +9,13 @@ public class PromptPresetService : IPromptPresetService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalPromptPresetService _localPromptPresetService;
+    private readonly ILocalizer _localizer;
 
-    public PromptPresetService(IUnitOfWork unitOfWork, ILocalPromptPresetService localPromptPresetService)
+    public PromptPresetService(IUnitOfWork unitOfWork, ILocalPromptPresetService localPromptPresetService, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _localPromptPresetService = localPromptPresetService;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<PromptPresetDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -25,19 +27,19 @@ public class PromptPresetService : IPromptPresetService
     public async Task<ApiResponse<PromptPresetDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var preset = await _unitOfWork.PromptPresets.GetByIdAsync(id, cancellationToken);
-        if (preset == null) return ApiResponse<PromptPresetDto>.Fail("预设不存在");
+        if (preset == null) return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.notFound"));
         return ApiResponse<PromptPresetDto>.Ok(Map(preset));
     }
 
     public async Task<ApiResponse<PromptPresetDto>> CreateAsync(CreatePromptPresetRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Content))
-            return ApiResponse<PromptPresetDto>.Fail("名称和内容不能为空");
+            return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.nameAndContentRequired"));
 
         var preset = new PromptPreset
         {
             Id = Guid.NewGuid(),
-            Category = string.IsNullOrWhiteSpace(request.Category) ? "自定义" : request.Category.Trim(),
+            Category = string.IsNullOrWhiteSpace(request.Category) ? _localizer.T("common.custom") : request.Category.Trim(),
             Name = request.Name.Trim(),
             Content = request.Content.Trim(),
             Variables = request.Variables,
@@ -60,8 +62,8 @@ public class PromptPresetService : IPromptPresetService
     public async Task<ApiResponse<PromptPresetDto>> UpdateAsync(Guid id, UpdatePromptPresetRequest request, CancellationToken cancellationToken = default)
     {
         var preset = await _unitOfWork.PromptPresets.GetByIdAsync(id, cancellationToken);
-        if (preset == null) return ApiResponse<PromptPresetDto>.Fail("预设不存在");
-        if (preset.IsBuiltIn) return ApiResponse<PromptPresetDto>.Fail("内置预设不能编辑");
+        if (preset == null) return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.notFound"));
+        if (preset.IsBuiltIn) return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.builtInCannotEdit"));
 
         preset.Category = string.IsNullOrWhiteSpace(request.Category) ? preset.Category : request.Category.Trim();
         preset.Name = string.IsNullOrWhiteSpace(request.Name) ? preset.Name : request.Name.Trim();
@@ -84,8 +86,8 @@ public class PromptPresetService : IPromptPresetService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var preset = await _unitOfWork.PromptPresets.GetByIdAsync(id, cancellationToken);
-        if (preset == null) return ApiResponse.Fail("预设不存在");
-        if (preset.IsBuiltIn) return ApiResponse.Fail("内置预设不能删除");
+        if (preset == null) return ApiResponse.Fail(_localizer.T("preset.notFound"));
+        if (preset.IsBuiltIn) return ApiResponse.Fail(_localizer.T("preset.builtInCannotDelete"));
 
         await _unitOfWork.PromptPresets.DeleteAsync(preset, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -95,15 +97,15 @@ public class PromptPresetService : IPromptPresetService
     public async Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromAsync(Guid sourceId, CancellationToken cancellationToken = default)
     {
         var source = await _unitOfWork.PromptPresets.GetByIdAsync(sourceId, cancellationToken);
-        if (source == null) return ApiResponse<PromptPresetDto>.Fail("源智能体不存在");
+        if (source == null) return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.sourceNotFound"));
         if (string.Equals(source.AgentType, "Professional", StringComparison.OrdinalIgnoreCase))
-            return ApiResponse<PromptPresetDto>.Fail("源智能体已是专业智能体");
+            return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.sourceAlreadyProfessional"));
 
         var preset = new PromptPreset
         {
             Id = Guid.NewGuid(),
             Category = source.Category,
-            Name = await EnsureUniqueNameAsync(source.Name + " 专业版", cancellationToken),
+            Name = await EnsureUniqueNameAsync(source.Name + " " + _localizer.T("preset.proSuffix"), cancellationToken),
             Content = source.Content,
             Variables = source.Variables,
             ToolsConfig = source.ToolsConfig,
@@ -126,17 +128,17 @@ public class PromptPresetService : IPromptPresetService
     public async Task<ApiResponse<PromptPresetDto>> CreateProfessionalFromLocalAsync(string localId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(localId))
-            return ApiResponse<PromptPresetDto>.Fail("本地智能体 ID 不能为空");
+            return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.localIdRequired"));
 
         var localResult = await _localPromptPresetService.ScanAllAsync(cancellationToken);
         var local = localResult.Data?.FirstOrDefault(p => p.Id == localId);
-        if (local == null) return ApiResponse<PromptPresetDto>.Fail("本地智能体不存在");
+        if (local == null) return ApiResponse<PromptPresetDto>.Fail(_localizer.T("preset.localNotFound"));
 
         var preset = new PromptPreset
         {
             Id = Guid.NewGuid(),
-            Category = string.IsNullOrWhiteSpace(local.Category) ? "本地" : local.Category,
-            Name = await EnsureUniqueNameAsync(local.Name + " 专业版", cancellationToken),
+            Category = string.IsNullOrWhiteSpace(local.Category) ? _localizer.T("common.local") : local.Category,
+            Name = await EnsureUniqueNameAsync(local.Name + " " + _localizer.T("preset.proSuffix"), cancellationToken),
             Content = local.Content,
             Variables = local.Variables,
             ToolsConfig = local.ToolsConfig,
@@ -211,7 +213,7 @@ public class PromptPresetService : IPromptPresetService
             var preset = new PromptPreset
             {
                 Id = Guid.NewGuid(),
-                Category = string.IsNullOrWhiteSpace(item.Category) ? "导入" : item.Category.Trim(),
+                Category = string.IsNullOrWhiteSpace(item.Category) ? _localizer.T("preset.categoryImport") : item.Category.Trim(),
                 Name = item.Name.Trim(),
                 Content = item.Content.Trim(),
                 Variables = item.Variables,

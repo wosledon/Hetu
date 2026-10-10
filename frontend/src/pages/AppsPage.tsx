@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, AppWindow, ArrowLeft, ExternalLink, Globe, Loader2, Pencil, Plus, RefreshCw, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import { appsService, normalizeUrl, WEB_APP_PRESETS } from '../services/appsService'
+import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
 import { isTauri, openAppWebview } from '../utils/tauri'
 
@@ -53,12 +54,14 @@ function avatarClass(name: string): string {
 }
 
 export default function AppsPage() {
+  const { t } = useTranslation('settings')
   const queryClient = useQueryClient()
   const [openedApp, setOpenedApp] = useState<IWebApp | null>(null)
   const [editingApp, setEditingApp] = useState<IWebApp | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', url: '' })
   const [formError, setFormError] = useState('')
+  const presets = getWebAppPresets()
 
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ['webApps'],
@@ -93,8 +96,8 @@ export default function AppsPage() {
   const handleSave = () => {
     const name = form.name.trim()
     const url = normalizeUrl(form.url)
-    if (!name) { setFormError('请填写应用名称'); return }
-    if (!url) { setFormError('请填写应用地址'); return }
+    if (!name) { setFormError(t('apps.errorName')); return }
+    if (!url) { setFormError(t('apps.errorUrl')); return }
 
     if (editingApp) {
       saveMutation.mutate(apps.map((a) => (a.id === editingApp.id ? { ...a, name, url } : a)))
@@ -155,15 +158,15 @@ export default function AppsPage() {
             <Globe size={20} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">应用</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">添加网页应用，在内嵌浏览器里直接使用各家大模型的免费网页对话</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('apps.title')}</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('apps.subtitle')}</p>
           </div>
           <button
             onClick={openCreate}
             className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-cyan-700 active:scale-[0.97]"
           >
             <Plus size={16} />
-            添加应用
+            {t('apps.add')}
           </button>
         </div>
 
@@ -172,12 +175,12 @@ export default function AppsPage() {
         ) : apps.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
             <Globe size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">还没有应用</p>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('apps.empty')}</p>
             <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-              点击「添加应用」填入网址，或从下方常用大模型里一键添加。部分网站可能禁止内嵌加载，届时可用工具栏的「外部打开」。
+              {t('apps.emptyHint')}
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
-              {WEB_APP_PRESETS.slice(0, 5).map((p) => (
+              {presets.slice(0, 5).map((p) => (
                 <button
                   key={p.url}
                   onClick={() => applyPreset(p)}
@@ -206,16 +209,16 @@ export default function AppsPage() {
                   <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       onClick={() => openEdit(app)}
-                      title="编辑"
-                      aria-label="编辑"
+                      title={t('common:edit')}
+                      aria-label={t('common:edit')}
                       className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(app)}
-                      title="删除"
-                      aria-label="删除"
+                      title={t('common:delete')}
+                      aria-label={t('common:delete')}
                       className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
                     >
                       <Trash2 size={13} />
@@ -226,9 +229,9 @@ export default function AppsPage() {
             </div>
 
             <div className="mt-8">
-              <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-gray-400">常用大模型</p>
+              <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-gray-400">{t('apps.presetsTitle')}</p>
               <div className="flex flex-wrap gap-2">
-                {WEB_APP_PRESETS.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).map((p) => (
+                {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).map((p) => (
                   <button
                     key={p.url}
                     onClick={() => applyPreset(p)}
@@ -251,22 +254,22 @@ export default function AppsPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
                     <Globe size={16} className="text-cyan-600 dark:text-cyan-400" />
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingApp ? '编辑应用' : '添加应用'}</h3>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingApp ? t('apps.editTitle') : t('apps.add')}</h3>
                 </div>
                 <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
               </div>
               <div className="space-y-4 px-5 py-4">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">名称</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:name')}</label>
                   <input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="如：DeepSeek"
+                    placeholder={t('apps.namePlaceholder')}
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-cyan-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">地址</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.urlLabel')}</label>
                   <input
                     value={form.url}
                     onChange={(e) => setForm({ ...form, url: e.target.value })}
@@ -277,9 +280,9 @@ export default function AppsPage() {
                 </div>
                 {!editingApp && (
                   <div>
-                    <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">快速选择</p>
+                    <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.quickPick')}</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {WEB_APP_PRESETS.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).slice(0, 6).map((p) => (
+                      {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).slice(0, 6).map((p) => (
                         <button
                           key={p.url}
                           onClick={() => setForm({ name: p.name, url: p.url })}
@@ -296,13 +299,13 @@ export default function AppsPage() {
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">取消</button>
+                <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
                 <button
                   onClick={handleSave}
                   disabled={saveMutation.isPending}
                   className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
                 >
-                  {saveMutation.isPending ? '保存中...' : editingApp ? '保存' : '添加'}
+                  {saveMutation.isPending ? t('apps.saving') : editingApp ? t('common:save') : t('common:add')}
                 </button>
               </div>
             </div>
@@ -316,6 +319,7 @@ export default function AppsPage() {
 
 /** 内嵌浏览器视图（纯浏览器模式）：工具条 + iframe + 拒绝连接提示 */
 function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }) {
+  const { t } = useTranslation('settings')
   const [frameKey, setFrameKey] = useState(0)
   const [timedOut, setTimedOut] = useState(false)
   const url = normalizeUrl(app.url)
@@ -334,18 +338,18 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50 dark:bg-gray-950">
         {/* 工具条 */}
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white px-3 dark:border-gray-800 dark:bg-gray-900">
-          <button onClick={onClose} title="返回应用列表" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
+          <button onClick={onClose} title={t('apps.backToList')} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
             <ArrowLeft size={14} />
-            应用
+            {t('apps.backLabel')}
           </button>
           <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-          <button onClick={() => setFrameKey((k) => k + 1)} title="刷新" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => setFrameKey((k) => k + 1)} title={t('common:refresh')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
             <RefreshCw size={14} />
           </button>
-          <button onClick={() => void openAppWebview(url, app.name)} title="在应用窗口中打开" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => void openAppWebview(url, app.name)} title={t('apps.openInAppWindow')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
             <AppWindow size={14} />
           </button>
-          <button onClick={() => window.open(url, '_blank', 'noopener')} title="在系统浏览器打开" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => window.open(url, '_blank', 'noopener')} title={t('apps.openInBrowser')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
             <ExternalLink size={14} />
           </button>
           <div className="mx-1 flex min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
@@ -359,12 +363,12 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
         {timedOut && (
           <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
             <AlertCircle size={13} className="shrink-0" />
-            <span className="min-w-0 flex-1">该网站禁止被内嵌加载（X-Frame-Options / CSP）。请改用右侧「应用窗口」或「系统浏览器」打开。</span>
+            <span className="min-w-0 flex-1">{t('apps.embedBlocked')}</span>
             <button
               onClick={() => void openAppWebview(url, app.name)}
               className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-amber-700"
             >
-              应用窗口打开
+              {t('apps.openAppWindow')}
             </button>
           </div>
         )}

@@ -11,30 +11,32 @@ namespace Hetu.Core.Services;
 /// </summary>
 public class UsageService
 {
-    /// <summary>来源的中文名，供前端拆分展示</summary>
-    public static readonly IReadOnlyDictionary<string, string> SourceNames =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            [LlmUsageSources.Chat] = "对话",
-            [LlmUsageSources.Work] = "编码会话",
-            [LlmUsageSources.Kanban] = "任务看板",
-            [LlmUsageSources.Workflow] = "工作流",
-            [LlmUsageSources.Wiki] = "Wiki 生成",
-            [LlmUsageSources.NoteAi] = "笔记 AI",
-            [LlmUsageSources.Organize] = "话题整理",
-            [LlmUsageSources.Skill] = "技能",
-            [LlmUsageSources.Graph] = "知识图谱",
-            [LlmUsageSources.Search] = "查询改写",
-            [LlmUsageSources.Scheduled] = "定时任务",
-            [LlmUsageSources.Proxy] = "代理转发",
-        };
-
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public UsageService(IUnitOfWork unitOfWork)
+    public UsageService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
+
+    /// <summary>来源的展示名，供前端拆分展示</summary>
+    private string LocalizeSource(string source) => source.ToLowerInvariant() switch
+    {
+        LlmUsageSources.Chat => _localizer.T("usage.sourceChat"),
+        LlmUsageSources.Work => _localizer.T("usage.sourceWork"),
+        LlmUsageSources.Kanban => _localizer.T("usage.sourceKanban"),
+        LlmUsageSources.Workflow => _localizer.T("usage.sourceWorkflow"),
+        LlmUsageSources.Wiki => _localizer.T("usage.sourceWiki"),
+        LlmUsageSources.NoteAi => _localizer.T("usage.sourceNoteAi"),
+        LlmUsageSources.Organize => _localizer.T("usage.sourceOrganize"),
+        LlmUsageSources.Skill => _localizer.T("usage.sourceSkill"),
+        LlmUsageSources.Graph => _localizer.T("usage.sourceGraph"),
+        LlmUsageSources.Search => _localizer.T("usage.sourceSearch"),
+        LlmUsageSources.Scheduled => _localizer.T("usage.sourceScheduled"),
+        LlmUsageSources.Proxy => _localizer.T("usage.sourceProxy"),
+        _ => source,
+    };
 
     public async Task<UsageStatsDto> GetStatsAsync(CancellationToken ct = default)
     {
@@ -103,7 +105,7 @@ public class UsageService
             .GroupBy(l => l.ModelId)
             .Select(g => new UsageModelStat
             {
-                ModelName = g.Key.HasValue && modelNames.TryGetValue(g.Key.Value, out var n) ? n : "默认模型",
+                ModelName = g.Key.HasValue && modelNames.TryGetValue(g.Key.Value, out var n) ? n : _localizer.T("usage.defaultModel"),
                 Messages = g.Count(),
                 Tokens = g.Sum(l => (long)(l.TokensUsed ?? 0)),
                 CachedTokens = g.Sum(l => (long)(l.CachedTokens ?? 0)),
@@ -117,7 +119,7 @@ public class UsageService
             .Select(g => new UsageSourceStat
             {
                 Source = g.Key,
-                SourceName = SourceNames.TryGetValue(g.Key, out var label) ? label : g.Key,
+                SourceName = LocalizeSource(g.Key),
                 Messages = g.Count(),
                 Tokens = g.Sum(l => (long)(l.TokensUsed ?? 0)),
             })
@@ -154,7 +156,7 @@ public class UsageService
                 MessageId = l.Id,
                 TopicId = l.RefId ?? Guid.Empty,
                 CreatedAt = l.CreatedAt,
-                ModelName = l.ModelId.HasValue && modelNames.TryGetValue(l.ModelId.Value, out var n) ? n : "默认模型",
+                ModelName = l.ModelId.HasValue && modelNames.TryGetValue(l.ModelId.Value, out var n) ? n : _localizer.T("usage.defaultModel"),
                 InputTokens = l.InputTokens,
                 CompressedTokens = l.CompressedTokens,
                 OutputTokens = l.OutputTokens,
@@ -163,7 +165,7 @@ public class UsageService
                 LatencyMs = l.LatencyMs,
                 ContentPreview = l.ContentPreview ?? "",
                 Source = l.Source,
-                SourceName = SourceNames.TryGetValue(l.Source, out var label) ? label : l.Source,
+                SourceName = LocalizeSource(l.Source),
             })
             .ToList();
     }

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
@@ -42,22 +43,22 @@ type FeatureKind = 'guide' | 'files' | 'changes' | 'checkpoints' | 'browser' | '
 
 interface FeatureTab { key: FeatureKind; label: string }
 
-const FEATURE_LABELS: Record<FeatureKind, string> = {
-  guide: '新标签页',
-  files: '文件',
-  changes: '更改',
-  checkpoints: '检查点',
-  browser: '浏览器',
-  git: 'Git',
-  terminal: '终端',
+const FEATURE_LABEL_KEYS: Record<FeatureKind, string> = {
+  guide: 'explorer.tabs.guide',
+  files: 'explorer.tabs.files',
+  changes: 'explorer.tabs.changes',
+  checkpoints: 'explorer.tabs.checkpoints',
+  browser: 'explorer.tabs.browser',
+  git: 'explorer.tabs.git',
+  terminal: 'explorer.tabs.terminal',
 }
 
-const GIT_STATUS_META: Record<string, { label: string; cls: string }> = {
-  M: { label: '修改', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  A: { label: '新增', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  D: { label: '删除', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
-  R: { label: '重命名', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  '??': { label: '未跟踪', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+const GIT_STATUS_META: Record<string, { labelKey: string; cls: string }> = {
+  M: { labelKey: 'explorer.gitStatus.modify', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  A: { labelKey: 'explorer.gitStatus.add', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  D: { labelKey: 'explorer.gitStatus.delete', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
+  R: { labelKey: 'explorer.gitStatus.rename', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  '??': { labelKey: 'explorer.gitStatus.untracked', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
 }
 
 interface OpenTab {
@@ -70,6 +71,7 @@ interface OpenTab {
 }
 
 export default function WorkExplorer({ projectId, sessionId, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -79,22 +81,22 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   const [tabs, setTabs] = useState<OpenTab[]>([])
   // 面板活动视图：功能标签页（guide/files/...）或文档标签页（file/diff/checkpoint）
   const [activePanel, setActivePanel] = useState<{ type: 'feature' | 'doc'; key: string }>({ type: 'feature', key: 'guide' })
-  const [featureTabs, setFeatureTabs] = useState<FeatureTab[]>([{ key: 'guide', label: '新标签页' }])
+  const [featureTabs, setFeatureTabs] = useState<FeatureTab[]>([{ key: 'guide', label: t(FEATURE_LABEL_KEYS.guide) }])
   const activeFeature: FeatureKind | null = activePanel.type === 'feature' ? (activePanel.key as FeatureKind) : null
 
   /** 打开/激活一个功能标签页（文件/更改/检查点/Git/浏览器/终端） */
   const activateFeature = (key: FeatureKind) => {
-    setFeatureTabs((prev) => (prev.some((t) => t.key === key) ? prev : [...prev, { key, label: FEATURE_LABELS[key] }]))
+    setFeatureTabs((prev) => (prev.some((tab) => tab.key === key) ? prev : [...prev, { key, label: t(FEATURE_LABEL_KEYS[key]) }]))
     setActivePanel({ type: 'feature', key })
   }
 
   /** 关闭功能标签页；关闭后回到新标签页 */
   const closeFeature = (key: FeatureKind) => {
     setFeatureTabs((prev) => {
-      const next = prev.filter((t) => t.key !== key)
+      const next = prev.filter((tab) => tab.key !== key)
       if (activePanel.type === 'feature' && activePanel.key === key) {
-        setActivePanel({ type: 'feature', key: next.some((t) => t.key === 'guide') ? 'guide' : (next[0]?.key ?? 'guide') })
-        if (!next.some((t) => t.key === 'guide')) return [{ key: 'guide', label: '新标签页' }, ...next.filter((t) => t.key !== 'guide')]
+        setActivePanel({ type: 'feature', key: next.some((tab) => tab.key === 'guide') ? 'guide' : (next[0]?.key ?? 'guide') })
+        if (!next.some((tab) => tab.key === 'guide')) return [{ key: 'guide', label: t(FEATURE_LABEL_KEYS.guide) }, ...next.filter((tab) => tab.key !== 'guide')]
       }
       return next
     })
@@ -142,12 +144,12 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   const gitCommit = useMutation({
     mutationFn: () => workGitService.commit(projectId!, gitCommitMessage.trim(), [...gitSelected]),
     onSuccess: (result) => {
-      setGitMessage(result.output || '已提交')
+      setGitMessage(result.output || t('explorer.committed'))
       setGitCommitMessage('')
       setGitSelected(new Set())
       void refetchGit()
     },
-    onError: (e: Error) => setGitMessage(`提交失败：${e.message}`),
+    onError: (e: Error) => setGitMessage(t('explorer.commitFailed', { error: e.message })),
   })
 
   const searchTerm = searchQuery.trim()
@@ -180,24 +182,24 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         next.delete(payload.key)
         return next
       })
-      setSaveMessage(`已保存 ${payload.path}`)
+      setSaveMessage(t('explorer.savedFile', { path: payload.path }))
       setTimeout(() => setSaveMessage(''), 2500)
       queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
     },
-    onError: (error: Error) => setSaveMessage(`保存失败：${error.message}`),
+    onError: (error: Error) => setSaveMessage(t('explorer.saveFailed', { error: error.message })),
   })
 
   const restoreCheckpoint = useMutation({
     mutationFn: (id: string) => workCheckpointService.restore(id),
     onSuccess: (result) => {
       setRestoreMessage(
-        `已恢复 ${result.restoredCount} 个文件，删除 ${result.deletedCount} 个文件` +
-          (result.errors.length > 0 ? `，${result.errors.length} 项失败` : ''),
+        t('explorer.restored', { restored: result.restoredCount, deleted: result.deletedCount }) +
+          (result.errors.length > 0 ? t('explorer.restoredWithErrors', { count: result.errors.length }) : ''),
       )
       queryClient.invalidateQueries({ queryKey: ['workFileChanges', sessionId] })
       if (projectId) queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
     },
-    onError: (e: Error) => setRestoreMessage(`回滚失败：${e.message}`),
+    onError: (e: Error) => setRestoreMessage(t('explorer.rollbackFailed', { error: e.message })),
   })
 
   /** diff 还原/应用：把指定版本内容写回工作区（不传 originalContent，跳过冲突校验） */
@@ -205,25 +207,25 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       workFileService.write(projectId!, path, content, undefined),
     onSuccess: (_r, { path }) => {
-      setSaveMessage(`已写入 ${path}`)
+      setSaveMessage(t('explorer.written', { path }))
       setTimeout(() => setSaveMessage(''), 2500)
       if (projectId) queryClient.invalidateQueries({ queryKey: ['workDirEntries', projectId] })
       queryClient.invalidateQueries({ queryKey: ['workFileChanges', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['workGitStatus', projectId] })
     },
-    onError: (e: Error) => setSaveMessage(`写入失败：${e.message}`),
+    onError: (e: Error) => setSaveMessage(t('explorer.writeFailed', { error: e.message })),
   })
 
-  const handleRevertChange = (change: IWorkFileChange, label: string) => {
+  const handleRevertChange = (change: IWorkFileChange, target: 'head' | 'edit') => {
     confirm({
-      message: `确定把 ${change.filePath} ${label}吗？磁盘上的当前内容将被覆盖。`,
+      message: t(target === 'head' ? 'explorer.revertConfirmHead' : 'explorer.revertConfirmEdit', { path: change.filePath }),
       onConfirm: () => writeFileContent.mutate({ path: change.filePath, content: change.oldContent ?? '' }),
     })
   }
 
   const handleApplyChange = (change: IWorkFileChange) => {
     confirm({
-      message: `确定把该版本内容写入 ${change.filePath} 吗？磁盘上的当前内容将被覆盖。`,
+      message: t('explorer.applyConfirm', { path: change.filePath }),
       onConfirm: () => writeFileContent.mutate({ path: change.filePath, content: change.newContent }),
     })
   }
@@ -231,11 +233,11 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   const deleteCheckpoint = useMutation({
     mutationFn: workCheckpointService.delete,
     onSuccess: (_result, checkpointId) => {
-      setRestoreMessage('检查点已删除')
+      setRestoreMessage(t('explorer.checkpointDeleted'))
       queryClient.invalidateQueries({ queryKey: ['workCheckpoints', sessionId] })
-      setTabs((prev) => prev.filter((t) => t.key !== `cp:${checkpointId}`))
+      setTabs((prev) => prev.filter((tab) => tab.key !== `cp:${checkpointId}`))
     },
-    onError: (e: Error) => setRestoreMessage(`删除检查点失败：${e.message}`),
+    onError: (e: Error) => setRestoreMessage(t('explorer.deleteCheckpointFailed', { error: e.message })),
   })
 
   const loadDir = useCallback(async (path: string) => {
@@ -282,7 +284,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
       onActiveFileChange?.(nodePath)
     } catch (e) {
-      setActionError(`打开文件失败：${(e as Error).message || '未知错误'}`)
+      setActionError(t('explorer.openFileFailed', { error: (e as Error).message || t('explorer.unknownError') }))
     }
   }
 
@@ -305,9 +307,9 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     }
     try {
       const diff = await workCheckpointService.diff(cp.id)
-      setTabs((prev) => [...prev, { key, label: `${cp.label} (差异)`, kind: 'checkpoint', checkpoint: diff }])
+      setTabs((prev) => [...prev, { key, label: `${cp.label} (${t('explorer.diffSuffix')})`, kind: 'checkpoint', checkpoint: diff }])
       openDoc(key)
-    } catch { setRestoreMessage('读取检查点差异失败') }
+    } catch { setRestoreMessage(t('explorer.readCheckpointDiffFailed')) }
   }
 
   /** 打开 Git 工作区差异：旧内容取 HEAD 版本，新内容取磁盘当前文件 */
@@ -334,7 +336,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
       setTabs((prev) => [...prev, { key, label: `${name} (git)`, kind: 'diff', change }])
       openDoc(key)
     } catch (e) {
-      setActionError(`读取 Git 差异失败：${(e as Error).message || '未知错误'}`)
+      setActionError(t('explorer.readGitDiffFailed', { error: (e as Error).message || t('explorer.unknownError') }))
     }
   }
 
@@ -393,7 +395,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     const current = draftOf(activeDoc)
     const next = current.slice(0, from) + text + current.slice(from)
     setDrafts((prev) => new Map(prev).set(activeDoc.key, next))
-    setSaveMessage('已插入到编辑器')
+    setSaveMessage(t('explorer.insertedToEditor'))
     setTimeout(() => setSaveMessage(''), 2000)
   }
   const lastInsertNonce = useRef(0)
@@ -425,18 +427,18 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     if (!view || !activeDoc || activeDoc.kind !== 'file' || !activeDoc.file) return
     const { from, to } = view.state.selection.main
     if (from === to) {
-      setSaveMessage('请先在编辑器中选择代码')
+      setSaveMessage(t('explorer.selectCodeFirst'))
       setTimeout(() => setSaveMessage(''), 2000)
       return
     }
     const text = view.state.sliceDoc(from, to)
     if (text.length > 8000) {
-      setSaveMessage('选中内容过大（>8000 字符）')
+      setSaveMessage(t('explorer.selectionTooLarge'))
       setTimeout(() => setSaveMessage(''), 2000)
       return
     }
     onAddSelectionContext?.(activeDoc.file.path, text)
-    setSaveMessage('已加入对话上下文')
+    setSaveMessage(t('explorer.addedToContext'))
     setTimeout(() => setSaveMessage(''), 2000)
   }
 
@@ -461,7 +463,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         setLoadedDirs((prev) => new Map(prev).set(nodePath, children))
         setActionError('')
       } catch (e) {
-        setActionError(`读取目录失败：${(e as Error).message || '未知错误'}`)
+        setActionError(t('explorer.readDirFailed', { error: (e as Error).message || t('explorer.unknownError') }))
       }
     }
   }
@@ -522,12 +524,12 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   })
 
   const NAV_ITEMS: { key: FeatureKind; label: string; desc: string; Icon: React.ComponentType<{ size?: number }> }[] = [
-    { key: 'files', label: '文件', desc: '浏览项目目录，搜索文件名与内容，内置编辑器保存', Icon: Folder },
-    { key: 'changes', label: '更改', desc: '查看本会话 AI 产生的文件修改，逐行对比与回滚', Icon: GitCompare },
-    { key: 'checkpoints', label: '检查点', desc: '任务开始前的文件快照，可整体还原工作区', Icon: History },
-    { key: 'git', label: 'Git', desc: '分支与工作区状态、逐文件 Diff、暂存并提交', Icon: GitBranch },
-    { key: 'browser', label: '浏览器', desc: '内嵌网页预览，快速打开本地开发服务页面', Icon: Globe },
-    { key: 'terminal', label: '终端', desc: '项目根目录的交互式终端，支持 SSH 远程主机', Icon: TerminalSquare },
+    { key: 'files', label: t('explorer.tabs.files'), desc: t('explorer.nav.filesDesc'), Icon: Folder },
+    { key: 'changes', label: t('explorer.tabs.changes'), desc: t('explorer.nav.changesDesc'), Icon: GitCompare },
+    { key: 'checkpoints', label: t('explorer.tabs.checkpoints'), desc: t('explorer.nav.checkpointsDesc'), Icon: History },
+    { key: 'git', label: t('explorer.tabs.git'), desc: t('explorer.nav.gitDesc'), Icon: GitBranch },
+    { key: 'browser', label: t('explorer.tabs.browser'), desc: t('explorer.nav.browserDesc'), Icon: Globe },
+    { key: 'terminal', label: t('explorer.tabs.terminal'), desc: t('explorer.nav.terminalDesc'), Icon: TerminalSquare },
   ]
 
   const features = NAV_ITEMS
@@ -538,24 +540,24 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     setTabMenu({ x: e.clientX, y: e.clientY, kind, key, label })
   }
 
-  const docTab = (t: OpenTab) => {
-    const active = activePanel.type === 'doc' && activePanel.key === t.key
+  const docTab = (tab: OpenTab) => {
+    const active = activePanel.type === 'doc' && activePanel.key === tab.key
     return (
       <div
-        key={t.key}
-        onClick={() => openDoc(t.key)}
-        onContextMenu={(e) => openTabMenu(e, 'doc', t.key, t.label)}
+        key={tab.key}
+        onClick={() => openDoc(tab.key)}
+        onContextMenu={(e) => openTabMenu(e, 'doc', tab.key, tab.label)}
         className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium transition-colors ${
           active ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
         }`}
       >
         <FileCode size={11} className="shrink-0" />
-        <span className="max-w-[110px] truncate">{t.label}</span>
-        {t.kind === 'file' && drafts.has(t.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="未保存" />}
+        <span className="max-w-[110px] truncate">{tab.label}</span>
+        {tab.kind === 'file' && drafts.has(tab.key) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title={t('common:unsaved')} />}
         <span
-          onClick={(e) => { e.stopPropagation(); closeDocTab(t.key) }}
+          onClick={(e) => { e.stopPropagation(); closeDocTab(tab.key) }}
           role="button"
-          aria-label="关闭标签"
+          aria-label={t('explorer.closeTab')}
           className="rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100 dark:hover:bg-gray-700"
         >
           <X size={9} />
@@ -651,7 +653,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
           )
         })}
         <div className="flex-1" />
-        <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} title="刷新" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]">
+        <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} title={t('common:refresh')} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]">
           <RefreshCw size={13} />
         </button>
       </div>
@@ -659,25 +661,25 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
       {/* 主区：浏览器风格标签条 + 内容 */}
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-gray-100 px-1.5 dark:border-gray-800">
-          {featureTabs.map((t) => {
-            const nav = NAV_ITEMS.find((n) => n.key === t.key)
-            const Icon = t.key === 'guide' ? LayoutGrid : (nav?.Icon ?? Folder)
-            const active = activePanel.type === 'feature' && activePanel.key === t.key
+          {featureTabs.map((tab) => {
+            const nav = NAV_ITEMS.find((n) => n.key === tab.key)
+            const Icon = tab.key === 'guide' ? LayoutGrid : (nav?.Icon ?? Folder)
+            const active = activePanel.type === 'feature' && activePanel.key === tab.key
             return (
               <div
-                key={t.key}
-                onClick={() => setActivePanel({ type: 'feature', key: t.key })}
-                onContextMenu={(e) => openTabMenu(e, 'feature', t.key, t.label)}
+                key={tab.key}
+                onClick={() => setActivePanel({ type: 'feature', key: tab.key })}
+                onContextMenu={(e) => openTabMenu(e, 'feature', tab.key, tab.label)}
                 className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium transition-colors ${
                   active ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <Icon size={11} className="shrink-0" />
-                <span className="max-w-[100px] truncate">{t.label}</span>
+                <span className="max-w-[100px] truncate">{tab.label}</span>
                 <span
-                  onClick={(e) => { e.stopPropagation(); closeFeature(t.key) }}
+                  onClick={(e) => { e.stopPropagation(); closeFeature(tab.key) }}
                   role="button"
-                  aria-label="关闭标签"
+                  aria-label={t('explorer.closeTab')}
                   className="rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-200 group-hover:opacity-100 dark:hover:bg-gray-700"
                 >
                   <X size={9} />
@@ -695,9 +697,9 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
               <div className="w-full max-w-xs">
                 <div className="mb-5 text-center">
                   <LayoutGrid size={26} className="mx-auto mb-2.5 text-blue-500" />
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">工作台</h2>
+                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('explorer.workbench')}</h2>
                   <p className="mt-1 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
-                    {projectId ? '从左侧导航或下方列表选择功能开始工作' : '请先在左侧选择项目'}
+                    {projectId ? t('explorer.workbenchHint') : t('selectProjectFirst')}
                   </p>
                 </div>
                 <div className="space-y-0.5">
@@ -735,7 +737,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         {activeFeature === 'changes' ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {changes.length === 0 && (
-              <div className="px-2 py-8 text-center text-xs text-gray-400">暂无文件修改</div>
+              <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.noFileChanges')}</div>
             )}
             {changes.map((change) => {
               const name = change.filePath.split('/').pop() ?? change.filePath
@@ -757,7 +759,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                         ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
                         : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                   }`}>
-                    {change.action === 'create' ? '新增' : change.action === 'delete' ? '删除' : '修改'}
+                    {change.action === 'create' ? t('checkpointDiff.actionCreate') : change.action === 'delete' ? t('checkpointDiff.actionDelete') : t('explorer.gitStatus.modify')}
                   </span>
                 </div>
               )
@@ -771,10 +773,10 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
               </div>
             )}
             {!sessionId && (
-              <div className="px-2 py-8 text-center text-xs text-gray-400">选择会话后查看检查点</div>
+              <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.pickSessionForCheckpoints')}</div>
             )}
             {sessionId && checkpoints.length === 0 && (
-              <div className="px-2 py-8 text-center text-xs text-gray-400">暂无检查点（Agent 修改文件前会自动创建）</div>
+              <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.noCheckpoints')}</div>
             )}
             {checkpoints.map((cp) => (
               <div
@@ -786,37 +788,37 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[11px] text-gray-700 dark:text-gray-200">{cp.label}</div>
                     <div className="truncate text-[10px] text-gray-400">
-                      {new Date(cp.createdAt).toLocaleTimeString()} · {cp.fileCount} 个文件
+                      {new Date(cp.createdAt).toLocaleTimeString()} · {t('explorer.fileCount', { count: cp.fileCount })}
                     </div>
                   </div>
                   <button
                     onClick={() => void openCheckpointDiffTab(cp)}
-                    title="查看与当前工作区的差异"
-                    aria-label="查看与当前工作区的差异"
+                    title={t('explorer.viewWorkspaceDiff')}
+                    aria-label={t('explorer.viewWorkspaceDiff')}
                     className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700"
                   >
                     <Diff size={12} />
                   </button>
                   <button
                     onClick={() => confirm({
-                      message: `确定回滚到检查点「${cp.label}」吗？工作区中相关文件将被覆盖，此操作不可撤销。`,
+                      message: t('explorer.rollbackCheckpointConfirm', { label: cp.label }),
                       onConfirm: () => restoreCheckpoint.mutate(cp.id),
                     })}
                     disabled={restoreCheckpoint.isPending}
-                    title="回滚到该检查点"
-                    aria-label="回滚到该检查点"
+                    title={t('explorer.rollbackToCheckpoint')}
+                    aria-label={t('explorer.rollbackToCheckpoint')}
                     className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700"
                   >
                     <RotateCcw size={12} />
                   </button>
                   <button
                     onClick={() => confirm({
-                      message: `确定删除检查点「${cp.label}」吗？删除后无法再回滚到该时间点。`,
+                      message: t('explorer.deleteCheckpointConfirm', { label: cp.label }),
                       onConfirm: () => deleteCheckpoint.mutate(cp.id),
                     })}
                     disabled={deleteCheckpoint.isPending}
-                    title="删除检查点"
-                    aria-label="删除检查点"
+                    title={t('explorer.deleteCheckpoint')}
+                    aria-label={t('explorer.deleteCheckpoint')}
                     className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-700"
                   >
                     <Trash2 size={12} />
@@ -833,13 +835,13 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
             <div className="flex items-center gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
               <GitBranch size={12} className="shrink-0 text-gray-400" />
               <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-600 dark:text-gray-300">
-                {gitStatus?.isRepo ? gitStatus.branch : '非 Git 仓库'}
+                {gitStatus?.isRepo ? gitStatus.branch : t('explorer.notGitRepo')}
               </span>
               <button
                 onClick={() => { setGitMessage(''); void refetchGit() }}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
-                title="刷新 Git 状态"
-                aria-label="刷新 Git 状态"
+                title={t('explorer.refreshGitStatus')}
+                aria-label={t('explorer.refreshGitStatus')}
               >
                 <RefreshCw size={11} className={isGitLoading ? 'animate-spin' : ''} />
               </button>
@@ -851,10 +853,10 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
             )}
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
               {!gitStatus?.isRepo && (
-                <div className="px-2 py-8 text-center text-xs text-gray-400">当前项目目录不是 Git 仓库</div>
+                <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.dirNotGitRepo')}</div>
               )}
               {gitStatus?.isRepo && gitStatus.files.length === 0 && (
-                <div className="px-2 py-8 text-center text-xs text-gray-400">工作区干净，没有未提交的变更</div>
+                <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.cleanWorkspace')}</div>
               )}
               {gitStatus?.files.map((f) => {
                 const meta = GIT_STATUS_META[f.status] ?? GIT_STATUS_META.M
@@ -871,16 +873,16 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                         return next
                       })}
                       className="h-3.5 w-3.5 shrink-0"
-                      aria-label={`选择 ${f.path}`}
+                      aria-label={t('explorer.selectFile', { path: f.path })}
                     />
                     <span
                       onClick={() => void openGitDiffTab(f)}
                       className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[11px] text-gray-700 dark:text-gray-200"
-                      title={`${f.path}（${meta.label}，点击查看差异）`}
+                      title={t('explorer.fileDiffTitle', { path: f.path, label: t(meta.labelKey) })}
                     >
                       {f.path}
                     </span>
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${meta.cls}`}>{meta.label}</span>
+                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
                   </div>
                 )
               })}
@@ -890,19 +892,19 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                 <input
                   value={gitCommitMessage}
                   onChange={(e) => setGitCommitMessage(e.target.value)}
-                  placeholder="提交信息，如 fix: 修复登录样式"
+                  placeholder={t('explorer.commitMessagePlaceholder')}
                   className="mb-1.5 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
                 />
                 <button
                   onClick={() => confirm({
-                    message: `确定提交选中的 ${gitSelected.size} 个文件吗？将执行 git add 并创建提交。`,
+                    message: t('explorer.commitConfirm', { count: gitSelected.size }),
                     onConfirm: () => gitCommit.mutate(),
                   })}
                   disabled={!gitCommitMessage.trim() || gitCommit.isPending}
                   className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-500 py-1.5 text-[11px] font-medium text-white hover:bg-blue-600 disabled:opacity-40"
                 >
                   {gitCommit.isPending ? <Loader2 size={11} className="animate-spin" /> : <GitCommitHorizontal size={11} />}
-                  提交 {gitSelected.size} 个文件
+                  {t('explorer.commitSelected', { count: gitSelected.size })}
                 </button>
               </div>
             )}
@@ -914,12 +916,12 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={searchMode === 'semantic' ? '按语义检索代码（需已建索引）' : '搜索文件名或内容'}
+                placeholder={searchMode === 'semantic' ? t('explorer.searchSemanticPlaceholder') : t('explorer.searchTextPlaceholder')}
                 className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-gray-400"
               />
               <button
                 onClick={() => setSearchMode(searchMode === 'text' ? 'semantic' : 'text')}
-                title={searchMode === 'text' ? '切换为语义检索' : '切换为文本搜索'}
+                title={searchMode === 'text' ? t('explorer.switchToSemantic') : t('explorer.switchToText')}
                 className={`shrink-0 rounded p-0.5 ${searchMode === 'semantic' ? 'text-violet-500' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 <Sparkles size={12} />
@@ -935,7 +937,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                 {searchMode === 'text' ? (
                   <>
                     {isSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
-                    {!isSearching && searchHits.length === 0 && <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>}
+                    {!isSearching && searchHits.length === 0 && <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.noMatches')}</div>}
                     {searchHits.map((hit, i) => (
                       <div
                         key={`${hit.path}:${hit.line}:${i}`}
@@ -954,11 +956,11 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                     {isCodeSearching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
                     {!isCodeSearching && indexStatus && !indexStatus.isReady && (
                       <div className="px-2 py-8 text-center text-[11px] text-gray-400">
-                        尚未建立代码向量索引，请先在项目设置中执行「重建代码索引」
+                        {t('explorer.noIndex')}
                       </div>
                     )}
                     {!isCodeSearching && indexStatus?.isReady && codeHits.length === 0 && (
-                      <div className="px-2 py-8 text-center text-xs text-gray-400">无匹配结果</div>
+                      <div className="px-2 py-8 text-center text-xs text-gray-400">{t('explorer.noMatches')}</div>
                     )}
                     {codeHits.map((hit: IWorkCodeSearchHit, i: number) => (
                       <div
@@ -981,8 +983,8 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
                 {rootQuery.isFetching && <div className="flex justify-center py-4"><Loader2 size={14} className="animate-spin text-gray-400" /></div>}
-                {!rootQuery.isFetching && rootQuery.error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{rootQuery.error.message || '读取目录失败'}</div>}
-                {!rootQuery.isFetching && !rootQuery.error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">空目录</div>}
+                {!rootQuery.isFetching && rootQuery.error && <div className="px-2 py-6 text-center text-xs text-red-500 dark:text-red-400">{rootQuery.error.message || t('explorer.readDirFailedShort')}</div>}
+                {!rootQuery.isFetching && !rootQuery.error && tree.length === 0 && <div className="py-8 text-center text-xs text-gray-400">{t('explorer.emptyDir')}</div>}
                 {tree.map((node) => renderNode(node, '', 0))}
               </div>
             )}
@@ -994,7 +996,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
       <div
         onMouseDown={onListDragStart}
         className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
-        title="拖拽调整宽度"
+        title={t('explorer.dragWidth')}
       >
         <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
       </div>
@@ -1006,7 +1008,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
               {actionError && (
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-red-50 px-3 py-1 text-[11px] text-red-600 dark:border-gray-800 dark:bg-red-950/30 dark:text-red-400">
                   <span className="min-w-0 flex-1">{actionError}</span>
-                  <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label="关闭错误提示">
+                  <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label={t('explorer.closeError')}>
                     <X size={10} />
                   </button>
                 </div>
@@ -1020,8 +1022,8 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                 <WorkDiffView
                   change={activeDoc.change}
                   actionPending={writeFileContent.isPending}
-                  revertLabel={activeDoc.change.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前'}
-                  onRevert={() => handleRevertChange(activeDoc.change!, activeDoc.change!.id.startsWith('git:') ? '还原到 HEAD 版本' : '还原到编辑前')}
+                  revertLabel={activeDoc.change.id.startsWith('git:') ? t('explorer.revertToHead') : t('explorer.revertToBeforeEdit')}
+                  onRevert={() => handleRevertChange(activeDoc.change!, activeDoc.change!.id.startsWith('git:') ? 'head' : 'edit')}
                   onApply={activeDoc.change.id.startsWith('git:') ? undefined : () => handleApplyChange(activeDoc.change!)}
                 />
               )}
@@ -1030,33 +1032,33 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
                   diff={activeDoc.checkpoint}
                   actionPending={writeFileContent.isPending}
                   onRevertFile={(path, oldContent) => confirm({
-                    message: `确定把 ${path} 还原到快照版本吗？磁盘上的当前内容将被覆盖。`,
+                    message: t('explorer.revertSnapshotConfirm', { path }),
                     onConfirm: () => writeFileContent.mutate({ path, content: oldContent }),
                   })}
                 />
               )}
               {activeDoc?.kind === 'file' && activeDoc.file && (
                 activeDoc.file.isBinary ? (
-                  <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">二进制文件（{activeDoc.file.size} bytes）</div>
+                  <div className="flex h-full items-center justify-center p-4 text-xs text-gray-400">{t('explorer.binaryFile', { size: activeDoc.file.size })}</div>
                 ) : (
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
                       <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeDoc.file.path}</span>
                       <button
                         onClick={quoteSelection}
-                        title="将选中代码加入对话（Quote）"
+                        title={t('explorer.quoteSelection')}
                         className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                       >
-                        <Quote size={11} />引用选中
+                        <Quote size={11} />{t('explorer.quoteSelected')}
                       </button>
                       <button
                         onClick={saveactiveDoc}
                         disabled={!drafts.has(activeDoc.key) || saveFile.isPending}
                         className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                        title="保存（Ctrl+S）"
+                        title={t('explorer.saveShortcut')}
                       >
                         {saveFile.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                        保存
+                        {t('common:save')}
                       </button>
                     </div>
                     <div className="min-h-0 flex-1 overflow-auto">
@@ -1097,13 +1099,13 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
             {actionError && (
               <div className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-600 dark:bg-red-950/30 dark:text-red-400">
                 <span className="min-w-0 flex-1">{actionError}</span>
-                <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label="关闭错误提示">
+                <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label={t('explorer.closeError')}>
                   <X size={10} />
                 </button>
               </div>
             )}
             <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
-              {activeFeature === 'files' ? '点击文件在标签页中打开' : activeFeature === 'changes' ? '点击更改在标签页中查看 Diff' : activeFeature === 'checkpoints' ? '点击检查点查看快照 Diff' : '功能内容'}
+              {activeFeature === 'files' ? t('explorer.clickFileToOpen') : activeFeature === 'changes' ? t('explorer.clickChangeToViewDiff') : activeFeature === 'checkpoints' ? t('explorer.clickCheckpointToViewDiff') : t('explorer.featureContent')}
             </div>
           </div>
         )}
@@ -1129,7 +1131,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         }}
         className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
       >
-        关闭
+        {t('common:close')}
       </button>
       <button
         onClick={() => {
@@ -1139,7 +1141,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         }}
         className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
       >
-        关闭其他
+        {t('explorer.closeOthers')}
       </button>
       <button
         onClick={() => {
@@ -1149,7 +1151,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
         }}
         className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
       >
-        关闭全部
+        {t('explorer.closeAll')}
       </button>
     </div>
   )}
@@ -1159,14 +1161,9 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
 /* ─── 内嵌浏览器面板 ─── */
 
-const BROWSER_PRESETS = [
-  { label: '本机开发服务', url: 'http://localhost:5174' },
-  { label: '后端 API 文档', url: 'http://localhost:5000/scalar/v1' },
-  { label: 'GitHub', url: 'https://github.com' },
-]
-
 /** 带导航工具条的内嵌浏览器：历史前进后退、刷新、外站新窗打开、常用链接 */
 function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: string) => void }) {
+  const { t } = useTranslation('work')
   const [input, setInput] = useState(url)
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -1208,27 +1205,33 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
     setFrameKey((k) => k + 1)
   }
 
+  const browserPresets = [
+    { label: t('explorer.browser.devService'), url: 'http://localhost:5174' },
+    { label: t('explorer.browser.apiDocs'), url: 'http://localhost:5000/scalar/v1' },
+    { label: 'GitHub', url: 'https://github.com' },
+  ]
+
   if (!url) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">浏览器</h3>
+          <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t('explorer.tabs.browser')}</h3>
         </div>
         <div className="mb-3 flex gap-1">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
-            placeholder="输入网址或搜索..."
+            placeholder={t('explorer.browser.urlPlaceholder')}
             className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
           />
           <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
-            前往
+            {t('explorer.browser.go')}
           </button>
         </div>
         <div className="space-y-1.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">常用链接</p>
-          {BROWSER_PRESETS.map((p) => (
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('explorer.browser.quickLinks')}</p>
+          {browserPresets.map((p) => (
             <button
               key={p.url}
               onClick={() => navigate(p.url)}
@@ -1243,7 +1246,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
           ))}
         </div>
         <p className="mt-4 text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">
-          提示：部分网站设置 X-Frame-Options / CSP 不允许内嵌加载，将显示空白；可点击工具栏的外链按钮在系统浏览器打开。
+          {t('explorer.browser.iframeHint')}
         </p>
       </div>
     )
@@ -1253,16 +1256,16 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 工具条 */}
       <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
-        <button onClick={goBack} disabled={historyIndex <= 0} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title="后退">
+        <button onClick={goBack} disabled={historyIndex <= 0} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title={t('explorer.browser.back')}>
           <ArrowLeft size={13} />
         </button>
-        <button onClick={goForward} disabled={historyIndex >= history.length - 1} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title="前进">
+        <button onClick={goForward} disabled={historyIndex >= history.length - 1} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title={t('explorer.browser.forward')}>
           <ArrowRight size={13} />
         </button>
-        <button onClick={() => { setLoaded(false); setFrameKey((k) => k + 1) }} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="刷新">
+        <button onClick={() => { setLoaded(false); setFrameKey((k) => k + 1) }} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.refresh')}>
           <RotateCcw size={13} />
         </button>
-        <button onClick={() => navigate('http://localhost:5174')} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="回到本机服务">
+        <button onClick={() => navigate('http://localhost:5174')} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.goHome')}>
           <Home size={13} />
         </button>
         <input
@@ -1272,9 +1275,9 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
           className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] outline-none focus:border-blue-400 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
         />
         <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
-          前往
+          {t('explorer.browser.go')}
         </button>
-        <a href={url} target="_blank" rel="noreferrer" className="shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="在系统浏览器打开">
+        <a href={url} target="_blank" rel="noreferrer" className="shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.openInSystem')}>
           <ExternalLink size={13} />
         </a>
       </div>
@@ -1283,13 +1286,13 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center text-[11px] text-gray-400">
             <Loader2 size={16} className="mr-2 animate-spin" />
-            加载中...
+            {t('explorer.loading')}
           </div>
         )}
         <iframe
           key={frameKey}
           src={url}
-          title="内嵌浏览器"
+          title={t('explorer.embeddedBrowser')}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           referrerPolicy="no-referrer"
           className="h-full w-full border-0"

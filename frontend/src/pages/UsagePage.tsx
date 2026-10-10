@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import ReactEChartsCore from 'echarts-for-react/esm/core'
 import echarts from '../utils/echarts'
@@ -40,6 +41,7 @@ function compressionRatio(log: IUsageLog): number | null {
 }
 
 export default function UsagePage() {
+  const { t } = useTranslation('settings')
   const [heatTab, setHeatTab] = useState<HeatTab>('week')
   const [metric, setMetric] = useState<Metric>('tokens')
   const [trendRange, setTrendRange] = useState<'7d' | '30d' | '90d'>('7d')
@@ -56,7 +58,7 @@ const bySource = stats?.bySource ?? []
 
   // 趋势区间：基于 365 天按天数据零填充构建
   const rangeDays = trendRange === '7d' ? 7 : trendRange === '30d' ? 30 : 90
-  const rangeLabel = trendRange === '7d' ? '近 7 天' : trendRange === '30d' ? '近 30 天' : '近 90 天'
+  const rangeLabel = trendRange === '7d' ? t('usage.range7d') : trendRange === '30d' ? t('usage.range30d') : t('usage.range90d')
   const trend = useMemo(() => {
     const map = new Map((stats?.yearDaily ?? []).map((d) => [d.date, d]))
     const out: { date: string; messages: number; tokens: number }[] = []
@@ -72,7 +74,7 @@ const bySource = stats?.bySource ?? []
   }, [stats, rangeDays])
 
   const textColor = isDark ? '#9ca3af' : '#6b7280'
-  const metricLabel = metric === 'messages' ? '消息数' : 'Tokens'
+  const metricLabel = metric === 'messages' ? t('metrics.messages') : t('metrics.tokens')
 
   // 趋势曲线图（面积图）
   const trendOption = {
@@ -133,8 +135,8 @@ const bySource = stats?.bySource ?? []
       textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12 },
       formatter: (p: { name: string; value: number; percent: number; dataIndex: number }) => {
         const m = pieData[p.dataIndex]
-        const cached = m && m.cachedTokens > 0 ? `<br/>缓存 ${fmtNum(m.cachedTokens)} tokens` : ''
-        return `${p.name}<br/><b>${fmtNum(p.value)} ${metric === 'messages' ? '条' : 'tokens'} (${p.percent}%)</b>${cached}`
+        const cached = m && m.cachedTokens > 0 ? `<br/>${t('usage.tooltipCached', { value: fmtNum(m.cachedTokens) })}` : ''
+        return `${p.name}<br/><b>${fmtNum(p.value)} ${metric === 'messages' ? t('usage.unitMessages') : t('usage.unitTokens')} (${p.percent}%)</b>${cached}`
       },
     },
     legend: {
@@ -165,13 +167,13 @@ const bySource = stats?.bySource ?? []
 
   const cards = overview
     ? [
-        { label: '总 Tokens', value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-        { label: '输入 / 压缩后', value: fmtNum(overview.totalInputTokens || 0), subValue: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-        { label: '输出 Tokens', value: fmtNum(overview.totalOutputTokens || 0), icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-        { label: '缓存 Tokens', value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
-        { label: '平均延迟', value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
-        { label: '活跃天数', value: String(overview.activeDays), icon: CalendarDays, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-        { label: '今日 Tokens', value: fmtNum(overview.todayTokens), icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-500/10' },
+        { label: t('usage.totalTokens'), value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+        { label: t('usage.inputCompressed'), value: fmtNum(overview.totalInputTokens || 0), subValue: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+        { label: t('usage.outputTokens'), value: fmtNum(overview.totalOutputTokens || 0), icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+        { label: t('usage.cachedTokens'), value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+        { label: t('usage.avgLatency'), value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
+        { label: t('usage.activeDays'), value: String(overview.activeDays), icon: CalendarDays, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+        { label: t('usage.todayTokens'), value: fmtNum(overview.todayTokens), icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-500/10' },
       ]
     : []
 
@@ -188,15 +190,15 @@ const bySource = stats?.bySource ?? []
                   <Gauge size={20} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">用量统计</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">消息量与 Token 消耗的时间分布</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('usage.title')}</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('usage.subtitle')}</p>
                 </div>
               </div>
               {overview && (
                 <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                  <span><b className="text-sm font-semibold text-blue-600 dark:text-blue-400">{fmtNum(overview.todayTokens)}</b> 今日 Tokens</span>
+                  <span><b className="text-sm font-semibold text-blue-600 dark:text-blue-400">{fmtNum(overview.todayTokens)}</b> {t('usage.todayTokens')}</span>
                   <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{overview.activeDays}</b> 活跃天数</span>
+                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{overview.activeDays}</b> {t('usage.activeDays')}</span>
                 </div>
               )}
               {/* 指标切换 */}
@@ -211,7 +213,7 @@ const bySource = stats?.bySource ?? []
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
-                    {m === 'tokens' ? 'Tokens' : m === 'messages' ? '消息数' : '请求日志'}
+                    {m === 'tokens' ? t('metrics.tokens') : m === 'messages' ? t('metrics.messages') : t('usage.logs')}
                   </button>
                 ))}
               </div>
@@ -220,10 +222,10 @@ const bySource = stats?.bySource ?? []
             {isLoading ? (
               <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">
                 <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
-                加载中...
+                {t('common:loading')}
               </div>
             ) : !stats ? (
-              <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">暂无数据</div>
+              <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">{t('common:empty')}</div>
             ) : (
               <div className="space-y-6">
                 {/* 概览卡片 */}
@@ -252,13 +254,13 @@ const bySource = stats?.bySource ?? []
                         <div className="mb-2 flex items-center justify-between">
                           <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                             <CalendarClock size={15} className="text-blue-500" />
-                            {rangeLabel}趋势
+                            {t('usage.trend', { range: rangeLabel })}
                           </h3>
                           <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                             {([
-                              { key: '7d' as const, label: '7 天' },
-                              { key: '30d' as const, label: '30 天' },
-                              { key: '90d' as const, label: '90 天' },
+                              { key: '7d' as const, labelKey: 'usage.days7' },
+                              { key: '30d' as const, labelKey: 'usage.days30' },
+                              { key: '90d' as const, labelKey: 'usage.days90' },
                             ]).map((r) => (
                               <button
                                 key={r.key}
@@ -269,7 +271,7 @@ const bySource = stats?.bySource ?? []
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}
                               >
-                                {r.label}
+                                {t(r.labelKey)}
                               </button>
                             ))}
                           </div>
@@ -281,10 +283,10 @@ const bySource = stats?.bySource ?? []
                       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Cpu size={15} className="text-violet-500" />
-                          模型分布
+                          {t('usage.modelDistribution')}
                         </h3>
                         {byModel.length === 0 ? (
-                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">暂无数据</p>
+                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
                         ) : (
                           <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
                         )}
@@ -294,10 +296,10 @@ const bySource = stats?.bySource ?? []
                       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Layers size={15} className="text-sky-500" />
-                          调用来源
+                          {t('usage.callSources')}
                         </h3>
                         {bySource.length === 0 ? (
-                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">暂无数据</p>
+                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
                         ) : (
                           <ul className="space-y-2">
                             {bySource.map((s) => {
@@ -329,7 +331,7 @@ const bySource = stats?.bySource ?? []
                       <div className="mb-4 flex items-center justify-between">
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Calendar size={15} className="text-emerald-500" />
-                          活跃热力
+                          {t('usage.activity')}
                         </h3>
                         <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                           <button
@@ -340,7 +342,7 @@ const bySource = stats?.bySource ?? []
                                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                             }`}
                           >
-                            周 × 时
+                            {t('usage.heatWeek')}
                           </button>
                           <button
                             onClick={() => setHeatTab('year')}
@@ -350,7 +352,7 @@ const bySource = stats?.bySource ?? []
                                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                             }`}
                           >
-                            年 × 日
+                            {t('usage.heatYear')}
                           </button>
                         </div>
                       </div>
@@ -372,6 +374,7 @@ const bySource = stats?.bySource ?? []
 }
 
 function UsageLogs() {
+  const { t } = useTranslation('settings')
   const [modelFilter, setModelFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const { data: logs = [], isLoading } = useQuery({
@@ -402,39 +405,39 @@ function UsageLogs() {
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
-        请求日志
+        {t('usage.logs')}
         <div className="ml-auto flex items-center gap-2">
           <Select
             value={sourceFilter}
             onChange={setSourceFilter}
-            options={[{ value: '', label: '全部来源' }, ...sources]}
+            options={[{ value: '', label: t('usage.allSources') }, ...sources]}
           />
           <Select
             value={modelFilter}
             onChange={setModelFilter}
-            options={[{ value: '', label: '全部模型' }, ...models.map(m => ({ value: m, label: m }))]}
+            options={[{ value: '', label: t('usage.allModels') }, ...models.map(m => ({ value: m, label: m }))]}
           />
         </div>
       </h3>
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center text-sm text-gray-400 dark:text-gray-500">加载中...</div>
+        <div className="flex h-32 items-center justify-center text-sm text-gray-400 dark:text-gray-500">{t('common:loading')}</div>
       ) : filtered.length === 0 ? (
-        <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">暂无日志</div>
+        <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">{t('usage.noLogs')}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-400 dark:border-gray-800">
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium">时间</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium">来源</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium">模型</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输入</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">压缩后</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right" title="压缩率 = 1 - 压缩后 / 压缩前，越大压得越多；0% 表示这条没有重复内容可压">压缩率</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输出</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">总计</th>
-                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">延迟</th>
-                <th className="whitespace-nowrap pb-2 font-medium">内容</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">{t('usage.time')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">{t('usage.source')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium">{t('usage.model')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">{t('usage.input')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">{t('usage.compressed')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right" title={t('usage.ratioHint')}>{t('usage.compressionRatio')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">{t('usage.output')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">{t('usage.total')}</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">{t('usage.latency')}</th>
+                <th className="whitespace-nowrap pb-2 font-medium">{t('usage.content')}</th>
               </tr>
             </thead>
             <tbody>
@@ -460,7 +463,7 @@ function UsageLogs() {
                     return (
                       <td className="whitespace-nowrap py-2 pr-3 text-right">
                         <span
-                          title={`压缩前 ${log.inputTokens} → 压缩后 ${log.compressedTokens} 字符（压掉 ${(ratio * 100).toFixed(1)}%）`}
+                          title={t('usage.ratioTooltip', { before: log.inputTokens, after: log.compressedTokens, percent: (ratio * 100).toFixed(1) })}
                           className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
                         >
                           {(ratio * 100).toFixed(1)}%

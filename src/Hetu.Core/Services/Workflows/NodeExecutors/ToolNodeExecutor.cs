@@ -12,9 +12,11 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class ToolNodeExecutor : INodeExecutor
 {
     private readonly ToolRegistry _toolRegistry;
-    public ToolNodeExecutor(ToolRegistry toolRegistry)
+    private readonly ILocalizer _localizer;
+    public ToolNodeExecutor(ToolRegistry toolRegistry, ILocalizer localizer)
     {
         _toolRegistry = toolRegistry;
+        _localizer = localizer;
     }
 
     public string NodeType => WorkflowNodeTypes.Tool;
@@ -23,12 +25,12 @@ public class ToolNodeExecutor : INodeExecutor
     {
         var config = ParseConfig(node.Config);
         if (config == null || !config.TryGetValue("toolName", out var tn) || tn == null)
-            return new NodeResult { Error = "Tool 节点未配置 toolName" };
+            return new NodeResult { Error = _localizer.T("workflowNode.toolNameRequired") };
 
         var toolName = tn.ToString()!;
         var executor = _toolRegistry.GetExecutor(toolName);
         if (executor == null)
-            return new NodeResult { Error = $"工具 {toolName} 不存在" };
+            return new NodeResult { Error = _localizer.T("workflowNode.toolNotFound", toolName) };
 
         var argsTemplate = config.TryGetValue("argumentsTemplate", out var at) ? at?.ToString() : "{}";
         var argumentsJson = TemplateResolver.Resolve(argsTemplate, ctx);
@@ -44,7 +46,7 @@ public class ToolNodeExecutor : INodeExecutor
         }
         catch (Exception ex)
         {
-            return new NodeResult { Error = $"工具 {toolName} 执行失败：{ex.Message}" };
+            return new NodeResult { Error = _localizer.T("workflowNode.toolFailed", toolName, ex.Message) };
         }
     }
 

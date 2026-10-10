@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { WorkflowNodeTypes } from '../../types/workflow'
 import { NODE_META_BY_TYPE, type IWorkflowNodeData } from './workflowNodeModel'
@@ -10,6 +11,7 @@ const STATUS_RING: Record<string, string> = {
 }
 
 function WorkflowNodeComponent({ data, selected }: NodeProps) {
+  const { t } = useTranslation('workflows')
   const nodeData = data as IWorkflowNodeData
   const meta = NODE_META_BY_TYPE[nodeData.type] ?? NODE_META_BY_TYPE[WorkflowNodeTypes.Agent]
   const Icon = meta.icon
@@ -40,21 +42,21 @@ function WorkflowNodeComponent({ data, selected }: NodeProps) {
       {/* Condition/Loop/Parallel 显示分支 handle */}
       {isCondition && (
         <div className="flex justify-end gap-3 pt-1 text-[10px] text-gray-400">
-          <span>真</span>
-          <span>假</span>
+          <span>{t('nodeHandles.true')}</span>
+          <span>{t('nodeHandles.false')}</span>
         </div>
       )}
       {isLoop && (
         <div className="flex justify-end gap-3 pt-1 text-[10px] text-gray-400">
-          <span>循环体</span>
-          <span>退出</span>
+          <span>{t('nodeHandles.loopBody')}</span>
+          <span>{t('nodeHandles.exit')}</span>
         </div>
       )}
       {isParallel && (
-        <div className="pt-1 text-[10px] text-gray-400">并行分支 ↓</div>
+        <div className="pt-1 text-[10px] text-gray-400">{t('nodeHandles.parallelBranch')}</div>
       )}
       {isMerge && (
-        <div className="pt-1 text-[10px] text-gray-400">合并分支 ↑</div>
+        <div className="pt-1 text-[10px] text-gray-400">{t('nodeHandles.mergeBranch')}</div>
       )}
 
       {/* 出口连接点（End 无出口） */}

@@ -9,10 +9,12 @@ namespace Hetu.Core.Services;
 public class AiModelService : IAiModelService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public AiModelService(IUnitOfWork unitOfWork)
+    public AiModelService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<AiModelDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -30,7 +32,7 @@ public class AiModelService : IAiModelService
     public async Task<ApiResponse<AiModelDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var model = await _unitOfWork.AiModels.GetByIdAsync(id, cancellationToken);
-        if (model == null) return ApiResponse<AiModelDto>.Fail("模型不存在");
+        if (model == null) return ApiResponse<AiModelDto>.Fail(_localizer.T("model.notFound"));
         return ApiResponse<AiModelDto>.Ok(Map(model));
     }
 
@@ -45,7 +47,7 @@ public class AiModelService : IAiModelService
         foreach (var providerId in providerIds)
         {
             if (await _unitOfWork.AiProviders.GetByIdAsync(providerId, cancellationToken) == null)
-                return ApiResponse<List<AiModelDto>>.Fail("AI 供应商不存在");
+                return ApiResponse<List<AiModelDto>>.Fail(_localizer.T("model.providerNotFound"));
         }
 
         var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -91,7 +93,7 @@ public class AiModelService : IAiModelService
     public async Task<ApiResponse<AiModelDto>> CreateAsync(CreateAiModelRequest request, CancellationToken cancellationToken = default)
     {
         var provider = await _unitOfWork.AiProviders.GetByIdAsync(request.ProviderId, cancellationToken);
-        if (provider == null) return ApiResponse<AiModelDto>.Fail("AI 供应商不存在");
+        if (provider == null) return ApiResponse<AiModelDto>.Fail(_localizer.T("model.providerNotFound"));
 
         if (request.IsDefault)
         {
@@ -132,7 +134,7 @@ public class AiModelService : IAiModelService
     public async Task<ApiResponse<AiModelDto>> UpdateAsync(Guid id, UpdateAiModelRequest request, CancellationToken cancellationToken = default)
     {
         var model = await _unitOfWork.AiModels.GetByIdAsync(id, cancellationToken);
-        if (model == null) return ApiResponse<AiModelDto>.Fail("模型不存在");
+        if (model == null) return ApiResponse<AiModelDto>.Fail(_localizer.T("model.notFound"));
 
         if (request.IsDefault && !model.IsDefault)
         {
@@ -163,7 +165,7 @@ public class AiModelService : IAiModelService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var model = await _unitOfWork.AiModels.GetByIdAsync(id, cancellationToken);
-        if (model == null) return ApiResponse.Fail("模型不存在");
+        if (model == null) return ApiResponse.Fail(_localizer.T("model.notFound"));
 
         await _unitOfWork.AiModels.DeleteAsync(model, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -173,7 +175,7 @@ public class AiModelService : IAiModelService
     public async Task<ApiResponse> SetDefaultAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var model = await _unitOfWork.AiModels.GetByIdAsync(id, cancellationToken);
-        if (model == null) return ApiResponse.Fail("模型不存在");
+        if (model == null) return ApiResponse.Fail(_localizer.T("model.notFound"));
 
         await _unitOfWork.AiModels.ClearDefaultAsync(model.Purpose, cancellationToken);
         model.IsDefault = true;

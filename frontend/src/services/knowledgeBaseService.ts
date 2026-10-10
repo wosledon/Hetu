@@ -1,4 +1,5 @@
 import { get, post, put, del } from './api';
+import i18n from '../i18n';
 import type { INoteSearchResult, IPagedResult } from '../types';
 
 // ── 知识库状态 ──
@@ -129,7 +130,7 @@ export const knowledgeItemService = {
     });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || '上传失败');
+      throw new Error(error.message || i18n.t('knowledge:kb.uploadFailed'));
     }
     const data = await response.json();
     return data.data as IKnowledgeItem;

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ReactFlow, Background, Controls, MarkerType, type Node, type Edge, type NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Check, X, Loader2, CircleCheckBig, Circle, UserCheck, HelpCircle, ChevronLeft, ChevronRight, ListChecks } from 'lucide-react'
@@ -34,6 +35,7 @@ interface InlineWorkflowPanelProps {
 export default function InlineWorkflowPanel({
   workflow, nodeStates, pendingApproval, workflowToolCall, onApprove, onToolApprove, isStreaming, error,
 }: InlineWorkflowPanelProps) {
+  const { t } = useTranslation('workflows')
   const [graphCollapsed, setGraphCollapsed] = useState(true)
   const hasInteraction = !!pendingApproval || !!workflowToolCall
   // 有交互面板时默认折叠流程图
@@ -78,14 +80,14 @@ export default function InlineWorkflowPanel({
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
         <CircleCheckBig size={14} className="text-blue-500" />
-        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">工作流：{workflow.name}</span>
+        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{t('inline.title', { name: workflow.name })}</span>
         {hasInteraction && (
           <button
             onClick={() => setGraphCollapsed(v => !v)}
             className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600"
           >
             {graphCollapsed ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
-            {graphCollapsed ? '展开流程图' : '收起流程图'}
+            {graphCollapsed ? t('inline.expandGraph') : t('inline.collapseGraph')}
           </button>
         )}
         {isStreaming && <Loader2 size={12} className="animate-spin text-blue-400 ml-auto" />}
@@ -121,13 +123,13 @@ export default function InlineWorkflowPanel({
             onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, true)}
             className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
           >
-            <Check size={11} /> 通过
+            <Check size={11} /> {t('approval.approve')}
           </button>
           <button
             onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, false)}
             className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
           >
-            <X size={11} /> 拒绝
+            <X size={11} /> {t('approval.reject')}
           </button>
         </div>
       )}
@@ -161,13 +163,13 @@ export default function InlineWorkflowPanel({
               onClick={() => onToolApprove(true)}
               className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
             >
-              <Check size={11} /> 通过
+              <Check size={11} /> {t('approval.approve')}
             </button>
             <button
               onClick={() => onToolApprove(false)}
               className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
             >
-              <X size={11} /> 拒绝
+              <X size={11} /> {t('approval.reject')}
             </button>
           </div>
         )
@@ -191,6 +193,7 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
   arguments: string
   onSubmit: (answer: string) => void
 }) {
+  const { t } = useTranslation('workflows')
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
   const [currentIdx, setCurrentIdx] = useState(0)
 
@@ -209,10 +212,10 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
       <div className="flex items-center gap-2 border-t border-violet-200 bg-violet-50 px-3 py-2.5 dark:border-violet-800 dark:bg-violet-950/30">
         <HelpCircle size={14} className="text-violet-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-violet-700 dark:text-violet-300">等待用户输入...</div>
+          <div className="text-xs text-violet-700 dark:text-violet-300">{t('inline.waitingUserInput')}</div>
           <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
         </div>
-        <button onClick={() => onSubmit('')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> 提交</button>
+        <button onClick={() => onSubmit('')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> {t('inline.submit')}</button>
       </div>
     )
   }
@@ -220,7 +223,7 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
   const flowQuestions = questions.map((q, i) => ({
     id: String(i),
     toolCallId: '',
-    header: q.header || `问题 ${i + 1}`,
+    header: q.header || t('inline.questionHeader', { n: i + 1 }),
     question: q.question || '',
     options: q.options,
   }))
@@ -244,6 +247,7 @@ function WorkflowPlanPanel({ arguments: argsJson, onSubmit }: {
   arguments: string
   onSubmit: (approved: boolean, feedback: string) => void
 }) {
+  const { t } = useTranslation('workflows')
   const [feedback, setFeedback] = useState('')
 
   const plan = useMemo<InteractionPlan | null>(() => {
@@ -276,11 +280,11 @@ function WorkflowPlanPanel({ arguments: argsJson, onSubmit }: {
       <div className="flex items-center gap-2 border-t border-teal-200 bg-teal-50 px-3 py-2.5 dark:border-teal-800 dark:bg-teal-950/30">
         <ListChecks size={14} className="text-teal-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-teal-700 dark:text-teal-300">等待确认执行计划...</div>
+          <div className="text-xs text-teal-700 dark:text-teal-300">{t('inline.waitingPlanConfirm')}</div>
           <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
         </div>
-        <button onClick={() => onSubmit(true, '')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> 通过</button>
-        <button onClick={() => onSubmit(false, '')} className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"><X size={11} /> 拒绝</button>
+        <button onClick={() => onSubmit(true, '')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> {t('approval.approve')}</button>
+        <button onClick={() => onSubmit(false, '')} className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"><X size={11} /> {t('approval.reject')}</button>
       </div>
     )
   }

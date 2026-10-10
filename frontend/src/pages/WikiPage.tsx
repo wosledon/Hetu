@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, BookText, Check, Cpu, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
@@ -10,6 +11,8 @@ import { projectService } from '../services/projectService'
 import { wikiService } from '../services/wikiService'
 import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
+import i18n from '../i18n'
+import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
@@ -21,16 +24,17 @@ function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
   const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000)
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins} 分钟前`
+  if (diffMins < 1) return i18n.t('common:justNow')
+  if (diffMins < 60) return i18n.t('common:minutesAgo', { count: diffMins })
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours} 小时前`
+  if (diffHours < 24) return i18n.t('common:hoursAgo', { count: diffHours })
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `${diffDays} 天前`
-  return date.toLocaleDateString('zh-CN')
+  if (diffDays < 30) return i18n.t('common:daysAgo', { count: diffDays })
+  return formatDate(date)
 }
 
 export default function WikiPage() {
+  const { t } = useTranslation('knowledge')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -141,9 +145,9 @@ export default function WikiPage() {
     mutationFn: (projectId: string) => wikiService.generate(projectId, chosenModelId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wiki', 'jobs'] })
-      showToast(true, '已加入生成队列')
+      showToast(true, t('wiki.queued'))
     },
-    onError: (e: Error) => showToast(false, e.message || '入队失败'),
+    onError: (e: Error) => showToast(false, e.message || t('wiki.queueFailed')),
   })
 
   const regenerateMutation = useMutation({
@@ -151,9 +155,9 @@ export default function WikiPage() {
     onSuccess: (doc) => {
       setSelectedDocId(doc.id)
       invalidateWiki()
-      showToast(true, '页面已更新')
+      showToast(true, t('wiki.pageUpdated'))
     },
-    onError: (e: Error) => showToast(false, e.message || '重生成失败'),
+    onError: (e: Error) => showToast(false, e.message || t('wiki.regenerateFailed')),
   })
 
   const deleteMutation = useMutation({
@@ -161,9 +165,9 @@ export default function WikiPage() {
     onSuccess: () => {
       setSelectedDocId(null)
       invalidateWiki()
-      showToast(true, '已删除')
+      showToast(true, t('wiki.deleted'))
     },
-    onError: (e: Error) => showToast(false, e.message || '删除失败'),
+    onError: (e: Error) => showToast(false, e.message || t('common:deleteFailed')),
   })
 
   const deleteSetMutation = useMutation({
@@ -172,9 +176,9 @@ export default function WikiPage() {
       setSelectedSetId(null)
       setSelectedDocId(null)
       invalidateWiki()
-      showToast(true, '已删除这一套')
+      showToast(true, t('wiki.setDeleted'))
     },
-    onError: (e: Error) => showToast(false, e.message || '删除失败'),
+    onError: (e: Error) => showToast(false, e.message || t('common:deleteFailed')),
   })
 
   const exportMutation = useMutation({
@@ -186,9 +190,9 @@ export default function WikiPage() {
       link.download = `wiki-${setId}.zip`
       link.click()
       URL.revokeObjectURL(url)
-      showToast(true, '已开始下载')
+      showToast(true, t('wiki.downloadStarted'))
     },
-    onError: (e: Error) => showToast(false, e.message || '导出失败'),
+    onError: (e: Error) => showToast(false, e.message || t('wiki.exportFailed')),
   })
 
   // 从项目页带 generate=1 跳转进来：自动入队一次生成，并清掉 URL 参数
@@ -245,8 +249,8 @@ export default function WikiPage() {
           regenerateMutation.mutate(page.id)
         }}
         disabled={regeneratingId === page.id}
-        title="用最新项目资料重生成此页"
-        aria-label="重生成此页"
+        title={t('wiki.regenerateTitle')}
+        aria-label={t('wiki.regeneratePage')}
         className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100"
       >
         {regeneratingId === page.id
@@ -257,13 +261,13 @@ export default function WikiPage() {
         onClick={(e) => {
           e.stopPropagation()
           confirm({
-            title: '删除页面',
-            message: `删除「${page.title}」？删除后不可恢复。`,
+            title: t('wiki.deletePageTitle'),
+            message: t('wiki.deletePageMessage', { title: page.title }),
             onConfirm: () => deleteMutation.mutate(page.id),
           })
         }}
-        title="删除"
-        aria-label="删除"
+        title={t('common:delete')}
+        aria-label={t('common:delete')}
         className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
       >
         <Trash2 size={12} />
@@ -318,18 +322,18 @@ export default function WikiPage() {
               }`}
             >
               <BookText size={14} className="shrink-0" />
-              <span className="min-w-0 flex-1">全部文档</span>
+              <span className="min-w-0 flex-1">{t('wiki.allDocs')}</span>
               <span className="shrink-0 text-[11px] text-gray-400">{sets.length}</span>
             </button>
 
             <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">项目</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('wiki.projects')}</span>
             </div>
             <div className="mt-1 space-y-0.5">
               {projectsLoading ? (
                 <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
               ) : orderedProjects.length === 0 ? (
-                <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">还没有项目，请先到「项目」页添加</p>
+                <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('wiki.noProjects')}</p>
               ) : (
                 orderedProjects.map((project) => {
                   const active = project.id === projectParam
@@ -360,8 +364,8 @@ export default function WikiPage() {
         {/* Wiki 套件与页面 */}
         <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Wiki 套件</h2>
-            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">每次「生成 Wiki」产生一套，下面展开是其章节与页面</p>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
+            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto py-3">
             {setsLoading ? (
@@ -370,7 +374,7 @@ export default function WikiPage() {
               <div className="px-4 py-8 text-center">
                 <BookText size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                 <p className="text-[12px] leading-relaxed text-gray-400">
-                  {projectParam ? '该项目还没有 Wiki' : '还没有 Wiki 文档'}
+                  {projectParam ? t('wiki.emptyForProject') : t('wiki.empty')}
                 </p>
                 {selectedProject && selectedProject.projectType === 'Local' && (
                   <button
@@ -378,7 +382,7 @@ export default function WikiPage() {
                     disabled={generating}
                     className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
                   >
-                    生成第一套
+                    {t('wiki.generateFirstSet')}
                   </button>
                 )}
               </div>
@@ -405,19 +409,19 @@ export default function WikiPage() {
                           </span>
                           <span className="mt-0.5 block truncate text-[11px] text-gray-400">
                             {!projectParam && `${set.projectName} · `}
-                            生成于 {formatTime(set.createdAt)} · {set.pageCount} 页
-                            {set.isStale && <span className="ml-1 text-amber-500">· 有更新</span>}
+                            {t('wiki.setMeta', { time: formatTime(set.createdAt), n: set.pageCount })}
+                            {set.isStale && <span className="ml-1 text-amber-500">{t('wiki.setStale')}</span>}
                           </span>
                         </span>
                       </button>
                       <button
                         onClick={() => confirm({
-                          title: '删除整套 Wiki',
-                          message: `删除「${set.title}」这套的全部 ${set.pageCount} 页文档？删除后不可恢复。`,
+                          title: t('wiki.deleteSetTitle'),
+                          message: t('wiki.deleteSetMessage', { title: set.title, n: set.pageCount }),
                           onConfirm: () => deleteSetMutation.mutate(set.setId),
                         })}
-                        title="删除这一套"
-                        aria-label="删除这一套"
+                        title={t('wiki.deleteSetTooltip')}
+                        aria-label={t('wiki.deleteSetTooltip')}
                         className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                       >
                         <Trash2 size={12} />
@@ -438,12 +442,12 @@ export default function WikiPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {selectedProject ? `${selectedProject.name} · Wiki` : 'Wiki 文档'}
+                {selectedProject ? t('wiki.projectTitle', { name: selectedProject.name }) : t('wiki.title')}
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                AI 依据项目目录资料生成的多页文档（总览 + 主题页 + 图表） · {visibleSets.length} 套
-                {selectedSet && ` / 当前 ${selectedSet.pageCount} 页`}
-                {selectedSet?.isStale && ' · 项目有更新，可单页重生成'}
+                {t('wiki.headerSubtitle', { n: visibleSets.length })}
+                {selectedSet && t('wiki.headerCurrentPages', { n: selectedSet.pageCount })}
+                {selectedSet?.isStale && t('wiki.headerStale')}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -451,11 +455,11 @@ export default function WikiPage() {
                 <button
                   onClick={() => exportMutation.mutate(selectedSet.setId)}
                   disabled={exportMutation.isPending}
-                  title="导出这一套 Wiki（zip）"
+                  title={t('wiki.exportTitle')}
                   className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   {exportMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                  导出
+                  {t('common:export')}
                 </button>
               )}
 
@@ -463,11 +467,11 @@ export default function WikiPage() {
               <div className="relative">
                 <button
                   onClick={() => setModelPickerOpen((v) => !v)}
-                  title="选择生成所用模型"
+                  title={t('wiki.modelPickerTitle')}
                   className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <Cpu size={14} />
-                  <span className="max-w-[140px] truncate">{chosenModelName ?? '默认模型'}</span>
+                  <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
                 </button>
                 {modelPickerOpen && (
                   <>
@@ -481,7 +485,7 @@ export default function WikiPage() {
                             : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
                         }`}
                       >
-                        默认模型（补全）
+                        {t('wiki.defaultModelCompletion')}
                       </button>
                       {chatModels.map((model) => (
                         <button
@@ -508,13 +512,13 @@ export default function WikiPage() {
                 disabled={!selectedProject || generating}
                 title={
                   !selectedProject
-                    ? '请先选择项目'
-                    : '规划并生成整套 Wiki（后台执行，可离开页面）'
+                    ? t('wiki.selectProjectFirst')
+                    : t('wiki.generateTitle')
                 }
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {generating ? <Loader2 size={15} className="animate-spin" /> : <BookText size={15} />}
-                {generating ? '生成中…' : '生成 Wiki'}
+                {generating ? t('wiki.generating') : t('wiki.generate')}
               </button>
             </div>
           </div>
@@ -539,8 +543,8 @@ export default function WikiPage() {
                 <Loader2 size={13} className="animate-spin" />
                 <span className="min-w-0 flex-1">
                   {activeJob.stage}
-                  {activeJob.totalPages > 0 && `（已完成 ${activeJob.donePages}/${activeJob.totalPages} 页）`}
-                  {' · 后台生成中，可离开页面'}
+                  {activeJob.totalPages > 0 && t('wiki.jobProgress', { done: activeJob.donePages, total: activeJob.totalPages })}
+                  {t('wiki.jobBackground')}
                 </span>
                 <span className="shrink-0 tabular-nums">{activeJob.progress}%</span>
               </div>
@@ -555,7 +559,7 @@ export default function WikiPage() {
           {activeJob && activeJob.status === 3 && (
             <div className="flex shrink-0 items-center gap-2 bg-red-50 px-6 py-2 text-[12px] text-red-600 dark:bg-red-950/30 dark:text-red-300">
               <AlertCircle size={13} />
-              <span className="min-w-0 flex-1">生成失败：{activeJob.errorMessage ?? '未知错误'}</span>
+              <span className="min-w-0 flex-1">{t('wiki.jobFailed', { msg: activeJob.errorMessage ?? t('wiki.unknownError') })}</span>
             </div>
           )}
 
@@ -577,7 +581,7 @@ export default function WikiPage() {
                     <button
                       onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
                       disabled={regeneratingId === selectedDoc.id}
-                      title="用最新项目资料重生成此页"
+                      title={t('wiki.regenerateTitle')}
                       className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800"
                     >
                       {regeneratingId === selectedDoc.id
@@ -598,19 +602,19 @@ export default function WikiPage() {
               <div className="text-center">
                 <BookText size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  {visibleSets.length > 0 ? '选择一套 Wiki 开始阅读' : '还没有 Wiki 文档'}
+                  {visibleSets.length > 0 ? t('wiki.pickSet') : t('wiki.empty')}
                 </p>
                 <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
                   {visibleSets.length > 0
-                    ? '在中间栏选择一套 Wiki，再点选其中的页面阅读。'
-                    : '在「项目」页选择项目并生成 Wiki，AI 会读取项目目录资料，规划并撰写整套多页文档（总览 + 主题页 + 图表）。'}
+                    ? t('wiki.pickSetHint')
+                    : t('wiki.noWikiHint')}
                 </p>
                 {visibleSets.length === 0 && (
                   <button
                     onClick={() => navigate('/projects')}
                     className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    去项目页看看
+                    {t('wiki.goProjects')}
                   </button>
                 )}
               </div>

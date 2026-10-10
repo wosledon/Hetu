@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 
@@ -12,9 +13,11 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class HumanNodeExecutor : INodeExecutor
 {
     private readonly WorkflowApprovalService _approvalService;
-    public HumanNodeExecutor(WorkflowApprovalService approvalService)
+    private readonly ILocalizer _localizer;
+    public HumanNodeExecutor(WorkflowApprovalService approvalService, ILocalizer localizer)
     {
         _approvalService = approvalService;
+        _localizer = localizer;
     }
 
     public string NodeType => WorkflowNodeTypes.Human;
@@ -22,7 +25,7 @@ public class HumanNodeExecutor : INodeExecutor
     public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         var config = ParseConfig(node.Config);
-        var prompt = config?.TryGetValue("prompt", out var p) == true ? p?.ToString() : "请确认是否继续执行";
+        var prompt = config?.TryGetValue("prompt", out var p) == true ? p?.ToString() : _localizer.T("workflowNode.defaultApprovalPrompt");
         var timeoutSeconds = 300;
         if (config?.TryGetValue("timeoutSeconds", out var ts) == true && int.TryParse(ts?.ToString(), out var t))
             timeoutSeconds = t;
@@ -37,12 +40,12 @@ public class HumanNodeExecutor : INodeExecutor
         {
             var approved = await pending.Task.WaitAsync(ct);
             if (!approved)
-                return new NodeResult { Error = "用户拒绝审批", BranchHandle = "rejected" };
-            return new NodeResult { Output = "已审批通过", BranchHandle = "approved" };
+                return new NodeResult { Error = _localizer.T("workflowNode.approvalRejected"), BranchHandle = "rejected" };
+            return new NodeResult { Output = _localizer.T("workflowNode.approvalApproved"), BranchHandle = "approved" };
         }
         catch (OperationCanceledException)
         {
-            return new NodeResult { Error = "审批等待被取消" };
+            return new NodeResult { Error = _localizer.T("workflowNode.approvalCancelled") };
         }
     }
 

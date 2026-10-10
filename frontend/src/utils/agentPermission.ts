@@ -1,10 +1,12 @@
+import i18n from '../i18n'
+
 /** 权限模式五档。对话页与编码会话共用同一套语义（取编码会话原有、更丰富的模型）。 */
 export const AGENT_PERMISSION_MODES = [
-  { value: 'plan', label: '计划（只调研）', description: '只读调研，先产出计划，由你确认后再执行' },
-  { value: 'readonly', label: '只读', description: '只允许读取，拒绝一切写入与命令执行' },
-  { value: 'ask', label: '写入需确认', description: '写文件 / 跑命令前逐个询问你的确认' },
-  { value: 'auto', label: '自动执行', description: '写操作直接执行，不再逐个询问' },
-  { value: 'bypass', label: '全部放行', description: '包括高风险操作在内全部直接执行' },
+  { value: 'plan', labelKey: 'permission.modes.plan.label', descriptionKey: 'permission.modes.plan.description' },
+  { value: 'readonly', labelKey: 'permission.modes.readonly.label', descriptionKey: 'permission.modes.readonly.description' },
+  { value: 'ask', labelKey: 'permission.modes.ask.label', descriptionKey: 'permission.modes.ask.description' },
+  { value: 'auto', labelKey: 'permission.modes.auto.label', descriptionKey: 'permission.modes.auto.description' },
+  { value: 'bypass', labelKey: 'permission.modes.bypass.label', descriptionKey: 'permission.modes.bypass.description' },
 ] as const
 
 export type AgentPermissionMode = (typeof AGENT_PERMISSION_MODES)[number]['value']
@@ -24,18 +26,18 @@ export interface PermissionModeMeta {
   cls: string
 }
 
-/** 模式对应的中文名与配色（供工具栏图标、时间线状态点复用） */
+/** 模式对应的名称与配色（供工具栏图标、时间线状态点复用） */
 export function permissionModeMeta(mode: string): PermissionModeMeta {
   switch (mode) {
     case 'plan':
-      return { label: '计划模式', cls: 'text-sky-500' }
+      return { label: i18n.t('agent:permission.meta.plan'), cls: 'text-sky-500' }
     case 'readonly':
-      return { label: '只读模式', cls: 'text-gray-400' }
+      return { label: i18n.t('agent:permission.meta.readonly'), cls: 'text-gray-400' }
     case 'bypass':
-      return { label: '全部放行', cls: 'text-rose-500' }
+      return { label: i18n.t('agent:permission.meta.bypass'), cls: 'text-rose-500' }
     case 'auto':
-      return { label: '自动执行', cls: 'text-emerald-500' }
+      return { label: i18n.t('agent:permission.meta.auto'), cls: 'text-emerald-500' }
     default:
-      return { label: '写入需确认', cls: 'text-amber-500' }
+      return { label: i18n.t('agent:permission.meta.ask'), cls: 'text-amber-500' }
   }
 }

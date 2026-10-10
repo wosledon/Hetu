@@ -8,6 +8,7 @@ using Hetu.Core.Services.Workflows.NodeExecutors;
 using Hetu.Infrastructure.AI;
 using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
+using Hetu.Infrastructure.Localization;
 using Hetu.Infrastructure.Repositories;
 using Hetu.Infrastructure.ScheduledTasks;
 using Hetu.Infrastructure.SemanticSearch;
@@ -145,12 +146,17 @@ public static class HetuServiceCollectionExtensions
 
         services.AddScoped<IExportService>(sp => new ExportService(
             sp.GetRequiredService<IUnitOfWork>(),
-            sp.GetRequiredService<DatabaseProviderInfo>()));
+            sp.GetRequiredService<DatabaseProviderInfo>(),
+            sp.GetRequiredService<ILocalizer>()));
 
         services.AddSingleton<WebContentExtractor>();
         services.AddSingleton<ToolExecutionService>();
         services.AddToolExecutors();
         services.AddScoped<ILlmUsageRecorder, LlmUsageRecorder>();
+
+        // 多语言：ILocalizer 读请求头 Accept-Language，ILanguagePreference 保存用户设置的语言
+        services.AddSingleton<ILanguagePreference, LanguagePreference>();
+        services.AddScoped<ILocalizer, Localizer>();
 
         return services;
     }
@@ -162,6 +168,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IBackgroundTaskCoordinator, BackgroundTaskCoordinator>();
         services.AddHostedService<BackgroundTaskProcessor>();
         services.AddHostedService<TrashCleanupService>();
+        services.AddHostedService<LanguageWarmupService>();
         services.AddHostedService<DreamMemoryService>();
         services.AddHostedService<AutoOrganizeService>();
         services.AddHostedService<ScheduledTaskRunner>();

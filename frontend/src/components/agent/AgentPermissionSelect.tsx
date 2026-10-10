@@ -1,4 +1,5 @@
 import { ClipboardList, Eye, ShieldCheck, ShieldOff, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import AgentToolbarSelect from './AgentToolbarSelect'
 import {
   AGENT_PERMISSION_MODES,
@@ -25,6 +26,7 @@ const MODE_ICONS: Record<string, typeof ShieldCheck> = {
  * plan（只调研）/ readonly（只读）/ ask（写入需确认）/ auto（自动执行）/ bypass（全部放行）。
  */
 export default function AgentPermissionSelect({ value, onChange, className }: AgentPermissionSelectProps) {
+  const { t } = useTranslation('agent')
   const meta = permissionModeMeta(value)
 
   return (
@@ -32,11 +34,11 @@ export default function AgentPermissionSelect({ value, onChange, className }: Ag
       <AgentToolbarSelect
         value={value}
         onChange={onChange}
-        title={`权限模式：${meta.label}`}
+        title={t('permission.title', { label: meta.label })}
         options={AGENT_PERMISSION_MODES.map((m) => ({
           value: m.value,
-          label: m.label,
-          description: m.description,
+          label: t(m.labelKey),
+          description: t(m.descriptionKey),
           icon: (() => {
             const OptIcon = MODE_ICONS[m.value] ?? ShieldCheck
             return <OptIcon size={13} className={permissionModeMeta(m.value).cls} />

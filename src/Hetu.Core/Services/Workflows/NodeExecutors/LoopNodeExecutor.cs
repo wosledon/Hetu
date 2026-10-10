@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 
@@ -11,6 +12,13 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 /// </summary>
 public class LoopNodeExecutor : INodeExecutor
 {
+    private readonly ILocalizer _localizer;
+
+    public LoopNodeExecutor(ILocalizer localizer)
+    {
+        _localizer = localizer;
+    }
+
     public string NodeType => WorkflowNodeTypes.Loop;
 
     public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
@@ -36,17 +44,17 @@ public class LoopNodeExecutor : INodeExecutor
         // 首次进入（visitCount==1）直接进入 body
         // 后续进入：检查退出条件或达到最大次数
         if (visitCount == 1)
-            return Task.FromResult(new NodeResult { BranchHandle = "body", Output = $"循环开始（第 1 轮）" });
+            return Task.FromResult(new NodeResult { BranchHandle = "body", Output = _localizer.T("workflowNode.loopStarted") });
 
         // 检查退出条件
         if (!string.IsNullOrWhiteSpace(exitCondition) && TemplateResolver.EvaluateCondition(exitCondition, ctx))
-            return Task.FromResult(new NodeResult { BranchHandle = "exit", Output = $"循环退出（条件满足，第 {visitCount} 轮）" });
+            return Task.FromResult(new NodeResult { BranchHandle = "exit", Output = _localizer.T("workflowNode.loopExitedCondition", visitCount) });
 
         // 检查最大次数
         if (visitCount > maxIterations)
-            return Task.FromResult(new NodeResult { BranchHandle = "exit", Output = $"循环退出（达到最大次数 {maxIterations}）" });
+            return Task.FromResult(new NodeResult { BranchHandle = "exit", Output = _localizer.T("workflowNode.loopExitedMax", maxIterations) });
 
         // 继续循环
-        return Task.FromResult(new NodeResult { BranchHandle = "body", Output = $"循环第 {visitCount} 轮" });
+        return Task.FromResult(new NodeResult { BranchHandle = "body", Output = _localizer.T("workflowNode.loopRound", visitCount) });
     }
 }

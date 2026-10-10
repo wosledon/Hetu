@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { confirm } from '../components/confirm'
 import {
@@ -19,6 +20,8 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { inboxService } from '../services/inboxService'
+import i18n from '../i18n'
+import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
@@ -46,15 +49,16 @@ function formatTime(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins} 分钟前`
-  if (diffHours < 24) return `${diffHours} 小时前`
-  if (diffDays < 30) return `${diffDays} 天前`
-  return date.toLocaleDateString('zh-CN')
+  if (diffMins < 1) return i18n.t('common:justNow')
+  if (diffMins < 60) return i18n.t('common:minutesAgo', { count: diffMins })
+  if (diffHours < 24) return i18n.t('common:hoursAgo', { count: diffHours })
+  if (diffDays < 30) return i18n.t('common:daysAgo', { count: diffDays })
+  return formatDate(date)
 }
 
 export default function InboxPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation('settings')
   const queryClient = useQueryClient()
   const [archived, setArchived] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
@@ -119,8 +123,8 @@ export default function InboxPage() {
     if (targetIds.length === 0) return
     if (action === 'delete') {
       confirm({
-        title: '删除通知',
-        message: `确定删除选中的 ${targetIds.length} 条通知？`,
+        title: t('inbox.deleteTitle'),
+        message: t('inbox.deleteSelectedMessage', { n: targetIds.length }),
         onConfirm: () => batchMutation.mutate({ ids: targetIds, action }),
       })
       return
@@ -149,9 +153,9 @@ export default function InboxPage() {
                   <Inbox size={22} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">收件箱</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('inbox.title')}</h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {archived ? '已归档的通知' : '任务执行结果与系统通知，点击可跳转详情'}
+                    {archived ? t('inbox.subtitleArchived') : t('inbox.subtitleInbox')}
                   </p>
                 </div>
               </div>
@@ -159,13 +163,13 @@ export default function InboxPage() {
                 {!archived && (unreadCount ?? 0) > 0 && (
                   <>
                     <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                      {unreadCount} 条未读
+                      {t('inbox.unreadCount', { n: unreadCount })}
                     </span>
                     <button
                       onClick={() => runBatch('read', unreadIds)}
                       className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
-                      <CheckCheck size={13} />全部已读
+                      <CheckCheck size={13} />{t('inbox.markAllRead')}
                     </button>
                   </>
                 )}
@@ -183,7 +187,7 @@ export default function InboxPage() {
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
-                  收件箱
+                  {t('inbox.tabInbox')}
                 </button>
                 <button
                   onClick={() => { setArchived(true); setCategory(null); setSelected([]) }}
@@ -193,7 +197,7 @@ export default function InboxPage() {
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
-                  已归档
+                  {t('inbox.tabArchived')}
                 </button>
               </div>
 
@@ -206,7 +210,7 @@ export default function InboxPage() {
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
                   }`}
                 >
-                  全部
+                  {t('common:all')}
                 </button>
                 {(categories ?? []).map((c) => (
                   <button
@@ -232,15 +236,15 @@ export default function InboxPage() {
             {/* 列表 */}
             {isLoading ? (
               <div className="flex h-48 items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                <Loader2 size={16} className="mr-2 animate-spin" />加载中…
+                <Loader2 size={16} className="mr-2 animate-spin" />{t('common:loading')}
               </div>
             ) : items.length === 0 ? (
               <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500">
                 <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
                   <Inbox size={28} className="opacity-50" />
                 </div>
-                <p className="text-[13px] font-medium">{archived ? '暂无归档通知' : '暂无通知'}</p>
-                <p className="text-[11px]">{archived ? '归档的通知会保留 30 天' : '任务处理完成、定时任务执行后都会在这里提醒'}</p>
+                <p className="text-[13px] font-medium">{archived ? t('inbox.emptyArchived') : t('inbox.emptyInbox')}</p>
+                <p className="text-[11px]">{archived ? t('inbox.hintArchived') : t('inbox.hintInbox')}</p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -253,24 +257,24 @@ export default function InboxPage() {
                       onChange={toggleSelectAll}
                       className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
                     />
-                    全选
+                    {t('common:selectAll')}
                   </label>
                   {selected.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-1">
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                        已选 {selected.length} 条
+                        {t('inbox.selectedCount', { n: selected.length })}
                       </span>
-                      <BatchButton icon={CheckCheck} label="已读" onClick={() => runBatch('read')} />
-                      <BatchButton icon={MailOpen} label="未读" onClick={() => runBatch('unread')} />
+                      <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
+                      <BatchButton icon={MailOpen} label={t('inbox.unread')} onClick={() => runBatch('unread')} />
                       {archived ? (
-                        <BatchButton icon={ArchiveRestore} label="取消归档" onClick={() => runBatch('unarchive')} />
+                        <BatchButton icon={ArchiveRestore} label={t('inbox.unarchive')} onClick={() => runBatch('unarchive')} />
                       ) : (
-                        <BatchButton icon={Archive} label="归档" onClick={() => runBatch('archive')} />
+                        <BatchButton icon={Archive} label={t('inbox.archive')} onClick={() => runBatch('archive')} />
                       )}
-                      <BatchButton icon={Trash2} label="删除" danger onClick={() => runBatch('delete')} />
+                      <BatchButton icon={Trash2} label={t('common:delete')} danger onClick={() => runBatch('delete')} />
                     </div>
                   ) : (
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">共 {items.length} 条，选中后可批量操作</span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('inbox.totalHint', { n: items.length })}</span>
                   )}
                 </div>
 
@@ -302,7 +306,7 @@ export default function InboxPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {!item.isRead && (
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" title="未读" />
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" title={t('inbox.unread')} />
                           )}
                           <span className={`truncate text-[13px] ${item.isRead ? 'text-gray-700 dark:text-gray-200' : 'font-semibold text-gray-900 dark:text-gray-100'}`}>
                             {item.title}
@@ -326,14 +330,14 @@ export default function InboxPage() {
                         )}
                         {item.link && (
                           <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-300">
-                            查看详情<ChevronRight size={11} />
+                            {t('inbox.viewDetail')}<ChevronRight size={11} />
                           </span>
                         )}
                       </div>
 
                       <div className="flex shrink-0 items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
                         <button
-                          title={item.isRead ? '标记未读' : '标记已读'}
+                          title={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')}
                           onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}
                           className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
                         >
@@ -341,7 +345,7 @@ export default function InboxPage() {
                         </button>
                         {archived ? (
                           <button
-                            title="取消归档"
+                            title={t('inbox.unarchive')}
                             onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}
                             className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
                           >
@@ -349,7 +353,7 @@ export default function InboxPage() {
                           </button>
                         ) : (
                           <button
-                            title="归档"
+                            title={t('inbox.archive')}
                             onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}
                             className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
                           >
@@ -357,12 +361,12 @@ export default function InboxPage() {
                           </button>
                         )}
                         <button
-                          title="删除"
+                          title={t('common:delete')}
                           onClick={(e) => {
                             e.stopPropagation()
                             confirm({
-                              title: '删除通知',
-                              message: '确定删除该通知？',
+                              title: t('inbox.deleteTitle'),
+                              message: t('inbox.deleteOneMessage'),
                               onConfirm: () => deleteMutation.mutate(item.id),
                             })
                           }}

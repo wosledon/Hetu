@@ -9,10 +9,12 @@ namespace Hetu.Core.Services;
 public class NotebookService : INotebookService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public NotebookService(IUnitOfWork unitOfWork)
+    public NotebookService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<NotebookDto>>> GetTreeAsync(CancellationToken cancellationToken = default)
@@ -25,14 +27,14 @@ public class NotebookService : INotebookService
     public async Task<ApiResponse<NotebookDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var notebook = await _unitOfWork.Notebooks.GetByIdAsync(id, cancellationToken);
-        if (notebook == null) return ApiResponse<NotebookDto>.Fail("笔记本不存在");
+        if (notebook == null) return ApiResponse<NotebookDto>.Fail(_localizer.T("notebook.notFound"));
         return ApiResponse<NotebookDto>.Ok(Map(notebook));
     }
 
     public async Task<ApiResponse<NotebookDto>> CreateAsync(CreateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return ApiResponse<NotebookDto>.Fail("笔记本名称不能为空");
+            return ApiResponse<NotebookDto>.Fail(_localizer.T("notebook.nameRequired"));
 
         var notebook = new Notebook
         {
@@ -51,7 +53,7 @@ public class NotebookService : INotebookService
     public async Task<ApiResponse<NotebookDto>> UpdateAsync(Guid id, UpdateNotebookRequest request, CancellationToken cancellationToken = default)
     {
         var notebook = await _unitOfWork.Notebooks.GetByIdAsync(id, cancellationToken);
-        if (notebook == null) return ApiResponse<NotebookDto>.Fail("笔记本不存在");
+        if (notebook == null) return ApiResponse<NotebookDto>.Fail(_localizer.T("notebook.notFound"));
 
         notebook.Name = string.IsNullOrWhiteSpace(request.Name) ? notebook.Name : request.Name.Trim();
         notebook.ParentId = request.ParentId;
@@ -66,10 +68,10 @@ public class NotebookService : INotebookService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var notebook = await _unitOfWork.Notebooks.GetByIdAsync(id, cancellationToken);
-        if (notebook == null) return ApiResponse.Fail("笔记本不存在");
+        if (notebook == null) return ApiResponse.Fail(_localizer.T("notebook.notFound"));
 
         if (notebook.Children.Count > 0)
-            return ApiResponse.Fail("请先删除子笔记本");
+            return ApiResponse.Fail(_localizer.T("notebook.deleteChildrenFirst"));
 
         // 将该笔记本内的笔记变为未分类，再删除笔记本本身
         await _unitOfWork.Notes.UnassignNotebookAsync(id, cancellationToken);

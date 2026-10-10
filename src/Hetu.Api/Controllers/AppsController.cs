@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
+using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,6 +14,13 @@ namespace Hetu.Api.Controllers;
 [Route("api/apps")]
 public class AppsController : ControllerBase
 {
+    private readonly ILocalizer _localizer;
+
+    public AppsController(ILocalizer localizer)
+    {
+        _localizer = localizer;
+    }
+
     private const string BrowserUA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -43,9 +51,9 @@ public class AppsController : ControllerBase
     public async Task<ApiResponse<CheckEmbedResult>> CheckEmbed([FromBody] CheckEmbedRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Url))
-            return ApiResponse<CheckEmbedResult>.Fail("缺少 URL");
+            return ApiResponse<CheckEmbedResult>.Fail(_localizer.T("apps.urlRequired"));
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-            return ApiResponse<CheckEmbedResult>.Fail("URL 不合法");
+            return ApiResponse<CheckEmbedResult>.Fail(_localizer.T("apps.invalidUrl"));
 
         try
         {
@@ -56,7 +64,7 @@ public class AppsController : ControllerBase
             if (!string.IsNullOrWhiteSpace(xfo) &&
                 !xfo.Contains("allow-all", StringComparison.OrdinalIgnoreCase))
             {
-                return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, $"站点返回 X-Frame-Options: {xfo}，禁止内嵌"));
+                return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.xfoBlocked", xfo)));
             }
 
             var csp = HeaderValue(response, "Content-Security-Policy");
@@ -65,7 +73,7 @@ public class AppsController : ControllerBase
                 var ancestors = ExtractFrameAncestors(csp);
                 if (ancestors != null && !ancestors.Contains('*') && !ancestors.Contains("http:", StringComparison.OrdinalIgnoreCase))
                 {
-                    return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, $"站点 CSP frame-ancestors 禁止内嵌（{ancestors.Trim()}）"));
+                    return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.cspBlocked", ancestors.Trim())));
                 }
             }
 
@@ -74,7 +82,7 @@ public class AppsController : ControllerBase
         catch (Exception ex)
         {
             // 探测失败（超时/403 反爬等）时保守按不可内嵌处理，避免用户在 iframe 里撞到拒绝连接
-            return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, $"无法确认是否可内嵌（{ex.Message}），改用应用窗口打开"));
+            return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.embedUnknown", ex.Message)));
         }
     }
 

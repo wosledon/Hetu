@@ -14,10 +14,12 @@ namespace Hetu.Api.Controllers;
 public class WikiController : ControllerBase
 {
     private readonly IWikiService _wikiService;
+    private readonly ILocalizer _localizer;
 
-    public WikiController(IWikiService wikiService)
+    public WikiController(IWikiService wikiService, ILocalizer localizer)
     {
         _wikiService = wikiService;
+        _localizer = localizer;
     }
 
     /// <summary>Wiki 页面列表；可按项目过滤，按套件聚合</summary>
@@ -59,7 +61,7 @@ public class WikiController : ControllerBase
     {
         var result = await _wikiService.ExportSetAsync(setId, cancellationToken);
         if (!result.Success || result.Data == null)
-            return BadRequest(ApiResponse.Fail(result.Error ?? "导出失败"));
+            return BadRequest(ApiResponse.Fail(result.Error ?? _localizer.T("wiki.exportFailed")));
         return File(result.Data, "application/zip", $"wiki-{setId:N}.zip");
     }
 

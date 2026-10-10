@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Coins } from 'lucide-react'
 import type { AgentUsage } from '../../utils/agentStream'
 import { formatTokens } from '../../utils/agentStream'
@@ -14,11 +15,13 @@ export interface AgentUsageBadgeProps {
  * 历史上只有编码会话显示用量，这里补齐并收敛为一份实现。
  */
 export default function AgentUsageBadge({ usage, compact = false, className = '' }: AgentUsageBadgeProps) {
+  const { t } = useTranslation('agent')
   if (!usage || usage.totalTokens <= 0) return null
 
-  const title = `输入 ${formatTokens(usage.promptTokens)} / 输出 ${formatTokens(usage.completionTokens)}${
-    usage.cachedTokens > 0 ? ` / 缓存命中 ${formatTokens(usage.cachedTokens)}` : ''
-  }${usage.latencyMs > 0 ? ` · 本轮耗时 ${(usage.latencyMs / 1000).toFixed(1)}s` : ''}`
+  const segments = [t('usage.tokens', { input: formatTokens(usage.promptTokens), output: formatTokens(usage.completionTokens) })]
+  if (usage.cachedTokens > 0) segments.push(t('usage.cached', { value: formatTokens(usage.cachedTokens) }))
+  if (usage.latencyMs > 0) segments.push(t('usage.latency', { seconds: (usage.latencyMs / 1000).toFixed(1) }))
+  const title = segments.join(' · ')
 
   if (compact) {
     return (
@@ -40,7 +43,7 @@ export default function AgentUsageBadge({ usage, compact = false, className = ''
       <Coins size={10} />
       <span>{formatTokens(usage.totalTokens)}</span>
       {usage.cachedTokens > 0 && (
-        <span className="text-gray-400 dark:text-gray-500">缓存 {formatTokens(usage.cachedTokens)}</span>
+        <span className="text-gray-400 dark:text-gray-500">{t('usage.cachedShort', { value: formatTokens(usage.cachedTokens) })}</span>
       )}
     </span>
   )

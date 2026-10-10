@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactEChartsCore from 'echarts-for-react/esm/core'
 import echarts from '../utils/echarts'
 import { useIsDark } from '../hooks/useIsDark'
 import type { IUsageDayStat, IUsageHourStat } from '../services/usageService'
 
 type Metric = 'messages' | 'tokens'
-
-const METRIC_LABEL: Record<Metric, string> = { messages: '消息数', tokens: 'Tokens' }
 
 function fmt(n: number): string {
   if (n >= 10000) return (n / 1000).toFixed(1) + 'k'
@@ -22,12 +21,6 @@ function last7Days(): string[] {
     out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
   }
   return out
-}
-
-function dayLabel(iso: string, isToday: boolean): string {
-  if (isToday) return '今天'
-  const week = ['日', '一', '二', '三', '四', '五', '六'][new Date(iso).getDay()]
-  return `${iso.slice(5)} 周${week}`
 }
 
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}`)
@@ -58,9 +51,12 @@ function useContainerWidth(): [React.RefObject<HTMLDivElement | null>, number] {
 
 /** 近 7 天 × 24 小时 热力图（方格保持正方形） */
 export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metric: Metric }) {
+  const { t } = useTranslation('settings')
   const isDark = useIsDark()
   const [wrapRef, width] = useContainerWidth()
   const days = last7Days()
+  const weekdays = t('heatmap.weekdays', { returnObjects: true }) as unknown as string[]
+  const metricLabel = metric === 'messages' ? t('metrics.messages') : t('metrics.tokens')
   const map = new Map<string, number>()
   let max = 1
   for (const d of data) {
@@ -95,7 +91,7 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
       textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12 },
       formatter: (p: { value: [number, number, number] }) => {
         const [h, di, v] = p.value
-        return `${days[di]} ${h}:00<br/><b>${METRIC_LABEL[metric]}: ${fmt(v)}</b>`
+        return `${days[di]} ${h}:00<br/><b>${metricLabel}: ${fmt(v)}</b>`
       },
     },
     xAxis: {
@@ -107,7 +103,9 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
     },
     yAxis: {
       type: 'category',
-      data: days.map((d, i) => dayLabel(d, i === days.length - 1)),
+      data: days.map((d, i) => i === days.length - 1
+        ? t('heatmap.today')
+        : t('heatmap.dayLabel', { date: d.slice(5), weekday: weekdays[new Date(d).getDay()] })),
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { color: textColor, fontSize: 10 },
@@ -137,8 +135,12 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
 
 /** 近一年 GitHub 风格日历热力图（方格保持正方形） */
 export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: Metric }) {
+  const { t } = useTranslation('settings')
   const isDark = useIsDark()
   const [wrapRef, width] = useContainerWidth()
+  const months = t('heatmap.months', { returnObjects: true }) as unknown as string[]
+  const weekdays = t('heatmap.weekdays', { returnObjects: true }) as unknown as string[]
+  const metricLabel = metric === 'messages' ? t('metrics.messages') : t('metrics.tokens')
   const map = new Map<string, number>()
   let max = 1
   for (const d of data) {
@@ -172,7 +174,7 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
       borderColor: isDark ? '#374151' : '#e5e7eb',
       textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12 },
       formatter: (p: { value: [string, number] }) =>
-        `${p.value[0]}<br/><b>${METRIC_LABEL[metric]}: ${fmt(p.value[1])}</b>`,
+        `${p.value[0]}<br/><b>${metricLabel}: ${fmt(p.value[1])}</b>`,
     },
     visualMap: {
       show: false,
@@ -189,8 +191,8 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
       cellSize: cell,
       splitLine: { show: false },
       itemStyle: { color: 'transparent', borderWidth: 2, borderColor: isDark ? '#0c0f1a' : '#fff' },
-      dayLabel: { color: textColor, fontSize: 10, nameMap: ['日', '一', '二', '三', '四', '五', '六'] },
-      monthLabel: { color: textColor, fontSize: 10, nameMap: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'] },
+      dayLabel: { color: textColor, fontSize: 10, nameMap: weekdays },
+      monthLabel: { color: textColor, fontSize: 10, nameMap: months },
       yearLabel: { show: false },
     },
     series: [

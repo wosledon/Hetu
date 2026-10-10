@@ -1,5 +1,6 @@
 import { confirm } from '../components/confirm'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle,
@@ -16,24 +17,27 @@ import type {
   ScheduledTaskKind, ScheduleType, ICreateScheduledTaskRequest,
 } from '../types'
 import { segmentButtonClass } from '../utils/styles'
+import { formatDateTime, formatTime } from '../utils/locale'
+import type { TFunction } from 'i18next'
 
 type TasksMode = 'background' | 'scheduled'
 
-const STATUS_MAP: Record<number, { label: string; color: string; bg: string; icon: typeof Clock }> = {
-  0: { label: '排队中', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]', icon: ListTodo },
-  1: { label: '执行中', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', icon: Clock },
-  2: { label: '已完成', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', icon: CheckCircle2 },
-  3: { label: '失败', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10', icon: XCircle },
+const STATUS_MAP: Record<number, { labelKey: string; color: string; bg: string; icon: typeof Clock }> = {
+  0: { labelKey: 'tasks.statusQueued', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]', icon: ListTodo },
+  1: { labelKey: 'tasks.statusRunning', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', icon: Clock },
+  2: { labelKey: 'tasks.statusCompleted', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', icon: CheckCircle2 },
+  3: { labelKey: 'tasks.statusFailed', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10', icon: XCircle },
 }
 
-const TYPE_MAP: Record<string, { label: string; icon: typeof Cpu; color: string }> = {
-  GenerateEmbedding: { label: 'Embedding 生成', icon: Cpu, color: 'text-indigo-500' },
-  GraphExtract: { label: '知识图谱提取', icon: Network, color: 'text-violet-500' },
+const TYPE_MAP: Record<string, { labelKey: string; icon: typeof Cpu; color: string }> = {
+  GenerateEmbedding: { labelKey: 'tasks.typeEmbedding', icon: Cpu, color: 'text-indigo-500' },
+  GraphExtract: { labelKey: 'tasks.typeGraphExtract', icon: Network, color: 'text-violet-500' },
 }
 
 type FilterStatus = 'all' | '0' | '1' | '2' | '3'
 
 export default function TasksPage({ mode }: { mode: TasksMode }) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [typeFilter, setTypeFilter] = useState<string>('')
@@ -68,8 +72,8 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
   const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === Number(filter))
 
   const isBackground = mode === 'background'
-  const headerTitle = isBackground ? '后台任务' : '定时任务'
-  const headerSubtitle = isBackground ? '系统后台任务的执行状态和历史记录' : '按计划周期触发的定时任务'
+  const headerTitle = isBackground ? t('tasks.backgroundTitle') : t('tasks.scheduledTitle')
+  const headerSubtitle = isBackground ? t('tasks.backgroundSubtitle') : t('tasks.scheduledSubtitle')
 
   return (
     <AppLayout
@@ -90,13 +94,13 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
               </div>
               {isBackground && stats && (
                 <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{stats.total}</b> 条记录</span>
+                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{stats.total}</b> {t('tasks.recordCount')}</span>
                   {(stats.queued > 0 || stats.running > 0) && (
                     <>
                       <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
                       <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
                         <Loader2 size={12} className="animate-spin" />
-                        {stats.running} 执行中 · {stats.queued} 排队
+                        {t('tasks.runningQueued', { running: stats.running, queued: stats.queued })}
                       </span>
                     </>
                   )}
@@ -159,17 +163,18 @@ function BackgroundTasksView({
   onRefresh,
   onDelete,
 }: BackgroundTasksViewProps) {
+  const { t } = useTranslation('projects')
   return (
     <>
       {/* 筛选：状态 + 类型 */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {([
-            { key: 'all', label: '全部', count: stats?.total },
-            { key: '0', label: '排队中', count: stats?.queued },
-            { key: '1', label: '执行中', count: stats?.running },
-            { key: '2', label: '已完成', count: stats?.completed },
-            { key: '3', label: '失败', count: stats?.failed },
+            { key: 'all', label: t('common:all'), count: stats?.total },
+            { key: '0', label: t('tasks.statusQueued'), count: stats?.queued },
+            { key: '1', label: t('tasks.statusRunning'), count: stats?.running },
+            { key: '2', label: t('tasks.statusCompleted'), count: stats?.completed },
+            { key: '3', label: t('tasks.statusFailed'), count: stats?.failed },
           ] as const).map((subTab) => (
             <button
               key={subTab.key}
@@ -195,7 +200,7 @@ function BackgroundTasksView({
                 !typeFilter ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
               }`}
             >
-              全部类型
+              {t('tasks.allTypes')}
             </button>
             {Object.entries(TYPE_MAP).map(([key, val]) => (
               <button
@@ -205,7 +210,7 @@ function BackgroundTasksView({
                   typeFilter === key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
                 }`}
               >
-                {val.label}
+                {t(val.labelKey)}
               </button>
             ))}
           </div>
@@ -214,12 +219,12 @@ function BackgroundTasksView({
               onClick={onClearCompleted}
               className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              <Trash2 size={12} /> 清除已完成
+              <Trash2 size={12} /> {t('tasks.clearCompleted')}
             </button>
           )}
           <button
             onClick={onRefresh}
-            title="刷新"
+            title={t('common:refresh')}
             className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
@@ -247,56 +252,56 @@ function BackgroundTasksView({
 
 /* ─── Scheduled Tasks View ─── */
 
-const TASK_KIND_LABELS: Record<ScheduledTaskKind, { label: string; icon: typeof Cpu; color: string; desc: string }> = {
-  Skill: { label: '执行技能', icon: Sparkles, color: 'text-amber-500', desc: '调用已配置的技能' },
-  AiTask: { label: 'AI 任务', icon: Bot, color: 'text-blue-500', desc: '自定义指令让大模型执行' },
-  GraphRebuild: { label: '图谱重建', icon: Network, color: 'text-violet-500', desc: '重新提取知识图谱' },
-  EmbeddingRegenerate: { label: 'Embedding 重建', icon: Cpu, color: 'text-indigo-500', desc: '重新生成向量索引' },
+const TASK_KIND_LABELS: Record<ScheduledTaskKind, { labelKey: string; icon: typeof Cpu; color: string; descKey: string }> = {
+  Skill: { labelKey: 'tasks.kindSkill', icon: Sparkles, color: 'text-amber-500', descKey: 'tasks.kindSkillDesc' },
+  AiTask: { labelKey: 'tasks.kindAiTask', icon: Bot, color: 'text-blue-500', descKey: 'tasks.kindAiTaskDesc' },
+  GraphRebuild: { labelKey: 'tasks.kindGraphRebuild', icon: Network, color: 'text-violet-500', descKey: 'tasks.kindGraphRebuildDesc' },
+  EmbeddingRegenerate: { labelKey: 'tasks.kindEmbeddingRegenerate', icon: Cpu, color: 'text-indigo-500', descKey: 'tasks.kindEmbeddingRegenerateDesc' },
 }
 
-const LAST_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  Running: { label: '执行中', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-  Success: { label: '成功', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-  Failed: { label: '失败', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10' },
+const LAST_STATUS_MAP: Record<string, { labelKey: string; color: string; bg: string }> = {
+  Running: { labelKey: 'tasks.statusRunning', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+  Success: { labelKey: 'tasks.statusSuccess', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+  Failed: { labelKey: 'tasks.statusFailed', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10' },
 }
 
-const EXEC_STATUS_MAP: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  Running: { label: '执行中', color: 'text-blue-500', icon: Loader2 },
-  Queued: { label: '排队中', color: 'text-gray-500', icon: ListTodo },
-  Success: { label: '成功', color: 'text-emerald-500', icon: CheckCircle2 },
-  Failed: { label: '失败', color: 'text-red-500', icon: XCircle },
+const EXEC_STATUS_MAP: Record<string, { labelKey: string; color: string; icon: typeof Clock }> = {
+  Running: { labelKey: 'tasks.statusRunning', color: 'text-blue-500', icon: Loader2 },
+  Queued: { labelKey: 'tasks.statusQueued', color: 'text-gray-500', icon: ListTodo },
+  Success: { labelKey: 'tasks.statusSuccess', color: 'text-emerald-500', icon: CheckCircle2 },
+  Failed: { labelKey: 'tasks.statusFailed', color: 'text-red-500', icon: XCircle },
 }
 
-function formatDateTime(iso?: string) {
+function formatTimeLabel(iso?: string) {
   if (!iso) return '-'
-  const d = new Date(iso)
-  return d.toLocaleString('zh-CN', {
+  return formatDateTime(iso, {
     month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   })
 }
 
-function formatRelative(iso?: string) {
+function formatRelative(iso: string | undefined, t: TFunction) {
   if (!iso) return '-'
   const d = new Date(iso)
   const now = new Date()
   const diffMs = d.getTime() - now.getTime()
   const diffMin = Math.round(diffMs / 60000)
-  if (Math.abs(diffMin) < 1) return '即将'
-  if (diffMin > 0 && diffMin < 60) return `${diffMin} 分钟后`
-  if (diffMin < 0 && diffMin > -60) return `${-diffMin} 分钟前`
-  return formatDateTime(iso)
+  if (Math.abs(diffMin) < 1) return t('tasks.soon')
+  if (diffMin > 0 && diffMin < 60) return t('tasks.inMinutes', { count: diffMin })
+  if (diffMin < 0 && diffMin > -60) return t('tasks.minutesAgo', { count: -diffMin })
+  return formatTimeLabel(iso)
 }
 
-function describeSchedule(task: IScheduledTask): string {
+function describeSchedule(task: IScheduledTask, t: TFunction): string {
   if (task.scheduleType === 'Cron') return task.cronExpression || '-'
   const m = task.intervalMinutes
-  if (m < 60) return `每 ${m} 分钟`
-  if (m < 1440) return `每 ${Math.round(m / 60)} 小时`
-  return `每 ${Math.round(m / 1440)} 天`
+  if (m < 60) return t('tasks.everyMinutes', { count: m })
+  if (m < 1440) return t('tasks.everyHours', { count: Math.round(m / 60) })
+  return t('tasks.everyDays', { count: Math.round(m / 1440) })
 }
 
 function ScheduledTasksView() {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [showEditor, setShowEditor] = useState(false)
   const [editingTask, setEditingTask] = useState<IScheduledTask | null>(null)
@@ -348,18 +353,18 @@ function ScheduledTasksView() {
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
-            title="刷新"
+            title={t('common:refresh')}
             className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             <RefreshCw size={13} />
-            刷新
+            {t('common:refresh')}
           </button>
           <button
             onClick={handleCreate}
             className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
           >
             <Plus size={15} />
-            新建定时任务
+            {t('tasks.newScheduled')}
           </button>
         </div>
       </div>
@@ -381,7 +386,7 @@ function ScheduledTasksView() {
               onEdit={() => handleEdit(task)}
               onHistory={() => setHistoryTaskId(task.id)}
               onDelete={() => {
-                confirm({ message: `确定删除定时任务「${task.name}」吗？`, onConfirm: () => deleteMutation.mutate(task.id) })
+                confirm({ message: t('tasks.deleteConfirm', { name: task.name }), onConfirm: () => deleteMutation.mutate(task.id) })
               }}
             />
           ))}
@@ -404,7 +409,7 @@ function ScheduledTasksView() {
       {historyTaskId && (
         <ScheduledTaskHistoryModal
           taskId={historyTaskId}
-          taskName={tasks.find((t) => t.id === historyTaskId)?.name ?? '定时任务'}
+          taskName={tasks.find((t2) => t2.id === historyTaskId)?.name ?? t('tasks.scheduledTitle')}
           onClose={() => setHistoryTaskId(null)}
         />
       )}
@@ -422,8 +427,10 @@ function ScheduledTaskRow({
   onHistory: () => void
   onDelete: () => void
 }) {
-  const kindInfo = TASK_KIND_LABELS[task.taskKind] ?? { label: task.taskKind, icon: Cpu, color: 'text-gray-500' }
-  const KindIcon = kindInfo.icon
+  const { t } = useTranslation('projects')
+  const kindInfo = TASK_KIND_LABELS[task.taskKind]
+  const KindIcon = kindInfo?.icon ?? Cpu
+  const kindLabel = kindInfo ? t(kindInfo.labelKey) : task.taskKind
   const statusInfo = task.lastStatus ? LAST_STATUS_MAP[task.lastStatus] : null
 
   return (
@@ -437,14 +444,14 @@ function ScheduledTaskRow({
               ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10'
               : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06]'
           }`}
-          title={task.isEnabled ? '点击停用' : '点击启用'}
+          title={task.isEnabled ? t('tasks.clickDisable') : t('tasks.clickEnable')}
         >
           <Power size={15} />
         </button>
 
         {/* Kind icon */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <KindIcon size={14} className={kindInfo.color} />
+          <KindIcon size={14} className={kindInfo?.color ?? 'text-gray-500'} />
         </div>
 
         {/* Name + description */}
@@ -454,27 +461,27 @@ function ScheduledTaskRow({
               {task.name}
             </span>
             {!task.isEnabled && (
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">已停用</span>
+              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('tasks.disabledBadge')}</span>
             )}
             {task.retryCount > 0 && (
               <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                重试 {task.retryCount}/{task.maxRetries}
+                {t('tasks.retryCount', { n: task.retryCount, max: task.maxRetries })}
               </span>
             )}
             {task.topicId && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-500/10 dark:text-blue-400" title="执行结果追加到会话">
+              <span className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-500/10 dark:text-blue-400" title={t('tasks.topicBadgeTitle')}>
                 <MessageSquare size={9} />
-                会话
+                {t('tasks.topicBadge')}
               </span>
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
             <span className="inline-flex items-center gap-1">
               <Timer size={11} />
-              {describeSchedule(task)}
+              {describeSchedule(task, t)}
             </span>
             <span>·</span>
-            <span>{kindInfo.label}</span>
+            <span>{kindLabel}</span>
             {task.targetName && (
               <>
                 <span>·</span>
@@ -487,34 +494,34 @@ function ScheduledTaskRow({
         {/* Last status */}
         {statusInfo && (
           <span className={`hidden shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium sm:inline-flex ${statusInfo.bg} ${statusInfo.color}`}>
-            {statusInfo.label}
+            {t(statusInfo.labelKey)}
           </span>
         )}
 
         {/* Next run */}
         <div className="hidden shrink-0 text-right md:block">
-          <div className="text-[11px] text-gray-400 dark:text-gray-500">下次运行</div>
-          <div className="text-xs text-gray-600 dark:text-gray-300">{task.isEnabled ? formatRelative(task.nextRunAt) : '-'}</div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500">{t('tasks.nextRun')}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-300">{task.isEnabled ? formatRelative(task.nextRunAt, t) : '-'}</div>
         </div>
 
         {/* Last run */}
         <div className="hidden shrink-0 text-right lg:block">
-          <div className="text-[11px] text-gray-400 dark:text-gray-500">上次运行</div>
-          <div className="text-xs text-gray-600 dark:text-gray-300">{formatRelative(task.lastRunAt)}</div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500">{t('tasks.lastRun')}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-300">{formatRelative(task.lastRunAt, t)}</div>
         </div>
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <button onClick={onRun} className="rounded-full p-1.5 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/10" title="立即运行">
+          <button onClick={onRun} className="rounded-full p-1.5 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/10" title={t('tasks.runNow')}>
             <Play size={14} />
           </button>
-          <button onClick={onHistory} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="执行历史">
+          <button onClick={onHistory} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title={t('tasks.runHistory')}>
             <History size={14} />
           </button>
-          <button onClick={onEdit} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title="编辑">
+          <button onClick={onEdit} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title={t('common:edit')}>
             <Pencil size={14} />
           </button>
-          <button onClick={onDelete} className="rounded-full p-1.5 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" title="删除">
+          <button onClick={onDelete} className="rounded-full p-1.5 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" title={t('common:delete')}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -532,19 +539,20 @@ function ScheduledTaskRow({
 }
 
 function ScheduledEmptyState({ onCreate }: { onCreate: () => void }) {
+  const { t } = useTranslation('projects')
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30">
         <CalendarClock size={32} />
       </div>
-      <p className="text-sm font-medium">暂无定时任务</p>
-      <p className="mt-1 text-xs">创建定时任务，按计划自动执行技能、重建图谱或 Embedding</p>
+      <p className="text-sm font-medium">{t('tasks.emptyScheduled')}</p>
+      <p className="mt-1 text-xs">{t('tasks.emptyScheduledHint')}</p>
       <button
         onClick={onCreate}
         className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
       >
         <Plus size={15} />
-        新建定时任务
+        {t('tasks.newScheduled')}
       </button>
     </div>
   )
@@ -568,11 +576,11 @@ const EMPTY_FORM: ICreateScheduledTaskRequest = {
 }
 
 const CRON_PRESETS = [
-  { label: '每小时', value: '0 * * * *' },
-  { label: '每天 0 点', value: '0 0 * * *' },
-  { label: '每天 8 点', value: '0 8 * * *' },
-  { label: '每周一 8 点', value: '0 8 * * 1' },
-  { label: '每月 1 号 0 点', value: '0 0 1 * *' },
+  { labelKey: 'tasks.cronPresetHourly', value: '0 * * * *' },
+  { labelKey: 'tasks.cronPresetDailyMidnight', value: '0 0 * * *' },
+  { labelKey: 'tasks.cronPresetDaily8', value: '0 8 * * *' },
+  { labelKey: 'tasks.cronPresetWeeklyMonday8', value: '0 8 * * 1' },
+  { labelKey: 'tasks.cronPresetMonthly1', value: '0 0 1 * *' },
 ]
 
 function ScheduledTaskEditor({
@@ -584,6 +592,7 @@ function ScheduledTaskEditor({
   onClose: () => void
   onSaved: () => void
 }) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
 
   // AiTask 的系统提示与任务指令单独管理，提交时序列化到 parameters
@@ -634,7 +643,7 @@ function ScheduledTaskEditor({
   // 合并技能选项（数据库 + 本地），label 标注来源
   const allSkillOptions = [
     ...skills.map((s) => ({ value: s.value, label: s.label, source: s.source })),
-    ...localSkills.map((s) => ({ value: s.value, label: `${s.label} · 本地`, source: s.source })),
+    ...localSkills.map((s) => ({ value: s.value, label: t('tasks.localSkill', { label: s.label }), source: s.source })),
   ]
   const hasAnySkill = allSkillOptions.length > 0
 
@@ -643,11 +652,11 @@ function ScheduledTaskEditor({
 
   const handleSubmit = async () => {
     setError(null)
-    if (!form.name.trim()) { setError('请输入任务名称'); return }
-    if (needsTarget && !form.targetId) { setError('请选择目标技能'); return }
-    if (isAiTask && !aiPrompt.trim()) { setError('请输入任务指令'); return }
-    if (form.scheduleType === 'Cron' && !form.cronExpression?.trim()) { setError('请输入 Cron 表达式'); return }
-    if (form.scheduleType === 'Interval' && form.intervalMinutes <= 0) { setError('间隔分钟数必须大于 0'); return }
+    if (!form.name.trim()) { setError(t('tasks.nameRequired')); return }
+    if (needsTarget && !form.targetId) { setError(t('tasks.targetRequired')); return }
+    if (isAiTask && !aiPrompt.trim()) { setError(t('tasks.instructionRequired')); return }
+    if (form.scheduleType === 'Cron' && !form.cronExpression?.trim()) { setError(t('tasks.cronRequired')); return }
+    if (form.scheduleType === 'Interval' && form.intervalMinutes <= 0) { setError(t('tasks.intervalInvalid')); return }
 
     // 同步 targetName
     const selectedSkill = allSkillOptions.find((s) => s.value === form.targetId)
@@ -675,7 +684,7 @@ function ScheduledTaskEditor({
       queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })
       onSaved()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败')
+      setError(e instanceof Error ? e.message : t('tasks.saveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -688,7 +697,7 @@ function ScheduledTaskEditor({
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-            {isEdit ? '编辑定时任务' : '新建定时任务'}
+            {isEdit ? t('tasks.editorEditTitle') : t('tasks.editorCreateTitle')}
           </h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
             <X size={18} />
@@ -699,29 +708,29 @@ function ScheduledTaskEditor({
         <div className="space-y-5 px-6 py-5">
           {/* Name */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">任务名称 *</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.taskName')}</label>
             <input
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
-              placeholder="例如：每日知识摘要"
+              placeholder={t('tasks.taskNamePlaceholder')}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">描述</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:description')}</label>
             <input
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
-              placeholder="可选"
+              placeholder={t('common:optional')}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
             />
           </div>
 
           {/* Task Kind */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">任务类型 *</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.taskKind')}</label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.keys(TASK_KIND_LABELS) as ScheduledTaskKind[]).map((kind) => {
                 const info = TASK_KIND_LABELS[kind]
@@ -739,8 +748,8 @@ function ScheduledTaskEditor({
                   >
                     <Icon size={15} className={`mt-0.5 shrink-0 ${active ? info.color : ''}`} />
                     <div className="min-w-0">
-                      <div className="font-medium">{info.label}</div>
-                      <div className="mt-0.5 text-[10px] leading-tight opacity-70">{info.desc}</div>
+                      <div className="font-medium">{t(info.labelKey)}</div>
+                      <div className="mt-0.5 text-[10px] leading-tight opacity-70">{t(info.descKey)}</div>
                     </div>
                   </button>
                 )
@@ -751,24 +760,24 @@ function ScheduledTaskEditor({
           {/* Target (Skill only) */}
           {needsTarget && (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">目标技能 *</label>
+              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.targetSkill')}</label>
               {!hasAnySkill ? (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                  暂无可用技能，请先在技能页创建并启用技能，或配置本地技能目录。
+                  {t('tasks.noSkills')}
                 </p>
               ) : (
                 <Select
                   value={form.targetId ?? ''}
                   onChange={(v) => set('targetId', v)}
-                  placeholder="请选择技能"
+                  placeholder={t('tasks.selectSkillPlaceholder')}
                   searchable
-                  searchPlaceholder="搜索技能..."
+                  searchPlaceholder={t('tasks.searchSkillPlaceholder')}
                   options={allSkillOptions.map((s) => ({ value: s.value, label: s.label }))}
                 />
               )}
               {localSkills.length > 0 && (
                 <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-                  已加载 {skills.length} 个数据库技能 + {localSkills.length} 个本地技能
+                  {t('tasks.skillsLoaded', { skills: skills.length, local: localSkills.length })}
                 </p>
               )}
             </div>
@@ -777,11 +786,11 @@ function ScheduledTaskEditor({
           {/* Parameters (Skill input) */}
           {needsTarget && (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">输入参数</label>
+              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.parameters')}</label>
               <textarea
                 value={form.parameters}
                 onChange={(e) => set('parameters', e.target.value)}
-                placeholder="传递给技能的输入内容（可选）"
+                placeholder={t('tasks.parametersPlaceholder')}
                 rows={3}
                 className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
               />
@@ -792,26 +801,26 @@ function ScheduledTaskEditor({
           {isAiTask && (
             <>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">系统提示</label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.systemPrompt')}</label>
                 <textarea
                   value={aiSystemPrompt}
                   onChange={(e) => setAiSystemPrompt(e.target.value)}
-                  placeholder="设定大模型的角色与行为，例如：你是知识整理助手，擅长提炼要点。"
+                  placeholder={t('tasks.systemPromptPlaceholder')}
                   rows={2}
                   className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">任务指令 *</label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.aiInstruction')}</label>
                 <textarea
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="描述要让大模型完成的任务，例如：总结本周新增笔记的核心要点。"
+                  placeholder={t('tasks.aiInstructionPlaceholder')}
                   rows={4}
                   className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
                 <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-                  将使用默认对话模型执行，支持自然语言描述任意任务。
+                  {t('tasks.aiHint')}
                 </p>
               </div>
             </>
@@ -819,7 +828,7 @@ function ScheduledTaskEditor({
 
           {/* Schedule Type */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">调度方式</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.scheduleType')}</label>
             <div className="inline-flex w-full items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]">
               {(['Interval', 'Cron'] as ScheduleType[]).map((st) => (
                 <button
@@ -827,7 +836,7 @@ function ScheduledTaskEditor({
                   onClick={() => set('scheduleType', st)}
                   className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${segmentButtonClass(form.scheduleType === st)}`}
                 >
-                  {st === 'Interval' ? '固定间隔' : 'Cron 表达式'}
+                  {st === 'Interval' ? t('tasks.interval') : t('tasks.cron')}
                 </button>
               ))}
             </div>
@@ -836,7 +845,7 @@ function ScheduledTaskEditor({
           {/* Schedule config */}
           {form.scheduleType === 'Interval' ? (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">间隔分钟数 *</label>
+              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.intervalMinutes')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -845,7 +854,7 @@ function ScheduledTaskEditor({
                   onChange={(e) => set('intervalMinutes', Number(e.target.value))}
                   className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
                 />
-                <span className="text-xs text-gray-400">分钟</span>
+                <span className="text-xs text-gray-400">{t('tasks.minutesUnit')}</span>
                 <div className="ml-auto flex gap-1">
                   {[30, 60, 360, 1440].map((m) => (
                     <button
@@ -853,7 +862,7 @@ function ScheduledTaskEditor({
                       onClick={() => set('intervalMinutes', m)}
                       className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
                     >
-                      {m < 60 ? `${m}分` : m < 1440 ? `${m / 60}时` : `${m / 1440}天`}
+                      {m < 60 ? t('tasks.minutesShort', { count: m }) : m < 1440 ? t('tasks.hoursShort', { count: m / 60 }) : t('tasks.daysShort', { count: m / 1440 })}
                     </button>
                   ))}
                 </div>
@@ -861,7 +870,7 @@ function ScheduledTaskEditor({
             </div>
           ) : (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Cron 表达式 * <span className="font-normal text-gray-400">（分 时 日 月 周）</span></label>
+              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.cronExpression')} <span className="font-normal text-gray-400">{t('tasks.cronHint')}</span></label>
               <input
                 value={form.cronExpression}
                 onChange={(e) => set('cronExpression', e.target.value)}
@@ -875,7 +884,7 @@ function ScheduledTaskEditor({
                     onClick={() => set('cronExpression', p.value)}
                     className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
                   >
-                    {p.label}
+                    {t(p.labelKey)}
                   </button>
                 ))}
               </div>
@@ -884,7 +893,7 @@ function ScheduledTaskEditor({
 
           {/* Max retries */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">最大重试次数</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.maxRetries')}</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -894,7 +903,7 @@ function ScheduledTaskEditor({
                 onChange={(e) => set('maxRetries', Number(e.target.value))}
                 className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
               />
-              <span className="text-xs text-gray-400">失败后指数退避重试（0 = 不重试）</span>
+              <span className="text-xs text-gray-400">{t('tasks.retryHint')}</span>
             </div>
           </div>
 
@@ -903,14 +912,14 @@ function ScheduledTaskEditor({
             <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/50 px-4 py-2.5 dark:border-sky-500/20 dark:bg-sky-500/[0.06]">
               <MessageSquare size={14} className="shrink-0 text-sky-500" />
               <span className="text-xs text-sky-600 dark:text-sky-400">
-                已绑定会话：执行结果将作为消息自动追加到该会话
+                {t('tasks.topicBound')}
               </span>
             </div>
           )}
 
           {/* Enabled toggle */}
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
-            <span className="text-sm text-gray-700 dark:text-gray-300">创建后立即启用</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">{t('tasks.enableOnCreate')}</span>
             <button
               type="button"
               onClick={() => set('isEnabled', !form.isEnabled)}
@@ -936,7 +945,7 @@ function ScheduledTaskEditor({
             onClick={onClose}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
           >
-            取消
+            {t('common:cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -944,7 +953,7 @@ function ScheduledTaskEditor({
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md disabled:opacity-50"
           >
             {submitting && <Loader2 size={13} className="animate-spin" />}
-            {isEdit ? '保存' : '创建'}
+            {isEdit ? t('common:save') : t('common:create')}
           </button>
         </div>
       </div>
@@ -961,6 +970,7 @@ function ScheduledTaskHistoryModal({
   taskName: string
   onClose: () => void
 }) {
+  const { t } = useTranslation('projects')
   const { data: executions = [], isLoading } = useQuery({
     queryKey: ['scheduled-tasks', 'executions', taskId],
     queryFn: () => scheduledTaskService.getExecutions(taskId, 50),
@@ -977,7 +987,7 @@ function ScheduledTaskHistoryModal({
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <div className="flex items-center gap-2">
             <History size={18} className="text-gray-400" />
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">执行历史</h2>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('tasks.runHistory')}</h2>
             <span className="text-sm text-gray-400">· {taskName}</span>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
@@ -994,7 +1004,7 @@ function ScheduledTaskHistoryModal({
           ) : executions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <History size={32} className="text-gray-300 dark:text-gray-600" />
-              <p className="mt-3 text-sm text-gray-400">暂无执行记录</p>
+              <p className="mt-3 text-sm text-gray-400">{t('tasks.historyEmpty')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1010,6 +1020,7 @@ function ScheduledTaskHistoryModal({
 }
 
 function ExecutionRow({ exec }: { exec: IScheduledTaskExecution }) {
+  const { t } = useTranslation('projects')
   const statusInfo = EXEC_STATUS_MAP[exec.status] ?? EXEC_STATUS_MAP.Failed
   const StatusIcon = statusInfo.icon
   const spinning = exec.status === 'Running'
@@ -1025,14 +1036,14 @@ function ExecutionRow({ exec }: { exec: IScheduledTaskExecution }) {
     <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
       <div className="flex items-center gap-2">
         <StatusIcon size={14} className={`${statusInfo.color} ${spinning ? 'animate-spin' : ''}`} />
-        <span className={`text-xs font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
+        <span className={`text-xs font-medium ${statusInfo.color}`}>{t(statusInfo.labelKey)}</span>
         {exec.isManual && (
-          <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.08] dark:text-gray-400">手动</span>
+          <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.08] dark:text-gray-400">{t('tasks.manual')}</span>
         )}
         {exec.retryAttempt > 0 && (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">重试 #{exec.retryAttempt}</span>
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">{t('tasks.retryAttempt', { count: exec.retryAttempt })}</span>
         )}
-        <span className="ml-auto text-[11px] text-gray-400">{formatDateTime(exec.startedAt)}</span>
+        <span className="ml-auto text-[11px] text-gray-400">{formatTimeLabel(exec.startedAt)}</span>
         <span className="text-[11px] text-gray-400">{formatDur(exec.durationMs)}</span>
       </div>
       {exec.result && (
@@ -1053,10 +1064,11 @@ function ExecutionRow({ exec }: { exec: IScheduledTaskExecution }) {
 /* ─── Task Row ─── */
 
 function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) {
+  const { t } = useTranslation('projects')
   const status = STATUS_MAP[task.status] ?? STATUS_MAP[0]
-  const typeInfo = TYPE_MAP[task.taskType] ?? { label: task.taskType, icon: Cpu, color: 'text-gray-500' }
+  const typeInfo = TYPE_MAP[task.taskType]
   const StatusIcon = status.icon
-  const TypeIcon = typeInfo.icon
+  const TypeIcon = typeInfo?.icon ?? Cpu
 
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms}ms`
@@ -1074,8 +1086,8 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
 
         {/* Type */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <TypeIcon size={14} className={typeInfo.color} />
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{typeInfo.label}</span>
+          <TypeIcon size={14} className={typeInfo?.color ?? 'text-gray-500'} />
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{typeInfo ? t(typeInfo.labelKey) : task.taskType}</span>
         </div>
 
         {/* Entity */}
@@ -1096,19 +1108,19 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
 
         {/* Time */}
         <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-          {new Date(task.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          {formatTime(task.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </span>
 
         {/* Status Badge */}
         <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0 ${status.bg} ${status.color}`}>
-          {status.label}
+          {t(status.labelKey)}
         </span>
 
         {/* Delete */}
         <button
           onClick={onDelete}
           className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-          title="删除记录"
+          title={t('tasks.deleteRecord')}
         >
           <Trash2 size={13} />
         </button>
@@ -1128,13 +1140,14 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
 /* ─── Empty State ─── */
 
 function EmptyState() {
+  const { t } = useTranslation('projects')
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
         <ListTodo size={36} className="opacity-50" />
       </div>
-      <p className="text-sm font-medium">暂无后台任务</p>
-      <p className="mt-1 text-xs">编辑笔记时会自动生成 Embedding 和提取知识图谱</p>
+      <p className="text-sm font-medium">{t('tasks.emptyTitle')}</p>
+      <p className="mt-1 text-xs">{t('tasks.emptyHint')}</p>
     </div>
   )
 }

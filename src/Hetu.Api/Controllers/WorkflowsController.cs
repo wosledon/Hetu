@@ -20,6 +20,7 @@ public class WorkflowsController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatMessageService _chatMessageService;
     private readonly ToolExecutionService _toolExecution;
+    private readonly ILocalizer _localizer;
 
     public WorkflowsController(
         IWorkflowService workflowService,
@@ -27,7 +28,8 @@ public class WorkflowsController : ControllerBase
         WorkflowApprovalService approvalService,
         IUnitOfWork unitOfWork,
         IChatMessageService chatMessageService,
-        ToolExecutionService toolExecution)
+        ToolExecutionService toolExecution,
+        ILocalizer localizer)
     {
         _workflowService = workflowService;
         _engine = engine;
@@ -35,6 +37,7 @@ public class WorkflowsController : ControllerBase
         _unitOfWork = unitOfWork;
         _chatMessageService = chatMessageService;
         _toolExecution = toolExecution;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -125,7 +128,7 @@ public class WorkflowsController : ControllerBase
             {
                 await _chatMessageService.SaveAssistantMessageAsync(
                     topicId,
-                    $"⚠️ 工作流执行失败：{result.Error}",
+                    _localizer.T("workflows.executionFailed", result.Error),
                     modelId: null,
                     cancellationToken: cancellationToken);
             }
@@ -143,7 +146,7 @@ public class WorkflowsController : ControllerBase
     public async Task<ApiResponse<object>> GetRun(Guid runId, CancellationToken cancellationToken)
     {
         var run = await _unitOfWork.WorkflowRuns.GetByIdAsync(runId, cancellationToken);
-        if (run == null) return ApiResponse<object>.Fail("运行记录不存在");
+        if (run == null) return ApiResponse<object>.Fail(_localizer.T("workflows.runNotFound"));
 
         var nodes = await _unitOfWork.WorkflowRunNodes.FindAsync(n => n.RunId == runId, cancellationToken);
         return ApiResponse<object>.Ok(new
@@ -169,7 +172,7 @@ public class WorkflowsController : ControllerBase
         // 查找该 run 下的挂起审批
         var pending = _approvalService.GetPendingForRun(runId.ToString());
         var target = pending.FirstOrDefault(p => p.NodeId == request.NodeId) ?? pending.FirstOrDefault();
-        if (target == null) return ApiResponse.Fail("未找到挂起的审批请求");
+        if (target == null) return ApiResponse.Fail(_localizer.T("workflows.approvalNotFound"));
 
         _approvalService.TryResolve(runId.ToString(), target.NodeId, request.Approve);
         return ApiResponse.Ok();

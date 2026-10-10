@@ -1,3 +1,5 @@
+import i18n from '../i18n'
+
 /** 长文本折叠阈值：超过任一条就折叠（输入框与消息气泡共用同一套判定） */
 export const LONG_TEXT_LINES = 12
 export const LONG_TEXT_CHARS = 1200
@@ -12,7 +14,7 @@ export function isLongText(text: string): boolean {
 
 /** 折叠态摘要：`61 行 · 2914 字符` */
 export function longTextSummary(text: string): string {
-  return `${countTextLines(text)} 行 · ${text.length} 字符`
+  return i18n.t('work:longText.summary', { lines: countTextLines(text), chars: text.length })
 }
 
 /**
@@ -28,5 +30,5 @@ export function wrapLongTextBlock(text: string): string {
 export function splitLongTextBlock(content: string): { block: string | null; label: string | null; rest: string } {
   const match = content.match(/^\[粘贴的长文本 (\d+) 行 \/ (\d+) 字符\]\n([\s\S]*?)\n\[\/粘贴的长文本\](?:\n{1,2})?/)
   if (!match) return { block: null, label: null, rest: content }
-  return { block: match[3], label: `${match[1]} 行 · ${match[2]} 字符`, rest: content.slice(match[0].length) }
+  return { block: match[3], label: i18n.t('work:longText.summary', { lines: match[1], chars: match[2] }), rest: content.slice(match[0].length) }
 }

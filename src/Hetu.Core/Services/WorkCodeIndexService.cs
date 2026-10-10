@@ -47,18 +47,21 @@ public class WorkCodeIndexService : IWorkCodeIndexService
     private readonly IWorkCodeVectorStore _vectorStore;
     private readonly IWorkCodeIndexRefreshQueue? _refreshQueue;
     private readonly ILogger<WorkCodeIndexService> _logger;
+    private readonly ILocalizer _localizer;
 
     public WorkCodeIndexService(
         IUnitOfWork unitOfWork,
         IEmbeddingProviderFactory embeddingProviderFactory,
         IWorkCodeVectorStore vectorStore,
         ILogger<WorkCodeIndexService> logger,
+        ILocalizer localizer,
         IWorkCodeIndexRefreshQueue? refreshQueue = null)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
         _vectorStore = vectorStore;
         _logger = logger;
+        _localizer = localizer;
         _refreshQueue = refreshQueue;
     }
 
@@ -132,14 +135,14 @@ public class WorkCodeIndexService : IWorkCodeIndexService
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);
         if (project == null)
-            return ApiResponse<WorkCodeIndexResultDto>.Fail("项目不存在");
+            return ApiResponse<WorkCodeIndexResultDto>.Fail(_localizer.T("project.notFound"));
 
         if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
-            return ApiResponse<WorkCodeIndexResultDto>.Fail("项目根目录不存在");
+            return ApiResponse<WorkCodeIndexResultDto>.Fail(_localizer.T("workIndex.rootPathNotExists"));
 
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<WorkCodeIndexResultDto>.Fail("未配置 Embedding 模型，请先在设置中配置");
+            return ApiResponse<WorkCodeIndexResultDto>.Fail(_localizer.T("workIndex.embeddingNotConfigured"));
 
         var existing = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == projectId, cancellationToken);
         var byPath = existing.GroupBy(c => c.FilePath, StringComparer.OrdinalIgnoreCase)
@@ -211,7 +214,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
                     {
                         var vector = i < vectors.Length ? vectors[i] : [];
                         if (vector.Length == 0)
-                            throw new InvalidOperationException("Embedding 返回空向量，请检查 Embedding 模型与维度配置");
+                            throw new InvalidOperationException(_localizer.T("workIndex.emptyVector"));
                         var chunk = new WorkCodeChunk
                         {
                             Id = Guid.NewGuid(),
@@ -309,11 +312,11 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail("查询内容不能为空");
+            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail(_localizer.T("search.queryRequired"));
 
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail("未配置 Embedding 模型");
+            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail(_localizer.T("embedding.notConfigured"));
 
         float[] queryVector;
         try
@@ -322,7 +325,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail($"生成查询向量失败：{ex.Message}");
+            return ApiResponse<List<WorkCodeSearchHitDto>>.Fail(_localizer.T("search.queryVectorFailed", ex.Message));
         }
 
         var topK = Math.Clamp(limit, 1, 30);

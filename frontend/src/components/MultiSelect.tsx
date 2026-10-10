@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check, Search, X } from 'lucide-react'
 
 export interface MultiSelectOption {
@@ -36,12 +37,16 @@ export default function MultiSelect({
   values,
   onChange,
   options,
-  placeholder = '请选择...',
-  searchPlaceholder = '搜索...',
-  emptyText = '无可选项',
+  placeholder,
+  searchPlaceholder,
+  emptyText,
   triggerClassName,
   maxChips = 4,
 }: MultiSelectProps) {
+  const { t } = useTranslation()
+  const selectHint = placeholder ?? t('ui:selectPlaceholder')
+  const searchHint = searchPlaceholder ?? t('ui:searchPlaceholder')
+  const emptyHint = emptyText ?? t('ui:emptyOptions')
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -142,7 +147,7 @@ export default function MultiSelect({
         className={triggerClassName ?? TRIGGER_CLASS}
       >
         {selectedOptions.length === 0 ? (
-          <span className="px-1 text-sm text-gray-400 dark:text-gray-500">{placeholder}</span>
+          <span className="px-1 text-sm text-gray-400 dark:text-gray-500">{selectHint}</span>
         ) : (
           <span className="flex flex-wrap items-center gap-1">
             {visibleChips.map((o) => (
@@ -187,19 +192,19 @@ export default function MultiSelect({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') close() }}
-              placeholder={searchPlaceholder}
+              placeholder={searchHint}
               className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
             />
             <button
               onClick={() => setGroup(filtered, !allSelected)}
               className="shrink-0 text-[11px] text-gray-400 hover:text-rose-500"
             >
-              {allSelected ? '清空' : '全选'}
+              {allSelected ? t('ui:clearAll') : t('ui:selectAll')}
             </button>
           </div>
           <div className="max-h-56 overflow-y-auto py-1">
             {filtered.length === 0 && (
-              <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">{emptyText}</div>
+              <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">{emptyHint}</div>
             )}
             {groups.map(([group, groupOptions]) => (
               <div key={group || '__default'}>
@@ -214,7 +219,7 @@ export default function MultiSelect({
                       }}
                       className="text-[10px] text-gray-400 hover:text-rose-500"
                     >
-                      {groupOptions.every((o) => values.includes(o.value)) ? '取消' : '全选'}
+                      {groupOptions.every((o) => values.includes(o.value)) ? t('ui:cancel') : t('ui:selectAll')}
                     </button>
                   </div>
                 )}

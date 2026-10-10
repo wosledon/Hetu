@@ -40,6 +40,7 @@ public class WorkStreamController : ControllerBase
     private readonly ContextCompactionService _contextCompaction;
     private readonly IMemoryService _memoryService;
     private readonly ILogger<WorkStreamController> _logger;
+    private readonly ILocalizer _localizer;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -57,7 +58,8 @@ public class WorkStreamController : ControllerBase
         ChatContextInjector contextInjector,
         ContextCompactionService contextCompaction,
         IMemoryService memoryService,
-        ILogger<WorkStreamController> logger)
+        ILogger<WorkStreamController> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -75,6 +77,7 @@ public class WorkStreamController : ControllerBase
         _contextCompaction = contextCompaction;
         _memoryService = memoryService;
         _logger = logger;
+        _localizer = localizer;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -93,7 +96,7 @@ public class WorkStreamController : ControllerBase
         var sessionResult = await _sessionService.GetByIdAsync(sessionId, ct);
         if (!sessionResult.Success || sessionResult.Data == null)
         {
-            await writer.WriteErrorAsync("工作会话不存在");
+            await writer.WriteErrorAsync(_localizer.T("work.workSessionNotFound"));
             return;
         }
         var session = sessionResult.Data;
@@ -102,7 +105,7 @@ public class WorkStreamController : ControllerBase
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, ct);
         if (project == null)
         {
-            await writer.WriteErrorAsync("项目不存在");
+            await writer.WriteErrorAsync(_localizer.T("work.projectNotFound"));
             return;
         }
 
@@ -165,7 +168,7 @@ public class WorkStreamController : ControllerBase
             var userMsg = await _sessionService.AddMessageAsync(sessionId, "user", request.Content ?? "", cancellationToken: ct);
             if (!userMsg.Success)
             {
-                await writer.WriteErrorAsync(userMsg.Error ?? "保存消息失败");
+                await writer.WriteErrorAsync(userMsg.Error ?? _localizer.T("work.messageSaveFailed"));
                 return;
             }
         }
@@ -175,7 +178,7 @@ public class WorkStreamController : ControllerBase
 
         if (provider == null)
         {
-            await writer.WriteErrorAsync("未找到可用的对话模型");
+            await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable"));
             return;
         }
 
@@ -187,7 +190,7 @@ public class WorkStreamController : ControllerBase
         var autoSummary = await _contextCompaction.TryAutoCompactWorkAsync(sessionId, request.ContextWindow, ct);
         if (autoSummary != null)
         {
-            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = "上下文接近上限，已自动压缩为摘要" });
+            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = _localizer.T("chat.contextCompacted") });
             _logger.LogInformation("[Context] 自动压缩生效 sessionId={SessionId}", sessionId);
         }
 
@@ -367,12 +370,12 @@ public class WorkStreamController : ControllerBase
 
         var loopError = loopResult.Error;
         var finalContent = loopResult.Content.Trim();        if (loopError != null && string.IsNullOrEmpty(finalContent))
-            finalContent = $"处理请求时出错: {loopError}";
+            finalContent = _localizer.T("chat.requestFailed", loopError);
         // 模型只发起工具调用而没有正文时也要落库，否则下一轮会丢失这轮上下文
         if (string.IsNullOrEmpty(finalContent) && executedToolNames.Count > 0)
         {
             var names = string.Join("、", executedToolNames.Distinct());
-            finalContent = $"（本轮未输出正文，已调用工具：{names}）";
+            finalContent = _localizer.T("chat.noOutputWithTools", names);
         }
 
         if (!string.IsNullOrEmpty(finalContent))
@@ -502,7 +505,7 @@ public class WorkStreamController : ControllerBase
 
         public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
 
-        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync($"处理请求时出错: {message}");
+        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync(_owner._localizer.T("chat.requestFailed", message));
 
         /// <summary>tool_call / tool_result / approval_request / question / todo / plan / subagent 一律直通写帧</summary>
         public async Task OnEventAsync(object payload)

@@ -13,12 +13,14 @@ public class NotesController : ControllerBase
     private readonly INoteService _noteService;
     private readonly INoteAiService _noteAiService;
     private readonly IBackgroundTaskCoordinator _taskCoordinator;
+    private readonly ILocalizer _localizer;
 
-    public NotesController(INoteService noteService, INoteAiService noteAiService, IBackgroundTaskCoordinator taskCoordinator)
+    public NotesController(INoteService noteService, INoteAiService noteAiService, IBackgroundTaskCoordinator taskCoordinator, ILocalizer localizer)
     {
         _noteService = noteService;
         _noteAiService = noteAiService;
         _taskCoordinator = taskCoordinator;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -89,14 +91,14 @@ public class NotesController : ControllerBase
     {
         var note = await _noteService.GetByIdAsync(id, cancellationToken);
         if (note == null || !note.Success)
-            return ApiResponse.Fail("笔记不存在");
+            return ApiResponse.Fail(_localizer.T("notes.notFound"));
 
         var result = await _taskCoordinator.EnqueueAsync(
             new BackgroundTaskRequest(BackgroundTaskType.GenerateEmbedding, id, note.Data?.Title),
             cancellationToken);
 
         if (!result.Queued)
-            return ApiResponse.Fail("该笔记已有正在进行的索引任务，请等待完成");
+            return ApiResponse.Fail(_localizer.T("notes.indexTaskRunning"));
 
         return ApiResponse.Ok();
     }

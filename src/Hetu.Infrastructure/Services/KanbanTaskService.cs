@@ -12,11 +12,13 @@ public class KanbanTaskService : IKanbanTaskService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IKanbanTaskExecutor _executor;
+    private readonly ILocalizer _localizer;
 
-    public KanbanTaskService(IUnitOfWork unitOfWork, IKanbanTaskExecutor executor)
+    public KanbanTaskService(IUnitOfWork unitOfWork, IKanbanTaskExecutor executor, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _executor = executor;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<KanbanBoardDto>> GetBoardAsync(CancellationToken cancellationToken = default)
@@ -46,7 +48,7 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse<KanbanTaskDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.taskNotFound"));
         return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
     }
 
@@ -96,7 +98,7 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse<KanbanTaskDto>> CreateAsync(CreateKanbanTaskRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
-            return ApiResponse<KanbanTaskDto>.Fail("任务标题不能为空");
+            return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.titleRequired"));
 
         var status = NormalizeStatus(request.Status);
         var now = DateTimeOffset.UtcNow;
@@ -134,10 +136,10 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse<KanbanTaskDto>> UpdateAsync(Guid id, UpdateKanbanTaskRequest request, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.taskNotFound"));
 
         if (string.IsNullOrWhiteSpace(request.Title))
-            return ApiResponse<KanbanTaskDto>.Fail("任务标题不能为空");
+            return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.titleRequired"));
 
         var status = NormalizeStatus(request.Status);
         var statusChanged = task.Status != status;
@@ -173,10 +175,10 @@ public class KanbanTaskService : IKanbanTaskService
         var targetStatus = NormalizeStatus(request.Status);
 
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.taskNotFound"));
 
         if (task.Status != targetStatus && !KanbanTaskTransitions.IsAllowed(task.Status, targetStatus))
-            return ApiResponse<KanbanTaskDto>.Fail($"不允许从「{StatusLabel(task.Status)}」流转到「{StatusLabel(targetStatus)}」");
+            return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.invalidTransition", StatusLabel(task.Status), StatusLabel(targetStatus)));
 
         var sameColumn = task.Status == targetStatus;
         task.Status = targetStatus;
@@ -201,7 +203,7 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse<KanbanTaskDetailDto>> GetDetailAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail(_localizer.T("kanban.taskNotFound"));
 
         var comments = await _unitOfWork.KanbanTaskComments.FindAsync(c => c.TaskId == id, cancellationToken);
         var runs = await _unitOfWork.KanbanTaskRuns.FindAsync(r => r.TaskId == id, cancellationToken);
@@ -227,10 +229,10 @@ public class KanbanTaskService : IKanbanTaskService
         Guid id, CreateKanbanTaskCommentRequest request, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDetailDto>.Fail(_localizer.T("kanban.taskNotFound"));
 
         var content = request.Content?.Trim();
-        if (string.IsNullOrWhiteSpace(content)) return ApiResponse<KanbanTaskDetailDto>.Fail("评论内容不能为空");
+        if (string.IsNullOrWhiteSpace(content)) return ApiResponse<KanbanTaskDetailDto>.Fail(_localizer.T("kanban.commentRequired"));
 
         var now = DateTimeOffset.UtcNow;
         await _unitOfWork.KanbanTaskComments.AddAsync(new KanbanTaskComment
@@ -238,7 +240,7 @@ public class KanbanTaskService : IKanbanTaskService
             Id = Guid.NewGuid(),
             TaskId = id,
             AuthorType = "User",
-            AuthorName = "我",
+            AuthorName = _localizer.T("kanban.commentAuthorMe"),
             Content = content,
             CreatedAt = now,
             UpdatedAt = now,
@@ -266,9 +268,9 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse<KanbanTaskDto>> RerunAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.taskNotFound"));
         if (task.Status != KanbanTaskStatuses.Todo)
-            return ApiResponse<KanbanTaskDto>.Fail("仅待办状态的任务可以重新执行");
+            return ApiResponse<KanbanTaskDto>.Fail(_localizer.T("kanban.rerunTodoOnly"));
 
         await TriggerAutomationAsync(task, "Manual", cancellationToken);
         return ApiResponse<KanbanTaskDto>.Ok(await EnrichDtoAsync(task, cancellationToken));
@@ -287,7 +289,7 @@ public class KanbanTaskService : IKanbanTaskService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(id, cancellationToken);
-        if (task == null || task.IsDeleted) return ApiResponse.Fail("任务不存在");
+        if (task == null || task.IsDeleted) return ApiResponse.Fail(_localizer.T("kanban.taskNotFound"));
 
         task.IsDeleted = true;
         task.UpdatedAt = DateTimeOffset.UtcNow;
@@ -383,15 +385,15 @@ public class KanbanTaskService : IKanbanTaskService
     private static string NormalizePriority(string priority) =>
         KanbanTaskPriorities.All.Contains(priority) ? priority : KanbanTaskPriorities.Medium;
 
-    private static string StatusLabel(string status) => status switch
+    private string StatusLabel(string status) => status switch
     {
-        KanbanTaskStatuses.Backlog => "待规划",
-        KanbanTaskStatuses.Todo => "待办",
-        KanbanTaskStatuses.InProgress => "进行中",
-        KanbanTaskStatuses.InReview => "审核中",
-        KanbanTaskStatuses.Blocked => "已阻塞",
-        KanbanTaskStatuses.Done => "已完成",
-        KanbanTaskStatuses.Archived => "已归档",
+        KanbanTaskStatuses.Backlog => _localizer.T("kanban.statusBacklog"),
+        KanbanTaskStatuses.Todo => _localizer.T("kanban.statusTodo"),
+        KanbanTaskStatuses.InProgress => _localizer.T("kanban.statusInProgress"),
+        KanbanTaskStatuses.InReview => _localizer.T("kanban.statusInReview"),
+        KanbanTaskStatuses.Blocked => _localizer.T("kanban.statusBlocked"),
+        KanbanTaskStatuses.Done => _localizer.T("kanban.statusDone"),
+        KanbanTaskStatuses.Archived => _localizer.T("kanban.statusArchived"),
         _ => status,
     };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Network,
@@ -26,6 +27,7 @@ import ThemedMarkdown from '../components/ThemedMarkdown'
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
+import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
 
 const ENTITY_COLORS: Record<string, string> = {
@@ -37,22 +39,32 @@ const ENTITY_COLORS: Record<string, string> = {
   custom: '#8b5cf6',
 }
 
-const RELATION_LABELS: Record<string, string> = {
-  belong_to: '属于',
-  related_to: '相关',
-  depends_on: '依赖',
-  contains: '包含',
-  compared_with: '对比',
-  custom: '自定义',
+const RELATION_LABEL_KEYS: Record<string, string> = {
+  belong_to: 'knowledge:graph.relationTypes.belongTo',
+  related_to: 'knowledge:graph.relationTypes.relatedTo',
+  depends_on: 'knowledge:graph.relationTypes.dependsOn',
+  contains: 'knowledge:graph.relationTypes.contains',
+  compared_with: 'knowledge:graph.relationTypes.comparedWith',
+  custom: 'knowledge:graph.relationTypes.custom',
 }
 
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  concept: '概念',
-  person: '人物',
-  organization: '组织',
-  technology: '技术',
-  project: '项目',
-  custom: '自定义',
+const ENTITY_TYPE_LABEL_KEYS: Record<string, string> = {
+  concept: 'knowledge:graph.entityTypes.concept',
+  person: 'knowledge:graph.entityTypes.person',
+  organization: 'knowledge:graph.entityTypes.organization',
+  technology: 'knowledge:graph.entityTypes.technology',
+  project: 'knowledge:graph.entityTypes.project',
+  custom: 'knowledge:graph.entityTypes.custom',
+}
+
+const relationLabel = (type: string): string => {
+  const key = RELATION_LABEL_KEYS[type]
+  return key ? i18n.t(key) : type
+}
+
+const entityTypeLabel = (type: string): string => {
+  const key = ENTITY_TYPE_LABEL_KEYS[type]
+  return key ? i18n.t(key) : type
 }
 
 const ENTITY_ICONS: Record<string, React.ElementType> = {
@@ -709,6 +721,7 @@ function useCanvasRenderer(
 }
 
 export default function GraphPage() {
+  const { t } = useTranslation('knowledge')
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [entitySearch, setEntitySearch] = useState('')
@@ -830,11 +843,11 @@ export default function GraphPage() {
     try {
       const result = await graphService.batchExtractQueue(ids)
       setExtractQueued(result.queuedCount > 0
-        ? `已加入后台任务 ${result.queuedCount} 项${result.skippedCount > 0 ? `，跳过 ${result.skippedCount} 项` : ''}`
-        : '选中的笔记均已有进行中的任务')
+        ? `${t('graph.queued', { n: result.queuedCount })}${result.skippedCount > 0 ? t('graph.queuedSkipped', { n: result.skippedCount }) : ''}`
+        : t('graph.allRunning'))
       setTimeout(() => setExtractQueued(null), 5000)
     } catch (err) {
-      setExtractResults(new Map([[ids[0], { error: (err as Error).message || '加入后台任务失败' }]]))
+      setExtractResults(new Map([[ids[0], { error: (err as Error).message || t('graph.queueFailed') }]]))
     }
     setIsExtracting(false)
   }
@@ -906,9 +919,9 @@ export default function GraphPage() {
     setPreviewNoteContent('')
     try {
       const note = await noteService.getById(noteId)
-      setPreviewNoteContent(note.content || '无内容')
+      setPreviewNoteContent(note.content || t('graph.noContent'))
     } catch {
-      setPreviewNoteContent('加载失败')
+      setPreviewNoteContent(t('common:loadingFailed'))
     } finally {
       setIsLoadingNote(false)
     }
@@ -918,16 +931,16 @@ export default function GraphPage() {
     <div className="flex flex-1 flex-col bg-gray-50 dark:bg-gray-950">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="放大"><ZoomIn size={15} /></button>
-          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="缩小"><ZoomOut size={15} /></button>
-          <button onClick={handleResetView} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="重置视图"><RotateCcw size={15} /></button>
+          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomIn')}><ZoomIn size={15} /></button>
+          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomOut')}><ZoomOut size={15} /></button>
+          <button onClick={handleResetView} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.resetView')}><RotateCcw size={15} /></button>
           <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <button onClick={handleAutoLayout} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="自动布局"><Network size={15} /></button>
+          <button onClick={handleAutoLayout} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.autoLayout')}><Network size={15} /></button>
           <span className="ml-1 text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" title="用 AI 从笔记中提取实体和关系">
-            <Sparkles size={13} />从笔记提取
+          <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" title={t('graph.extractTooltip')}>
+            <Sparkles size={13} />{t('graph.extractFromNotes')}
           </button>
         </div>
       </div>
@@ -939,21 +952,21 @@ export default function GraphPage() {
               <Loader2 size={32} className="animate-spin text-indigo-500" />
               {streamMeta ? (
                 <div className="mt-3 text-center">
-                  <p className="text-sm">正在加载知识图谱...</p>
-                  <p className="mt-1 text-xs text-gray-400">已加载 {streamMeta.entityCount} 个实体，{loadedRelations} / {streamMeta.relationCount} 个关系</p>
+                  <p className="text-sm">{t('graph.loading')}</p>
+                  <p className="mt-1 text-xs text-gray-400">{t('graph.loadingProgress', { entities: streamMeta.entityCount, loaded: loadedRelations, total: streamMeta.relationCount })}</p>
                   <div className="mx-auto mt-2 h-1 w-48 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: streamMeta.relationCount > 0 ? `${Math.min(100, Math.round((loadedRelations / streamMeta.relationCount) * 100))}%` : '100%' }} />
                   </div>
                 </div>
-              ) : <p className="mt-3 text-sm">正在连接服务...</p>}
+              ) : <p className="mt-3 text-sm">{t('graph.connecting')}</p>}
             </div>
           )}
 
           {!isLoading && !entities.length && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30"><Network size={36} className="text-indigo-500" /></div>
-              <div className="text-center"><h3 className="text-base font-medium text-gray-800 dark:text-gray-100">知识图谱为空</h3><p className="mt-1 text-sm text-gray-500">从笔记中提取实体和关系来构建知识图谱</p></div>
-              <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600"><Sparkles size={15} />从笔记提取</button>
+              <div className="text-center"><h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('graph.emptyTitle')}</h3><p className="mt-1 text-sm text-gray-500">{t('graph.emptyHint')}</p></div>
+              <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600"><Sparkles size={15} />{t('graph.extractFromNotes')}</button>
             </div>
           )}
 
@@ -961,7 +974,7 @@ export default function GraphPage() {
             <div className="flex flex-wrap gap-3">
               {Object.entries(ENTITY_COLORS).slice(0, 5).map(([type, color]) => (
                 <span key={type} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">
-                  <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }} />{ENTITY_TYPE_LABELS[type] || type}
+                  <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }} />{entityTypeLabel(type)}
                 </span>
               ))}
             </div>
@@ -974,18 +987,18 @@ export default function GraphPage() {
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30"><Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" /></div>
-                <div><h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">从笔记提取知识图谱</h3><p className="text-xs text-gray-500">{selectedNoteIds.size > 0 ? `已选择 ${selectedNoteIds.size} 篇笔记` : '选择笔记后 AI 提取实体和关系'}</p></div>
+                <div><h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.extractDialogTitle')}</h3><p className="text-xs text-gray-500">{selectedNoteIds.size > 0 ? t('graph.selectedNotes', { n: selectedNoteIds.size }) : t('graph.extractDialogHint')}</p></div>
               </div>
               <button onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
             </div>
             <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
-              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder="搜索笔记标题或内容..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 dark:border-gray-600 dark:bg-gray-700 dark:placeholder:text-gray-500 dark:focus:border-emerald-600" /></div>
+              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 dark:border-gray-600 dark:bg-gray-700 dark:placeholder:text-gray-500 dark:focus:border-emerald-600" /></div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
-              {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? '未找到匹配的笔记' : '暂无笔记'}</div>) : (
+              {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? t('graph.noMatchingNotes') : t('graph.noNotes')}</div>) : (
                 groupedNotes.map(([notebookId, notebookNotes]) => {
                   const isExpanded = expandedNotebooks.has(notebookId)
-                  const notebookName = notebookId === '__none__' ? '未分组' : (notebookNameMap.get(notebookId) || '未知笔记本')
+                  const notebookName = notebookId === '__none__' ? t('graph.ungrouped') : (notebookNameMap.get(notebookId) || t('graph.unknownNotebook'))
                   const allSelected = notebookNotes.every(n => selectedNoteIds.has(n.id))
                   const someSelected = notebookNotes.some(n => selectedNoteIds.has(n.id))
                   return (
@@ -999,7 +1012,7 @@ export default function GraphPage() {
                       {isExpanded && (<div className="ml-5 space-y-0.5">{notebookNotes.map((note) => { const isSelected = selectedNoteIds.has(note.id); const result = extractResults.get(note.id); return (
                         <div key={note.id} onClick={() => toggleNoteSelection(note.id)} className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
                           <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>{isSelected && <Check size={10} className="text-white" />}</div>
-                          <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{note.title || '未命名笔记'}</span>{result && 'newEntities' in result && <span className="flex items-center gap-1 text-[10px] text-emerald-600">+{result.newEntities}实体 +{result.newRelations}关系</span>}{result && 'error' in result && <span className="text-[10px] text-red-500">失败</span>}</div><p className="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">{note.content?.slice(0, 80) || '无内容'}</p></div>
+                          <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{note.title || t('graph.untitledNote')}</span>{result && 'newEntities' in result && <span className="flex items-center gap-1 text-[10px] text-emerald-600">{t('graph.resultDelta', { entities: result.newEntities, relations: result.newRelations })}</span>}{result && 'error' in result && <span className="text-[10px] text-red-500">{t('graph.failed')}</span>}</div><p className="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">{note.content?.slice(0, 80) || t('graph.noContent')}</p></div>
                         </div>) })}</div>)}
                     </div>)
                 })
@@ -1007,9 +1020,9 @@ export default function GraphPage() {
             </div>
             <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <button onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }} className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300">{selectedNoteIds.size > 0 ? '取消全选' : '全选'}</button>
+                <button onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }} className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300">{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</button>
                 <button onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
-                  {isExtracting ? (<><Loader2 size={14} className="animate-spin" />加入中...</>) : (<><Sparkles size={14} />提取选中 ({selectedNoteIds.size})</>)}
+                  {isExtracting ? (<><Loader2 size={14} className="animate-spin" />{t('graph.extracting')}</>) : (<><Sparkles size={14} />{t('graph.extractSelected', { n: selectedNoteIds.size })}</>)}
                 </button>
                 {extractQueued && (
                   <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
@@ -1036,7 +1049,7 @@ export default function GraphPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               {isLoadingNote ? (
-                <div className="flex items-center justify-center gap-2 py-12 text-gray-400"><Loader2 size={20} className="animate-spin" />加载中...</div>
+                <div className="flex items-center justify-center gap-2 py-12 text-gray-400"><Loader2 size={20} className="animate-spin" />{t('common:loading')}</div>
               ) : (
                 <ThemedMarkdown source={previewNoteContent} />
               )}
@@ -1050,10 +1063,10 @@ export default function GraphPage() {
   const rightPanel = selectedEntityId && entityDetail ? (
     <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">实体详情</h2>
+        <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" title="删除实体"><Trash2 size={14} /></button>
-          <button onClick={() => setSelectedEntityId(null)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" title="关闭"><X size={14} /></button>
+          <button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" title={t('graph.deleteEntity')}><Trash2 size={14} /></button>
+          <button onClick={() => setSelectedEntityId(null)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('common:close')}><X size={14} /></button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
@@ -1064,14 +1077,14 @@ export default function GraphPage() {
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{entityDetail.name}</h3>
-              <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{ENTITY_TYPE_LABELS[entityDetail.type] || entityDetail.type}</span>
+              <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom}15`, color: ENTITY_COLORS[entityDetail.type] || ENTITY_COLORS.custom }}>{entityTypeLabel(entityDetail.type)}</span>
             </div>
           </div>
           {entityDetail.description && <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{entityDetail.description}</p>}
         </div>
         {entityDetail.sourceNotes.length > 0 && (
           <div className="mb-4">
-            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">来源笔记 ({entityDetail.sourceNotes.length})</h4>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">{t('graph.sourceNotes', { n: entityDetail.sourceNotes.length })}</h4>
             <div className="space-y-1">{entityDetail.sourceNotes.map(n => (
               <div key={n.noteId} onClick={() => handleOpenNotePreview(n.noteId, n.title)} className="cursor-pointer truncate rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400">
                 • {n.title}
@@ -1081,7 +1094,7 @@ export default function GraphPage() {
         )}
         {entityDetail.relations.length > 0 && (
           <div>
-            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">关系 ({entityDetail.relations.length})</h4>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">{t('graph.relationsTitle', { n: entityDetail.relations.length })}</h4>
             <div className="space-y-1">{entityDetail.relations.map(rel => {
               const otherId = rel.sourceEntityId === entityDetail.id ? rel.targetEntityId : rel.sourceEntityId
               return (
@@ -1093,7 +1106,7 @@ export default function GraphPage() {
                   className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs transition-colors hover:bg-indigo-50 dark:bg-gray-800 dark:hover:bg-indigo-950/30"
                 >
                   <span className="truncate font-medium text-gray-700 dark:text-gray-300" title={rel.sourceEntityName}>{rel.sourceEntityName}</span>
-                  <span className="shrink-0 text-gray-400">{RELATION_LABELS[rel.relationType] || rel.relationType}</span>
+                  <span className="shrink-0 text-gray-400">{relationLabel(rel.relationType)}</span>
                   <span className="shrink-0 text-indigo-400">→</span>
                   <span className="truncate font-medium text-gray-700 dark:text-gray-300" title={rel.targetEntityName}>{rel.targetEntityName}</span>
                 </div>
@@ -1115,26 +1128,26 @@ export default function GraphPage() {
       <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">实体</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
           </div>
-          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder="搜索实体..." className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
+          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
           <div className="flex flex-wrap gap-1.5">
-            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>全部 {entities.length}</button>
+            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{t('common:all')} {entities.length}</button>
             {entityTypes.map(type => (
               <button key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ENTITY_COLORS[type] || ENTITY_COLORS.custom }} />{ENTITY_TYPE_LABELS[type] || type} {typeCounts.get(type) ?? 0}
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ENTITY_COLORS[type] || ENTITY_COLORS.custom }} />{entityTypeLabel(type)} {typeCounts.get(type) ?? 0}
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{entities.length}</span> 实体</span>
+          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{entities.length}</span> {t('graph.entitiesSuffix')}</span>
           <span className="text-gray-300 dark:text-gray-600">·</span>
-          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{relations.length}</span> 关系</span>
+          <span><span className="font-semibold text-gray-800 dark:text-gray-200">{relations.length}</span> {t('graph.relationsSuffix')}</span>
         </div>
         <div className="flex-1 overflow-y-auto p-1.5">
-          {filteredEntities.length === 0 && <div className="py-8 text-center text-xs text-gray-400">暂无匹配的实体</div>}
+          {filteredEntities.length === 0 && <div className="py-8 text-center text-xs text-gray-400">{t('graph.noMatchingEntities')}</div>}
           {filteredEntities.map(entity => {
             const color = ENTITY_COLORS[entity.type] || ENTITY_COLORS.custom
             const active = selectedEntityId === entity.id

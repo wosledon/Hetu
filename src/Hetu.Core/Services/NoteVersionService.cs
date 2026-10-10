@@ -9,17 +9,19 @@ public class NoteVersionService : INoteVersionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly INoteService _noteService;
+    private readonly ILocalizer _localizer;
 
-    public NoteVersionService(IUnitOfWork unitOfWork, INoteService noteService)
+    public NoteVersionService(IUnitOfWork unitOfWork, INoteService noteService, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _noteService = noteService;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<NoteVersionDto>>> GetVersionsAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
-        if (note == null) return ApiResponse<List<NoteVersionDto>>.Fail("笔记不存在");
+        if (note == null) return ApiResponse<List<NoteVersionDto>>.Fail(_localizer.T("note.notFound"));
 
         var versions = await _unitOfWork.NoteVersions.FindAsync(v => v.NoteId == noteId, cancellationToken);
         return ApiResponse<List<NoteVersionDto>>.Ok(
@@ -29,18 +31,18 @@ public class NoteVersionService : INoteVersionService
     public async Task<ApiResponse<NoteVersionDto>> GetVersionAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var version = await _unitOfWork.NoteVersions.GetByIdAsync(id, cancellationToken);
-        if (version == null) return ApiResponse<NoteVersionDto>.Fail("版本不存在");
+        if (version == null) return ApiResponse<NoteVersionDto>.Fail(_localizer.T("noteVersion.notFound"));
         return ApiResponse<NoteVersionDto>.Ok(Map(version));
     }
 
     public async Task<ApiResponse<NoteDto>> RestoreVersionAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var version = await _unitOfWork.NoteVersions.GetByIdAsync(id, cancellationToken);
-        if (version == null) return ApiResponse<NoteDto>.Fail("版本不存在");
+        if (version == null) return ApiResponse<NoteDto>.Fail(_localizer.T("noteVersion.notFound"));
 
         var note = await _unitOfWork.Notes.GetByIdWithTagsAsync(version.NoteId, cancellationToken);
-        if (note == null) return ApiResponse<NoteDto>.Fail("笔记不存在");
-        if (note.IsDeleted) return ApiResponse<NoteDto>.Fail("已删除的笔记无法恢复版本");
+        if (note == null) return ApiResponse<NoteDto>.Fail(_localizer.T("note.notFound"));
+        if (note.IsDeleted) return ApiResponse<NoteDto>.Fail(_localizer.T("noteVersion.deletedCannotRestore"));
 
         // 先保存当前内容为最新版本
         await SaveVersionAsync(note, cancellationToken);

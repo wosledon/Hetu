@@ -15,10 +15,12 @@ namespace Hetu.Api.Controllers;
 public class ManagedProjectsController : ControllerBase
 {
     private readonly IManagedProjectService _projectService;
+    private readonly ILocalizer _localizer;
 
-    public ManagedProjectsController(IManagedProjectService projectService)
+    public ManagedProjectsController(IManagedProjectService projectService, ILocalizer localizer)
     {
         _projectService = projectService;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -52,13 +54,13 @@ public class ManagedProjectsController : ControllerBase
     {
         var result = await _projectService.GetByIdAsync(id, cancellationToken);
         if (!result.Success || result.Data == null)
-            return ApiResponse<string>.Fail(result.Error ?? "项目不存在");
+            return ApiResponse<string>.Fail(result.Error ?? _localizer.T("projects.notFound"));
 
         var project = result.Data;
         if (project.ProjectType != "Local")
-            return ApiResponse<string>.Fail("远程项目无法直接打开，可复制远程路径后通过 SSH 客户端访问");
+            return ApiResponse<string>.Fail(_localizer.T("projects.remoteOpenUnsupported"));
         if (!Directory.Exists(project.DirectoryPath))
-            return ApiResponse<string>.Fail("项目目录不存在，请检查路径");
+            return ApiResponse<string>.Fail(_localizer.T("projects.dirNotExists"));
 
         try
         {
@@ -79,15 +81,15 @@ public class ManagedProjectsController : ControllerBase
                 psi.ArgumentList.Add(project.DirectoryPath);
             }
             using var process = Process.Start(psi);
-            if (process == null) return ApiResponse<string>.Fail("启动文件管理器失败");
+            if (process == null) return ApiResponse<string>.Fail(_localizer.T("projects.openLauncherFailed"));
         }
         catch (Exception ex)
         {
-            return ApiResponse<string>.Fail($"打开失败：{ex.Message}");
+            return ApiResponse<string>.Fail(_localizer.T("projects.openFailed", ex.Message));
         }
 
         await _projectService.MarkOpenedAsync(id, cancellationToken);
-        return ApiResponse<string>.Ok($"已在文件管理器中打开 {project.DirectoryPath}");
+        return ApiResponse<string>.Ok(_localizer.T("projects.openedInFileManager", project.DirectoryPath));
     }
 }
 

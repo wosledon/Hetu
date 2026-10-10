@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Brain, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
 export interface AgentThoughtBlockProps {
@@ -11,6 +12,7 @@ export interface AgentThoughtBlockProps {
  * 思考过程折叠块。对话页、编码会话、任务看板详情共用同一外观。
  */
 export default function AgentThoughtBlock({ text, streaming = false }: AgentThoughtBlockProps) {
+  const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
 
   return (
@@ -21,7 +23,7 @@ export default function AgentThoughtBlock({ text, streaming = false }: AgentThou
       >
         {open ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
         <Brain size={11} className="shrink-0 text-gray-400" />
-        <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300">思考过程</span>
+        <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('thought.title')}</span>
         {streaming && <Loader2 size={10} className="shrink-0 animate-spin text-gray-400" />}
       </button>
       {open && (

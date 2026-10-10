@@ -12,10 +12,12 @@ namespace Hetu.Core.Services;
 public class InboxService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public InboxService(IUnitOfWork unitOfWork)
+    public InboxService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     /// <summary>分页查询通知（按最近更新倒序）</summary>
@@ -158,7 +160,7 @@ public class InboxService
                     item.IsArchived = true;
                     break;
                 default:
-                    return ApiResponse<int>.Fail($"不支持的批量操作：{request.Action}");
+                    return ApiResponse<int>.Fail(_localizer.T("inbox.unsupportedAction", request.Action));
             }
             item.UpdatedAt = now;
             await _unitOfWork.InboxNotifications.UpdateAsync(item, ct);
@@ -173,7 +175,7 @@ public class InboxService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var item = await _unitOfWork.InboxNotifications.GetByIdAsync(id, ct);
-        if (item == null) return ApiResponse.Fail("通知不存在");
+        if (item == null) return ApiResponse.Fail(_localizer.T("inbox.itemNotFound"));
 
         item.IsDeleted = true;
         item.UpdatedAt = DateTimeOffset.UtcNow;
@@ -185,7 +187,7 @@ public class InboxService
     private async Task<ApiResponse> SetAsync(Guid id, Action<InboxNotification> mutate, CancellationToken ct)
     {
         var item = await _unitOfWork.InboxNotifications.GetByIdAsync(id, ct);
-        if (item == null) return ApiResponse.Fail("通知不存在");
+        if (item == null) return ApiResponse.Fail(_localizer.T("inbox.itemNotFound"));
 
         mutate(item);
         item.UpdatedAt = DateTimeOffset.UtcNow;

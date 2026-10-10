@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
 import { segmentButtonClass } from '../utils/styles'
@@ -16,33 +17,33 @@ interface AppLayoutProps {
 }
 
 const fixedNavItems = [
-  { path: '/', label: '笔记', icon: BookOpen },
-  { path: '/code', label: 'Code', icon: Code },
-  { path: '/projects', label: '项目', icon: FolderInput },
-  { path: '/kanban', label: '任务看板', icon: SquareKanban },
-  { path: '/wiki', label: 'Wiki', icon: BookText },
+  { path: '/', labelKey: 'nav:notes', icon: BookOpen },
+  { path: '/code', labelKey: 'nav:code', icon: Code },
+  { path: '/projects', labelKey: 'nav:projects', icon: FolderInput },
+  { path: '/kanban', labelKey: 'nav:kanban', icon: SquareKanban },
+  { path: '/wiki', labelKey: 'nav:wiki', icon: BookText },
 ] as const
 
 const allConfigurableItems = [
-  { path: '/tags', label: '标签', icon: Tag },
-  { path: '/agents', label: '智能体', icon: Bot },
-  { path: '/skills', label: '技能', icon: Zap },
-  { path: '/tools', label: '工具', icon: Wrench },
-  { path: '/knowledge-base', label: '知识库', icon: Database },
-  { path: '/graph', label: '知识图谱', icon: Network },
-  { path: '/tasks/background', label: '后台任务', icon: ListTodo },
-  { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
-  { path: '/memories', label: '记忆', icon: Atom },
-  { path: '/models', label: '大模型', icon: Cpu },
-  { path: '/apps', label: '应用', icon: AppWindow },
-  { path: '/workflows', label: '工作流', icon: GitBranch },
+  { path: '/tags', labelKey: 'nav:tags', icon: Tag },
+  { path: '/agents', labelKey: 'nav:agents', icon: Bot },
+  { path: '/skills', labelKey: 'nav:skills', icon: Zap },
+  { path: '/tools', labelKey: 'nav:tools', icon: Wrench },
+  { path: '/knowledge-base', labelKey: 'nav:knowledgeBase', icon: Database },
+  { path: '/graph', labelKey: 'nav:graph', icon: Network },
+  { path: '/tasks/background', labelKey: 'nav:tasksBackground', icon: ListTodo },
+  { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
+  { path: '/memories', labelKey: 'nav:memories', icon: Atom },
+  { path: '/models', labelKey: 'nav:models', icon: Cpu },
+  { path: '/apps', labelKey: 'nav:apps', icon: AppWindow },
+  { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
 ] as const
 
 // 右侧独立分组：代理与用量
 const secondaryNavItems = [
-  { path: '/proxy', label: '代理服务', icon: Waypoints },
-  { path: '/usage', label: '用量统计', icon: Gauge },
-  { path: '/inbox', label: '收件箱', icon: Inbox },
+  { path: '/proxy', labelKey: 'nav:proxy', icon: Waypoints },
+  { path: '/usage', labelKey: 'nav:usage', icon: Gauge },
+  { path: '/inbox', labelKey: 'nav:inbox', icon: Inbox },
 ] as const
 
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
@@ -63,6 +64,7 @@ function NavUnreadBadge() {
 }
 
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const appName = useUIStore((state) => state.appName)
@@ -120,8 +122,9 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     return () => observer.disconnect()
   }, [isVertical, railCompact, pinnedNavItems, lastMoreItem])
 
-  const renderNavButton = (item: { path: string; label: string; icon: React.ComponentType<{ size?: number }> }) => {
+  const renderNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
     const Icon = item.icon
+    const label = t(item.labelKey)
     const isActive = location.pathname === item.path
     return (
       <button
@@ -130,21 +133,22 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(isActive)}`}
       >
         <Icon size={14} />
-        {item.label}
+        {label}
         {item.path === '/inbox' && <NavUnreadBadge />}
       </button>
     )
   }
 
   // 垂直胶囊：图标 + 小字标签，纵向堆叠于最左侧
-  const renderVerticalNavButton = (item: { path: string; label: string; icon: React.ComponentType<{ size?: number }> }) => {
+  const renderVerticalNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
     const Icon = item.icon
+    const label = t(item.labelKey)
     const isActive = location.pathname === item.path
     return (
       <button
         key={item.path}
         onClick={() => navigate(item.path)}
-        title={item.label}
+        title={label}
         data-rail-item=""
         className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
           isActive
@@ -153,7 +157,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         }`}
       >
         <Icon size={18} />
-        <span className="max-w-full truncate">{item.label}</span>
+        <span className="max-w-full truncate">{label}</span>
         {item.path === '/inbox' && <NavUnreadBadge />}
       </button>
     )
@@ -199,7 +203,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               }`}
             >
               <Icon size={14} />
-              {item.label}
+              {t(item.labelKey)}
             </button>
           )
         })}
@@ -233,7 +237,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <button
           ref={moreBtnRef}
           onClick={openMoreMenu}
-          title="更多"
+          title={t('nav:more')}
           data-rail-item=""
           className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
             moreOpen
@@ -242,7 +246,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           }`}
         >
           <ChevronDown size={18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-          更多
+          {t('nav:more')}
         </button>
       )}
 
@@ -253,7 +257,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
       <button
         onClick={() => navigate('/settings')}
-        title="设置"
+        title={t('nav:settings')}
         data-rail-item=""
         className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
           location.pathname === '/settings'
@@ -262,7 +266,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         }`}
       >
         <Settings size={18} />
-        设置
+        {t('nav:settings')}
       </button>
     </nav>
   )
@@ -305,9 +309,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                 onClick={openMoreMenu}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(moreOpen)}`}
               >
-                更多
-                <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-              </button>
+                {t('nav:more')}
+                <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />              </button>
             </div>
           )}
           </div>
@@ -325,7 +328,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                 ? 'bg-gray-100/80 text-gray-800 dark:bg-white/10 dark:text-gray-100'
                 : 'text-gray-400 hover:bg-gray-100/60 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200'
             }`}
-            title="设置"
+            title={t('nav:settings')}
           >
             <Settings size={17} />
           </button>

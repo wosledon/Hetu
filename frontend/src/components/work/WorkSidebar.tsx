@@ -1,4 +1,5 @@
 import { useState, forwardRef, useImperativeHandle } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
@@ -40,6 +41,7 @@ function DirBrowser({
   onPick: (path: string) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation('work')
   const [path, setPath] = useState('')
   const listing = useQuery<IDirListing>({
     queryKey: kind === 'local' ? ['workLocalDirs', path] : ['workRemoteDirs', ssh?.host, ssh?.port, ssh?.user, path],
@@ -61,8 +63,8 @@ function DirBrowser({
         <button
           onClick={onClose}
           className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-          title="关闭浏览"
-          aria-label="关闭目录浏览"
+          title={t('sidebar.closeBrowse')}
+          aria-label={t('sidebar.closeDirBrowser')}
         >
           <X size={12} />
         </button>
@@ -74,17 +76,17 @@ function DirBrowser({
             className="flex w-full items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5 text-left text-[12px] text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <CornerLeftUp size={12} className="shrink-0" />
-            上级目录
+            {t('sidebar.parentDir')}
           </button>
         )}
         {listing.isLoading && (
           <div className="flex items-center gap-1.5 px-2.5 py-3 text-[12px] text-gray-400">
-            <Loader2 size={12} className="animate-spin" />读取中...
+            <Loader2 size={12} className="animate-spin" />{t('sidebar.reading')}
           </div>
         )}
         {listing.isError && (
           <div className="px-2.5 py-3 text-[12px] text-red-500">
-            {(listing.error as Error)?.message || '读取失败'}
+            {(listing.error as Error)?.message || t('sidebar.readFailed')}
           </div>
         )}
         {data?.entries.filter((e) => e.isDirectory).map((entry) => (
@@ -99,7 +101,7 @@ function DirBrowser({
           </button>
         ))}
         {data && data.entries.filter((e) => e.isDirectory).length === 0 && !listing.isLoading && (
-          <div className="px-2.5 py-3 text-[12px] text-gray-400">没有子目录</div>
+          <div className="px-2.5 py-3 text-[12px] text-gray-400">{t('sidebar.noSubDirs')}</div>
         )}
       </div>
       <div className="mt-1.5 flex justify-end gap-1.5">
@@ -108,7 +110,7 @@ function DirBrowser({
           disabled={!data?.current}
           className="rounded-lg bg-blue-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
         >
-          选择当前目录
+          {t('sidebar.pickCurrentDir')}
         </button>
       </div>
     </div>
@@ -118,6 +120,7 @@ function DirBrowser({
 /* ─── 新建项目对话框（本地 / SSH 远程） ─── */
 
 function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (p: IWorkProject) => void }) {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'local' | 'ssh'>('local')
   const [name, setName] = useState('')
@@ -147,27 +150,27 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       onCreated(project)
     },
-    onError: (e: Error) => setError(e.message || '创建项目失败'),
+    onError: (e: Error) => setError(e.message || t('sidebar.createProjectFailed')),
   })
 
   const testConnection = useMutation({
     mutationFn: workSshService.test,
     onSuccess: (r) => setTestResult({ ok: r.success, text: r.remoteBanner ? `${r.message}（${r.remoteBanner}）` : r.message }),
-    onError: (e: Error) => setTestResult({ ok: false, text: e.message || '连接测试失败' }),
+    onError: (e: Error) => setTestResult({ ok: false, text: e.message || t('sidebar.testConnectionFailed') }),
   })
 
   const handleCreate = () => {
     setError('')
-    if (!name.trim()) { setError('请输入项目名称'); return }
+    if (!name.trim()) { setError(t('sidebar.projectNameRequired')); return }
     if (mode === 'local') {
-      if (!rootPath.trim()) { setError('请输入本地目录'); return }
+      if (!rootPath.trim()) { setError(t('sidebar.localDirRequired')); return }
       create.mutate({ name: name.trim(), rootPath: rootPath.trim() })
       return
     }
-    if (!host.trim()) { setError('请输入 SSH 主机地址'); return }
-    if (authType === 'Password' && !password) { setError('请输入 SSH 密码'); return }
-    if (authType === 'Key' && !keyPath.trim()) { setError('请输入私钥文件路径'); return }
-    if (!rootPath.trim()) { setError('请输入远程项目目录（绝对路径）'); return }
+    if (!host.trim()) { setError(t('sidebar.sshHostRequired')); return }
+    if (authType === 'Password' && !password) { setError(t('sidebar.sshPasswordRequired')); return }
+    if (authType === 'Key' && !keyPath.trim()) { setError(t('sidebar.sshKeyPathRequired')); return }
+    if (!rootPath.trim()) { setError(t('sidebar.remoteDirRequired')); return }
     create.mutate({
       name: name.trim(),
       rootPath: rootPath.trim(),
@@ -187,15 +190,15 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">新建项目</h3>
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('sidebar.newProjectTitle')}</h3>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 模式切换 */}
           <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             {([
-              { key: 'local' as const, label: '本地目录', icon: HardDrive },
-              { key: 'ssh' as const, label: 'SSH 远程', icon: Server },
+              { key: 'local' as const, label: t('sidebar.localDir'), icon: HardDrive },
+              { key: 'ssh' as const, label: t('sidebar.sshRemote'), icon: Server },
             ]).map((m) => {
               const Icon = m.icon
               return (
@@ -214,21 +217,21 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">项目名称</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：我的服务端项目" className={inputCls} />
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.projectName')}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('sidebar.projectNamePlaceholder')} className={inputCls} />
           </div>
 
           {mode === 'local' ? (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">本地目录</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.localDir')}</label>
               <div className="flex items-center gap-2">
-                <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 D:\repos\MyProject 或 /home/me/project" className={`${inputCls} font-mono text-[13px]`} />
+                <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder={t('sidebar.localDirPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                 <button
                   onClick={() => setLocalBrowsing((v) => !v)}
                   className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <FolderOpen size={13} />
-                  浏览
+                  {t('sidebar.browse')}
                 </button>
               </div>
               {localBrowsing && (
@@ -246,12 +249,12 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
                   <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
                     <Wifi size={13} />
-                    未检测到 ssh 命令（{sshStatus.os}）
+                    {t('sidebar.sshNotFound', { os: sshStatus.os })}
                   </div>
                   <p className="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">{sshStatus.installHint}</p>
                   {sshStatus.installUrl && (
                     <a href={sshStatus.installUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-block text-[11px] font-medium text-amber-700 underline dark:text-amber-300">
-                      查看安装指南 →
+                      {t('sidebar.viewInstallGuide')}
                     </a>
                   )}
                 </div>
@@ -261,8 +264,8 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
               {sshConfigHosts.length > 0 && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    从本机 SSH 配置导入
-                    <span className="ml-1 text-[11px] font-normal text-gray-400">（~/.ssh/config，可选）</span>
+                    {t('sidebar.importFromSshConfig')}
+                    <span className="ml-1 text-[11px] font-normal text-gray-400">{t('sidebar.sshConfigHint')}</span>
                   </label>
                   <Select
                     value=""
@@ -278,7 +281,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                         setKeyPath(picked.identityFile)
                       }
                     }}
-                    placeholder="选择已配置的主机…"
+                    placeholder={t('sidebar.pickConfiguredHost')}
                     options={sshConfigHosts.map((h) => ({
                       value: h.alias,
                       label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? `（${h.user}）` : ''}`,
@@ -290,27 +293,27 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
               <div className="grid grid-cols-[1fr_96px] gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">主机地址</label>
-                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10 或 example.com" className={`${inputCls} font-mono text-[13px]`} />
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.hostAddress')}</label>
+                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder={t('sidebar.hostPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">端口</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.port')}</label>
                   <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} className={inputCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">登录用户</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.loginUser')}</label>
                   <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" className={`${inputCls} font-mono text-[13px]`} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">认证方式</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.authType')}</label>
                   <Select
                     value={authType}
                     onChange={setAuthType}
                     options={[
-                      { value: 'Key', label: '私钥文件' },
-                      { value: 'Password', label: '密码' },
+                      { value: 'Key', label: t('sidebar.authKeyFile') },
+                      { value: 'Password', label: t('sidebar.authPassword') },
                       { value: 'Agent', label: 'SSH Agent' },
                     ]}
                     triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
@@ -319,27 +322,27 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
               </div>
               {authType === 'Key' && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">私钥文件路径</label>
-                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder="如 ~/.ssh/id_rsa" className={`${inputCls} font-mono text-[13px]`} />
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.keyPath')}</label>
+                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder={t('sidebar.keyPathPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                 </div>
               )}
               {authType === 'Password' && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">密码</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="SSH 登录密码（加密保存）" className={inputCls} />
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.password')}</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('sidebar.passwordPlaceholder')} className={inputCls} />
                 </div>
               )}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">远程项目目录</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.remoteDir')}</label>
                 <div className="flex items-center gap-2">
-                  <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="如 /home/me/projects/app（绝对路径）" className={`${inputCls} font-mono text-[13px]`} />
+                  <input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder={t('sidebar.remoteDirPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                   <button
                     onClick={() => setRemoteBrowsing((v) => !v)}
                     disabled={!host.trim()}
                     className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
                     <FolderOpen size={13} />
-                    浏览
+                    {t('sidebar.browse')}
                   </button>
                 </div>
                 {remoteBrowsing && (
@@ -358,7 +361,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                   className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                 >
                   {testConnection.isPending ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
-                  测试连接
+                  {t('sidebar.testConnection')}
                 </button>
                 {testResult && (
                   <span className={`text-[11px] ${testResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -372,13 +375,13 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
           {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">取消</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">{t('common:cancel')}</button>
           <button
             onClick={handleCreate}
             disabled={create.isPending}
             className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
           >
-            {create.isPending ? '创建中...' : '创建'}
+            {create.isPending ? t('sidebar.creating') : t('sidebar.create')}
           </button>
         </div>
       </div>
@@ -446,6 +449,7 @@ function SessionList({
   onSelectSession: (s: IWorkSession) => void
   onSessionDeleted?: (sessionId: string) => void
 }) {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [actionError, setActionError] = useState('')
@@ -466,7 +470,7 @@ function SessionList({
       onSelectProject(project)
       onSelectSession(newSession)
     },
-    onError: (e: Error) => setActionError(e.message || '创建会话失败'),
+    onError: (e: Error) => setActionError(e.message || t('sidebar.createSessionFailed')),
   })
 
   const renameMutation = useMutation({
@@ -477,7 +481,7 @@ function SessionList({
       setActionError('')
     },
     onError: (e: Error) => {
-      setActionError(e.message || '重命名失败')
+      setActionError(e.message || t('sidebar.renameFailed'))
       setRenamingSessionId(null)
     },
   })
@@ -490,12 +494,12 @@ function SessionList({
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       onSessionDeleted?.(sessionId)
     },
-    onError: (e: Error) => setActionError(e.message || '删除会话失败'),
+    onError: (e: Error) => setActionError(e.message || t('sidebar.deleteSessionFailed')),
   })
 
   const handleDeleteSession = (session: IWorkSession) => {
     confirm({
-      message: `确定删除会话「${session.title || '新会话'}」吗？会话消息将一并删除。`,
+      message: t('sidebar.deleteSessionConfirm', { title: session.title || t('sidebar.newSession') }),
       onConfirm: () => deleteSessionMutation.mutate(session.id),
     })
   }
@@ -533,15 +537,15 @@ function SessionList({
               />
             ) : (
               <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                {session.title || '新会话'}
+                {session.title || t('sidebar.newSession')}
               </span>
             )}
             {renamingSessionId !== session.id && (
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
-                  title="重命名会话"
-                  aria-label="重命名会话"
+                  title={t('sidebar.renameSession')}
+                  aria-label={t('sidebar.renameSession')}
                   className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
                 >
                   <Pencil size={10} />
@@ -549,8 +553,8 @@ function SessionList({
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
                   disabled={deleteSessionMutation.isPending}
-                  title="删除会话"
-                  aria-label="删除会话"
+                  title={t('sidebar.deleteSession')}
+                  aria-label={t('sidebar.deleteSession')}
                   className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700"
                 >
                   <Trash2 size={10} />
@@ -562,18 +566,18 @@ function SessionList({
       })}
       {sessions.length === 0 && sessionQuery && (
         <div className="py-0.5 text-[11px] text-gray-400" style={pad}>
-          无匹配会话
+          {t('sidebar.noMatchingSessions')}
         </div>
       )}
       {sessions.length === 0 && !sessionQuery ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '32px' } : undefined}>
           <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
-          <span className="text-[11px] text-gray-400">还没有会话</span>
+          <span className="text-[11px] text-gray-400">{t('sidebar.noSessions')}</span>
           <button
             onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
             className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
           >
-            新建会话
+            {t('sidebar.newSession')}
           </button>
         </div>
       ) : (
@@ -583,7 +587,7 @@ function SessionList({
             className="flex items-center gap-1 py-0.5 text-[11px] text-gray-400 transition-colors hover:text-blue-500"
             style={pad}
           >
-            <Plus size={10} /> 新建会话
+            <Plus size={10} /> {t('sidebar.newSession')}
           </button>
         )
       )}
@@ -618,6 +622,7 @@ function ProjectNode({
   onRenameProject: (p: IWorkProject) => void
   onSessionDeleted?: (sessionId: string) => void
 }) {
+  const { t } = useTranslation('work')
   const [renaming, setRenaming] = useState(false)
   const [setting, setSetting] = useState(false)
   const [name, setName] = useState(project.name)
@@ -650,23 +655,23 @@ function ProjectNode({
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); setSetting(true) }}
-            title="项目设置"
+            title={t('sidebar.projectSettings')}
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
           >
             <Settings size={11} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
-            title="重命名项目"
-            aria-label="重命名项目"
+            title={t('sidebar.renameProject')}
+            aria-label={t('sidebar.renameProject')}
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
           >
             <Pencil size={11} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
-            title="删除项目"
-            aria-label="删除项目"
+            title={t('sidebar.deleteProject')}
+            aria-label={t('sidebar.deleteProject')}
             className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
           >
             <Trash2 size={11} />
@@ -720,6 +725,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted,
   embedded, search = '',
 }, ref) {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
@@ -743,14 +749,14 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
 
   // 按分类分节展示：分类取自关联的项目管理条目，未分类的归到「未分类」
   const sections = filtered.reduce<Array<[string, IWorkProject[]]>>((acc, p) => {
-    const name = p.category?.trim() || '未分类'
+    const name = p.category?.trim() || ''
     const last = acc[acc.length - 1]
     if (last && last[0] === name) last[1].push(p)
     else acc.push([name, [p]])
     return acc
   }, [])
   sections.sort((a, b) =>
-    (a[0] === '未分类' ? 1 : 0) - (b[0] === '未分类' ? 1 : 0) ||
+    (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0) ||
     b[1].length - a[1].length ||
     a[0].localeCompare(b[0]))
 
@@ -762,7 +768,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
       queryClient.invalidateQueries({ queryKey: ['workSessions'] })
       onProjectDeleted?.(projectId)
     },
-    onError: (e: Error) => setProjectActionError(e.message || '删除项目失败'),
+    onError: (e: Error) => setProjectActionError(e.message || t('sidebar.deleteProjectFailed')),
   })
 
   const renameProject = useMutation({
@@ -782,7 +788,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
       queryClient.invalidateQueries({ queryKey: ['workProjects'] })
       setProjectActionError('')
     },
-    onError: (e: Error) => setProjectActionError(e.message || '重命名项目失败'),
+    onError: (e: Error) => setProjectActionError(e.message || t('sidebar.renameProjectFailed')),
   })
 
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
@@ -806,7 +812,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
         <div key={category} className="mb-1">
           {sections.length > 1 && (
             <div className="flex items-center gap-1.5 px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category}</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category || t('sidebar.uncategorized')}</span>
               <span className="text-[10px] text-gray-300 dark:text-gray-600">{items.length}</span>
             </div>
           )}
@@ -825,7 +831,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
               onDeleteProject={(id) => {
                 const project = projects.find((p) => p.id === id)
                 confirm({
-                  message: `确定删除项目「${project?.name ?? ''}」吗？其中的所有会话将一并删除。`,
+                  message: t('sidebar.deleteProjectConfirm', { name: project?.name ?? '' }),
                   onConfirm: () => deleteProject.mutate(id),
                 })
               }}
@@ -841,7 +847,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
         </div>
       )}
       {filtered.length === 0 && (
-        <div className="py-8 text-center text-xs text-gray-400">暂无项目</div>
+        <div className="py-8 text-center text-xs text-gray-400">{t('sidebar.noProjects')}</div>
       )}
     </>
   )
@@ -857,7 +863,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
         <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-100 p-3 dark:border-gray-800">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">会话</h2>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('sidebar.sessions')}</h2>
               {selectedProject && (
                 <span className="min-w-0 truncate text-[10px] text-gray-400" title={selectedProject.name}>{selectedProject.name}</span>
               )}
@@ -875,7 +881,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
                 onSessionDeleted={onSessionDeleted}
               />
             ) : (
-              <div className="py-8 text-center text-xs text-gray-400">选择项目查看会话</div>
+              <div className="py-8 text-center text-xs text-gray-400">{t('sidebar.selectProjectForSessions')}</div>
             )}
           </div>
         </div>

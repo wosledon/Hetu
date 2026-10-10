@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export interface DatePickerProps {
@@ -12,8 +13,6 @@ export interface DatePickerProps {
   /** 自定义触发器样式（紧凑场景传入以覆盖默认大尺寸样式，需自带 flex 布局） */
   triggerClassName?: string
 }
-
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
 const TRIGGER_CLASS =
   'flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50'
@@ -30,15 +29,17 @@ const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 
 /** 日期展示：同年省略年份，跨年补全年份 */
-function formatCN(date: Date, today: Date): string {
-  const base = `${date.getMonth() + 1}月${date.getDate()}日`
-  return date.getFullYear() === today.getFullYear() ? base : `${date.getFullYear()}年${base}`
+function formatDay(date: Date, today: Date, t: (k: string, o?: Record<string, unknown>) => string): string {
+  const base = t('ui:datePicker.dayMonth', { month: date.getMonth() + 1, day: date.getDate() })
+  return date.getFullYear() === today.getFullYear() ? base : t('ui:datePicker.yearDayMonth', { year: date.getFullYear(), base })
 }
 
 /** 月份日历下拉：替代原生 date 输入，与封装的 Select 视觉一致 */
 export default function DatePicker({
-  value, onChange, placeholder = '选择日期', disabled, className = '', triggerClassName,
+  value, onChange, placeholder, disabled, className = '', triggerClassName,
 }: DatePickerProps) {
+  const { t } = useTranslation()
+  const weekdays = t('ui:datePicker.weekdays', { returnObjects: true }) as unknown as string[]
   const [open, setOpen] = useState(false)
   const selected = parseISO(value)
   const [view, setView] = useState(() => selected ?? new Date())
@@ -113,7 +114,7 @@ export default function DatePicker({
         <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
           <CalendarDays size={14} className="shrink-0 text-gray-400" />
           <span className={`truncate ${selected ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
-            {selected ? formatCN(selected, today) : placeholder}
+            {selected ? formatDay(selected, today, t) : placeholder ?? t('ui:datePicker.pickHint')}
           </span>
         </span>
         <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${open ? 'rotate-180' : ''}`} />
@@ -130,24 +131,24 @@ export default function DatePicker({
               type="button"
               onClick={() => setView(new Date(year, month - 1, 1))}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-              aria-label="上一月"
+              aria-label={t('ui:datePicker.prevMonth')}
             >
               <ChevronLeft size={15} />
             </button>
-            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{year}年{month + 1}月</span>
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{t('ui:datePicker.yearMonth', { year, month: month + 1 })}</span>
             <button
               type="button"
               onClick={() => setView(new Date(year, month + 1, 1))}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-              aria-label="下一月"
+              aria-label={t('ui:datePicker.nextMonth')}
             >
               <ChevronRight size={15} />
             </button>
           </div>
 
           <div className="mb-1 grid grid-cols-7">
-            {WEEKDAYS.map((w) => (
-              <span key={w} className="flex h-7 items-center justify-center text-[11px] text-gray-400 dark:text-gray-500">{w}</span>
+            {weekdays.map((w, i) => (
+              <span key={i} className="flex h-7 items-center justify-center text-[11px] text-gray-400 dark:text-gray-500">{w}</span>
             ))}
           </div>
 
@@ -174,7 +175,7 @@ export default function DatePicker({
               onClick={() => { const now = new Date(); onChange(toISO(now)); setView(new Date(now.getFullYear(), now.getMonth(), 1)) }}
               className="rounded-lg px-2 py-1 text-[12px] text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
             >
-              今天
+              {t('ui:datePicker.today')}
             </button>
             <button
               type="button"
@@ -182,7 +183,7 @@ export default function DatePicker({
               disabled={!selected}
               className="rounded-lg px-2 py-1 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-white/[0.06]"
             >
-              清除
+              {t('ui:datePicker.clear')}
             </button>
           </div>
         </div>,

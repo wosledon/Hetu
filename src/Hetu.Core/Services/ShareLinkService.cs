@@ -11,18 +11,20 @@ public class ShareLinkService : IShareLinkService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILocalizer _localizer;
 
-    public ShareLinkService(IUnitOfWork unitOfWork, IHttpContextAccessor httpContextAccessor)
+    public ShareLinkService(IUnitOfWork unitOfWork, IHttpContextAccessor httpContextAccessor, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _httpContextAccessor = httpContextAccessor;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<ShareLinkDto>> CreateAsync(CreateShareLinkRequest request, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(request.NoteId, cancellationToken);
-        if (note == null) return ApiResponse<ShareLinkDto>.Fail("笔记不存在");
-        if (note.IsDeleted) return ApiResponse<ShareLinkDto>.Fail("已删除的笔记无法分享");
+        if (note == null) return ApiResponse<ShareLinkDto>.Fail(_localizer.T("note.notFound"));
+        if (note.IsDeleted) return ApiResponse<ShareLinkDto>.Fail(_localizer.T("share.deletedCannotShare"));
 
         var shareCode = GenerateShareCode();
         var shareLink = new ShareLink
@@ -55,7 +57,7 @@ public class ShareLinkService : IShareLinkService
     public async Task<ApiResponse> DeactivateAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var link = await _unitOfWork.ShareLinks.GetByIdAsync(id, cancellationToken);
-        if (link == null) return ApiResponse.Fail("分享链接不存在");
+        if (link == null) return ApiResponse.Fail(_localizer.T("share.notFound"));
 
         link.IsActive = false;
         link.UpdatedAt = DateTimeOffset.UtcNow;
@@ -70,13 +72,13 @@ public class ShareLinkService : IShareLinkService
         var links = await _unitOfWork.ShareLinks.FindAsync(l => l.ShareCode == shareCode, cancellationToken);
         var link = links.FirstOrDefault();
 
-        if (link == null) return ApiResponse<SharedNoteDto>.Fail("分享链接不存在");
-        if (!link.IsActive) return ApiResponse<SharedNoteDto>.Fail("分享链接已失效");
+        if (link == null) return ApiResponse<SharedNoteDto>.Fail(_localizer.T("share.notFound"));
+        if (!link.IsActive) return ApiResponse<SharedNoteDto>.Fail(_localizer.T("share.inactive"));
         if (link.ExpiresAt.HasValue && link.ExpiresAt.Value < DateTimeOffset.UtcNow)
-            return ApiResponse<SharedNoteDto>.Fail("分享链接已过期");
+            return ApiResponse<SharedNoteDto>.Fail(_localizer.T("share.expired"));
 
         var note = await _unitOfWork.Notes.GetByIdAsync(link.NoteId, cancellationToken);
-        if (note == null || note.IsDeleted) return ApiResponse<SharedNoteDto>.Fail("笔记不存在或已删除");
+        if (note == null || note.IsDeleted) return ApiResponse<SharedNoteDto>.Fail(_localizer.T("share.noteDeleted"));
 
         link.ViewCount++;
         link.UpdatedAt = DateTimeOffset.UtcNow;

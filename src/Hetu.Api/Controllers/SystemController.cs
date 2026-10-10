@@ -1,4 +1,5 @@
 using System.Reflection;
+using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,13 @@ namespace Hetu.Api.Controllers;
 [Route("api/system")]
 public class SystemController : ControllerBase
 {
+    private readonly ILocalizer _localizer;
+
+    public SystemController(ILocalizer localizer)
+    {
+        _localizer = localizer;
+    }
+
     /// <summary>当前后端程序集版本（与桌面壳 tauri.conf.json 同源维护，供「关于」页展示）</summary>
     [HttpGet("version")]
     public ApiResponse<VersionInfoDto> GetVersion()
@@ -39,7 +47,7 @@ public class SystemController : ControllerBase
 
         var full = Path.GetFullPath(path);
         if (!Directory.Exists(full))
-            return ApiResponse<FsDirsDto>.Fail("目录不存在");
+            return ApiResponse<FsDirsDto>.Fail(_localizer.T("system.dirNotFound"));
 
         List<FsEntryDto> dirs;
         try
@@ -55,7 +63,7 @@ public class SystemController : ControllerBase
         }
         catch (Exception e)
         {
-            return ApiResponse<FsDirsDto>.Fail($"读取目录失败：{e.Message}");
+            return ApiResponse<FsDirsDto>.Fail(_localizer.T("system.readDirFailed", e.Message));
         }
 
         DirectoryInfo? parent = null;

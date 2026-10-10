@@ -10,12 +10,14 @@ public class NoteAiService : INoteAiService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ILocalizer _localizer;
 
-    public NoteAiService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder)
+    public NoteAiService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _usageRecorder = usageRecorder;
+        _localizer = localizer;
     }
 
     public async IAsyncEnumerable<string> SummarizeAsync(Guid noteId, NoteAiRequest request, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -23,7 +25,7 @@ public class NoteAiService : INoteAiService
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
         if (note == null)
         {
-            yield return "[ERROR] 笔记不存在";
+            yield return "[ERROR] " + _localizer.T("note.notFound");
             yield break;
         }
 
@@ -45,7 +47,7 @@ public class NoteAiService : INoteAiService
         }
         if (provider == null)
         {
-            yield return "[ERROR] 未找到可用的补全模型";
+            yield return "[ERROR] " + _localizer.T("noteAi.modelUnavailable");
             yield break;
         }
 
@@ -133,7 +135,7 @@ public class NoteAiService : INoteAiService
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
         if (note == null)
         {
-            yield return "[ERROR] 笔记不存在";
+            yield return "[ERROR] " + _localizer.T("note.notFound");
             yield break;
         }
 
@@ -155,7 +157,7 @@ public class NoteAiService : INoteAiService
         }
         if (provider == null)
         {
-            yield return "[ERROR] 未找到可用的补全模型";
+            yield return "[ERROR] " + _localizer.T("noteAi.modelUnavailable");
             yield break;
         }
 

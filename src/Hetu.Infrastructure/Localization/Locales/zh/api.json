@@ -1,0 +1,8 @@
+{
+  "api.settingKeyRequired": "设置键不能为空",
+  "api.modelNotFound": "模型不存在",
+  "api.providerNotFound": "供应商不存在",
+  "api.notFound": "资源不存在",
+  "api.invalidRequest": "请求参数不合法",
+  "settings.defaultAssistantName": "AI 助手"
+}

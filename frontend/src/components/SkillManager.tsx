@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react'
 import { skillService } from '../services/skillService'
 import type { ISkill } from '../types'
@@ -14,6 +15,7 @@ const defaultConfig = JSON.stringify(
 )
 
 export default function SkillManager() {
+  const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -109,14 +111,14 @@ export default function SkillManager() {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">Skill 技能</h2>
+        <h2 className="text-lg font-medium">{t('skills.title')}</h2>
         {!isCreating && !editingId && (
           <button
             onClick={() => setIsCreating(true)}
             className="flex items-center gap-1 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
             <Plus size={14} />
-            新增
+            {t('common:create')}
           </button>
         )}
       </div>
@@ -125,27 +127,27 @@ export default function SkillManager() {
         <div className="space-y-2 p-3 border border-gray-200 dark:border-gray-700 rounded-md">
           <input
             type="text"
-            placeholder="分类"
+            placeholder={t('shared.category')}
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
           />
           <input
             type="text"
-            placeholder="名称（英文，用于 /name 触发）"
+            placeholder={t('skills.namePlaceholder')}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
           />
           <input
             type="text"
-            placeholder="描述"
+            placeholder={t('common:description')}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
           />
           <textarea
-            placeholder='Config JSON，如 { "promptTemplate": "...", "systemPrompt": "..." }'
+            placeholder={t('skills.configPlaceholder')}
             value={form.config}
             onChange={(e) => setForm({ ...form, config: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm h-32 resize-none font-mono"
@@ -157,7 +159,7 @@ export default function SkillManager() {
                 checked={form.isEnabled}
                 onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
               />
-              启用
+              {t('common:enable')}
             </label>
           )}
           <div className="flex gap-2">
@@ -166,7 +168,7 @@ export default function SkillManager() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
             >
               <Check size={14} />
-              保存
+              {t('common:save')}
             </button>
             <button
               onClick={() => {
@@ -177,7 +179,7 @@ export default function SkillManager() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"
             >
               <X size={14} />
-              取消
+              {t('common:cancel')}
             </button>
           </div>
         </div>

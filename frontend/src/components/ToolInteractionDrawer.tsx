@@ -9,6 +9,7 @@ import {
   ListChecks,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getInteraction, useInteractionStore } from '../stores/interactionStore'
 import type { InteractionTodo } from '../stores/interactionStore'
 import QuestionFlow from './tools/QuestionFlow'
@@ -86,6 +87,7 @@ function TodoSection({ todos }: { todos: InteractionTodo[] }) {
  * 对话页与编码页共用；答案与计划决策通过共享的 /chat-messages 接口提交。
  */
 export default function ToolInteractionDrawer({ streamKey, streaming = false }: ToolInteractionDrawerProps) {
+  const { t } = useTranslation('chat')
   const state = useInteractionStore((st) => getInteraction(st.streams, streamKey))
   const answer = useInteractionStore((st) => st.answer)
   const setQuestionIndex = useInteractionStore((st) => st.setQuestionIndex)
@@ -101,11 +103,11 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
 
   const tabs = useMemo(() => {
     const list: { key: InteractionTab; label: string; icon: typeof HelpCircle; badge?: string }[] = []
-    if (questions.length > 0) list.push({ key: 'question', label: '提问', icon: HelpCircle, badge: String(questions.length) })
-    if (plan) list.push({ key: 'plan', label: '计划', icon: ListChecks })
-    if (todos.length > 0) list.push({ key: 'todo', label: '任务', icon: ClipboardList, badge: `${todos.filter(t => t.status === 'completed').length}/${todos.length}` })
+    if (questions.length > 0) list.push({ key: 'question', label: t('interaction.questions'), icon: HelpCircle, badge: String(questions.length) })
+    if (plan) list.push({ key: 'plan', label: t('interaction.plan'), icon: ListChecks })
+    if (todos.length > 0) list.push({ key: 'todo', label: t('interaction.tasks'), icon: ClipboardList, badge: `${todos.filter(t => t.status === 'completed').length}/${todos.length}` })
     return list
-  }, [questions, plan, todos])
+  }, [questions, plan, todos, t])
 
   const pendingPlan = plan && !plan.decided
   const visible = questions.length > 0 || !!pendingPlan || (streaming && todos.length > 0)
@@ -137,10 +139,10 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
   const activeMeta = tabs.find(t => t.key === active)
 
   const summary = active === 'plan'
-    ? plan && `${plan.title || '执行计划'} · ${plan.steps.length} 个步骤${plan.decided === 'approved' ? ' · 已批准' : plan.decided === 'rejected' ? ' · 已驳回' : ' · 待确认'}`
+    ? plan && `${plan.title || t('interaction.executionPlan')} · ${t('interaction.steps', { count: plan.steps.length })}${plan.decided === 'approved' ? t('interaction.approved') : plan.decided === 'rejected' ? t('interaction.rejected') : t('interaction.pendingConfirm')}`
     : active === 'todo'
-      ? `工作计划 · ${todos.filter(t => t.status === 'completed').length}/${todos.length}${todos.length > 0 && todos.every(t => t.status === 'completed') ? ' · 已全部完成' : ''}`
-      : '提问作答中'
+      ? `${t('interaction.workPlan')} · ${todos.filter(todo => todo.status === 'completed').length}/${todos.length}${todos.length > 0 && todos.every(todo => todo.status === 'completed') ? t('interaction.allCompleted') : ''}`
+      : t('interaction.answering')
 
   return (
     <div className="mb-2 animate-drawer-up">
@@ -190,7 +192,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
           <button
             type="button"
             onClick={() => setCollapsed(v => !v)}
-            aria-label={collapsed ? '展开抽屉' : '收起抽屉'}
+            aria-label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')}
             className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
           >
             {collapsed ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronDown size={14} />}

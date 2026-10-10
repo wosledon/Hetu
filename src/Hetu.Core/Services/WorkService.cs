@@ -11,10 +11,12 @@ public class WorkProjectService : IWorkProjectService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? _dataProtection;
+    private readonly ILocalizer _localizer;
 
-    public WorkProjectService(IUnitOfWork unitOfWork, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
+    public WorkProjectService(IUnitOfWork unitOfWork, ILocalizer localizer, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
         _dataProtection = dataProtection;
     }
 
@@ -37,7 +39,7 @@ public class WorkProjectService : IWorkProjectService
     public async Task<ApiResponse<WorkProjectDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse<WorkProjectDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.notFound"));
         var count = (await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken)).Count;
         var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == id, cancellationToken);
         var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
@@ -46,19 +48,19 @@ public class WorkProjectService : IWorkProjectService
 
     public async Task<ApiResponse<WorkProjectDto>> CreateAsync(CreateWorkProjectRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Name)) return ApiResponse<WorkProjectDto>.Fail("项目名称不能为空");
-        if (string.IsNullOrWhiteSpace(request.RootPath)) return ApiResponse<WorkProjectDto>.Fail("项目根目录不能为空");
+        if (string.IsNullOrWhiteSpace(request.Name)) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("workProject.nameRequired"));
+        if (string.IsNullOrWhiteSpace(request.RootPath)) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("workProject.rootPathRequired"));
 
         var isRemote = request.ConnectionType == "Ssh";
         if (isRemote)
         {
-            if (string.IsNullOrWhiteSpace(request.SshHost)) return ApiResponse<WorkProjectDto>.Fail("SSH 主机地址不能为空");
+            if (string.IsNullOrWhiteSpace(request.SshHost)) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.sshHostRequired"));
             if (request.SshAuthType == "Password" && string.IsNullOrEmpty(request.SshPassword))
-                return ApiResponse<WorkProjectDto>.Fail("密码认证需要填写密码");
+                return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.sshPasswordRequired"));
         }
         else if (!Directory.Exists(request.RootPath.Trim()))
         {
-            return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
+            return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.directoryNotExists"));
         }
 
         var project = new WorkProject
@@ -94,13 +96,13 @@ public class WorkProjectService : IWorkProjectService
     public async Task<ApiResponse<WorkProjectDto>> UpdateAsync(Guid id, UpdateWorkProjectRequest request, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse<WorkProjectDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.notFound"));
 
         if (!string.IsNullOrWhiteSpace(request.Name)) project.Name = request.Name.Trim();
         if (!string.IsNullOrWhiteSpace(request.RootPath))
         {
             if (project.ConnectionType != "Ssh" && !Directory.Exists(request.RootPath.Trim()))
-                return ApiResponse<WorkProjectDto>.Fail("项目目录不存在，请检查路径");
+                return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.directoryNotExists"));
             project.RootPath = request.RootPath.Trim();
         }
         project.Description = request.Description;
@@ -119,7 +121,7 @@ public class WorkProjectService : IWorkProjectService
             var wasRemote = project.ConnectionType == "Ssh";
             project.ConnectionType = request.ConnectionType == "Ssh" ? "Ssh" : "Local";
             if (!wasRemote && project.ConnectionType == "Ssh" && string.IsNullOrWhiteSpace(request.SshHost))
-                return ApiResponse<WorkProjectDto>.Fail("切换为 SSH 项目需要填写主机地址");
+                return ApiResponse<WorkProjectDto>.Fail(_localizer.T("workProject.sshHostRequiredForSwitch"));
         }
         if (project.ConnectionType == "Ssh")
         {
@@ -164,7 +166,7 @@ public class WorkProjectService : IWorkProjectService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse.Fail("项目不存在");
+        if (project == null) return ApiResponse.Fail(_localizer.T("project.notFound"));
 
         await _unitOfWork.WorkProjects.DeleteAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -297,10 +299,12 @@ public class WorkProjectService : IWorkProjectService
 public class WorkSessionService : IWorkSessionService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public WorkSessionService(IUnitOfWork unitOfWork)
+    public WorkSessionService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
@@ -331,7 +335,7 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<WorkSessionDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
-        if (session == null) return ApiResponse<WorkSessionDto>.Fail("会话不存在");
+        if (session == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.notFound"));
         var count = (await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == id, cancellationToken)).Count;
         return ApiResponse<WorkSessionDto>.Ok(Map(session, count));
     }
@@ -339,13 +343,13 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<WorkSessionDto>> CreateAsync(CreateWorkSessionRequest request, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(request.ProjectId, cancellationToken);
-        if (project == null) return ApiResponse<WorkSessionDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("project.notFound"));
 
         var session = new WorkSession
         {
             Id = Guid.NewGuid(),
             ProjectId = request.ProjectId,
-            Title = string.IsNullOrWhiteSpace(request.Title) ? "新会话" : request.Title.Trim(),
+            Title = string.IsNullOrWhiteSpace(request.Title) ? _localizer.T("workSession.defaultTitle") : request.Title.Trim(),
             ModelId = request.ModelId,
             PermissionMode = WorkToolPolicy.IsValidValue(request.PermissionMode)
                 ? request.PermissionMode!.Trim().ToLowerInvariant()
@@ -363,20 +367,20 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<WorkSessionDto>> UpdateAsync(Guid id, UpdateWorkSessionRequest request, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
-        if (session == null) return ApiResponse<WorkSessionDto>.Fail("会话不存在");
+        if (session == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.notFound"));
 
         if (!string.IsNullOrWhiteSpace(request.Title)) session.Title = request.Title.Trim();
         if (request.ModelId.HasValue) session.ModelId = request.ModelId;
         if (!string.IsNullOrWhiteSpace(request.PermissionMode))
         {
             if (!WorkToolPolicy.IsValidValue(request.PermissionMode))
-                return ApiResponse<WorkSessionDto>.Fail("权限模式非法，可选值：plan | readonly | ask | auto | bypass");
+                return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.invalidPermissionMode"));
             session.PermissionMode = request.PermissionMode.Trim().ToLowerInvariant();
         }
         if (!string.IsNullOrWhiteSpace(request.AgentMode))
         {
             if (!AgentModePolicy.IsValid(request.AgentMode))
-                return ApiResponse<WorkSessionDto>.Fail("Agent 模式非法，可选值：interactive | autopilot");
+                return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.invalidAgentMode"));
             session.AgentMode = AgentModePolicy.Normalize(request.AgentMode);
         }
         session.UpdatedAt = DateTimeOffset.UtcNow;
@@ -390,7 +394,7 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
-        if (session == null) return ApiResponse.Fail("会话不存在");
+        if (session == null) return ApiResponse.Fail(_localizer.T("workSession.notFound"));
 
         await _unitOfWork.WorkSessions.DeleteAsync(session, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -425,10 +429,10 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);
-        if (session == null) return ApiResponse<WorkMessageDto>.Fail("会话不存在");
+        if (session == null) return ApiResponse<WorkMessageDto>.Fail(_localizer.T("workSession.notFound"));
 
         // 首条用户消息自动生成标题
-        if (session.Title == "新会话" && role == "user")
+        if ((session.Title == "新会话" || session.Title == _localizer.T("workSession.defaultTitle")) && role == "user")
         {
             var existing = await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == sessionId, cancellationToken);
             if (existing.Count == 0)
@@ -490,7 +494,7 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<WorkMessageDto>> UpdateMessageAsync(Guid messageId, string content, CancellationToken cancellationToken = default)
     {
         var message = await _unitOfWork.WorkMessages.GetByIdAsync(messageId, cancellationToken);
-        if (message == null) return ApiResponse<WorkMessageDto>.Fail("消息不存在");
+        if (message == null) return ApiResponse<WorkMessageDto>.Fail(_localizer.T("workMessage.notFound"));
 
         message.Content = content;
         message.UpdatedAt = DateTimeOffset.UtcNow;
@@ -511,7 +515,7 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse> DeleteMessageAsync(Guid messageId, CancellationToken cancellationToken = default)
     {
         var message = await _unitOfWork.WorkMessages.GetByIdAsync(messageId, cancellationToken);
-        if (message == null) return ApiResponse.Fail("消息不存在");
+        if (message == null) return ApiResponse.Fail(_localizer.T("workMessage.notFound"));
 
         await _unitOfWork.WorkMessages.DeleteAsync(message, cancellationToken);
 

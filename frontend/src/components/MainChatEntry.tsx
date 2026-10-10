@@ -1,4 +1,5 @@
 import { Home } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { IMainChat } from '../types'
 
 interface MainChatEntryProps {
@@ -11,6 +12,7 @@ interface MainChatEntryProps {
 
 /** 主对话一级入口：对话与 Code 合并页共用，始终置顶 */
 export default function MainChatEntry({ mainChat, selected, onSelect, variant = 'card' }: MainChatEntryProps) {
+  const { t } = useTranslation('chat')
   if (!mainChat) return null
   const iconCls = `flex shrink-0 items-center justify-center rounded text-white ${
     variant === 'row' ? 'h-5 w-5' : 'h-5 w-5'
@@ -29,11 +31,11 @@ export default function MainChatEntry({ mainChat, selected, onSelect, variant = 
         <span className={iconCls}>
           <Home size={11} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">主对话</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{t('mainEntry.label')}</span>
         <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
           selected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
         }`}>
-          全局
+          {t('mainEntry.global')}
         </span>
       </button>
     )
@@ -53,12 +55,12 @@ export default function MainChatEntry({ mainChat, selected, onSelect, variant = 
           <Home size={11} />
         </span>
         <span className={`min-w-0 flex-1 truncate text-sm font-medium ${selected ? 'text-white' : 'text-gray-700 dark:text-gray-200'}`}>
-          主对话
+          {t('mainEntry.label')}
         </span>
         <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
           selected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
         }`}>
-          全局
+          {t('mainEntry.global')}
         </span>
       </div>
     </div>

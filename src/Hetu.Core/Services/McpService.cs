@@ -11,10 +11,12 @@ namespace Hetu.Core.Services;
 public class McpService : IMcpService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public McpService(IUnitOfWork unitOfWork)
+    public McpService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<McpServerDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -27,14 +29,14 @@ public class McpService : IMcpService
     public async Task<ApiResponse<McpServerDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var server = await _unitOfWork.McpServers.GetByIdAsync(id, cancellationToken);
-        if (server == null) return ApiResponse<McpServerDto>.Fail("MCP Server 不存在");
+        if (server == null) return ApiResponse<McpServerDto>.Fail(_localizer.T("mcp.serverNotFound"));
         return ApiResponse<McpServerDto>.Ok(Map(server));
     }
 
     public async Task<ApiResponse<McpServerDto>> CreateAsync(CreateMcpServerRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.ConnectionConfig))
-            return ApiResponse<McpServerDto>.Fail("名称和连接配置不能为空");
+            return ApiResponse<McpServerDto>.Fail(_localizer.T("mcp.nameAndConfigRequired"));
 
         var server = new McpServer
         {
@@ -56,7 +58,7 @@ public class McpService : IMcpService
     public async Task<ApiResponse<McpServerDto>> UpdateAsync(Guid id, UpdateMcpServerRequest request, CancellationToken cancellationToken = default)
     {
         var server = await _unitOfWork.McpServers.GetByIdAsync(id, cancellationToken);
-        if (server == null) return ApiResponse<McpServerDto>.Fail("MCP Server 不存在");
+        if (server == null) return ApiResponse<McpServerDto>.Fail(_localizer.T("mcp.serverNotFound"));
 
         server.Name = string.IsNullOrWhiteSpace(request.Name) ? server.Name : request.Name.Trim();
         server.Description = request.Description?.Trim() ?? server.Description;
@@ -74,7 +76,7 @@ public class McpService : IMcpService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var server = await _unitOfWork.McpServers.GetByIdAsync(id, cancellationToken);
-        if (server == null) return ApiResponse.Fail("MCP Server 不存在");
+        if (server == null) return ApiResponse.Fail(_localizer.T("mcp.serverNotFound"));
 
         await _unitOfWork.McpServers.DeleteAsync(server, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -84,38 +86,38 @@ public class McpService : IMcpService
     public async Task<ApiResponse<List<McpToolDto>>> ListToolsAsync(Guid serverId, CancellationToken cancellationToken = default)
     {
         var server = await _unitOfWork.McpServers.GetByIdAsync(serverId, cancellationToken);
-        if (server == null) return ApiResponse<List<McpToolDto>>.Fail("MCP Server 不存在");
-        if (!server.IsEnabled) return ApiResponse<List<McpToolDto>>.Fail("MCP Server 已禁用");
-        if (server.Type != "stdio") return ApiResponse<List<McpToolDto>>.Fail("暂仅支持 stdio 类型 MCP Server");
+        if (server == null) return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.serverNotFound"));
+        if (!server.IsEnabled) return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.serverDisabled"));
+        if (server.Type != "stdio") return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.stdioOnly"));
 
         try
         {
-            using var client = new StdioMcpClient(server.ConnectionConfig);
+            using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
             var tools = await client.ListToolsAsync(cancellationToken);
             return ApiResponse<List<McpToolDto>>.Ok(tools);
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<McpToolDto>>.Fail($"获取工具列表失败：{ex.Message}");
+            return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.listToolsFailed", ex.Message));
         }
     }
 
     public async Task<ApiResponse<CallMcpToolResultDto>> CallToolAsync(Guid serverId, CallMcpToolRequest request, CancellationToken cancellationToken = default)
     {
         var server = await _unitOfWork.McpServers.GetByIdAsync(serverId, cancellationToken);
-        if (server == null) return ApiResponse<CallMcpToolResultDto>.Fail("MCP Server 不存在");
-        if (!server.IsEnabled) return ApiResponse<CallMcpToolResultDto>.Fail("MCP Server 已禁用");
-        if (server.Type != "stdio") return ApiResponse<CallMcpToolResultDto>.Fail("暂仅支持 stdio 类型 MCP Server");
+        if (server == null) return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.serverNotFound"));
+        if (!server.IsEnabled) return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.serverDisabled"));
+        if (server.Type != "stdio") return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.stdioOnly"));
 
         try
         {
-            using var client = new StdioMcpClient(server.ConnectionConfig);
+            using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
             var result = await client.CallToolAsync(request.ToolName, request.Arguments, cancellationToken);
             return ApiResponse<CallMcpToolResultDto>.Ok(result);
         }
         catch (Exception ex)
         {
-            return ApiResponse<CallMcpToolResultDto>.Fail($"调用工具失败：{ex.Message}");
+            return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.callToolFailed", ex.Message));
         }
     }
 

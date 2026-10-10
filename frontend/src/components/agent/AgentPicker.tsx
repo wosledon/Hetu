@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bot, Brain, Check, ChevronDown, GitBranch } from 'lucide-react'
 
 export interface AgentPickerItem {
@@ -51,13 +52,20 @@ export default function AgentPicker({
   workflows = [],
   workflowValue,
   onSelectWorkflow,
-  title = '智能体 / 工作流',
-  placeholder = '智能体',
-  groupLabel = '智能体',
-  projectGroupLabel = '项目',
-  emptyHint = '暂无智能体',
-  projectEmptyHint = '当前项目未定义 .github 智能体',
+  title,
+  placeholder,
+  groupLabel,
+  projectGroupLabel,
+  emptyHint,
+  projectEmptyHint,
 }: AgentPickerProps) {
+  const { t } = useTranslation('agent')
+  const triggerTitle = title ?? t('picker.title')
+  const triggerLabel = placeholder ?? t('picker.agent')
+  const agentsGroupLabel = groupLabel ?? t('picker.agentGroup')
+  const projectLabel = projectGroupLabel ?? t('picker.projectGroup')
+  const agentsEmptyHint = emptyHint ?? t('picker.emptyAgents')
+  const projectEmpty = projectEmptyHint ?? t('picker.emptyProjectAgents')
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -109,10 +117,10 @@ export default function AgentPicker({
             ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
             : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
         }`}
-        title={title}
+        title={triggerTitle}
       >
         <CurrentIcon size={14} />
-        {selectedWorkflow?.name ?? selectedProject?.name ?? selected?.name ?? placeholder}
+        {selectedWorkflow?.name ?? selectedProject?.name ?? selected?.name ?? triggerLabel}
         <ChevronDown size={10} />
       </button>
       {open && (
@@ -121,27 +129,27 @@ export default function AgentPicker({
             {/* 项目分组置顶：项目 .github 下的智能体与当前工作最相关 */}
             {onSelectProject && (
               <>
-                <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{projectGroupLabel}</div>
+                <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{projectLabel}</div>
                 {projectItems.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-gray-500">{projectEmptyHint}</div>
+                  <div className="p-3 text-center text-xs text-gray-500">{projectEmpty}</div>
                 ) : (
                   projectItems.map((p) => renderItem(p, p.id === projectValue, () => { onSelectProject(p); setOpen(false) }))
                 )}
                 <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
               </>
             )}
-            <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{groupLabel}</div>
+            <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{agentsGroupLabel}</div>
             {items.length === 0 ? (
-              <div className="p-3 text-center text-xs text-gray-500">{emptyHint}</div>
+              <div className="p-3 text-center text-xs text-gray-500">{agentsEmptyHint}</div>
             ) : (
               items.map((item) => renderItem(item, item.id === value, () => { onSelect(item); setOpen(false) }))
             )}
             {onSelectWorkflow && (
               <>
                 <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-                <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">工作流</div>
+                <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t('picker.workflowGroup')}</div>
                 {workflows.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-gray-500">暂无工作流</div>
+                  <div className="p-3 text-center text-xs text-gray-500">{t('picker.emptyWorkflows')}</div>
                 ) : (
                   workflows.map((w) => renderItem(w, w.id === workflowValue, () => { onSelectWorkflow(w); setOpen(false) }))
                 )}

@@ -1,5 +1,6 @@
 import { confirm } from '../components/confirm'
 import { useState, useMemo, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Brain, X, Moon, Globe, FolderInput, MessagesSquare, Loader2, Sparkles, List, Crosshair, Activity, Pause } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
@@ -8,13 +9,20 @@ import { memoryService } from '../services/memoryService'
 import { projectService } from '../services/projectService'
 import { settingService } from '../services/settingService'
 import { useUIStore } from '../stores/uiStore'
+import i18n from '../i18n'
+import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
-const SCOPE_META: Record<MemoryScope, { label: string; icon: typeof Globe; badge: string }> = {
-  Global: { label: '全局', icon: Globe, badge: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
-  Session: { label: '会话', icon: MessagesSquare, badge: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300' },
-  Project: { label: '项目', icon: FolderInput, badge: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300' },
+const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
+  Global: { icon: Globe, badge: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
+  Session: { icon: MessagesSquare, badge: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300' },
+  Project: { icon: FolderInput, badge: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300' },
+}
+
+/** 作用域标签（跟随语言） */
+function scopeLabel(scope: MemoryScope): string {
+  return i18n.t(`knowledge:memories.scope${scope}`)
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -38,20 +46,14 @@ function formatTime(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins} 分钟前`
-  if (diffHours < 24) return `${diffHours} 小时前`
-  if (diffDays < 30) return `${diffDays} 天前`
-  return date.toLocaleDateString('zh-CN')
+  if (diffMins < 1) return i18n.t('common:justNow')
+  if (diffMins < 60) return i18n.t('common:minutesAgo', { count: diffMins })
+  if (diffHours < 24) return i18n.t('common:hoursAgo', { count: diffHours })
+  if (diffDays < 30) return i18n.t('common:daysAgo', { count: diffDays })
+  return formatDate(date)
 }
 
 const DAY_MS = 86400000
-
-function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 /**
  * 记忆强度（与后端检索评分同源，去掉语义相似度项后归一化）：
@@ -67,17 +69,18 @@ function strengthOf(m: IMemory): number {
 /** 生命周期状态（对齐后端 Dream 的衰减/遗忘阈值）：牢固 / 衰退中 / 濒临遗忘 */
 function stateOf(m: IMemory, decayDays: number, forgetDays: number) {
   const days = Math.max(0, (Date.now() - new Date(m.lastAccessedAt).getTime()) / DAY_MS)
-  if (days >= forgetDays) return { key: 'dying' as const, label: '濒临遗忘', dot: 'bg-red-500', chip: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300' }
-  if (days >= decayDays) return { key: 'fading' as const, label: '衰退中', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300' }
-  return { key: 'fresh' as const, label: '牢固', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' }
+  if (days >= forgetDays) return { key: 'dying' as const, label: i18n.t('knowledge:memories.stateDying'), dot: 'bg-red-500', chip: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300' }
+  if (days >= decayDays) return { key: 'fading' as const, label: i18n.t('knowledge:memories.stateFading'), dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300' }
+  return { key: 'fresh' as const, label: i18n.t('knowledge:memories.stateFresh'), dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' }
 }
 
 /** 强度分段条：把「重要性 × 频率 × 近因」的合成值画成 5 段 */
 function StrengthMeter({ memory }: { memory: IMemory }) {
+  const { t } = useTranslation('knowledge')
   const value = strengthOf(memory)
   const filled = Math.max(1, Math.round(value * 5))
   return (
-    <span className="flex items-center gap-1" title={`记忆强度 ${Math.round(value * 100)}%（重要性 × 频率 × 近因）`}>
+    <span className="flex items-center gap-1" title={t('memories.strengthTitle', { n: Math.round(value * 100) })}>
       <span className="flex items-center gap-0.5">
         {Array.from({ length: 5 }).map((_, i) => (
           <span key={i} className={`h-1.5 w-2.5 rounded-[2px] ${i < filled ? 'bg-teal-500/85' : 'bg-gray-200 dark:bg-white/10'}`} />
@@ -308,6 +311,7 @@ const MemorySky = forwardRef<MemorySkyHandle, {
   /** 是否暗色主题（悬浮信息框的底色/描边用） */
   isDark: boolean
 }>(function MemorySky({ memories, decayDays, forgetDays, dreaming, animate, pal, isDark }, ref) {
+  const { t } = useTranslation('knowledge')
   const { ref: boxRef, size, measured } = useElementSize<HTMLDivElement>()
   const stars = useMemo(() => buildSkyStars(memories, decayDays, forgetDays, pal), [memories, decayDays, forgetDays, pal])
   // 悬停：冻结该星的运动并显示信息框（点击不再弹卡）
@@ -627,7 +631,6 @@ const MemorySky = forwardRef<MemorySkyHandle, {
         const s = stars.find((x) => x.memory.id === hover.id)
         if (!s) return null
         const st = stateOf(s.memory, decayDays, forgetDays)
-        const meta = SCOPE_META[scopeOf(s.memory)]
         const left = Math.min(hover.x + 16, Math.max(8, size.w - 292))
         const top = Math.max(12, Math.min(hover.y - 12, size.h - 184))
         return (
@@ -643,7 +646,7 @@ const MemorySky = forwardRef<MemorySkyHandle, {
             <div className="mb-1.5 flex items-center gap-2">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: s.fill }} />
               <span className={`truncate text-[11px] font-medium ${pal.label}`}>
-                {meta.label}{s.memory.scope === 'Project' && s.memory.projectName ? `·${s.memory.projectName}` : ''}
+                {scopeLabel(scopeOf(s.memory))}{s.memory.scope === 'Project' && s.memory.projectName ? `·${s.memory.projectName}` : ''}
               </span>
               {s.memory.category && (
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${pal.chipBox} ${pal.quiet}`}>{s.memory.category}</span>
@@ -655,8 +658,8 @@ const MemorySky = forwardRef<MemorySkyHandle, {
             </div>
             <p className={`line-clamp-4 text-[12px] leading-relaxed ${pal.label}`}>{s.memory.content}</p>
             <div className={`mt-2 flex items-center gap-3 text-[10px] ${pal.quiet}`}>
-              <span>强度 {Math.round(strengthOf(s.memory) * 100)}%</span>
-              <span>想起 {s.memory.accessCount} 次</span>
+              <span>{t('memories.strength', { n: Math.round(strengthOf(s.memory) * 100) })}</span>
+              <span>{t('memories.recalledCount', { n: s.memory.accessCount })}</span>
               <span>{formatTime(s.memory.lastAccessedAt)}</span>
             </div>
           </div>
@@ -677,12 +680,13 @@ function ScopeBadge({ memory }: { memory: IMemory }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.badge}`}>
       <Icon size={10} />
-      {meta.label}{suffix}
+      {scopeLabel(scopeOf(memory))}{suffix}
     </span>
   )
 }
 
 export default function MemoriesPage() {
+  const { t } = useTranslation('knowledge')
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [scopeFilter, setScopeFilter] = useState<MemoryScope | 'all'>('all')
@@ -764,13 +768,13 @@ export default function MemoriesPage() {
   const dreamMutation = useMutation({
     mutationFn: () => memoryService.dream(),
     onSuccess: (r) => {
-      setDreamMsg(`巩固完成：合并 ${r.merged} · 衰减 ${r.decayed} · 遗忘 ${r.forgotten} · 剩余 ${r.remaining}`)
+      setDreamMsg(t('memories.dreamDone', { merged: r.merged, decayed: r.decayed, forgotten: r.forgotten, remaining: r.remaining }))
       queryClient.invalidateQueries({ queryKey: ['memories'] })
       queryClient.invalidateQueries({ queryKey: ['dreamConfig'] })
       setTimeout(() => setDreamMsg(null), 8000)
     },
     onError: (e: Error) => {
-      setDreamMsg(`巩固失败：${e.message}`)
+      setDreamMsg(t('memories.dreamFailed', { msg: e.message }))
       setTimeout(() => setDreamMsg(null), 8000)
     },
   })
@@ -791,14 +795,14 @@ export default function MemoriesPage() {
   const categories = useMemo(() => {
     const map = new Map<string, number>()
     for (const m of scopedMemories) {
-      const key = m.category || '未分类'
+      const key = m.category || i18n.t('knowledge:memories.uncategorized')
       map.set(key, (map.get(key) || 0) + 1)
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1])
   }, [scopedMemories])
 
   const memories = activeCategory
-    ? scopedMemories.filter((m) => (m.category || '未分类') === activeCategory)
+    ? scopedMemories.filter((m) => (m.category || i18n.t('knowledge:memories.uncategorized')) === activeCategory)
     : scopedMemories
 
   // 生命周期阈值与「正在衰退」计数（Dream 面板据此提示用户跑一次巩固）
@@ -887,9 +891,9 @@ export default function MemoriesPage() {
 
             {/* 左上：页面身份与环境说明 */}
             <div className="pointer-events-none absolute left-6 top-6">
-              <h1 className={`text-[15px] font-semibold tracking-wide ${pal.label}`}>长期记忆</h1>
+              <h1 className={`text-[15px] font-semibold tracking-wide ${pal.label}`}>{t('memories.title')}</h1>
               <p className={`mt-1 text-[11px] ${pal.quiet}`}>
-                {allMemories.length} 条记忆 · 大小=重要性 · 光晕/亮度=强度 · 描边=状态 · 颜色=作用域 · 由内到外=由强到弱
+                {t('memories.legend', { n: allMemories.length })}
               </p>
             </div>
 
@@ -901,53 +905,53 @@ export default function MemoriesPage() {
                     onClick={() => setView('sky')}
                     className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOn}`}
                   >
-                    <Sparkles size={12} />星空
+                    <Sparkles size={12} />{t('memories.starMap')}
                   </button>
                   <button
                     onClick={() => setView('list')}
                     className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOff}`}
                   >
-                    <List size={12} />索引
+                    <List size={12} />{t('memories.listView')}
                   </button>
                 </div>
                 <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`}>
                   <button
                     onClick={() => setAnimate(true)}
                     className={animate ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}
-                    title="游动：萤火虫式随机漫游"
+                    title={t('memories.driftTitle')}
                   >
-                    <Activity size={12} />游动
+                    <Activity size={12} />{t('memories.drift')}
                   </button>
                   <button
                     onClick={() => setAnimate(false)}
                     className={animate ? SKY_SCOPE_IDLE : SKY_SCOPE_ACTIVE}
-                    title="静止：关闭游走，只保留呼吸"
+                    title={t('memories.staticTitle')}
                   >
-                    <Pause size={12} />静态
+                    <Pause size={12} />{t('memories.static')}
                   </button>
                 </div>
                 <button
                   onClick={() => skyRef.current?.fit()}
-                  title="适应内容（双击画布同效）"
+                  title={t('memories.fitTitle')}
                   className={`flex items-center gap-1 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-opacity hover:opacity-80 ${pal.chipBox} ${pal.label}`}
                 >
-                  <Crosshair size={13} />适应
+                  <Crosshair size={13} />{t('memories.fit')}
                 </button>
                 <button
                   onClick={() => dreamMutation.mutate()}
                   disabled={dreamMutation.isPending}
-                  title="合并重复、衰减久未想起的、遗忘极弱的记忆（与设置里的自动模式同一逻辑）"
+                  title={t('memories.dreamTitle')}
                   className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-950/40 transition-colors hover:bg-indigo-400 disabled:opacity-50"
                 >
                   {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
-                  {dreamMutation.isPending ? '巩固中…' : 'Dream 巩固'}
+                  {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dream')}
                 </button>
               </div>
               <p className={`text-[11px] ${pal.quiet}`}>
                 {dreamConfig?.enabled
-                  ? `自动巩固：每 ${dreamConfig.intervalHours} 小时一次${dreamConfig.lastRunAt ? ` · 上次 ${formatTime(dreamConfig.lastRunAt)}` : ''}`
-                  : '自动巩固已关闭（设置 → 记忆 Dream 可开）'}
-                {degradingCount > 0 && <span className="text-amber-600 dark:text-amber-300"> · {degradingCount} 条正在衰退</span>}
+                  ? `${t('memories.autoEnabled', { hours: dreamConfig.intervalHours })}${dreamConfig.lastRunAt ? t('memories.autoLastRun', { time: formatTime(dreamConfig.lastRunAt) }) : ''}`
+                  : t('memories.autoDisabledSky')}
+                {degradingCount > 0 && <span className="text-amber-600 dark:text-amber-300"> · {t('memories.degrading', { n: degradingCount })}</span>}
               </p>
               {dreamMsg && <p className="animate-fade-in text-[11px] text-indigo-500 dark:text-indigo-300">{dreamMsg}</p>}
             </div>
@@ -955,10 +959,10 @@ export default function MemoriesPage() {
             {/* 底部浮动：作用域筛选 + 语义搜索 */}
             <div className={`absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl ${pal.border} ${pal.panel}`}>
               {([
-                { key: 'all' as const, label: '全部', count: allMemories.length },
-                { key: 'Global' as const, label: '全局', count: scopeCounts.Global },
-                { key: 'Session' as const, label: '会话', count: scopeCounts.Session },
-                { key: 'Project' as const, label: '项目', count: scopeCounts.Project },
+                { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
+                { key: 'Global' as const, label: 'memories.scopeGlobal', count: scopeCounts.Global },
+                { key: 'Session' as const, label: 'memories.scopeSession', count: scopeCounts.Session },
+                { key: 'Project' as const, label: 'memories.scopeProject', count: scopeCounts.Project },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -968,7 +972,7 @@ export default function MemoriesPage() {
                   {tab.key !== 'all' && (
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: pal[tab.key] }} />
                   )}
-                  {tab.label}
+                  {t(tab.label)}
                   <span className="text-[10px] opacity-70">{tab.count}</span>
                 </button>
               ))}
@@ -978,11 +982,11 @@ export default function MemoriesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="语义搜索记忆…"
+                  placeholder={t('memories.searchPlaceholder')}
                   className={`w-full rounded-lg border py-1.5 pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-teal-400/60 ${pal.inputBox}`}
                 />
               </div>
-              <span className={`mr-1 hidden text-[10px] lg:inline ${pal.quiet}`}>拖拽平移 · 滚轮缩放 · 悬停查看</span>
+              <span className={`mr-1 hidden text-[10px] lg:inline ${pal.quiet}`}>{t('memories.skyHint')}</span>
             </div>
 
             {/* 悬停信息在星星旁就地弹出；点击不再弹卡，编辑/删除请切到「索引」视图 */}
@@ -997,25 +1001,25 @@ export default function MemoriesPage() {
                   <Atom size={20} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">长期记忆</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">全局 / 会话 / 项目三层记忆：对话自动提取、检索强化、Dream 巩固</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('memories.title')}</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('memories.subtitle')}</p>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{pagedData?.totalCount ?? 0}</b> 条记忆</span>
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{pagedData?.totalCount ?? 0}</b> {t('memories.statMemories')}</span>
                 {categories.length > 0 && (
                   <>
                     <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                    <span><b className="text-sm font-semibold text-teal-600 dark:text-teal-400">{categories.length}</b> 个类别</span>
+                    <span><b className="text-sm font-semibold text-teal-600 dark:text-teal-400">{categories.length}</b> {t('memories.statCategories')}</span>
                   </>
                 )}
               </div>
               <button
                 onClick={() => setView('sky')}
-                title="回到记忆星空"
+                title={t('memories.backToSky')}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600"
               >
-                <Sparkles size={14} />星空
+                <Sparkles size={14} />{t('memories.starMap')}
               </button>
             </div>
 
@@ -1026,22 +1030,22 @@ export default function MemoriesPage() {
                   <Moon size={17} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-100">记忆巩固 · Dream</p>
+                  <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-100">{t('memories.dreamPanel')}</p>
                   <p className="mt-0.5 text-[11px] text-indigo-700/75 dark:text-indigo-300/75">
                     {dreamConfig?.enabled
-                      ? `自动巩固：每 ${dreamConfig.intervalHours} 小时一次${dreamConfig.lastRunAt ? ` · 上次 ${formatTime(dreamConfig.lastRunAt)}` : ''}`
-                      : '自动巩固已关闭（可在 设置 → 记忆 Dream 打开）'}
-                    {degradingCount > 0 && ` · ${degradingCount} 条正在衰退`}
+                      ? `${t('memories.autoEnabled', { hours: dreamConfig.intervalHours })}${dreamConfig.lastRunAt ? t('memories.autoLastRun', { time: formatTime(dreamConfig.lastRunAt) }) : ''}`
+                      : t('memories.autoDisabledList')}
+                    {degradingCount > 0 && ` · ${t('memories.degrading', { n: degradingCount })}`}
                   </p>
                 </div>
                 <button
                   onClick={() => dreamMutation.mutate()}
                   disabled={dreamMutation.isPending}
-                  title="合并重复、衰减久未想起的、遗忘极弱的记忆（与设置里的自动模式同一逻辑）"
+                  title={t('memories.dreamTitle')}
                   className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-600 disabled:opacity-50"
                 >
                   {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
-                  {dreamMutation.isPending ? '巩固中…' : '立即巩固'}
+                  {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dreamShort')}
                 </button>
               </div>
               {dreamMsg && (
@@ -1055,10 +1059,10 @@ export default function MemoriesPage() {
             <div className="mb-4 flex flex-wrap items-center gap-1.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 {([
-                  { key: 'all' as const, label: '全部', icon: Atom, count: allMemories.length },
-                  { key: 'Global' as const, label: '全局', icon: Globe, count: scopeCounts.Global },
-                  { key: 'Session' as const, label: '会话', icon: MessagesSquare, count: scopeCounts.Session },
-                  { key: 'Project' as const, label: '项目', icon: FolderInput, count: scopeCounts.Project },
+                  { key: 'all' as const, label: 'memories.scopeAll', icon: Atom, count: allMemories.length },
+                  { key: 'Global' as const, label: 'memories.scopeGlobal', icon: Globe, count: scopeCounts.Global },
+                  { key: 'Session' as const, label: 'memories.scopeSession', icon: MessagesSquare, count: scopeCounts.Session },
+                  { key: 'Project' as const, label: 'memories.scopeProject', icon: FolderInput, count: scopeCounts.Project },
                 ]).map((tab) => {
                   const Icon = tab.icon
                   return (
@@ -1068,7 +1072,7 @@ export default function MemoriesPage() {
                       className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(scopeFilter === tab.key)}`}
                     >
                       <Icon size={13} />
-                      {tab.label}
+                      {t(tab.label)}
                       <span className="text-[11px] opacity-70">{tab.count}</span>
                     </button>
                   )
@@ -1083,7 +1087,7 @@ export default function MemoriesPage() {
                   onClick={() => setActiveCategory(null)}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
                 >
-                  全部
+                  {t('memories.scopeAll')}
                   <span className="text-[11px] opacity-70">{pagedData?.totalCount ?? 0}</span>
                 </button>
                 {categories.map(([cat, count]) => (
@@ -1103,7 +1107,7 @@ export default function MemoriesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="语义搜索记忆..."
+                  placeholder={t('memories.searchPlaceholder')}
                   className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-teal-950/40"
                 />
               </div>
@@ -1113,9 +1117,9 @@ export default function MemoriesPage() {
                     value={sort}
                     onChange={(v) => setSort(v as 'recent' | 'strength' | 'created')}
                     options={[
-                      { value: 'recent', label: '最近想起' },
-                      { value: 'strength', label: '最牢固' },
-                      { value: 'created', label: '最新创建' },
+                      { value: 'recent', label: t('memories.sortRecent') },
+                      { value: 'strength', label: t('memories.sortStrength') },
+                      { value: 'created', label: t('memories.sortCreated') },
                     ]}
                     triggerClassName="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-600 outline-none focus:border-teal-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                   />
@@ -1126,7 +1130,7 @@ export default function MemoriesPage() {
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md active:scale-[0.97]"
               >
                 <Plus size={16} />
-                新建记忆
+                {t('memories.newMemory')}
               </button>
             </div>
 
@@ -1142,16 +1146,16 @@ export default function MemoriesPage() {
                 </div>
                 <p className="text-sm font-medium">
                   {searchQuery.trim()
-                    ? '没有找到匹配的记忆'
+                    ? t('memories.emptyNoMatch')
                     : activeCategory
-                      ? '该类别下暂无记忆'
+                      ? t('memories.emptyCategory')
                       : scopeFilter !== 'all'
-                        ? '该作用域下暂无记忆'
-                        : '还没有记忆'}
+                        ? t('memories.emptyScope')
+                        : t('memories.empty')}
                 </p>
                 {!searchQuery.trim() && !activeCategory && scopeFilter === 'all' && (
                   <p className="mt-1.5 max-w-xs text-center text-xs text-gray-400 dark:text-gray-500">
-                    对话与 Code 会话会自动提取；也可以点「新建记忆」手动记一条。检索命中会让记忆变牢固，Dream 巩固会合并相似、遗忘无用的。
+                    {t('memories.emptyHint')}
                   </p>
                 )}
               </div>
@@ -1181,7 +1185,7 @@ export default function MemoriesPage() {
                         />
                         <div className="mb-3 flex flex-wrap gap-3">
                           <div className="min-w-[140px]">
-                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">作用域</label>
+                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.scope')}</label>
                             <Select
                               value={editScope}
                               onChange={(v) => {
@@ -1189,20 +1193,20 @@ export default function MemoriesPage() {
                                 if (v !== 'Project') setEditProjectId('')
                               }}
                               options={[
-                                { value: 'Global', label: '全局' },
-                                ...(memory.topicId ? [{ value: 'Session', label: '会话（本对话）' }] : []),
-                                { value: 'Project', label: '项目' },
+                                { value: 'Global', label: t('memories.scopeGlobal') },
+                                ...(memory.topicId ? [{ value: 'Session', label: t('memories.scopeSessionChat') }] : []),
+                                { value: 'Project', label: t('memories.scopeProject') },
                               ]}
                               triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
                             />
                           </div>
                           {editScope === 'Project' && (
                             <div className="min-w-[160px] flex-1">
-                              <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">归属项目</label>
+                              <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.project')}</label>
                               <Select
                                 value={editProjectId}
                                 onChange={setEditProjectId}
-                                placeholder="选择项目"
+                                placeholder={t('memories.selectProject')}
                                 options={projects.map((p) => ({ value: p.id, label: p.name }))}
                                 triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
                               />
@@ -1215,12 +1219,12 @@ export default function MemoriesPage() {
                               type="text"
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
-                              placeholder="类别"
+                              placeholder={t('memories.category')}
                               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                             />
                           </div>
                           <div className="w-40">
-                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">重要性: {editImportance.toFixed(1)}</label>
+                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.importance', { value: editImportance.toFixed(1) })}</label>
                             <input
                               type="range"
                               min={0.1}
@@ -1237,14 +1241,14 @@ export default function MemoriesPage() {
                             onClick={() => setEditingId(null)}
                             className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
                           >
-                            取消
+                            {t('common:cancel')}
                           </button>
                           <button
                             onClick={() => handleUpdate(memory.id)}
                             className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
                           >
                             <Save size={14} />
-                            保存
+                            {t('common:save')}
                           </button>
                         </div>
                       </div>
@@ -1261,7 +1265,7 @@ export default function MemoriesPage() {
                           )}
                           <span
                             className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${state.chip}`}
-                            title="距上次被想起的时间；超过衰减/遗忘阈值会随 Dream 弱化或清除"
+                            title={t('memories.lifecycleTitle')}
                           >
                             <span className={`h-1.5 w-1.5 rounded-full ${state.dot}`} />
                             {state.label}
@@ -1271,27 +1275,27 @@ export default function MemoriesPage() {
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-gray-100 pt-2.5 dark:border-gray-800">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
                             <StrengthMeter memory={memory} />
-                            <span title="被检索注入上下文的次数，越常想起越牢固">想起 {memory.accessCount} 次</span>
-                            <span title={formatDateTime(memory.lastAccessedAt)}>最近想起 {formatTime(memory.lastAccessedAt)}</span>
-                            <span>{memory.source === 'conversation' ? '对话提取' : memory.source === 'work' ? 'Code 提取' : '手动创建'}</span>
+                            <span title={t('memories.recalledTitle')}>{t('memories.recalledCount', { n: memory.accessCount })}</span>
+                            <span title={formatDateTime(memory.lastAccessedAt)}>{t('memories.lastRecalled', { time: formatTime(memory.lastAccessedAt) })}</span>
+                            <span>{memory.source === 'conversation' ? t('memories.sourceConversation') : memory.source === 'work' ? t('memories.sourceWork') : t('memories.sourceManual')}</span>
                             {memory.score != null && (
-                              <span className="text-teal-500">相关度 {(memory.score * 100).toFixed(0)}%</span>
+                              <span className="text-teal-500">{t('memories.relevance', { n: (memory.score * 100).toFixed(0) })}</span>
                             )}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5">
                             <button
                               onClick={() => startEdit(memory)}
                               className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-                              title="编辑"
+                              title={t('common:edit')}
                             >
                               <Pencil size={14} />
                             </button>
                             <button
                               onClick={() => {
-                                confirm({ message: '确定删除这条记忆？', onConfirm: () => deleteMutation.mutate(memory.id) })
+                                confirm({ message: t('memories.deleteConfirm'), onConfirm: () => deleteMutation.mutate(memory.id) })
                               }}
                               className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-white/[0.06] dark:hover:text-red-400"
-                              title="删除"
+                              title={t('common:delete')}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -1316,7 +1320,7 @@ export default function MemoriesPage() {
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <Atom size={18} className="text-teal-500" />
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">新建记忆</h3>
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('memories.newMemory')}</h3>
               </div>
               <button onClick={() => setIsCreating(false)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X size={16} />
@@ -1324,19 +1328,19 @@ export default function MemoriesPage() {
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">内容</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.content')}</label>
                 <textarea
                   autoFocus
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
-                  placeholder="输入要记住的事实或偏好..."
+                  placeholder={t('memories.contentPlaceholder')}
                   rows={4}
                   className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
                 />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">作用域</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.scope')}</label>
                   <Select
                     value={newScope}
                     onChange={(v) => {
@@ -1344,19 +1348,19 @@ export default function MemoriesPage() {
                       if (v !== 'Project') setNewProjectId('')
                     }}
                     options={[
-                      { value: 'Global', label: '全局（公共记忆）' },
-                      { value: 'Project', label: '项目（项目内记忆）' },
+                      { value: 'Global', label: t('memories.scopeGlobalPublic') },
+                      { value: 'Project', label: t('memories.scopeProjectScoped') },
                     ]}
                     triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
                   />
                 </div>
                 {newScope === 'Project' && (
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">归属项目</label>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.project')}</label>
                     <Select
                       value={newProjectId}
                       onChange={setNewProjectId}
-                      placeholder="选择项目"
+                      placeholder={t('memories.selectProject')}
                       options={projects.map((p) => ({ value: p.id, label: p.name }))}
                       triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
                     />
@@ -1364,18 +1368,18 @@ export default function MemoriesPage() {
                 )}
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">类别</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.category')}</label>
                 <input
                   type="text"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="如：偏好、身份、工作"
+                  placeholder={t('memories.categoryPlaceholder')}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
                 />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  重要性: {newImportance.toFixed(1)}
+                  {t('memories.importance', { value: newImportance.toFixed(1) })}
                 </label>
                 <input
                   type="range"
@@ -1393,14 +1397,14 @@ export default function MemoriesPage() {
                 onClick={() => setIsCreating(false)}
                 className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                取消
+                {t('common:cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!newContent.trim() || createMutation.isPending || (newScope === 'Project' && !newProjectId)}
                 className="rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {createMutation.isPending ? '保存中...' : '保存'}
+                {createMutation.isPending ? t('memories.saving') : t('common:save')}
               </button>
             </div>
           </div>

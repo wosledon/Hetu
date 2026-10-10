@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.AI;
 
@@ -10,16 +11,18 @@ public class StdioMcpClient : IDisposable
 {
     private readonly Process _process;
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly ILocalizer _localizer;
     private int _requestId;
     private bool _disposed;
 
-    public StdioMcpClient(string connectionConfigJson)
+    public StdioMcpClient(string connectionConfigJson, ILocalizer localizer)
     {
+        _localizer = localizer;
         var config = JsonSerializer.Deserialize<McpStdioConfig>(connectionConfigJson, JsonDefaults.CaseInsensitive)
-                     ?? throw new ArgumentException("无效的 MCP stdio 配置");
+                     ?? throw new ArgumentException(_localizer.T("mcp.invalidStdioConfig"));
 
         if (string.IsNullOrWhiteSpace(config.Command))
-            throw new ArgumentException("MCP stdio 配置缺少 command");
+            throw new ArgumentException(_localizer.T("mcp.commandRequired"));
 
         _process = new Process
         {
@@ -45,7 +48,7 @@ public class StdioMcpClient : IDisposable
         }
 
         if (!_process.Start())
-            throw new InvalidOperationException("无法启动 MCP Server 进程");
+            throw new InvalidOperationException(_localizer.T("mcp.processStartFailed"));
 
         _process.ErrorDataReceived += (_, e) =>
         {
@@ -113,7 +116,7 @@ public class StdioMcpClient : IDisposable
             {
                 var line = await ReadLineAsync(linkedCts.Token);
                 if (line == null)
-                    throw new InvalidOperationException("MCP Server 进程已结束输出");
+                    throw new InvalidOperationException(_localizer.T("mcp.processOutputEnded"));
 
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
@@ -135,8 +138,8 @@ public class StdioMcpClient : IDisposable
 
                 if (root.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
                 {
-                    var message = error.TryGetProperty("message", out var msg) ? msg.GetString() : "未知错误";
-                    throw new InvalidOperationException($"MCP 错误：{message}");
+                    var message = error.TryGetProperty("message", out var msg) ? msg.GetString() : _localizer.T("mcp.unknownError");
+                    throw new InvalidOperationException(_localizer.T("mcp.error", message ?? string.Empty));
                 }
 
                 if (root.TryGetProperty("result", out var result))
@@ -145,7 +148,7 @@ public class StdioMcpClient : IDisposable
                 }
             }
 
-            throw new OperationCanceledException("等待 MCP 响应超时");
+            throw new OperationCanceledException(_localizer.T("mcp.responseTimeout"));
         }
         finally
         {
@@ -156,7 +159,7 @@ public class StdioMcpClient : IDisposable
     private async Task WriteLineAsync(string json, CancellationToken cancellationToken)
     {
         if (_process.HasExited)
-            throw new InvalidOperationException("MCP Server 进程已退出");
+            throw new InvalidOperationException(_localizer.T("mcp.processExited"));
 
         await _process.StandardInput.WriteLineAsync(json.AsMemory(), cancellationToken);
         await _process.StandardInput.FlushAsync(cancellationToken);

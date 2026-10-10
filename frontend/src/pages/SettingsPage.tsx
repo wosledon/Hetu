@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
@@ -14,61 +15,63 @@ import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
+import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
-  { key: 'app', label: '应用设置', description: '名称、主题、图谱', icon: Settings },
-  { key: 'navigation', label: '导航菜单', description: '顶部功能入口', icon: Menu },
-  { key: 'models', label: '默认模型', description: '场景模型分配', icon: Cpu },
-  { key: 'ai', label: '供应商配置', description: 'AI 供应商与模型管理', icon: Bot },
-  { key: 'cost', label: '成本控制', description: '压缩管道节省 Token', icon: Coins },
-  { key: 'memory', label: '记忆 Dream', description: '记忆巩固与自动遗忘', icon: Brain },
-  { key: 'mcp', label: 'MCP Server', description: '工具服务配置', icon: Wrench },
-  { key: 'database', label: '数据与备份', description: '数据库与导出恢复', icon: Database },
-  { key: 'trash', label: '回收站', description: '已删除的笔记', icon: Trash2 },
-  { key: 'about', label: '关于', description: '产品信息与版本', icon: Info },
-] satisfies { key: SettingsSection; label: string; description: string; icon: typeof Settings }[]
+  { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
+  { key: 'navigation', labelKey: 'sections.navigation', descKey: 'sections.navigationDesc', icon: Menu },
+  { key: 'models', labelKey: 'sections.models', descKey: 'sections.modelsDesc', icon: Cpu },
+  { key: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
+  { key: 'cost', labelKey: 'sections.cost', descKey: 'sections.costDesc', icon: Coins },
+  { key: 'memory', labelKey: 'sections.memory', descKey: 'sections.memoryDesc', icon: Brain },
+  { key: 'mcp', labelKey: 'sections.mcp', descKey: 'sections.mcpDesc', icon: Wrench },
+  { key: 'database', labelKey: 'sections.database', descKey: 'sections.databaseDesc', icon: Database },
+  { key: 'trash', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
+  { key: 'about', labelKey: 'sections.about', descKey: 'sections.aboutDesc', icon: Info },
+] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings }[]
 
 const themeOptions = [
-  { key: 'system' as Theme, label: '跟随系统', desc: '自动匹配系统设置', icon: Monitor },
-  { key: 'light' as Theme, label: '亮色', desc: '明亮清晰', icon: Sun },
-  { key: 'dark' as Theme, label: '暗色', desc: '护眼深色', icon: Moon },
+  { key: 'system' as Theme, labelKey: 'app.themeSystem', descKey: 'app.themeSystemDesc', icon: Monitor },
+  { key: 'light' as Theme, labelKey: 'app.themeLight', descKey: 'app.themeLightDesc', icon: Sun },
+  { key: 'dark' as Theme, labelKey: 'app.themeDark', descKey: 'app.themeDarkDesc', icon: Moon },
 ]
 
 type SecondaryMenuStyle = 'flat' | 'collapsed'
 
 const menuStyleOptions = [
-  { key: 'flat' as SecondaryMenuStyle, label: '平铺', desc: '父子菜单两栏并排', icon: Columns2 },
-  { key: 'collapsed' as SecondaryMenuStyle, label: '树形', desc: '合并为一棵树，展开父级显示子项', icon: PanelLeft },
+  { key: 'flat' as SecondaryMenuStyle, labelKey: 'app.menuStyleFlat', descKey: 'app.menuStyleFlatDesc', icon: Columns2 },
+  { key: 'collapsed' as SecondaryMenuStyle, labelKey: 'app.menuStyleTree', descKey: 'app.menuStyleTreeDesc', icon: PanelLeft },
 ]
 
 type NavStyle = 'top' | 'vertical'
 
 const navStyleOptions = [
-  { key: 'top' as NavStyle, label: '顶部横栏', desc: '导航横向排列在顶部', icon: PanelTop },
-  { key: 'vertical' as NavStyle, label: '垂直胶囊', desc: '导航纵向排列在最左侧', icon: GalleryVerticalEnd },
+  { key: 'top' as NavStyle, labelKey: 'app.navStyleTop', descKey: 'app.navStyleTopDesc', icon: PanelTop },
+  { key: 'vertical' as NavStyle, labelKey: 'app.navStyleVertical', descKey: 'app.navStyleVerticalDesc', icon: GalleryVerticalEnd },
 ]
 
 const configurableNavItems = [
-  { path: '/tags', label: '标签', icon: Tag },
-  { path: '/agents', label: '智能体', icon: Bot },
-  { path: '/skills', label: '技能', icon: Zap },
-  { path: '/knowledge-base', label: '知识库', icon: Database },
-  { path: '/graph', label: '知识图谱', icon: Network },
-  { path: '/tasks/background', label: '后台任务', icon: ListTodo },
-  { path: '/tasks/scheduled', label: '定时任务', icon: CalendarClock },
-  { path: '/memories', label: '记忆', icon: Atom },
-  { path: '/models', label: '大模型', icon: Cpu },
-  { path: '/apps', label: '应用', icon: AppWindow },
-  { path: '/workflows', label: '工作流', icon: GitBranch },
+  { path: '/tags', labelKey: 'navigation.items.tags', icon: Tag },
+  { path: '/agents', labelKey: 'navigation.items.agents', icon: Bot },
+  { path: '/skills', labelKey: 'navigation.items.skills', icon: Zap },
+  { path: '/knowledge-base', labelKey: 'navigation.items.knowledgeBase', icon: Database },
+  { path: '/graph', labelKey: 'navigation.items.graph', icon: Network },
+  { path: '/tasks/background', labelKey: 'navigation.items.backgroundTasks', icon: ListTodo },
+  { path: '/tasks/scheduled', labelKey: 'navigation.items.scheduledTasks', icon: CalendarClock },
+  { path: '/memories', labelKey: 'navigation.items.memories', icon: Atom },
+  { path: '/models', labelKey: 'navigation.items.models', icon: Cpu },
+  { path: '/apps', labelKey: 'navigation.items.apps', icon: AppWindow },
+  { path: '/workflows', labelKey: 'navigation.items.workflows', icon: GitBranch },
 ]
 
 export default function SettingsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('settings')
   const [activeSection, setActiveSection] = useState<SettingsSection>('app')
   const appName = useUIStore((state) => state.appName)
   const assistantName = useUIStore((state) => state.assistantName)
@@ -152,6 +155,12 @@ export default function SettingsPage() {
     setSetting.mutate({ key: 'Theme', value })
   }
 
+  // 语言：界面立即切换，同时落库（前端请求头 Accept-Language 与后台任务都读它）
+  const handleLanguageChange = (value: 'zh' | 'en') => {
+    void applyLanguage(value)
+    setSetting.mutate({ key: 'Language', value })
+  }
+
   const handleMenuStyleChange = (value: SecondaryMenuStyle) => {
     setSecondaryMenuStyle(value)
     setSetting.mutate({ key: 'SecondaryMenuStyle', value })
@@ -175,8 +184,8 @@ export default function SettingsPage() {
           <div className="mx-auto max-w-6xl px-6 py-8">
             {/* Page Header */}
             <div className="mb-8">
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">设置</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">管理应用偏好、导航、默认模型、供应商与数据存储</p>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
             </div>
 
             <div className="flex gap-8">
@@ -208,10 +217,10 @@ export default function SettingsPage() {
                           <div className={`text-sm font-medium ${
                             isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
                           }`}>
-                            {item.label}
+                            {t(item.labelKey)}
                           </div>
                           <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
-                            {item.description}
+                            {t(item.descKey)}
                           </div>
                         </div>
                         {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
@@ -239,6 +248,7 @@ export default function SettingsPage() {
                     onAssistantPersonaChange={handleAssistantPersonaChange}
                     onAssistantPersonaSave={handleAssistantPersonaSave}
                     onThemeChange={handleThemeChange}
+                    onLanguageChange={handleLanguageChange}
                     onMenuStyleChange={handleMenuStyleChange}
                     onNavStyleChange={handleNavStyleChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
@@ -307,6 +317,7 @@ function AppSettingsSection({
   onThemeChange,
   onMenuStyleChange,
   onNavStyleChange,
+  onLanguageChange,
   onSettingChange,
   onNavigate,
 }: {
@@ -326,19 +337,22 @@ function AppSettingsSection({
   onThemeChange: (v: Theme) => void
   onMenuStyleChange: (v: SecondaryMenuStyle) => void
   onNavStyleChange: (v: NavStyle) => void
+  onLanguageChange: (v: 'zh' | 'en') => void
   onSettingChange: (key: string, value: string) => void
   onNavigate: (path: string) => void
 }) {
+  const { t } = useTranslation('settings')
+  const language: 'zh' | 'en' = snapshot?.language === 'en' ? 'en' : 'zh'
   return (
     <div className="space-y-8">
       {/* Display Name */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">应用设置</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">自定义应用的外观和显示</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('app.title')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('app.subtitle')}</p>
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">显示名称</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.displayName')}</label>
         <div className="flex max-w-sm items-center gap-2">
           <input
             type="text"
@@ -346,21 +360,21 @@ function AppSettingsSection({
             onChange={(e) => onAppNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
             className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
-            placeholder="输入应用名称"
+            placeholder={t('app.displayNamePlaceholder')}
           />
           <button
             onClick={onAppNameSave}
             className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
           >
-            保存
+            {t('common:save')}
           </button>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">显示在顶部导航栏的标题文字</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.displayNameHint')}</p>
       </div>
 
       {/* Assistant Name */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">助手名称</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.assistantName')}</label>
         <div className="flex max-w-sm items-center gap-2">
           <input
             type="text"
@@ -368,36 +382,36 @@ function AppSettingsSection({
             onChange={(e) => onAssistantNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
             className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
-            placeholder="AI 助手"
+            placeholder={t('app.assistantNamePlaceholder')}
           />
           <button
             onClick={onAssistantNameSave}
             className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
           >
-            保存
+            {t('common:save')}
           </button>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">对话页面中 AI 助手显示的名字，同时用于身份认知</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.assistantNameHint')}</p>
       </div>
 
       {/* Assistant Persona */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">助手人设</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.persona')}</label>
         <div className="max-w-xl">
           <textarea
             value={assistantPersona}
             onChange={(e) => onAssistantPersonaChange(e.target.value)}
             rows={4}
             className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
-            placeholder="描述助手的性格、说话风格、专长等，例如：温和耐心的学习伙伴，善用比喻解释复杂概念，回答简洁有条理。"
+            placeholder={t('app.personaPlaceholder')}
           />
           <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs text-gray-400 dark:text-gray-500">定义助手的性格与风格，会拼入 system prompt 用于身份认知</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.personaHint')}</p>
             <button
               onClick={onAssistantPersonaSave}
               className="shrink-0 rounded-xl bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
             >
-              保存
+              {t('common:save')}
             </button>
           </div>
         </div>
@@ -405,7 +419,7 @@ function AppSettingsSection({
 
       {/* Theme Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">外观主题</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.theme')}</label>
         <div className="grid grid-cols-3 gap-3">
           {themeOptions.map((opt) => {
             const Icon = opt.icon
@@ -429,13 +443,13 @@ function AppSettingsSection({
                 </div>
                 <div className="text-center">
                   <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
                 </div>
                 {isActive && (
                   <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                    当前
+                    {t('app.current')}
                   </div>
                 )}
               </button>
@@ -444,9 +458,33 @@ function AppSettingsSection({
         </div>
       </div>
 
+      {/* Language Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('common:language')}</label>
+        <div className="flex max-w-md gap-3">
+          {([['zh', t('common:languageZh')], ['en', t('common:languageEn')]] as const).map(([key, label]) => {
+            const isActive = language === key
+            return (
+              <button
+                key={key}
+                onClick={() => onLanguageChange(key)}
+                className={`flex flex-1 items-center justify-center rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 text-blue-700 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-200'
+                    : 'border-gray-200/80 text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('common:languageHint')}</p>
+      </div>
+
       {/* Secondary Menu Style Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">二级菜单样式</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.menuStyle')}</label>
         <div className="grid grid-cols-2 gap-3">
           {menuStyleOptions.map((opt) => {
             const Icon = opt.icon
@@ -470,25 +508,25 @@ function AppSettingsSection({
                 </div>
                 <div className="min-w-0 text-left">
                   <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
                 </div>
                 {isActive && (
                   <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                    当前
+                    {t('app.current')}
                   </div>
                 )}
               </button>
             )
           })}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">控制笔记和会话页面的菜单结构：平铺为父子两栏并排，树形则合并为一棵树</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.menuStyleHint')}</p>
       </div>
 
       {/* Nav Style Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">主导航样式</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.navStyle')}</label>
         <div className="grid grid-cols-2 gap-3">
           {navStyleOptions.map((opt) => {
             const Icon = opt.icon
@@ -512,33 +550,33 @@ function AppSettingsSection({
                 </div>
                 <div className="min-w-0 text-left">
                   <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{opt.desc}</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
                 </div>
                 {isActive && (
                   <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                    当前
+                    {t('app.current')}
                   </div>
                 )}
               </button>
             )
           })}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">控制顶部功能入口的位置：顶部横栏为默认样式，垂直胶囊将导航移动至窗口最左侧</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.navStyleHint')}</p>
       </div>
 
       {/* Knowledge Graph */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">知识图谱</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">自动从笔记中提取实体与关系</p>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.graphTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.graphSubtitle')}</p>
         </div>
         <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">自动提取知识图谱</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.graphAutoExtract')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              保存笔记时自动调用 AI 提取实体和关系，会消耗 LLM 配额
+              {t('app.graphAutoExtractHint')}
             </p>
           </div>
           <button
@@ -553,25 +591,25 @@ function AppSettingsSection({
           </button>
         </div>
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-          也可手动提取：前往{' '}
+          {t('app.graphManualPrefix')}{' '}
           <button onClick={() => onNavigate('/graph')} className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400">
-            知识图谱页面
+            {t('app.graphManualLink')}
           </button>
-          {' '}点击「从笔记提取」
+          {' '}{t('app.graphManualSuffix')}
         </p>
       </div>
 
       {/* Auto Embedding */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">向量索引</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">笔记保存时自动生成向量嵌入，用于语义搜索</p>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.embeddingTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.embeddingSubtitle')}</p>
         </div>
         <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">自动生成 Embedding</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.autoEmbedding')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              保存笔记时自动调用 Embedding 模型生成向量索引，会消耗 Embedding 配额
+              {t('app.autoEmbeddingHint')}
             </p>
           </div>
           <button
@@ -590,21 +628,21 @@ function AppSettingsSection({
       {/* Context Window Size */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">上下文窗口</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">控制发送给 AI 的历史消息条数，留空表示不限制</p>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.contextTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.contextSubtitle')}</p>
         </div>
         <div className="max-w-xs">
           <input
             type="number"
             value={snapshot?.contextWindowSize?.toString() ?? ''}
             onChange={(e) => onSettingChange('ContextWindowSize', e.target.value || '')}
-            placeholder="不限制"
+            placeholder={t('app.contextPlaceholder')}
             min={1}
             max={100}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
           />
           <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-            建议 10-30，值越大 token 消耗越高，但对话连贯性越好
+            {t('app.contextHint')}
           </p>
         </div>
       </div>
@@ -612,14 +650,14 @@ function AppSettingsSection({
       {/* Close To Tray */}
       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">系统托盘</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">桌面客户端关闭主窗口后的行为</p>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.trayTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.traySubtitle')}</p>
         </div>
         <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">关闭窗口时最小化到托盘</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.closeToTray')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              开启后关闭主窗口不会退出程序，Hetu 与后台任务继续运行，可从托盘图标重新打开窗口；仅通过托盘菜单「退出 Hetu」才会真正退出
+              {t('app.closeToTrayHint')}
             </p>
           </div>
           <button
@@ -649,12 +687,13 @@ function NavigationSettingsSection({
   setPinnedNavItems: (items: string[]) => void
   onNavigate: (path: string) => void
 }) {
+  const { t } = useTranslation('settings')
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">导航菜单</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('navigation.title')}</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          选择要在顶部栏显示的功能入口，未选中的功能可从下方快速跳转。笔记、对话、Code、工作流、搜索始终固定显示。
+          {t('navigation.subtitle')}
         </p>
       </div>
 
@@ -669,7 +708,7 @@ function NavigationSettingsSection({
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300"
             >
               <Icon size={14} />
-              {item.label}
+              {t(item.labelKey)}
             </button>
           )
         })}
@@ -687,7 +726,7 @@ function NavigationSettingsSection({
             >
               <div className="flex items-center gap-2">
                 <Icon size={14} className="text-gray-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">{t(item.labelKey)}</span>
               </div>
               <button
                 onClick={() => {
@@ -727,42 +766,43 @@ function DefaultModelsSection({
   models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
   onSettingChange: (key: string, value: string) => void
 }) {
+  const { t } = useTranslation('settings')
   const chatModels = models.filter((m) => m.purpose === 'chat' && m.isVisible)
   const embeddingModels = models.filter((m) => m.purpose === 'embedding' && m.isVisible)
 
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">默认模型</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">为不同场景指定默认使用的 AI 模型</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('models.title')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('models.subtitle')}</p>
       </div>
 
       <div className="space-y-4">
         <DefaultModelSelect
-          label="默认对话模型"
-          description="新对话默认使用的模型"
+          label={t('models.chat')}
+          description={t('models.chatDesc')}
           value={snapshot?.defaultChatModelId || ''}
           models={chatModels}
           onChange={(v) => onSettingChange('DefaultChatModelId', v)}
         />
         <DefaultModelSelect
-          label="默认文档 Chunk 模型"
-          description="知识库分块时使用的 LLM（可选，不配置则使用结构化分块）"
+          label={t('models.chunk')}
+          description={t('models.chunkDesc')}
           value={snapshot?.defaultChunkModelId || ''}
           models={chatModels}
           onChange={(v) => onSettingChange('DefaultChunkModelId', v)}
-          placeholder="不使用 LLM 分块"
+          placeholder={t('models.chunkPlaceholder')}
         />
         <DefaultModelSelect
-          label="快速模型"
-          description="用于轻量级任务（如标签建议、摘要等）"
+          label={t('models.fast')}
+          description={t('models.fastDesc')}
           value={snapshot?.defaultFastModelId || ''}
           models={chatModels}
           onChange={(v) => onSettingChange('DefaultFastModelId', v)}
         />
         <DefaultModelSelect
-          label="默认 Embedding 模型"
-          description="知识库向量化使用的模型"
+          label={t('models.embedding')}
+          description={t('models.embeddingDesc')}
           value={snapshot?.defaultEmbeddingModelId || ''}
           models={embeddingModels}
           onChange={(v) => onSettingChange('DefaultEmbeddingModelId', v)}
@@ -778,7 +818,7 @@ function DefaultModelSelect({
   value,
   models,
   onChange,
-  placeholder = '未设置',
+  placeholder,
 }: {
   label: string
   description: string
@@ -787,6 +827,8 @@ function DefaultModelSelect({
   onChange: (value: string) => void
   placeholder?: string
 }) {
+  const { t } = useTranslation('settings')
+  const placeholderText = placeholder ?? t('models.notSet')
   return (
     <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
       <div className="flex-1">
@@ -797,10 +839,10 @@ function DefaultModelSelect({
         value={value}
         onChange={onChange}
         options={[
-          { value: '', label: placeholder },
+          { value: '', label: placeholderText },
           ...models.map((m) => ({ value: m.id, label: `${m.displayName} (${m.modelId})` })),
         ]}
-        placeholder={placeholder}
+        placeholder={placeholderText}
         className="w-56"
       />
     </div>
@@ -810,18 +852,19 @@ function DefaultModelSelect({
 /* ─── Trash Section ─── */
 
 function TrashSection({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { t } = useTranslation('settings')
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">回收站</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">查看和管理已删除的笔记，可恢复或彻底删除</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('trash.title')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('trash.subtitle')}</p>
       </div>
       <button
         onClick={() => onNavigate('/trash')}
         className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
       >
         <Trash2 size={15} />
-        打开回收站
+        {t('trash.open')}
       </button>
     </section>
   )

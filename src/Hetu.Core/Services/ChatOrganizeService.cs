@@ -14,13 +14,15 @@ public class ChatOrganizeService : IChatOrganizeService
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly INoteService _noteService;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ILocalizer _localizer;
 
-    public ChatOrganizeService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, INoteService noteService, ILlmUsageRecorder usageRecorder)
+    public ChatOrganizeService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, INoteService noteService, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _noteService = noteService;
         _usageRecorder = usageRecorder;
+        _localizer = localizer;
     }
 
     public async IAsyncEnumerable<string> OrganizeTopicAsync(
@@ -31,7 +33,7 @@ public class ChatOrganizeService : IChatOrganizeService
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
         if (topic == null)
         {
-            yield return "[ERROR] 话题不存在";
+            yield return "[ERROR] " + _localizer.T("chatTopic.notFound");
             yield break;
         }
 
@@ -41,14 +43,14 @@ public class ChatOrganizeService : IChatOrganizeService
 
         if (messages.Count == 0)
         {
-            yield return "[ERROR] 话题中没有消息，无法整理";
+            yield return "[ERROR] " + _localizer.T("organize.noMessages");
             yield break;
         }
 
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
         {
-            yield return "[ERROR] 未找到可用的对话模型，请先在设置中配置 AI Provider 和 Model";
+            yield return "[ERROR] " + _localizer.T("organize.modelUnavailable");
             yield break;
         }
 
@@ -93,7 +95,7 @@ public class ChatOrganizeService : IChatOrganizeService
         }
 
         var organizedContent = sb.ToString().Trim();
-        var title = ExtractTitle(organizedContent) ?? $"{topic.Title} 整理";
+        var title = ExtractTitle(organizedContent) ?? $"{topic.Title} {_localizer.T("organize.titleSuffix")}";
 
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Organize, null,
@@ -111,7 +113,7 @@ public class ChatOrganizeService : IChatOrganizeService
 
         if (!createResult.Success)
         {
-            yield return $"\n[ERROR] 保存笔记失败：{createResult.Error}";
+            yield return "\n[ERROR] " + _localizer.T("organize.saveFailed", createResult.Error ?? string.Empty);
             yield break;
         }
 

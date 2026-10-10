@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Folder, FolderOpen, Inbox, LayoutGrid, Pin, Settings2, Tag, X } from 'lucide-react'
 import type { IProjectGroup, IManagedProject, IProjectFilter } from '../../types/project'
 
@@ -20,6 +21,7 @@ const ALL_FILTER: IProjectFilter = { type: 'all' }
 export default function ProjectsSidebar({
   groups, projects, filter, onFilterChange, onManageGroups, onMoveToGroup,
 }: ProjectsSidebarProps) {
+  const { t } = useTranslation('projects')
   const ungroupedCount = projects.filter((p) => !p.groupId).length
 
   // 分类与标签计数由当前项目列表实时汇总
@@ -52,17 +54,17 @@ export default function ProjectsSidebar({
           className={navItemClass(isSameFilter(filter, ALL_FILTER))}
         >
           <LayoutGrid size={14} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">全部项目</span>
+          <span className="min-w-0 flex-1 truncate">{t('sidebar.allProjects')}</span>
           <span className="shrink-0 text-[11px] text-gray-400">{projects.length}</span>
         </button>
 
         {/* 分组 */}
         <div className="mt-5 flex items-center justify-between px-2.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">分组</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.groups')}</span>
           <button
             onClick={onManageGroups}
-            title="管理分组"
-            aria-label="管理分组"
+            title={t('sidebar.manageGroups')}
+            aria-label={t('sidebar.manageGroups')}
             className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
           >
             <Settings2 size={12} />
@@ -74,7 +76,7 @@ export default function ProjectsSidebar({
             className={navItemClass(filter.type === 'ungrouped')}
           >
             <Inbox size={14} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate">未分组</span>
+            <span className="min-w-0 flex-1 truncate">{t('sidebar.ungrouped')}</span>
             <span className="shrink-0 text-[11px] text-gray-400">{ungroupedCount}</span>
           </button>
           {groups.map((group) => (
@@ -97,7 +99,7 @@ export default function ProjectsSidebar({
             </button>
           ))}
           {groups.length === 0 && (
-            <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">还没有分组，点击右上角图标创建</p>
+            <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('sidebar.noGroups')}</p>
           )}
         </div>
 
@@ -105,7 +107,7 @@ export default function ProjectsSidebar({
         {categories.length > 0 && (
           <>
             <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">分类</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.categories')}</span>
             </div>
             <div className="mt-1 space-y-0.5">
               {categories.map(([name, count]) => (
@@ -127,7 +129,7 @@ export default function ProjectsSidebar({
         {tags.length > 0 && (
           <>
             <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">标签</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.tags')}</span>
             </div>
             <div className="mt-1 flex flex-wrap gap-1 px-1.5">
               {tags.map(([name, count]) => {
@@ -159,15 +161,15 @@ export default function ProjectsSidebar({
           <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <Pin size={10} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate">
-              {filter.type === 'group' && `分组：${groups.find((g) => g.id === filter.id)?.name ?? ''}`}
-              {filter.type === 'ungrouped' && '仅看未分组'}
-              {filter.type === 'category' && `分类：${filter.id}`}
-              {filter.type === 'tag' && `标签：${filter.id}`}
+              {filter.type === 'group' && t('sidebar.filterGroup', { name: groups.find((g) => g.id === filter.id)?.name ?? '' })}
+              {filter.type === 'ungrouped' && t('sidebar.filterUngrouped')}
+              {filter.type === 'category' && t('sidebar.filterCategory', { name: filter.id ?? '' })}
+              {filter.type === 'tag' && t('sidebar.filterTag', { name: filter.id ?? '' })}
             </span>
             <button
               onClick={() => onFilterChange(ALL_FILTER)}
-              title="清除筛选"
-              aria-label="清除筛选"
+              title={t('sidebar.clearFilter')}
+              aria-label={t('sidebar.clearFilter')}
               className="shrink-0 rounded p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <X size={11} />

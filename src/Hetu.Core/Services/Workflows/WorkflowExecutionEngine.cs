@@ -42,15 +42,18 @@ public class WorkflowExecutionEngine
     private readonly IEnumerable<INodeExecutor> _nodeExecutors;
     private readonly ILogger<WorkflowExecutionEngine> _logger;
     private readonly Dictionary<string, INodeExecutor> _executorByType;
+    private readonly ILocalizer _localizer;
 
     public WorkflowExecutionEngine(
         IUnitOfWork unitOfWork,
         IEnumerable<INodeExecutor> nodeExecutors,
-        ILogger<WorkflowExecutionEngine> logger)
+        ILogger<WorkflowExecutionEngine> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _nodeExecutors = nodeExecutors;
         _logger = logger;
+        _localizer = localizer;
         _executorByType = nodeExecutors.ToDictionary(e => e.NodeType, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -58,8 +61,8 @@ public class WorkflowExecutionEngine
     public async Task<WorkflowRunResult> ExecuteAsync(Guid workflowId, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         var wf = await _unitOfWork.Workflows.GetByIdAsync(workflowId, ct);
-        if (wf == null) return new WorkflowRunResult { Status = "Failed", Error = "工作流不存在" };
-        if (!wf.IsEnabled) return new WorkflowRunResult { Status = "Failed", Error = "工作流已禁用" };
+        if (wf == null) return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.notFound") };
+        if (!wf.IsEnabled) return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.disabled") };
 
         var dto = Map(wf);
         return await ExecuteAsync(dto, input, ct, depth, sink, chatTopicId, globalApprovalMode, questionHandler);
@@ -68,9 +71,9 @@ public class WorkflowExecutionEngine
     /// <summary>按工作流 DTO 执行（支持传入未持久化的定义）</summary>
     public async Task<WorkflowRunResult> ExecuteAsync(WorkflowDto workflow, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
-        var validation = WorkflowService.ValidateGraph(workflow);
+        var validation = WorkflowService.ValidateGraph(workflow, _localizer);
         if (!validation.Valid)
-            return new WorkflowRunResult { Status = "Failed", Error = "工作流校验失败：" + string.Join("; ", validation.Errors) };
+            return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.validationFailed", string.Join("; ", validation.Errors)) };
 
         // 创建运行实例
         var run = new WorkflowRun
@@ -108,7 +111,7 @@ public class WorkflowExecutionEngine
         try
         {
             var startNode = workflow.Nodes.FirstOrDefault(n => n.Type == WorkflowNodeTypes.Start)
-                ?? throw new InvalidOperationException("找不到 Start 节点");
+                ?? throw new InvalidOperationException(_localizer.T("workflow.startNodeMissing"));
 
             string? currentNodeId = startNode.Id;
             var endOutput = (string?)null;
@@ -118,7 +121,7 @@ public class WorkflowExecutionEngine
                 ct.ThrowIfCancellationRequested();
 
                 var node = workflow.Nodes.FirstOrDefault(n => n.Id == currentNodeId);
-                if (node == null) throw new InvalidOperationException($"节点 {currentNodeId} 不存在");
+                if (node == null) throw new InvalidOperationException(_localizer.T("workflow.nodeNotFound", currentNodeId));
 
                 var nodeResult = await ExecuteNodeAndRecordAsync(node, ctx, sink, run.Id, ct);
 
@@ -148,7 +151,7 @@ public class WorkflowExecutionEngine
             run.TotalIterations = ctx.TotalIterations;
             await _unitOfWork.SaveChangesAsync(ct);
             result.Status = "Cancelled";
-            await (sink?.OnRunFailedAsync(run.Id, "工作流执行被取消") ?? Task.CompletedTask);
+            await (sink?.OnRunFailedAsync(run.Id, _localizer.T("workflow.runCancelled")) ?? Task.CompletedTask);
         }
         catch (Exception ex)
         {
@@ -173,12 +176,12 @@ public class WorkflowExecutionEngine
     private async Task<NodeResult> ExecuteNodeAndRecordAsync(NodeDto node, ExecutionContext ctx, IWorkflowEventSink? sink, Guid runId, CancellationToken ct)
     {
         if (ctx.TotalIterations >= ctx.MaxTotalIterations)
-            throw new InvalidOperationException($"工作流超过全局迭代上限 {ctx.MaxTotalIterations}，疑似死循环");
+            throw new InvalidOperationException(_localizer.T("workflow.globalIterationLimit", ctx.MaxTotalIterations));
         ctx.TotalIterations++;
 
         var visits = ctx.IncrementVisit(node.Id);
         if (visits > ctx.MaxNodeVisits && node.Type != WorkflowNodeTypes.Loop)
-            throw new InvalidOperationException($"节点 {node.Label}({node.Id}) 被访问 {visits} 次，超过上限 {ctx.MaxNodeVisits}，疑似死循环");
+            throw new InvalidOperationException(_localizer.T("workflow.nodeVisitLimit", node.Label, node.Id, visits, ctx.MaxNodeVisits));
 
         await (sink?.OnNodeStartedAsync(runId, node.Id, node.Type, node.Label) ?? Task.CompletedTask);
 
@@ -225,7 +228,7 @@ public class WorkflowExecutionEngine
             runNode.Error = nodeResult.Error;
             await _unitOfWork.SaveChangesAsync(ct);
             await (sink?.OnNodeFailedAsync(runId, node.Id, nodeResult.Error) ?? Task.CompletedTask);
-            throw new InvalidOperationException($"节点 {node.Label} 执行失败：{nodeResult.Error}");
+            throw new InvalidOperationException(_localizer.T("workflow.nodeFailed", node.Label, nodeResult.Error));
         }
 
         runNode.Status = "Succeeded";
@@ -435,7 +438,7 @@ public class WorkflowExecutionEngine
     {
         if (_executorByType.TryGetValue(nodeType, out var executor))
             return executor;
-        throw new InvalidOperationException($"不支持的节点类型：{nodeType}");
+        throw new InvalidOperationException(_localizer.T("workflow.unsupportedNodeType", nodeType));
     }
 
     private static WorkflowDto Map(Workflow w) => new()

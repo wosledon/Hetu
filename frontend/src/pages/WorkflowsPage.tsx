@@ -1,5 +1,6 @@
 import { confirm } from '../components/confirm'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { GitBranch, Plus, Play, Pencil, Copy, Trash2, Workflow as WorkflowIcon } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
@@ -11,76 +12,77 @@ import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
 
 const AVAILABLE_TOOLS = [
-  { name: 'search_notes', label: '搜索笔记' },
-  { name: 'read_note', label: '读取笔记' },
-  { name: 'list_notes', label: '浏览笔记' },
-  { name: 'list_notebooks', label: '笔记本列表' },
-  { name: 'list_tags', label: '标签列表' },
-  { name: 'list_note_versions', label: '版本历史' },
-  { name: 'list_knowledge_items', label: '知识库列表' },
-  { name: 'search_web', label: '网络搜索' },
-  { name: 'search_memory', label: '搜索记忆' },
-  { name: 'list_memories', label: '浏览记忆' },
-  { name: 'search_graph', label: '搜索图谱' },
-  { name: 'list_skills', label: '技能列表' },
-  { name: 'create_note', label: '创建笔记' },
-  { name: 'update_note', label: '更新笔记' },
-  { name: 'delete_note', label: '删除笔记' },
-  { name: 'move_note', label: '移动笔记' },
-  { name: 'set_note_tags', label: '设置标签' },
-  { name: 'create_notebook', label: '创建笔记本' },
-  { name: 'restore_note_version', label: '恢复版本' },
-  { name: 'create_memory', label: '保存记忆' },
-  { name: 'delete_memory', label: '删除记忆' },
-  { name: 'ask_question', label: '向用户提问' },
-  { name: 'todo', label: '任务管理' },
-  { name: 'plan', label: '提交执行计划' },
-  { name: 'create_scheduled_task', label: '创建定时任务' },
-  { name: 'list_scheduled_tasks', label: '定时任务列表' },
-  { name: 'delete_scheduled_task', label: '删除定时任务' },
-  { name: 'run_command', label: '执行命令' },
+  'search_notes',
+  'read_note',
+  'list_notes',
+  'list_notebooks',
+  'list_tags',
+  'list_note_versions',
+  'list_knowledge_items',
+  'search_web',
+  'search_memory',
+  'list_memories',
+  'search_graph',
+  'list_skills',
+  'create_note',
+  'update_note',
+  'delete_note',
+  'move_note',
+  'set_note_tags',
+  'create_notebook',
+  'restore_note_version',
+  'create_memory',
+  'delete_memory',
+  'ask_question',
+  'todo',
+  'plan',
+  'create_scheduled_task',
+  'list_scheduled_tasks',
+  'delete_scheduled_task',
+  'run_command',
   // 项目/文件类工具：工作流里的 Agent 节点同样可用（未挂载项目时调用会提示先打开项目）
-  { name: 'work_list_dir', label: '浏览目录' },
-  { name: 'work_read_file', label: '读取文件' },
-  { name: 'work_glob', label: '查找文件' },
-  { name: 'work_grep', label: '搜索代码' },
-  { name: 'work_write_file', label: '写入文件' },
-  { name: 'work_apply_patch', label: '局部修改' },
-  { name: 'work_delete_file', label: '删除文件' },
-  { name: 'work_move_file', label: '移动文件' },
-  { name: 'work_git', label: 'Git 操作' },
-  { name: 'work_run_command', label: '执行项目命令' },
-  { name: 'work_diagnostics', label: '构建诊断' },
-  { name: 'work_semantic_search', label: '语义检索代码' },
-  { name: 'work_task', label: '派子 Agent' },
-  { name: 'work_skill', label: '读取技能' },
+  'work_list_dir',
+  'work_read_file',
+  'work_glob',
+  'work_grep',
+  'work_write_file',
+  'work_apply_patch',
+  'work_delete_file',
+  'work_move_file',
+  'work_git',
+  'work_run_command',
+  'work_diagnostics',
+  'work_semantic_search',
+  'work_task',
+  'work_skill',
   // 应用各能力面工具
-  { name: 'list_projects', label: '项目列表' },
-  { name: 'create_project', label: '新建项目' },
-  { name: 'update_project', label: '修改项目' },
-  { name: 'delete_project', label: '删除项目' },
-  { name: 'list_work_projects', label: 'Code 项目列表' },
-  { name: 'list_kanban_tasks', label: '看板任务' },
-  { name: 'create_kanban_task', label: '新建看板任务' },
-  { name: 'update_kanban_task', label: '修改看板任务' },
-  { name: 'move_kanban_task', label: '流转看板任务' },
-  { name: 'delete_kanban_task', label: '删除看板任务' },
-  { name: 'list_wiki_docs', label: 'Wiki 列表' },
-  { name: 'read_wiki_doc', label: '读取 Wiki' },
-  { name: 'list_workflows', label: '工作流列表' },
-  { name: 'run_workflow', label: '执行工作流' },
-  { name: 'list_agents', label: '智能体列表' },
-  { name: 'use_skill', label: '读取技能' },
-  { name: 'create_tag', label: '新建标签' },
-  { name: 'update_tag', label: '修改标签' },
-  { name: 'delete_tag', label: '删除标签' },
-  { name: 'read_knowledge_item', label: '读取知识条目' },
-  { name: 'get_usage_stats', label: '用量统计' },
-  { name: 'list_inbox_items', label: '收件箱列表' },
-  { name: 'update_inbox_items', label: '处理通知' },
+  'list_projects',
+  'create_project',
+  'update_project',
+  'delete_project',
+  'list_work_projects',
+  'list_kanban_tasks',
+  'create_kanban_task',
+  'update_kanban_task',
+  'move_kanban_task',
+  'delete_kanban_task',
+  'list_wiki_docs',
+  'read_wiki_doc',
+  'list_workflows',
+  'run_workflow',
+  'list_agents',
+  'use_skill',
+  'create_tag',
+  'update_tag',
+  'delete_tag',
+  'read_knowledge_item',
+  'get_usage_stats',
+  'list_inbox_items',
+  'update_inbox_items',
 ]
 
 export default function WorkflowsPage() {
+  const { t } = useTranslation('workflows')
   const queryClient = useQueryClient()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [runningWorkflow, setRunningWorkflow] = useState<IWorkflow | null>(null)
@@ -119,11 +121,11 @@ export default function WorkflowsPage() {
   const editingWorkflow: IWorkflow | undefined = editingId === 'new'
     ? {
         id: 'new',
-        name: '新工作流',
+        name: t('page.newWorkflowName'),
         description: '',
         nodes: [
-          { id: 'start_1', type: 'start', label: '开始', x: 100, y: 200 },
-          { id: 'end_1', type: 'end', label: '结束', x: 500, y: 200 },
+          { id: 'start_1', type: 'start', label: t('nodeTypes.start'), x: 100, y: 200 },
+          { id: 'end_1', type: 'end', label: t('nodeTypes.end'), x: 500, y: 200 },
         ],
         edges: [{ id: 'e1', source: 'start_1', target: 'end_1' }],
         version: 1,
@@ -141,7 +143,7 @@ export default function WorkflowsPage() {
           workflow={editingWorkflow}
           agents={promptPresets as IPromptPreset[]}
           workflows={workflows}
-          availableTools={AVAILABLE_TOOLS}
+          availableTools={AVAILABLE_TOOLS.map((name) => ({ name, label: t(`toolNames:${name}`) }))}
           onBack={() => setEditingId(null)}
           onRun={(wf) => setRunningWorkflow(wf)}
         />
@@ -160,14 +162,14 @@ export default function WorkflowsPage() {
           <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
-              <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">工作流</h1>
-              <span className="text-xs text-gray-400">编排 Agent 的可视化流程</span>
+              <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
+              <span className="text-xs text-gray-400">{t('page.subtitle')}</span>
             </div>
             <button
               onClick={handleCreate}
               className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
             >
-              <Plus size={15} /> 新建工作流
+              <Plus size={15} /> {t('page.newWorkflow')}
             </button>
           </div>
 
@@ -177,13 +179,13 @@ export default function WorkflowsPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.06]">
                   <WorkflowIcon size={32} className="text-gray-400" />
                 </div>
-                <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">还没有工作流</h2>
-                <p className="mt-1 text-sm text-gray-400">创建一个工作流，编排 Agent 完成多步骤任务</p>
+                <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('page.emptyTitle')}</h2>
+                <p className="mt-1 text-sm text-gray-400">{t('page.emptyHint')}</p>
                 <button
                   onClick={handleCreate}
                   className="mt-4 flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                 >
-                  <Plus size={16} /> 新建工作流
+                  <Plus size={16} /> {t('page.newWorkflow')}
                 </button>
               </div>
             ) : (
@@ -200,34 +202,34 @@ export default function WorkflowsPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleMut.mutate(wf) }}
                         disabled={toggleMut.isPending}
-                        title={wf.isEnabled ? '点击禁用' : '点击启用'}
+                        title={wf.isEnabled ? t('page.clickToDisable') : t('page.clickToEnable')}
                         className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-white/[0.06] dark:hover:bg-white/10'}`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${wf.isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
-                        {wf.isEnabled ? '启用' : '禁用'}
+                        {wf.isEnabled ? t('common:enable') : t('common:disable')}
                       </button>
                     </div>
                     <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{wf.name}</h3>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{wf.description || '暂无描述'}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{wf.description || t('page.noDescription')}</p>
                     <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
-                      <span>{wf.nodes.length} 节点</span>
+                      <span>{t('page.nodeCount', { count: wf.nodes.length })}</span>
                       <span>v{wf.version}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-white/[0.06]">
-                      <button onClick={() => setRunningWorkflow(wf)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10" title="运行">
-                        <Play size={13} /> 运行
+                      <button onClick={() => setRunningWorkflow(wf)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10" title={t('common:run')}>
+                        <Play size={13} /> {t('common:run')}
                       </button>
-                      <button onClick={() => setEditingId(wf.id)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10" title="编辑">
-                        <Pencil size={13} /> 编辑
+                      <button onClick={() => setEditingId(wf.id)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10" title={t('common:edit')}>
+                        <Pencil size={13} /> {t('common:edit')}
                       </button>
-                      <button onClick={() => duplicateMut.mutate(wf.id)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]" title="复制">
+                      <button onClick={() => duplicateMut.mutate(wf.id)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('common:copy')}>
                         <Copy size={13} />
                       </button>
                       <div className="flex-1" />
                       <button
-                        onClick={() => confirm({ message: `删除工作流 "${wf.name}"？`, onConfirm: () => deleteMut.mutate(wf.id) })}
+                        onClick={() => confirm({ message: t('page.deleteConfirm', { name: wf.name }), onConfirm: () => deleteMut.mutate(wf.id) })}
                         className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                        title="删除"
+                        title={t('common:delete')}
                       >
                         <Trash2 size={13} />
                       </button>

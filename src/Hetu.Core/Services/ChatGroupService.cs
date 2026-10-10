@@ -8,10 +8,12 @@ namespace Hetu.Core.Services;
 public class ChatGroupService : IChatGroupService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public ChatGroupService(IUnitOfWork unitOfWork)
+    public ChatGroupService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<ChatGroupDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -28,7 +30,7 @@ public class ChatGroupService : IChatGroupService
     public async Task<ApiResponse<ChatGroupDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ChatGroups.GetByIdAsync(id, cancellationToken);
-        if (group == null) return ApiResponse<ChatGroupDto>.Fail("会话组不存在");
+        if (group == null) return ApiResponse<ChatGroupDto>.Fail(_localizer.T("chatGroup.notFound"));
         return ApiResponse<ChatGroupDto>.Ok(Map(group));
     }
 
@@ -43,7 +45,7 @@ public class ChatGroupService : IChatGroupService
             mainGroup = new ChatGroup
             {
                 Id = Guid.NewGuid(),
-                Name = "主对话",
+                Name = _localizer.T("chatGroup.mainName"),
                 IsMain = true,
                 SortOrder = 0,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -59,7 +61,7 @@ public class ChatGroupService : IChatGroupService
             {
                 Id = Guid.NewGuid(),
                 GroupId = mainGroup.Id,
-                Title = "主对话",
+                Title = _localizer.T("chatGroup.mainName"),
                 IsMain = true,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -79,7 +81,7 @@ public class ChatGroupService : IChatGroupService
     public async Task<ApiResponse<ChatGroupDto>> CreateAsync(CreateChatGroupRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return ApiResponse<ChatGroupDto>.Fail("名称不能为空");
+            return ApiResponse<ChatGroupDto>.Fail(_localizer.T("chatGroup.nameRequired"));
 
         var group = new ChatGroup
         {
@@ -100,7 +102,7 @@ public class ChatGroupService : IChatGroupService
     public async Task<ApiResponse<ChatGroupDto>> UpdateAsync(Guid id, UpdateChatGroupRequest request, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ChatGroups.GetByIdAsync(id, cancellationToken);
-        if (group == null) return ApiResponse<ChatGroupDto>.Fail("会话组不存在");
+        if (group == null) return ApiResponse<ChatGroupDto>.Fail(_localizer.T("chatGroup.notFound"));
 
         group.Name = string.IsNullOrWhiteSpace(request.Name) ? group.Name : request.Name.Trim();
         group.Description = request.Description;
@@ -117,8 +119,8 @@ public class ChatGroupService : IChatGroupService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ChatGroups.GetByIdAsync(id, cancellationToken);
-        if (group == null) return ApiResponse.Fail("会话组不存在");
-        if (group.IsMain) return ApiResponse.Fail("主对话不可删除");
+        if (group == null) return ApiResponse.Fail(_localizer.T("chatGroup.notFound"));
+        if (group.IsMain) return ApiResponse.Fail(_localizer.T("chatGroup.mainCannotDelete"));
 
         await _unitOfWork.ChatGroups.DeleteAsync(group, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

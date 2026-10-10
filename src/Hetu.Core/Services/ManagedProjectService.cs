@@ -14,10 +14,12 @@ public class ManagedProjectService : IManagedProjectService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? _dataProtection;
+    private readonly ILocalizer _localizer;
 
-    public ManagedProjectService(IUnitOfWork unitOfWork, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
+    public ManagedProjectService(IUnitOfWork unitOfWork, ILocalizer localizer, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
         _dataProtection = dataProtection;
     }
 
@@ -38,7 +40,7 @@ public class ManagedProjectService : IManagedProjectService
     public async Task<ApiResponse<ManagedProjectDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse<ManagedProjectDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<ManagedProjectDto>.Fail(_localizer.T("project.notFound"));
         string? groupName = null;
         if (project.GroupId is Guid groupId)
             groupName = (await _unitOfWork.ProjectGroups.GetByIdAsync(groupId, cancellationToken))?.Name;
@@ -77,7 +79,7 @@ public class ManagedProjectService : IManagedProjectService
     public async Task<ApiResponse<ManagedProjectDto>> UpdateAsync(Guid id, UpdateManagedProjectRequest request, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse<ManagedProjectDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<ManagedProjectDto>.Fail(_localizer.T("project.notFound"));
 
         var targetType = request.ProjectType == null ? project.ProjectType : (request.ProjectType == "Ssh" ? "Ssh" : "Local");
         var targetPath = string.IsNullOrWhiteSpace(request.DirectoryPath) ? project.DirectoryPath : request.DirectoryPath.Trim();
@@ -125,7 +127,7 @@ public class ManagedProjectService : IManagedProjectService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse.Fail("项目不存在");
+        if (project == null) return ApiResponse.Fail(_localizer.T("project.notFound"));
         // 仅解除登记关系：Code 工作区项目（含会话）保留，避免误删工作数据
         var linkedWork = await _unitOfWork.WorkProjects.FindAsync(w => w.ManagedProjectId == id, cancellationToken);
         foreach (var work in linkedWork)
@@ -156,7 +158,7 @@ public class ManagedProjectService : IManagedProjectService
     public async Task<ApiResponse> MarkOpenedAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return ApiResponse.Fail("项目不存在");
+        if (project == null) return ApiResponse.Fail(_localizer.T("project.notFound"));
         project.LastOpenedAt = DateTimeOffset.UtcNow;
         project.UpdatedAt = DateTimeOffset.UtcNow;
         await _unitOfWork.ManagedProjects.UpdateAsync(project, cancellationToken);
@@ -167,22 +169,22 @@ public class ManagedProjectService : IManagedProjectService
     /// <summary>校验公共字段；通过返回 null，否则返回错误文案</summary>
     private async Task<string?> ValidateAsync(string name, string projectType, string directoryPath, string? sshHost, string sshAuthType, string? sshPassword, Guid? groupId, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(name)) return "项目名称不能为空";
-        if (string.IsNullOrWhiteSpace(directoryPath)) return "项目目录不能为空";
+        if (string.IsNullOrWhiteSpace(name)) return _localizer.T("project.nameRequired");
+        if (string.IsNullOrWhiteSpace(directoryPath)) return _localizer.T("project.directoryRequired");
 
         var isRemote = projectType == "Ssh";
         if (isRemote)
         {
-            if (string.IsNullOrWhiteSpace(sshHost)) return "SSH 主机地址不能为空";
-            if (sshAuthType == "Password" && string.IsNullOrEmpty(sshPassword)) return "密码认证需要填写密码";
+            if (string.IsNullOrWhiteSpace(sshHost)) return _localizer.T("project.sshHostRequired");
+            if (sshAuthType == "Password" && string.IsNullOrEmpty(sshPassword)) return _localizer.T("project.sshPasswordRequired");
         }
         else if (!Directory.Exists(directoryPath.Trim()))
         {
-            return "项目目录不存在，请检查路径";
+            return _localizer.T("project.directoryNotExists");
         }
 
         if (groupId is Guid gid && await _unitOfWork.ProjectGroups.GetByIdAsync(gid, cancellationToken) == null)
-            return "所选分组不存在";
+            return _localizer.T("project.groupNotFound");
         return null;
     }
 

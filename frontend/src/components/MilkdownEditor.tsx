@@ -40,6 +40,7 @@ import {
 } from '@milkdown/preset-commonmark'
 import { toggleStrikethroughCommand, insertTableCommand } from '@milkdown/preset-gfm'
 import { mermaidConfigCtx } from '@milkdown/plugin-diagram'
+import i18n from '../i18n'
 import { mermaidConfig, isDarkTheme, fitMermaidLabels } from '../utils/mermaidTheme'
 import { languages } from '@codemirror/language-data'
 import { syntaxHighlighting, defaultHighlightStyle, indentUnit } from '@codemirror/language'
@@ -50,7 +51,9 @@ import { diagram } from '@milkdown/plugin-diagram'
 import '@milkdown/theme-nord/style.css'
 
 /** 流程图节点默认模板 */
-const MERMAID_TEMPLATE = 'graph TD\n    A[开始] --> B[结束]'
+function mermaidTemplate(): string {
+  return i18n.t('notes:editor.mermaidTemplate')
+}
 
 export interface SelectionInfo {
   text: string
@@ -147,7 +150,7 @@ class DiagramNodeView {
     this.dom.innerHTML = ''
     this.dom.classList.add('hetu-diagram-editing')
     const textarea = document.createElement('textarea')
-    textarea.value = this.node.attrs.value || MERMAID_TEMPLATE
+    textarea.value = this.node.attrs.value || mermaidTemplate()
     textarea.className = 'hetu-diagram-source'
     textarea.rows = Math.min(20, textarea.value.split('\n').length + 2)
     textarea.addEventListener('blur', () => this.commit(textarea.value))
@@ -181,10 +184,10 @@ class DiagramNodeView {
     const code = (this.node.attrs.value || '').trim()
     this.dom.innerHTML = ''
     if (!code) {
-      this.dom.appendChild(this.buildHint('空流程图，点击编辑'))
+      this.dom.appendChild(this.buildHint(i18n.t('notes:editor.diagramEmpty')))
       return
     }
-    const loading = this.buildHint('流程图渲染中...')
+    const loading = this.buildHint(i18n.t('notes:editor.diagramRendering'))
     this.dom.appendChild(loading)
     try {
       const mermaid = (await import('mermaid')).default
@@ -197,7 +200,7 @@ class DiagramNodeView {
       holder.innerHTML = svg
       this.dom.appendChild(holder)
       fitMermaidLabels(holder)
-      this.dom.appendChild(this.buildHint('点击编辑流程图'))
+      this.dom.appendChild(this.buildHint(i18n.t('notes:editor.diagramEdit')))
     } catch (err) {
       if (token !== this.renderToken) return
       this.dom.innerHTML = ''
@@ -205,12 +208,14 @@ class DiagramNodeView {
       box.className = 'hetu-diagram-error'
       const msg = document.createElement('div')
       msg.className = 'hetu-diagram-error-msg'
-      msg.textContent = `流程图语法错误：${err instanceof Error ? err.message.split('\n')[0] : String(err)}`
+      msg.textContent = i18n.t('notes:editor.diagramError', {
+        msg: err instanceof Error ? err.message.split('\n')[0] : String(err),
+      })
       const src = document.createElement('pre')
       src.textContent = code
       box.append(msg, src)
       this.dom.appendChild(box)
-      this.dom.appendChild(this.buildHint('点击编辑修正'))
+      this.dom.appendChild(this.buildHint(i18n.t('notes:editor.diagramFix')))
     }
   }
 
@@ -610,7 +615,7 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
 
     /** 插入 mermaid 流程图块 */
     const insertDiagram = useCallback(() => {
-      insertMarkdown(`\`\`\`mermaid\n${MERMAID_TEMPLATE}\n\`\`\``)
+      insertMarkdown(`\`\`\`mermaid\n${mermaidTemplate()}\n\`\`\``)
     }, [insertMarkdown])
 
     const toggleBold = useCallback(() => runCommand(toggleStrongCommand), [runCommand])

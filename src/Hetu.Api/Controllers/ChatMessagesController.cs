@@ -37,6 +37,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<ChatMessagesController> _logger;
+    private readonly ILocalizer _localizer;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -53,7 +54,8 @@ public class ChatMessagesController : ControllerBase
         AgentLoopService agentLoop,
         ILlmUsageRecorder llmUsageRecorder,
         ContextCompactionService contextCompaction,
-        ILogger<ChatMessagesController> logger)
+        ILogger<ChatMessagesController> logger,
+        ILocalizer localizer)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -70,6 +72,7 @@ public class ChatMessagesController : ControllerBase
         _llmUsageRecorder = llmUsageRecorder;
         _contextCompaction = contextCompaction;
         _logger = logger;
+        _localizer = localizer;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -99,7 +102,7 @@ public class ChatMessagesController : ControllerBase
     public async Task<ApiResponse> ClearCompact(Guid topicId, CancellationToken ct)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, ct);
-        if (topic == null) return ApiResponse.Fail("话题不存在");
+        if (topic == null) return ApiResponse.Fail(_localizer.T("chat.topicNotFound"));
         topic.ContextSummary = null;
         topic.ContextSummaryThroughMessageId = null;
         await _unitOfWork.ChatTopics.UpdateAsync(topic, ct);
@@ -126,7 +129,7 @@ public class ChatMessagesController : ControllerBase
     {
         if (_toolExecution.TrySetAnswer(request.SessionId, request.ToolCallId, request.Answer))
             return ApiResponse.Ok();
-        return ApiResponse.Fail("未找到对应的提问请求");
+        return ApiResponse.Fail(_localizer.T("chat.questionNotFound"));
     }
 
     [HttpPost("approve")]
@@ -134,7 +137,7 @@ public class ChatMessagesController : ControllerBase
     {
         if (_toolExecution.TrySetApproval(request.SessionId, request.ToolCallId, request.Approve))
             return ApiResponse.Ok();
-        return ApiResponse.Fail("未找到对应的审批请求");
+        return ApiResponse.Fail(_localizer.T("chat.approvalNotFound"));
     }
 
     [HttpPost("plan")]
@@ -142,7 +145,7 @@ public class ChatMessagesController : ControllerBase
     {
         if (_toolExecution.TrySetPlanDecision(request.SessionId, request.ToolCallId, request.Approved, request.Feedback ?? string.Empty))
             return ApiResponse.Ok();
-        return ApiResponse.Fail("未找到对应的计划确认请求");
+        return ApiResponse.Fail(_localizer.T("chat.planNotFound"));
     }
 
     [HttpPost("topic/{topicId:guid}/stream")]
@@ -156,11 +159,11 @@ public class ChatMessagesController : ControllerBase
             request.Content?.Length > 50 ? request.Content[..50] + "..." : request.Content, request.EnableTools);
 
         var topicResult = await _chatTopicService.GetByIdAsync(topicId, ct);
-        if (!topicResult.Success || topicResult.Data == null) { await writer.WriteErrorAsync(topicResult.Error ?? "话题不存在"); return; }
+        if (!topicResult.Success || topicResult.Data == null) { await writer.WriteErrorAsync(topicResult.Error ?? _localizer.T("chat.topicNotFound")); return; }
         var topic = topicResult.Data;
 
         var userMsgResult = await _chatMessageService.CreateUserMessageAsync(topicId, request.Content ?? "", ct);
-        if (!userMsgResult.Success) { await writer.WriteErrorAsync(userMsgResult.Error ?? "创建消息失败"); return; }
+        if (!userMsgResult.Success) { await writer.WriteErrorAsync(userMsgResult.Error ?? _localizer.T("chat.messageCreateFailed")); return; }
 
         await MarkTopicOutdatedIfNeededAsync(topic, topicId, ct);
 
@@ -179,12 +182,12 @@ public class ChatMessagesController : ControllerBase
             return;
         }
         var (provider, modelId) = resolved;
-        if (provider == null) { await writer.WriteErrorAsync("未找到可用的对话模型"); return; }
+        if (provider == null) { await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable")); return; }
 
         var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, provider, ct);
         if (autoCompacted)
         {
-            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = "上下文接近上限，已自动压缩为摘要" });
+            await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = _localizer.T("chat.contextCompacted") });
         }
         var options = await BuildChatOptionsAsync(request, topic, modelId, agentPreset, ct);
 
@@ -215,7 +218,7 @@ public class ChatMessagesController : ControllerBase
 
         var sw = Stopwatch.StartNew();
         int estimatedInput = 0, estimatedCompressed = 0;
-        var sink = new SseAgentSink(writer);
+        var sink = new SseAgentSink(writer, _localizer);
 
         var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
@@ -251,13 +254,13 @@ public class ChatMessagesController : ControllerBase
         // 中断或正常完成都保存已生成的部分内容
         var finalContent = loopResult.Content;
         if (cancelled)
-            finalContent += "\n\n*（已停止生成）*";
+            finalContent += _localizer.T("chat.stoppedGenerating");
         else if (finalContent.Trim().Length == 0 && loopError != null)
-            finalContent = $"处理请求时出错: {loopError}";
+            finalContent = _localizer.T("chat.requestFailed", loopError);
         // 模型只调用工具、没有正文（如 todo / plan / ask_question 之后直接结束）时也要落库，
         // 否则该轮在消息列表里完全不可见，历史也丢失这轮上下文（与编码会话同一处理）
         else if (finalContent.Trim().Length == 0 && loopResult.ToolCalls.Count > 0)
-            finalContent = $"（本轮未输出正文，已调用工具：{string.Join("、", loopResult.ToolCalls.Select(t => t.Name).Distinct())}）";
+            finalContent = _localizer.T("chat.noOutputWithTools", string.Join("、", loopResult.ToolCalls.Select(t => t.Name).Distinct()));
 
         if (!string.IsNullOrEmpty(finalContent))
         {
@@ -304,8 +307,9 @@ public class ChatMessagesController : ControllerBase
     private sealed class SseAgentSink : IAgentLoopSink
     {
         private readonly SseStreamWriter _writer;
+        private readonly ILocalizer _localizer;
 
-        public SseAgentSink(SseStreamWriter writer) => _writer = writer;
+        public SseAgentSink(SseStreamWriter writer, ILocalizer localizer) => (_writer, _localizer) = (writer, localizer);
 
         public Task OnContentAsync(string text) => _writer.WriteJsonAsync(new { type = "content", text });
 
@@ -313,7 +317,7 @@ public class ChatMessagesController : ControllerBase
 
         public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
 
-        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync($"处理请求时出错: {message}");
+        public Task OnErrorAsync(string message) => _writer.WriteErrorAsync(_localizer.T("chat.requestFailed", message));
 
         /// <summary>tool_call / tool_result / approval_request / question / todo / plan 一律直通写帧</summary>
         public Task OnEventAsync(object payload) => _writer.WriteJsonAsync(payload);

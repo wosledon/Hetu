@@ -16,12 +16,14 @@ public class SettingsController : ControllerBase
     private readonly IAppSettingService _appSettingService;
     private readonly CompressionPipelineService _compressionService;
     private readonly IMemoryService _memoryService;
+    private readonly ILocalizer _localizer;
 
-    public SettingsController(IAppSettingService appSettingService, CompressionPipelineService compressionService, IMemoryService memoryService)
+    public SettingsController(IAppSettingService appSettingService, CompressionPipelineService compressionService, IMemoryService memoryService, ILocalizer localizer)
     {
         _appSettingService = appSettingService;
         _compressionService = compressionService;
         _memoryService = memoryService;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -77,7 +79,7 @@ public class SettingsController : ControllerBase
                 {
                     CanConnect = true,
                     VectorExtensionAvailable = hasVector,
-                    Message = hasVector ? "PostgreSQL 连接成功，已启用 pgvector" : "PostgreSQL 连接成功，但未启用 pgvector"
+                    Message = hasVector ? _localizer.T("settings.pgConnectedWithVector") : _localizer.T("settings.pgConnectedWithoutVector")
                 });
             }
             else
@@ -88,7 +90,7 @@ public class SettingsController : ControllerBase
                 {
                     CanConnect = true,
                     VectorExtensionAvailable = false,
-                    Message = "SQLite 连接成功"
+                    Message = _localizer.T("settings.sqliteConnected")
                 });
             }
         }
@@ -98,7 +100,7 @@ public class SettingsController : ControllerBase
             {
                 CanConnect = false,
                 VectorExtensionAvailable = false,
-                Message = $"连接失败：{ex.Message}"
+                Message = _localizer.T("settings.connectionFailed", ex.Message)
             });
         }
     }

@@ -1,80 +1,42 @@
 import React from 'react'
+import i18n from '../i18n'
 
-const TOOL_LABELS: Record<string, string> = {
-  search_notes: '搜索笔记',
-  read_note: '读取笔记',
-  list_notes: '浏览笔记',
-  create_note: '创建笔记',
-  update_note: '更新笔记',
-  delete_note: '删除笔记',
-  move_note: '移动笔记',
-  list_note_versions: '版本历史',
-  restore_note_version: '恢复版本',
-  list_notebooks: '笔记本列表',
-  create_notebook: '创建笔记本',
-  list_tags: '标签列表',
-  set_note_tags: '设置标签',
-  list_knowledge_items: '知识库列表',
-  search_web: '网络搜索',
-  search_memory: '搜索记忆',
-  create_memory: '保存记忆',
-  list_memories: '记忆列表',
-  delete_memory: '删除记忆',
-  search_graph: '搜索图谱',
-  ask_question: '提问',
-  todo: '任务管理',
-  plan: '执行计划',
-  run_command: '执行命令',
-  create_scheduled_task: '创建定时任务',
-  list_scheduled_tasks: '定时任务列表',
-  delete_scheduled_task: '删除定时任务',
-  list_skills: '技能列表',
-  // 应用各能力面工具：项目 / 看板 / Wiki / 工作流 / 智能体 / 标签 / 知识条目 / 收件箱 / 用量
-  list_projects: '项目列表',
-  create_project: '新建项目',
-  update_project: '修改项目',
-  delete_project: '删除项目',
-  list_work_projects: 'Code 项目列表',
-  list_kanban_tasks: '看板任务',
-  create_kanban_task: '新建看板任务',
-  update_kanban_task: '修改看板任务',
-  move_kanban_task: '流转看板任务',
-  delete_kanban_task: '删除看板任务',
-  list_wiki_docs: 'Wiki 列表',
-  read_wiki_doc: '读取 Wiki',
-  list_workflows: '工作流列表',
-  run_workflow: '执行工作流',
-  list_agents: '智能体列表',
-  use_skill: '读取技能',
-  create_tag: '新建标签',
-  update_tag: '修改标签',
-  delete_tag: '删除标签',
-  read_knowledge_item: '读取知识条目',
-  get_usage_stats: '用量统计',
-  list_inbox_items: '收件箱列表',
-  update_inbox_items: '处理通知',
-  // 编码会话（work_*）工具：与对话页共用同一份标签表，保证时间线样式一致
-  work_list_dir: '浏览目录',
-  work_read_file: '读取文件',
-  work_glob: '查找文件',
-  work_grep: '搜索代码',
-  work_git: 'Git 操作',
-  work_apply_patch: '局部修改',
-  work_write_file: '写入文件',
-  work_delete_file: '删除文件',
-  work_move_file: '移动文件',
-  work_run_command: '执行命令',
-  work_diagnostics: '构建诊断',
-  work_semantic_search: '语义检索代码',
-  work_task: '派子 Agent',
-  work_skill: '读取技能',
-  load_tools: '加载工具',
-}
-
+/** 工具名 → 界面展示名：文案表在 locales 的 toolNames 命名空间（键=后端工具名，未知工具回退原始名） */
 export function renderToolName(name: string): string {
-  return TOOL_LABELS[name] || name
+  const key = `toolNames:${name}`
+  return i18n.exists(key) ? i18n.t(key) : name
 }
 
+/**
+ * 工具分组名由后端下发（ToolGroupMap 的中文值，同时是 load_tools 的分组标识），
+ * 这里只做展示层翻译：未知分组回退原值。
+ */
+const TOOL_GROUP_KEYS: Record<string, string> = {
+  通用: 'general',
+  笔记: 'notes',
+  笔记本: 'notebooks',
+  标签: 'tags',
+  知识库: 'knowledge',
+  知识图谱: 'graph',
+  记忆: 'memories',
+  联网: 'web',
+  项目: 'projects',
+  任务看板: 'kanban',
+  工作流: 'workflows',
+  智能体: 'agents',
+  技能: 'skills',
+  定时任务: 'scheduled',
+  收件箱: 'inbox',
+  用量: 'usage',
+  Wiki: 'wiki',
+  工作区与命令: 'workspace',
+  其他: 'other',
+}
+
+export function renderToolGroup(group: string): string {
+  const key = TOOL_GROUP_KEYS[group]
+  return key ? i18n.t(`toolGroups:${key}`) : group
+}
 /** 一次过程条目：工具调用 / 思考 / 工作流节点（折叠分组的最小单元） */
 export interface ToolCallEntry {
   id?: string
@@ -126,7 +88,7 @@ export function renderToolResult(_name: string, content: string, isError?: boole
   try {
     const parsed = JSON.parse(content)
     if (Array.isArray(parsed)) {
-      if (parsed.length === 0) return <span className="text-[11px]">无结果</span>
+      if (parsed.length === 0) return <span className="text-[11px]">{i18n.t('ui:toolResult.noResult')}</span>
       return (
         <div className="space-y-1">
           {parsed.slice(0, 5).map((item: Record<string, unknown>, idx: number) => {
@@ -146,7 +108,7 @@ export function renderToolResult(_name: string, content: string, isError?: boole
               </div>
             )
           })}
-          {parsed.length > 5 && <span className="text-[10px] text-gray-400">...共 {parsed.length} 条结果</span>}
+          {parsed.length > 5 && <span className="text-[10px] text-gray-400">{i18n.t('ui:toolResult.totalResults', { count: parsed.length })}</span>}
         </div>
       )
     }

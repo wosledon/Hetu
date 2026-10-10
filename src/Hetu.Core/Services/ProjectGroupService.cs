@@ -9,10 +9,12 @@ namespace Hetu.Core.Services;
 public class ProjectGroupService : IProjectGroupService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public ProjectGroupService(IUnitOfWork unitOfWork)
+    public ProjectGroupService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<ProjectGroupDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -29,11 +31,11 @@ public class ProjectGroupService : IProjectGroupService
 
     public async Task<ApiResponse<ProjectGroupDto>> CreateAsync(CreateProjectGroupRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Name)) return ApiResponse<ProjectGroupDto>.Fail("分组名称不能为空");
+        if (string.IsNullOrWhiteSpace(request.Name)) return ApiResponse<ProjectGroupDto>.Fail(_localizer.T("group.nameRequired"));
 
         var groups = await _unitOfWork.ProjectGroups.GetAllAsync(cancellationToken);
         if (groups.Any(g => g.Name.Equals(request.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
-            return ApiResponse<ProjectGroupDto>.Fail("分组名称已存在");
+            return ApiResponse<ProjectGroupDto>.Fail(_localizer.T("group.duplicated"));
 
         var group = new ProjectGroup
         {
@@ -52,14 +54,14 @@ public class ProjectGroupService : IProjectGroupService
     public async Task<ApiResponse<ProjectGroupDto>> UpdateAsync(Guid id, UpdateProjectGroupRequest request, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ProjectGroups.GetByIdAsync(id, cancellationToken);
-        if (group == null) return ApiResponse<ProjectGroupDto>.Fail("分组不存在");
+        if (group == null) return ApiResponse<ProjectGroupDto>.Fail(_localizer.T("group.notFound"));
 
         var name = string.IsNullOrWhiteSpace(request.Name) ? group.Name : request.Name.Trim();
         if (name != group.Name)
         {
             var groups = await _unitOfWork.ProjectGroups.GetAllAsync(cancellationToken);
             if (groups.Any(g => g.Id != id && g.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
-                return ApiResponse<ProjectGroupDto>.Fail("分组名称已存在");
+                return ApiResponse<ProjectGroupDto>.Fail(_localizer.T("group.duplicated"));
         }
 
         group.Name = name;
@@ -74,7 +76,7 @@ public class ProjectGroupService : IProjectGroupService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ProjectGroups.GetByIdAsync(id, cancellationToken);
-        if (group == null) return ApiResponse.Fail("分组不存在");
+        if (group == null) return ApiResponse.Fail(_localizer.T("group.notFound"));
 
         // 组内项目移到「未分组」而不是删除
         var projects = await _unitOfWork.ManagedProjects.FindAsync(p => p.GroupId == id, cancellationToken);
@@ -93,7 +95,7 @@ public class ProjectGroupService : IProjectGroupService
     {
         var all = await GetAllAsync(cancellationToken);
         var group = all.Data?.FirstOrDefault(g => g.Id == id);
-        return group == null ? ApiResponse<ProjectGroupDto>.Fail("分组不存在") : ApiResponse<ProjectGroupDto>.Ok(group);
+        return group == null ? ApiResponse<ProjectGroupDto>.Fail(_localizer.T("group.notFound")) : ApiResponse<ProjectGroupDto>.Ok(group);
     }
 
     private static ProjectGroupDto Map(ProjectGroup group, int projectCount) => new()

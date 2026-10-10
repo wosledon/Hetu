@@ -17,6 +17,7 @@ public class GraphService : IGraphService
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly IMemoryCache _cache;
     private readonly CompressionPipelineService _compression;
+    private readonly ILocalizer _localizer;
     private const string GraphCacheKey = "graph_data";
 
     private const string CustomType = "custom";
@@ -43,13 +44,14 @@ public class GraphService : IGraphService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache, CompressionPipelineService compression)
+    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache, CompressionPipelineService compression, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _usageRecorder = usageRecorder;
         _cache = cache;
         _compression = compression;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<GraphDataDto>> GetGraphAsync(CancellationToken cancellationToken = default)
@@ -149,7 +151,7 @@ public class GraphService : IGraphService
     public async Task<ApiResponse<GraphEntityDetailDto>> GetEntityByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GraphEntities.GetByIdAsync(id, cancellationToken);
-        if (entity == null) return ApiResponse<GraphEntityDetailDto>.Fail("实体不存在");
+        if (entity == null) return ApiResponse<GraphEntityDetailDto>.Fail(_localizer.T("graph.entityNotFound"));
 
         // Only query relations involving this entity (not all)
         var relatedRelations = await _unitOfWork.GraphRelations
@@ -200,12 +202,12 @@ public class GraphService : IGraphService
     public async Task<ApiResponse<GraphEntityDto>> CreateEntityAsync(CreateGraphEntityRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return ApiResponse<GraphEntityDto>.Fail("实体名称不能为空");
+            return ApiResponse<GraphEntityDto>.Fail(_localizer.T("graph.entityNameRequired"));
 
         var existing = await _unitOfWork.GraphEntities
             .FindAsync(e => e.Name == request.Name.Trim(), cancellationToken);
         if (existing.Count > 0)
-            return ApiResponse<GraphEntityDto>.Fail("同名实体已存在");
+            return ApiResponse<GraphEntityDto>.Fail(_localizer.T("graph.entityNameDuplicated"));
 
         var entity = new GraphEntity
         {
@@ -227,7 +229,7 @@ public class GraphService : IGraphService
     public async Task<ApiResponse<GraphEntityDto>> UpdateEntityAsync(Guid id, UpdateGraphEntityRequest request, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GraphEntities.GetByIdAsync(id, cancellationToken);
-        if (entity == null) return ApiResponse<GraphEntityDto>.Fail("实体不存在");
+        if (entity == null) return ApiResponse<GraphEntityDto>.Fail(_localizer.T("graph.entityNotFound"));
 
         if (request.Name != null) entity.Name = request.Name.Trim();
         if (request.Type != null) entity.Type = request.Type;
@@ -248,7 +250,7 @@ public class GraphService : IGraphService
     public async Task<ApiResponse> DeleteEntityAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GraphEntities.GetByIdAsync(id, cancellationToken);
-        if (entity == null) return ApiResponse.Fail("实体不存在");
+        if (entity == null) return ApiResponse.Fail(_localizer.T("graph.entityNotFound"));
 
         var relations = await _unitOfWork.GraphRelations
             .FindAsync(r => r.SourceEntityId == id || r.TargetEntityId == id, cancellationToken);
@@ -269,7 +271,7 @@ public class GraphService : IGraphService
         var target = await _unitOfWork.GraphEntities.GetByIdAsync(request.TargetEntityId, cancellationToken);
 
         if (source == null || target == null)
-            return ApiResponse<GraphRelationDto>.Fail("源实体或目标实体不存在");
+            return ApiResponse<GraphRelationDto>.Fail(_localizer.T("graph.endpointNotFound"));
 
         var relation = new GraphRelation
         {
@@ -293,7 +295,7 @@ public class GraphService : IGraphService
     public async Task<ApiResponse> DeleteRelationAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var relation = await _unitOfWork.GraphRelations.GetByIdAsync(id, cancellationToken);
-        if (relation == null) return ApiResponse.Fail("关系不存在");
+        if (relation == null) return ApiResponse.Fail(_localizer.T("graph.relationNotFound"));
 
         await _unitOfWork.GraphRelations.DeleteAsync(relation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -305,11 +307,11 @@ public class GraphService : IGraphService
     public async Task<ApiResponse<ExtractGraphResultDto>> ExtractFromNoteAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
-        if (note == null) return ApiResponse<ExtractGraphResultDto>.Fail("笔记不存在");
+        if (note == null) return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("note.notFound"));
 
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<ExtractGraphResultDto>.Fail("未找到可用的 LLM 模型");
+            return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));
 
         // 单轮提取：只过算法压缩（跳过 LLM 摘要），不截断——长笔记靠压缩瘦身，避免提取不全
         var content = await _compression.CompressAlgorithmicAsync(note.Content, cancellationToken);
@@ -358,7 +360,7 @@ public class GraphService : IGraphService
 
         var extracted = ParseExtractionResult(callResult.Content);
         if (extracted == null)
-            return ApiResponse<ExtractGraphResultDto>.Fail("无法解析 LLM 返回的结果");
+            return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.parseFailed"));
 
         var result = await ApplyExtractionResultAsync(extracted, noteId, cancellationToken);
         InvalidateGraphCache();
@@ -372,7 +374,7 @@ public class GraphService : IGraphService
         var mergeEntity = await _unitOfWork.GraphEntities.GetByIdAsync(request.MergeEntityId, cancellationToken);
 
         if (keepEntity == null || mergeEntity == null)
-            return ApiResponse.Fail("实体不存在");
+            return ApiResponse.Fail(_localizer.T("graph.entityNotFound"));
 
         var mergeRelations = await _unitOfWork.GraphRelations
             .FindAsync(r => r.SourceEntityId == request.MergeEntityId || r.TargetEntityId == request.MergeEntityId, cancellationToken);

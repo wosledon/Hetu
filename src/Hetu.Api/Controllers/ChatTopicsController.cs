@@ -14,11 +14,13 @@ public class ChatTopicsController : ControllerBase
 {
     private readonly IChatTopicService _chatTopicService;
     private readonly IChatOrganizeService _chatOrganizeService;
+    private readonly ILocalizer _localizer;
 
-    public ChatTopicsController(IChatTopicService chatTopicService, IChatOrganizeService chatOrganizeService)
+    public ChatTopicsController(IChatTopicService chatTopicService, IChatOrganizeService chatOrganizeService, ILocalizer localizer)
     {
         _chatTopicService = chatTopicService;
         _chatOrganizeService = chatOrganizeService;
+        _localizer = localizer;
     }
 
     [HttpGet("group/{groupId:guid}")]
@@ -69,7 +71,7 @@ public class ChatTopicsController : ControllerBase
         }
         catch (HttpRequestException ex)
         {
-            await WriteEventAsync($"[ERROR] 调用模型失败：{ex.Message}");
+            await WriteEventAsync($"[ERROR] {_localizer.T("chat.modelCallFailed", ex.Message)}");
         }
     }
 }

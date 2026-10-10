@@ -15,17 +15,20 @@ public class WorkSessionsController : ControllerBase
     private readonly IWorkCheckpointService _checkpointService;
     private readonly ContextCompactionService _contextCompaction;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
     public WorkSessionsController(
         IWorkSessionService sessionService,
         IWorkCheckpointService checkpointService,
         ContextCompactionService contextCompaction,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILocalizer localizer)
     {
         _sessionService = sessionService;
         _checkpointService = checkpointService;
         _contextCompaction = contextCompaction;
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     [HttpGet("{id:guid}")]
@@ -85,7 +88,7 @@ public class WorkSessionsController : ControllerBase
     public async Task<ApiResponse> ClearCompact(Guid id, CancellationToken cancellationToken)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
-        if (session == null) return ApiResponse.Fail("会话不存在");
+        if (session == null) return ApiResponse.Fail(_localizer.T("work.sessionNotFound"));
         session.ContextSummary = null;
         session.ContextSummaryThroughMessageId = null;
         await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);

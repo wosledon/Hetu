@@ -20,6 +20,8 @@ public class AppSettingsSnapshotDto
     /// <summary>助手人设/性格描述，拼入 system prompt 用于身份认知</summary>
     public string AssistantPersona { get; set; } = string.Empty;
     public string Theme { get; set; } = "system";
+    /// <summary>界面语言：zh 或 en</summary>
+    public string Language { get; set; } = "zh";
     public string GraphAutoExtract { get; set; } = "false";
     public string AutoEmbedding { get; set; } = "false";
     /// <summary>默认对话模型 ID</summary>

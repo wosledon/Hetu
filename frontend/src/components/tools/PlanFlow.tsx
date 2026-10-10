@@ -1,4 +1,5 @@
 import { Check, CircleCheckBig, ListChecks, Loader2, MessageSquare, Play, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { InteractionPlan } from '../../stores/interactionStore'
 
 interface PlanFlowProps {
@@ -14,6 +15,7 @@ interface PlanFlowProps {
  * 输入框抽屉与工作流内联面板共用。
  */
 export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = false }: PlanFlowProps) {
+  const { t } = useTranslation('agents')
   const decided = plan.decided
   const pending = !decided
   const completed = plan.steps.filter(s => s.status === 'completed').length
@@ -36,12 +38,14 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
-              {plan.title || '执行计划'}
+              {plan.title || t('plan.defaultTitle')}
             </div>
             <div className="text-[11px] text-gray-400">
-              {plan.steps.length} 个步骤{plan.steps.length > 0 && ` · 已完成 ${completed}`}
-              {decided === 'approved' && ' · 已批准，正在执行'}
-              {decided === 'rejected' && ' · 已驳回'}
+              {plan.steps.length > 0
+                ? t('plan.stepsProgress', { total: plan.steps.length, done: completed })
+                : t('plan.steps', { n: plan.steps.length })}
+              {decided === 'approved' && t('plan.approvedRunning')}
+              {decided === 'rejected' && t('plan.rejectedSuffix')}
             </div>
           </div>
         </div>
@@ -103,7 +107,7 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
               type="text"
               value={plan.feedback}
               onChange={(e) => onFeedback(e.target.value)}
-              placeholder="修改意见（驳回时连同计划一起回传给 Agent）"
+              placeholder={t('plan.feedbackPlaceholder')}
               className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-gray-400"
             />
           </div>
@@ -112,13 +116,13 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
               onClick={() => onDecide(false)}
               className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
             >
-              <X size={13} /> 驳回
+              <X size={13} /> {t('plan.reject')}
             </button>
             <button
               onClick={() => onDecide(true)}
               className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-600 hover:shadow"
             >
-              <Play size={12} /> 批准执行
+              <Play size={12} /> {t('plan.approve')}
             </button>
           </div>
         </div>
@@ -132,8 +136,8 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
         }`}>
           {decided === 'approved' ? <CircleCheckBig size={13} /> : <X size={13} />}
           <span className="flex-1">
-            {decided === 'approved' ? '计划已批准，Agent 正在按计划执行' : '计划已驳回'}
-            {decided === 'rejected' && plan.feedback && `：${plan.feedback}`}
+            {decided === 'approved' ? t('plan.approved') : t('plan.rejected')}
+            {decided === 'rejected' && plan.feedback && t('plan.feedbackSuffix', { feedback: plan.feedback })}
           </span>
         </div>
       )}

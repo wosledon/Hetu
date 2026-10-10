@@ -1,4 +1,5 @@
 using Hetu.Core.Entities;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Work;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.DataProtection;
@@ -16,11 +17,13 @@ public class WorkBrowseController : ControllerBase
 {
     private readonly IDataProtectionProvider _dataProtection;
     private readonly ILogger<WorkBrowseController> _logger;
+    private readonly ILocalizer _localizer;
 
-    public WorkBrowseController(IDataProtectionProvider dataProtection, ILogger<WorkBrowseController> logger)
+    public WorkBrowseController(IDataProtectionProvider dataProtection, ILogger<WorkBrowseController> logger, ILocalizer localizer)
     {
         _dataProtection = dataProtection;
         _logger = logger;
+        _localizer = localizer;
     }
 
     /// <summary>
@@ -49,7 +52,7 @@ public class WorkBrowseController : ControllerBase
 
             var full = Path.GetFullPath(path);
             if (!Directory.Exists(full))
-                return ApiResponse<DirListingDto>.Fail("目录不存在");
+                return ApiResponse<DirListingDto>.Fail(_localizer.T("work.dirNotFound"));
 
             var dirs = Directory.GetDirectories(full)
                 .Select(d =>
@@ -72,7 +75,7 @@ public class WorkBrowseController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[WorkBrowse] 列举本地目录失败 path={Path}", path);
-            return ApiResponse<DirListingDto>.Fail($"读取目录失败：{ex.Message}");
+            return ApiResponse<DirListingDto>.Fail(_localizer.T("work.readLocalDirFailed", ex.Message));
         }
     }
 
@@ -94,7 +97,7 @@ public class WorkBrowseController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[WorkBrowse] 读取 SSH 配置失败");
-            return ApiResponse<List<SshConfigHostDto>>.Fail($"读取 SSH 配置失败：{ex.Message}");
+            return ApiResponse<List<SshConfigHostDto>>.Fail(_localizer.T("work.readSshConfigFailed", ex.Message));
         }
     }
 
@@ -103,7 +106,7 @@ public class WorkBrowseController : ControllerBase
     public async Task<ApiResponse<DirListingDto>> ListRemoteDirs([FromBody] WorkSshBrowseRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Host))
-            return ApiResponse<DirListingDto>.Fail("请先填写主机地址");
+            return ApiResponse<DirListingDto>.Fail(_localizer.T("work.hostRequired"));
 
         var path = string.IsNullOrWhiteSpace(request.Path) ? "~" : request.Path.Trim();
         var project = new WorkProject
@@ -129,11 +132,11 @@ public class WorkBrowseController : ControllerBase
             // pwd -P 输出规范化后的绝对路径；ls -1p 目录带 / 后缀
             var result = await runner.RunAsync("pwd -P && ls -1p", cancellationToken);
             if (result.ExitCode != 0)
-                return ApiResponse<DirListingDto>.Fail($"读取远程目录失败：{FirstLine(result.StdErr) ?? "未知错误"}");
+                return ApiResponse<DirListingDto>.Fail(_localizer.T("work.readRemoteDirFailed", FirstLine(result.StdErr) ?? _localizer.T("work.unknownError")));
 
             var lines = result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length == 0)
-                return ApiResponse<DirListingDto>.Fail("无法解析远程目录");
+                return ApiResponse<DirListingDto>.Fail(_localizer.T("work.remoteDirParseFailed"));
 
             var current = lines[0].Trim();
             var entries = new List<DirEntryDto>();
@@ -158,7 +161,7 @@ public class WorkBrowseController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[WorkBrowse] 列举远程目录失败 host={Host}", request.Host);
-            return ApiResponse<DirListingDto>.Fail($"读取远程目录失败：{ex.Message}");
+            return ApiResponse<DirListingDto>.Fail(_localizer.T("work.readRemoteDirFailed", ex.Message));
         }
     }
 

@@ -1,0 +1,22 @@
+/** Backend tool group names (Chinese values, also the group id for load_tools) → UI labels */
+export default {
+  general: 'General',
+  notes: 'Notes',
+  notebooks: 'Notebooks',
+  tags: 'Tags',
+  knowledge: 'Knowledge base',
+  graph: 'Knowledge graph',
+  memories: 'Memories',
+  web: 'Web',
+  projects: 'Projects',
+  kanban: 'Board',
+  workflows: 'Workflows',
+  agents: 'Agents',
+  skills: 'Skills',
+  scheduled: 'Scheduled tasks',
+  inbox: 'Inbox',
+  usage: 'Usage',
+  wiki: 'Wiki',
+  workspace: 'Workspace & commands',
+  other: 'Other',
+}

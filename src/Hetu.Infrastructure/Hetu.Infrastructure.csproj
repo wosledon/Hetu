@@ -25,4 +25,9 @@
     <ProjectReference Include="../Hetu.Shared/Hetu.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 本地化文案：Locales/{zh,en}/*.json 作为嵌入资源随程序集发布（单文件 sidecar 也能读到） -->
+    <EmbeddedResource Include="Localization\Locales\**\*.json" />
+  </ItemGroup>
+
 </Project>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { ShieldCheck } from 'lucide-react'
 import { renderToolName } from '../../utils/toolRendering'
 
@@ -18,6 +19,7 @@ export interface AgentApprovalCardProps {
  * 历史上是两套外观，这里合并为一份：带参数预览 + 允许/拒绝。
  */
 export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentApprovalCardProps) {
+  const { t } = useTranslation('agent')
   let args = request.arguments
   try {
     args = JSON.stringify(JSON.parse(request.arguments), null, 2)
@@ -31,7 +33,7 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
         <ShieldCheck size={15} className="mt-0.5 shrink-0 text-amber-500" />
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-gray-800 dark:text-gray-100">
-            需要确认：{renderToolName(request.name)}
+            {t('approval.needConfirm', { name: renderToolName(request.name) })}
           </p>
         </div>
       </div>
@@ -43,13 +45,13 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
           onClick={onApprove}
           className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-emerald-600"
         >
-          允许
+          {t('approval.allow')}
         </button>
         <button
           onClick={onDeny}
           className="rounded-lg bg-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"
         >
-          拒绝
+          {t('approval.deny')}
         </button>
       </div>
     </div>

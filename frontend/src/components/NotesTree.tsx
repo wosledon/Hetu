@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   ChevronRight,
@@ -49,6 +50,7 @@ function AddMenu({ menu, onAddNotebook, onAddNote, onClose }: {
   onAddNote: () => void
   onClose: () => void
 }) {
+  const { t } = useTranslation('notes')
   return createPortal(
     <>
       <div className="fixed inset-0 z-[9998]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
@@ -61,14 +63,14 @@ function AddMenu({ menu, onAddNotebook, onAddNote, onClose }: {
           className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
         >
           <FolderPlus size={13} />
-          新建笔记本
+          {t('notebook.new')}
         </button>
         <button
           onClick={() => { onClose(); onAddNote() }}
           className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
         >
           <FileText size={13} />
-          新建笔记
+          {t('note.newNote')}
         </button>
       </div>
     </>,
@@ -98,6 +100,7 @@ function NotebookNode({
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const selectedNotebookId = useUIStore((s) => s.selectedNotebookId)
   const setSelectedNotebookId = useUIStore((s) => s.setSelectedNotebookId)
   const [expanded, setExpanded] = useState(false)
@@ -169,7 +172,7 @@ function NotebookNode({
             e.stopPropagation()
             setAddMenu({ x: e.clientX, y: e.clientY })
           }}
-          title="新建"
+          title={t('common:create')}
           className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
         >
           <Plus size={13} />
@@ -191,7 +194,7 @@ function NotebookNode({
               if (e.key === 'Escape') { setIsAddingChild(false); setChildName('') }
             }}
             onBlur={handleAddChildNotebook}
-            placeholder="新子笔记本名称"
+            placeholder={t('notebook.newChildNamePlaceholder')}
             className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
           />
         </div>
@@ -237,7 +240,7 @@ function NotebookNode({
                 {note.isPinned && <Pin size={10} className="shrink-0 fill-blue-500 text-blue-500" />}
                 {note.isFavorite && <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />}
                 <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {note.title || '未命名笔记'}
+                  {note.title || t('note.untitled')}
                 </span>
               </div>
             )
@@ -247,7 +250,7 @@ function NotebookNode({
               className="py-1 text-[11px] text-gray-300 dark:text-gray-600"
               style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
             >
-              空
+              {t('tree.empty')}
             </div>
           )}
         </div>
@@ -259,6 +262,7 @@ function NotebookNode({
 /** 折叠模式：笔记本→笔记 一棵树 */
 export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebook, onClearNotebook }: NotesTreeProps) {
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const setSelectedNotebookId = useUIStore((s) => s.setSelectedNotebookId)
   const [searchTerm, setSearchTerm] = useState('')
   const [leafMenu, setLeafMenu] = useState<LeafMenuState | null>(null)
@@ -347,10 +351,10 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
     <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
         <div className="mb-2.5 flex items-center justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">笔记本</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('notebook.label')}</h2>
           <button
             onClick={(e) => setAddMenu({ x: e.clientX, y: e.clientY })}
-            title="新建"
+            title={t('common:create')}
             className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
           >
             <Plus size={14} />
@@ -361,7 +365,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索..."
+            placeholder={t('tree.searchPlaceholder')}
             className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700/50 dark:bg-gray-800/50 dark:focus:border-blue-600"
           />
         </div>
@@ -380,7 +384,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
                 if (e.key === 'Escape') { setIsAddingRoot(false); setRootName('') }
               }}
               onBlur={handleCreateRootNotebook}
-              placeholder="新笔记本名称"
+              placeholder={t('notebook.namePlaceholder')}
               className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
             />
           </div>
@@ -395,7 +399,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
               {showUncategorized ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>
             <Inbox size={15} className="shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 truncate text-sm text-gray-600 dark:text-gray-300">未分类</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-gray-600 dark:text-gray-300">{t('note.uncategorized')}</span>
           </div>
           {showUncategorized && (
             <div>
@@ -413,13 +417,13 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
                   >
                     <FileText size={13} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
                     <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                      {note.title || '未命名笔记'}
+                      {note.title || t('note.untitled')}
                     </span>
                   </div>
                 )
               })}
               {uncategorized.length === 0 && (
-                <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '44px' }}>空</div>
+                <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '44px' }}>{t('tree.empty')}</div>
               )}
             </div>
           )}
@@ -461,21 +465,21 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               <Pin size={13} />
-              {leafMenu.note.isPinned ? '取消置顶' : '置顶'}
+              {leafMenu.note.isPinned ? t('list.unpin') : t('list.pin')}
             </button>
             <button
               onClick={() => { toggleFavorite.mutate({ id: leafMenu.note.id, isFavorite: !leafMenu.note.isFavorite }) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               <Star size={13} />
-              {leafMenu.note.isFavorite ? '取消收藏' : '收藏'}
+              {leafMenu.note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
             </button>
             <button
               onClick={() => setLeafMenu(prev => prev ? { ...prev, showMove: !prev.showMove } : null)}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               <FolderPlus size={13} />
-              移动到
+              {t('tree.moveTo')}
             </button>
             {leafMenu.showMove && (
               <div className="max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
@@ -484,7 +488,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <Inbox size={12} />
-                  未分类
+                  {t('note.uncategorized')}
                 </button>
                 {notebooks.map(nb => (
                   <button
@@ -500,11 +504,11 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
             <button
-              onClick={() => { setLeafMenu(null); confirm({ message: '确定删除这条笔记吗？', onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}
+              onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               <Trash2 size={13} />
-              删除
+              {t('common:delete')}
             </button>
           </div>
         </>,

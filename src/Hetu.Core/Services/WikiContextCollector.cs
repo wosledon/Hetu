@@ -74,21 +74,22 @@ internal static class WikiContextCollector
         ManagedProject project,
         IWorkCommandRunnerFactory runnerFactory,
         IUnitOfWork unitOfWork,
+        ILocalizer localizer,
         CancellationToken ct)
     {
         if (project.ProjectType == "Ssh")
-            return await CollectRemoteAsync(project, runnerFactory, unitOfWork, ct);
-        return CollectLocal(project);
+            return await CollectRemoteAsync(project, runnerFactory, unitOfWork, localizer, ct);
+        return CollectLocal(project, localizer);
     }
 
-    private static WikiSourceMaterial CollectLocal(ManagedProject project)
+    private static WikiSourceMaterial CollectLocal(ManagedProject project, ILocalizer localizer)
     {
         if (!Directory.Exists(project.DirectoryPath))
-            return new WikiSourceMaterial { Failure = "项目目录不存在，请检查路径" };
+            return new WikiSourceMaterial { Failure = localizer.T("project.directoryNotExists") };
 
         var files = EnumerateLocalFiles(project.DirectoryPath);
         if (files.Count == 0)
-            return new WikiSourceMaterial { Failure = "未能读取到项目资料，目录可能为空或全部被忽略规则过滤" };
+            return new WikiSourceMaterial { Failure = localizer.T("wiki.materialEmpty") };
 
         var sb = new StringBuilder();
         sb.AppendLine("## 目录结构（深度不超过 3 层，已忽略构建 / 依赖目录）");
@@ -112,11 +113,12 @@ internal static class WikiContextCollector
         ManagedProject project,
         IWorkCommandRunnerFactory runnerFactory,
         IUnitOfWork unitOfWork,
+        ILocalizer localizer,
         CancellationToken ct)
     {
         var workProject = await FindWorkProjectAsync(project, unitOfWork, ct);
         if (workProject == null)
-            return new WikiSourceMaterial { Failure = "未找到关联的 Code 工作项目，无法连接远端目录" };
+            return new WikiSourceMaterial { Failure = localizer.T("wiki.workProjectNotFound") };
 
         IWorkCommandRunner runner;
         try
@@ -125,12 +127,12 @@ internal static class WikiContextCollector
         }
         catch (Exception ex)
         {
-            return new WikiSourceMaterial { Failure = $"创建远端连接失败：{ex.Message.Split('\n')[0]}" };
+            return new WikiSourceMaterial { Failure = localizer.T("wiki.remoteConnectFailed", ex.Message.Split('\n')[0]) };
         }
 
         var files = await ListRemoteFilesAsync(runner, ct);
         if (files.Count == 0)
-            return new WikiSourceMaterial { Failure = "远端目录为空（或全部被忽略规则过滤）" };
+            return new WikiSourceMaterial { Failure = localizer.T("wiki.remoteDirEmpty") };
 
         var sb = new StringBuilder();
         sb.AppendLine("## 目录结构（远端，深度不超过 3 层，已忽略构建 / 依赖目录）");

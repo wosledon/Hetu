@@ -8,10 +8,12 @@ namespace Hetu.Core.Services;
 public class TagService : ITagService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public TagService(IUnitOfWork unitOfWork)
+    public TagService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<TagDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -24,18 +26,18 @@ public class TagService : ITagService
     public async Task<ApiResponse<TagDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var tag = await _unitOfWork.Tags.GetByIdAsync(id, cancellationToken);
-        if (tag == null) return ApiResponse<TagDto>.Fail("标签不存在");
+        if (tag == null) return ApiResponse<TagDto>.Fail(_localizer.T("tag.notFound"));
         return ApiResponse<TagDto>.Ok(Map(tag));
     }
 
     public async Task<ApiResponse<TagDto>> CreateAsync(CreateTagRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return ApiResponse<TagDto>.Fail("标签名称不能为空");
+            return ApiResponse<TagDto>.Fail(_localizer.T("tag.nameRequired"));
 
         var normalized = request.Name.Trim().ToLowerInvariant();
         var existing = await _unitOfWork.Tags.GetByNameAsync(normalized, cancellationToken);
-        if (existing != null) return ApiResponse<TagDto>.Fail("标签已存在");
+        if (existing != null) return ApiResponse<TagDto>.Fail(_localizer.T("tag.duplicated"));
 
         var tag = new Tag
         {
@@ -54,7 +56,7 @@ public class TagService : ITagService
     public async Task<ApiResponse<TagDto>> UpdateAsync(Guid id, UpdateTagRequest request, CancellationToken cancellationToken = default)
     {
         var tag = await _unitOfWork.Tags.GetByIdAsync(id, cancellationToken);
-        if (tag == null) return ApiResponse<TagDto>.Fail("标签不存在");
+        if (tag == null) return ApiResponse<TagDto>.Fail(_localizer.T("tag.notFound"));
 
         tag.Name = string.IsNullOrWhiteSpace(request.Name) ? tag.Name : request.Name.Trim();
         tag.Color = request.Color;
@@ -68,7 +70,7 @@ public class TagService : ITagService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var tag = await _unitOfWork.Tags.GetByIdAsync(id, cancellationToken);
-        if (tag == null) return ApiResponse.Fail("标签不存在");
+        if (tag == null) return ApiResponse.Fail(_localizer.T("tag.notFound"));
 
         await _unitOfWork.Tags.DeleteAsync(tag, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -78,7 +80,7 @@ public class TagService : ITagService
     public async Task<ApiResponse> MergeAsync(MergeTagsRequest request, CancellationToken cancellationToken = default)
     {
         var target = await _unitOfWork.Tags.GetByIdAsync(request.TargetTagId, cancellationToken);
-        if (target == null) return ApiResponse.Fail("目标标签不存在");
+        if (target == null) return ApiResponse.Fail(_localizer.T("tag.targetNotFound"));
 
         foreach (var sourceId in request.SourceTagIds)
         {
@@ -111,7 +113,7 @@ public class TagService : ITagService
     public async Task<ApiResponse> SetNoteTagsAsync(Guid noteId, ManageNoteTagsRequest request, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
+        if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
 
         await _unitOfWork.Notes.SetTagsAsync(noteId, request.TagIds, cancellationToken);
 

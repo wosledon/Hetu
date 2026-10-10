@@ -1,5 +1,6 @@
 import { confirm } from '../components/confirm'
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Database,
@@ -24,13 +25,14 @@ import {
   Trash2,
 } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { enUS, zhCN } from 'date-fns/locale'
+import i18n from '../i18n'
 
 function safeFormatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '未知时间'
+  if (!dateStr) return i18n.t('knowledge:kb.unknownTime')
   const d = new Date(dateStr)
-  if (!isValid(d)) return '未知时间'
-  return formatDistanceToNow(d, { addSuffix: true, locale: zhCN })
+  if (!isValid(d)) return i18n.t('knowledge:kb.unknownTime')
+  return formatDistanceToNow(d, { addSuffix: true, locale: i18n.language === 'en' ? enUS : zhCN })
 }
 
 import AppLayout from '../components/AppLayout'
@@ -48,19 +50,20 @@ type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
 
 const tabs: { key: TabKey; label: string; icon: typeof Database }[] = [
-  { key: 'overview', label: '概览', icon: BarChart3 },
-  { key: 'manage', label: '索引管理', icon: Database },
-  { key: 'search', label: '搜索测试', icon: Search },
+  { key: 'overview', label: 'kb.tabOverview', icon: BarChart3 },
+  { key: 'manage', label: 'kb.tabManage', icon: Database },
+  { key: 'search', label: 'kb.tabSearch', icon: Search },
 ]
 
 const typeFilters: { key: ManageFilter; label: string; icon: typeof FileText }[] = [
-  { key: 'all', label: '全部', icon: Layers },
-  { key: 'note', label: '笔记', icon: FileText },
-  { key: 'file', label: '文件', icon: Upload },
-  { key: 'url', label: '网址', icon: Globe },
+  { key: 'all', label: 'common:all', icon: Layers },
+  { key: 'note', label: 'kb.typeNote', icon: FileText },
+  { key: 'file', label: 'kb.typeFile', icon: Upload },
+  { key: 'url', label: 'kb.typeUrl', icon: Globe },
 ]
 
 export default function KnowledgeBasePage() {
+  const { t } = useTranslation('knowledge')
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [manageFilter, setManageFilter] = useState<ManageFilter>('all')
@@ -213,9 +216,9 @@ export default function KnowledgeBasePage() {
 
   const getTypeBadge = (type: string) => {
     const config = {
-      note: { label: '笔记', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-      file: { label: '文件', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-      url: { label: '网址', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+      note: { label: t('kb.typeNote'), className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+      file: { label: t('kb.typeFile'), className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+      url: { label: t('kb.typeUrl'), className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
     }
     const c = config[type as keyof typeof config] || { label: type, className: 'bg-gray-100 text-gray-600' }
     return (
@@ -239,16 +242,16 @@ export default function KnowledgeBasePage() {
                   <Database size={20} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">知识库</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">管理笔记、文件、网址的向量索引与文档分块</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('kb.title')}</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('kb.subtitle')}</p>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{status?.totalItems ?? '-'}</b> 个知识项</span>
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{status?.totalItems ?? '-'}</b> {t('kb.statItems')}</span>
                 <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{status?.indexedItems ?? '-'}</b> 已索引</span>
+                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{status?.indexedItems ?? '-'}</b> {t('kb.statIndexed')}</span>
                 <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-violet-600 dark:text-violet-400">{indexedPercent}%</b> 覆盖率</span>
+                <span><b className="text-sm font-semibold text-violet-600 dark:text-violet-400">{indexedPercent}%</b> {t('kb.statCoverage')}</span>
               </div>
             </div>
 
@@ -267,7 +270,7 @@ export default function KnowledgeBasePage() {
                     }`}
                   >
                     <Icon size={14} />
-                    {tab.label}
+                    {t(tab.label)}
                   </button>
                 )
               })}
@@ -291,15 +294,15 @@ export default function KnowledgeBasePage() {
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{indexedPercent}%</span>
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500">已索引</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('kb.statIndexed')}</span>
                       </div>
                     </div>
 
                     {/* 说明 + 状态 */}
                     <div className="min-w-[220px] flex-1">
-                      <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">向量索引驾驶舱</h2>
+                      <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('kb.cockpitTitle')}</h2>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {status ? `${status.indexedItems} / ${status.totalItems} 知识项已生成向量索引` : '加载中...'}
+                        {status ? t('kb.cockpitProgress', { indexed: status.indexedItems, total: status.totalItems }) : t('common:loading')}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
@@ -308,12 +311,12 @@ export default function KnowledgeBasePage() {
                             : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
                         }`}>
                           {status?.hasEmbeddingProvider ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                          {status?.hasEmbeddingProvider ? `Embedding 已配置 · ${status.dimensions} 维` : '未配置 Embedding 模型'}
+                          {status?.hasEmbeddingProvider ? t('kb.embeddingConfigured', { n: status.dimensions }) : t('kb.embeddingMissing')}
                         </span>
                         {status && status.runningTaskCount > 0 && (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-600 dark:bg-teal-950/40 dark:text-teal-400">
                             <Loader2 size={12} className="animate-spin" />
-                            {status.runningTaskCount} 个任务进行中
+                            {t('kb.tasksRunning', { n: status.runningTaskCount })}
                           </span>
                         )}
                       </div>
@@ -331,31 +334,31 @@ export default function KnowledgeBasePage() {
                         ) : (
                           <Zap size={16} />
                         )}
-                        {batchMutation.isPending ? '排队中...' : status.runningTaskCount > 0 ? '任务进行中...' : `为 ${status.unindexedItems} 项生成索引`}
+                        {batchMutation.isPending ? t('kb.batchQueued') : status.runningTaskCount > 0 ? t('kb.batchRunning') : t('kb.batchGenerate', { n: status.unindexedItems })}
                       </button>
                     ) : (
                       <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
                         <CheckCircle2 size={14} />
-                        全部知识项均已索引
+                        {t('kb.allIndexed')}
                       </div>
                     )}
                   </div>
 
                   {/* 关键指标 */}
                   <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800">
-                    <MetricPill icon={<Layers size={13} />} color="blue" label="总项目" value={status?.totalItems ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<FileText size={13} />} color="indigo" label="笔记" value={status?.noteCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<Upload size={13} />} color="green" label="文件" value={status?.fileCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<Globe size={13} />} color="purple" label="网址" value={status?.urlCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<AlertCircle size={13} />} color="amber" label="未索引" value={status?.unindexedItems ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<Layers size={13} />} color="blue" label={t('kb.metricTotal')} value={status?.totalItems ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<FileText size={13} />} color="indigo" label={t('kb.typeNote')} value={status?.noteCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<Upload size={13} />} color="green" label={t('kb.typeFile')} value={status?.fileCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<Globe size={13} />} color="purple" label={t('kb.typeUrl')} value={status?.urlCount ?? '-'} loading={statusLoading} />
+                    <MetricPill icon={<AlertCircle size={13} />} color="amber" label={t('kb.notIndexed')} value={status?.unindexedItems ?? '-'} loading={statusLoading} />
                   </div>
 
                   {batchMutation.data && (
                     <p className="mt-4 text-xs text-green-600 dark:text-green-400">
-                      已将 {batchMutation.data.queuedCount} 个知识项加入队列
+                      {t('kb.batchResult', { n: batchMutation.data.queuedCount })}
                       {batchMutation.data.skippedCount > 0 && (
                         <span className="ml-2 text-amber-600 dark:text-amber-400">
-                          （跳过 {batchMutation.data.skippedCount} 个已有进行中任务的项）
+                          {t('kb.batchSkipped', { n: batchMutation.data.skippedCount })}
                         </span>
                       )}
                     </p>
@@ -387,7 +390,7 @@ export default function KnowledgeBasePage() {
                           }`}
                         >
                           <Icon size={13} />
-                          {f.label}
+                          {t(f.label)}
                         </button>
                       )
                     })}
@@ -404,14 +407,14 @@ export default function KnowledgeBasePage() {
                       className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Upload size={13} />
-                      上传文件
+                      {t('kb.uploadFile')}
                     </button>
                     <button
                       onClick={() => setShowAddUrl(true)}
                       className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Plus size={13} />
-                      添加网址
+                      {t('kb.addUrl')}
                     </button>
                   </div>
                 </div>
@@ -419,7 +422,7 @@ export default function KnowledgeBasePage() {
                 {/* Add URL Modal */}
                 {showAddUrl && (
                   <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-                    <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">添加网址</h3>
+                    <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
                     <div className="flex gap-3">
                       <input
                         type="url"
@@ -432,7 +435,7 @@ export default function KnowledgeBasePage() {
                         type="text"
                         value={urlTitle}
                         onChange={(e) => setUrlTitle(e.target.value)}
-                        placeholder="标题（可选）"
+                        placeholder={t('kb.urlTitlePlaceholder')}
                         className="w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
                       />
                       <button
@@ -441,13 +444,13 @@ export default function KnowledgeBasePage() {
                         className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50"
                       >
                         {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        添加
+                        {t('common:add')}
                       </button>
                       <button
                         onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}
                         className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                       >
-                        取消
+                        {t('common:cancel')}
                       </button>
                     </div>
                     {addUrlMutation.error && (
@@ -464,8 +467,8 @@ export default function KnowledgeBasePage() {
                 ) : embeddingStatuses.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                     <Layers size={48} strokeWidth={1} />
-                    <p className="mt-4 text-sm">暂无知识项</p>
-                    <p className="mt-1 text-xs">上传文件、添加网址或创建笔记后自动生成</p>
+                    <p className="mt-4 text-sm">{t('kb.empty')}</p>
+                    <p className="mt-1 text-xs">{t('kb.emptyHint')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -483,15 +486,15 @@ export default function KnowledgeBasePage() {
                           <div className="flex items-center gap-2">
                             {getTypeBadge(item.type)}
                             <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {item.title || '无标题'}
+                              {item.title || t('kb.untitled')}
                             </p>
                           </div>
                           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                             {item.hasRunningTask
-                              ? '索引生成中...'
+                              ? t('kb.indexing')
                               : item.embeddingUpdatedAt
-                                ? `更新于 ${safeFormatDate(item.embeddingUpdatedAt)}`
-                                : '未索引'}
+                                ? t('kb.indexedAt', { time: safeFormatDate(item.embeddingUpdatedAt) })
+                                : t('kb.notIndexed')}
                           </p>
                         </div>
 
@@ -500,17 +503,17 @@ export default function KnowledgeBasePage() {
                           {item.hasRunningTask ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
                               <Loader2 size={10} className="animate-spin" />
-                              索引中
+                              {t('kb.badgeIndexing')}
                             </span>
                           ) : item.hasEmbedding ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                               <CheckCircle2 size={10} />
-                              已索引
+                              {t('kb.statIndexed')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                               <AlertCircle size={10} />
-                              未索引
+                              {t('kb.notIndexed')}
                             </span>
                           )}
 
@@ -532,10 +535,10 @@ export default function KnowledgeBasePage() {
                             <button
                               onClick={() => openChunkDetail(item.id, item.title)}
                               className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                              title="查看分块详情"
+                              title={t('kb.chunkCountTitle')}
                             >
                               <Layers size={10} />
-                              {item.chunkCount} 块
+                              {t('kb.chunkCount', { n: item.chunkCount })}
                             </button>
                           )}
                         </div>
@@ -552,15 +555,15 @@ export default function KnowledgeBasePage() {
                             ) : (
                               <RefreshCw size={12} />
                             )}
-                            {item.hasRunningTask ? '索引中...' : item.hasEmbedding ? '重新索引' : '生成索引'}
+                            {item.hasRunningTask ? t('kb.actionIndexing') : item.hasEmbedding ? t('kb.actionReindex') : t('kb.actionIndex')}
                           </button>
                           {item.type !== 'note' && (
                             <button
                               onClick={() => {
-                                confirm({ message: '确定删除该知识项？', onConfirm: () => deleteMutation.mutate(item.id) })
+                                confirm({ message: t('kb.deleteItemConfirm'), onConfirm: () => deleteMutation.mutate(item.id) })
                               }}
                               className="flex items-center gap-1 rounded-full p-1.5 text-red-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                              title="删除知识项"
+                              title={t('kb.deleteItemTitle')}
                             >
                               <Trash2 size={12} />
                             </button>
@@ -578,7 +581,7 @@ export default function KnowledgeBasePage() {
               <div className="space-y-6">
                 {/* Search Input */}
                 <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">语义搜索测试</h3>
+                  <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
                       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -587,7 +590,7 @@ export default function KnowledgeBasePage() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        placeholder="输入查询内容，测试语义搜索效果..."
+                        placeholder={t('kb.searchPlaceholder')}
                         className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
                       />
                     </div>
@@ -612,7 +615,7 @@ export default function KnowledgeBasePage() {
                       ) : (
                         <Play size={16} />
                       )}
-                      搜索
+                      {t('common:search')}
                     </button>
                   </div>
                 </div>
@@ -631,14 +634,14 @@ export default function KnowledgeBasePage() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        搜索结果 ({searchResults.length})
+                        {t('kb.searchResults', { n: searchResults.length })}
                       </h3>
                     </div>
                     {searchResults.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                         <Search size={48} strokeWidth={1} />
-                        <p className="mt-4 text-sm">未找到相关结果</p>
-                        <p className="mt-1 text-xs">尝试使用不同的关键词，或确保知识项已生成索引</p>
+                        <p className="mt-4 text-sm">{t('kb.searchEmpty')}</p>
+                        <p className="mt-1 text-xs">{t('kb.searchEmptyHint')}</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -705,6 +708,7 @@ function ChunkDetailModal({
   loading: boolean
   onClose: () => void
 }) {
+  const { t } = useTranslation('knowledge')
   const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null)
 
   return (
@@ -716,12 +720,12 @@ function ChunkDetailModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold text-gray-900 dark:text-gray-50">文档分块</h3>
+            <h3 className="truncate text-base font-semibold text-gray-900 dark:text-gray-50">{t('kb.chunkModalTitle')}</h3>
             <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{title}</p>
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              {chunks.length} 块
+              {t('kb.chunkCount', { n: chunks.length })}
             </span>
             <button
               onClick={onClose}
@@ -741,8 +745,8 @@ function ChunkDetailModal({
           ) : chunks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <Layers size={48} strokeWidth={1} />
-              <p className="mt-4 text-sm">暂无分块数据</p>
-              <p className="mt-1 text-xs">生成索引时会自动创建分块</p>
+              <p className="mt-4 text-sm">{t('kb.chunkEmpty')}</p>
+              <p className="mt-1 text-xs">{t('kb.chunkEmptyHint')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -771,7 +775,7 @@ function ChunkDetailModal({
                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                             : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
                         }`}>
-                          {chunk.chunkMethod === 'llm' ? 'LLM' : '结构化'}
+                          {chunk.chunkMethod === 'llm' ? 'LLM' : t('kb.chunkMethodStructured')}
                         </span>
                         {chunk.hasEmbedding ? (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
@@ -790,12 +794,12 @@ function ChunkDetailModal({
                       <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06]">
                         {chunk.summary && (
                           <div className="mb-3">
-                            <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">摘要</p>
+                            <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">{t('kb.chunkSummary')}</p>
                             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">{chunk.summary}</p>
                           </div>
                         )}
                         <div>
-                          <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">原始内容</p>
+                          <p className="mb-1 text-[11px] font-medium text-gray-400 dark:text-gray-500">{t('kb.chunkRawContent')}</p>
                           <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-3 dark:bg-white/[0.02]">
                             <pre className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                               {chunk.content}
@@ -809,7 +813,7 @@ function ChunkDetailModal({
                           </span>
                           <span className="flex items-center gap-1">
                             <Hash size={10} />
-                            {chunk.content.length} 字符
+                            {t('common:charCount', { count: chunk.content.length })}
                           </span>
                         </div>
                       </div>

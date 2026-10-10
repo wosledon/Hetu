@@ -1,10 +1,12 @@
 import { memo } from 'react'
 import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatToolCallRow from './ChatToolCallRow'
 import ToolCallGroup from './ToolCallGroup'
 import { foldConsecutiveToolCalls } from '../utils/toolRendering'
+import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
 
@@ -95,6 +97,7 @@ export default memo(function ChatMessageItem({
   actionsDisabled,
   onCopy, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onEditContentChange,
 }: ChatMessageItemProps) {
+  const { t } = useTranslation('chat')
   const segments = parseHistorySegments(message.toolCallsJson)
   const isUser = message.role === 'user'
   // 有序片段里已包含正文文本；旧格式的纯工具列表则回到“工具组 + 正文”布局
@@ -125,8 +128,8 @@ export default memo(function ChatMessageItem({
       <div className={`flex min-w-0 flex-1 flex-col ${isUser ? 'items-end' : ''}`}>
         {isUser && (
           <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(message.createdAt).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('shared.you')}</span>
           </div>
         )}
         {/* Copilot 式瀑布流：无聊天气泡。用户消息右浮动（头像在右）；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
@@ -151,7 +154,7 @@ export default memo(function ChatMessageItem({
                   disabled={!editingContent.trim() || actionsDisabled}
                   className="rounded bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                 >
-                  保存
+                  {t('common:save')}
                 </button>
               </div>
             </div>
@@ -159,7 +162,7 @@ export default memo(function ChatMessageItem({
             <>
               {message.role === 'assistant' && message.thinkingContent && !segments.some((s) => s.kind === 'thought') && (
                 <div className="mb-3">
-                  <ChatToolCallRow name="" args={message.thinkingContent} text={message.thinkingContent} label="思考" />
+                  <ChatToolCallRow name="" args={message.thinkingContent} text={message.thinkingContent} label={t('shared.thinking')} />
                 </div>
               )}
               {/* 瀑布流时间线：思考/工具调用与文本按发生顺序穿插（新格式） */}
@@ -171,7 +174,7 @@ export default memo(function ChatMessageItem({
                       // 单条过程：工具调用或思考，都直接用统一的行样式
                       if (entry.items.length === 1) {
                         return only.kind === 'thought'
-                          ? <ChatToolCallRow key={i} name="" args={only.text ?? ''} text={only.text ?? ''} label="思考" />
+                          ? <ChatToolCallRow key={i} name="" args={only.text ?? ''} text={only.text ?? ''} label={t('shared.thinking')} />
                           : (
                             <ChatToolCallRow
                               key={i}
@@ -187,7 +190,7 @@ export default memo(function ChatMessageItem({
                     const seg = entry.item
                     if (seg.kind === 'thought') {
                       return (
-                        <ChatToolCallRow key={i} name="" args={seg.text} text={seg.text} label="思考" />
+                        <ChatToolCallRow key={i} name="" args={seg.text} text={seg.text} label={t('shared.thinking')} />
                       )
                     }
                     return (
@@ -235,7 +238,7 @@ export default memo(function ChatMessageItem({
                     <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Search size={11} />
-                        参考来源
+                        {t('shared.sources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">
                         {results.map((r, i) => (
@@ -266,7 +269,7 @@ export default memo(function ChatMessageItem({
                     <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Database size={11} />
-                        知识库参考
+                        {t('shared.knowledgeSources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">
                         {results.map((r, i) => (
@@ -296,7 +299,7 @@ export default memo(function ChatMessageItem({
                     <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Atom size={11} />
-                        记忆参考
+                        {t('shared.memorySources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">
                         {results.map((r, i) => (
@@ -321,7 +324,7 @@ export default memo(function ChatMessageItem({
                   <Coins size={10} />
                   <span>
                     {formatTokens(message.tokensUsed ?? 0)} tokens
-                    {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
+                    {message.cachedTokens ? t('messageItem.cached', { tokens: formatTokens(message.cachedTokens) }) : ''}
                     {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
                   </span>
                 </div>
@@ -335,8 +338,8 @@ export default memo(function ChatMessageItem({
             <button
               onClick={() => onCopy(message.id, message.content)}
               className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              title="复制"
-              aria-label="复制"
+              title={t('common:copy')}
+              aria-label={t('common:copy')}
             >
               {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
             </button>
@@ -344,8 +347,8 @@ export default memo(function ChatMessageItem({
               onClick={() => onStartEdit(message.id, message.content)}
               disabled={actionsDisabled}
               className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              title="编辑"
-              aria-label="编辑"
+              title={t('common:edit')}
+              aria-label={t('common:edit')}
             >
               <Pencil size={12} />
             </button>
@@ -353,8 +356,8 @@ export default memo(function ChatMessageItem({
               onClick={() => onDelete(message.id)}
               disabled={actionsDisabled}
               className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
-              title="删除"
-              aria-label="删除"
+              title={t('common:delete')}
+              aria-label={t('common:delete')}
             >
               <Trash2 size={12} />
             </button>

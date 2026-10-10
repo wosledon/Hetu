@@ -10,12 +10,14 @@ public class LocalSkillService : ILocalSkillService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<LocalSkillService> _logger;
+    private readonly ILocalizer _localizer;
     private const string SettingKey = "SkillDirectories";
 
-    public LocalSkillService(IUnitOfWork unitOfWork, ILogger<LocalSkillService> logger)
+    public LocalSkillService(IUnitOfWork unitOfWork, ILogger<LocalSkillService> logger, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<LocalSkillDto>>> ScanAllAsync(CancellationToken cancellationToken = default)
@@ -100,7 +102,7 @@ public class LocalSkillService : ILocalSkillService
         return path;
     }
 
-    private static List<LocalSkillDto> ScanDirectory(string baseDir)
+    private List<LocalSkillDto> ScanDirectory(string baseDir)
     {
         var skills = new List<LocalSkillDto>();
 
@@ -134,7 +136,7 @@ public class LocalSkillService : ILocalSkillService
         return skills;
     }
 
-    private static LocalSkillDto? LoadSkillFromFile(string filePath, string skillDir)
+    private LocalSkillDto? LoadSkillFromFile(string filePath, string skillDir)
     {
         try
         {
@@ -144,7 +146,7 @@ public class LocalSkillService : ILocalSkillService
 
             var name = root.TryGetProperty("name", out var n) ? n.GetString() : Path.GetFileNameWithoutExtension(filePath);
             var description = root.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "";
-            var category = root.TryGetProperty("category", out var c) ? c.GetString() ?? "本地" : "本地";
+            var category = root.TryGetProperty("category", out var c) ? c.GetString() ?? _localizer.T("common.local") : _localizer.T("common.local");
 
             string? config = null;
             if (root.TryGetProperty("config", out var cfg))
@@ -175,7 +177,7 @@ public class LocalSkillService : ILocalSkillService
         }
     }
 
-    private static LocalSkillDto? LoadSkillFromMarkdown(string filePath, string skillDir)
+    private LocalSkillDto? LoadSkillFromMarkdown(string filePath, string skillDir)
     {
         try
         {
@@ -192,7 +194,7 @@ public class LocalSkillService : ILocalSkillService
 
             var name = Path.GetFileName(skillDir);
             var description = "";
-            var category = "本地";
+            var category = _localizer.T("common.local");
 
             foreach (var line in frontmatter.Split('\n'))
             {

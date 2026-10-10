@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
 import { countTextLines, isLongText } from '../../utils/longText'
@@ -109,7 +110,7 @@ export default function AgentInputBox({
   aboveInput,
   block = '',
   onBlockChange,
-  placeholder = '输入消息，Enter 发送...',
+  placeholder,
   busy = false,
   streaming = false,
   onStop,
@@ -118,6 +119,8 @@ export default function AgentInputBox({
   rows = 2,
   hint,
 }: AgentInputBoxProps) {
+  const { t } = useTranslation('agent')
+  const placeholderText = placeholder ?? t('input.placeholder')
   const localRef = useRef<HTMLTextAreaElement | null>(null)
   const inputRef = textareaRef ?? localRef
   const [menuIndex, setMenuIndex] = useState(0)
@@ -215,14 +218,14 @@ export default function AgentInputBox({
         <div className="relative rounded-xl border border-gray-200 bg-white shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800">
           {showMenu && menu && (
             <InputCommandMenu
-              title={menu.kind === 'mention' ? '输入 @ 引用' : '输入 / 使用模板或技能'}
+              title={menu.kind === 'mention' ? t('input.mentionTitle') : t('input.slashTitle')}
               items={menuItems}
               selectedIndex={menuIndex}
               onSelect={(item) => {
                 setMenuIndex(0)
                 menu.onSelect(item)
               }}
-              emptyHint={menu.emptyHint ?? (menu.kind === 'mention' ? '输入关键词搜索...' : '没有匹配项')}
+              emptyHint={menu.emptyHint ?? (menu.kind === 'mention' ? t('input.mentionEmpty') : t('input.slashEmpty'))}
             />
           )}
 
@@ -241,7 +244,7 @@ export default function AgentInputBox({
                   <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
                   <button
                     onClick={chip.onRemove}
-                    aria-label={`移除 ${chip.label}`}
+                    aria-label={t('input.removeChip', { label: chip.label })}
                     className="shrink-0 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100"
                   >
                     <X size={9} />
@@ -255,21 +258,21 @@ export default function AgentInputBox({
             <div className="px-3 pt-2.5">
               <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
                 <FileText size={12} className="shrink-0 text-gray-400" />
-                <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">已折叠长文本</span>
-                <span className="truncate text-gray-400">{lineCount} 行 · {block.length} 字符</span>
+                <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">{t('input.collapsedBlock')}</span>
+                <span className="truncate text-gray-400">{t('input.blockMeta', { lines: lineCount, chars: block.length })}</span>
                 <button
                   onClick={() => setShowBlockPreview((v) => !v)}
                   className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
                 >
-                  {showBlockPreview ? '收起' : '查看'}
+                  {showBlockPreview ? t('input.collapse') : t('common:view')}
                 </button>
                 <button
                   onClick={() => {
                     setShowBlockPreview(false)
                     onBlockChange?.('')
                   }}
-                  aria-label="移除长文本"
-                  title="移除长文本"
+                  aria-label={t('input.removeBlock')}
+                  title={t('input.removeBlock')}
                   className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
                 >
                   <X size={11} />
@@ -289,7 +292,7 @@ export default function AgentInputBox({
             onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={placeholder}
+            placeholder={placeholderText}
             rows={rows}
             className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
@@ -300,8 +303,8 @@ export default function AgentInputBox({
               {streaming ? (
                 <button
                   onClick={onStop}
-                  title="停止生成"
-                  aria-label="停止生成"
+                  title={t('input.stop')}
+                  aria-label={t('input.stop')}
                   className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600"
                 >
                   <Square size={13} fill="currentColor" />
@@ -310,8 +313,8 @@ export default function AgentInputBox({
                 <button
                   onClick={onSubmit}
                   disabled={busy || !canSubmit}
-                  title="发送"
-                  aria-label="发送"
+                  title={t('input.send')}
+                  aria-label={t('input.send')}
                   className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
                 >
                   <Send size={14} />

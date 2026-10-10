@@ -12,11 +12,13 @@ public class ExportService : IExportService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly DatabaseProviderInfo _providerInfo;
+    private readonly ILocalizer _localizer;
 
-    public ExportService(IUnitOfWork unitOfWork, DatabaseProviderInfo providerInfo)
+    public ExportService(IUnitOfWork unitOfWork, DatabaseProviderInfo providerInfo, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _providerInfo = providerInfo;
+        _localizer = localizer;
     }
 
     public async Task<byte[]> ExportNotesAsZipAsync(CancellationToken cancellationToken = default)
@@ -32,7 +34,7 @@ public class ExportService : IExportService
             {
                 var folder = note.NotebookId.HasValue && notebookNames.TryGetValue(note.NotebookId.Value, out var nbName)
                     ? nbName
-                    : "未分类";
+                    : _localizer.T("export.uncategorized");
                 var fileName = $"{folder}/{SafeFileName(note.Title)}.md";
 
                 var entry = zip.CreateEntry(fileName, CompressionLevel.Optimal);
@@ -51,7 +53,7 @@ public class ExportService : IExportService
         {
             var dbPath = ParseDataSource(_providerInfo.ConnectionString);
             if (!File.Exists(dbPath))
-                throw new FileNotFoundException("数据库文件不存在", dbPath);
+                throw new FileNotFoundException(_localizer.T("export.dbFileMissing"), dbPath);
 
             await using var sourceStream = new FileStream(dbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.Asynchronous);
             using var ms = new MemoryStream();
@@ -80,7 +82,7 @@ public class ExportService : IExportService
             psi.Environment["PGPASSWORD"] = password;
 
             using var process = Process.Start(psi)
-                ?? throw new InvalidOperationException("无法启动 pg_dump，请确保 PostgreSQL 客户端工具已安装并加入 PATH");
+                ?? throw new InvalidOperationException(_localizer.T("export.pgDumpMissing"));
 
             await using var ms = new MemoryStream();
             var copyTask = process.StandardOutput.BaseStream.CopyToAsync(ms, cancellationToken);
@@ -89,12 +91,12 @@ public class ExportService : IExportService
             await Task.WhenAll(copyTask, errorTask, process.WaitForExitAsync(cancellationToken));
 
             if (process.ExitCode != 0)
-                throw new InvalidOperationException($"pg_dump 失败：{await errorTask}");
+                throw new InvalidOperationException(_localizer.T("export.pgDumpFailed", await errorTask));
 
             return ms.ToArray();
         }
 
-        throw new NotSupportedException($"不支持的数据库提供程序：{_providerInfo.Provider}");
+        throw new NotSupportedException(_localizer.T("export.providerUnsupported", _providerInfo.Provider));
     }
 
     public async Task<string> RestoreDatabaseAsync(Stream backupFile, CancellationToken cancellationToken = default)
@@ -115,7 +117,7 @@ public class ExportService : IExportService
             }
             File.Move(restorePath, dbPath);
 
-            return "数据库已恢复，请重启应用以生效。";
+            return _localizer.T("export.restoreSqliteDone");
         }
 
         if (_providerInfo.IsPostgreSql)
@@ -147,16 +149,16 @@ public class ExportService : IExportService
                 psi.Environment["PGPASSWORD"] = password;
 
                 using var process = Process.Start(psi)
-                    ?? throw new InvalidOperationException("无法启动 pg_restore，请确保 PostgreSQL 客户端工具已安装并加入 PATH");
+            ?? throw new InvalidOperationException(_localizer.T("export.pgRestoreMissing"));
 
                 var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
                 var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
                 await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync(cancellationToken));
 
                 if (process.ExitCode != 0)
-                    throw new InvalidOperationException($"pg_restore 失败：{await errorTask}");
+            throw new InvalidOperationException(_localizer.T("export.pgRestoreFailed", await errorTask));
 
-                return "PostgreSQL 数据库已恢复。";
+        return _localizer.T("export.restorePostgresDone");
             }
             finally
             {
@@ -164,7 +166,7 @@ public class ExportService : IExportService
             }
         }
 
-        throw new NotSupportedException($"不支持的数据库提供程序：{_providerInfo.Provider}");
+        throw new NotSupportedException(_localizer.T("export.providerUnsupported", _providerInfo.Provider));
     }
 
     private static string ParseDataSource(string connectionString)
