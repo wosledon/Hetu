@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, CheckCircle2, Download, Loader2, RefreshCw, RotateCw, X } from 'lucide-react'
+import ThemedMarkdown from './ThemedMarkdown'
 import { useUpdateStore } from '../stores/updateStore'
 import { updateService } from '../services/updateService'
 import { useAppVersion } from '../hooks/useAppVersion'
@@ -12,6 +13,24 @@ import { isTauriAclError } from '../utils/tauri'
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** 发布说明是 Markdown：正常渲染；链接一律用系统浏览器打开，避免 WebView 跳走 */
+function NotesBlock({ markdown }: { markdown: string }) {
+  return (
+    <div
+      className="max-h-64 overflow-auto rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300"
+      onClick={(e) => {
+        const anchor = (e.target as HTMLElement).closest('a')
+        const href = anchor?.getAttribute('href')
+        if (!href) return
+        e.preventDefault()
+        window.open(href, '_blank', 'noopener')
+      }}
+    >
+      <ThemedMarkdown source={markdown} />
+    </div>
+  )
 }
 
 /**
@@ -104,9 +123,7 @@ export default function UpdatePanel() {
             {status === 'available' && info?.notes && (
               <div className="mt-3">
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.releaseNotes')}</p>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
-                  {info.notes}
-                </pre>
+                <NotesBlock markdown={info.notes} />
               </div>
             )}
 
@@ -126,9 +143,7 @@ export default function UpdatePanel() {
                     {t('common:loading')}
                   </p>
                 ) : currentNotes ? (
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
-                    {currentNotes.body}
-                  </pre>
+                  <NotesBlock markdown={currentNotes.body} />
                 ) : (
                   <p className="rounded-xl bg-gray-50 px-3 py-3 text-[12px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500">
                     {t('update.currentNotesEmpty')}
