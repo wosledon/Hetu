@@ -16,7 +16,7 @@ import {
   Bot,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import { usageService } from '../services/usageService'
+import { usageService, type IUsageLog } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
 import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
@@ -28,6 +28,15 @@ function fmtNum(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   return String(n)
+}
+
+/**
+ * 压缩率 = 压缩后 / 压缩前（管道口径，都是字符数）。
+ * 没有压缩记录（任一为空）时返回 null；等于 100% 说明这一条没被压过。
+ */
+function compressionRatio(log: IUsageLog): number | null {
+  if (!log.inputTokens || log.compressedTokens == null) return null
+  return log.compressedTokens / log.inputTokens
 }
 
 export default function UsagePage() {
@@ -421,6 +430,7 @@ function UsageLogs() {
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium">模型</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输入</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">压缩后</th>
+                <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">压缩率</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">输出</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">总计</th>
                 <th className="whitespace-nowrap pb-2 pr-3 font-medium text-right">延迟</th>
@@ -439,6 +449,22 @@ function UsageLogs() {
                   <td className="whitespace-nowrap py-2 pr-3 text-gray-600 dark:text-gray-300">{log.modelName}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-blue-600 dark:text-blue-400">{log.inputTokens ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-violet-600 dark:text-violet-400">{log.compressedTokens ?? '—'}</td>
+                  {(() => {
+                    const ratio = compressionRatio(log)
+                    if (ratio == null) return <td className="whitespace-nowrap py-2 pr-3 text-right text-gray-300 dark:text-gray-600">—</td>
+                    const tone = ratio < 0.3
+                      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                      : ratio < 0.8
+                        ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+                    return (
+                      <td className="whitespace-nowrap py-2 pr-3 text-right">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tone}`}>
+                          {(ratio * 100).toFixed(1)}%
+                        </span>
+                      </td>
+                    )
+                  })()}
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-emerald-600 dark:text-emerald-400">{log.outputTokens ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right font-medium text-gray-700 dark:text-gray-200">{log.tokensUsed ?? '—'}</td>
                   <td className="whitespace-nowrap py-2 pr-3 text-right text-gray-500">{log.latencyMs != null ? `${(log.latencyMs / 1000).toFixed(1)}s` : '—'}</td>
