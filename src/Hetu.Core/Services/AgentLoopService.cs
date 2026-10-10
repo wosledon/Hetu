@@ -468,7 +468,11 @@ public class AgentLoopService
         return (contentSb, thinkingSb, pendingToolCalls, usage);
     }
 
-    /// <summary>组装 Agent 系统提示词：人设 + 工具使用约定</summary>
+    /// <summary>
+    /// 组装 Agent 系统提示词：人设 + 工具使用约定。
+    /// 工具清单是全链路唯一来源（各控制器不再各自拼一份，否则同一次请求里工具说明会出现两遍）；
+    /// 与 <see cref="ChatOptions.Tools"/> 一起构成模型可见的工具信息。
+    /// </summary>
     private string ComposeSystemPrompt(string agentPrompt, List<string> toolNames, int maxToolCallsPerTurn)
     {
         var sb = new StringBuilder();
@@ -487,7 +491,8 @@ public class AgentLoopService
             foreach (var name in toolNames)
             {
                 var executor = _toolRegistry.GetExecutor(name);
-                sb.AppendLine($"- `{name}`：{executor?.Description ?? "MCP 工具"}");
+                var guideline = executor?.UsageGuideline;
+                sb.AppendLine($"- `{name}`：{(string.IsNullOrWhiteSpace(guideline) ? executor?.Description ?? "MCP 工具" : guideline)}");
             }
         }
 

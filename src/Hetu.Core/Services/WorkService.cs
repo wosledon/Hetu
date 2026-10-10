@@ -473,6 +473,20 @@ public class WorkSessionService : IWorkSessionService
         return ApiResponse<WorkMessageDto>.Ok(Map(message));
     }
 
+    public async Task AccumulateUsageAsync(Guid sessionId, WorkMessageUsage usage, CancellationToken cancellationToken = default)
+    {
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);
+        if (session == null) return;
+
+        session.PromptTokens += usage.PromptTokens;
+        session.CompletionTokens += usage.CompletionTokens;
+        session.CachedTokens += usage.CachedTokens;
+        session.TotalTokens += usage.TotalTokens;
+        session.UpdatedAt = DateTimeOffset.UtcNow;
+        await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<ApiResponse<WorkMessageDto>> UpdateMessageAsync(Guid messageId, string content, CancellationToken cancellationToken = default)
     {
         var message = await _unitOfWork.WorkMessages.GetByIdAsync(messageId, cancellationToken);

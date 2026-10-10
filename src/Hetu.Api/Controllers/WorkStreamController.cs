@@ -208,6 +208,7 @@ public class WorkStreamController : ControllerBase
 
         var profile = BuiltinProfiles.Work;
         var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
+        // 工具清单由 Agent Loop 统一拼进系统提示（ComposeSystemPrompt），此处不再重复一份
         var systemPromptParts = new List<string>
         {
             profile.IdentityPrompt,
@@ -216,7 +217,6 @@ public class WorkStreamController : ControllerBase
             profile.SafetyPrompt,
             $"\n当前项目: {project.Name}\n项目根目录: {project.RootPath}",
             $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（plan 计划模式只读调研 / readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
-            BuildToolGuideline(allowedTools),
         };
 
         // 智能体（提示词预设）附加系统提示
@@ -362,10 +362,33 @@ public class WorkStreamController : ControllerBase
 
         if (!string.IsNullOrEmpty(finalContent))
         {
+            // prompt tokens 记「本轮首次请求」的上下文规模（上下文占用面板据此反推「系统提示与工具」的固定开销）；
+            // 输出/缓存/总计仍是整轮累加值，成本口径不变，差额只补到会话累计
+            var firstPromptTokens = hooks.FirstIterationUsage?.PromptTokens;
+            var messageUsage = firstPromptTokens is > 0 && firstPromptTokens < usageTotal.PromptTokens
+                ? new WorkMessageUsage
+                {
+                    PromptTokens = firstPromptTokens.Value,
+                    CompletionTokens = usageTotal.CompletionTokens,
+                    CachedTokens = usageTotal.CachedTokens,
+                    TotalTokens = usageTotal.TotalTokens,
+                    LatencyMs = usageTotal.LatencyMs,
+                }
+                : usageTotal;
+
             await _sessionService.AddMessageAsync(
                 sessionId, "assistant", finalContent, "text", modelId: modelId,
-                usage: usageTotal.TotalTokens > 0 ? usageTotal : null,
+                usage: usageTotal.TotalTokens > 0 ? messageUsage : null,
                 cancellationToken: CancellationToken.None);
+
+            var promptDelta = usageTotal.PromptTokens - messageUsage.PromptTokens;
+            if (promptDelta > 0)
+            {
+                await _sessionService.AccumulateUsageAsync(
+                    sessionId,
+                    new WorkMessageUsage { PromptTokens = promptDelta },
+                    CancellationToken.None);
+            }
         }
 
         await _llmUsageRecorder.RecordAsync(
@@ -512,11 +535,16 @@ public class WorkStreamController : ControllerBase
         /// <summary>最近一次迭代耗时（Provider 未分批上报 latency 时用于会话累计）</summary>
         public int LastIterationMs { get; private set; }
 
+        /// <summary>本轮首次请求的用量：其 prompt tokens 即本轮起初的上下文规模（含系统提示与工具），
+        /// 上下文占用面板据此反推固定开销；逐轮累加会把该开销按迭代次数放大。</summary>
+        public LlmUsage? FirstIterationUsage { get; private set; }
+
         public async Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage)
         {
             _iteration = iteration;
             LastIterationMs = (int)_iterationClock.ElapsedMilliseconds;
             _iterationClock.Restart();
+            if (usage is { PromptTokens: > 0 } && FirstIterationUsage == null) FirstIterationUsage = usage;
 
             // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）
             if (!string.IsNullOrWhiteSpace(thinking))
@@ -691,20 +719,6 @@ public class WorkStreamController : ControllerBase
         {
             return [];
         }
-    }
-
-    /// <summary>把工具清单与使用指引拼成 system prompt 片段</summary>
-    private string BuildToolGuideline(IReadOnlyCollection<string> toolNames)
-    {
-        var sb = new StringBuilder("工具使用约定：");
-        foreach (var executor in _toolRegistry.GetByNames(toolNames.ToList()))
-        {
-            sb.AppendLine();
-            sb.Append($"- {executor.Name}: {executor.Description}");
-            if (!string.IsNullOrWhiteSpace(executor.UsageGuideline))
-                sb.Append($"（{executor.UsageGuideline}）");
-        }
-        return sb.ToString();
     }
 
     /// <summary>
