@@ -158,8 +158,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
-            -f tag_name="${{ github.ref_name }}" -f target_commitish=main --jq .body > notes.md
+          set -e
+          if ! gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="${{ github.ref_name }}" -f target_commitish=main --jq .body > notes.md 2>/dev/null; then
+            echo "generate-notes 失败，退回默认说明"
+            echo "Hetu ${{ github.ref_name }}" > notes.md
+          fi
+          if [ ! -s notes.md ]; then echo "Hetu ${{ github.ref_name }}" > notes.md; fi
           head -c 400 notes.md
 
       - name: Generate updater manifests
