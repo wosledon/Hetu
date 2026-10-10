@@ -235,7 +235,8 @@ public class NoteAiService : INoteAiService
     {
         if (modelId.HasValue)
             return await _llmProviderFactory.CreateProviderAsync(modelId.Value, cancellationToken);
-        return await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
+        return await _llmProviderFactory.CreateScenarioProviderAsync("NoteAi", cancellationToken)
+               ?? await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
                ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
     }
 }

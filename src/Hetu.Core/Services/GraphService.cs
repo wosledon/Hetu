@@ -309,7 +309,8 @@ public class GraphService : IGraphService
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
         if (note == null) return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("note.notFound"));
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        var provider = await _llmProviderFactory.CreateScenarioProviderAsync("Graph", cancellationToken)
+                       ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
             return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));
 

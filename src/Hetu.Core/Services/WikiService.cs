@@ -813,7 +813,8 @@ public class WikiService : IWikiService
         {
             if (modelId is Guid id)
                 return await _llmProviderFactory.CreateProviderAsync(id, cancellationToken);
-            return await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
+            return await _llmProviderFactory.CreateScenarioProviderAsync("Wiki", cancellationToken)
+                   ?? await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
                    ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

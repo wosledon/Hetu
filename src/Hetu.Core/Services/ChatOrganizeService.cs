@@ -47,7 +47,8 @@ public class ChatOrganizeService : IChatOrganizeService
             yield break;
         }
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        var provider = await _llmProviderFactory.CreateScenarioProviderAsync("Organize", cancellationToken)
+                       ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
         {
             yield return "[ERROR] " + _localizer.T("organize.modelUnavailable");

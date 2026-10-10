@@ -67,6 +67,10 @@ export interface IAppSettingsSnapshot {
   defaultChunkModelId?: string;
   defaultFastModelId?: string;
   defaultEmbeddingModelId?: string;
+  defaultWikiModelId?: string;
+  defaultGraphModelId?: string;
+  defaultOrganizeModelId?: string;
+  defaultNoteAiModelId?: string;
   contextWindowSize?: number;
   pinnedNavItems: string;
   secondaryMenuStyle: string;
