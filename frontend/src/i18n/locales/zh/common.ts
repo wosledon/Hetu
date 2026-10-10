@@ -58,7 +58,7 @@ export default {
   language: '语言',
   languageZh: '简体中文',
   languageEn: 'English',
-  languageHint: '界面文案与后端提示均按所选语言显示；AI 回复也会跟着切换。',
+  languageHint: '切换后立即生效，并会同步到后端提示与 AI 回复语言。',
   selectAll: '全选',
   total: '共 {{count}} 条',
   itemCount: '{{count}} 条',

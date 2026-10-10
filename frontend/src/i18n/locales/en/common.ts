@@ -58,7 +58,7 @@ export default {
   language: 'Language',
   languageZh: '简体中文',
   languageEn: 'English',
-  languageHint: 'Interface copy and backend messages follow this setting; AI replies switch too.',
+  languageHint: 'Takes effect immediately, and also drives backend messages and AI reply language.',
   selectAll: 'Select all',
   total: '{{count}} total',
   itemCount: '{{count}} items',

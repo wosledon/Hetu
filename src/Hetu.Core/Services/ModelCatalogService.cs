@@ -22,10 +22,12 @@ public class ModelCatalogService : IModelCatalogService
     private static DateTimeOffset _cachedAt = DateTimeOffset.MinValue;
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILocalizer _localizer;
 
-    public ModelCatalogService(IHttpClientFactory httpClientFactory)
+    public ModelCatalogService(IHttpClientFactory httpClientFactory, ILocalizer localizer)
     {
         _httpClientFactory = httpClientFactory;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<CatalogModelInfo>>> SearchAsync(string? keyword, int limit = 30, CancellationToken cancellationToken = default)
@@ -34,7 +36,7 @@ public class ModelCatalogService : IModelCatalogService
         if (limit > 100) limit = 100;
 
         var loadResult = await EnsureLoadedAsync(cancellationToken);
-        if (!loadResult.Success) return ApiResponse<List<CatalogModelInfo>>.Fail(loadResult.Error ?? "模型目录加载失败");
+        if (!loadResult.Success) return ApiResponse<List<CatalogModelInfo>>.Fail(loadResult.Error ?? _localizer.T("modelCatalog.loadFailed"));
 
         var keywordText = keyword?.Trim();
             var matches = string.IsNullOrWhiteSpace(keywordText)
@@ -53,7 +55,7 @@ public class ModelCatalogService : IModelCatalogService
     public async Task<ApiResponse<List<CatalogProviderInfo>>> GetProvidersAsync(CancellationToken cancellationToken = default)
     {
         var loadResult = await EnsureLoadedAsync(cancellationToken);
-        if (!loadResult.Success) return ApiResponse<List<CatalogProviderInfo>>.Fail(loadResult.Error ?? "模型目录加载失败");
+        if (!loadResult.Success) return ApiResponse<List<CatalogProviderInfo>>.Fail(loadResult.Error ?? _localizer.T("modelCatalog.loadFailed"));
         return ApiResponse<List<CatalogProviderInfo>>.Ok(_providers);
     }
 
@@ -63,7 +65,7 @@ public class ModelCatalogService : IModelCatalogService
         if (limit > 50) limit = 50;
 
         var loadResult = await EnsureLoadedAsync(cancellationToken);
-        if (!loadResult.Success) return ApiResponse<List<CatalogProviderInfo>>.Fail(loadResult.Error ?? "模型目录加载失败");
+        if (!loadResult.Success) return ApiResponse<List<CatalogProviderInfo>>.Fail(loadResult.Error ?? _localizer.T("modelCatalog.loadFailed"));
 
         var keywordText = keyword?.Trim();
         var matches = string.IsNullOrWhiteSpace(keywordText)
@@ -81,14 +83,14 @@ public class ModelCatalogService : IModelCatalogService
     public async Task<ApiResponse<CatalogProviderDetail>> GetProviderAsync(string? providerId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(providerId))
-            return ApiResponse<CatalogProviderDetail>.Fail("供应商 ID 不能为空");
+            return ApiResponse<CatalogProviderDetail>.Fail(_localizer.T("modelCatalog.providerIdRequired"));
 
         var loadResult = await EnsureLoadedAsync(cancellationToken);
-        if (!loadResult.Success) return ApiResponse<CatalogProviderDetail>.Fail(loadResult.Error ?? "模型目录加载失败");
+        if (!loadResult.Success) return ApiResponse<CatalogProviderDetail>.Fail(loadResult.Error ?? _localizer.T("modelCatalog.loadFailed"));
 
         var id = providerId.Trim();
         var provider = _providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
-        if (provider == null) return ApiResponse<CatalogProviderDetail>.Fail("模型目录中不存在该供应商");
+        if (provider == null) return ApiResponse<CatalogProviderDetail>.Fail(_localizer.T("modelCatalog.providerNotFound"));
 
         return ApiResponse<CatalogProviderDetail>.Ok(new CatalogProviderDetail
         {
@@ -195,7 +197,7 @@ public class ModelCatalogService : IModelCatalogService
                 models.AddRange(providerModels);
             }
 
-            if (models.Count == 0) return ApiResponse.Fail("模型目录为空或格式无法识别");
+            if (models.Count == 0) return ApiResponse.Fail(_localizer.T("modelCatalog.emptyOrInvalid"));
 
             _providers = providers;
             _models = models;
@@ -204,7 +206,7 @@ public class ModelCatalogService : IModelCatalogService
         }
         catch (Exception ex)
         {
-            return ApiResponse.Fail($"获取模型目录失败: {ex.Message}");
+            return ApiResponse.Fail(_localizer.T("modelCatalog.fetchFailed", ex.Message));
         }
         finally
         {

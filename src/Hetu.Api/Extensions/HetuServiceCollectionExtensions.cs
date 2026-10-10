@@ -155,8 +155,9 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<ILlmUsageRecorder, LlmUsageRecorder>();
 
         // 多语言：ILocalizer 读请求头 Accept-Language，ILanguagePreference 保存用户设置的语言
+        // Localizer 只依赖单例（IHttpContextAccessor / ILanguagePreference）与静态嵌入资源，注册为单例后单例服务也能注入
         services.AddSingleton<ILanguagePreference, LanguagePreference>();
-        services.AddScoped<ILocalizer, Localizer>();
+        services.AddSingleton<ILocalizer, Localizer>();
 
         return services;
     }
