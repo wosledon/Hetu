@@ -129,7 +129,8 @@ export default memo(function ChatMessageItem({
           </div>
         )}
         {/* Copilot 式瀑布流：无聊天气泡。用户消息右浮动（头像在右）；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
-        <div className={`text-gray-800 dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 dark:bg-blue-950/30' : 'w-full'}`}>
+        {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
+        <div className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 dark:bg-blue-950/30' : 'w-full'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <textarea

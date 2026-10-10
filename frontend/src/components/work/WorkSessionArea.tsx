@@ -1154,7 +1154,7 @@ export default function WorkSessionArea({
                 <User size={15} />
               </div>
               <div className="flex max-w-[85%] flex-col items-end">
-                <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">{pendingUser}</div>
+                <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">{pendingUser}</div>
               </div>
             </div>
             )}
@@ -1671,7 +1671,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
             />
           </div>
         ) : (
-          <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+          <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
             {message.content}
           </div>
         )}
@@ -1710,7 +1710,7 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
         />
       ) : (
         <>
-          <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+          <div className="text-sm leading-relaxed text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
             <ThemedMarkdown source={message.content} onCodeAction={onCodeAction} />
           </div>
           {(message.totalTokens ?? 0) > 0 && (

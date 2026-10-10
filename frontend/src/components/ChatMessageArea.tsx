@@ -954,7 +954,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               <div className="mb-1.5">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
               </div>
-              <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 dark:bg-blue-950/30 dark:text-gray-100">
+              <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:bg-blue-950/30 dark:text-gray-100">
                 {pendingUserMessage}
               </div>
             </div>

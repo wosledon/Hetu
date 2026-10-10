@@ -1,6 +1,10 @@
-import { useRef, useState, type ReactNode, type RefObject } from 'react'
-import { Send, Square, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
+
+/** 输入框自动折叠阈值：粘贴的长文本（日志/JSON/base64）超过任一条就只显示行数 */
+const COLLAPSE_LINES = 12
+const COLLAPSE_CHARS = 1200
 
 /** 输入框上方的上下文 chip（引用文件 / 提示词模板 / 技能 / 选中代码 等） */
 export interface AgentInputChip {
@@ -118,6 +122,21 @@ export default function AgentInputBox({
   // 候选项为空时仍显示标题与 emptyHint，与改造前行为一致。
   const showMenu = menu !== null
 
+  // 超长输入（粘贴的日志/JSON/base64）默认折叠成一行摘要，只展示行数与字符数，
+  // 需要改动时再展开；内容一直在 value 里，折叠不影响发送。
+  const lineCount = value.length === 0 ? 0 : value.split('\n').length
+  const isOverlong = lineCount > COLLAPSE_LINES || value.length > COLLAPSE_CHARS
+  const [expanded, setExpanded] = useState(false)
+  const collapsed = isOverlong && !expanded
+
+  useEffect(() => {
+    if (!isOverlong) setExpanded(false)
+  }, [isOverlong])
+
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus()
+  }, [expanded, inputRef])
+
   /** 输入变化：探测 @ / / 查询词回传调用方，并复位菜单/历史索引 */
   const handleChange = (next: string, cursor: number) => {
     onChange(next, cursor)
@@ -223,16 +242,56 @@ export default function AgentInputBox({
             </div>
           )}
 
-          <textarea
-            ref={inputRef}
-            value={value}
-            onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
-            onKeyDown={handleKeyDown}
-            onPaste={onPaste}
-            placeholder={placeholder}
-            rows={rows}
-            className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
-          />
+          {collapsed ? (
+            <div
+              role="button"
+              tabIndex={0}
+              title="点击展开编辑"
+              onClick={() => setExpanded(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  onSubmit()
+                }
+              }}
+              className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm"
+            >
+              <FileText size={14} className="shrink-0 text-gray-400" />
+              <span className="shrink-0 text-gray-600 dark:text-gray-300">已折叠粘贴的长文本</span>
+              <span className="truncate text-xs text-gray-400">{lineCount} 行 · {value.length} 字符</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpanded(true)
+                }}
+                className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[11px] text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+              >
+                展开
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChange('', 0)
+                  onMenuChange?.(null)
+                }}
+                aria-label="清空输入"
+                className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              >
+                清空
+              </button>
+            </div>
+          ) : (
+            <textarea
+              ref={inputRef}
+              value={value}
+              onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+              onKeyDown={handleKeyDown}
+              onPaste={onPaste}
+              placeholder={placeholder}
+              rows={rows}
+              className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+          )}
 
           <div className="flex flex-wrap items-center gap-1 px-1.5 py-1.5">
             {toolbar}
