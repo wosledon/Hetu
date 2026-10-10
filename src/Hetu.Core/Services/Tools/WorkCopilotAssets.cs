@@ -367,14 +367,14 @@ public static class WorkCopilotAssets
         {
             sb.AppendLine();
             sb.AppendLine("### 自定义智能体（.github/agents、.github/chatmodes）");
-            sb.AppendLine("当用户要求切换到某个角色（如「用 planner 身份」「以测试专家视角」）或任务明显匹配某个智能体职责时，先用 work_read_file 读取对应文件并按其人设执行；也可直接按用户在下拉框中选择的角色行动。");
+            sb.AppendLine("用户在下拉框选中的角色已完整注入（见「当前智能体」）；需要切换到其它角色时，用 work_read_file 读取 `.github/agents/<名字>.agent.md`（chatmode 为 `.github/chatmodes/<名字>.chatmode.md`）再按其人设执行。");
             foreach (var agent in assets.Agents)
             {
                 var extras = new List<string>();
                 if (!string.IsNullOrWhiteSpace(agent.Model)) extras.Add($"model: {agent.Model}");
                 if (!string.IsNullOrWhiteSpace(agent.Tools)) extras.Add($"tools: {agent.Tools}");
                 var extra = extras.Count > 0 ? $"（{string.Join("，", extras)}）" : "";
-                sb.AppendLine($"- {agent.Name}{extra}: {Shorten(agent.Description)} [文件: {Relative(root, agent.FilePath)}]");
+                sb.AppendLine($"- {agent.Name}{extra}: {Shorten(agent.Description)}");
             }
         }
 
@@ -382,18 +382,18 @@ public static class WorkCopilotAssets
         {
             sb.AppendLine();
             sb.AppendLine("### 提示词模板（.github/prompts）");
-            sb.AppendLine("用户以 /模板名 形式触发（如 /review、/explain）时，先用 work_read_file 读取对应文件，严格按其中的步骤执行。");
+            sb.AppendLine("用户以 /模板名 形式触发时正文会随本轮下发；需要时也可用 work_read_file 读取 `.github/prompts/<名字>.prompt.md`，严格按其中的步骤执行。");
             foreach (var prompt in assets.Prompts)
-                sb.AppendLine($"- /{prompt.Name}: {Shorten(prompt.Description)} [文件: {Relative(root, prompt.FilePath)}]");
+                sb.AppendLine($"- /{prompt.Name}: {Shorten(prompt.Description)}");
         }
 
         if (assets.Skills.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("### 仓库技能（.github/skills）");
-            sb.AppendLine("任务匹配某个技能的用途时，先用 work_read_file 读取对应 SKILL.md，再按其中的步骤执行。");
+            sb.AppendLine("任务匹配某个技能的用途时，用 work_skill(技能名) 读取完整说明，再按其中的步骤执行。");
             foreach (var skill in assets.Skills)
-                sb.AppendLine($"- {skill.Name}: {Shorten(skill.Description)} [文件: {Relative(root, skill.FilePath)}]");
+                sb.AppendLine($"- {skill.Name}: {Shorten(skill.Description)}");
         }
 
         return sb.ToString().TrimEnd();
