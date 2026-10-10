@@ -112,6 +112,11 @@ function useElementSize<T extends HTMLElement>() {
   return { ref, size, measured }
 }
 
+/** 布局整体变化（切作用域/筛选/数据更新）时，星点、核心与光晕共用同一条位移动画，避免分头行动 */
+const SKY_POS_TRANSITION = 'cx .5s ease, cy .5s ease, r .5s ease'
+/** 位移动画时长（ms），轨迹在此期间不画，防止尾巴与星点脱节 */
+const SKY_POS_MS = 560
+
 /** 赛博霓虹配色：深色用高亮霓虹，浅色用同色系深一档保证对比；描边=生命周期状态 */
 interface SkyPalette {
   Global: string
@@ -318,7 +323,7 @@ const MemorySky = forwardRef<MemorySkyHandle, {
   const drag = useRef<{ px: number; py: number; moved: boolean } | null>(null)
   const fittedRef = useRef(false)
   const starElsRef = useRef<Map<string, SVGGElement>>(new Map())
-  const haloElsRef = useRef<Map<string, SVGCircleElement>>(new Map())
+  const haloElsRef = useRef<Map<string, SVGGElement>>(new Map())
   const trailElsRef = useRef<Map<string, SVGPathElement>>(new Map())
   const walkRef = useRef<Map<string, { x: number; y: number; tx: number; ty: number; nextAt: number; phase: number; hist: { x: number; y: number }[] }>>(new Map())
   const dragWinRef = useRef<{ move: (e: PointerEvent) => void; up: () => void } | null>(null)
@@ -377,13 +382,7 @@ const MemorySky = forwardRef<MemorySkyHandle, {
   useEffect(() => {
     const resetVisuals = () => {
       for (const el of starElsRef.current.values()) el.style.transform = ''
-      for (const [id, el] of haloElsRef.current) {
-        const s = stars.find((x) => x.memory.id === id)
-        if (s) {
-          el.setAttribute('cx', String(s.x))
-          el.setAttribute('cy', String(s.y))
-        }
-      }
+      for (const el of haloElsRef.current.values()) el.style.transform = ''
       for (const el of trailElsRef.current.values()) el.setAttribute('d', '')
     }
     if (!animate) {
@@ -393,6 +392,9 @@ const MemorySky = forwardRef<MemorySkyHandle, {
     let raf = 0
     let last = performance.now()
     let frame = 0
+    // 星星正滑向新位置时先不画轨迹（位置是瞬时切换的，会跟星点脱节）
+    const holdTrailUntil = performance.now() + SKY_POS_MS
+    for (const st of walkRef.current.values()) st.hist.length = 0
     const tick = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
@@ -439,6 +441,11 @@ const MemorySky = forwardRef<MemorySkyHandle, {
         }
         if (el) el.style.transform = `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px)`
         if (!slowPaint) continue
+        // 光晕走位（每两帧写一次，省一次整组模糊重算），与星点始终同向
+        const halo = haloElsRef.current.get(id)
+        if (halo) halo.style.transform = `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px)`
+        // 星星正滑向新位置时先不画轨迹：轨迹用瞬时的新坐标，会跟星点脱节
+        if (now < holdTrailUntil) continue
         // 轨迹：保留最近 12 个位置，画成一条霓虹尾巴
         st.hist.push({ x: st.x, y: st.y })
         if (st.hist.length > 12) st.hist.shift()
@@ -446,11 +453,6 @@ const MemorySky = forwardRef<MemorySkyHandle, {
         if (trail) {
           const pts = st.hist.map((p) => `${(s.x + p.x).toFixed(1)} ${(s.y + p.y).toFixed(1)}`)
           trail.setAttribute('d', pts.length > 1 ? `M${pts.join('L')}` : '')
-        }
-        const halo = haloElsRef.current.get(id)
-        if (halo) {
-          halo.setAttribute('cx', (s.x + st.x).toFixed(2))
-          halo.setAttribute('cy', (s.y + st.y).toFixed(2))
         }
       }
       raf = requestAnimationFrame(tick)
@@ -552,21 +554,25 @@ const MemorySky = forwardRef<MemorySkyHandle, {
             ))}
           </g>
 
-          {/* 霓虹光晕：赛博荧光的关键一层 */}
+          {/* 霓虹光晕：赛博荧光的关键一层。位移交给外层 g（走位），圆自身只走布局缓动 */}
           <g style={{ filter: 'blur(5px)' }}>
             {stars.map((s) => (
-              <circle
+              <g
                 key={s.memory.id}
                 ref={(el) => {
                   if (el) haloElsRef.current.set(s.memory.id, el)
                   else haloElsRef.current.delete(s.memory.id)
                 }}
-                cx={s.x}
-                cy={s.y}
-                r={s.haloR}
-                fill={s.fill}
-                opacity={s.haloO}
-              />
+              >
+                <circle
+                  cx={s.x}
+                  cy={s.y}
+                  r={s.haloR}
+                  fill={s.fill}
+                  opacity={s.haloO}
+                  style={{ transition: SKY_POS_TRANSITION }}
+                />
+              </g>
             ))}
           </g>
 
@@ -608,16 +614,16 @@ const MemorySky = forwardRef<MemorySkyHandle, {
                     opacity: 'var(--star-o, 1)',
                     animation: `starTwinkle ${(2.6 + s.strength * 6).toFixed(1)}s ease-in-out ${((s.radius % 7) * 0.5).toFixed(1)}s infinite`,
                     animationPlayState: hover?.id === s.memory.id ? 'paused' : 'running',
-                    transition: 'cx .5s ease, cy .5s ease, r .5s ease, transform .2s ease',
+                    transition: `${SKY_POS_TRANSITION}, transform .2s ease`,
                     ['--twk' as string]: s.twk,
                   } as React.CSSProperties}
                 />
                 {s.core && (
                   isDark
-                    ? <circle cx={s.x} cy={s.y} r={s.r * 0.42} fill="rgba(255,255,255,0.9)" />
-                    : <circle cx={s.x} cy={s.y} r={s.r * 0.52} fill={s.fill} />
+                    ? <circle cx={s.x} cy={s.y} r={s.r * 0.42} fill="rgba(255,255,255,0.9)" style={{ transition: SKY_POS_TRANSITION }} />
+                    : <circle cx={s.x} cy={s.y} r={s.r * 0.52} fill={s.fill} style={{ transition: SKY_POS_TRANSITION }} />
                 )}
-                <circle cx={s.x} cy={s.y} r={Math.max(s.r + 8 / cam.scale, 13 / cam.scale)} fill="transparent" />
+                <circle cx={s.x} cy={s.y} r={Math.max(s.r + 8 / cam.scale, 13 / cam.scale)} fill="transparent" style={{ transition: SKY_POS_TRANSITION }} />
               </g>
             </g>
           ))}
