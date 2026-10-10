@@ -127,6 +127,8 @@ public class LlmUsageRecorder : ILlmUsageRecorder
                 CreatedAt = now,
                 UpdatedAt = now,
             }, ct);
+            // 必须显式提交：调用方（对话流等）此后可能不再 SaveChanges，否则这条日志会随作用域释放丢掉
+            await _unitOfWork.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {

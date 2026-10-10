@@ -352,8 +352,7 @@ public class WorkStreamController : ControllerBase
         if (loopResult.Usage.TotalTokens > 0) usageTotal.LatencyMs = hooks.LastIterationMs;
 
         var loopError = loopResult.Error;
-        var finalContent = loopResult.Content.Trim();
-        if (loopError != null && string.IsNullOrEmpty(finalContent))
+        var finalContent = loopResult.Content.Trim();        if (loopError != null && string.IsNullOrEmpty(finalContent))
             finalContent = $"处理请求时出错: {loopError}";
         // 模型只发起工具调用而没有正文时也要落库，否则下一轮会丢失这轮上下文
         if (string.IsNullOrEmpty(finalContent) && executedToolNames.Count > 0)
@@ -399,6 +398,9 @@ public class WorkStreamController : ControllerBase
             refId: sessionId,
             modelId: modelId,
             latencyMs: usageTotal.LatencyMs > 0 ? usageTotal.LatencyMs : null,
+            // 用量日志的「输入 / 压缩后」：压缩管道本轮的实际规模（无压缩时为 null）
+            inputTokens: loopResult.FirstIterationInputChars > 0 ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars) : null,
+            compressedTokens: loopResult.FirstIterationCompressedChars > 0 ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars) : null,
             contentPreview: request.Content,
             ct: CancellationToken.None);
 

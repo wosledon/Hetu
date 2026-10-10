@@ -283,8 +283,13 @@ public class ChatMessagesController : ControllerBase
             loopResult.Usage.TotalTokens > 0 ? loopResult.Usage : null,
             refId: topicId,
             modelId: modelId,
-            inputTokens: estimatedInput,
-            compressedTokens: estimatedCompressed,
+            // 输入的「压缩前 / 压缩后」：优先记压缩管道的实际规模（有压缩时才非零），否则退回请求规模估算
+            inputTokens: loopResult.FirstIterationInputChars > 0
+                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars)
+                : estimatedInput,
+            compressedTokens: loopResult.FirstIterationCompressedChars > 0
+                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars)
+                : estimatedCompressed,
             latencyMs: latencyMs,
             contentPreview: request.Content,
             ct: CancellationToken.None);
