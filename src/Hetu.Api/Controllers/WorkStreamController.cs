@@ -248,8 +248,17 @@ public class WorkStreamController : ControllerBase
 
         // GitHub Copilot 兼容：自动加载 .github 下的指令 / 智能体 / 提示词 / 技能
         // （SSH 项目走远端扫描：远端 .github 常是软链）
-        var copilotAssets = await WorkCopilotAssets.LoadAsync(project.RootPath, runner, ct);
-        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, project.RootPath);
+        // 资产加载失败不能拖垮整轮对话：SSH 抖动时按「没有 .github 资产」继续，宁可少给上下文也别不回消息
+        WorkCopilotAssets.CopilotAssets copilotAssets;
+        try
+        {
+            copilotAssets = await WorkCopilotAssets.LoadAsync(project.RootPath, runner, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[WorkStream] 加载 .github 资产失败，本轮按无资产继续");
+            copilotAssets = WorkCopilotAssets.Empty;
+        }        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, project.RootPath);
         if (!string.IsNullOrWhiteSpace(copilotContext))
             systemPromptParts.Add($"\n{copilotContext}");
 

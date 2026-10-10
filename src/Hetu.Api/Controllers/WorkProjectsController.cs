@@ -17,19 +17,22 @@ public class WorkProjectsController : ControllerBase
     private readonly IWorkApprovalRuleService _approvalRuleService;
     private readonly IWorkCodeIndexService _codeIndexService;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
+    private readonly ILogger<WorkProjectsController> _logger;
 
     public WorkProjectsController(
         IWorkProjectService projectService,
         IWorkSessionService sessionService,
         IWorkApprovalRuleService approvalRuleService,
         IWorkCodeIndexService codeIndexService,
-        IWorkCommandRunnerFactory commandRunnerFactory)
+        IWorkCommandRunnerFactory commandRunnerFactory,
+        ILogger<WorkProjectsController> logger)
     {
         _projectService = projectService;
         _sessionService = sessionService;
         _approvalRuleService = approvalRuleService;
         _codeIndexService = codeIndexService;
         _commandRunnerFactory = commandRunnerFactory;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -103,7 +106,17 @@ public class WorkProjectsController : ControllerBase
             return ApiResponse<WorkCopilotAssetsDto>.Fail(project.Error ?? "项目不存在");
 
         var runner = await _commandRunnerFactory.GetRunnerAsync(id, cancellationToken);
-        var assets = await WorkCopilotAssets.LoadAsync(project.Data.RootPath, runner, cancellationToken);
+        // 显式刷新（下拉框/智能体页每次打开都会调）：跳过缓存，但仍然失败不抛
+        WorkCopilotAssets.CopilotAssets assets;
+        try
+        {
+            assets = await WorkCopilotAssets.LoadAsync(project.Data.RootPath, runner, cancellationToken, force: true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[WorkProjects] 加载 .github 资产失败，返回空资产");
+            assets = WorkCopilotAssets.Empty;
+        }
         var dto = new WorkCopilotAssetsDto
         {
             Agents = assets.Agents.Select(a => new WorkCopilotAgentDto

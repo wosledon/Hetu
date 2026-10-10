@@ -64,10 +64,13 @@ public class LocalCommandRunner : IWorkCommandRunner
                 await process.StandardInput.WriteAsync(stdin.AsMemory(), cts.Token);
                 process.StandardInput.Close();
             }
-            var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
-            var error = await process.StandardError.ReadToEndAsync(cts.Token);
+            // stdout / stderr 必须并发读：顺序 ReadToEnd 时，子进程写满未读的那根管道就会阻塞，
+            // 于是另一根永远等不到 EOF（表现为命令挂到超时）
+            var outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
+            await Task.WhenAll(outputTask, errorTask);
             await process.WaitForExitAsync(cts.Token);
-            return new WorkCommandResult(process.ExitCode, output, error);
+            return new WorkCommandResult(process.ExitCode, outputTask.Result, errorTask.Result);
         }
         catch (OperationCanceledException)
         {
@@ -185,10 +188,12 @@ public class SshCommandRunner : IWorkCommandRunner
                 await process.StandardInput.WriteAsync(stdin.AsMemory(), cts.Token);
                 process.StandardInput.Close();
             }
-            var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
-            var error = await process.StandardError.ReadToEndAsync(cts.Token);
+            // 同本地执行器：stdout / stderr 并发读，避免一根管道写满阻塞导致整个命令挂死
+            var outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+            var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
+            await Task.WhenAll(outputTask, errorTask);
             await process.WaitForExitAsync(cts.Token);
-            return new WorkCommandResult(process.ExitCode, output, error);
+            return new WorkCommandResult(process.ExitCode, outputTask.Result, errorTask.Result);
         }
         catch (OperationCanceledException)
         {
