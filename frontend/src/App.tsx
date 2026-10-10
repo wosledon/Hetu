@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { settingService } from './services/settingService'
 import { useUIStore } from './stores/uiStore'
-import { applyLanguage } from './i18n'
+import i18n, { applyLanguage } from './i18n'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
@@ -38,6 +39,15 @@ function RouteFallback() {
 }
 
 function App() {
+  const queryClient = useQueryClient()
+
+  // 后端返回的文案（工具说明、用量来源等）随语言变化：切换语言时让已缓存的查询重新拉取
+  useEffect(() => {
+    const handler = () => { void queryClient.invalidateQueries() }
+    i18n.on('languageChanged', handler)
+    return () => { i18n.off('languageChanged', handler) }
+  }, [queryClient])
+
   // 启动时把服务端设置灌入 UI store：桌面壳/新安装的 localStorage 为空，
   // 若不预热，导航样式、主题等会一直显示默认值，直到用户进一次设置页
   useEffect(() => {

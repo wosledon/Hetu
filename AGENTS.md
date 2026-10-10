@@ -359,11 +359,12 @@ Closes #42
   - 组件内：`const { t } = useTranslation('<area>')` + `t('group.key')`；插值 `t('key', { n })` 配 `{{n}}`
   - 非组件（services/utils/stores）：`i18n.t('<area>:key')`
   - 通用文案（保存/取消/删除等）复用 `common` 命名空间；导航文案走 `nav` 命名空间
-  - 切换语言：`applyLanguage(lng)`（写 localStorage + 落库 + 同步 `<html lang>`）
+  - 切换语言：`applyLanguage(lng)`（写 localStorage + 落库 + 同步 `<html lang>`）；`App` 监听 `languageChanged` 并 `invalidateQueries()`，让后端返回的文案（工具说明、用量来源等）重新拉取
 - 后端：`ILocalizer`（`T("区域.键", args)`），文案放 `src/Hetu.Infrastructure/Localization/Locales/{zh,en}/*.json`（嵌入资源，按区域拆文件）
   - 语言解析顺序：请求头 `Accept-Language` → 应用设置 `Language`（`ILanguagePreference`，启动时由 `LanguageWarmupService` 预热）→ 中文
   - 缺失键回退中文，再回退键名本身，便于增量补齐
   - `ILocalizer` 注册为**单例**（只依赖 `IHttpContextAccessor` 与 `ILanguagePreference`），因此单例服务（如 `ModelCatalogService`、`ToolExecutionService`）也能直接注入使用
+  - 工具文案：`toolDesc.<工具名>` / `toolGuide.<工具名>` / `toolParam.<工具名>.<参数路径>`（含嵌套点路径），由 `ToolRegistry`/`ToolText` 在「工具目录 API、模型工具定义、load_tools」三处统一替换，缺失回退代码里的中文原文（`run_command` 这类按 OS 分支的文案只在 en 提供译文，zh 走原文）
 - AI 回复语言跟随该设置：`PromptComposer` 注入「回复语言」段落
 
 #### 辅助功能

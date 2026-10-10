@@ -267,5 +267,8 @@
   "modelCatalog.providerNotFound": "模型目录中不存在该供应商",
   "modelCatalog.providerIdRequired": "供应商 ID 不能为空",
   "toolExec.failed": "工具执行失败: {0}",
-  "toolExec.planTimeout": "用户未在规定时间内确认计划，按驳回处理。请简化计划或直接执行最必要的步骤。"
+  "toolExec.planTimeout": "用户未在规定时间内确认计划，按驳回处理。请简化计划或直接执行最必要的步骤。",
+  "toolExec.loadNoMatch": "没有匹配「{0}」的可加载工具，可用分组：{1}",
+  "toolExec.loadedCount": "已加载 {0} 个工具的参数说明，现在可以直接调用：",
+  "toolExec.loadNotFound": "未找到指定工具或分组，请核对系统提示里列出的名字"
 }

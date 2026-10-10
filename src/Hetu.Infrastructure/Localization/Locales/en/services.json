@@ -267,5 +267,8 @@
   "modelCatalog.providerNotFound": "Provider not found in the model catalog",
   "modelCatalog.providerIdRequired": "Provider ID is required",
   "toolExec.failed": "Tool execution failed: {0}",
-  "toolExec.planTimeout": "The user did not confirm the plan in time, so it is treated as rejected. Simplify the plan or run only the essential steps."
+  "toolExec.planTimeout": "The user did not confirm the plan in time, so it is treated as rejected. Simplify the plan or run only the essential steps.",
+  "toolExec.loadNoMatch": "No loadable tools match \"{0}\". Available groups: {1}",
+  "toolExec.loadedCount": "Loaded parameter docs for {0} tools; you can call them directly now:",
+  "toolExec.loadNotFound": "No matching tool or group. Check the names listed in the system prompt."
 }
