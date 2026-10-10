@@ -203,7 +203,7 @@ export default function ProjectsPage() {
   const openEdit = (project: IManagedProject) => { setEditing(project); setFormOpen(true) }
 
   const cardActionClass =
-    'rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800'
+    'rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800'
 
   return (
     <AppLayout showSidebar={false} mainContent={
@@ -327,7 +327,7 @@ export default function ProjectsPage() {
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
                               {project.name.slice(0, 1)}
                             </span>
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1 pr-32">
                               <div className="flex items-center gap-1.5">
                                 <span className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={project.name}>
                                   {project.name}
@@ -342,8 +342,15 @@ export default function ProjectsPage() {
                                   {project.projectType === 'Ssh' ? 'SSH' : '本地'}
                                 </span>
                               </div>
-                              <p className="mt-0.5 truncate font-mono text-[11px] text-gray-400" title={project.directoryPath}>
-                                {project.directoryPath}
+                              <p
+                                className="mt-0.5 truncate font-mono text-[11px] text-gray-400"
+                                title={project.projectType === 'Ssh'
+                                  ? `${project.sshUser ? `${project.sshUser}@` : ''}${project.sshHost}:${project.sshPort} ${project.directoryPath}`
+                                  : project.directoryPath}
+                              >
+                                {project.projectType === 'Ssh'
+                                  ? `${project.sshUser ? `${project.sshUser}@` : ''}${project.sshHost}:${project.sshPort} · ${project.directoryPath}`
+                                  : project.directoryPath}
                               </p>
                             </div>
                           </div>
@@ -373,9 +380,9 @@ export default function ProjectsPage() {
                             ))}
                           </div>
 
-                          {/* 操作区 */}
-                          <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-                            {project.projectType === 'Local' ? (
+                          {/* 操作区：空间不足时自动换行，避免操作按钮被裁出卡片 */}
+                          <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800">
+                            {project.projectType === 'Local' && (
                               <button
                                 onClick={() => openMutation.mutate(project.id)}
                                 className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -383,13 +390,6 @@ export default function ProjectsPage() {
                                 <HardDrive size={12} />
                                 打开目录
                               </button>
-                            ) : (
-                              <span
-                                className="min-w-0 max-w-[45%] shrink truncate px-2 py-1 text-[11px] text-gray-400"
-                                title={`${project.sshUser ? `${project.sshUser}@` : ''}${project.sshHost}:${project.sshPort}`}
-                              >
-                                {project.sshUser ? `${project.sshUser}@` : ''}{project.sshHost}:{project.sshPort}
-                              </span>
                             )}
                             <button
                               onClick={() => copyPath(project)}
@@ -419,7 +419,8 @@ export default function ProjectsPage() {
                               <BookText size={12} />
                               生成 Wiki
                             </button>
-                            <div className="relative ml-auto flex items-center gap-0.5">
+                            {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
+                            <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">
                               <button
                                 onClick={() => updateMutation.mutate({
                                   id: project.id,
@@ -430,7 +431,7 @@ export default function ProjectsPage() {
                                 })}
                                 title={project.isPinned ? '取消置顶' : '置顶'}
                                 aria-label={project.isPinned ? '取消置顶' : '置顶'}
-                                className={`${cardActionClass} opacity-0 group-hover:opacity-100`}
+                                className={cardActionClass}
                               >
                                 {project.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
                               </button>
@@ -438,7 +439,7 @@ export default function ProjectsPage() {
                                 onClick={() => openEdit(project)}
                                 title="编辑"
                                 aria-label="编辑"
-                                className={`${cardActionClass} opacity-0 group-hover:opacity-100`}
+                                className={cardActionClass}
                               >
                                 <Pencil size={13} />
                               </button>
@@ -446,7 +447,7 @@ export default function ProjectsPage() {
                                 onClick={() => setMenuFor(menuFor === project.id ? null : project.id)}
                                 title="移动到分组"
                                 aria-label="移动到分组"
-                                className={`${cardActionClass} opacity-0 group-hover:opacity-100`}
+                                className={cardActionClass}
                               >
                                 <MoreHorizontal size={13} />
                               </button>
@@ -458,7 +459,7 @@ export default function ProjectsPage() {
                                 })}
                                 title="删除"
                                 aria-label="删除"
-                                className={`${cardActionClass} opacity-0 group-hover:opacity-100 hover:text-red-500`}
+                                className={`${cardActionClass} hover:text-red-500`}
                               >
                                 <Trash2 size={13} />
                               </button>

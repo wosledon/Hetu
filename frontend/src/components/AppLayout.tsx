@@ -20,11 +20,11 @@ const fixedNavItems = [
   { path: '/code', label: 'Code', icon: Code },
   { path: '/projects', label: '项目', icon: FolderInput },
   { path: '/kanban', label: '任务看板', icon: SquareKanban },
+  { path: '/wiki', label: 'Wiki', icon: BookText },
 ] as const
 
 const allConfigurableItems = [
   { path: '/tags', label: '标签', icon: Tag },
-  { path: '/wiki', label: 'Wiki', icon: BookText },
   { path: '/agents', label: '智能体', icon: Bot },
   { path: '/skills', label: '技能', icon: Zap },
   { path: '/tools', label: '工具', icon: Wrench },
