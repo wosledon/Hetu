@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
 import GithubEntry from './GithubEntry'
-import UpdateBanner from './UpdateBanner'
+import VersionEntry from './VersionEntry'
+import UpdatePanel from './UpdatePanel'
 import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
@@ -258,6 +259,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <div className="flex-1" data-rail-spacer="" />
 
       <GithubEntry variant="rail" />
+      <VersionEntry variant="rail" />
 
       <button
         onClick={() => navigate('/settings')}
@@ -324,8 +326,9 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             {secondaryNavItems.map(renderNavButton)}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />
+          <VersionEntry variant="top" />
           <button
             onClick={() => navigate('/settings')}
             className={`rounded-lg p-2 transition-all ${
@@ -342,7 +345,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         )}
         {moreMenu}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <UpdateBanner />
+          <UpdatePanel />
           <div className="flex min-h-0 min-w-0 flex-1">
           {showSidebar && <Sidebar />}
           <div className="flex min-w-0 flex-1">

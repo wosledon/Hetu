@@ -6,7 +6,9 @@ interface TauriInternals {
 
 function internals(): TauriInternals | null {
   const w = window as unknown as { __TAURI_INTERNALS__?: TauriInternals }
-  return w.__TAURI_INTERNALS__ ?? null
+  const t = w.__TAURI_INTERNALS__
+  // 只认真正可用的壳：有些宿主（应用内浏览器等）会注入不含 invoke 的占位对象
+  return t && typeof t.invoke === 'function' ? t : null
 }
 
 /** 是否运行在 Tauri 桌面壳中（而非普通浏览器） */
@@ -19,6 +21,11 @@ export async function tauriInvoke<T = unknown>(cmd: string, args?: Record<string
   const t = internals()
   if (!t) return null
   return t.invoke<T>(cmd, args)
+}
+
+/** 是否是被 ACL 拒绝（当前构建未授权该插件能力，如老版本没有 updater 权限） */
+export function isTauriAclError(message?: string): boolean {
+  return !!message && /not allowed by ACL|not allowed/i.test(message)
 }
 
 /**
