@@ -109,8 +109,14 @@ public class WorkStreamController : ControllerBase
             return;
         }
 
+        // 会话带独立工作树时，本轮所有文件/命令/git 操作都落在工作树里
+        var sessionEntity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
+        var root = !string.IsNullOrWhiteSpace(sessionEntity?.WorktreePath) && Directory.Exists(sessionEntity.WorktreePath)
+            ? sessionEntity.WorktreePath
+            : project.RootPath;
+
         // 项目命令执行器：SSH 项目的文件/命令工具全部走远端 shell 执行
-        var runner = _commandRunnerFactory.Create(project);
+        var runner = root == project.RootPath ? _commandRunnerFactory.Create(project) : new LocalCommandRunner(root);
 
         // 权限模式：请求 > 会话持久值；请求里带了就顺带持久化
         // Agent 模式：autopilot 下询问档位提升为自动执行（计划/只读为用户显式约束，保持）
@@ -194,7 +200,6 @@ public class WorkStreamController : ControllerBase
             _logger.LogInformation("[Context] 自动压缩生效 sessionId={SessionId}", sessionId);
         }
 
-        var sessionEntity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
         var chatMessages = BuildChatHistory(
             history,
             request.ContextWindow,
@@ -223,7 +228,7 @@ public class WorkStreamController : ControllerBase
             profile.PrinciplePrompt,
             profile.FormatPrompt,
             profile.SafetyPrompt,
-            $"\n当前项目: {project.Name}\n项目根目录: {project.RootPath}",
+            $"\n当前项目: {project.Name}\n项目根目录: {root}",
             $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（plan 计划模式只读调研 / readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
         };
 
@@ -250,7 +255,7 @@ public class WorkStreamController : ControllerBase
         if (!string.IsNullOrWhiteSpace(skillsContext))
             systemPromptParts.Add(skillsContext);
 
-        var ruleContext = WorkProjectRules.LoadRuleContext(project.RootPath);
+        var ruleContext = WorkProjectRules.LoadRuleContext(root);
         if (!string.IsNullOrWhiteSpace(ruleContext))
             systemPromptParts.Add($"\n项目规则（来自仓库内的约定文件，必须遵守）：\n{ruleContext}");
 
@@ -260,20 +265,20 @@ public class WorkStreamController : ControllerBase
         WorkCopilotAssets.CopilotAssets copilotAssets;
         try
         {
-            copilotAssets = await WorkCopilotAssets.LoadAsync(project.RootPath, runner, ct);
+            copilotAssets = await WorkCopilotAssets.LoadAsync(root, runner, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "[WorkStream] 加载 .github 资产失败，本轮按无资产继续");
             copilotAssets = WorkCopilotAssets.Empty;
-        }        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, project.RootPath);
+        }        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, root);
         if (!string.IsNullOrWhiteSpace(copilotContext))
             systemPromptParts.Add($"\n{copilotContext}");
 
         // /prompt 模板：读取 .github/prompts 下的文件内容并注入 system prompt
         if (!string.IsNullOrWhiteSpace(request.PromptFile))
         {
-            var promptBody = await ReadPromptTemplateAsync(copilotAssets, project.RootPath, request.PromptFile, ct);
+            var promptBody = await ReadPromptTemplateAsync(copilotAssets, root, request.PromptFile, ct);
             if (!string.IsNullOrWhiteSpace(promptBody))
             {
                 var (_, promptInstruction) = WorkCopilotAssets.SplitPromptBody(promptBody);
@@ -286,7 +291,7 @@ public class WorkStreamController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.SkillName))
             systemPromptParts.Add($"\n用户通过 /{request.SkillName} 选择了技能：请先调用 work_skill 读取「{request.SkillName}」的完整说明，再严格按说明执行。");
 
-        var gitContext = await WorkProjectRules.BuildGitContextAsync(project.RootPath, ct);
+        var gitContext = await WorkProjectRules.BuildGitContextAsync(root, ct);
         if (!string.IsNullOrWhiteSpace(gitContext))
             systemPromptParts.Add($"\n版本控制状态：\n{gitContext}");
 
@@ -326,7 +331,7 @@ public class WorkStreamController : ControllerBase
         var usageTotal = new WorkMessageUsage();
         var executedToolNames = new List<string>();
         var sink = new SseAgentSink(writer, this, sessionId);
-        var hooks = new WorkStreamHooks(this, sessionId, project, runner, writer, fileChanges, executedToolNames, chatMessages, options);
+        var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options);
 
         var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
@@ -351,7 +356,7 @@ public class WorkStreamController : ControllerBase
                 : null,
             WorkScope = new WorkToolScope
             {
-                ProjectRoot = project.RootPath,
+                ProjectRoot = root,
                 ProjectId = project.Id,
                 ModelId = modelId,
                 DiagnosticsCommand = project.DiagnosticsCommand,
@@ -536,6 +541,7 @@ public class WorkStreamController : ControllerBase
         private readonly WorkStreamController _owner;
         private readonly Guid _sessionId;
         private readonly WorkProject _project;
+        private readonly string _root;
         private readonly IWorkCommandRunner _runner;
         private readonly SseStreamWriter _writer;
         private readonly List<object> _fileChanges;
@@ -549,6 +555,7 @@ public class WorkStreamController : ControllerBase
             WorkStreamController owner,
             Guid sessionId,
             WorkProject project,
+            string root,
             IWorkCommandRunner runner,
             SseStreamWriter writer,
             List<object> fileChanges,
@@ -559,6 +566,7 @@ public class WorkStreamController : ControllerBase
             _owner = owner;
             _sessionId = sessionId;
             _project = project;
+            _root = root;
             _runner = runner;
             _writer = writer;
             _fileChanges = fileChanges;
@@ -609,7 +617,7 @@ public class WorkStreamController : ControllerBase
             _oldContents.Clear();
             foreach (var change in _planned)
                 _oldContents[ChangeKey(change.ToolCallId, change.Path)] =
-                    await TryReadFileAsync(_runner, _project.RootPath, change.Path, CancellationToken.None);
+                    await TryReadFileAsync(_runner, _root, change.Path, CancellationToken.None);
 
             // 改动执行前打检查点，支持整轮回滚
             await _owner.CreateCheckpointAsync(_project.Id, _sessionId, _iteration, _planned, CancellationToken.None, _writer);
@@ -626,7 +634,7 @@ public class WorkStreamController : ControllerBase
                 {
                     var toolCallKey = ChangeKey(change.ToolCallId, change.Path);
                     _oldContents.TryGetValue(toolCallKey, out var oldContent);
-                    var newContent = await TryReadFileAsync(_runner, _project.RootPath, change.Path, CancellationToken.None);
+                    var newContent = await TryReadFileAsync(_runner, _root, change.Path, CancellationToken.None);
                     if (newContent == oldContent) continue;
 
                     var action = newContent == null ? "delete" : oldContent == null ? "create" : "write";

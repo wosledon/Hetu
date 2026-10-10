@@ -55,6 +55,10 @@ export interface IWorkSession {
   permissionMode: WorkPermissionMode;
   /** Agent 模式（interactive | autopilot） */
   agentMode: WorkAgentMode;
+  /** 独立工作树使用的分支（null/空 = 项目目录当前分支） */
+  branch?: string;
+  /** 独立工作树绝对路径（null/空 = 直接在项目目录工作） */
+  worktreePath?: string;
   /** 是否已有上下文摘要（/compress 或自动压缩产出） */
   hasContextSummary?: boolean;
   turnCount: number;
@@ -191,6 +195,10 @@ export interface ICreateWorkSessionRequest {
   modelId?: string;
   permissionMode?: WorkPermissionMode;
   agentMode?: WorkAgentMode;
+  /** 在独立工作树中工作（仅本地 git 项目） */
+  useWorktree?: boolean;
+  /** 工作树使用的分支（留空派生 hetu/<会话短 id>） */
+  branch?: string;
 }
 
 export interface IUpdateWorkSessionRequest {
@@ -198,6 +206,19 @@ export interface IUpdateWorkSessionRequest {
   modelId?: string;
   permissionMode?: WorkPermissionMode;
   agentMode?: WorkAgentMode;
+  /** 切换工作树：true 进入独立工作树，false 回到项目目录（会删除工作树） */
+  useWorktree?: boolean;
+  /** 工作树内切换分支 */
+  branch?: string;
+}
+
+/** 项目分支列表（Code 会话的分支 / 工作树选择器） */
+export interface IWorkBranchList {
+  isRepo: boolean;
+  current?: string;
+  branches: string[];
+  /** 非空表示该项目不支持工作树（remote = SSH 项目，project-unavailable = 项目不可用） */
+  worktreeUnsupportedReason?: string;
 }
 
 export interface IWorkCodeSearchHit {

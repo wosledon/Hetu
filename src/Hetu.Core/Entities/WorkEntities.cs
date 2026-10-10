@@ -50,6 +50,10 @@ public class WorkSession : BaseEntity
     public string? ContextSummary { get; set; }
     /// <summary>摘要覆盖到的消息 Id：该消息及更早的文本消息不再进入 LLM 上下文</summary>
     public Guid? ContextSummaryThroughMessageId { get; set; }
+    /// <summary>独立工作树用的分支名（null 表示直接用项目目录的当前分支）</summary>
+    public string? Branch { get; set; }
+    /// <summary>独立工作树的绝对路径（null 表示直接在项目目录里工作）</summary>
+    public string? WorktreePath { get; set; }
     /// <summary>已完成的对话轮次</summary>
     public int TurnCount { get; set; }
     /// <summary>累计输入 Token</summary>

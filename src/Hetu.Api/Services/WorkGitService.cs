@@ -23,8 +23,11 @@ public class WorkGitService
             : new LocalCommandRunner(p.RootPath));
     }
 
-    /// <summary>解析项目命令执行器；项目不存在时返回 null。</summary>
+    /// <summary>解析项目命令执行器；项目不存在时返回 null。<paramref name="sessionId"/> 命中独立工作树时改用工作树目录。</summary>
     private async Task<IWorkCommandRunner?> ResolveRunnerAsync(Guid projectId, CancellationToken cancellationToken)
+        => await ResolveRunnerAsync(projectId, null, cancellationToken);
+
+    private async Task<IWorkCommandRunner?> ResolveRunnerAsync(Guid projectId, Guid? sessionId, CancellationToken cancellationToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -32,6 +35,18 @@ public class WorkGitService
         if (project == null || string.IsNullOrWhiteSpace(project.RootPath)) return null;
         if (project.ConnectionType == "Ssh" && string.IsNullOrWhiteSpace(project.SshHost)) return null;
         if (project.ConnectionType != "Ssh" && !Directory.Exists(project.RootPath)) return null;
+
+        if (sessionId is Guid sid && project.ConnectionType != "Ssh")
+        {
+            var session = await unitOfWork.WorkSessions.GetByIdAsync(sid, cancellationToken);
+            if (session?.ProjectId == projectId
+                && !string.IsNullOrWhiteSpace(session.WorktreePath)
+                && Directory.Exists(session.WorktreePath))
+            {
+                return new LocalCommandRunner(session.WorktreePath);
+            }
+        }
+
         return _runnerFactory(project);
     }
 
@@ -51,10 +66,106 @@ public class WorkGitService
         return Path.GetRelativePath(root, full).Replace('\\', '/');
     }
 
-    public async Task<WorkGitStatusDto> GetStatusAsync(Guid projectId, CancellationToken cancellationToken = default)
+    /// <summary>项目分支列表 + 当前分支（Code 会话的分支/工作树选择器用）</summary>
+    public async Task<WorkBranchListDto> GetBranchesAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        var dto = new WorkBranchListDto();
+        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        if (runner == null)
+        {
+            dto.WorktreeUnsupportedReason = "project-unavailable";
+            return dto;
+        }
+        if (runner.IsRemote)
+            dto.WorktreeUnsupportedReason = "remote";
+
+        var (code, current) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
+        if (code != 0) return dto; // 非 git 仓库 / git 不可用
+
+        dto.IsRepo = true;
+        dto.Current = current.Trim();
+        // rev-parse 而非 for-each-ref --format=%(...)：本地命令经 PowerShell / bash 执行，%() 会被 PowerShell 解析
+        var (_, refs) = await RunGitAsync(runner, "rev-parse --symbolic --branches", cancellationToken: cancellationToken);
+        dto.Branches = refs
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(line => line, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return dto;
+    }
+
+    /// <summary>
+    /// 在项目里挂一个独立工作树（仅本地项目）。分支已存在于本地时直接检出该分支，
+    /// 需要新建（<paramref name="createBranch"/>）时按 <paramref name="baseBranch"/> 派生。
+    /// </summary>
+    public async Task<(bool Ok, string? Error)> CreateWorktreeAsync(
+        Guid projectId, string worktreePath, string branch, bool createBranch, string? baseBranch,
+        CancellationToken cancellationToken = default)
+    {
+        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        if (runner == null) return (false, "project-unavailable");
+        if (runner.IsRemote) return (false, "remote-unsupported");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(worktreePath)!);
+        var quotedPath = worktreePath.Replace('\\', '/');
+        var arguments = createBranch
+            ? $"worktree add -b {branch} \"{quotedPath}\" {baseBranch ?? "HEAD"}"
+            : $"worktree add \"{quotedPath}\" {branch}";
+
+        var (code, output) = await RunGitAsync(runner, arguments, cancellationToken: cancellationToken);
+        if (code == 0) return (true, null);
+        // 分支已被主工作区检出等场景：把 git 的原始信息回给前端展示
+        var firstLine = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        return (false, string.IsNullOrWhiteSpace(firstLine) ? "git-worktree-failed" : firstLine);
+    }
+
+    /// <summary>删除工作树（先 remove --force，失败再 prune；目录残留不影响主仓库）</summary>
+    public async Task RemoveWorktreeAsync(Guid projectId, string worktreePath, CancellationToken cancellationToken = default)
+    {
+        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        if (runner == null || runner.IsRemote) return;
+        var quotedPath = worktreePath.Replace('\\', '/');
+        await RunGitAsync(runner, $"worktree remove --force \"{quotedPath}\"", cancellationToken: cancellationToken);
+        await RunGitAsync(runner, "worktree prune", cancellationToken: cancellationToken);
+        try
+        {
+            if (Directory.Exists(worktreePath) && !Directory.EnumerateFileSystemEntries(worktreePath).Any())
+                Directory.Delete(worktreePath);
+        }
+        catch (IOException)
+        {
+            // 目录删不掉就算了：prune 之后 git 已不再引用它
+        }
+    }
+
+    /// <summary>工作树内切换分支（分支不存在时按 HEAD 新建，便于「以工作树并行开发」）</summary>
+    public async Task<(bool Ok, string? Error)> SwitchBranchAsync(string directory, string branch, bool createIfMissing, CancellationToken cancellationToken = default)
+    {
+        if (!Directory.Exists(directory)) return (false, "worktree-missing");
+        var runner = new LocalCommandRunner(directory);
+        if (createIfMissing)
+        {
+            var (existsCode, _) = await RunGitAsync(runner, $"rev-parse --verify --quiet refs/heads/{branch}", cancellationToken: cancellationToken);
+            if (existsCode != 0)
+            {
+                var (createCode, createOut) = await RunGitAsync(runner, $"checkout -b {branch}", cancellationToken: cancellationToken);
+                return createCode == 0
+                    ? (true, null)
+                    : (false, createOut.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim());
+            }
+        }
+        var (code, output) = await RunGitAsync(runner, $"checkout {branch}", cancellationToken: cancellationToken);
+        return code == 0
+            ? (true, null)
+            : (false, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim());
+    }
+
+    public async Task<WorkGitStatusDto> GetStatusAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
         var status = new WorkGitStatusDto();
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
         if (runner == null) return status;
 
         var (branchCode, branchOutput) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
@@ -77,14 +188,14 @@ public class WorkGitService
         return status;
     }
 
-    public async Task<WorkGitFileContentDto?> GetFileContentAsync(Guid projectId, string path, CancellationToken cancellationToken = default)
+    public async Task<WorkGitFileContentDto?> GetFileContentAsync(Guid projectId, string path, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
         if (runner == null) return null;
         var root = runner.RootPath;
         var relative = NormalizeRelativePath(root, path);
 
-        var status = await GetStatusAsync(projectId, cancellationToken);
+        var status = await GetStatusAsync(projectId, sessionId, cancellationToken);
         var entry = status.Files.FirstOrDefault(f => f.Path == relative);
         var code = entry?.Status ?? "M";
 
@@ -118,9 +229,9 @@ public class WorkGitService
         return result;
     }
 
-    public async Task<WorkGitCommitResultDto> CommitAsync(Guid projectId, WorkGitCommitRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkGitCommitResultDto> CommitAsync(Guid projectId, WorkGitCommitRequest request, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
         if (runner == null) return new WorkGitCommitResultDto { Success = false, Output = "项目不存在" };
         if (string.IsNullOrWhiteSpace(request.Message)) return new WorkGitCommitResultDto { Success = false, Output = "提交信息不能为空" };
         if (request.Paths.Count == 0) return new WorkGitCommitResultDto { Success = false, Output = "未选择要提交的文件" };

@@ -133,6 +133,10 @@ public class WorkSessionDto
     public string PermissionMode { get; set; } = "ask";
     /// <summary>Agent 模式：interactive（交互式，按权限模式确认）| autopilot（自动执行，无需逐步确认）</summary>
     public string AgentMode { get; set; } = "interactive";
+    /// <summary>独立工作树使用的分支（null = 项目目录当前分支）</summary>
+    public string? Branch { get; set; }
+    /// <summary>独立工作树路径（null = 直接在项目目录工作）</summary>
+    public string? WorktreePath { get; set; }
     /// <summary>是否已有上下文摘要（/compress 或自动压缩产出）</summary>
     public bool HasContextSummary { get; set; }
     public int MessageCount { get; set; }
@@ -153,6 +157,10 @@ public class CreateWorkSessionRequest
     public Guid? ModelId { get; set; }
     public string? PermissionMode { get; set; }
     public string? AgentMode { get; set; }
+    /// <summary>在独立工作树中工作（仅本地 git 项目）；为 true 时按 Branch 建/切分支</summary>
+    public bool UseWorktree { get; set; }
+    /// <summary>工作树使用的分支名；留空按当前分支派生 <c>hetu/&lt;会话短 id&gt;</c></summary>
+    public string? Branch { get; set; }
 }
 
 public class UpdateWorkSessionRequest
@@ -161,6 +169,22 @@ public class UpdateWorkSessionRequest
     public Guid? ModelId { get; set; }
     public string? PermissionMode { get; set; }
     public string? AgentMode { get; set; }
+    /// <summary>切换工作树：true 进入独立工作树，false 回到项目目录（会删除工作树）</summary>
+    public bool? UseWorktree { get; set; }
+    /// <summary>工作树内切换分支</summary>
+    public string? Branch { get; set; }
+}
+
+/// <summary>项目可用的 git 分支与当前分支（工作树选择器用）</summary>
+public class WorkBranchListDto
+{
+    public bool IsRepo { get; set; }
+    /// <summary>项目目录当前分支</summary>
+    public string? Current { get; set; }
+    /// <summary>本地分支名列表（按名称排序）</summary>
+    public List<string> Branches { get; set; } = [];
+    /// <summary>不支持工作树的原因（SSH 项目 / 非 git 仓库等），为 null 表示可用</summary>
+    public string? WorktreeUnsupportedReason { get; set; }
 }
 
 public class WorkMessageDto

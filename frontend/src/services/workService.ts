@@ -22,6 +22,7 @@ import type {
   IUpdateWorkSessionRequest,
   IWorkGitStatus,
   IWorkGitFileContent,
+  IWorkBranchList,
   IWorkOpenApp,
   IWorkCopilotAssets,
   WorkPermissionMode,
@@ -206,22 +207,25 @@ export const workOpenService = {
 };
 
 export const workGitService = {
-  status: (projectId: string) => get<IWorkGitStatus>(`/work-projects/${projectId}/git/status`),
-  fileContent: (projectId: string, path: string) =>
-    get<IWorkGitFileContent>(`/work-projects/${projectId}/git/file`, { path }),
-  commit: (projectId: string, message: string, paths: string[]) =>
-    post<{ success: boolean; output: string }>(`/work-projects/${projectId}/git/commit`, { message, paths }),
+  status: (projectId: string, sessionId?: string) =>
+    get<IWorkGitStatus>(`/work-projects/${projectId}/git/status`, { session: sessionId || undefined }),
+  branches: (projectId: string) =>
+    get<IWorkBranchList>(`/work-projects/${projectId}/git/branches`),
+  fileContent: (projectId: string, path: string, sessionId?: string) =>
+    get<IWorkGitFileContent>(`/work-projects/${projectId}/git/file`, { path, session: sessionId || undefined }),
+  commit: (projectId: string, message: string, paths: string[], sessionId?: string) =>
+    post<{ success: boolean; output: string }>(`/work-projects/${projectId}/git/commit`, { message, paths, session: sessionId || undefined }),
 };
 
 export const workFileService = {
-  list: (projectId: string, path?: string) =>
-    get<IWorkFileEntry[]>(`/work-projects/${projectId}/fs/list`, { path: path || undefined }),
-  read: (projectId: string, path: string) =>
-    get<IWorkFileContent>(`/work-projects/${projectId}/fs/read`, { path }),
-  search: (projectId: string, query: string, limit?: number) =>
-    get<IWorkFileSearchHit[]>(`/work-projects/${projectId}/fs/search`, { query, limit }),
-  write: (projectId: string, path: string, content: string, originalContent?: string) =>
-    put<IWorkFileContent>(`/work-projects/${projectId}/fs/write`, { path, content, originalContent }),
+  list: (projectId: string, path?: string, sessionId?: string) =>
+    get<IWorkFileEntry[]>(`/work-projects/${projectId}/fs/list`, { path: path || undefined, session: sessionId || undefined }),
+  read: (projectId: string, path: string, sessionId?: string) =>
+    get<IWorkFileContent>(`/work-projects/${projectId}/fs/read`, { path, session: sessionId || undefined }),
+  search: (projectId: string, query: string, limit?: number, sessionId?: string) =>
+    get<IWorkFileSearchHit[]>(`/work-projects/${projectId}/fs/search`, { query, limit, session: sessionId || undefined }),
+  write: (projectId: string, path: string, content: string, originalContent?: string, sessionId?: string) =>
+    put<IWorkFileContent>(`/work-projects/${projectId}/fs/write`, { path, content, originalContent, session: sessionId || undefined }),
 };
 
 export const workTerminalUrl = (projectId: string) => {

@@ -231,6 +231,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<AgentLoopService>();
         services.AddScoped<IWorkProjectService, WorkProjectService>();
         services.AddScoped<IWorkSessionService, WorkSessionService>();
+        services.AddScoped<WorkWorktreeService>();
         services.AddScoped<IWorkApprovalRuleService, WorkApprovalRuleService>();
         services.AddScoped<IWorkCheckpointService, WorkCheckpointService>();
         services.AddScoped<IWorkCodeIndexService, WorkCodeIndexService>();

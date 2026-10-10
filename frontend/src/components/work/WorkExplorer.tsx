@@ -133,7 +133,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
   const { data: gitStatus, refetch: refetchGit, isFetching: isGitLoading } = useQuery({
     queryKey: ['workGitStatus', projectId],
-    queryFn: () => workGitService.status(projectId!),
+    queryFn: () => workGitService.status(projectId!, sessionId),
     enabled: !!projectId && activeFeature === 'git',
     refetchInterval: !!projectId && activeFeature === 'git' ? 5000 : false,
   })
@@ -142,7 +142,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   const [gitMessage, setGitMessage] = useState('')
 
   const gitCommit = useMutation({
-    mutationFn: () => workGitService.commit(projectId!, gitCommitMessage.trim(), [...gitSelected]),
+    mutationFn: () => workGitService.commit(projectId!, gitCommitMessage.trim(), [...gitSelected], sessionId),
     onSuccess: (result) => {
       setGitMessage(result.output || t('explorer.committed'))
       setGitCommitMessage('')
@@ -156,7 +156,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
   const { data: searchHits = [], isFetching: isSearching } = useQuery({
     queryKey: ['workFileSearch', projectId, searchTerm],
-    queryFn: () => workFileService.search(projectId!, searchTerm, 80),
+    queryFn: () => workFileService.search(projectId!, searchTerm, 80, sessionId),
     enabled: !!projectId && searchTerm.length >= 2 && searchMode === 'text',
   })
 
@@ -174,7 +174,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
   const saveFile = useMutation({
     mutationFn: (payload: { key: string; path: string; content: string; originalContent: string }) =>
-      workFileService.write(projectId!, payload.path, payload.content, payload.originalContent),
+      workFileService.write(projectId!, payload.path, payload.content, payload.originalContent, sessionId),
     onSuccess: (saved, payload) => {
       setTabs((prev) => prev.map((t) => (t.key === payload.key && t.file ? { ...t, file: saved } : t)))
       setDrafts((prev) => {
@@ -205,7 +205,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   /** diff 还原/应用：把指定版本内容写回工作区（不传 originalContent，跳过冲突校验） */
   const writeFileContent = useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
-      workFileService.write(projectId!, path, content, undefined),
+      workFileService.write(projectId!, path, content, undefined, sessionId),
     onSuccess: (_r, { path }) => {
       setSaveMessage(t('explorer.written', { path }))
       setTimeout(() => setSaveMessage(''), 2500)
@@ -242,7 +242,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
 
   const loadDir = useCallback(async (path: string) => {
     if (!projectId) return []
-    const entries = await workFileService.list(projectId, path || undefined)
+    const entries = await workFileService.list(projectId, path || undefined, sessionId)
     return entries
   }, [projectId])
 
@@ -275,7 +275,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
       return
     }
     try {
-      const content = await workFileService.read(projectId, nodePath)
+      const content = await workFileService.read(projectId, nodePath, sessionId)
       const newTab: OpenTab = { key, label: name, kind: 'file', file: content }
       setTabs((prev) => [...prev, newTab])
       openDoc(key)
@@ -321,7 +321,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
       return
     }
     try {
-      const content = await workGitService.fileContent(projectId, file.path)
+      const content = await workGitService.fileContent(projectId, file.path, sessionId)
       const action = file.status === '??' || file.status === 'A' ? 'create' : file.status === 'D' ? 'delete' : 'write'
       const change: IWorkFileChange = {
         id: `git:${file.path}`,

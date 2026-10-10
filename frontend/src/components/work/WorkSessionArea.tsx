@@ -36,6 +36,7 @@ import AgentPicker from '../agent/AgentPicker'
 import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentModeSelect from '../agent/AgentModeSelect'
 import AgentContextUsage from '../agent/AgentContextUsage'
+import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
 import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
@@ -363,7 +364,7 @@ export default function WorkSessionArea({
   // 项目根目录文件：@ 未输入关键词时给出可直接引用的候选（Code 场景下文件比笔记更常用）
   const { data: rootEntries = [] } = useQuery({
     queryKey: ['workRootFiles', session?.projectId],
-    queryFn: () => workFileService.list(session!.projectId, ''),
+    queryFn: () => workFileService.list(session!.projectId, '', session!.id),
     enabled: !!session,
     staleTime: 5 * 60 * 1000,
   })
@@ -384,7 +385,7 @@ export default function WorkSessionArea({
         return
       }
       try {
-        const hits = await workFileService.search(session.projectId, q, 12)
+        const hits = await workFileService.search(session.projectId, q, 12, session.id)
         if (!cancelled) setFileCandidates([...new Set(hits.map(h => h.path))].slice(0, 12))
       } catch {
         if (!cancelled) setFileCandidates([])
@@ -1362,12 +1363,15 @@ export default function WorkSessionArea({
             </>
           ) : undefined}
           trailing={
-            <AgentContextUsage
-              usage={contextUsage}
-              onRefresh={refreshContextUsage}
-              onCompact={() => void compactContext()}
-              compacting={compacting}
-            />
+            <div className="flex items-center gap-1">
+              <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />
+              <AgentContextUsage
+                usage={contextUsage}
+                onRefresh={refreshContextUsage}
+                onCompact={() => void compactContext()}
+                compacting={compacting}
+              />
+            </div>
           }
           footerLeading={session ? (
             <>
