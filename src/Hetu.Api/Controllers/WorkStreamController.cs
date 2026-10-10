@@ -114,6 +114,8 @@ public class WorkStreamController : ControllerBase
         var root = !string.IsNullOrWhiteSpace(sessionEntity?.WorktreePath) && Directory.Exists(sessionEntity.WorktreePath)
             ? sessionEntity.WorktreePath
             : project.RootPath;
+        var inWorktree = root != project.RootPath;
+        var worktreeBranch = string.IsNullOrWhiteSpace(sessionEntity?.Branch) ? null : sessionEntity!.Branch.Trim();
 
         // 项目命令执行器：SSH 项目的文件/命令工具全部走远端 shell 执行
         var runner = root == project.RootPath ? _commandRunnerFactory.Create(project) : new LocalCommandRunner(root);
@@ -228,7 +230,11 @@ public class WorkStreamController : ControllerBase
             profile.PrinciplePrompt,
             profile.FormatPrompt,
             profile.SafetyPrompt,
-            $"\n当前项目: {project.Name}\n项目根目录: {root}",
+            $"\n当前项目: {project.Name}\n项目根目录: {root}" +
+            (inWorktree
+                ? $"\n工作区: 独立工作树{(worktreeBranch == null ? string.Empty : $"（当前分支 {worktreeBranch}）")}，与主工作区隔离；" +
+                  "需要其它分支时请在工作树里自行创建或切换（git checkout -b），不要去改动主工作区所在分支。"
+                : string.Empty),
             $"权限模式: {WorkToolPolicy.ToValue(permissionMode)}（plan 计划模式只读调研 / readonly 只读 / ask 写操作询问 / auto 自动执行 / bypass 全部放行）",
         };
 
