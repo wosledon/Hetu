@@ -11,4 +11,7 @@ public interface ILocalizer
 
     /// <summary>取文案；缺失时回退中文，再回退键名。args 对应文案里的 {0}/{1} 占位符</summary>
     string T(string key, params object[] args);
+
+    /// <summary>查文案；不存在返回 null（用于「有译文用译文、没有就回退代码里的原文」的场景）</summary>
+    string? Get(string key);
 }

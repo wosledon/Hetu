@@ -31,8 +31,8 @@ public class ToolsController : ControllerBase
             .Select(executor => new ToolCatalogItemDto
             {
                 Name = executor.Name,
-                Description = executor.Description,
-                UsageGuideline = executor.UsageGuideline,
+                Description = _toolRegistry.Describe(executor),
+                UsageGuideline = _toolRegistry.Guideline(executor),
                 Risk = executor.Risk switch
                 {
                     Core.Interfaces.ToolRisk.Read => "read",
@@ -49,7 +49,7 @@ public class ToolsController : ControllerBase
                 Profiles = profilesByTool.TryGetValue(executor.Name, out var profiles)
                     ? profiles.OrderBy(p => p).ToList()
                     : [],
-                ParametersSchema = Serialize(executor.ParametersSchema),
+                ParametersSchema = _toolRegistry.LocalizeParameters(executor.Name, Serialize(executor.ParametersSchema)),
             })
             .OrderBy(i => i.Group)
             .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)

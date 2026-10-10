@@ -31,6 +31,8 @@ public class Localizer : ILocalizer
         return args.Length == 0 ? text : string.Format(CultureInfo.InvariantCulture, text, args);
     }
 
+    public string? Get(string key) => Lookup(Language, key) ?? Lookup("zh", key);
+
     /// <summary>"zh-CN,zh;q=0.9" 这类取值按前缀识别；识别不出（如 fr）返回 null 交给回退链</summary>
     public static string? Normalize(string? raw)
     {

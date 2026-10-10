@@ -13,9 +13,14 @@ namespace Hetu.Core.Services.Tools;
 public class LoadToolsTool : IToolExecutor
 {
     private readonly IServiceProvider _services;
+    private readonly ILocalizer _localizer;
 
     // 注意：不能直接注入 ToolRegistry —— 它由全部 IToolExecutor 构造，直接注入会形成循环依赖
-    public LoadToolsTool(IServiceProvider services) => _services = services;
+    public LoadToolsTool(IServiceProvider services, ILocalizer localizer)
+    {
+        _services = services;
+        _localizer = localizer;
+    }
 
     public string Name => "load_tools";
 
@@ -88,10 +93,14 @@ public class LoadToolsTool : IToolExecutor
         List<IToolExecutor> executors;
         if (query.Length > 0)
         {
+            var matches = (string? text) => text?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false;
             executors = registry.GetAll().Where(e =>
                 e.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                e.Description.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                (e.UsageGuideline?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                // 中英两套文案都参与匹配：模型的 query 语言可能与当前界面语言不同
+                matches(e.Description) ||
+                matches(ToolText.Describe(_localizer, e.Name, e.Description)) ||
+                matches(e.UsageGuideline) ||
+                matches(ToolText.Guideline(_localizer, e.Name, e.UsageGuideline)) ||
                 ToolGroupMap.Resolve(e.Name).Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         }
         else
@@ -104,20 +113,21 @@ public class LoadToolsTool : IToolExecutor
 
         if (executors.Count == 0)
             return Task.FromResult(ToolExecutionResult.Error(query.Length > 0
-                ? $"没有匹配「{query}」的可加载工具，可用分组：{string.Join("、", ToolGroupMap.Order)}"
-                : "未找到指定工具或分组，请核对系统提示里列出的名字"));
+                ? _localizer.T("toolExec.loadNoMatch", query, string.Join("、", ToolGroupMap.Order))
+                : _localizer.T("toolExec.loadNotFound")));
 
         var sb = new StringBuilder();
-        sb.AppendLine($"已加载 {executors.Count} 个工具的参数说明，现在可以直接调用：");
+        sb.AppendLine(_localizer.T("toolExec.loadedCount", executors.Count));
         foreach (var executor in executors)
         {
             sb.AppendLine();
             sb.AppendLine($"### {executor.Name}");
-            sb.AppendLine(executor.UsageGuideline ?? executor.Description);
+            sb.AppendLine(ToolText.Guideline(_localizer, executor.Name, executor.UsageGuideline)
+                ?? ToolText.Describe(_localizer, executor.Name, executor.Description));
             sb.AppendLine(JsonSerializer.Serialize(new LlmToolDefinition
             {
                 Name = executor.Name,
-                Description = executor.Description,
+                Description = ToolText.Describe(_localizer, executor.Name, executor.Description),
                 ParametersSchema = executor.ParametersSchema,
             }, SchemaJson));
         }
