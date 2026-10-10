@@ -1470,3 +1470,17 @@ body {
   flex: 1;
   max-height: none;
 }
+
+/* ===== 正文长串断行 =====
+ * base64 / data URI / URL / CSV 行这类无空格长串默认没有断行机会，会把聊天气泡
+ * （w-fit + max-w）和工具输出面板横向撑破。overflow-wrap:anywhere 同时影响
+ * min-content 宽度，容量计算阶段就按可断行处理，容器才会正确收缩；
+ * 代码块保持原样（pre 内不强制断行，靠横向滚动）。 */
+.wmde-markdown,
+.wmde-markdown :where(p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, a, span, div, strong, em) {
+  overflow-wrap: anywhere;
+}
+
+.wmde-markdown pre {
+  overflow-wrap: normal;
+}
