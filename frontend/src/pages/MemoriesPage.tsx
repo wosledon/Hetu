@@ -112,7 +112,7 @@ function useElementSize<T extends HTMLElement>() {
   return { ref, size, measured }
 }
 
-/** 布局整体变化（切作用域/筛选/数据更新）时，星点、核心与光晕共用同一条位移动画，避免分头行动 */
+/** 布局整体变化（切作用域/筛选/数据更新）时，星点与光晕共用同一条位移动画，避免分头行动 */
 const SKY_POS_TRANSITION = 'cx .5s ease, cy .5s ease, r .5s ease'
 /** 位移动画时长（ms），轨迹在此期间不画，防止尾巴与星点脱节 */
 const SKY_POS_MS = 560
@@ -222,10 +222,8 @@ interface SkyStar {
   ring: string
   dashed: boolean
   dying: boolean
-  /** 记忆强度（0–1）：驱动亮度、光晕、呼吸与核心高光 */
+  /** 记忆强度（0–1）：驱动亮度、光晕与呼吸 */
   strength: number
-  /** 强记忆（≥0.72）叠加核心高光，像真正在发光 */
-  core: boolean
   haloR: number
   haloO: number
   /** 呼吸深度：强浅弱深 */
@@ -274,15 +272,14 @@ function buildSkyStars(memories: IMemory[], decayDays: number, forgetDays: numbe
       x: radius * Math.cos(angle),
       y: radius * Math.sin(angle) * 0.82,
       r: starR,
-      // 强度可读性四件套：亮度区间拉大（弱星更暗）、光晕随强度变大变亮、
-      // 强星叠加核心高光、呼吸强浅弱深（弱星闪得深——不稳定的直觉）
+      // 强度可读性：亮度区间拉大（弱星更暗）、光晕随强度变大变亮、
+      // 呼吸强浅弱深（弱星闪得深——不稳定的直觉）
       opacity: 0.22 + strength * 0.78,
       fill: pal[scopeOf(m)],
       ring: ringFor(state.key, pal),
       dashed: state.key !== 'fresh',
       dying: state.key === 'dying',
       strength,
-      core: strength >= 0.72,
       haloR: starR * (1.3 + strength * 1.7),
       haloO: pal.halo * (0.3 + strength),
       twk: 0.55 + strength * 0.4,
@@ -618,11 +615,6 @@ const MemorySky = forwardRef<MemorySkyHandle, {
                     ['--twk' as string]: s.twk,
                   } as React.CSSProperties}
                 />
-                {s.core && (
-                  isDark
-                    ? <circle cx={s.x} cy={s.y} r={s.r * 0.42} fill="rgba(255,255,255,0.9)" style={{ transition: SKY_POS_TRANSITION }} />
-                    : <circle cx={s.x} cy={s.y} r={s.r * 0.52} fill={s.fill} style={{ transition: SKY_POS_TRANSITION }} />
-                )}
                 <circle cx={s.x} cy={s.y} r={Math.max(s.r + 8 / cam.scale, 13 / cam.scale)} fill="transparent" style={{ transition: SKY_POS_TRANSITION }} />
               </g>
             </g>
