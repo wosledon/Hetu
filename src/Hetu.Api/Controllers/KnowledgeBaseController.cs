@@ -42,10 +42,14 @@ public class KnowledgeBaseController : ControllerBase
         var allItems = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
         var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
 
-        var indexedItemIds = chunkEmbeddings
+        // 已索引项必须同时「存在」：分块向量可能属于已删除的旧知识项，
+        // 直接拿 distinct 数量会大于总数（曾出现 未索引 = -2、覆盖率 200%）
+        var existingIds = allItems.Select(k => k.Id).ToHashSet();
+        var indexedCount = chunkEmbeddings
             .Select(ce => ce.KnowledgeItemId)
+            .Where(existingIds.Contains)
             .Distinct()
-            .ToHashSet();
+            .Count();
 
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
 
@@ -59,8 +63,8 @@ public class KnowledgeBaseController : ControllerBase
         var status = new KnowledgeBaseStatusDto
         {
             TotalItems = allItems.Count,
-            IndexedItems = indexedItemIds.Count,
-            UnindexedItems = allItems.Count - indexedItemIds.Count,
+            IndexedItems = indexedCount,
+            UnindexedItems = Math.Max(0, allItems.Count - indexedCount),
             NoteCount = allItems.Count(k => k.Type == KnowledgeItemType.Note),
             FileCount = allItems.Count(k => k.Type == KnowledgeItemType.File),
             UrlCount = allItems.Count(k => k.Type == KnowledgeItemType.Url),
@@ -166,7 +170,8 @@ public class KnowledgeBaseController : ControllerBase
             .Distinct()
             .ToHashSet();
 
-        // 去重与并发保护由 IBackgroundTaskCoordinator 统一处理
+        // 去重与并发保护由 IBackgroundTaskCoordinator 统一处理（只针对仍然存在的知识项，
+        // 已删项留下的分块向量不会让它以为「已索引」）
         var unindexedItems = allItems.Where(k => !indexedItemIds.Contains(k.Id)).ToList();
         var requests = unindexedItems.Select(item =>
         {

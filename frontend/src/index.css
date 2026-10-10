@@ -596,6 +596,32 @@ body {
   color: rgba(255, 255, 255, 0.25);
 }
 
+/* ===== 编辑区代码块配色跟随应用主题 =====
+ * nord 主题用 @media (prefers-color-scheme: dark) 判断深浅（跟随操作系统），与应用的
+ * 主题开关无关：系统深色 + 应用浅色时，笔记里的代码块会突然变深色（行内代码同理）。
+ * 这里按 .dark 覆盖，让配色与侧边栏/正文一致。 */
+.hetu-milkdown-root .milkdown-theme-nord pre {
+  background-color: var(--color-gray-100);
+}
+
+.hetu-milkdown-root .milkdown-theme-nord code {
+  background-color: var(--color-gray-200);
+}
+
+.dark .hetu-milkdown-root .milkdown-theme-nord pre {
+  background-color: var(--color-gray-800);
+}
+
+.dark .hetu-milkdown-root .milkdown-theme-nord code {
+  background-color: var(--color-gray-700);
+}
+
+/* 代码块内部的 code 保持透明（特异性需高于上面按 class 的那两条） */
+.hetu-milkdown-root .milkdown-theme-nord pre code,
+.dark .hetu-milkdown-root .milkdown-theme-nord pre code {
+  background-color: transparent;
+}
+
 /* 标题（覆盖 nord 主题默认 margin，收紧上下边距） */
 /* 注意：ProseMirror contenteditable 中 margin 不会折叠，
    所以所有块级元素 margin-bottom 归零，只用 margin-top 控制间距 */
