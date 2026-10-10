@@ -1174,11 +1174,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
         {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
 
-        {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（对话页与编码页共用） */}
-        <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
-
-        {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有 */}
+        {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有
+            工具交互抽屉（ask_question / todo / plan）挂在 aboveInput 上，宽度与输入框保持一致 */}
         <AgentInputBox
+          aboveInput={<ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />}
           value={input}
           onChange={(v) => setInput(v)}
           onMenuChange={setInputMenu}
