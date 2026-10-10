@@ -68,6 +68,7 @@ const TOOL_LABELS: Record<string, string> = {
   work_semantic_search: '语义检索代码',
   work_task: '派子 Agent',
   work_skill: '读取技能',
+  load_tools: '加载工具',
 }
 
 export function renderToolName(name: string): string {

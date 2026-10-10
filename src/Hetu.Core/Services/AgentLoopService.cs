@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Streaming;
@@ -90,6 +91,11 @@ public class AgentLoopRequest
     public WorkToolScope? WorkScope { get; set; }
     /// <summary>是否启用工具调用（关闭时即使有工具也不执行，直接结束）</summary>
     public bool EnableTools { get; set; } = true;
+    /// <summary>
+    /// 常驻声明给模型的工具名（其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema）。
+    /// 为空表示全部工具都直接声明（保持原行为）。
+    /// </summary>
+    public IReadOnlyList<string>? CoreToolNames { get; set; }
 }
 
 /// <summary>
@@ -224,18 +230,28 @@ public class AgentLoopService
         var mcpToolNames = await LoadMcpToolsAsync(request.McpServerIds, ct);
         var allToolNames = request.ToolNames.Concat(mcpToolNames).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-        // 3. 构建 ChatOptions（ModelId 留空，由 provider 内置的真实模型名生效，避免误传 Guid）
+        // 3. 工具声明：常驻核心工具直接声明 schema，其余只在系统提示里列名，模型用 load_tools 按需加载
+        var coreToolNames = request.CoreToolNames is { Count: > 0 }
+            ? allToolNames.Where(n => request.CoreToolNames.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList()
+            : allToolNames;
+        var loadableToolNames = allToolNames.Except(coreToolNames, StringComparer.OrdinalIgnoreCase).ToList();
+        var loadedToolNames = new List<string>();
+
+        // 3.1 构建 ChatOptions（ModelId 留空，由 provider 内置的真实模型名生效，避免误传 Guid）
         var options = new ChatOptions
         {
             ModelId = "",
             Stream = true,
-            SystemPrompt = ComposeSystemPrompt(request.SystemPrompt, allToolNames, request.MaxToolCallsPerTurn),
-            Tools = _toolRegistry.ToToolDefinitions(allToolNames),
-            ToolChoice = allToolNames.Count > 0 ? "auto" : "none"
+            ToolChoice = allToolNames.Count > 0 ? "auto" : "none",
         };
+        RefreshDeclaredTools();
 
-        _logger.LogInformation("[AgentLoop] tools={ToolCount} names={ToolNames} toolChoice={ToolChoice} systemPrompt={SystemPrompt}",
-            options.Tools?.Count ?? 0, string.Join(",", allToolNames), options.ToolChoice, options.SystemPrompt?.Length > 200 ? options.SystemPrompt[..200] : options.SystemPrompt);
+        // 上下文占用观测：系统提示与工具 schema 是本轮请求的固定开销，逐条长度便于定位膨胀
+        var systemPromptChars = options.SystemPrompt?.Length ?? 0;
+        var toolSchemaChars = LlmTokenEstimator.ToolDefinitionChars(options.Tools);
+        _logger.LogInformation("[AgentLoop] tools={ToolCount}（按需可加载 {LoadableCount}） toolChoice={ToolChoice} 固定开销 systemPrompt={SystemChars}字符 tools={ToolChars}字符 合计≈{FixedTokens} tokens",
+            options.Tools?.Count ?? 0, loadableToolNames.Count, options.ToolChoice, systemPromptChars, toolSchemaChars,
+            LlmTokenEstimator.EstimateChars(systemPromptChars + toolSchemaChars));
 
         var chatMessages = new List<LlmChatMessage>(request.Messages);
         var sessionTodos = new List<SessionTodo>();
@@ -243,12 +259,25 @@ public class AgentLoopService
         // 已压缩过的消息下标：长会话反复迭代时不再重复压缩（LLM 摘要模式尤其重要）
         var compressedIndexes = new HashSet<int>();
 
+        // 声明 = 常驻核心 + 本轮已按需加载；系统提示里的可加载清单随之收缩
+        void RefreshDeclaredTools()
+        {
+            var declared = coreToolNames.Concat(loadedToolNames).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            options.Tools = _toolRegistry.ToToolDefinitions(declared);
+            options.SystemPrompt = ComposeSystemPrompt(
+                request.SystemPrompt,
+                declared.Count,
+                loadableToolNames.Except(loadedToolNames, StringComparer.OrdinalIgnoreCase).ToList(),
+                request.MaxToolCallsPerTurn);
+        }
+
         try
         {
             // 4. Agent Loop
             for (int iter = 0; iter < maxIter; iter++)
             {
                 result.Iterations = iter + 1;
+                RefreshDeclaredTools();
                 await sink.OnDebugAsync($"Agent 迭代 {iter + 1}，工具数={options.Tools?.Count ?? 0}");
 
                 // 每轮前压缩历史：算法节点对任意长度生效，LLM 摘要由管道内部按阈值决定
@@ -373,6 +402,20 @@ public class AgentLoopService
                     chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = toolContent });
                 }
 
+                // load_tools：把本轮加载的工具并入下一轮声明（schema 下一轮随请求下发）
+                foreach (var call in pendingToolCalls)
+                {
+                    if (!string.Equals(call.Name, "load_tools", StringComparison.OrdinalIgnoreCase)) continue;
+                    foreach (var loaded in ParseLoadedToolNames(call.Arguments))
+                    {
+                        if (loadableToolNames.Contains(loaded, StringComparer.OrdinalIgnoreCase) &&
+                            !loadedToolNames.Contains(loaded, StringComparer.OrdinalIgnoreCase))
+                        {
+                            loadedToolNames.Add(loaded);
+                        }
+                    }
+                }
+
                 await (hooks?.AfterToolResultsAsync(executions) ?? Task.CompletedTask);
             }
         }
@@ -470,33 +513,58 @@ public class AgentLoopService
 
     /// <summary>
     /// 组装 Agent 系统提示词：人设 + 工具使用约定。
-    /// 工具清单是全链路唯一来源（各控制器不再各自拼一份，否则同一次请求里工具说明会出现两遍）；
-    /// 与 <see cref="ChatOptions.Tools"/> 一起构成模型可见的工具信息。
+    /// 已声明的工具只写通用约定（名字/说明/参数都在随请求下发的 tools schema 里）；
+    /// 未声明的工具在这里列名，模型需要时用 load_tools 取回 schema 再调用。
     /// </summary>
-    private string ComposeSystemPrompt(string agentPrompt, List<string> toolNames, int maxToolCallsPerTurn)
+    private static string ComposeSystemPrompt(string agentPrompt, int declaredCount, List<string> loadableToolNames, int maxToolCallsPerTurn)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(agentPrompt))
             sb.AppendLine(agentPrompt.Trim());
 
-        if (toolNames.Count > 0)
+        if (declaredCount > 0 || loadableToolNames.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("# 工具使用约定");
             sb.AppendLine($"- 单轮回复内工具调用尽量不超过 {maxToolCallsPerTurn} 次；能直接回答的问题不要无脑调用工具");
             sb.AppendLine("- 工具调用失败最多重试 1 次，仍失败则切换策略或如实告知");
             sb.AppendLine("- 不要在正文中自述「调用了哪个工具」，直接给结果");
-            sb.AppendLine();
-            sb.AppendLine($"本会话可用的工具（共 {toolNames.Count} 个）：");
-            foreach (var name in toolNames)
+            sb.AppendLine($"- 已声明 {declaredCount} 个工具，可直接调用（说明与参数见函数定义）");
+            if (loadableToolNames.Count > 0)
             {
-                var executor = _toolRegistry.GetExecutor(name);
-                var guideline = executor?.UsageGuideline;
-                sb.AppendLine($"- `{name}`：{(string.IsNullOrWhiteSpace(guideline) ? executor?.Description ?? "MCP 工具" : guideline)}");
+                sb.AppendLine();
+                sb.AppendLine($"以下 {loadableToolNames.Count} 个工具暂未声明参数，需要时先用 load_tools 加载（names 传工具名），下一次调用即可直接使用：");
+                sb.AppendLine(string.Join("、", loadableToolNames));
             }
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>解析 load_tools 调用参数里的工具名列表（names 数组，兼容单个 name）</summary>
+    private static List<string> ParseLoadedToolNames(string argumentsJson)
+    {
+        var names = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
+            if (doc.RootElement.TryGetProperty("names", out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                names.AddRange(array.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString() ?? string.Empty)
+                    .Where(n => n.Length > 0));
+            }
+            else if (doc.RootElement.TryGetProperty("name", out var single) && single.ValueKind == JsonValueKind.String)
+            {
+                names.Add(single.GetString() ?? string.Empty);
+            }
+        }
+        catch (JsonException)
+        {
+            // 参数不合法时交给 load_tools 的执行结果反馈，这里忽略
+        }
+        return names;
     }
 
     private class NullAgentLoopSink : IAgentLoopSink { }

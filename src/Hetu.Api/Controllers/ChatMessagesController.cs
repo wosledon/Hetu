@@ -231,6 +231,8 @@ public class ChatMessagesController : ControllerBase
             SessionId = topicId.ToString(),
             Sink = sink,
             EnableTools = useToolCalling,
+            // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
+            CoreToolNames = BuiltinProfiles.KnowledgeCoreTools,
             // 权限模式与编码会话共用五档语义（plan/readonly/ask/auto/bypass），
             // 由统一策略按工具风险等级折算；未指定时回落到 ask（写操作需确认）
             DecideToolCall = useToolCalling
@@ -705,7 +707,7 @@ public class ChatMessagesController : ControllerBase
     {
         var chars = messages.Sum(m => m.Content?.Length ?? 0)
             + (options.SystemPrompt?.Length ?? 0)
-            + (options.Tools?.Sum(t => JsonSerializer.Serialize(t).Length) ?? 0);
-        return (int)Math.Ceiling(chars / 3.0);
+            + LlmTokenEstimator.ToolDefinitionChars(options.Tools);
+        return (int)Math.Ceiling(chars / (double)LlmTokenEstimator.CharsPerToken);
     }
 }

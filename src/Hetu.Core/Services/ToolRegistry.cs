@@ -67,9 +67,17 @@ public class ToolRegistry
         return executors.Select(e => new LlmToolDefinition
         {
             Name = e.Name,
-            Description = e.Description,
+            // 工具 schema 是唯一发送工具信息的地方（系统提示里不再重复一份清单），
+            // 因此把「何时该用」的使用指引并入 description，指引仍然可达
+            Description = ComposeDescription(e),
             ParametersSchema = e.ParametersSchema
         }).ToList();
+    }
+
+    private static string ComposeDescription(IToolExecutor executor)
+    {
+        if (string.IsNullOrWhiteSpace(executor.UsageGuideline)) return executor.Description;
+        return $"{executor.Description}｜{executor.UsageGuideline}";
     }
 }
 

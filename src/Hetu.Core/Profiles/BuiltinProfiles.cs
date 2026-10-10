@@ -40,11 +40,40 @@ public static class BuiltinProfiles
     ];
 
     /// <summary>
-    /// 两个会话人格共用同一份内置工具集：能力一致，差异只在是否挂载项目
-    /// （知识助手没有项目上下文，文件/命令类工具会提示需要先在 Code 视图打开项目）。
+    /// 知识助手（对话页）常驻工具：常用笔记/检索/记忆/编排类。
+    /// 文件与命令类工具需要项目作用域，对话页拿不到（会提示先到 Code 视图打开项目），因此不归入知识人格；
+    /// 其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（避免每次请求都发 74 份工具定义）。
     /// </summary>
+    public static readonly string[] KnowledgeCoreTools =
+    [
+        "search_notes", "read_note", "create_note", "update_note", "list_notes", "list_notebooks",
+        "list_tags", "list_knowledge_items", "read_knowledge_item",
+        "search_memory", "create_memory", "list_memories",
+        "search_graph", "search_web",
+        "ask_question", "todo", "plan", "run_command",
+        "list_skills", "use_skill", "list_projects", "list_workflows", "run_workflow",
+        "load_tools",
+    ];
+
+    /// <summary>Code 会话（Work 项目视图/看板自动执行之外的人工会话）常驻工具：项目内读写检索 + 通用编排</summary>
+    public static readonly string[] WorkCoreTools =
+    [
+        "ask_question", "todo", "plan",
+        "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
+        "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
+        "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
+        "list_work_projects", "list_projects", "list_skills", "use_skill",
+        "search_notes", "read_note", "list_notes", "search_memory", "search_web",
+        "load_tools",
+    ];
+
+    /// <summary>知识工具 + 工作区工具（Code 会话与看板自动执行使用完整集合）</summary>
     private static HashSet<string> SharedTools() =>
-        new(KnowledgeTools.Concat(WorkspaceTools), StringComparer.OrdinalIgnoreCase);
+        new(KnowledgeTools.Concat(WorkspaceTools).Concat(["load_tools"]), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>知识助手人格的工具：不含工作区/文件/命令类（对话页没有项目作用域，这些工具只会报「先在 Code 视图打开项目」）</summary>
+    private static HashSet<string> KnowledgeOnlyTools() =>
+        new(KnowledgeTools.Concat(["load_tools"]), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>知识助手 —— 当前 Hetu 笔记/对话场景的默认人格</summary>
     public static readonly RuntimeProfile Knowledge = new()
@@ -79,7 +108,7 @@ public static class BuiltinProfiles
             - 不泄露 API Key、密码、Token 等敏感配置
             - 涉及破坏性操作（删除笔记、清空数据、覆盖文件）必须先用 ask_question 与用户确认
             """,
-        AllowedTools = SharedTools(),
+        AllowedTools = KnowledgeOnlyTools(),
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
         },

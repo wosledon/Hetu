@@ -325,6 +325,8 @@ public class WorkStreamController : ControllerBase
             Sink = sink,
             Hooks = hooks,
             EnableTools = request.EnableTools,
+            // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
+            CoreToolNames = BuiltinProfiles.WorkCoreTools,
             DecideToolCall = request.EnableTools
                 ? AgentToolPolicy.CreateDecider(
                     _toolRegistry,
