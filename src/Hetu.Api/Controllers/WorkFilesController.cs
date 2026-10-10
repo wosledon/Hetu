@@ -76,14 +76,14 @@ public class WorkFilesController : ControllerBase
                     .ToList());
             }
 
-            // 远端：GNU find -printf，失败回退 BSD stat
+            // 远端：GNU find -printf，失败回退 BSD stat（只读重试：链路抖动时重连一次）
             var quoted = SshCommandRunner.ShellQuote(RelativeToRemotePath(runner.RootPath, relative));
             var gnucmd = $"find {quoted} -maxdepth 1 -mindepth 1 -printf '%y\\t%s\\t%TY-%Tm-%TdT%TH:%TM:%TS\\t%f\\n'";
-            var result = await runner.RunAsync(gnucmd, cancellationToken);
+            var result = await WorkRemoteFs.RunReadOnlyAsync(runner, gnucmd, cancellationToken);
             if (result.ExitCode != 0)
             {
                 var bsdcmd = $"find {quoted} -maxdepth 1 -mindepth 1 -exec stat -f '%HT\\t%z\\t%Sm\\t%N' {{}} +";
-                result = await runner.RunAsync(bsdcmd, cancellationToken);
+                result = await WorkRemoteFs.RunReadOnlyAsync(runner, bsdcmd, cancellationToken);
                 if (result.ExitCode != 0)
                     return ApiResponse<List<WorkFileEntryDto>>.Fail($"读取目录失败: {FirstLine(result.StdErr) ?? "远端命令执行失败"}");
             }
@@ -152,7 +152,7 @@ public class WorkFilesController : ControllerBase
 
             // 远端：base64 传输避免二进制与编码问题
             var quoted = SshCommandRunner.ShellQuote(RelativeToRemotePath(runner.RootPath, relative));
-            var sizeCmd = await runner.RunAsync($"wc -c < {quoted}", cancellationToken);
+            var sizeCmd = await WorkRemoteFs.RunReadOnlyAsync(runner, $"wc -c < {quoted}", cancellationToken);
             if (sizeCmd.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail("文件不存在");
             var size = long.TryParse(sizeCmd.StdOut.Trim(), out var sz) ? sz : 0;
             var ext2 = Path.GetExtension(relative).ToLowerInvariant();
@@ -167,7 +167,7 @@ public class WorkFilesController : ControllerBase
                 });
             }
 
-            var b64 = await runner.RunAsync($"base64 < {quoted}", cancellationToken);
+            var b64 = await WorkRemoteFs.RunReadOnlyAsync(runner, $"base64 < {quoted}", cancellationToken);
             if (b64.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail($"读取文件失败: {FirstLine(b64.StdErr)}");
             var content2 = Encoding.UTF8.GetString(Convert.FromBase64String(b64.StdOut.Replace("\n", "").Replace("\r", "")));
             return ApiResponse<WorkFileContentDto>.Ok(new WorkFileContentDto
@@ -245,7 +245,7 @@ public class WorkFilesController : ControllerBase
         // 远端：文件名匹配 + grep 内容匹配
         var hits2 = new List<WorkFileSearchHitDto>();
         var q = SshCommandRunner.ShellQuote($"*{needle}*");
-        var nameResult = await runner.RunAsync(
+        var nameResult = await WorkRemoteFs.RunReadOnlyAsync(runner, 
             $"find . -path ./.git -prune -o -name {q} -print 2>/dev/null | head -n {max}", cancellationToken);
         foreach (var line in nameResult.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -256,7 +256,7 @@ public class WorkFilesController : ControllerBase
         }
 
         var pattern = needle.Replace("'", "'\\''");
-        var grepResult = await runner.RunAsync(
+        var grepResult = await WorkRemoteFs.RunReadOnlyAsync(runner, 
             $"grep -rIn --exclude-dir=.git -m {max} -e '{pattern}' . 2>/dev/null | head -n {max}", cancellationToken);
         foreach (var line in grepResult.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {

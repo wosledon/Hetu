@@ -95,12 +95,18 @@ public class SshCommandRunner : IWorkCommandRunner
     public bool IsRemote => true;
     public string RootPath => _project.RootPath;
 
+    /// <summary>单条远端命令的等待上限；正常 ls/find 都在 1s 内返回，超时即视为链路故障</summary>
+    private const int SshCommandTimeoutSeconds = 60;
+
     /// <summary>拼接 ssh 基础参数（不含远端命令）</summary>
     public string BuildSshArgs()
     {
         var args = new StringBuilder();
         args.Append("-p ").Append(_project.SshPort <= 0 ? 22 : _project.SshPort).Append(' ');
         args.Append("-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ");
+        // keepalive：链路半死（VPN 抖动 / NAT 超时）时 ssh 会一直挂着不说话，
+        // 5s × 3 次探测，约 15s 内判定连接已断并自行退出（否则只能等我们自己的 60s 超时）
+        args.Append("-o ServerAliveInterval=5 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes ");
         if (_project.SshAuthType == "Key" && !string.IsNullOrWhiteSpace(_project.SshKeyPath))
             args.Append("-i \"").Append(_project.SshKeyPath).Append("\" ");
         var target = string.IsNullOrWhiteSpace(_project.SshUser)
@@ -180,7 +186,7 @@ public class SshCommandRunner : IWorkCommandRunner
             return new WorkCommandResult(-1, string.Empty, "无法启动 ssh");
         }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(60));
+        cts.CancelAfter(TimeSpan.FromSeconds(SshCommandTimeoutSeconds));
         try
         {
             if (stdin != null)
@@ -194,6 +200,13 @@ public class SshCommandRunner : IWorkCommandRunner
             await Task.WhenAll(outputTask, errorTask);
             await process.WaitForExitAsync(cts.Token);
             return new WorkCommandResult(process.ExitCode, outputTask.Result, errorTask.Result);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // 我们的 60s 超时（不是调用方取消）：SSH 链路卡住时给个能看懂的原因，
+            // 原来的 "The operation was canceled." 只会让人以为是用户点了停止
+            try { process.Kill(entireProcessTree: true); } catch { }
+            throw new TimeoutException($"ssh 命令超过 {SshCommandTimeoutSeconds} 秒无响应（连接可能已断开），请检查网络后重试");
         }
         catch (OperationCanceledException)
         {

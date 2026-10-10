@@ -21,6 +21,31 @@ public static class WorkRemoteFs
     /// <summary>相对路径的 shell 引用（用于报错信息）</summary>
     public static string Display(string relative) => string.IsNullOrWhiteSpace(relative) ? "." : relative.Replace('\\', '/');
 
+    /// <summary>
+    /// 只读远端命令执行（带一次自动重试）。
+    /// SSH 链路抖动时连接会卡在半死状态，表现为「浏览目录转了 60 秒然后失败」；
+    /// 重连一次通常立刻成功，所以读操作值得重试。**写操作绝不能走这里**（可能已经改了一部分再重放）。
+    /// </summary>
+    public static async Task<WorkCommandResult> RunReadOnlyAsync(IWorkCommandRunner runner, string command, CancellationToken ct)
+    {
+        try
+        {
+            var first = await runner.RunAsync(command, ct);
+            // 255 = ssh 自身失败（连接建立不了/已断），不是命令的业务退出码
+            if (first.ExitCode != 255) return first;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // 命令超时：链路卡住，重连一次
+        }
+        catch (TimeoutException)
+        {
+            // ssh 超过 60s 无响应，同上
+        }
+
+        return await runner.RunAsync(command, ct);
+    }
+
     /// <summary>校验相对路径不含 .. 穿越</summary>
     public static bool Escapes(string relative)
     {
@@ -33,7 +58,7 @@ public static class WorkRemoteFs
         IWorkCommandRunner runner, string root, string relative, CancellationToken ct)
     {
         var target = Quote(root, relative);
-        var result = await runner.RunAsync($"ls -la {target}", ct);
+        var result = await RunReadOnlyAsync(runner, $"ls -la {target}", ct);
         if (result.ExitCode != 0)
             return ToolExecutionResult.Error($"列出目录失败: {FirstLine(result.StdErr) ?? "未知错误"}");
 
@@ -68,7 +93,7 @@ public static class WorkRemoteFs
         IWorkCommandRunner runner, string root, string relative, int start, int end, CancellationToken ct)
     {
         var target = Quote(root, relative);
-        var result = await runner.RunAsync($"cat {target}", ct);
+        var result = await RunReadOnlyAsync(runner, $"cat {target}", ct);
         if (result.ExitCode != 0)
             return ToolExecutionResult.Error($"读取文件失败: {FirstLine(result.StdErr) ?? "未知错误"}");
 
@@ -110,7 +135,7 @@ public static class WorkRemoteFs
         IWorkCommandRunner runner, string root, string relative, string search, string replace, bool replaceAll, CancellationToken ct)
     {
         var target = Quote(root, relative);
-        var read = await runner.RunAsync($"cat {target}", ct);
+        var read = await RunReadOnlyAsync(runner, $"cat {target}", ct);
         if (read.ExitCode != 0)
             return ToolExecutionResult.Error($"读取文件失败: {FirstLine(read.StdErr) ?? "未知错误"}");
 
@@ -141,11 +166,11 @@ public static class WorkRemoteFs
         IWorkCommandRunner runner, string root, string relative, CancellationToken ct)
     {
         var target = Quote(root, relative);
-        var check = await runner.RunAsync($"test -f {target} && echo FILE || echo NONE", ct);
+        var check = await RunReadOnlyAsync(runner, $"test -f {target} && echo FILE || echo NONE", ct);
         var verdict = check.StdOut.Trim();
         if (verdict.Contains("NONE"))
         {
-            var dirCheck = await runner.RunAsync($"test -d {target} && echo DIR || echo MISSING", ct);
+            var dirCheck = await RunReadOnlyAsync(runner, $"test -d {target} && echo DIR || echo MISSING", ct);
             return ToolExecutionResult.Error(dirCheck.StdOut.Contains("DIR") ? "本工具只删除文件，不删除目录" : $"文件不存在: {Display(relative)}");
         }
 
@@ -163,9 +188,9 @@ public static class WorkRemoteFs
         var target = Quote(root, to);
         var toDir = (to ?? "").Replace('\\', '/').Contains('/') ? Quote(root, to[..to.Replace('\\', '/').LastIndexOf('/')]) : Quote(root, "");
 
-        var exists = await runner.RunAsync($"test -e {source} && echo FILE || echo NONE", ct);
+        var exists = await RunReadOnlyAsync(runner, $"test -e {source} && echo FILE || echo NONE", ct);
         if (exists.StdOut.Contains("NONE")) return ToolExecutionResult.Error($"源文件不存在: {Display(from)}");
-        var targetExists = await runner.RunAsync($"test -e {target} && echo FILE || echo NONE", ct);
+        var targetExists = await RunReadOnlyAsync(runner, $"test -e {target} && echo FILE || echo NONE", ct);
         if (targetExists.StdOut.Contains("FILE")) return ToolExecutionResult.Error($"目标文件已存在: {Display(to)}");
 
         var result = await runner.RunAsync($"mkdir -p {toDir} && mv {source} {target}", ct);
@@ -179,7 +204,7 @@ public static class WorkRemoteFs
         IWorkCommandRunner runner, string root, string relative, string pattern, int limit, CancellationToken ct)
     {
         var searchRoot = Quote(root, relative);
-        var result = await runner.RunAsync($"find {searchRoot} -type f 2>/dev/null | head -n 20000", ct);
+        var result = await RunReadOnlyAsync(runner, $"find {searchRoot} -type f 2>/dev/null | head -n 20000", ct);
         var regex = WorkToolPolicy.GlobToRegex(NormalizeGlob(pattern));
 
         var matches = new List<string>();
@@ -215,7 +240,7 @@ public static class WorkRemoteFs
         var globArgs = string.IsNullOrWhiteSpace(glob) ? "" : $" --include {SingleQuote(NormalizeGlobForFind(glob))}";
         var command = $"grep -rnE{caseFlag}I{globArgs} -e {patternArg} {searchRoot} 2>/dev/null | head -n {limit * 2}";
 
-        var result = await runner.RunAsync(command, ct);
+        var result = await RunReadOnlyAsync(runner, command, ct);
         var hits = new List<string>();
         foreach (var raw in result.StdOut.Split('\n'))
         {
