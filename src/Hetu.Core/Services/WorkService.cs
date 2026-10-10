@@ -2,6 +2,7 @@ using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Work;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 
@@ -300,11 +301,13 @@ public class WorkSessionService : IWorkSessionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalizer _localizer;
+    private readonly WorkWorktreeService _worktrees;
 
-    public WorkSessionService(IUnitOfWork unitOfWork, ILocalizer localizer)
+    public WorkSessionService(IUnitOfWork unitOfWork, ILocalizer localizer, WorkWorktreeService worktrees)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
+        _worktrees = worktrees;
     }
 
     public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
@@ -359,9 +362,65 @@ public class WorkSessionService : IWorkSessionService
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
+        // 独立工作树：仅本地 git 项目，建会话时就挂好，后续所有工具都在工作树里跑
+        if (request.UseWorktree)
+        {
+            var prepared = await PrepareWorktreeAsync(project, session, request.Branch, cancellationToken);
+            if (prepared != null) return ApiResponse<WorkSessionDto>.Fail(prepared);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Branch))
+        {
+            // 不进工作树时，分支只作为记录（真正切换分支请用工作树，避免动到主工作区）
+            session.Branch = request.Branch.Trim();
+            session.WorktreePath = null;
+        }
+
         await _unitOfWork.WorkSessions.AddAsync(session, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse<WorkSessionDto>.Ok(Map(session, 0));
+    }
+
+    /// <summary>
+    /// 为会话准备工作树：已有则按需切分支，没有则新建（分支为空或等于项目当前分支时派生 hetu/&lt;短 id&gt;）。
+    /// 返回 null 表示成功，否则是给用户看的失败原因。
+    /// </summary>
+    private async Task<string?> PrepareWorktreeAsync(
+        WorkProject project, WorkSession session, string? requestedBranch, CancellationToken cancellationToken)
+    {
+        if (project.ConnectionType == "Ssh")
+            return _localizer.T("workSession.worktreeLocalOnly");
+        if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+            return _localizer.T("workSession.worktreeProjectMissing");
+        if (!await _worktrees.IsGitRepoAsync(project.RootPath, cancellationToken))
+            return _localizer.T("workSession.worktreeNotRepo");
+
+        var currentBranch = await _worktrees.GetCurrentBranchAsync(project.RootPath, cancellationToken);
+        var branch = string.IsNullOrWhiteSpace(requestedBranch) ? null : requestedBranch.Trim();
+        var wantsNewBranch = branch == null || string.Equals(branch, currentBranch, StringComparison.OrdinalIgnoreCase);
+
+        var worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, session.Id);
+        if (Directory.Exists(worktreePath) || session.WorktreePath != null)
+        {
+            // 已存在：只切分支
+            worktreePath = session.WorktreePath ?? worktreePath;
+            if (branch != null && !string.Equals(branch, await _worktrees.GetCurrentBranchAsync(worktreePath, cancellationToken), StringComparison.OrdinalIgnoreCase))
+            {
+                var switched = await _worktrees.SwitchBranchAsync(worktreePath, branch, createIfMissing: true, cancellationToken);
+                if (!switched.Ok) return switched.Error ?? _localizer.T("workSession.worktreeBranchFailed");
+            }
+            session.Branch = branch ?? await _worktrees.GetCurrentBranchAsync(worktreePath, cancellationToken);
+            session.WorktreePath = worktreePath;
+            return null;
+        }
+
+        var branchName = branch ?? WorkWorktreeService.DeriveBranchName(session.Id);
+        var created = await _worktrees.CreateAsync(
+            project.RootPath, worktreePath, branchName, createBranch: wantsNewBranch, baseBranch: branch ?? currentBranch, cancellationToken);
+        if (!created.Ok) return created.Error ?? _localizer.T("workSession.worktreeCreateFailed");
+
+        session.Branch = branchName;
+        session.WorktreePath = worktreePath;
+        return null;
     }
 
     public async Task<ApiResponse<WorkSessionDto>> UpdateAsync(Guid id, UpdateWorkSessionRequest request, CancellationToken cancellationToken = default)
@@ -383,6 +442,27 @@ public class WorkSessionService : IWorkSessionService
                 return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.invalidAgentMode"));
             session.AgentMode = AgentModePolicy.Normalize(request.AgentMode);
         }
+
+        // 工作树开关 / 分支切换
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+        if (project == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("project.notFound"));
+
+        if (request.UseWorktree == false)
+        {
+            if (session.WorktreePath != null)
+            {
+                await _worktrees.RemoveAsync(project.RootPath, session.WorktreePath, cancellationToken);
+                session.WorktreePath = null;
+                session.Branch = null;
+            }
+        }
+        else if (request.UseWorktree == true || !string.IsNullOrWhiteSpace(request.Branch))
+        {
+            var branch = string.IsNullOrWhiteSpace(request.Branch) ? session.Branch : request.Branch.Trim();
+            var error = await PrepareWorktreeAsync(project, session, branch, cancellationToken);
+            if (error != null) return ApiResponse<WorkSessionDto>.Fail(error);
+        }
+
         session.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
@@ -395,6 +475,13 @@ public class WorkSessionService : IWorkSessionService
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
         if (session == null) return ApiResponse.Fail(_localizer.T("workSession.notFound"));
+
+        // 会话带独立工作树时一并清掉（失败不影响删除会话）
+        if (!string.IsNullOrWhiteSpace(session.WorktreePath))
+        {
+            var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+            if (project != null) await _worktrees.RemoveAsync(project.RootPath, session.WorktreePath, cancellationToken);
+        }
 
         await _unitOfWork.WorkSessions.DeleteAsync(session, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -538,6 +625,8 @@ public class WorkSessionService : IWorkSessionService
         ModelId = session.ModelId,
         PermissionMode = string.IsNullOrWhiteSpace(session.PermissionMode) ? WorkToolPolicy.DefaultMode : session.PermissionMode,
         AgentMode = AgentModePolicy.Normalize(session.AgentMode),
+        Branch = session.Branch,
+        WorktreePath = session.WorktreePath,
         HasContextSummary = !string.IsNullOrWhiteSpace(session.ContextSummary),
         MessageCount = messageCount,
         TurnCount = session.TurnCount,

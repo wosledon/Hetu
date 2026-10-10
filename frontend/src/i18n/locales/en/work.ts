@@ -338,4 +338,16 @@ export default {
       explainChanges: 'Explain the changes above',
     },
   },
+  workspace: {
+    title: 'Workspace: branch and worktree',
+    mainArea: 'Main workspace',
+    branch: 'Branch · {{branch}}',
+    worktree: 'Worktree · {{branch}}',
+    worktreeHint: 'Work in an isolated worktree (the main workspace stays untouched)',
+    worktreeCurrent: 'Current worktree · {{branch}}',
+    newWorktreeBranch: 'New worktree on a hetu/ branch',
+    localOnly: 'Isolated worktrees are available for local projects only (use the main workspace for SSH projects).',
+    projectUnavailable: 'The project directory is unavailable, so a worktree cannot be created.',
+    noBranches: 'No branches available (this may not be a git repository)',
+  },
 }

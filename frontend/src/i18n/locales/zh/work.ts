@@ -338,4 +338,16 @@ export default {
       explainChanges: '解释上面的改动',
     },
   },
+  workspace: {
+    title: '工作区：分支与工作树',
+    mainArea: '主工作区',
+    branch: '分支 · {{branch}}',
+    worktree: '工作树 · {{branch}}',
+    worktreeHint: '在独立工作树中工作（不影响主工作区）',
+    worktreeCurrent: '当前工作树 · {{branch}}',
+    newWorktreeBranch: '新建 hetu/ 分支的工作树',
+    localOnly: '独立工作树只支持本地项目（SSH 项目请直接在主工作区工作）',
+    projectUnavailable: '项目目录不可用，无法创建工作树',
+    noBranches: '没有可用分支（可能不是 git 仓库）',
+  },
 }

@@ -2136,6 +2136,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Branch")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CachedTokens")
                         .HasColumnType("INTEGER");
 
@@ -2179,6 +2182,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorktreePath")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

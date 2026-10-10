@@ -270,5 +270,10 @@
   "toolExec.planTimeout": "The user did not confirm the plan in time, so it is treated as rejected. Simplify the plan or run only the essential steps.",
   "toolExec.loadNoMatch": "No loadable tools match \"{0}\". Available groups: {1}",
   "toolExec.loadedCount": "Loaded parameter docs for {0} tools; you can call them directly now:",
-  "toolExec.loadNotFound": "No matching tool or group. Check the names listed in the system prompt."
+  "toolExec.loadNotFound": "No matching tool or group. Check the names listed in the system prompt.",
+  "workSession.worktreeBranchFailed": "Failed to switch the worktree branch.",
+  "workSession.worktreeNotRepo": "This project is not a git repository, so a worktree cannot be created.",
+  "workSession.worktreeCreateFailed": "Failed to create the worktree.",
+  "workSession.worktreeProjectMissing": "The project directory does not exist, so a worktree cannot be created.",
+  "workSession.worktreeLocalOnly": "Isolated worktrees are supported for local projects only; work directly in the project directory for SSH projects."
 }

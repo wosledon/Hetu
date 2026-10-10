@@ -33,9 +33,9 @@ public class WorkFilesController : ControllerBase
     };
 
     [HttpGet("list")]
-    public async Task<ApiResponse<List<WorkFileEntryDto>>> List(Guid projectId, [FromQuery] string? path, CancellationToken cancellationToken)
+    public async Task<ApiResponse<List<WorkFileEntryDto>>> List(Guid projectId, [FromQuery] string? path, [FromQuery] Guid? session, CancellationToken cancellationToken)
     {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, session, cancellationToken);
         if (runner == null) return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, path ?? "");
@@ -121,9 +121,9 @@ public class WorkFilesController : ControllerBase
     }
 
     [HttpGet("read")]
-    public async Task<ApiResponse<WorkFileContentDto>> Read(Guid projectId, [FromQuery] string path, CancellationToken cancellationToken)
+    public async Task<ApiResponse<WorkFileContentDto>> Read(Guid projectId, [FromQuery] string path, [FromQuery] Guid? session, CancellationToken cancellationToken)
     {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, session, cancellationToken);
         if (runner == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, path ?? "");
@@ -189,11 +189,12 @@ public class WorkFilesController : ControllerBase
         Guid projectId,
         [FromQuery] string query,
         [FromQuery] int limit,
+        [FromQuery] Guid? session,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query)) return ApiResponse<List<WorkFileSearchHitDto>>.Ok([]);
 
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, session, cancellationToken);
         if (runner == null) return ApiResponse<List<WorkFileSearchHitDto>>.Fail(_localizer.T("work.projectNotFound"));
 
         var max = Math.Clamp(limit <= 0 ? 60 : limit, 1, 200);
@@ -280,11 +281,11 @@ public class WorkFilesController : ControllerBase
 
     /// <summary>写入/覆盖项目内文本文件（本地编辑器保存；SSH 项目经 base64 写入）</summary>
     [HttpPut("write")]
-    public async Task<ApiResponse<WorkFileContentDto>> Write(Guid projectId, [FromBody] WriteWorkFileRequest request, CancellationToken cancellationToken)
+    public async Task<ApiResponse<WorkFileContentDto>> Write(Guid projectId, [FromBody] WriteWorkFileRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Path)) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.pathRequired"));
 
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
+        var runner = await ResolveRunnerAsync(projectId, session, cancellationToken);
         if (runner == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, request.Path);
@@ -352,6 +353,13 @@ public class WorkFilesController : ControllerBase
     }
 
     private async Task<IWorkCommandRunner?> ResolveRunnerAsync(Guid projectId, CancellationToken cancellationToken)
+        => await ResolveRunnerAsync(projectId, null, cancellationToken);
+
+    /// <summary>
+    /// 解析项目命令执行器。<paramref name="sessionId"/> 命中带独立工作树的会话时改用工作树目录，
+    /// 保证文件浏览器 / 编辑器与 Agent 操作的是同一份工作区。
+    /// </summary>
+    private async Task<IWorkCommandRunner?> ResolveRunnerAsync(Guid projectId, Guid? sessionId, CancellationToken cancellationToken)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -359,6 +367,18 @@ public class WorkFilesController : ControllerBase
         if (project == null || string.IsNullOrWhiteSpace(project.RootPath)) return null;
         if (project.ConnectionType == "Ssh" && string.IsNullOrWhiteSpace(project.SshHost)) return null;
         if (project.ConnectionType != "Ssh" && !Directory.Exists(project.RootPath)) return null;
+
+        if (sessionId is Guid sid && project.ConnectionType != "Ssh")
+        {
+            var session = await unitOfWork.WorkSessions.GetByIdAsync(sid, cancellationToken);
+            if (session?.ProjectId == projectId
+                && !string.IsNullOrWhiteSpace(session.WorktreePath)
+                && Directory.Exists(session.WorktreePath))
+            {
+                return new LocalCommandRunner(session.WorktreePath);
+            }
+        }
+
         return _runnerFactory(project);
     }
 

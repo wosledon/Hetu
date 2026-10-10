@@ -40,8 +40,10 @@ public class LocalCommandRunner : IWorkCommandRunner
         var psi = new ProcessStartInfo
         {
             FileName = OperatingSystem.IsWindows() ? "powershell.exe" : "/bin/bash",
+            // Windows 用 -EncodedCommand：-Command 需要 \" 转义，而 Windows 命令行层会做引号翻转，
+            // 结果 "path" arg 被并成单个参数（工作树目录名会多出 " main"）。base64 脚本没有任何外层转义
             Arguments = OperatingSystem.IsWindows()
-                ? $"-NoLogo -NoProfile -Command \"{command.Replace("\"", "`\"")}\""
+                ? $"-NoLogo -NoProfile -EncodedCommand {Convert.ToBase64String(Encoding.Unicode.GetBytes(command))}"
                 : $"-c \"{command.Replace("\"", "\\\"")}\"",
             WorkingDirectory = _root,
             UseShellExecute = false,
