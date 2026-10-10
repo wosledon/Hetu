@@ -26,4 +26,7 @@ export default {
   newNote: '新建笔记',
   pinNav: '固定到导航',
   unpinNav: '从导航移除',
+  github: 'GitHub 仓库',
+  githubShort: 'GitHub',
+  githubWithStars: '在 GitHub 上查看 {{repo}}（Star {{count}}）',
 }
