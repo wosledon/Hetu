@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
 
-  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, GitBranch, Plus,
+  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
   Globe, Database, Atom, Pencil, Trash2, Gauge,
 } from 'lucide-react'
@@ -1181,20 +1181,9 @@ export default function WorkSessionArea({
               </div>
             )}
 
-          {/* 工作流：节点状态 / Human 审批 / Agent 工具交互（与对话页共用同一组件） */}
+          {/* 工作流：节点状态 / Human 审批 / Agent 工具交互（与对话页共用同一组件；选中状态由输入框工具栏展示，这里不重复） */}
           {workflowRun.workflow && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20">
-                <GitBranch size={14} className="shrink-0 text-blue-500" />
-                <span className="min-w-0 flex-1 truncate text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{workflowRun.workflow.name}</span>
-                <button
-                  onClick={() => workflowRun.setWorkflow(null)}
-                  aria-label="取消工作流"
-                  className="shrink-0 text-blue-400 hover:text-blue-600"
-                >
-                  <X size={14} />
-                </button>
-              </div>
               {workflowRun.nodes.length > 0 && (
                 <InlineWorkflowPanel
                   workflow={workflowRun.workflow}
