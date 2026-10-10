@@ -15,11 +15,31 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-/** 发布说明是 Markdown：正常渲染；链接一律用系统浏览器打开，避免 WebView 跳走 */
+/**
+ * 发布说明里的 GitHub 长链接压成短标签（PR 链接 → #91，compare 链接 → v0.3.0...v0.3.1），
+ * 链接本身保留，点开仍然跳 GitHub。
+ */
+function compactLinks(markdown: string): string {
+  return markdown
+    .replace(
+      /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/g,
+      (_m, repo: string, num: string) => `[#${num}](https://github.com/${repo}/pull/${num})`,
+    )
+    .replace(
+      /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/compare\/([^\s)]+)/g,
+      (_m, repo: string, range: string) => `[${range}](https://github.com/${repo}/compare/${range})`,
+    )
+    .replace(
+      /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/g,
+      (_m, repo: string, num: string) => `[#${num}](https://github.com/${repo}/issues/${num})`,
+    )
+}
+
+/** 发布说明是 Markdown：正常渲染（链接压缩成短标签）；链接一律用系统浏览器打开，避免 WebView 跳走 */
 function NotesBlock({ markdown }: { markdown: string }) {
   return (
     <div
-      className="max-h-64 overflow-auto rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600 dark:bg-white/[0.03] dark:text-gray-300"
+      className="text-[13px] leading-relaxed text-gray-600 dark:text-gray-300"
       onClick={(e) => {
         const anchor = (e.target as HTMLElement).closest('a')
         const href = anchor?.getAttribute('href')
@@ -28,7 +48,7 @@ function NotesBlock({ markdown }: { markdown: string }) {
         window.open(href, '_blank', 'noopener')
       }}
     >
-      <ThemedMarkdown source={markdown} />
+      <ThemedMarkdown source={compactLinks(markdown)} />
     </div>
   )
 }
@@ -63,7 +83,7 @@ export default function UpdatePanel() {
   return createPortal(
     <>
       <div className="fixed inset-0 z-[99998] bg-black/40 backdrop-blur-sm" onClick={closePanel} />
-      <div className="fixed left-1/2 top-1/2 z-[99999] w-[min(94vw,34rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-2xl dark:bg-gray-900">
+      <div className="fixed left-1/2 top-1/2 z-[99999] flex max-h-[88vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900">
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
             {status === 'available' ? <Download size={18} /> : status === 'installed' ? <CheckCircle2 size={18} /> : <RefreshCw size={18} />}
@@ -87,6 +107,7 @@ export default function UpdatePanel() {
 
         {supported && (
           <>
+            <div className="min-h-0 flex-1 overflow-auto pr-1">
             <div className="rounded-xl border border-gray-100 px-4 py-3 dark:border-white/[0.06]">
               <p className="text-[13px] font-medium text-gray-700 dark:text-gray-200">
                 {status === 'available' && info
@@ -121,36 +142,33 @@ export default function UpdatePanel() {
             </div>
 
             {status === 'available' && info?.notes && (
-              <div className="mt-3">
+              <div className="mt-4">
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.releaseNotes')}</p>
                 <NotesBlock markdown={info.notes} />
               </div>
             )}
 
             {showCurrentNotes && (
-              <div className="mt-3">
+              <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.currentNotes')}</p>
                   <button
                     onClick={openRepo}
-                    className="text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+                    className="shrink-0 text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
                   >
                     {t('update.viewOnGitHub')}
                   </button>
                 </div>
                 {notesLoading ? (
-                  <p className="rounded-xl bg-gray-50 px-3 py-3 text-[12px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500">
-                    {t('common:loading')}
-                  </p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">{t('common:loading')}</p>
                 ) : currentNotes ? (
                   <NotesBlock markdown={currentNotes.body} />
                 ) : (
-                  <p className="rounded-xl bg-gray-50 px-3 py-3 text-[12px] text-gray-400 dark:bg-white/[0.03] dark:text-gray-500">
-                    {t('update.currentNotesEmpty')}
-                  </p>
+                  <p className="text-[12px] text-gray-400 dark:text-gray-500">{t('update.currentNotesEmpty')}</p>
                 )}
               </div>
             )}
+            </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
               {(status === 'idle' || status === 'up-to-date' || status === 'error') && (
