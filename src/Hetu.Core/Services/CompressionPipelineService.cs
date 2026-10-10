@@ -126,6 +126,13 @@ public class CompressionPipelineService
             };
         }
 
+        // 压缩后没变短就保留原文：部分节点（数字归一化、重复标注）在特定文本上反而会变长
+        if (result.Length >= input.Length)
+        {
+            _logger.LogDebug("[Compression] 压缩后未变短（{Before} → {After} 字符），保留原文", input.Length, result.Length);
+            return input;
+        }
+
         _logger.LogDebug("[Compression] input={InputLen} output={OutputLen} ratio={Ratio:F1}%",
             input.Length, result.Length, input.Length > 0 ? result.Length * 100.0 / input.Length : 0);
 
@@ -186,13 +193,64 @@ public class CompressionPipelineService
 
     // ---- 算法压缩器 ----
 
-    /// <summary>去重：移除重复的行和段落</summary>
+    /// <summary>
+    /// 去重：段 → 句 → 行 三级去重。
+    /// 只做行级去重会漏掉「同一行里重复的句子」（例如重复粘贴的同一句话）；
+    /// 只做句级又会把整块重复的代码/日志切碎。段级放在最前，整块重复直接拿掉，
+    /// 剩下的再由句级、行级兜底，重复内容只保留首次出现。
+    /// </summary>
     private static string Deduplicate(string text)
     {
-        var lines = text.Split('\n');
+        var paragraphs = DeduplicateParagraphs(text);
+        var sentences = DeduplicateSentences(paragraphs);
+        return DeduplicateLines(sentences);
+    }
+
+    /// <summary>句级去重：同一行内重复出现的句子只保留首次（代码块/结构化行不动）</summary>
+    private static string DeduplicateSentences(string text)
+    {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<string>();
 
+        foreach (var line in text.Split('\n'))
+        {
+            if (line.Trim().Length < 40 || LooksLikeCode(line))
+            {
+                result.Add(line);
+                continue;
+            }
+
+            var parts = Regex.Split(line, @"(?<=[。！？!?；;])");
+            var rebuilt = new StringBuilder();
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (trimmed.Length == 0) continue;
+                // 句级用原文比较：句内常常只差一个数字/时间，归一化会误删有效信息
+                if (!seen.Add(trimmed)) continue; // 重复句直接丢弃
+                rebuilt.Append(part);
+            }
+            result.Add(rebuilt.ToString().TrimEnd());
+        }
+
+        return string.Join("\n", result);
+    }
+
+    /// <summary>行级去重：重复行只保留首次，并在保留行后标注重复次数</summary>
+    private static string DeduplicateLines(string text)
+    {
+        var lines = text.Split('\n');
+        var totals = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0) continue;
+            var key = NormalizeForDedup(trimmed);
+            totals[key] = totals.TryGetValue(key, out var count) ? count + 1 : 1;
+        }
+
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        var result = new List<string>();
         foreach (var line in lines)
         {
             var trimmed = line.Trim();
@@ -201,18 +259,50 @@ public class CompressionPipelineService
                 result.Add(line);
                 continue;
             }
-            var normalized = NormalizeForDedup(trimmed);
-            if (seen.Add(normalized))
+
+            var key = NormalizeForDedup(trimmed);
+            if (!emitted.Add(key)) continue;
+            if (totals[key] > 1)
             {
-                result.Add(line);
+                var note = $"    ← 重复 {totals[key]} 次";
+                // 标注只在确实缩短时才加：短行（如单独的 } ）重复时加标注反而更长
+                if (trimmed.Length * (totals[key] - 1) > note.Length)
+                {
+                    result.Add(line.TrimEnd() + note);
+                    continue;
+                }
             }
-            else
-            {
-                result.Add($"[重复 {seen.Count}] {trimmed[..Math.Min(trimmed.Length, 40)]}");
-            }
+            result.Add(line);
         }
 
         return string.Join("\n", result);
+    }
+
+    /// <summary>段级去重：整段（空行分隔的多行块，如重复粘贴的日志/堆栈/说明）只保留首次</summary>
+    private static string DeduplicateParagraphs(string text)
+    {
+        var blocks = Regex.Split(text, @"\n[ \t]*\n");
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var kept = new List<string>();
+
+        foreach (var block in blocks)
+        {
+            // 段级用原文（仅去首尾空白）比较：段内只差一个数字就整体合并风险太大
+            var key = block.Trim();
+            if (key.Length == 0 || seen.Add(key)) kept.Add(block);
+        }
+
+        return string.Join("\n\n", kept);
+    }
+
+    /// <summary>代码/结构化行判定：命中则不做句级切分（避免破坏代码、JSON、表格）</summary>
+    private static bool LooksLikeCode(string line)
+    {
+        var trimmed = line.TrimStart();
+        if (line.StartsWith("    ") || line.StartsWith('\t')) return true;
+        if (trimmed.StartsWith("```") || trimmed.StartsWith('|')) return true;
+        if (trimmed.Contains("=>") || trimmed.Contains("::") || trimmed.Contains("</") || trimmed.Contains("{\"") || trimmed.Contains("};")) return true;
+        return Regex.IsMatch(trimmed, @"^(public|private|protected|internal|class|interface|struct|def |func |function |import |export |from |const |let |var |SELECT|INSERT|UPDATE|DELETE|CREATE|#include|#define)\b", RegexOptions.IgnoreCase);
     }
 
     private static string NormalizeForDedup(string line)
