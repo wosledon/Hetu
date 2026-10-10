@@ -21,7 +21,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 const MODE_LABELS: Record<string, { label: string; desc: string }> = {
-  algorithmic: { label: '算法压缩', desc: '内置算法去重/归一化，任意长度文本都压缩' },
+  algorithmic: { label: '算法压缩', desc: '结构化折叠/去重/近似重复/关键行抽取，任意长度文本都压缩' },
   llm: { label: 'LLM 压缩', desc: 'AI 模型智能摘要，仅对超过阈值的文本触发' },
   hybrid: { label: '混合压缩', desc: '先算法压缩、再 LLM 摘要（超过阈值时）' },
 }
