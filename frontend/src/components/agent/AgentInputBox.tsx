@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
-
-/** 输入框自动折叠阈值：粘贴的长文本（日志/JSON/base64）超过任一条就只显示行数 */
-const COLLAPSE_LINES = 12
-const COLLAPSE_CHARS = 1200
+import { countTextLines, isLongText } from '../../utils/longText'
 
 /** 输入框上方的上下文 chip（引用文件 / 提示词模板 / 技能 / 选中代码 等） */
 export interface AgentInputChip {
@@ -124,8 +121,8 @@ export default function AgentInputBox({
 
   // 超长输入（粘贴的日志/JSON/base64）默认折叠成一行摘要，只展示行数与字符数，
   // 需要改动时再展开；内容一直在 value 里，折叠不影响发送。
-  const lineCount = value.length === 0 ? 0 : value.split('\n').length
-  const isOverlong = lineCount > COLLAPSE_LINES || value.length > COLLAPSE_CHARS
+  const lineCount = countTextLines(value)
+  const isOverlong = isLongText(value)
   const [expanded, setExpanded] = useState(false)
   const collapsed = isOverlong && !expanded
 
