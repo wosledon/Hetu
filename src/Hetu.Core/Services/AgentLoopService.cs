@@ -231,8 +231,10 @@ public class AgentLoopService
         var allToolNames = request.ToolNames.Concat(mcpToolNames).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
         // 3. 工具声明：常驻核心工具直接声明 schema，其余只在系统提示里列名，模型用 load_tools 按需加载
+        // MCP 工具属于本次会话显式挂载的能力，始终声明（名字不足以让模型判断用途）
         var coreToolNames = request.CoreToolNames is { Count: > 0 }
-            ? allToolNames.Where(n => request.CoreToolNames.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList()
+            ? allToolNames.Where(n => mcpToolNames.Contains(n, StringComparer.OrdinalIgnoreCase) ||
+                                      request.CoreToolNames.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList()
             : allToolNames;
         var loadableToolNames = allToolNames.Except(coreToolNames, StringComparer.OrdinalIgnoreCase).ToList();
         var loadedToolNames = new List<string>();
@@ -533,8 +535,13 @@ public class AgentLoopService
             if (loadableToolNames.Count > 0)
             {
                 sb.AppendLine();
-                sb.AppendLine($"以下 {loadableToolNames.Count} 个工具暂未声明参数，需要时先用 load_tools 加载（names 传工具名），下一次调用即可直接使用：");
-                sb.AppendLine(string.Join("、", loadableToolNames));
+                sb.AppendLine($"以下 {loadableToolNames.Count} 个工具未随请求声明，需要时先用 load_tools 加载参数说明（names 传工具名或分组名，也可用 query 按关键词搜），再直接调用：");
+                foreach (var group in ToolGroupMap.Order)
+                {
+                    var names = loadableToolNames.Where(n => ToolGroupMap.Resolve(n) == group).ToList();
+                    if (names.Count == 0) continue;
+                    sb.AppendLine($"- {group}: {string.Join("、", names)}");
+                }
             }
         }
 

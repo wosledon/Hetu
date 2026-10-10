@@ -40,31 +40,26 @@ public static class BuiltinProfiles
     ];
 
     /// <summary>
-    /// 知识助手（对话页）常驻工具：常用笔记/检索/记忆/编排类。
-    /// 文件与命令类工具需要项目作用域，对话页拿不到（会提示先到 Code 视图打开项目），因此不归入知识人格；
-    /// 其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（避免每次请求都发 74 份工具定义）。
+    /// 知识助手（对话页）常驻工具：只保留最基础的本职能力 + 交互编排，其余一律按需 load_tools。
+    /// 文件与命令类工具需要项目作用域，对话页拿不到（会提示先到 Code 视图打开项目），因此不归入知识人格。
     /// </summary>
     public static readonly string[] KnowledgeCoreTools =
     [
-        "search_notes", "read_note", "create_note", "update_note", "list_notes", "list_notebooks",
-        "list_tags", "list_knowledge_items", "read_knowledge_item",
-        "search_memory", "create_memory", "list_memories",
-        "search_graph", "search_web",
-        "ask_question", "todo", "plan", "run_command",
-        "list_skills", "use_skill", "list_projects", "list_workflows", "run_workflow",
-        "load_tools",
+        // 交互编排
+        "ask_question", "todo", "plan", "load_tools",
+        // 本职基础：检索与写入笔记、记忆与联网
+        "search_notes", "read_note", "create_note", "update_note",
+        "search_memory", "create_memory", "search_web",
     ];
 
-    /// <summary>Code 会话（Work 项目视图/看板自动执行之外的人工会话）常驻工具：项目内读写检索 + 通用编排</summary>
+    /// <summary>Code 会话常驻工具：项目内最基础的读/写/搜索/命令 + 交互编排，其余（诊断、git、子 Agent、技能、项目/看板等）按需加载</summary>
     public static readonly string[] WorkCoreTools =
     [
-        "ask_question", "todo", "plan",
-        "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
-        "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
-        "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
-        "list_work_projects", "list_projects", "list_skills", "use_skill",
-        "search_notes", "read_note", "list_notes", "search_memory", "search_web",
-        "load_tools",
+        // 交互编排
+        "ask_question", "todo", "plan", "load_tools",
+        // 基础代码工作
+        "work_list_dir", "work_read_file", "work_glob", "work_grep",
+        "work_apply_patch", "work_write_file", "work_run_command",
     ];
 
     /// <summary>知识工具 + 工作区工具（Code 会话与看板自动执行使用完整集合）</summary>
