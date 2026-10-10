@@ -43,6 +43,15 @@ public class LlmProviderFactory : ILLMProviderFactory
         return await CreateProviderAsync(model, cancellationToken);
     }
 
+    /// <summary>场景默认模型（设置键 Default{scenario}ModelId）；未配置或不可用返回 null</summary>
+    public async Task<ILLMProvider?> CreateScenarioProviderAsync(string scenario, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scenario)) return null;
+        var setting = await _unitOfWork.AppSettings.GetByKeyAsync($"Default{scenario}ModelId", cancellationToken);
+        if (string.IsNullOrWhiteSpace(setting?.Value) || !Guid.TryParse(setting.Value, out var modelId)) return null;
+        return await CreateProviderAsync(modelId, cancellationToken);
+    }
+
     private async Task<ILLMProvider?> CreateProviderByPurposeAsync(string purpose, CancellationToken cancellationToken)
     {
         var model = await _unitOfWork.AiModels.GetDefaultByPurposeAsync(purpose, cancellationToken);

@@ -142,6 +142,7 @@ Hetu/
 - 支持流式输出（SSE）
 - Token 计数和费用统计
 - 错误重试机制（指数退避）
+- 场景默认模型：应用设置里的 `Default{Chat|Chunk|Fast|Embedding}ModelId` 是全局默认；单轮场景另有 `Default{Wiki|Graph|Organize|NoteAi}ModelId`，读取走 `ILLMProviderFactory.CreateScenarioProviderAsync("<场景>")`，未配置时按各服务自己的回退链兜底（如 Wiki：分块模型 → 对话模型）
 
 #### Embedding 集成
 - 向量存储：SQLite（本地）/ PostgreSQL（pgvector）

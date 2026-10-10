@@ -32,6 +32,14 @@ public class AppSettingsSnapshotDto
     public string? DefaultFastModelId { get; set; }
     /// <summary>默认 Embedding 模型 ID</summary>
     public string? DefaultEmbeddingModelId { get; set; }
+    /// <summary>Wiki 生成默认模型 ID（空则回退「分块模型 → 默认对话模型」）</summary>
+    public string? DefaultWikiModelId { get; set; }
+    /// <summary>知识图谱抽取默认模型 ID（空则回退默认对话模型）</summary>
+    public string? DefaultGraphModelId { get; set; }
+    /// <summary>对话整理成笔记的默认模型 ID（空则回退默认对话模型）</summary>
+    public string? DefaultOrganizeModelId { get; set; }
+    /// <summary>笔记 AI（总结/翻译等）默认模型 ID（空则回退「分块模型 → 默认对话模型」）</summary>
+    public string? DefaultNoteAiModelId { get; set; }
     /// <summary>上下文窗口消息数（null 表示不限制）</summary>
     public int? ContextWindowSize { get; set; }
     /// <summary>导航菜单项（JSON 数组字符串，如 '["/tags","/graph"]'）</summary>

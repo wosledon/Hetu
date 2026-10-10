@@ -827,6 +827,34 @@ function DefaultModelsSection({
           onChange={(v) => onSettingChange('DefaultFastModelId', v)}
         />
         <DefaultModelSelect
+          label={t('models.wiki')}
+          description={t('models.wikiDesc')}
+          value={snapshot?.defaultWikiModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultWikiModelId', v)}
+        />
+        <DefaultModelSelect
+          label={t('models.graph')}
+          description={t('models.graphDesc')}
+          value={snapshot?.defaultGraphModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultGraphModelId', v)}
+        />
+        <DefaultModelSelect
+          label={t('models.organize')}
+          description={t('models.organizeDesc')}
+          value={snapshot?.defaultOrganizeModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultOrganizeModelId', v)}
+        />
+        <DefaultModelSelect
+          label={t('models.noteAi')}
+          description={t('models.noteAiDesc')}
+          value={snapshot?.defaultNoteAiModelId || ''}
+          models={chatModels}
+          onChange={(v) => onSettingChange('DefaultNoteAiModelId', v)}
+        />
+        <DefaultModelSelect
           label={t('models.embedding')}
           description={t('models.embeddingDesc')}
           value={snapshot?.defaultEmbeddingModelId || ''}
