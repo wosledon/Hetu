@@ -123,8 +123,11 @@ export default function KanbanTaskDetailPage() {
     queryFn: () => kanbanTaskService.getDetail(taskId!),
     enabled: !!taskId,
     refetchInterval: (query) => {
-      const running = query.state.data?.runs.some((r) => r.status === 'Running')
-      return running ? 3000 : false
+      const d = query.state.data
+      if (!d) return false
+      const running = d.runs.some((r) => r.status === 'Running')
+      const autoPending = d.task.hasAutomation && (d.task.status === 'Todo' || d.task.status === 'InProgress')
+      return running || autoPending ? 3000 : false
     },
   })
 
@@ -528,8 +531,8 @@ export default function KanbanTaskDetailPage() {
                     <div className="flex items-center gap-2">
                       <dt className="w-16 shrink-0 text-gray-400">智能体</dt>
                       <dd className="flex min-w-0 items-center gap-1 text-gray-600 dark:text-gray-300">
-                        {task.agentId
-                          ? <><Bot size={12} className="shrink-0 text-violet-400" /><span className="truncate">{task.agentName ?? task.agentId}</span></>
+                        {task.agentId || task.agentPromptName
+                          ? <><Bot size={12} className="shrink-0 text-violet-400" /><span className="truncate">{task.agentName ?? task.agentPromptName ?? task.agentId}</span></>
                           : <span className="text-gray-400">未指定</span>}
                       </dd>
                     </div>
