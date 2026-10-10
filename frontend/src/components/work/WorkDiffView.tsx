@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, RotateCcw, ArrowUpFromLine } from 'lucide-react'
 import type { IWorkFileChange } from '../../types/work'
 import { lineDiff } from '../../utils/lineDiff'
@@ -17,9 +18,12 @@ export default function WorkDiffView({
   onRevert,
   onApply,
   actionPending,
-  revertLabel = '还原到此版本',
-  applyLabel = '应用到工作区',
+  revertLabel,
+  applyLabel,
 }: WorkDiffViewProps) {
+  const { t } = useTranslation('work')
+  const revertText = revertLabel ?? t('diffView.revertToThis')
+  const applyText = applyLabel ?? t('diffView.applyToWorkspace')
   const lines = useMemo(() => lineDiff(change.oldContent ?? '', change.newContent), [change])
   const isCreate = change.action === 'create'
 
@@ -36,7 +40,7 @@ export default function WorkDiffView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1.5 dark:border-gray-800">
-        {isCreate && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">新增文件</span>}
+        {isCreate && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{t('diffView.newFile')}</span>}
         <span className="text-[11px] text-emerald-600 dark:text-emerald-400">+{stats.added}</span>
         <span className="text-[11px] text-red-500 dark:text-red-400">-{stats.removed}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -47,7 +51,7 @@ export default function WorkDiffView({
               className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-40 dark:text-amber-400 dark:hover:bg-amber-950/40"
             >
               {actionPending ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
-              {revertLabel}
+              {revertText}
             </button>
           )}
           {onApply && change.action !== 'delete' && (
@@ -57,7 +61,7 @@ export default function WorkDiffView({
               className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
             >
               {actionPending ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpFromLine size={11} />}
-              {applyLabel}
+              {applyText}
             </button>
           )}
         </div>

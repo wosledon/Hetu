@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { get, put, post } from './api'
 
 export interface IWebApp {
@@ -10,20 +11,22 @@ export interface IWebApp {
 const KEY = 'WebApps'
 
 /** 常用大模型网页对话预设（添加时可一键选择） */
-export const WEB_APP_PRESETS: { name: string; url: string }[] = [
-  { name: 'DeepSeek', url: 'https://chat.deepseek.com' },
-  { name: '通义千问', url: 'https://www.tongyi.com/qianwen' },
-  { name: 'Kimi', url: 'https://www.kimi.com' },
-  { name: '豆包', url: 'https://www.doubao.com/chat' },
-  { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail' },
-  { name: '文心一言', url: 'https://yiyan.baidu.com' },
-  { name: '讯飞星火', url: 'https://xinghuo.xfyun.cn/desk' },
-  { name: 'ChatGPT', url: 'https://chatgpt.com' },
-  { name: 'Claude', url: 'https://claude.ai' },
-  { name: 'Gemini', url: 'https://gemini.google.com' },
-  { name: 'Grok', url: 'https://grok.com' },
-  { name: 'Copilot', url: 'https://copilot.microsoft.com' },
-]
+export function getWebAppPresets(): { name: string; url: string }[] {
+  return [
+    { name: i18n.t('settings:apps.presets.deepseek'), url: 'https://chat.deepseek.com' },
+    { name: i18n.t('settings:apps.presets.tongyi'), url: 'https://www.tongyi.com/qianwen' },
+    { name: i18n.t('settings:apps.presets.kimi'), url: 'https://www.kimi.com' },
+    { name: i18n.t('settings:apps.presets.doubao'), url: 'https://www.doubao.com/chat' },
+    { name: i18n.t('settings:apps.presets.chatglm'), url: 'https://chatglm.cn/main/alltoolsdetail' },
+    { name: i18n.t('settings:apps.presets.ernie'), url: 'https://yiyan.baidu.com' },
+    { name: i18n.t('settings:apps.presets.spark'), url: 'https://xinghuo.xfyun.cn/desk' },
+    { name: i18n.t('settings:apps.presets.chatgpt'), url: 'https://chatgpt.com' },
+    { name: i18n.t('settings:apps.presets.claude'), url: 'https://claude.ai' },
+    { name: i18n.t('settings:apps.presets.gemini'), url: 'https://gemini.google.com' },
+    { name: i18n.t('settings:apps.presets.grok'), url: 'https://grok.com' },
+    { name: i18n.t('settings:apps.presets.copilot'), url: 'https://copilot.microsoft.com' },
+  ]
+}
 
 /** 规范化 URL：缺少协议时补 https */
 export function normalizeUrl(input: string): string {

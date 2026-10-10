@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Hetu.Core.Entities;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Work;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
@@ -15,10 +16,12 @@ namespace Hetu.Api.Controllers;
 public class WorkSshController : ControllerBase
 {
     private readonly IDataProtectionProvider _dataProtection;
+    private readonly ILocalizer _localizer;
 
-    public WorkSshController(IDataProtectionProvider dataProtection)
+    public WorkSshController(IDataProtectionProvider dataProtection, ILocalizer localizer)
     {
         _dataProtection = dataProtection;
+        _localizer = localizer;
     }
 
     /// <summary>探测本机 ssh 客户端是否可用，并给出安装引导</summary>
@@ -54,10 +57,10 @@ public class WorkSshController : ControllerBase
         if (!status.Available)
         {
             status.InstallHint = OperatingSystem.IsWindows()
-                ? "未检测到 ssh 命令。请安装 OpenSSH 客户端：设置 → 系统 → 可选功能 → 添加功能 → 搜索 “OpenSSH 客户端”；或安装 Git for Windows（自带 ssh）。"
+                ? _localizer.T("work.sshInstallHintWindows")
                 : OperatingSystem.IsMacOS()
-                    ? "未检测到 ssh 命令。macOS 通常自带，如缺失请安装 Xcode 命令行工具：xcode-select --install。"
-                    : "未检测到 ssh 命令。请安装 OpenSSH 客户端：Debian/Ubuntu 执行 sudo apt install openssh-client；RHEL/Fedora 执行 sudo dnf install openssh-clients。";
+                    ? _localizer.T("work.sshInstallHintMac")
+                    : _localizer.T("work.sshInstallHintLinux");
             status.InstallUrl = OperatingSystem.IsWindows()
                 ? "https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_first_use"
                 : "https://www.openssh.com/manual.html";
@@ -70,7 +73,7 @@ public class WorkSshController : ControllerBase
     public async Task<ApiResponse<WorkSshTestResultDto>> Test([FromBody] WorkSshTestRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Host))
-            return ApiResponse<WorkSshTestResultDto>.Fail("主机地址不能为空");
+            return ApiResponse<WorkSshTestResultDto>.Fail(_localizer.T("work.sshHostRequired"));
 
         var project = new WorkProject
         {
@@ -97,7 +100,7 @@ public class WorkSshController : ControllerBase
                 return ApiResponse<WorkSshTestResultDto>.Ok(new WorkSshTestResultDto
                 {
                     Success = false,
-                    Message = $"连接失败：{FirstLine(who.StdErr) ?? "未知错误"}",
+                    Message = _localizer.T("work.connectionFailed", FirstLine(who.StdErr) ?? _localizer.T("work.unknownError")),
                 });
 
             var pwd = await runner.RunAsync("pwd", cancellationToken);
@@ -105,13 +108,13 @@ public class WorkSshController : ControllerBase
             return ApiResponse<WorkSshTestResultDto>.Ok(new WorkSshTestResultDto
             {
                 Success = true,
-                Message = $"连接成功：{who.StdOut.Trim()}@{request.Host}",
+                Message = _localizer.T("work.connectionSucceeded", who.StdOut.Trim(), request.Host),
                 RemoteBanner = banner,
             });
         }
         catch (Exception ex)
         {
-            return ApiResponse<WorkSshTestResultDto>.Ok(new WorkSshTestResultDto { Success = false, Message = $"连接异常：{ex.Message}" });
+            return ApiResponse<WorkSshTestResultDto>.Ok(new WorkSshTestResultDto { Success = false, Message = _localizer.T("work.connectionError", ex.Message) });
         }
     }
 

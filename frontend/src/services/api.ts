@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import i18n from '../i18n';
 import type { IApiResponse } from '../types';
 
 const api = axios.create({
@@ -8,10 +9,16 @@ const api = axios.create({
   },
 });
 
+// 后端按 Accept-Language 本地化提示文案（zh / en）
+api.interceptors.request.use((config) => {
+  config.headers.set('Accept-Language', i18n.language === 'en' ? 'en' : 'zh-CN');
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<IApiResponse<unknown>>) => {
-    const message = error.response?.data?.error || error.message || '请求失败';
+    const message = error.response?.data?.error || error.message || i18n.t('common:requestFailed');
     return Promise.reject(new Error(message));
   }
 );
@@ -26,7 +33,7 @@ async function request<T>(
 ): Promise<T> {
   const response = await api.request<IApiResponse<T>>({ method, url, ...options });
   if (!response.data.success) {
-    throw new Error(response.data.error || '请求失败');
+    throw new Error(response.data.error || i18n.t('common:requestFailed'));
   }
   return response.data.data as T;
 }

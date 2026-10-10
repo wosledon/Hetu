@@ -8,10 +8,14 @@ namespace Hetu.Core.Services;
 public class AppSettingService : IAppSettingService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILanguagePreference _language;
+    private readonly ILocalizer _localizer;
 
-    public AppSettingService(IUnitOfWork unitOfWork)
+    public AppSettingService(IUnitOfWork unitOfWork, ILanguagePreference language, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _language = language;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<AppSettingsSnapshotDto>> GetSnapshotAsync(CancellationToken cancellationToken = default)
@@ -19,9 +23,10 @@ public class AppSettingService : IAppSettingService
         var snapshot = new AppSettingsSnapshotDto
         {
             AppName = await GetValueAsync("AppName", "Hetu", cancellationToken),
-            AssistantName = await GetValueAsync("AssistantName", "AI 助手", cancellationToken),
+            AssistantName = await GetValueAsync("AssistantName", _localizer.T("settings.defaultAssistantName"), cancellationToken),
             AssistantPersona = await GetValueAsync("AssistantPersona", "", cancellationToken),
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
+            Language = await GetValueAsync("Language", "zh", cancellationToken),
             GraphAutoExtract = await GetValueAsync("GraphAutoExtract", "false", cancellationToken),
             AutoEmbedding = await GetValueAsync("AutoEmbedding", "false", cancellationToken),
             DefaultChatModelId = await GetNullableValueAsync("DefaultChatModelId", cancellationToken),
@@ -34,6 +39,8 @@ public class AppSettingService : IAppSettingService
             NavStyle = await GetValueAsync("NavStyle", "top", cancellationToken),
             CloseToTray = await GetValueAsync("CloseToTray", "true", cancellationToken),
         };
+        // 前端启动即读快照，顺手同步后台任务使用的语言偏好
+        _language.Language = snapshot.Language;
         return ApiResponse<AppSettingsSnapshotDto>.Ok(snapshot);
     }
 
@@ -47,7 +54,7 @@ public class AppSettingService : IAppSettingService
     public async Task<ApiResponse> SetAsync(UpdateAppSettingRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Key))
-            return ApiResponse.Fail("设置键不能为空");
+            return ApiResponse.Fail(_localizer.T("api.settingKeyRequired"));
 
         var existing = await _unitOfWork.AppSettings.GetByKeyAsync(request.Key, cancellationToken);
         if (existing == null)
@@ -67,6 +74,9 @@ public class AppSettingService : IAppSettingService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // 语言设置立即影响后台任务（没有请求头的场景）
+        if (string.Equals(request.Key.Trim(), "Language", StringComparison.OrdinalIgnoreCase))
+            _language.Language = request.Value ?? "zh";
         return ApiResponse.Ok();
     }
 

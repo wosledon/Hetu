@@ -72,6 +72,7 @@ export interface IAppSettingsSnapshot {
   secondaryMenuStyle: string;
   navStyle: string;
   closeToTray: string;
+  language: 'zh' | 'en';
 }
 
 export interface IAiProvider {

@@ -14,17 +14,20 @@ public class KnowledgeItemsController : ControllerBase
     private readonly IBackgroundTaskCoordinator _taskCoordinator;
     private readonly IWebHostEnvironment _env;
     private readonly WebContentExtractor _webExtractor;
+    private readonly ILocalizer _localizer;
 
     public KnowledgeItemsController(
         IUnitOfWork unitOfWork,
         IBackgroundTaskCoordinator taskCoordinator,
         IWebHostEnvironment env,
-        WebContentExtractor webExtractor)
+        WebContentExtractor webExtractor,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _taskCoordinator = taskCoordinator;
         _env = env;
         _webExtractor = webExtractor;
+        _localizer = localizer;
     }
 
     /// <summary>
@@ -57,7 +60,7 @@ public class KnowledgeItemsController : ControllerBase
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(id, cancellationToken);
         if (item == null)
-            return ApiResponse<KnowledgeItemDto>.Fail("知识项不存在");
+            return ApiResponse<KnowledgeItemDto>.Fail(_localizer.T("knowledge.itemNotFound"));
 
         return ApiResponse<KnowledgeItemDto>.Ok(MapToDto(item));
     }
@@ -71,7 +74,7 @@ public class KnowledgeItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Url))
-            return ApiResponse<KnowledgeItemDto>.Fail("URL 不能为空");
+            return ApiResponse<KnowledgeItemDto>.Fail(_localizer.T("knowledge.urlRequired"));
 
         var item = new KnowledgeItem
         {
@@ -125,7 +128,7 @@ public class KnowledgeItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (file == null || file.Length == 0)
-            return ApiResponse<KnowledgeItemDto>.Fail("文件不能为空");
+            return ApiResponse<KnowledgeItemDto>.Fail(_localizer.T("knowledge.fileRequired"));
 
         // 保存文件
         var uploadsDir = Path.Combine(_env.ContentRootPath, "uploads", "knowledge");
@@ -180,7 +183,7 @@ public class KnowledgeItemsController : ControllerBase
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(id, cancellationToken);
         if (item == null)
-            return ApiResponse<KnowledgeItemDto>.Fail("知识项不存在");
+            return ApiResponse<KnowledgeItemDto>.Fail(_localizer.T("knowledge.itemNotFound"));
 
         if (!string.IsNullOrWhiteSpace(request.Title))
             item.Title = request.Title;
@@ -204,7 +207,7 @@ public class KnowledgeItemsController : ControllerBase
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(id, cancellationToken);
         if (item == null)
-            return ApiResponse.Fail("知识项不存在");
+            return ApiResponse.Fail(_localizer.T("knowledge.itemNotFound"));
 
         // 删除关联的分块
         await _unitOfWork.KnowledgeItems.DeleteChunksAsync(id, cancellationToken);

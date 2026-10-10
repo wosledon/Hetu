@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check, Search } from 'lucide-react'
 
 export interface SelectOption {
@@ -33,9 +34,11 @@ export default function Select({
   className = '',
   disabled,
   searchable = false,
-  searchPlaceholder = '搜索...',
+  searchPlaceholder,
   triggerClassName,
 }: SelectProps) {
+  const { t } = useTranslation()
+  const searchHint = searchPlaceholder ?? t('ui:searchPlaceholder')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [search, setSearch] = useState('')
@@ -228,7 +231,7 @@ export default function Select({
                   ref={searchRef}
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setActiveIndex(-1) }}
-                  placeholder={searchPlaceholder}
+                  placeholder={searchHint}
                   className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
                 />
               </div>
@@ -236,7 +239,7 @@ export default function Select({
             <div className="max-h-60 overflow-y-auto">
               {filteredOptions.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
-                  无匹配结果
+                  {t('ui:noMatch')}
                 </div>
               ) : (
                 filteredOptions.map((option) => {

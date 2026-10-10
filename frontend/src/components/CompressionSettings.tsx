@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
@@ -20,13 +21,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   )
 }
 
-const MODE_LABELS: Record<string, { label: string; desc: string }> = {
-  algorithmic: { label: '算法压缩', desc: '结构化折叠/去重/近似重复/关键行抽取，任意长度文本都压缩' },
-  llm: { label: 'LLM 压缩', desc: 'AI 模型智能摘要，仅对超过阈值的文本触发' },
-  hybrid: { label: '混合压缩', desc: '先算法压缩、再 LLM 摘要（超过阈值时）' },
+const MODE_OPTIONS: Record<string, { labelKey: string; descKey: string }> = {
+  algorithmic: { labelKey: 'compression.algorithmicLabel', descKey: 'compression.algorithmicDesc' },
+  llm: { labelKey: 'compression.llmLabel', descKey: 'compression.llmDesc' },
+  hybrid: { labelKey: 'compression.hybridLabel', descKey: 'compression.hybridDesc' },
 }
 
 export default function CompressionSettings() {
+  const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const [draftOverride, setDraftOverride] = useState<CompressionPipelineConfig | null>(null)
 
@@ -49,7 +51,7 @@ export default function CompressionSettings() {
   const draft = draftOverride ?? config ?? null
 
   if (isLoading || !draft) {
-    return <div className="flex items-center gap-2 p-6"><Loader2 size={16} className="animate-spin text-gray-400" /><span className="text-sm text-gray-500">加载中...</span></div>
+    return <div className="flex items-center gap-2 p-6"><Loader2 size={16} className="animate-spin text-gray-400" /><span className="text-sm text-gray-500">{t('common:loading')}</span></div>
   }
 
   const chatModels = models.filter(m => m.purpose === 'chat' && m.providerId)
@@ -63,20 +65,20 @@ export default function CompressionSettings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div>
-          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">压缩管道</div>
+          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('compression.pipeline')}</div>
           <div className="mt-0.5 text-xs text-gray-500">
             {draft.enabled
-              ? enabledCount === 0 ? '已开启，请至少启用一个节点' : `已启用 ${enabledCount} 个节点`
-              : '关闭后消息将原样发送'}
+              ? enabledCount === 0 ? t('compression.enabledNoNodes') : t('compression.enabledNodes', { count: enabledCount })
+              : t('compression.disabledHint')}
           </div>
         </div>
         <Toggle checked={draft.enabled} onChange={() => saveNow({ ...draft, enabled: !draft.enabled })} />
       </div>
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模式</label>
+        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.mode')}</label>
         <div className="grid grid-cols-3 gap-2">
-          {Object.entries(MODE_LABELS).map(([key, { label, desc }]) => (
+          {Object.entries(MODE_OPTIONS).map(([key, { labelKey, descKey }]) => (
             <button
               key={key}
               onClick={() => saveNow({ ...draft, mode: key })}
@@ -86,8 +88,8 @@ export default function CompressionSettings() {
                   : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
               }`}
             >
-              <div className={`text-xs font-semibold ${draft.mode === key ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{label}</div>
-              <div className="mt-0.5 text-[10px] text-gray-400">{desc}</div>
+              <div className={`text-xs font-semibold ${draft.mode === key ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{t(labelKey)}</div>
+              <div className="mt-0.5 text-[10px] text-gray-400">{t(descKey)}</div>
             </button>
           ))}
         </div>
@@ -96,17 +98,17 @@ export default function CompressionSettings() {
       {(draft.mode === 'llm' || draft.mode === 'hybrid') && (
         <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/30">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩模型</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.model')}</label>
             <Select
               value={draft.llmModelId ?? ''}
               onChange={(v) => saveNow({ ...draft, llmModelId: v || undefined })}
-              options={[{ value: '', label: '默认模型' }, ...chatModels.map(m => ({ value: m.id, label: m.displayName }))]}
+              options={[{ value: '', label: t('compression.defaultModel') }, ...chatModels.map(m => ({ value: m.id, label: m.displayName }))]}
               searchable
-              placeholder="选择模型"
+              placeholder={t('compression.selectModel')}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">LLM 摘要触发阈值（字符）</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.llmThreshold')}</label>
             <input
               type="number"
               min={0}
@@ -115,14 +117,14 @@ export default function CompressionSettings() {
               className="w-40 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
             />
             <p className="mt-1 text-[11px] text-gray-400">
-              算法节点对任意长度文本都会压缩；只有 LLM 摘要按此阈值触发，避免短文本多花一次模型调用。
+              {t('compression.thresholdHint')}
             </p>
           </div>
         </div>
       )}
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">压缩节点</label>
+        <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.nodes')}</label>
         <div className="space-y-1.5">
           {[...draft.nodes].sort((a, b) => a.order - b.order).map((node, idx) => (
             <div

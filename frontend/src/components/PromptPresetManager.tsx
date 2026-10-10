@@ -1,10 +1,12 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Edit2, Check, X, Download, Upload, RefreshCw } from 'lucide-react'
 import { promptPresetService } from '../services/promptPresetService'
 import type { IPromptPreset } from '../types'
 
 export default function PromptPresetManager() {
+  const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -129,23 +131,23 @@ export default function PromptPresetManager() {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">预设提示词</h2>
+        <h2 className="text-lg font-medium">{t('presets.title')}</h2>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
             className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="导出预设"
+            title={t('presets.exportTitle')}
           >
             <Download size={14} />
-            导出
+            {t('common:export')}
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="导入预设"
+            title={t('presets.importTitle')}
           >
             <Upload size={14} />
-            导入
+            {t('common:import')}
           </button>
           <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
           {!isCreating && !editingId && (
@@ -154,7 +156,7 @@ export default function PromptPresetManager() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
               <Plus size={14} />
-              新增
+              {t('common:create')}
             </button>
           )}
         </div>
@@ -164,20 +166,20 @@ export default function PromptPresetManager() {
         <div className="space-y-2 p-3 border border-gray-200 dark:border-gray-700 rounded-md">
           <input
             type="text"
-            placeholder="分类"
+            placeholder={t('shared.category')}
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
           />
           <input
             type="text"
-            placeholder="名称"
+            placeholder={t('common:name')}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
           />
           <textarea
-            placeholder="提示词内容，支持 {{变量}} 占位符"
+            placeholder={t('presets.contentPlaceholder')}
             value={form.content}
             onChange={(e) => setForm({ ...form, content: e.target.value })}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm h-24 resize-none"
@@ -186,7 +188,7 @@ export default function PromptPresetManager() {
             <div className="flex items-center gap-2 mb-1">
               <input
                 type="text"
-                placeholder='变量 JSON 数组，如 ["text"]'
+                placeholder={t('presets.variablesPlaceholder')}
                 value={form.variables}
                 onChange={(e) => setForm({ ...form, variables: e.target.value })}
                 className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm"
@@ -195,16 +197,16 @@ export default function PromptPresetManager() {
                 <button
                   onClick={handleAutoExtractVars}
                   className="flex items-center gap-1 text-xs px-2 py-2 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-                  title="从内容中自动提取变量"
+                  title={t('presets.autoExtractTitle')}
                 >
                   <RefreshCw size={12} />
-                  提取
+                  {t('presets.extract')}
                 </button>
               )}
             </div>
             {extractedVars.length > 0 && (
               <div className="text-xs text-gray-500 mt-1">
-                检测到变量: {extractedVars.map(v => `{{${v}}}`).join(', ')}
+                {t('presets.detectedVariables', { vars: extractedVars.map(v => `{{${v}}}`).join(', ') })}
               </div>
             )}
           </div>
@@ -214,7 +216,7 @@ export default function PromptPresetManager() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
             >
               <Check size={14} />
-              保存
+              {t('common:save')}
             </button>
             <button
               onClick={() => {
@@ -225,7 +227,7 @@ export default function PromptPresetManager() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"
             >
               <X size={14} />
-              取消
+              {t('common:cancel')}
             </button>
           </div>
         </div>

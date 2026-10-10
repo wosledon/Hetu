@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, X } from 'lucide-react'
 import { ConfirmContext, registerGlobalConfirm, type ConfirmOptions } from './confirm'
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
   const [state, setState] = useState<ConfirmOptions | null>(null)
 
   useEffect(() => {
@@ -31,14 +33,14 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <AlertTriangle size={20} className="text-red-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{state.title || '确认操作'}</h3>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{state.title || t('ui:confirmDialog.title')}</h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{state.message}</p>
               </div>
               <button onClick={handleCancel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={handleCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700">取消</button>
-              <button onClick={handleConfirm} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">确认删除</button>
+              <button onClick={handleCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700">{t('common:cancel')}</button>
+              <button onClick={handleConfirm} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">{t('ui:confirmDialog.delete')}</button>
             </div>
           </div>
         </div>

@@ -16,10 +16,12 @@ public class WorkFilesController : ControllerBase
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<WorkProject, IWorkCommandRunner> _runnerFactory;
+    private readonly ILocalizer _localizer;
 
-    public WorkFilesController(IServiceScopeFactory scopeFactory, Func<WorkProject, IWorkCommandRunner>? runnerFactory = null)
+    public WorkFilesController(IServiceScopeFactory scopeFactory, ILocalizer localizer, Func<WorkProject, IWorkCommandRunner>? runnerFactory = null)
     {
         _scopeFactory = scopeFactory;
+        _localizer = localizer;
         _runnerFactory = runnerFactory ?? (p => p.ConnectionType == "Ssh"
             ? new SshCommandRunner(p, _ => null)
             : new LocalCommandRunner(p.RootPath));
@@ -34,17 +36,17 @@ public class WorkFilesController : ControllerBase
     public async Task<ApiResponse<List<WorkFileEntryDto>>> List(Guid projectId, [FromQuery] string? path, CancellationToken cancellationToken)
     {
         var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null) return ApiResponse<List<WorkFileEntryDto>>.Fail("项目不存在");
+        if (runner == null) return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, path ?? "");
-        if (relative == null) return ApiResponse<List<WorkFileEntryDto>>.Fail("路径超出项目范围");
+        if (relative == null) return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.pathOutOfProject"));
 
         try
         {
             if (!runner.IsRemote)
             {
                 var dir = Path.Combine(runner.RootPath, relative);
-                if (!Directory.Exists(dir)) return ApiResponse<List<WorkFileEntryDto>>.Fail("目录不存在");
+                if (!Directory.Exists(dir)) return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.dirNotFound"));
 
                 var entries = new List<WorkFileEntryDto>();
                 foreach (var d in Directory.GetDirectories(dir))
@@ -85,7 +87,7 @@ public class WorkFilesController : ControllerBase
                 var bsdcmd = $"find {quoted} -maxdepth 1 -mindepth 1 -exec stat -f '%HT\\t%z\\t%Sm\\t%N' {{}} +";
                 result = await WorkRemoteFs.RunReadOnlyAsync(runner, bsdcmd, cancellationToken);
                 if (result.ExitCode != 0)
-                    return ApiResponse<List<WorkFileEntryDto>>.Fail($"读取目录失败: {FirstLine(result.StdErr) ?? "远端命令执行失败"}");
+                    return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.readDirFailed", FirstLine(result.StdErr) ?? _localizer.T("work.remoteCommandFailed")));
             }
 
             var list = new List<WorkFileEntryDto>();
@@ -114,7 +116,7 @@ public class WorkFilesController : ControllerBase
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<WorkFileEntryDto>>.Fail($"读取目录失败: {ex.Message}");
+            return ApiResponse<List<WorkFileEntryDto>>.Fail(_localizer.T("work.readDirFailed", ex.Message));
         }
     }
 
@@ -122,17 +124,17 @@ public class WorkFilesController : ControllerBase
     public async Task<ApiResponse<WorkFileContentDto>> Read(Guid projectId, [FromQuery] string path, CancellationToken cancellationToken)
     {
         var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null) return ApiResponse<WorkFileContentDto>.Fail("项目不存在");
+        if (runner == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, path ?? "");
-        if (relative == null) return ApiResponse<WorkFileContentDto>.Fail("路径超出项目范围");
+        if (relative == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.pathOutOfProject"));
 
         try
         {
             if (!runner.IsRemote)
             {
                 var file = Path.Combine(runner.RootPath, relative);
-                if (!System.IO.File.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("文件不存在");
+                if (!System.IO.File.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.fileNotFound"));
 
                 var fi = new FileInfo(file);
                 var ext = fi.Extension.ToLowerInvariant();
@@ -153,7 +155,7 @@ public class WorkFilesController : ControllerBase
             // 远端：base64 传输避免二进制与编码问题
             var quoted = SshCommandRunner.ShellQuote(RelativeToRemotePath(runner.RootPath, relative));
             var sizeCmd = await WorkRemoteFs.RunReadOnlyAsync(runner, $"wc -c < {quoted}", cancellationToken);
-            if (sizeCmd.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail("文件不存在");
+            if (sizeCmd.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.fileNotFound"));
             var size = long.TryParse(sizeCmd.StdOut.Trim(), out var sz) ? sz : 0;
             var ext2 = Path.GetExtension(relative).ToLowerInvariant();
             var isBinary2 = BinaryExts.Contains(ext2) || size > 2 * 1024 * 1024;
@@ -168,7 +170,7 @@ public class WorkFilesController : ControllerBase
             }
 
             var b64 = await WorkRemoteFs.RunReadOnlyAsync(runner, $"base64 < {quoted}", cancellationToken);
-            if (b64.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail($"读取文件失败: {FirstLine(b64.StdErr)}");
+            if (b64.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.readFileFailed", FirstLine(b64.StdErr)));
             var content2 = Encoding.UTF8.GetString(Convert.FromBase64String(b64.StdOut.Replace("\n", "").Replace("\r", "")));
             return ApiResponse<WorkFileContentDto>.Ok(new WorkFileContentDto
             {
@@ -177,7 +179,7 @@ public class WorkFilesController : ControllerBase
         }
         catch (Exception ex)
         {
-            return ApiResponse<WorkFileContentDto>.Fail($"读取文件失败: {ex.Message}");
+            return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.readFileFailed", ex.Message));
         }
     }
 
@@ -192,7 +194,7 @@ public class WorkFilesController : ControllerBase
         if (string.IsNullOrWhiteSpace(query)) return ApiResponse<List<WorkFileSearchHitDto>>.Ok([]);
 
         var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null) return ApiResponse<List<WorkFileSearchHitDto>>.Fail("项目不存在");
+        if (runner == null) return ApiResponse<List<WorkFileSearchHitDto>>.Fail(_localizer.T("work.projectNotFound"));
 
         var max = Math.Clamp(limit <= 0 ? 60 : limit, 1, 200);
         var needle = query.Trim();
@@ -280,29 +282,29 @@ public class WorkFilesController : ControllerBase
     [HttpPut("write")]
     public async Task<ApiResponse<WorkFileContentDto>> Write(Guid projectId, [FromBody] WriteWorkFileRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Path)) return ApiResponse<WorkFileContentDto>.Fail("路径不能为空");
+        if (string.IsNullOrWhiteSpace(request.Path)) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.pathRequired"));
 
         var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null) return ApiResponse<WorkFileContentDto>.Fail("项目不存在");
+        if (runner == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.projectNotFound"));
 
         var relative = NormalizeRelative(runner.RootPath, request.Path);
-        if (relative == null) return ApiResponse<WorkFileContentDto>.Fail("路径超出项目范围");
+        if (relative == null) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.pathOutOfProject"));
 
         var content = request.Content ?? string.Empty;
-        if (content.Length > 2 * 1024 * 1024) return ApiResponse<WorkFileContentDto>.Fail("文件内容超过 2MB 限制");
+        if (content.Length > 2 * 1024 * 1024) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.fileTooLarge"));
 
         try
         {
             if (!runner.IsRemote)
             {
                 var file = Path.Combine(runner.RootPath, relative);
-                if (Directory.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail("目标路径是目录");
+                if (Directory.Exists(file)) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.targetIsDirectory"));
 
                 if (System.IO.File.Exists(file) && request.OriginalContent != null)
                 {
                     var current = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
                     if (current != request.OriginalContent)
-                        return ApiResponse<WorkFileContentDto>.Fail("文件已被其他操作修改，请重新加载后再保存");
+                        return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.fileChanged"));
                 }
 
                 var dir = Path.GetDirectoryName(file);
@@ -325,7 +327,7 @@ public class WorkFilesController : ControllerBase
                 {
                     var current = Encoding.UTF8.GetString(Convert.FromBase64String(currentCmd.StdOut.Replace("\n", "").Replace("\r", "")));
                     if (current != request.OriginalContent)
-                        return ApiResponse<WorkFileContentDto>.Fail("文件已被其他操作修改，请重新加载后再保存");
+                        return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.fileChanged"));
                 }
             }
 
@@ -334,7 +336,7 @@ public class WorkFilesController : ControllerBase
             var writeResult = await runner.RunAsync(
                 $"mkdir -p {dirQuoted} && base64 -d > {quoted}", stdin: b64, cancellationToken);
             if (writeResult.ExitCode != 0)
-                return ApiResponse<WorkFileContentDto>.Fail($"写入文件失败: {FirstLine(writeResult.StdErr)}");
+                return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.writeFileFailed", FirstLine(writeResult.StdErr)));
 
             var sizeCmd = await runner.RunAsync($"wc -c < {quoted}", cancellationToken);
             var size = long.TryParse(sizeCmd.StdOut.Trim(), out var sz2) ? sz2 : content.Length;
@@ -345,7 +347,7 @@ public class WorkFilesController : ControllerBase
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return ApiResponse<WorkFileContentDto>.Fail($"写入文件失败: {ex.Message}");
+            return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.writeFileFailed", ex.Message));
         }
     }
 

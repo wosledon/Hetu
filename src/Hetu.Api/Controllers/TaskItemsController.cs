@@ -10,10 +10,12 @@ namespace Hetu.Api.Controllers;
 public class TaskItemsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public TaskItemsController(IUnitOfWork unitOfWork)
+    public TaskItemsController(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -53,7 +55,7 @@ public class TaskItemsController : ControllerBase
     public async Task<ApiResponse> Delete(Guid id, CancellationToken ct)
     {
         var item = await _unitOfWork.TaskItems.GetByIdAsync(id, ct);
-        if (item is null) return ApiResponse.Fail("记录不存在");
+        if (item is null) return ApiResponse.Fail(_localizer.T("taskItems.notFound"));
 
         item.IsDeleted = true;
         item.UpdatedAt = DateTimeOffset.UtcNow;

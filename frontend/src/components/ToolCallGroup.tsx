@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, ChevronRight, Loader2, Wrench, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import ChatToolCallRow from './ChatToolCallRow'
 import { renderToolName, type ToolCallEntry } from '../utils/toolRendering'
 
@@ -9,9 +11,9 @@ interface ToolCallGroupProps {
   renderItem?: (item: ToolCallEntry, index: number) => ReactNode
 }
 
-const itemLabel = (item: ToolCallEntry) => {
-  if (item.kind === 'thought') return '思考'
-  if (item.kind === 'node') return `节点 · ${item.name}`
+const itemLabel = (item: ToolCallEntry, t: TFunction) => {
+  if (item.kind === 'thought') return t('shared.thinking')
+  if (item.kind === 'node') return t('tool.nodeLabel', { name: item.name })
   return renderToolName(item.name)
 }
 
@@ -20,6 +22,7 @@ const itemLabel = (item: ToolCallEntry) => {
  * 展开后按顺序列出每一条。单条过程不需要本组件，直接渲染单行即可。
  */
 export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps) {
+  const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const running = items.some((i) => i.running)
   const failed = items.some((i) => i.isError)
@@ -31,7 +34,7 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
     && tools.every((t) => t.name === tools[0].name)
   const summary = allSameTool
     ? `${renderToolName(tools[0].name)} × ${items.length}`
-    : `${itemLabel(items[0])} 等 ${items.length} 项`
+    : t('tool.summaryMixed', { first: itemLabel(items[0], t), count: items.length })
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
@@ -68,7 +71,7 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
                         name={item.name}
                         args={item.text ?? ''}
                         text={item.text ?? ''}
-                        label={item.kind === 'thought' ? '思考' : `节点 · ${item.name}`}
+                        label={item.kind === 'thought' ? t('shared.thinking') : t('tool.nodeLabel', { name: item.name })}
                       />
                     )}
                 </div>

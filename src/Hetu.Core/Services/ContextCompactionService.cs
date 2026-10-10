@@ -33,15 +33,18 @@ public class ContextCompactionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ILogger<ContextCompactionService> _logger;
+    private readonly ILocalizer _localizer;
 
     public ContextCompactionService(
         IUnitOfWork unitOfWork,
         ILLMProviderFactory llmProviderFactory,
-        ILogger<ContextCompactionService> logger)
+        ILogger<ContextCompactionService> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _logger = logger;
+        _localizer = localizer;
     }
 
     // ---------- 上下文占用 ----------
@@ -49,7 +52,7 @@ public class ContextCompactionService
     public async Task<ApiResponse<ContextUsageDto>> GetChatUsageAsync(Guid topicId, int? contextWindow, CancellationToken ct = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, ct);
-        if (topic == null) return ApiResponse<ContextUsageDto>.Fail("话题不存在");
+        if (topic == null) return ApiResponse<ContextUsageDto>.Fail(_localizer.T("chatTopic.notFound"));
 
         var messages = (await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId, ct))
             .OrderBy(m => m.CreatedAt).ToList();
@@ -66,7 +69,7 @@ public class ContextCompactionService
     public async Task<ApiResponse<ContextUsageDto>> GetWorkUsageAsync(Guid sessionId, int? contextWindow, CancellationToken ct = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
-        if (session == null) return ApiResponse<ContextUsageDto>.Fail("会话不存在");
+        if (session == null) return ApiResponse<ContextUsageDto>.Fail(_localizer.T("workSession.notFound"));
 
         var messages = (await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == sessionId && m.Type == "text", ct))
             .OrderBy(m => m.CreatedAt).ToList();
@@ -91,7 +94,7 @@ public class ContextCompactionService
     private static int ResolveWindow(int? overrideWindow, int? modelWindow)
         => overrideWindow is > 0 ? overrideWindow.Value : modelWindow is > 0 ? modelWindow.Value : 128_000;
 
-    private static ContextUsageDto BuildUsage(
+    private ContextUsageDto BuildUsage(
         int window,
         List<(Guid Id, DateTimeOffset CreatedAt, string Text, int? PromptTokens)> messages,
         string? summary,
@@ -111,9 +114,9 @@ public class ContextCompactionService
                 Used = 0,
                 Parts =
                 [
-                    new ContextUsagePartDto { Key = "system", Label = "系统提示与工具", Tokens = 0, Chars = 0 },
-                    new ContextUsagePartDto { Key = "history", Label = "历史消息", Tokens = 0, Chars = 0 },
-                    new ContextUsagePartDto { Key = "summary", Label = "上下文摘要", Tokens = 0, Chars = 0 },
+                    new ContextUsagePartDto { Key = "system", Label = _localizer.T("context.partSystem"), Tokens = 0, Chars = 0 },
+                    new ContextUsagePartDto { Key = "history", Label = _localizer.T("context.partHistory"), Tokens = 0, Chars = 0 },
+                    new ContextUsagePartDto { Key = "summary", Label = _localizer.T("context.partSummary"), Tokens = 0, Chars = 0 },
                 ],
             };
         }
@@ -145,9 +148,9 @@ public class ContextCompactionService
             SummarizedMessages = summarized,
             Parts =
             [
-                new ContextUsagePartDto { Key = "system", Label = "系统提示与工具", Tokens = systemTokens, Chars = systemTokens * LlmTokenEstimator.CharsPerToken, Estimated = usageIndex < 0 },
-                new ContextUsagePartDto { Key = "history", Label = "历史消息", Tokens = historyTokens, Chars = historyChars },
-                new ContextUsagePartDto { Key = "summary", Label = "上下文摘要", Tokens = summaryTokens, Chars = summaryChars },
+                new ContextUsagePartDto { Key = "system", Label = _localizer.T("context.partSystem"), Tokens = systemTokens, Chars = systemTokens * LlmTokenEstimator.CharsPerToken, Estimated = usageIndex < 0 },
+                new ContextUsagePartDto { Key = "history", Label = _localizer.T("context.partHistory"), Tokens = historyTokens, Chars = historyChars },
+                new ContextUsagePartDto { Key = "summary", Label = _localizer.T("context.partSummary"), Tokens = summaryTokens, Chars = summaryChars },
             ],
         };
     }
@@ -209,7 +212,7 @@ public class ContextCompactionService
         CancellationToken ct) where T : class
     {
         var entity = await load(id);
-        if (entity == null) return ApiResponse<CompactContextResultDto>.Fail("会话不存在");
+        if (entity == null) return ApiResponse<CompactContextResultDto>.Fail(_localizer.T("workSession.notFound"));
 
         var throughId = ReadThroughId(entity);
         var all = await messages(id);
@@ -221,7 +224,7 @@ public class ContextCompactionService
         var toSummarize = pending.Count > keepRecent ? pending.Take(pending.Count - keepRecent).ToList() : [];
         if (toSummarize.Count == 0)
         {
-            return ApiResponse<CompactContextResultDto>.Fail($"当前没有可压缩的历史（至少需要 {keepRecent + 1} 条文本消息）");
+            return ApiResponse<CompactContextResultDto>.Fail(_localizer.T("context.noCompressibleHistory", keepRecent + 1));
         }
 
         // 摘要模型偶发截断/空返回：重试若干次，取第一个通过长度校验的结果
@@ -244,7 +247,7 @@ public class ContextCompactionService
             }
             summary = candidate;
         }
-        if (summary == null) return ApiResponse<CompactContextResultDto>.Fail("压缩失败：模型多次返回异常结果，历史保持不变");
+        if (summary == null) return ApiResponse<CompactContextResultDto>.Fail(_localizer.T("context.compactFailed"));
 
         var lastId = toSummarize[^1].Id;
         await save(entity, summary, lastId);

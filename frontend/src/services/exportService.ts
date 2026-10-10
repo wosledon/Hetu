@@ -1,5 +1,6 @@
-const API_BASE = '/api/export';
+import i18n from '../i18n';
 
+const API_BASE = '/api/export';
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -14,7 +15,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
 export const exportService = {
   exportNotes: async () => {
     const response = await fetch(`${API_BASE}/notes`);
-    if (!response.ok) throw new Error('导出失败');
+    if (!response.ok) throw new Error(i18n.t('settings:backup.exportFailedShort'));
     const blob = await response.blob();
     const date = new Date().toISOString().slice(0, 10);
     downloadBlob(blob, `hetu-notes-${date}.zip`);
@@ -22,7 +23,7 @@ export const exportService = {
 
   backupDatabase: async () => {
     const response = await fetch(`${API_BASE}/backup`);
-    if (!response.ok) throw new Error('备份失败');
+    if (!response.ok) throw new Error(i18n.t('settings:backup.backupFailedShort'));
     const blob = await response.blob();
     const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     downloadBlob(blob, `hetu-backup-${date}.db`);
@@ -36,7 +37,7 @@ export const exportService = {
       body: formData,
     });
     const data = await response.json();
-    if (!data.success) throw new Error(data.error || '恢复失败');
+    if (!data.success) throw new Error(data.error || i18n.t('settings:backup.restoreFailedShort'));
     return data.data as string;
   },
 };

@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, Database, Upload, AlertCircle, Loader2 } from 'lucide-react'
 import { exportService } from '../services/exportService'
 
 export default function ExportBackupPanel() {
+  const { t } = useTranslation('settings')
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -12,9 +14,9 @@ export default function ExportBackupPanel() {
     setMessage(null)
     try {
       await exportService.exportNotes()
-      setMessage('笔记导出已开始')
+      setMessage(t('backup.exportStarted'))
     } catch (error) {
-      setMessage('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      setMessage(t('backup.exportFailed', { error: error instanceof Error ? error.message : t('backup.unknownError') }))
     } finally {
       setIsLoading(false)
     }
@@ -25,9 +27,9 @@ export default function ExportBackupPanel() {
     setMessage(null)
     try {
       await exportService.backupDatabase()
-      setMessage('数据库备份已开始')
+      setMessage(t('backup.backupStarted'))
     } catch (error) {
-      setMessage('备份失败：' + (error instanceof Error ? error.message : '未知错误'))
+      setMessage(t('backup.backupFailed', { error: error instanceof Error ? error.message : t('backup.unknownError') }))
     } finally {
       setIsLoading(false)
     }
@@ -43,7 +45,7 @@ export default function ExportBackupPanel() {
       const result = await exportService.restoreDatabase(file)
       setMessage(result)
     } catch (error) {
-      setMessage('恢复失败：' + (error instanceof Error ? error.message : '未知错误'))
+      setMessage(t('backup.restoreFailed', { error: error instanceof Error ? error.message : t('backup.unknownError') }))
     } finally {
       setIsLoading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -57,8 +59,8 @@ export default function ExportBackupPanel() {
           <Download size={16} />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">导出与备份</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">导出笔记、备份和恢复数据库</p>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('backup.title')}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('backup.subtitle')}</p>
         </div>
       </div>
 
@@ -73,8 +75,8 @@ export default function ExportBackupPanel() {
             <Download size={18} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">导出 Markdown</div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">将所有笔记导出为 ZIP</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('backup.exportMarkdown')}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">{t('backup.exportMarkdownDesc')}</div>
           </div>
         </button>
 
@@ -87,8 +89,8 @@ export default function ExportBackupPanel() {
             <Database size={18} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">备份数据库</div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">下载 SQLite 数据库文件</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('backup.backupDatabase')}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">{t('backup.backupDatabaseDesc')}</div>
           </div>
         </button>
       </div>
@@ -99,13 +101,13 @@ export default function ExportBackupPanel() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600 transition-transform group-hover:scale-110 dark:bg-amber-500/10 dark:text-amber-400">
             <Upload size={22} />
           </div>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">恢复数据库</h4>
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('backup.restoreDatabase')}</h4>
           <p className="mt-1 mb-4 max-w-xs text-xs text-gray-400 dark:text-gray-500">
-            上传之前的 .db 备份文件恢复数据，恢复后需要重启应用
+            {t('backup.restoreDesc')}
           </p>
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-amber-500/25 transition-all hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 active:scale-[0.98]">
             <Upload size={14} />
-            选择备份文件
+            {t('backup.chooseFile')}
             <input
               ref={fileRef}
               type="file"
@@ -115,7 +117,7 @@ export default function ExportBackupPanel() {
               className="hidden"
             />
           </label>
-          <p className="mt-2.5 text-[11px] text-gray-400 dark:text-gray-500">支持 .db 格式文件</p>
+          <p className="mt-2.5 text-[11px] text-gray-400 dark:text-gray-500">{t('backup.fileHint')}</p>
         </div>
       </div>
 
@@ -123,7 +125,7 @@ export default function ExportBackupPanel() {
       {isLoading && (
         <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
           <Loader2 size={14} className="animate-spin" />
-          <span>处理中...</span>
+          <span>{t('backup.processing')}</span>
         </div>
       )}
 

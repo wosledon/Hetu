@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Hetu.Api.Services;
+using Hetu.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hetu.Api.Controllers;
@@ -12,10 +13,12 @@ namespace Hetu.Api.Controllers;
 public class WorkTerminalController : ControllerBase
 {
     private readonly WorkTerminalManager _manager;
+    private readonly ILocalizer _localizer;
 
-    public WorkTerminalController(WorkTerminalManager manager)
+    public WorkTerminalController(WorkTerminalManager manager, ILocalizer localizer)
     {
         _manager = manager;
+        _localizer = localizer;
     }
 
     [HttpGet("{projectId:guid}/connect")]
@@ -31,7 +34,7 @@ public class WorkTerminalController : ControllerBase
         if (session == null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await HttpContext.Response.WriteAsync(error ?? "终端初始化失败", ct);
+            await HttpContext.Response.WriteAsync(error ?? _localizer.T("work.terminalInitFailed"), ct);
             return;
         }
 

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
+import { useTranslation } from 'react-i18next'
 import MainChatEntry from './MainChatEntry'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
@@ -84,6 +85,7 @@ function GroupNode({
   onOpenTopicMenu: (e: React.MouseEvent, topic: IChatTopic) => void
 }) {
   const queryClient = useQueryClient()
+  const { t } = useTranslation('chat')
   const [expandedOverride, setExpandedOverride] = useState<{ key: string | null; expanded: boolean } | null>(null)
   // 组仅在"被选为当前组但尚未选中具体话题"时聚焦；一旦选中话题，焦点移到叶子节点
   const isGroupFocused = selectedGroupId === group.id && !selectedTopicId
@@ -135,7 +137,7 @@ function GroupNode({
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded(true); createTopic.mutate({ groupId: group.id, title: '' }) }}
-          title="新建话题"
+          title={t('tree.newTopic')}
           className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
         >
           <Plus size={13} />
@@ -158,13 +160,13 @@ function GroupNode({
               >
                 <MessageSquare size={12} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
                 <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {topic.title || '新话题'}
+                  {topic.title || t('tree.newTopicFallback')}
                 </span>
               </div>
             )
           })}
           {filtered.length === 0 && (
-            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '42px' }}>空</div>
+            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '42px' }}>{t('tree.empty')}</div>
           )}
         </div>
       )}
@@ -182,6 +184,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   onDeleteTopic, embedded, search = '', hideMainChat,
 }, ref) {
   const queryClient = useQueryClient()
+  const { t } = useTranslation('chat')
   const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
@@ -261,7 +264,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
                 if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
               }}
               onBlur={handleCreateGroup}
-              placeholder="会话组名称"
+              placeholder={t('tree.groupNamePlaceholder')}
               className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
             />
           </div>
@@ -279,7 +282,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
           />
         ))}
         {filteredGroups.length === 0 && (
-          <div className="py-8 text-center text-xs text-gray-400">暂无会话组</div>
+          <div className="py-8 text-center text-xs text-gray-400">{t('tree.noGroups')}</div>
         )}
       </div>
 
@@ -308,16 +311,16 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
               >
                 <Pencil size={13} />
-                重命名
+                {t('common:rename')}
               </button>
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
             <button
-              onClick={() => { closeTopicMenu(); confirm({ message: '确定删除这个话题吗？', onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}
+              onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
             >
               <Trash2 size={13} />
-              删除
+              {t('common:delete')}
             </button>
           </div>
         </>,

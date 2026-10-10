@@ -11,12 +11,14 @@ public class SkillService : ISkillService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ILocalizer _localizer;
 
-    public SkillService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder)
+    public SkillService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _usageRecorder = usageRecorder;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<SkillDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -29,21 +31,21 @@ public class SkillService : ISkillService
     public async Task<ApiResponse<SkillDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var skill = await _unitOfWork.Skills.GetByIdAsync(id, cancellationToken);
-        if (skill == null) return ApiResponse<SkillDto>.Fail("Skill 不存在");
+        if (skill == null) return ApiResponse<SkillDto>.Fail(_localizer.T("skill.notFound"));
         return ApiResponse<SkillDto>.Ok(Map(skill));
     }
 
     public async Task<ApiResponse<SkillDto>> CreateAsync(CreateSkillRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Description))
-            return ApiResponse<SkillDto>.Fail("名称和描述不能为空");
+            return ApiResponse<SkillDto>.Fail(_localizer.T("skill.nameAndDescriptionRequired"));
 
         var skill = new Skill
         {
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Description = request.Description.Trim(),
-            Category = string.IsNullOrWhiteSpace(request.Category) ? "自定义" : request.Category.Trim(),
+            Category = string.IsNullOrWhiteSpace(request.Category) ? _localizer.T("common.custom") : request.Category.Trim(),
             Config = request.Config,
             IsBuiltIn = false,
             IsEnabled = true,
@@ -59,8 +61,8 @@ public class SkillService : ISkillService
     public async Task<ApiResponse<SkillDto>> UpdateAsync(Guid id, UpdateSkillRequest request, CancellationToken cancellationToken = default)
     {
         var skill = await _unitOfWork.Skills.GetByIdAsync(id, cancellationToken);
-        if (skill == null) return ApiResponse<SkillDto>.Fail("Skill 不存在");
-        if (skill.IsBuiltIn) return ApiResponse<SkillDto>.Fail("内置 Skill 不能编辑");
+        if (skill == null) return ApiResponse<SkillDto>.Fail(_localizer.T("skill.notFound"));
+        if (skill.IsBuiltIn) return ApiResponse<SkillDto>.Fail(_localizer.T("skill.builtInCannotEdit"));
 
         skill.Name = string.IsNullOrWhiteSpace(request.Name) ? skill.Name : request.Name.Trim();
         skill.Description = string.IsNullOrWhiteSpace(request.Description) ? skill.Description : request.Description.Trim();
@@ -78,8 +80,8 @@ public class SkillService : ISkillService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var skill = await _unitOfWork.Skills.GetByIdAsync(id, cancellationToken);
-        if (skill == null) return ApiResponse.Fail("Skill 不存在");
-        if (skill.IsBuiltIn) return ApiResponse.Fail("内置 Skill 不能删除");
+        if (skill == null) return ApiResponse.Fail(_localizer.T("skill.notFound"));
+        if (skill.IsBuiltIn) return ApiResponse.Fail(_localizer.T("skill.builtInCannotDelete"));
 
         await _unitOfWork.Skills.DeleteAsync(skill, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -89,7 +91,7 @@ public class SkillService : ISkillService
     public async Task<ApiResponse<string>> InvokeAsync(string nameOrId, InvokeSkillRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(nameOrId))
-            return ApiResponse<string>.Fail("Skill 名称或 ID 不能为空");
+            return ApiResponse<string>.Fail(_localizer.T("skill.nameOrIdRequired"));
 
         Skill? skill = null;
         if (Guid.TryParse(nameOrId, out var id))
@@ -102,8 +104,8 @@ public class SkillService : ISkillService
             skill = (await _unitOfWork.Skills.FindAsync(s => s.Name == nameOrId, cancellationToken)).FirstOrDefault();
         }
 
-        if (skill == null) return ApiResponse<string>.Fail($"Skill '{nameOrId}' 不存在");
-        if (!skill.IsEnabled) return ApiResponse<string>.Fail($"Skill '{skill.Name}' 已禁用");
+        if (skill == null) return ApiResponse<string>.Fail(_localizer.T("skill.notFoundByName", nameOrId));
+        if (!skill.IsEnabled) return ApiResponse<string>.Fail(_localizer.T("skill.disabled", skill.Name));
 
         return await InvokeSkillAsync(skill, request.Input, cancellationToken);
     }
@@ -111,16 +113,16 @@ public class SkillService : ISkillService
     public async Task<ApiResponse<string>> InvokeByIdAsync(Guid id, InvokeSkillRequest request, CancellationToken cancellationToken = default)
     {
         var skill = await _unitOfWork.Skills.GetByIdAsync(id, cancellationToken);
-        if (skill == null) return ApiResponse<string>.Fail("Skill 不存在");
-        if (!skill.IsEnabled) return ApiResponse<string>.Fail($"Skill '{skill.Name}' 已禁用");
+        if (skill == null) return ApiResponse<string>.Fail(_localizer.T("skill.notFound"));
+        if (!skill.IsEnabled) return ApiResponse<string>.Fail(_localizer.T("skill.disabled", skill.Name));
 
         return await InvokeSkillAsync(skill, request.Input, cancellationToken);
     }
 
     public Task<ApiResponse<string>> InvokeLocalAsync(LocalSkillDto skill, string input, CancellationToken cancellationToken = default)
     {
-        if (skill == null) return Task.FromResult(ApiResponse<string>.Fail("本地技能不存在"));
-        if (!skill.IsEnabled) return Task.FromResult(ApiResponse<string>.Fail($"本地技能 '{skill.Name}' 已禁用"));
+        if (skill == null) return Task.FromResult(ApiResponse<string>.Fail(_localizer.T("skill.localNotFound")));
+        if (!skill.IsEnabled) return Task.FromResult(ApiResponse<string>.Fail(_localizer.T("skill.localDisabled", skill.Name)));
         return InvokeWithConfigAsync(skill.Config, input, cancellationToken);
     }
 
@@ -133,7 +135,7 @@ public class SkillService : ISkillService
         var prompt = promptTemplate.Replace("{{input}}", input);
 
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null) return ApiResponse<string>.Fail("未找到可用的对话模型");
+        if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
         var result = await provider.ChatAsync(
             [new LlmChatMessage { Role = "user", Content = prompt }],
@@ -158,7 +160,7 @@ public class SkillService : ISkillService
         var prompt = promptTemplate.Replace("{{input}}", input);
 
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null) return ApiResponse<string>.Fail("未找到可用的对话模型");
+        if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
         var result = await provider.ChatAsync(
             [new LlmChatMessage { Role = "user", Content = prompt }],

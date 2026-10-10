@@ -1,0 +1,22 @@
+/** 后端工具分组名（中文值，同时是 load_tools 的分组标识）→ 界面展示名 */
+export default {
+  general: '通用',
+  notes: '笔记',
+  notebooks: '笔记本',
+  tags: '标签',
+  knowledge: '知识库',
+  graph: '知识图谱',
+  memories: '记忆',
+  web: '联网',
+  projects: '项目',
+  kanban: '任务看板',
+  workflows: '工作流',
+  agents: '智能体',
+  skills: '技能',
+  scheduled: '定时任务',
+  inbox: '收件箱',
+  usage: '用量',
+  wiki: 'Wiki',
+  workspace: '工作区与命令',
+  other: '其他',
+}

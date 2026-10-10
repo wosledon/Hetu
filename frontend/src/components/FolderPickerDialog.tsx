@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, Folder, FolderOpen, HardDrive, Home, Loader2, CornerLeftUp, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { systemService } from '../services/systemService'
@@ -15,7 +16,9 @@ interface FolderPickerDialogProps {
  * 前端目录选择器：面包屑 + 目录列表，纯前端交互（后端只提供目录列举）。
  * 双击进入子目录，单击选中，确定返回当前路径。
  */
-export default function FolderPickerDialog({ initialPath, title = '选择目录', onClose, onPick }: FolderPickerDialogProps) {
+export default function FolderPickerDialog({ initialPath, title, onClose, onPick }: FolderPickerDialogProps) {
+  const { t } = useTranslation()
+  const dialogTitle = title ?? t('ui:folderPicker.title')
   const [path, setPath] = useState(initialPath ?? '')
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -54,7 +57,7 @@ export default function FolderPickerDialog({ initialPath, title = '选择目录'
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
               <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
             </div>
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{title}</h3>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{dialogTitle}</h3>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
         </div>
@@ -62,10 +65,10 @@ export default function FolderPickerDialog({ initialPath, title = '选择目录'
         {/* 面包屑 */}
         <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-gray-100 px-4 py-2 text-[12px] dark:border-gray-700">
           {isRootList ? (
-            <span className="text-gray-400">此电脑</span>
+            <span className="text-gray-400">{t('ui:folderPicker.thisPc')}</span>
           ) : (
             <>
-              <button onClick={() => open('')} className="shrink-0 rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="此电脑">
+              <button onClick={() => open('')} className="shrink-0 rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title={t('ui:folderPicker.thisPc')}>
                 <HardDrive size={13} />
               </button>
               {crumbs.map((c, i) => (
@@ -98,7 +101,7 @@ export default function FolderPickerDialog({ initialPath, title = '选择目录'
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   <CornerLeftUp size={14} className="shrink-0" />
-                  上级目录
+                  {t('ui:folderPicker.parent')}
                 </button>
               )}
               {isRootList && (
@@ -107,11 +110,11 @@ export default function FolderPickerDialog({ initialPath, title = '选择目录'
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <Home size={14} className="shrink-0" />
-                  主目录
+                  {t('ui:folderPicker.home')}
                 </button>
               )}
               {(data?.dirs.length ?? 0) === 0 && !isLoading && (
-                <div className="py-10 text-center text-xs text-gray-400">没有子目录</div>
+                <div className="py-10 text-center text-xs text-gray-400">{t('ui:folderPicker.empty')}</div>
               )}
               {data?.dirs.map((d) => (
                 <button
@@ -138,19 +141,19 @@ export default function FolderPickerDialog({ initialPath, title = '选择目录'
           <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900">
             <Folder size={13} className="shrink-0 text-amber-500" />
             <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300" title={selected ?? current}>
-              {selected ?? current ?? '请选择目录'}
+              {selected ?? current ?? t('ui:folderPicker.pickHint')}
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={onClose} className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
-              取消
+              {t('common:cancel')}
             </button>
             <button
               onClick={() => onPick(selected ?? current)}
               disabled={!selected && !current}
               className="rounded-lg bg-amber-500 px-4 py-1.5 text-[13px] font-medium text-white hover:bg-amber-600 disabled:opacity-40"
             >
-              选择当前目录
+              {t('ui:folderPicker.pickCurrent')}
             </button>
           </div>
         </div>

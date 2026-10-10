@@ -1,4 +1,5 @@
 using Hetu.Api.Services;
+using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -10,10 +11,12 @@ namespace Hetu.Api.Controllers;
 public class WorkGitController : ControllerBase
 {
     private readonly WorkGitService _gitService;
+    private readonly ILocalizer _localizer;
 
-    public WorkGitController(WorkGitService gitService)
+    public WorkGitController(WorkGitService gitService, ILocalizer localizer)
     {
         _gitService = gitService;
+        _localizer = localizer;
     }
 
     /// <summary>仓库状态：当前分支与未提交变更列表</summary>
@@ -25,12 +28,12 @@ public class WorkGitController : ControllerBase
     [HttpGet("file")]
     public async Task<ApiResponse<WorkGitFileContentDto>> GetFileContent(Guid id, [FromQuery] string path, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path)) return ApiResponse<WorkGitFileContentDto>.Fail("缺少文件路径");
+        if (string.IsNullOrWhiteSpace(path)) return ApiResponse<WorkGitFileContentDto>.Fail(_localizer.T("work.pathMissing"));
         try
         {
             var content = await _gitService.GetFileContentAsync(id, path, cancellationToken);
             return content == null
-                ? ApiResponse<WorkGitFileContentDto>.Fail("项目不存在")
+                ? ApiResponse<WorkGitFileContentDto>.Fail(_localizer.T("work.projectNotFound"))
                 : ApiResponse<WorkGitFileContentDto>.Ok(content);
         }
         catch (InvalidOperationException ex)

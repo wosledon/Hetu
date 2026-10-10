@@ -41,6 +41,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private readonly InboxService _inbox;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<KanbanTaskExecutor> _logger;
+    private readonly ILocalizer _localizer;
 
     public KanbanTaskExecutor(
         IUnitOfWork unitOfWork,
@@ -50,7 +51,8 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
         ILlmUsageRecorder usageRecorder,
-        ILogger<KanbanTaskExecutor> logger)
+        ILogger<KanbanTaskExecutor> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _taskQueue = taskQueue;
@@ -60,6 +62,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         _inbox = inbox;
         _usageRecorder = usageRecorder;
         _logger = logger;
+        _localizer = localizer;
     }
 
     /// <summary>入队执行；无智能体/工作流或已排队中的任务不会重复入队</summary>
@@ -100,7 +103,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         if (task.Status == KanbanTaskStatuses.Todo)
         {
             await MoveStatusAsync(task, KanbanTaskStatuses.InProgress, null, cancellationToken);
-            await AddCommentAsync(task, "System", "系统", "任务已进入待办，自动开始处理。", null, cancellationToken);
+            await AddCommentAsync(task, "System", _localizer.T("kanban.systemAuthor"), _localizer.T("kanban.autoStartedComment"), null, cancellationToken);
         }
 
         var (projectName, rootPath, projectId, runner, diagnosticsCommand) = await ResolveWorkScopeAsync(task, cancellationToken);
@@ -113,7 +116,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             : null;
 
         var kind = task.WorkflowId != null ? "Workflow" : "Agent";
-        var executorLabel = workflowName ?? agentName ?? "执行器";
+        var executorLabel = workflowName ?? agentName ?? _localizer.T("kanban.executorLabel");
         var run = new KanbanTaskRun
         {
             Id = Guid.NewGuid(),
@@ -161,7 +164,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                     // 工作流引擎把异常转为 Failed 结果，提问前缀原样带回
                     if (KanbanTaskQuestionPendingException.TryParse(result.Error, out var pendingInWorkflow))
                         throw new KanbanTaskQuestionPendingException(pendingInWorkflow);
-                    throw new InvalidOperationException(result.Error ?? "工作流执行失败");
+                    throw new InvalidOperationException(result.Error ?? _localizer.T("kanban.workflowFailed"));
                 }
                 output = result.Output ?? "";
             }
@@ -173,7 +176,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 if (task.AgentId != null)
                 {
                     var preset = await _unitOfWork.PromptPresets.GetByIdAsync(task.AgentId.Value, cancellationToken)
-                        ?? throw new InvalidOperationException("智能体不存在");
+                        ?? throw new InvalidOperationException(_localizer.T("kanban.agentNotFound"));
                     systemPrompt = preset.Content;
                     tools = ParseTools(preset.ToolsConfig);
                 }
@@ -231,7 +234,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             }
 
             if (string.IsNullOrWhiteSpace(output))
-                throw new InvalidOperationException("执行未产生任何输出");
+                throw new InvalidOperationException(_localizer.T("kanban.noOutput"));
 
             run.Status = "Succeeded";
             run.Output = output;
@@ -244,7 +247,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             await MoveStatusAsync(task, KanbanTaskStatuses.InReview, null, cancellationToken);
 
             await NotifyAsync(task, InboxLevels.Success,
-                $"任务「{task.Title}」已完成处理，等待审核",
+                _localizer.T("kanban.completedPendingReview", task.Title),
                 Truncate(output, 500), cancellationToken);
         }
         catch (KanbanTaskQuestionPendingException pending)
@@ -259,10 +262,10 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
 
             await AddCommentAsync(task, kind == "Workflow" ? "Workflow" : "Agent", executorLabel, pending.Question, run.Id, cancellationToken);
             await MoveStatusAsync(task, KanbanTaskStatuses.Blocked,
-                Truncate($"等待你的回答：{FirstLine(pending.Question)}", 200), cancellationToken);
+                Truncate(_localizer.T("kanban.waitingAnswer", FirstLine(pending.Question)), 200), cancellationToken);
 
             await NotifyAsync(task, InboxLevels.Warning,
-                $"任务「{task.Title}」需要你的回答",
+                _localizer.T("kanban.needAnswer", task.Title),
                 Truncate(pending.Question, 500), cancellationToken);
         }
         catch (Exception ex)
@@ -275,11 +278,11 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             run.UpdatedAt = run.CompletedAt.Value;
             await _unitOfWork.KanbanTaskRuns.UpdateAsync(run, cancellationToken);
 
-            await AddCommentAsync(task, "System", "系统", $"执行失败：{ex.Message}", run.Id, cancellationToken);
+            await AddCommentAsync(task, "System", _localizer.T("kanban.systemAuthor"), _localizer.T("kanban.commentFailed", ex.Message), run.Id, cancellationToken);
             await MoveStatusAsync(task, KanbanTaskStatuses.Blocked, Truncate(ex.Message, 200), cancellationToken);
 
             await NotifyAsync(task, InboxLevels.Error,
-                $"任务「{task.Title}」执行失败",
+                _localizer.T("kanban.taskFailed", task.Title),
                 Truncate(ex.Message, 500), cancellationToken);
         }
 
@@ -442,7 +445,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     }
 
     /// <summary>从 ask_question 参数中提取可读的问题文本（Markdown）</summary>
-    private static string ExtractQuestionText(string? argumentsJson)
+    private string ExtractQuestionText(string? argumentsJson)
     {
         if (!string.IsNullOrWhiteSpace(argumentsJson))
         {
@@ -475,13 +478,13 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             {
             }
         }
-        return string.IsNullOrWhiteSpace(argumentsJson) ? "智能体提出了一个问题" : argumentsJson!;
+        return string.IsNullOrWhiteSpace(argumentsJson) ? _localizer.T("kanban.agentAskedQuestion") : argumentsJson!;
     }
 
-    private static string FirstLine(string text)
+    private string FirstLine(string text)
     {
         var line = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
-        return string.IsNullOrEmpty(line) ? "智能体提出了一个问题" : line;
+        return string.IsNullOrEmpty(line) ? _localizer.T("kanban.agentAskedQuestion") : line;
     }
 
     /// <summary>解析执行作用域：优先关联的 Code 工作项目，其次项目管理登记的目录</summary>

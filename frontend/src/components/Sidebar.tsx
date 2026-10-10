@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   Trash2,
   Plus,
@@ -29,6 +30,7 @@ function NotebookTreeItem({
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
   const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
   const isSelected = selectedNotebookId === notebook.id
@@ -54,7 +56,7 @@ function NotebookTreeItem({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => notebookService.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-    onError: (err: Error) => alert(err.message || '删除笔记本失败'),
+    onError: (err: Error) => alert(err.message || t('notebook.deleteFailed')),
   })
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -84,7 +86,7 @@ function NotebookTreeItem({
   }
 
   const handleDelete = () => {
-    confirm({ message: `确定删除笔记本「${notebook.name}」吗？其中的笔记将变为未分类。`, onConfirm: () => deleteMutation.mutate(notebook.id) })
+    confirm({ message: t('notebook.deleteConfirm', { name: notebook.name }), onConfirm: () => deleteMutation.mutate(notebook.id) })
   }
 
   return (
@@ -170,7 +172,7 @@ function NotebookTreeItem({
               }
             }}
             onBlur={handleCreateChild}
-            placeholder="新笔记本名称"
+            placeholder={t('notebook.namePlaceholder')}
             className="flex-1 min-w-0 text-sm px-1 py-0.5 bg-white dark:bg-gray-800 border border-indigo-300 rounded outline-none"
           />
         </div>
@@ -197,14 +199,14 @@ function NotebookTreeItem({
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Plus size={14} />
-            新建子笔记本
+            {t('notebook.newChild')}
           </button>
           <button
             onClick={() => { closeMenu(); setDraftName(notebook.name); setIsRenaming(true) }}
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Pencil size={14} />
-            重命名
+            {t('common:rename')}
           </button>
           <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
           <button
@@ -212,7 +214,7 @@ function NotebookTreeItem({
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 size={14} />
-            删除
+            {t('common:delete')}
           </button>
         </div>,
         document.body
@@ -224,6 +226,7 @@ function NotebookTreeItem({
 export default function Sidebar() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
   const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
   const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
@@ -267,12 +270,12 @@ export default function Sidebar() {
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            笔记本
+            {t('notebook.label')}
             <span className="font-normal normal-case tracking-normal text-gray-300 dark:text-gray-600">{totalNotebooks}</span>
           </h2>
           <button
             onClick={() => setIsAddingRoot(true)}
-            title="新建笔记本"
+            title={t('notebook.new')}
             className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
           >
             <Plus size={14} />
@@ -294,7 +297,7 @@ export default function Sidebar() {
                   }
                 }}
                 onBlur={handleCreateRoot}
-                placeholder="新笔记本名称"
+                placeholder={t('notebook.namePlaceholder')}
                 className="min-w-0 flex-1 rounded-md border border-blue-300 bg-white px-2 py-0.5 text-sm outline-none dark:bg-gray-800"
               />
             </div>
@@ -315,7 +318,7 @@ export default function Sidebar() {
             {isDefaultSelected
               ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
               : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>默认笔记本</span>
+            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{t('notebook.default')}</span>
           </div>
           {/* 其他笔记本 */}
           {notebooks.map((notebook) => (
@@ -334,15 +337,15 @@ export default function Sidebar() {
               navigate('/')
             }}
             className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:text-blue-500"
-            title="查看全部笔记"
+            title={t('sidebar.viewAllNotes')}
           >
             <FileText size={11} />
-            {totalNotes} 篇笔记
+            {t('sidebar.notesCount', { n: totalNotes })}
           </button>
           <span className="h-2.5 w-px bg-gray-200 dark:bg-gray-700" />
           <span className="flex items-center gap-1">
             <Folder size={11} />
-            {totalNotebooks} 个笔记本
+            {t('sidebar.notebooksCount', { n: totalNotebooks })}
           </span>
         </div>
       </div>

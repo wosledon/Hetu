@@ -1,4 +1,5 @@
 import { Brain } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import AgentToolbarSelect from './AgentToolbarSelect'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
 
@@ -32,11 +33,13 @@ export default function AgentReasoningSelect({
   enabled = false,
   onEnabledChange,
 }: AgentReasoningSelectProps) {
+  const { t } = useTranslation('agent')
+
   if (reasoningMode === 'tag') {
     return (
       <button
         onClick={() => onEnabledChange?.(!enabled)}
-        title="深度思考"
+        title={t('reasoning.toggle')}
         className={`flex h-[26px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
           enabled
             ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
@@ -44,7 +47,7 @@ export default function AgentReasoningSelect({
         }`}
       >
         <Brain size={13} />
-        深度思考
+        {t('reasoning.toggle')}
       </button>
     )
   }
@@ -55,10 +58,10 @@ export default function AgentReasoningSelect({
     <AgentToolbarSelect
       value={value}
       onChange={onChange}
-      title="推理强度"
+      title={t('reasoning.effort')}
       options={[
-        { value: '', label: '模型默认' },
-        ...reasoningEffortOptions(model).map((l) => ({ value: l, label: `${reasoningEffortLabel(l)}强度` })),
+        { value: '', label: t('reasoning.modelDefault') },
+        ...reasoningEffortOptions(model).map((l) => ({ value: l, label: t('reasoning.effortLevel', { label: reasoningEffortLabel(l) }) })),
       ]}
     />
   )

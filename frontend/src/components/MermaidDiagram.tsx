@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react'
 import { fitMermaidLabels } from '../utils/mermaidTheme'
 
@@ -22,6 +23,7 @@ interface MermaidDiagramProps {
  * 工具条独立成行置于图表上方，避免遮住节点；变换只作用于内层 canvas。
  */
 export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
+  const { t } = useTranslation('knowledge')
   const cardRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
@@ -179,20 +181,20 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
       {/* 工具条独立成行：不遮图表内容，全屏时随容器一起放大 */}
       <div className="mermaid-toolbar">
         <span className="mermaid-zoom-label tabular-nums">{Math.round(scale * 100)}%</span>
-        <button className={buttonClass} onClick={() => zoomBy(1 / ZOOM_STEP)} title="缩小" aria-label="缩小">
+        <button className={buttonClass} onClick={() => zoomBy(1 / ZOOM_STEP)} title={t('mermaid.zoomOut')} aria-label={t('mermaid.zoomOut')}>
           <Minus size={13} />
         </button>
-        <button className={buttonClass} onClick={() => zoomBy(ZOOM_STEP)} title="放大" aria-label="放大">
+        <button className={buttonClass} onClick={() => zoomBy(ZOOM_STEP)} title={t('mermaid.zoomIn')} aria-label={t('mermaid.zoomIn')}>
           <Plus size={13} />
         </button>
-        <button className={buttonClass} onClick={fitNow} title="适应视图" aria-label="适应视图">
+        <button className={buttonClass} onClick={fitNow} title={t('mermaid.fitView')} aria-label={t('mermaid.fitView')}>
           <RotateCcw size={13} />
         </button>
         <button
           className={buttonClass}
           onClick={toggleFullscreen}
-          title={isFullscreen ? '退出全屏（Esc）' : '全屏查看'}
-          aria-label={isFullscreen ? '退出全屏' : '全屏查看'}
+          title={isFullscreen ? t('mermaid.exitFullscreenEsc') : t('mermaid.fullscreen')}
+          aria-label={isFullscreen ? t('mermaid.exitFullscreen') : t('mermaid.fullscreen')}
         >
           {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
         </button>
@@ -206,7 +208,7 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
         onPointerCancel={endPan}
         onDoubleClick={() => zoomBy(ZOOM_STEP)}
         className={`mermaid-viewer ${panning ? 'is-panning' : ''}`}
-        title="拖拽移动 · Ctrl/⌘ + 滚轮缩放 · 双击放大"
+        title={t('mermaid.panHint')}
       >
         <div
           className="mermaid-canvas"

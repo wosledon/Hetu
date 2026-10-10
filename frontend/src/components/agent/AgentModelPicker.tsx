@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Cpu, Search } from 'lucide-react'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
 import { segmentButtonClass } from '../../utils/styles'
@@ -59,8 +60,10 @@ export default function AgentModelPicker({
   onEffortChange,
   contextWindow,
   onContextWindowChange,
-  placeholder = '模型',
+  placeholder,
 }: AgentModelPickerProps) {
+  const { t } = useTranslation('agent')
+  const modelLabel = placeholder ?? t('modelPicker.model')
   // 独立面板：模型列表 / 推理强度 / 上下文大小
   const [menu, setMenu] = useState<'model' | 'effort' | 'context' | null>(null)
   // 手动切换过的供应商 tab；未手动切换时跟随当前模型所在供应商
@@ -138,8 +141,8 @@ export default function AgentModelPicker({
   }
 
   const triggerTitle = [
-    current?.displayName ?? placeholder,
-    currentEffort ? `${reasoningEffortLabel(currentEffort)}强度` : null,
+    current?.displayName ?? modelLabel,
+    currentEffort ? t('reasoning.effortLevel', { label: reasoningEffortLabel(currentEffort) }) : null,
     currentCtxK ? formatK(currentCtxK) : null,
   ].filter(Boolean).join(' · ')
 
@@ -155,7 +158,7 @@ export default function AgentModelPicker({
           }}
           className={segmentItemClass(selected ? effort === l : l === '')}
         >
-          {l ? `${reasoningEffortLabel(l)}强度` : '默认'}
+          {l ? t('reasoning.effortLevel', { label: reasoningEffortLabel(l) }) : t('common:default')}
         </button>
       ))}
     </div>
@@ -174,7 +177,7 @@ export default function AgentModelPicker({
               if (!selected) onModelChange(target.id)
               onContextWindowChange(isMax ? undefined : k * 1000)
             }}
-            title={isMax ? '模型支持的上限' : `限制为 ${formatK(k)}`}
+            title={isMax ? t('modelPicker.contextMax') : t('modelPicker.contextLimit', { value: formatK(k) })}
             className={segmentItemClass(active)}
           >
             {formatK(k)}
@@ -200,15 +203,15 @@ export default function AgentModelPicker({
       <div className="flex items-center gap-0.5">
         <button onClick={() => toggleMenu('model')} title={triggerTitle} className={triggerSegmentClass(menu === 'model')}>
           <Cpu size={14} className="shrink-0" />
-          <span className="max-w-40 truncate">{current?.displayName ?? placeholder}</span>
+          <span className="max-w-40 truncate">{current?.displayName ?? modelLabel}</span>
           <ChevronDown size={10} className="shrink-0" />
         </button>
 
         {currentEffort && (
           <>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('effort')} title="推理强度" className={triggerSegmentClass(menu === 'effort')}>
-              {reasoningEffortLabel(currentEffort)}强度
+            <button onClick={() => toggleMenu('effort')} title={t('reasoning.effort')} className={triggerSegmentClass(menu === 'effort')}>
+              {t('reasoning.effortLevel', { label: reasoningEffortLabel(currentEffort) })}
             </button>
           </>
         )}
@@ -216,7 +219,7 @@ export default function AgentModelPicker({
         {currentCtxK && (
           <>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('context')} title="上下文大小" className={triggerSegmentClass(menu === 'context')}>
+            <button onClick={() => toggleMenu('context')} title={t('modelPicker.context')} className={triggerSegmentClass(menu === 'context')}>
               {formatK(currentCtxK)}
             </button>
           </>
@@ -261,13 +264,13 @@ export default function AgentModelPicker({
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="搜索模型..."
+                  placeholder={t('modelPicker.search')}
                   className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-6 pr-2 text-[12px] outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900/60 dark:focus:border-indigo-500"
                 />
               </div>
 
               <div className="max-h-80 min-h-56 overflow-y-auto p-1.5">
-                {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">暂无模型</div>}
+                {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">{t('modelPicker.empty')}</div>}
                 {visibleModels.map((m) => {
                   const selected = m.id === effectiveModelId
                   return (
@@ -301,26 +304,26 @@ export default function AgentModelPicker({
           <div ref={flyoutRef} className="relative ml-2 w-56 shrink-0">
             <div className="absolute inset-x-0 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" style={{ top: flyoutTop }}>
               {!flyoutModel ? (
-                <div className="text-[11px] text-gray-400">选择一个模型后可调整推理强度与上下文</div>
+                <div className="text-[11px] text-gray-400">{t('modelPicker.pickModelHint')}</div>
               ) : (
                 <div className="flex flex-col gap-2.5">
                   <div className={panelTitleClass}>{flyoutModel.displayName}</div>
 
                   {flyoutModel.reasoningMode === 'native' && (
                     <div>
-                      <div className={groupTitleClass}>推理强度</div>
+                      <div className={groupTitleClass}>{t('reasoning.effort')}</div>
                       {effortGroup(flyoutModel, flyoutSelected)}
                     </div>
                   )}
 
                   {flyoutModel.reasoningMode === 'tag' && (
-                    <div className="text-[10px] text-gray-400">该模型用「深度思考」开关控制推理</div>
+                    <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>
                   )}
 
                   <div>
-                    <div className={groupTitleClass}>上下文大小</div>
+                    <div className={groupTitleClass}>{t('modelPicker.context')}</div>
                     {contextGroup(flyoutModel, flyoutSelected)}
-                    <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">只能向下选择；默认用模型支持的上限。</p>
+                    <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
                   </div>
                 </div>
               )}
@@ -334,11 +337,11 @@ export default function AgentModelPicker({
           <div className={panelTitleClass}>{current.displayName}</div>
           {current.reasoningMode === 'native' ? (
             <>
-              <div className={groupTitleClass}>推理强度</div>
+              <div className={groupTitleClass}>{t('reasoning.effort')}</div>
               {effortGroup(current, true)}
             </>
           ) : (
-            <div className="text-[10px] text-gray-400">该模型用「深度思考」开关控制推理</div>
+            <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>
           )}
         </div>
       )}
@@ -346,9 +349,9 @@ export default function AgentModelPicker({
       {menu === 'context' && current && (
         <div className={`${panelClass} w-64`}>
           <div className={panelTitleClass}>{current.displayName}</div>
-          <div className={groupTitleClass}>上下文大小</div>
+          <div className={groupTitleClass}>{t('modelPicker.context')}</div>
           {contextGroup(current, true)}
-          <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">只能向下选择；默认用模型支持的上限。</p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
         </div>
       )}
     </div>

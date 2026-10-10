@@ -1,3 +1,4 @@
+using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
@@ -13,10 +14,12 @@ namespace Hetu.Api.Controllers;
 public class ProxyConfigController : ControllerBase
 {
     private readonly ProxyConfigService _config;
+    private readonly ILocalizer _localizer;
 
-    public ProxyConfigController(ProxyConfigService config)
+    public ProxyConfigController(ProxyConfigService config, ILocalizer localizer)
     {
         _config = config;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -31,9 +34,9 @@ public class ProxyConfigController : ControllerBase
     public async Task<ApiResponse<ProxyConfigDto>> Save([FromBody] ProxyConfigDto dto, CancellationToken ct)
     {
         if (dto.Mode != "route" && dto.Mode != "shadow")
-            return ApiResponse<ProxyConfigDto>.Fail("mode 必须是 route 或 shadow");
+            return ApiResponse<ProxyConfigDto>.Fail(_localizer.T("proxyConfig.invalidMode"));
         if (string.IsNullOrWhiteSpace(dto.ModelKey))
-            return ApiResponse<ProxyConfigDto>.Fail("模型 ID 不能为空");
+            return ApiResponse<ProxyConfigDto>.Fail(_localizer.T("proxyConfig.modelKeyRequired"));
 
         await _config.SaveAsync(dto, ct);
         return ApiResponse<ProxyConfigDto>.Ok(dto);

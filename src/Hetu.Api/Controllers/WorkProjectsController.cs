@@ -18,6 +18,7 @@ public class WorkProjectsController : ControllerBase
     private readonly IWorkCodeIndexService _codeIndexService;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
     private readonly ILogger<WorkProjectsController> _logger;
+    private readonly ILocalizer _localizer;
 
     public WorkProjectsController(
         IWorkProjectService projectService,
@@ -25,7 +26,8 @@ public class WorkProjectsController : ControllerBase
         IWorkApprovalRuleService approvalRuleService,
         IWorkCodeIndexService codeIndexService,
         IWorkCommandRunnerFactory commandRunnerFactory,
-        ILogger<WorkProjectsController> logger)
+        ILogger<WorkProjectsController> logger,
+        ILocalizer localizer)
     {
         _projectService = projectService;
         _sessionService = sessionService;
@@ -33,6 +35,7 @@ public class WorkProjectsController : ControllerBase
         _codeIndexService = codeIndexService;
         _commandRunnerFactory = commandRunnerFactory;
         _logger = logger;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -59,7 +62,7 @@ public class WorkProjectsController : ControllerBase
     [HttpPost("{id:guid}/open")]
     public async Task<ApiResponse<string>> Open(Guid id, [FromQuery] string app, [FromServices] WorkOpenInAppService openService, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(app)) return ApiResponse<string>.Fail("缺少 app 参数");
+        if (string.IsNullOrWhiteSpace(app)) return ApiResponse<string>.Fail(_localizer.T("work.appRequired"));
         var (success, output) = await openService.OpenAsync(id, app, cancellationToken);
         return success ? ApiResponse<string>.Ok(output) : ApiResponse<string>.Fail(output);
     }
@@ -103,7 +106,7 @@ public class WorkProjectsController : ControllerBase
     {
         var project = await _projectService.GetByIdAsync(id, cancellationToken);
         if (!project.Success || project.Data == null)
-            return ApiResponse<WorkCopilotAssetsDto>.Fail(project.Error ?? "项目不存在");
+            return ApiResponse<WorkCopilotAssetsDto>.Fail(project.Error ?? _localizer.T("work.projectNotFound"));
 
         var runner = await _commandRunnerFactory.GetRunnerAsync(id, cancellationToken);
         // 显式刷新（下拉框/智能体页每次打开都会调）：跳过缓存，但仍然失败不抛

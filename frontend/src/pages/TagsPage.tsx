@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
   Check,
@@ -38,6 +39,7 @@ type EditState =
 export default function TagsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const setSelectedTagId = useUIStore((s) => s.setSelectedTagId)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<FilterKey>('all')
@@ -71,7 +73,7 @@ export default function TagsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tagService.delete(id),
     onSuccess: invalidate,
-    onError: (err: Error) => alert(err.message || '删除标签失败'),
+    onError: (err: Error) => alert(err.message || t('tags.deleteFailed')),
   })
 
   const mergeMutation = useMutation({
@@ -82,7 +84,7 @@ export default function TagsPage() {
       setMergeSource(null)
       setMergeTargetId('')
     },
-    onError: (err: Error) => alert(err.message || '合并标签失败'),
+    onError: (err: Error) => alert(err.message || t('tags.mergeFailed')),
   })
 
   const closeMenu = useCallback(() => setMenu(null), [])
@@ -92,14 +94,14 @@ export default function TagsPage() {
   const handleMergeConfirm = () => {
     if (!mergeSource || !mergeTargetId) return
     if (mergeTargetId === mergeSource.id) {
-      alert('不能合并到自身')
+      alert(t('tags.mergeCannotSelf'))
       return
     }
     mergeMutation.mutate({ sourceTagIds: [mergeSource.id], targetTagId: mergeTargetId })
   }
 
   const handleDelete = (tag: ITag) => {
-    confirm({ message: `确定删除标签「${tag.name}」吗？相关笔记将不再关联此标签。`, onConfirm: () => deleteMutation.mutate(tag.id) })
+    confirm({ message: t('tags.deleteConfirm', { name: tag.name }), onConfirm: () => deleteMutation.mutate(tag.id) })
   }
 
   const handleViewNotes = (tag: ITag) => {
@@ -117,9 +119,9 @@ export default function TagsPage() {
   })
 
   const filters: { key: FilterKey; label: string; count: number }[] = [
-    { key: 'all', label: '全部', count: tags.length },
-    { key: 'used', label: '已使用', count: usedCount },
-    { key: 'unused', label: '未使用', count: tags.length - usedCount },
+    { key: 'all', label: t('common:all'), count: tags.length },
+    { key: 'used', label: t('tags.filterUsed'), count: usedCount },
+    { key: 'unused', label: t('tags.filterUnused'), count: tags.length - usedCount },
   ]
 
   const filteredTags = sortedTags.filter((t) => {
@@ -144,16 +146,16 @@ export default function TagsPage() {
                   <TagIcon size={20} className="text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">标签</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">按使用频率排序，点击标签查看关联笔记</p>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('tags.title')}</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('tags.subtitle')}</p>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{tags.length}</b> 个标签</span>
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{tags.length}</b> {t('tags.statsTags')}</span>
                 <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{usedCount}</b> 已使用</span>
+                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{usedCount}</b> {t('tags.statsUsed')}</span>
                 <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{totalNotes}</b> 篇关联</span>
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{totalNotes}</b> {t('tags.statsLinked')}</span>
               </div>
             </div>
 
@@ -180,7 +182,7 @@ export default function TagsPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="搜索标签..."
+                  placeholder={t('tags.searchPlaceholder')}
                   className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-blue-950/40"
                 />
               </div>
@@ -189,7 +191,7 @@ export default function TagsPage() {
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]"
               >
                 <Plus size={16} />
-                新建标签
+                {t('tags.create')}
               </button>
             </div>
 
@@ -201,15 +203,15 @@ export default function TagsPage() {
                 </div>
                 <p className="text-sm font-medium">
                   {search
-                    ? '没有匹配的标签'
+                    ? t('tags.emptyNoMatch')
                     : filter === 'used'
-                      ? '没有已使用的标签'
+                      ? t('tags.emptyNoUsed')
                       : filter === 'unused'
-                        ? '没有未使用的标签'
-                        : '暂无标签'}
+                        ? t('tags.emptyNoUnused')
+                        : t('tags.empty')}
                 </p>
                 <p className="mt-1 text-xs">
-                  {search ? '试试其他关键词' : filter === 'unused' ? '所有标签都已关联笔记' : '点击「新建标签」开始创建'}
+                  {search ? t('tags.hintNoMatch') : filter === 'unused' ? t('tags.hintAllLinked') : t('tags.hintCreate')}
                 </p>
               </div>
             ) : (
@@ -230,7 +232,7 @@ export default function TagsPage() {
                     />
                   ))}
                 </div>
-                <p className="mt-8 text-center text-xs text-gray-300 dark:text-gray-600">共 {filteredTags.length} 个标签</p>
+                <p className="mt-8 text-center text-xs text-gray-300 dark:text-gray-600">{t('tags.total', { n: filteredTags.length })}</p>
               </>
             )}
           </div>
@@ -262,7 +264,7 @@ export default function TagsPage() {
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <GitMerge size={18} className="text-blue-500" />
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">合并标签</h3>
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('tags.mergeTitle')}</h3>
               </div>
               <button
                 onClick={() => { setMergeSource(null); setMergeTargetId('') }}
@@ -273,18 +275,18 @@ export default function TagsPage() {
             </div>
             <div className="px-5 py-4">
               <p className="mb-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                将标签{' '}
+                {t('tags.mergeIntoPrefix')}{' '}
                 <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium" style={{ background: tagPalette(mergeSource).soft, color: tagPalette(mergeSource).text }}>
                   #{mergeSource.name}
                 </span>
-                {' '}合并到目标标签，合并后原标签将被删除，相关笔记改用目标标签。
+                {' '}{t('tags.mergeIntoSuffix')}
               </p>
               <Select
                 value={mergeTargetId}
                 onChange={setMergeTargetId}
                 options={[
-                  { value: '', label: '选择目标标签', disabled: true },
-                  ...mergeTargets.map((t) => ({ value: t.id, label: `#${t.name}（${t.noteCount ?? 0} 篇）` })),
+                  { value: '', label: t('tags.mergeTargetPlaceholder'), disabled: true },
+                  ...mergeTargets.map((tag) => ({ value: tag.id, label: t('tags.mergeOption', { name: tag.name, n: tag.noteCount ?? 0 }) })),
                 ]}
               />
             </div>
@@ -293,14 +295,14 @@ export default function TagsPage() {
                 onClick={() => { setMergeSource(null); setMergeTargetId('') }}
                 className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                取消
+                {t('common:cancel')}
               </button>
               <button
                 onClick={handleMergeConfirm}
                 disabled={!mergeTargetId || mergeMutation.isPending}
                 className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {mergeMutation.isPending ? '合并中...' : '确认合并'}
+                {mergeMutation.isPending ? t('tags.merging') : t('tags.mergeConfirm')}
               </button>
             </div>
           </div>
@@ -324,21 +326,21 @@ export default function TagsPage() {
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <BookOpen size={14} className="text-gray-400" />
-            查看笔记
+            {t('tags.viewNotes')}
           </button>
           <button
             onClick={() => { closeMenu(); setEdit({ mode: 'rename', tag: menu.tag }) }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Pencil size={14} className="text-gray-400" />
-            重命名
+            {t('common:rename')}
           </button>
           <button
             onClick={() => { closeMenu(); setMergeSource(menu.tag); setMergeTargetId('') }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <GitMerge size={14} className="text-gray-400" />
-            合并到...
+            {t('tags.merge')}
           </button>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
           <button
@@ -346,7 +348,7 @@ export default function TagsPage() {
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 size={14} />
-            删除
+            {t('common:delete')}
           </button>
         </div>,
         document.body
@@ -372,6 +374,7 @@ function TagChip({
   onDelete: () => void
   onContextMenu: (e: React.MouseEvent) => void
 }) {
+  const { t } = useTranslation('notes')
   const noteCount = tag.noteCount ?? 0
   const used = noteCount > 0
   const palette = tagPalette(tag)
@@ -385,7 +388,7 @@ function TagChip({
   return (
     <div
       onContextMenu={onContextMenu}
-      title={`${tag.name} · ${used ? `${noteCount} 篇笔记` : '暂无笔记'}`}
+      title={`${tag.name} · ${used ? t('tags.chipNotes', { n: noteCount }) : t('tags.chipNoNotes')}`}
       className={`group inline-flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
         used
           ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30'
@@ -416,21 +419,21 @@ function TagChip({
       <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
         <button
           onClick={onRename}
-          title="重命名"
+          title={t('common:rename')}
           className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
         >
           <Pencil size={12} />
         </button>
         <button
           onClick={onMerge}
-          title="合并到..."
+          title={t('tags.merge')}
           className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
         >
           <GitMerge size={12} />
         </button>
         <button
           onClick={onDelete}
-          title="删除"
+          title={t('common:delete')}
           className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-red-600 dark:hover:bg-white/10 dark:hover:text-red-400"
         >
           <Trash2 size={12} />
@@ -455,6 +458,7 @@ function TagEditDialog({
   onClose: () => void
   onSubmit: (name: string, color: string) => void
 }) {
+  const { t } = useTranslation('notes')
   const [name, setName] = useState(tag?.name ?? '')
   const [color, setColor] = useState(tag?.color ?? '')
 
@@ -464,7 +468,7 @@ function TagEditDialog({
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
             {mode === 'create' ? <Plus size={18} className="text-blue-500" /> : <Pencil size={18} className="text-blue-500" />}
-            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{mode === 'create' ? '新建标签' : '重命名标签'}</h3>
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{mode === 'create' ? t('tags.create') : t('tags.dialogRename')}</h3>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X size={16} />
@@ -472,7 +476,7 @@ function TagEditDialog({
         </div>
         <div className="space-y-4 px-5 py-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">名称</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('common:name')}</label>
             <input
               autoFocus
               value={name}
@@ -481,12 +485,12 @@ function TagEditDialog({
                 if (e.key === 'Enter' && name.trim()) onSubmit(name.trim(), color)
                 if (e.key === 'Escape') onClose()
               }}
-              placeholder="输入标签名称"
+              placeholder={t('tags.namePlaceholder')}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">颜色</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('tags.color')}</label>
             <ColorPicker value={color} onChange={setColor} />
           </div>
         </div>
@@ -495,14 +499,14 @@ function TagEditDialog({
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            取消
+            {t('common:cancel')}
           </button>
           <button
             onClick={() => name.trim() && onSubmit(name.trim(), color)}
             disabled={!name.trim() || pending}
             className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pending ? '保存中...' : mode === 'create' ? '创建' : '保存'}
+            {pending ? t('tags.saving') : mode === 'create' ? t('tags.submitCreate') : t('common:save')}
           </button>
         </div>
       </div>
@@ -519,6 +523,7 @@ function ColorPicker({
   value: string
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation('notes')
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
@@ -528,7 +533,7 @@ function ColorPicker({
             ? 'border-gray-700 dark:border-white'
             : 'border-gray-200 dark:border-gray-600'
         } bg-gray-200 dark:bg-gray-600`}
-        title="自动配色"
+        title={t('tags.autoColor')}
       >
         {value === '' && <Check size={12} className="text-gray-700 dark:text-white" />}
       </button>

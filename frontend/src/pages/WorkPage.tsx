@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, FolderInput, MessageSquare, Plus, Search } from 'lucide-react'
@@ -68,6 +69,7 @@ function SectionHeader({
   addTitle: string
 }) {
   const iconBtn = 'shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
+  const { t } = useTranslation('work')
   return (
     <div className="shrink-0 border-b border-gray-100 dark:border-gray-800">
       <div className="flex items-center gap-1 px-2 py-1.5">
@@ -87,8 +89,8 @@ function SectionHeader({
         </button>
         <button
           onClick={onToggleSearch}
-          title={searchOpen ? '收起搜索' : '搜索'}
-          aria-label="搜索"
+          title={searchOpen ? t('page.collapseSearch') : t('common:search')}
+          aria-label={t('common:search')}
           aria-pressed={searchOpen}
           className={`${iconBtn} ${searchOpen ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : ''}`}
         >
@@ -115,6 +117,7 @@ function SectionHeader({
 }
 
 export default function WorkPage() {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   // 右侧聊天区当前绑定的是对话话题还是项目会话
@@ -314,7 +317,7 @@ export default function WorkPage() {
             {/* 一级：会话（展开为会话组树） */}
             <SectionHeader
               icon={MessageSquare}
-              title="会话"
+              title={t('page.chatSection')}
               count={groups.length}
               expanded={sections.chat}
               onToggle={() => toggleSection('chat')}
@@ -322,9 +325,9 @@ export default function WorkPage() {
               onToggleSearch={() => setChatSearchOpen((v) => !v)}
               searchValue={chatSearch}
               onSearchChange={setChatSearch}
-              searchPlaceholder="搜索会话组..."
+              searchPlaceholder={t('page.searchSessionsPlaceholder')}
               onAdd={() => chatTreeRef.current?.startCreateGroup()}
-              addTitle="新建会话组"
+              addTitle={t('page.newChatGroup')}
             />
             {sections.chat && (
               // 会话列表按内容自然增高，浮动在下方的「项目」之上；超过侧栏一半高度时才固定并内部滚动
@@ -350,7 +353,7 @@ export default function WorkPage() {
             {/* 一级：项目（展开为项目树，项目下挂会话） */}
             <SectionHeader
               icon={FolderInput}
-              title="项目"
+              title={t('page.projectSection')}
               count={projects.length}
               expanded={sections.project}
               onToggle={() => toggleSection('project')}
@@ -358,9 +361,9 @@ export default function WorkPage() {
               onToggleSearch={() => setProjectSearchOpen((v) => !v)}
               searchValue={projectSearch}
               onSearchChange={setProjectSearch}
-              searchPlaceholder="搜索项目或会话..."
+              searchPlaceholder={t('page.searchProjectsPlaceholder')}
               onAdd={() => workSidebarRef.current?.startCreateProject()}
-              addTitle="新建项目"
+              addTitle={t('page.newProject')}
             />
             {sections.project && (
               <div className="flex min-h-0 flex-1 flex-col">
@@ -424,7 +427,7 @@ export default function WorkPage() {
                   <div
                     onMouseDown={onDragStart}
                     className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
-                    title="拖拽调整右侧面板宽度"
+                    title={t('page.dragPanelWidth')}
                   >
                     <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
                   </div>

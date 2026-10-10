@@ -14,17 +14,20 @@ public class KnowledgeBaseController : ControllerBase
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
     private readonly IBackgroundTaskCoordinator _taskCoordinator;
+    private readonly ILocalizer _localizer;
 
     public KnowledgeBaseController(
         IUnitOfWork unitOfWork,
         ISemanticSearchService semanticSearchService,
         IEmbeddingProviderFactory embeddingProviderFactory,
-        IBackgroundTaskCoordinator taskCoordinator)
+        IBackgroundTaskCoordinator taskCoordinator,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _semanticSearchService = semanticSearchService;
         _embeddingProviderFactory = embeddingProviderFactory;
         _taskCoordinator = taskCoordinator;
+        _localizer = localizer;
     }
 
     /// <summary>笔记类知识项按笔记聚合索引，其余按知识项自身索引</summary>
@@ -143,7 +146,7 @@ public class KnowledgeBaseController : ControllerBase
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(id, cancellationToken);
         if (item == null)
-            return ApiResponse.Fail("知识项不存在");
+            return ApiResponse.Fail(_localizer.T("knowledge.itemNotFound"));
 
         var (taskType, entityId) = ResolveTarget(item);
         var result = await _taskCoordinator.EnqueueAsync(
@@ -151,7 +154,7 @@ public class KnowledgeBaseController : ControllerBase
             cancellationToken);
 
         if (!result.Queued)
-            return ApiResponse.Fail("该知识项已有正在进行的索引任务，请等待完成");
+            return ApiResponse.Fail(_localizer.T("knowledge.indexTaskRunning"));
 
         return ApiResponse.Ok();
     }
@@ -198,7 +201,7 @@ public class KnowledgeBaseController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Query))
-            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail("查询内容不能为空");
+            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail(_localizer.T("knowledge.queryRequired"));
 
         var result = await _semanticSearchService.SearchAsync(request.Query, request.TopK, cancellationToken);
         return result;
@@ -212,7 +215,7 @@ public class KnowledgeBaseController : ControllerBase
     {
         var item = await _unitOfWork.KnowledgeItems.GetByIdAsync(id, cancellationToken);
         if (item == null)
-            return ApiResponse<List<NoteChunkDto>>.Fail("知识项不存在");
+            return ApiResponse<List<NoteChunkDto>>.Fail(_localizer.T("knowledge.itemNotFound"));
 
         var chunks = await _unitOfWork.KnowledgeItems.GetChunksAsync(id, cancellationToken);
         var embeddedChunkIds = (await _unitOfWork.KnowledgeItems.GetEmbeddedChunkIdsAsync(id, cancellationToken)).ToHashSet();

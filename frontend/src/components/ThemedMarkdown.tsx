@@ -1,4 +1,6 @@
 import { useRef, useEffect, useMemo, useState, memo, Component, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -21,6 +23,7 @@ function extractText(node: React.ReactNode): string {
 
 /** 代码块：右上角悬浮操作（复制 / 插入编辑器）+ 语言标识，mermaid 块除外 */
 function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children?: React.ReactNode; onCodeAction?: (code: string, action: 'copy' | 'insert') => void; diagramSvg?: string }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const codeEl = (Array.isArray(children) ? children[0] : children) as { props?: { className?: string } } | null
   const className = codeEl?.props?.className ?? ''
@@ -50,8 +53,8 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
         <span className="code-lang">{language}</span>
         <button
           onClick={copy}
-          title="复制代码"
-          aria-label="复制代码"
+          title={t('ui:markdown.copyCode')}
+          aria-label={t('ui:markdown.copyCode')}
           className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
@@ -59,8 +62,8 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
         {onCodeAction && (
           <button
             onClick={() => onCodeAction(text, 'insert')}
-            title="插入到编辑器"
-            aria-label="插入到编辑器"
+            title={t('ui:markdown.insertToEditor')}
+            aria-label={t('ui:markdown.insertToEditor')}
             className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <ArrowUpFromLine size={12} />
@@ -181,7 +184,7 @@ class MarkdownErrorBoundary extends Component<{ children: ReactNode }, { failed:
     if (this.state.failed) {
       return (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center text-[13px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-          文档渲染出错，可尝试复制原文到编辑器中查看
+          {i18n.t('ui:markdown.renderError')}
         </div>
       )
     }
@@ -313,7 +316,7 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
       </MarkdownErrorBoundary>
       {viewerSrc && (
         <div className="md-image-viewer" onClick={() => setViewerSrc(null)}>
-          <img src={viewerSrc} alt="预览图片" />
+          <img src={viewerSrc} alt={i18n.t('ui:markdown.imagePreview')} />
         </div>
       )}
     </div>

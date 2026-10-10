@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { StreamingToolCall, StreamingToolResult } from '../hooks/useStreaming'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
 
@@ -8,6 +9,7 @@ interface ToolCallsPanelProps {
 }
 
 export default function ToolCallsPanel({ toolCalls, toolResults }: ToolCallsPanelProps) {
+  const { t } = useTranslation('chat')
   if (toolCalls.length === 0) return null
 
   return (
@@ -26,7 +28,7 @@ export default function ToolCallsPanel({ toolCalls, toolResults }: ToolCallsPane
               </div>
             )}
             {!result && (
-              <div className="mt-1 text-[11px] text-gray-400">执行中...</div>
+              <div className="mt-1 text-[11px] text-gray-400">{t('tool.running')}</div>
             )}
           </div>
         )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Gauge } from 'lucide-react'
 import type { IContextUsage } from '../../types/context'
 import { formatTokens } from '../../utils/agentStream'
@@ -31,6 +32,7 @@ function ratioTone(ratio: number): { stroke: string; text: string } {
  * 对话页与编码会话共用，放在输入框右下角。
  */
 export default function AgentContextUsage({ usage, onRefresh, onCompact, compacting = false, className }: AgentContextUsageProps) {
+  const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<number | null>(null)
@@ -77,8 +79,8 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
     >
       <button
         onClick={() => { setOpen((v) => !v); onRefresh?.() }}
-        title="会话信息：上下文占用"
-        aria-label="会话信息：上下文占用"
+        title={t('contextUsage.trigger')}
+        aria-label={t('contextUsage.trigger')}
         className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90">
@@ -102,20 +104,20 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
         <div className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
           <div className="mb-2 flex items-center gap-1.5">
             <Gauge size={13} className={tone.stroke} />
-            <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">上下文占用</span>
+            <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{t('contextUsage.title')}</span>
             <span className="ml-auto text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
-              {usage ? `${percent}%` : '未统计'}
+              {usage ? `${percent}%` : t('contextUsage.notCounted')}
             </span>
           </div>
 
           {!usage ? (
-            <div className="text-[11px] text-gray-400">暂无数据</div>
+            <div className="text-[11px] text-gray-400">{t('common:empty')}</div>
           ) : (
             <>
               <div className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-                窗口 <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.window)}</span>
+                {t('contextUsage.window')} <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.window)}</span>
                 <span className="mx-1">·</span>
-                已用 <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.used)}</span>
+                {t('contextUsage.used')} <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.used)}</span>
               </div>
 
               <div className="mb-2.5 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
@@ -143,11 +145,11 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
 
               {usage.hasSummary && (
                 <p className="mt-2 rounded-lg bg-violet-50 px-2 py-1 text-[10px] leading-relaxed text-violet-700 dark:bg-violet-900/20 dark:text-violet-300">
-                  已压缩 {usage.summarizedMessages} 条早期消息（压缩后可清除摘要恢复原文）
+                  {t('contextUsage.summary', { n: usage.summarizedMessages })}
                 </p>
               )}
               <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
-                约 3 字符/token 估算；超过 80% 时会自动压缩，也可输入 /compress 手动压缩。
+                {t('contextUsage.hint')}
               </p>
 
               {(onCompact || onRefresh) && (
@@ -158,7 +160,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
                       disabled={compacting}
                       className="w-full rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
                     >
-                      {compacting ? '压缩中...' : '压缩上下文'}
+                      {compacting ? t('contextUsage.compacting') : t('contextUsage.compact')}
                     </button>
                   )}
                 </div>

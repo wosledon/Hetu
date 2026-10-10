@@ -17,12 +17,12 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
+import { useTranslation } from 'react-i18next'
 import { Play, Save, CheckCircle, AlertTriangle, Layout, ChevronLeft, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { workflowService } from '../../services/workflowService'
 import type { IWorkflow, IWorkflowNode, IWorkflowEdge } from '../../types/workflow'
-import { WorkflowNodeTypes } from '../../types/workflow'
-import { toFlowNode, fromFlowNode, type IWorkflowNodeData } from './workflowNodeModel'
+import { toFlowNode, fromFlowNode, NODE_META_BY_TYPE, type IWorkflowNodeData } from './workflowNodeModel'
 import WorkflowNodeComponent from './WorkflowNode'
 import NodePalette from './NodePalette'
 import NodeConfigPanel from './NodeConfigPanel'
@@ -41,6 +41,7 @@ interface WorkflowEditorProps {
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
 function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, onRun }: WorkflowEditorProps) {
+  const { t } = useTranslation('workflows')
   const queryClient = useQueryClient()
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(workflow.nodes.map(toFlowNode) as Node[])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(
@@ -78,27 +79,16 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
 
   const addNode = useCallback((type: string) => {
     const id = `${type}_${Date.now()}`
-    const labelMap: Record<string, string> = {
-      [WorkflowNodeTypes.Start]: '开始',
-      [WorkflowNodeTypes.Agent]: 'Agent',
-      [WorkflowNodeTypes.Condition]: '条件分支',
-      [WorkflowNodeTypes.End]: '结束',
-      [WorkflowNodeTypes.Loop]: '循环',
-      [WorkflowNodeTypes.Parallel]: '并行',
-      [WorkflowNodeTypes.Merge]: '合并',
-      [WorkflowNodeTypes.Tool]: '工具',
-      [WorkflowNodeTypes.Human]: '人工审批',
-      [WorkflowNodeTypes.SubWorkflow]: '子工作流',
-    }
+    const labelKey = NODE_META_BY_TYPE[type]?.labelKey
     const newNode: Node = {
       id,
       type: 'workflowNode',
       position: { x: 250 + nodeIdCounter.current * 30, y: 100 + nodeIdCounter.current * 30 },
-      data: { label: labelMap[type] ?? type, type } as IWorkflowNodeData,
+      data: { label: labelKey ? t(labelKey) : type, type } as IWorkflowNodeData,
     }
     nodeIdCounter.current++
     setNodes((nds) => [...nds, newNode])
-  }, [setNodes])
+  }, [setNodes, t])
 
   const onNodeClick = useCallback((_: unknown, node: Node) => setSelectedNodeId(node.id), [])
   const onPaneClick = useCallback(() => setSelectedNodeId(null), [])
@@ -146,7 +136,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   const saveMut = useMutation({
     mutationFn: (data: { nodes: IWorkflowNode[]; edges: IWorkflowEdge[] }) => {
       const payload = {
-        name: name.trim() || '未命名工作流',
+        name: name.trim() || t('editor.untitledWorkflow'),
         description,
         nodes: data.nodes,
         edges: data.edges,
@@ -177,7 +167,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
       {/* 工具栏 */}
       <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
         <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
-          <ChevronLeft size={16} /> 返回
+          <ChevronLeft size={16} /> {t('common:back')}
         </button>
         <div className="h-4 w-px bg-gray-200 dark:bg-white/[0.08]" />
         {/* 名称/描述 可编辑 */}
@@ -185,9 +175,9 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           <button
             onClick={() => setShowMeta((v) => !v)}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
-            title="编辑名称/描述"
+            title={t('editor.editMeta')}
           >
-            {name || '未命名工作流'}
+            {name || t('editor.untitledWorkflow')}
             <Pencil size={12} className="text-gray-400" />
           </button>
           {showMeta && (
@@ -195,21 +185,21 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
               <div className="fixed inset-0 z-40" onClick={() => setShowMeta(false)} />
               <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
                 <div>
-                  <label className="mb-1 block text-[11px] text-gray-400">名称</label>
+                  <label className="mb-1 block text-[11px] text-gray-400">{t('common:name')}</label>
                   <input
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="工作流名称"
+                    placeholder={t('editor.namePlaceholder')}
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] text-gray-400">描述</label>
+                  <label className="mb-1 block text-[11px] text-gray-400">{t('common:description')}</label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="这个工作流做什么？"
+                    placeholder={t('editor.descriptionPlaceholder')}
                     rows={3}
                     className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
                   />
@@ -218,13 +208,13 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
                   onClick={() => setShowMeta(false)}
                   className="w-full rounded-lg bg-blue-500 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
                 >
-                  完成
+                  {t('editor.done')}
                 </button>
               </div>
             </>
           )}
         </div>
-        <span className="text-xs text-gray-400">{isNew ? '未保存' : `v${workflow.version}`}</span>
+        <span className="text-xs text-gray-400">{isNew ? t('common:unsaved') : `v${workflow.version}`}</span>
         {/* 启用/禁用开关 */}
         <button
           onClick={() => { setIsEnabled((v) => !v); setSaved(false) }}
@@ -233,30 +223,30 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
               ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
               : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06] dark:text-gray-500'
           }`}
-          title={isEnabled ? '点击禁用' : '点击启用'}
+          title={isEnabled ? t('page.clickToDisable') : t('page.clickToEnable')}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
-          {isEnabled ? '启用' : '禁用'}
+          {isEnabled ? t('common:enable') : t('common:disable')}
         </button>
         <div className="flex-1" />
         <button onClick={autoLayout} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
-          <Layout size={14} /> 自动布局
+          <Layout size={14} /> {t('editor.autoLayout')}
         </button>
         {!isNew && (
           <button onClick={handleValidate} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
-            <CheckCircle size={14} /> 校验
+            <CheckCircle size={14} /> {t('editor.validate')}
           </button>
         )}
         <button
           onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
           disabled={isNew}
           className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-40"
-          title={isNew ? '保存后才能运行' : '运行'}
+          title={isNew ? t('editor.runAfterSave') : t('common:run')}
         >
-          <Play size={14} /> 运行
+          <Play size={14} /> {t('common:run')}
         </button>
         <button onClick={handleSave} disabled={saveMut.isPending} className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50">
-          {saved ? <CheckCircle size={14} /> : <Save size={14} />} {saved ? '已保存' : '保存'}
+          {saved ? <CheckCircle size={14} /> : <Save size={14} />} {saved ? t('common:saved') : t('common:save')}
         </button>
       </div>
 
@@ -269,7 +259,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
       )}
       {validation?.valid && (
         <div className="border-b border-green-200 bg-green-50 px-3 py-1.5 text-xs text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-400">
-          ✓ 校验通过
+          {t('editor.validationPassed')}
         </div>
       )}
 

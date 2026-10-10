@@ -11,12 +11,14 @@ public class LocalPromptPresetService : ILocalPromptPresetService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<LocalPromptPresetService> _logger;
+    private readonly ILocalizer _localizer;
     private const string SettingKey = "PromptPresetDirectories";
 
-    public LocalPromptPresetService(IUnitOfWork unitOfWork, ILogger<LocalPromptPresetService> logger)
+    public LocalPromptPresetService(IUnitOfWork unitOfWork, ILogger<LocalPromptPresetService> logger, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<LocalPromptPresetDto>>> ScanAllAsync(CancellationToken cancellationToken = default)
@@ -100,7 +102,7 @@ public class LocalPromptPresetService : ILocalPromptPresetService
         return path;
     }
 
-    private static List<LocalPromptPresetDto> ScanDirectory(string baseDir)
+    private List<LocalPromptPresetDto> ScanDirectory(string baseDir)
     {
         var presets = new List<LocalPromptPresetDto>();
 
@@ -134,7 +136,7 @@ public class LocalPromptPresetService : ILocalPromptPresetService
         return presets;
     }
 
-    private static LocalPromptPresetDto? LoadFromFile(string filePath, string presetDir)
+    private LocalPromptPresetDto? LoadFromFile(string filePath, string presetDir)
     {
         try
         {
@@ -143,7 +145,7 @@ public class LocalPromptPresetService : ILocalPromptPresetService
             var root = doc.RootElement;
 
             var name = root.TryGetProperty("name", out var n) ? n.GetString() : Path.GetFileNameWithoutExtension(filePath);
-            var category = root.TryGetProperty("category", out var c) ? c.GetString() ?? "本地" : "本地";
+            var category = root.TryGetProperty("category", out var c) ? c.GetString() ?? _localizer.T("common.local") : _localizer.T("common.local");
             var content = root.TryGetProperty("content", out var ct) ? ct.GetString() ?? "" : "";
             var description = root.TryGetProperty("description", out var d) ? d.GetString() : null;
             var variables = root.TryGetProperty("variables", out var v) ? v.GetString() : null;
@@ -176,7 +178,7 @@ public class LocalPromptPresetService : ILocalPromptPresetService
         }
     }
 
-    private static LocalPromptPresetDto? LoadFromMarkdown(string filePath, string presetDir)
+    private LocalPromptPresetDto? LoadFromMarkdown(string filePath, string presetDir)
     {
         try
         {
@@ -192,7 +194,7 @@ public class LocalPromptPresetService : ILocalPromptPresetService
             var body = content[(endIndex + 3)..].Trim();
 
             var name = Path.GetFileName(presetDir);
-            var category = "本地";
+            var category = _localizer.T("common.local");
             string? description = null;
 
             foreach (var line in frontmatter.Split('\n'))

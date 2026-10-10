@@ -8,10 +8,12 @@ namespace Hetu.Core.Services;
 public class ChatMessageService : IChatMessageService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public ChatMessageService(IUnitOfWork unitOfWork)
+    public ChatMessageService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<ChatMessageDto>>> GetByTopicAsync(Guid topicId, CancellationToken cancellationToken = default)
@@ -23,7 +25,7 @@ public class ChatMessageService : IChatMessageService
     public async Task<ApiResponse<ChatMessageDto>> CreateUserMessageAsync(Guid topicId, string content, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
-        if (topic == null) return ApiResponse<ChatMessageDto>.Fail("话题不存在");
+        if (topic == null) return ApiResponse<ChatMessageDto>.Fail(_localizer.T("chatTopic.notFound"));
 
         var message = new ChatMessage
         {
@@ -38,7 +40,7 @@ public class ChatMessageService : IChatMessageService
         await _unitOfWork.ChatMessages.AddAsync(message, cancellationToken);
 
         // 如果是话题的第一条消息，自动设置标题
-        if (topic.Title == "新话题")
+        if (topic.Title == "新话题" || topic.Title == _localizer.T("chatTopic.defaultTitle"))
         {
             var existingMessages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId && m.Id != message.Id, cancellationToken);
             if (existingMessages.Count == 0)
@@ -59,8 +61,8 @@ public class ChatMessageService : IChatMessageService
     public async Task<ApiResponse<ChatMessageDto>> UpdateAsync(Guid id, UpdateChatMessageRequest request, CancellationToken cancellationToken = default)
     {
         var message = await _unitOfWork.ChatMessages.GetByIdAsync(id, cancellationToken);
-        if (message == null) return ApiResponse<ChatMessageDto>.Fail("消息不存在");
-        if (string.IsNullOrWhiteSpace(request.Content)) return ApiResponse<ChatMessageDto>.Fail("消息内容不能为空");
+        if (message == null) return ApiResponse<ChatMessageDto>.Fail(_localizer.T("chatMessage.notFound"));
+        if (string.IsNullOrWhiteSpace(request.Content)) return ApiResponse<ChatMessageDto>.Fail(_localizer.T("chatMessage.contentRequired"));
 
         message.Content = request.Content.Trim();
         message.UpdatedAt = DateTimeOffset.UtcNow;
@@ -74,7 +76,7 @@ public class ChatMessageService : IChatMessageService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var message = await _unitOfWork.ChatMessages.GetByIdAsync(id, cancellationToken);
-        if (message == null) return ApiResponse.Fail("消息不存在");
+        if (message == null) return ApiResponse.Fail(_localizer.T("chatMessage.notFound"));
 
         var topicId = message.TopicId;
         await _unitOfWork.ChatMessages.DeleteAsync(message, cancellationToken);
@@ -200,7 +202,7 @@ public class ChatMessageService : IChatMessageService
                 {
                     Id = m.Id,
                     TopicId = m.TopicId,
-                    TopicTitle = topic?.Title ?? "未知话题",
+                    TopicTitle = topic?.Title ?? _localizer.T("chatMessage.unknownTopic"),
                     Role = m.Role,
                     Content = m.Content,
                     ContentSnippet = MakeSnippet(m.Content, lowerKeyword),

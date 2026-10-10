@@ -10,10 +10,12 @@ namespace Hetu.Core.Services;
 public class PromptComposer
 {
     private readonly ToolRegistry _toolRegistry;
+    private readonly ILanguagePreference _language;
 
-    public PromptComposer(ToolRegistry toolRegistry)
+    public PromptComposer(ToolRegistry toolRegistry, ILanguagePreference language)
     {
         _toolRegistry = toolRegistry;
+        _language = language;
     }
 
     /// <summary>
@@ -36,6 +38,11 @@ public class PromptComposer
         var identityBody = BuildAssistantIdentity(ctx);
         if (identityBody != null)
             AppendSection(sb, "助手身份", identityBody);
+
+        // [1.6] 回复语言跟随界面语言设置（用户在设置页切换后立即生效）
+        AppendSection(sb, "回复语言", _language.Language == "en"
+            ? "Reply in English by default. Only switch language if the user writes in another language."
+            : "默认使用简体中文回答；仅当用户使用其它语言提问时才跟随用户语言。");
 
         // [2] Agent 预设（用户选的智能体人设，叠加在 profile 上）
         if (!string.IsNullOrWhiteSpace(ctx.AgentPresetPrompt))

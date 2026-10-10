@@ -1,14 +1,16 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { FolderInput, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { enUS, zhCN } from 'date-fns/locale'
 import { useNotebooks } from '../hooks/useNotebooks'
 import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
+import { uiLocale } from '../utils/locale'
 import type { INote, INotebook } from '../types'
 
 interface NoteListProps {
@@ -33,6 +35,7 @@ export default function NoteList({
   selectedNoteId,
   includeDeleted = false,
 }: NoteListProps) {
+  const { t } = useTranslation('notes')
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -200,16 +203,22 @@ export default function NoteList({
       <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            {selectedNotebookId ? '笔记本笔记' : selectedTagId ? '标签笔记' : includeDeleted ? '回收站' : '全部笔记'}
+            {selectedNotebookId
+              ? t('list.titleNotebook')
+              : selectedTagId
+                ? t('list.titleTag')
+                : includeDeleted
+                  ? t('list.titleTrash')
+                  : t('list.titleAll')}
           </h2>
           {!includeDeleted && (
             <button
               onClick={handleCreate}
               className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.97]"
-              title="新建笔记"
+              title={t('note.newNote')}
             >
               <Plus size={13} />
-              新建
+              {t('common:create')}
             </button>
           )}
         </div>
@@ -218,7 +227,7 @@ export default function NoteList({
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索笔记..."
+            placeholder={t('list.searchPlaceholder')}
             className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-2 pl-8 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:shadow-sm focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700/50 dark:bg-gray-800/50 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
           />
         </div>
@@ -231,15 +240,15 @@ export default function NoteList({
               <div className="h-10 w-10 rounded-full border-2 border-gray-200 dark:border-gray-700" />
               <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-2 border-transparent border-t-blue-500" />
             </div>
-            <p className="text-xs text-gray-400">加载中...</p>
+            <p className="text-xs text-gray-400">{t('common:loading')}</p>
           </div>
         ) : notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-inner dark:from-blue-900/20 dark:to-indigo-900/20">
               <Search size={22} className="text-blue-400/70" />
             </div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">暂无笔记</p>
-            {!includeDeleted && <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">点击上方「新建」创建第一条笔记</p>}
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('list.empty')}</p>
+            {!includeDeleted && <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">{t('list.emptyHint')}</p>}
           </div>
         ) : (
           <div style={{ height: totalHeight, position: 'relative' }}>
@@ -263,21 +272,21 @@ export default function NoteList({
                     }`}
                   >
                     <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <h3 className={`line-clamp-1 flex-1 text-[13px] leading-snug ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{note.title || '未命名笔记'}</h3>
+                      <h3 className={`line-clamp-1 flex-1 text-[13px] leading-snug ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{note.title || t('note.untitled')}</h3>
                       <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>
                             <button
                               onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}
                               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20"
-                              title="恢复"
+                              title={t('list.restore')}
                             >
                               <RotateCcw size={13} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}
                               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-                              title="彻底删除"
+                              title={t('list.hardDelete')}
                             >
                               <Trash2 size={13} />
                             </button>
@@ -287,21 +296,21 @@ export default function NoteList({
                             <button
                               onClick={(e) => { e.stopPropagation(); togglePin.mutate({ id: note.id, isPinned: !note.isPinned }) }}
                               className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isPinned ? 'text-blue-500' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
-                              title={note.isPinned ? '取消置顶' : '置顶'}
+                              title={note.isPinned ? t('list.unpin') : t('list.pin')}
                             >
                               <Pin size={13} className={note.isPinned ? 'fill-blue-500' : ''} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleFavorite.mutate({ id: note.id, isFavorite: !note.isFavorite }) }}
                               className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isFavorite ? 'text-amber-400' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
-                              title={note.isFavorite ? '取消收藏' : '收藏'}
+                              title={note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
                             >
                               <Star size={13} className={note.isFavorite ? 'fill-amber-400' : ''} />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}
                               className="rounded-lg p-1.5 text-gray-300 opacity-0 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-red-900/20"
-                              title="删除"
+                              title={t('common:delete')}
                             >
                               <Trash2 size={13} />
                             </button>
@@ -309,7 +318,7 @@ export default function NoteList({
                         )}
                       </div>
                     </div>
-                    <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{note.content || '无内容'}</p>
+                    <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{note.content || t('note.noContent')}</p>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-1">
                         {note.tags.map((tag) => {
@@ -326,7 +335,7 @@ export default function NoteList({
                         })}
                       </div>
                       <span className="shrink-0 text-[10px] text-gray-400">
-                        {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true, locale: zhCN })}
+                        {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true, locale: uiLocale() === 'en' ? enUS : zhCN })}
                       </span>
                     </div>
                   </div>
@@ -354,24 +363,24 @@ export default function NoteList({
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Pin size={14} className={menu.note.isPinned ? 'text-blue-500' : 'text-gray-400'} />
-            {menu.note.isPinned ? '取消置顶' : '置顶'}
+            {menu.note.isPinned ? t('list.unpin') : t('list.pin')}
           </button>
           <button
             onClick={() => { closeMenu(); toggleFavorite.mutate({ id: menu.note.id, isFavorite: !menu.note.isFavorite }) }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Star size={14} className={menu.note.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-400'} />
-            {menu.note.isFavorite ? '取消收藏' : '收藏'}
+            {menu.note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
           </button>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-gray-400">移动到笔记本</div>
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-gray-400">{t('list.moveToNotebook')}</div>
           <div className="max-h-44 overflow-y-auto">
             <button
               onClick={() => { closeMenu(); moveNote.mutate({ id: menu.note.id, notebookId: undefined }) }}
               className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${!menu.note.notebookId ? 'text-blue-600 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
             >
               <FolderInput size={14} className="text-gray-400" />
-              无笔记本
+              {t('list.noNotebook')}
             </button>
             {notebookOptions.map((nb) => (
               <button
@@ -390,7 +399,7 @@ export default function NoteList({
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 size={14} />
-            删除
+            {t('common:delete')}
           </button>
         </div>,
         document.body

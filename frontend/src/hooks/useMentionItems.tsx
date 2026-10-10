@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AtSign, Library, NotebookPen, Tag } from 'lucide-react'
+import i18n from '../i18n'
 import { searchService } from '../services/searchService'
 import { noteService } from '../services/noteService'
 import { tagService } from '../services/tagService'
@@ -55,10 +56,10 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
       if (q && !n.title.toLowerCase().includes(q)) continue
       items.push({
         key: `note:${n.id}`,
-        label: n.title || '（无标题）',
-        description: '笔记',
+        label: n.title || i18n.t('agent:mention.untitled'),
+        description: i18n.t('agent:mention.note'),
         icon: <AtSign size={14} className="text-amber-500" />,
-        tag: '笔记',
+        tag: i18n.t('agent:mention.note'),
         tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
       })
     }
@@ -68,9 +69,9 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
       items.push({
         key: `notebook:${nb.id}`,
         label: nb.name,
-        description: '笔记本',
+        description: i18n.t('agent:mention.notebook'),
         icon: <NotebookPen size={14} className="text-blue-500" />,
-        tag: '笔记本',
+        tag: i18n.t('agent:mention.notebook'),
         tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
       })
     }
@@ -80,9 +81,9 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
       items.push({
         key: `tag:${t.id}`,
         label: t.name,
-        description: `标签 · ${t.noteCount ?? 0} 篇笔记`,
+        description: i18n.t('agent:mention.tagDetail', { n: t.noteCount ?? 0 }),
         icon: <Tag size={14} className="text-emerald-500" />,
-        tag: '标签',
+        tag: i18n.t('agent:mention.tag'),
         tagClass: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
       })
     }
@@ -92,9 +93,9 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
       items.push({
         key: `knowledge:${k.id}`,
         label: k.title,
-        description: '知识库',
+        description: i18n.t('agent:mention.knowledgeBase'),
         icon: <Library size={14} className="text-violet-500" />,
-        tag: '知识库',
+        tag: i18n.t('agent:mention.knowledgeBase'),
         tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
       })
     }

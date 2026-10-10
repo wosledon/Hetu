@@ -14,12 +14,14 @@ public class AiProviderService : IAiProviderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDataProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILocalizer _localizer;
 
-    public AiProviderService(IUnitOfWork unitOfWork, IDataProtectionProvider dataProtectionProvider, IHttpClientFactory httpClientFactory)
+    public AiProviderService(IUnitOfWork unitOfWork, IDataProtectionProvider dataProtectionProvider, IHttpClientFactory httpClientFactory, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _protector = dataProtectionProvider.CreateProtector("Hetu.AiProvider.ApiKey");
         _httpClientFactory = httpClientFactory;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<AiProviderDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -31,14 +33,14 @@ public class AiProviderService : IAiProviderService
     public async Task<ApiResponse<AiProviderDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var provider = await _unitOfWork.AiProviders.GetByIdWithModelsAsync(id, cancellationToken);
-        if (provider == null) return ApiResponse<AiProviderDto>.Fail("AI 供应商不存在");
+        if (provider == null) return ApiResponse<AiProviderDto>.Fail(_localizer.T("provider.notFound"));
         return ApiResponse<AiProviderDto>.Ok(Map(provider));
     }
 
     public async Task<ApiResponse<AiProviderDto>> CreateAsync(CreateAiProviderRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return ApiResponse<AiProviderDto>.Fail("名称不能为空");
+            return ApiResponse<AiProviderDto>.Fail(_localizer.T("provider.nameRequired"));
 
         var provider = new AiProvider
         {
@@ -60,7 +62,7 @@ public class AiProviderService : IAiProviderService
     public async Task<ApiResponse<AiProviderDto>> UpdateAsync(Guid id, UpdateAiProviderRequest request, CancellationToken cancellationToken = default)
     {
         var provider = await _unitOfWork.AiProviders.GetByIdAsync(id, cancellationToken);
-        if (provider == null) return ApiResponse<AiProviderDto>.Fail("AI 供应商不存在");
+        if (provider == null) return ApiResponse<AiProviderDto>.Fail(_localizer.T("provider.notFound"));
 
         provider.ProviderType = string.IsNullOrWhiteSpace(request.ProviderType) ? provider.ProviderType : request.ProviderType.Trim().ToLowerInvariant();
         provider.Name = string.IsNullOrWhiteSpace(request.Name) ? provider.Name : request.Name.Trim();
@@ -78,7 +80,7 @@ public class AiProviderService : IAiProviderService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var provider = await _unitOfWork.AiProviders.GetByIdAsync(id, cancellationToken);
-        if (provider == null) return ApiResponse.Fail("AI 供应商不存在");
+        if (provider == null) return ApiResponse.Fail(_localizer.T("provider.notFound"));
 
         await _unitOfWork.AiProviders.DeleteAsync(provider, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -95,7 +97,7 @@ public class AiProviderService : IAiProviderService
     public async Task<ApiResponse<List<RemoteModelInfo>>> FetchRemoteModelsAsync(Guid providerId, CancellationToken cancellationToken = default)
     {
         var provider = await _unitOfWork.AiProviders.GetByIdAsync(providerId, cancellationToken);
-        if (provider == null) return ApiResponse<List<RemoteModelInfo>>.Fail("AI 供应商不存在");
+        if (provider == null) return ApiResponse<List<RemoteModelInfo>>.Fail(_localizer.T("provider.notFound"));
 
         var apiKey = string.IsNullOrWhiteSpace(provider.EncryptedApiKey) ? string.Empty : _protector.Unprotect(provider.EncryptedApiKey);
 
@@ -124,7 +126,7 @@ public class AiProviderService : IAiProviderService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<RemoteModelInfo>>.Fail($"获取模型列表失败: {ex.Message}");
+            return ApiResponse<List<RemoteModelInfo>>.Fail(_localizer.T("provider.fetchModelsFailed", ex.Message));
         }
     }
 

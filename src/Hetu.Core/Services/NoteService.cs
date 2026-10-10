@@ -12,13 +12,15 @@ public class NoteService : INoteService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundTaskCoordinator _taskCoordinator;
     private readonly IGraphService _graphService;
+    private readonly ILocalizer _localizer;
     private readonly ILogger<NoteService> _logger;
 
-    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskCoordinator taskCoordinator, IGraphService graphService, ILogger<NoteService> logger)
+    public NoteService(IUnitOfWork unitOfWork, IBackgroundTaskCoordinator taskCoordinator, IGraphService graphService, ILocalizer localizer, ILogger<NoteService> logger)
     {
         _unitOfWork = unitOfWork;
         _taskCoordinator = taskCoordinator;
         _graphService = graphService;
+        _localizer = localizer;
         _logger = logger;
     }
 
@@ -54,7 +56,7 @@ public class NoteService : INoteService
     public async Task<ApiResponse<NoteDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdWithTagsAsync(id, cancellationToken);
-        if (note == null) return ApiResponse<NoteDto>.Fail("笔记不存在");
+        if (note == null) return ApiResponse<NoteDto>.Fail(_localizer.T("note.notFound"));
         return ApiResponse<NoteDto>.Ok(Map(note));
     }
 
@@ -63,7 +65,7 @@ public class NoteService : INoteService
         var note = new Note
         {
             Id = Guid.NewGuid(),
-            Title = string.IsNullOrWhiteSpace(request.Title) ? "未命名笔记" : request.Title.Trim(),
+            Title = string.IsNullOrWhiteSpace(request.Title) ? _localizer.T("note.untitled") : request.Title.Trim(),
             Content = request.Content ?? string.Empty,
             NotebookId = request.NotebookId,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -86,8 +88,8 @@ public class NoteService : INoteService
     public async Task<ApiResponse<NoteDto>> UpdateAsync(Guid id, UpdateNoteRequest request, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdWithTagsAsync(id, cancellationToken);
-        if (note == null) return ApiResponse<NoteDto>.Fail("笔记不存在");
-        if (note.IsDeleted) return ApiResponse<NoteDto>.Fail("已删除的笔记无法编辑");
+        if (note == null) return ApiResponse<NoteDto>.Fail(_localizer.T("note.notFound"));
+        if (note.IsDeleted) return ApiResponse<NoteDto>.Fail(_localizer.T("note.deletedCannotEdit"));
 
         var hasContentChange = request.Title != null || request.Content != null;
         if (hasContentChange)
@@ -131,8 +133,8 @@ public class NoteService : INoteService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
-        if (note.IsDeleted) return ApiResponse.Fail("笔记已在回收站");
+        if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
+        if (note.IsDeleted) return ApiResponse.Fail(_localizer.T("note.inTrash"));
 
         // 移入回收站时清理关联的知识图谱数据
         await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
@@ -158,8 +160,8 @@ public class NoteService : INoteService
     public async Task<ApiResponse> RestoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
-        if (!note.IsDeleted) return ApiResponse.Fail("笔记未删除");
+        if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
+        if (!note.IsDeleted) return ApiResponse.Fail(_localizer.T("note.notDeleted"));
 
         // 恢复该笔记关联的知识图谱数据
         await _graphService.RestoreByNoteIdAsync(id, cancellationToken);
@@ -198,7 +200,7 @@ public class NoteService : INoteService
     public async Task<ApiResponse> HardDeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
+        if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
 
         // 先清理该笔记关联的知识图谱数据
         await _graphService.CleanUpByNoteIdAsync(id, cancellationToken);
@@ -221,7 +223,7 @@ public class NoteService : INoteService
     public async Task<ApiResponse> MoveAsync(Guid id, MoveNoteRequest request, CancellationToken cancellationToken = default)
     {
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
-        if (note == null) return ApiResponse.Fail("笔记不存在");
+        if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
 
         note.NotebookId = request.NotebookId;
         note.UpdatedAt = DateTimeOffset.UtcNow;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
@@ -16,6 +17,7 @@ import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWor
 import ThemedMarkdown from '../ThemedMarkdown'
 import UserMessageContent from '../UserMessageContent'
 import { wrapLongTextBlock } from '../../utils/longText'
+import { uiLocale } from '../../utils/locale'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -180,6 +182,7 @@ export default function WorkSessionArea({
   onTogglePanel,
   panelOpen,
 }: WorkSessionAreaProps) {
+  const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirmRef = useRef(useConfirm())
   const [input, setInput] = useState('')
@@ -316,7 +319,7 @@ export default function WorkSessionArea({
 
   const deleteMessage = (id: string) => {
     confirmRef.current({
-      message: '确定删除这条消息吗？',
+      message: t('session.deleteMessageConfirm'),
       onConfirm: () => deleteMessageMutation.mutate(id),
     })
   }
@@ -399,11 +402,11 @@ export default function WorkSessionArea({
       const items: InputCommandItem[] = []
       for (const path of fileCandidates) {
         if (q && !path.toLowerCase().includes(q)) continue
-        items.push({ key: `file:${path}`, label: path, description: '项目文件', icon: <FileCode size={14} className="text-blue-500" />, tag: '文件', tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' })
+        items.push({ key: `file:${path}`, label: path, description: t('session.menu.projectFile'), icon: <FileCode size={14} className="text-blue-500" />, tag: t('session.menu.fileTag'), tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' })
       }
       for (const a of copilotAssets?.agents ?? []) {
         if (q && !a.name.toLowerCase().includes(q)) continue
-        items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: '.github 智能体', tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
+        items.push({ key: `agent:${a.id}`, label: a.name, description: a.description, icon: <Bot size={14} className="text-indigo-500" />, tag: t('session.menu.githubAgent'), tagClass: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' })
       }
       items.push(...noteMentionItems)
       return items.slice(0, 24)
@@ -412,23 +415,23 @@ export default function WorkSessionArea({
     const items: InputCommandItem[] = []
     // 内置命令：压缩上下文（调用当前模型把较早历史压成摘要）
     if (!q || 'compress'.includes(q) || '压缩'.includes(q)) {
-      items.push({ key: 'command:compress', label: '/compress', description: '压缩上下文：调用当前模型把较早历史压成摘要', icon: <Gauge size={14} className="text-rose-500" />, tag: '命令', tagClass: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' })
+      items.push({ key: 'command:compress', label: '/compress', description: t('session.menu.compressDesc'), icon: <Gauge size={14} className="text-rose-500" />, tag: t('session.menu.commandTag'), tagClass: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' })
     }
     for (const p of copilotAssets?.prompts ?? []) {
       if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) continue
-      items.push({ key: `prompt:${p.name}:${p.filePath}`, label: `/${p.name}`, description: p.description, icon: <Zap size={14} className="text-amber-500" />, tag: '.github 模板', tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' })
+      items.push({ key: `prompt:${p.name}:${p.filePath}`, label: `/${p.name}`, description: p.description, icon: <Zap size={14} className="text-amber-500" />, tag: t('session.menu.githubPrompt'), tagClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' })
     }
     for (const s of enabledSkills) {
       if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
       const inProject = projectSkillIds.has(s.id)
-      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: inProject ? '项目技能' : '技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
+      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: inProject ? t('session.menu.projectSkill') : t('session.menu.skill'), tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
     }
     for (const s of copilotAssets?.skills ?? []) {
       if (q && !s.name.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) continue
-      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: '.github 技能', tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
+      items.push({ key: `skill:${s.name}`, label: `/${s.name}`, description: s.description, icon: <Braces size={14} className="text-violet-500" />, tag: t('session.menu.githubSkill'), tagClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' })
     }
     return items.slice(0, 20)
-  }, [inputMenu, noteMentionItems, copilotAssets, fileCandidates, enabledSkills, projectSkillIds])
+  }, [inputMenu, noteMentionItems, copilotAssets, fileCandidates, enabledSkills, projectSkillIds, t])
 
   // 上下文 chips：引用文件（受控于探索器）+ 注入的选中代码/粘贴路径
   const [injectedContexts, setInjectedContexts] = useState<{ id: string; kind: 'selection' | 'path'; label: string; text: string }[]>([])
@@ -569,10 +572,10 @@ export default function WorkSessionArea({
     setCompacting(true)
     try {
       const result = await workSessionService.compact(session.id, { contextWindow, modelId: session.modelId })
-      setContextNotice(`已压缩 ${result.messageCount} 条早期消息为摘要（约 ${result.beforeTokens} → ${result.afterTokens} tokens）`)
+      setContextNotice(t('session.compactDone', { count: result.messageCount, before: result.beforeTokens, after: result.afterTokens }))
       refreshContextUsage()
     } catch (err) {
-      setContextNotice(`压缩失败：${err instanceof Error ? err.message : String(err)}`)
+      setContextNotice(t('session.compactFailed', { error: err instanceof Error ? err.message : String(err) }))
     } finally {
       setCompacting(false)
     }
@@ -649,9 +652,9 @@ export default function WorkSessionArea({
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/20">
             <Bot size={28} className="text-white" />
           </div>
-          <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">Code 会话</h3>
+          <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('session.emptyTitle')}</h3>
           <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            在左侧「项目」中选择项目或会话开始；编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。
+            {t('session.emptyHint')}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {project && (
@@ -661,7 +664,7 @@ export default function WorkSessionArea({
                 className="inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
               >
                 {createSession.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                在 {project.name} 新建会话
+                {t('session.newSessionInProject', { name: project.name })}
               </button>
             )}
             {onTogglePanel && (
@@ -670,7 +673,7 @@ export default function WorkSessionArea({
                 className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
               >
                 <PanelRightOpen size={13} />
-                {panelOpen ? '收起工作面板' : '打开工作面板'}
+                {panelOpen ? t('session.collapsePanel') : t('session.openPanel')}
               </button>
             )}
           </div>
@@ -929,7 +932,7 @@ export default function WorkSessionArea({
     } catch (error) {
       if (!controller.signal.aborted) {
         console.error('Work stream error:', error)
-        handlers.onContent('\n流式输出失败，请检查模型配置。')
+        handlers.onContent('\n' + t('session.streamFailed'))
       }
     } finally {
       streamRef.current = null
@@ -959,7 +962,7 @@ export default function WorkSessionArea({
     const restoreCheckpoint = (id: string) => {
       if (!id) return
       confirmRef.current({
-        message: '确定回滚到此检查点吗？工作区相关文件将被覆盖。',
+        message: t('session.rollbackCheckpointConfirm'),
         onConfirm: () => {
           workCheckpointService.restore(id).catch(() => {})
         },
@@ -970,25 +973,25 @@ export default function WorkSessionArea({
   /** 导出会话为 Markdown */
   const exportMarkdown = () => {
     if (!session) return
-    const lines: string[] = [`# ${session.title || '工作会话'}`, '']
+    const lines: string[] = [`# ${session.title || t('session.export.workSession')}`, '']
     for (const m of orderedMessages) {
       if (m.type === 'file_change') {
         let meta: FileChangeMeta = { path: '', action: 'write' }
         try { meta = JSON.parse(m.metadata ?? '{}') } catch { /* 使用默认值 */ }
-        const label = meta.action === 'create' ? '新建' : meta.action === 'delete' ? '删除' : '修改'
+        const label = meta.action === 'create' ? t('session.export.created') : meta.action === 'delete' ? t('session.export.deleted') : t('session.export.modified')
         lines.push(`- 📄 ${label} \`${meta.path}\``)
       } else if (m.type === 'thought') {
-        lines.push('<details><summary>思考过程</summary>', '', m.content, '', '</details>')
+        lines.push(`<details><summary>${t('session.export.thoughts')}</summary>`, '', m.content, '', '</details>')
       } else if (m.type === 'tool') {
         let meta: { name: string } = { name: '' }
         try { meta = { ...meta, ...JSON.parse(m.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-        lines.push(`<details><summary>🔧 ${meta.name || '工具调用'}</summary>`, '', '```', m.content, '```', '', '</details>')
+        lines.push(`<details><summary>🔧 ${meta.name || t('session.export.toolCall')}</summary>`, '', '```', m.content, '```', '', '</details>')
       } else if (m.type === 'subagent') {
-        lines.push(`- 🤖 子 Agent：${m.content}`)
+        lines.push(`- 🤖 ${t('session.export.subAgent')}${m.content}`)
       } else if (m.type === 'checkpoint') {
-        lines.push(`- 📌 检查点：${m.content}`)
+        lines.push(`- 📌 ${t('session.export.checkpoint')}${m.content}`)
       } else if (m.role === 'user') {
-        lines.push('## 我', '', m.content, '')
+        lines.push(`## ${t('session.export.me')}`, '', m.content, '')
       } else if (m.type === 'system') {
         lines.push(`> ${m.content}`, '')
       } else {
@@ -1008,9 +1011,9 @@ export default function WorkSessionArea({
     if (!project) return
     try {
       const message = await workProjectService.open(project.id, app)
-      setOpenFeedback(message || '已打开')
+      setOpenFeedback(message || t('session.opened'))
     } catch (e) {
-      setOpenFeedback(`打开失败：${(e as Error).message}`)
+      setOpenFeedback(t('session.openFailed', { error: (e as Error).message }))
     }
     setTimeout(() => setOpenFeedback(''), 2500)
   }
@@ -1018,10 +1021,22 @@ export default function WorkSessionArea({
   const copyRootPath = () => {
     if (!project) return
     navigator.clipboard.writeText(project.rootPath)
-      .then(() => setOpenFeedback('项目路径已复制'))
-      .catch(() => setOpenFeedback('复制失败'))
+      .then(() => setOpenFeedback(t('session.projectPathCopied')))
+      .catch(() => setOpenFeedback(t('session.copyFailed')))
     setTimeout(() => setOpenFeedback(''), 2500)
   }
+
+  const startPrompts = [
+    t('session.startPrompts.explainProject'),
+    t('session.startPrompts.fixBuildError'),
+    t('session.startPrompts.searchLoginCode'),
+    t('session.startPrompts.summarizeReadme'),
+  ]
+  const followUpPrompts = [
+    t('session.followUps.continue'),
+    t('session.followUps.addTests'),
+    t('session.followUps.explainChanges'),
+  ]
 
   const usageTotal: UsageView = liveUsage ?? {
     promptTokens: session.promptTokens ?? 0,
@@ -1037,12 +1052,12 @@ export default function WorkSessionArea({
       <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-          title={isStreaming ? '运行中' : '空闲'}
+          title={isStreaming ? t('common:running') : t('session.idle')}
         />
-        <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || '新会话'}</h2>
+        <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || t('sidebar.newSession')}</h2>
         <span className="hidden shrink-0 text-[11px] text-gray-400 sm:inline">
-          {project ? `${project.name} · ` : ''}{messages.length} 条消息
-          {session.turnCount > 0 && ` · ${session.turnCount} 轮`}
+          {project ? `${project.name} · ` : ''}{t('session.messageCount', { count: messages.length })}
+          {session.turnCount > 0 && ` · ${t('session.turnCount', { count: session.turnCount })}`}
         </span>
         <div className="ml-auto flex items-center gap-1.5">
           <AgentUsageBadge
@@ -1054,16 +1069,16 @@ export default function WorkSessionArea({
               <button
                 onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
                 disabled={createSession.isPending}
-                title="新建会话（Alt+N）"
-                aria-label="新建会话"
+                title={t('session.newSessionShortcut')}
+                aria-label={t('session.newSession')}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
               >
                 {createSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               </button>
               <button
                 onClick={exportMarkdown}
-                title="导出会话为 Markdown"
-                aria-label="导出会话为 Markdown"
+                title={t('session.exportMarkdown')}
+                aria-label={t('session.exportMarkdown')}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
               >
                 <Download size={14} />
@@ -1078,8 +1093,8 @@ export default function WorkSessionArea({
           {onTogglePanel && (
             <button
               onClick={onTogglePanel}
-              title={panelOpen ? '收起工作面板' : '展开工作面板'}
-              aria-label={panelOpen ? '收起工作面板' : '展开工作面板'}
+              title={panelOpen ? t('session.collapsePanel') : t('session.expandPanel')}
+              aria-label={panelOpen ? t('session.collapsePanel') : t('session.expandPanel')}
               className={`rounded-lg p-1.5 transition-colors ${
                 panelOpen
                   ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
@@ -1105,7 +1120,7 @@ export default function WorkSessionArea({
               onClick={() => setShowOlder(true)}
               className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
             >
-              <ChevronDown size={11} />展开更早的 {olderCount} 条消息
+              <ChevronDown size={11} />{t('session.expandOlder', { count: olderCount })}
             </button>
           )}
           {foldedHistory.map((entry, i) => {
@@ -1141,13 +1156,13 @@ export default function WorkSessionArea({
           {/* 空会话：快捷起步 */}
           {!isStreaming && lastUserIndex < 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {['解释这个项目是做什么的', '修复构建错误', '搜索与登录相关的代码', '总结 README 的要点'].map((t) => (
+              {startPrompts.map((prompt) => (
                 <button
-                  key={t}
-                  onClick={() => sendPreset(t)}
+                  key={prompt}
+                  onClick={() => sendPreset(prompt)}
                   className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
                 >
-                  {t}
+                  {prompt}
                 </button>
               ))}
             </div>
@@ -1182,7 +1197,7 @@ export default function WorkSessionArea({
                   emptyHint={isStreaming ? (
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       <Loader2 size={14} className="animate-spin" />
-                      思考中...
+                      {t('session.thinking')}
                     </div>
                   ) : null}
                 />
@@ -1216,13 +1231,13 @@ export default function WorkSessionArea({
           {permissionMode === 'plan' && !isStreaming && (            <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 dark:border-sky-800/50 dark:bg-sky-950/20">
               <ListChecks size={15} className="shrink-0 text-sky-500" />
               <span className="min-w-0 flex-1 text-[12px] text-sky-800 dark:text-sky-300">
-                计划模式只做只读调研；确认计划后切换到执行模式落地。
+                {t('session.planHint')}
               </span>
               <button
                 onClick={executePlan}
                 className="shrink-0 rounded-lg bg-sky-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-sky-600"
               >
-                按计划执行
+                {t('session.executePlan')}
               </button>
             </div>
           )}
@@ -1230,21 +1245,21 @@ export default function WorkSessionArea({
           {/* 后续建议 + 重新生成 */}
           {!isStreaming && orderedMessages.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {['继续实现', '补充单元测试', '解释上面的改动'].map((t) => (
+              {followUpPrompts.map((prompt) => (
                 <button
-                  key={t}
-                  onClick={() => sendPreset(t)}
+                  key={prompt}
+                  onClick={() => sendPreset(prompt)}
                   className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
                 >
-                  {t}
+                  {prompt}
                 </button>
               ))}
               <button
                 onClick={() => void retryLast()}
-                title="用最后一条输入重新生成"
+                title={t('session.regenerateHint')}
                 className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
               >
-                <RotateCcw size={11} />重新生成
+                <RotateCcw size={11} />{t('session.regenerate')}
               </button>
             </div>
           )}
@@ -1273,7 +1288,7 @@ export default function WorkSessionArea({
                   else if (/^(note|notebook|tag|knowledge):/.test(item.key)) applyMention(item)
                   else applySlashItem(item)
                 },
-                emptyHint: inputMenu.query.trim() ? '没有匹配项' : '输入关键词搜索...',
+                emptyHint: inputMenu.query.trim() ? t('session.noMatch') : t('session.typeToSearch'),
               }
             : null}
           chips={[
@@ -1283,7 +1298,7 @@ export default function WorkSessionArea({
               tone: 'amber' as const,
               // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
               struck: !currentModel?.supportsVision,
-              title: currentModel?.supportsVision ? '图片附件' : `${file.name}（当前模型不支持图片输入，发送时会忽略）`,
+              title: currentModel?.supportsVision ? t('session.imageAttachment') : t('session.imageUnsupported', { name: file.name }),
               onRemove: () => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i)),
             })),
             ...(activeFilePath
@@ -1291,13 +1306,13 @@ export default function WorkSessionArea({
                   id: `active:${activeFilePath}`,
                   label: activeFilePath,
                   tone: 'blue' as const,
-                  title: `引用文件：${activeFilePath}`,
+                  title: t('session.referencedFile', { path: activeFilePath }),
                   onRemove: () => onClearActiveFile?.(),
                 }]
               : []),
             ...injectedContexts.map((c) => ({
               id: c.id,
-              label: c.kind === 'selection' ? `选中 ${c.label}` : c.label,
+              label: c.kind === 'selection' ? t('session.selectedContext', { label: c.label }) : c.label,
               tone: 'amber' as const,
               title: c.kind === 'selection' ? c.text.slice(0, 200) : c.text,
               onRemove: () => setInjectedContexts((prev) => prev.filter((x) => x.id !== c.id)),
@@ -1338,7 +1353,7 @@ export default function WorkSessionArea({
                 <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                   <Gauge size={13} className="mt-0.5 shrink-0" />
                   <span className="min-w-0 flex-1">{contextNotice}</span>
-                  <button onClick={() => setContextNotice(null)} aria-label="关闭提示" className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
+                  <button onClick={() => setContextNotice(null)} aria-label={t('session.closeNotice')} className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
                     <X size={12} />
                   </button>
                 </div>
@@ -1364,14 +1379,14 @@ export default function WorkSessionArea({
               />
             </>
           ) : undefined}
-          placeholder="描述你要完成的开发任务，/ 用模板或技能，@ 引用笔记、文件或智能体（↑ 回溯历史输入）"
+          placeholder={t('session.inputPlaceholder')}
           streaming={isStreaming}
           onStop={() => streamRef.current?.abort()}
           canSubmit={!!session && (!!input.trim() || !!pastedBlock || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
           history={inputHistory}
-          hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
+          hint={t('session.inputHint')}
           toolbar={
             <>
               {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型的粘贴会带感叹号划掉） */}
@@ -1380,7 +1395,7 @@ export default function WorkSessionArea({
               <AgentPicker
                 items={[
                   ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
-                  ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
+                  ...localAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const, badge: t('session.localBadge') })),
                 ]}
                 value={selectedAgentId}
                 onSelect={(item) => {
@@ -1402,7 +1417,7 @@ export default function WorkSessionArea({
                     workflowRun.setWorkflow(workflow)
                   }
                 }}
-                placeholder="默认 Agent"
+                placeholder={t('session.defaultAgent')}
               />
               <AgentModelPicker
                 models={aiModels
@@ -1438,39 +1453,39 @@ export default function WorkSessionArea({
               {/* 与对话页一致的开关：网络搜索 / 知识库 / 记忆 */}
               <button
                 onClick={() => setWebSearch(!webSearch)}
-                title="网络搜索"
-                aria-label="网络搜索"
+                title={t('session.webSearch')}
+                aria-label={t('session.webSearch')}
                 className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
                   webSearch
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                     : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <Globe size={13} />网络搜索
+                <Globe size={13} />{t('session.webSearch')}
               </button>
               <button
                 onClick={() => setKnowledgeBase(!knowledgeBase)}
-                title="知识库"
-                aria-label="知识库"
+                title={t('session.knowledgeBase')}
+                aria-label={t('session.knowledgeBase')}
                 className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
                   knowledgeBase
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                     : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <Database size={13} />知识库
+                <Database size={13} />{t('session.knowledgeBase')}
               </button>
               <button
                 onClick={() => setMemory(!memory)}
-                title="记忆"
-                aria-label="记忆"
+                title={t('session.memory')}
+                aria-label={t('session.memory')}
                 className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
                   memory
                     ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
                     : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <Atom size={13} />记忆
+                <Atom size={13} />{t('session.memory')}
               </button>
 
               {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}
@@ -1478,11 +1493,11 @@ export default function WorkSessionArea({
                 <button
                   onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
                   disabled={isStreaming}
-                  title="运行构建诊断并汇报"
-                  aria-label="运行构建诊断"
+                  title={t('session.runDiagnosticsHint')}
+                  aria-label={t('session.runDiagnostics')}
                   className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60"
                 >
-                  <Stethoscope size={12} />诊断
+                  <Stethoscope size={12} />{t('session.diagnostics')}
                 </button>
               )}
             </>
@@ -1510,6 +1525,7 @@ function AppIcon({ app, iconUrl, size = 14 }: { app: string; iconUrl?: string; s
 
 /** 打开方式：图标按钮记住上次选择（默认第一个可用应用）直接打开，下拉切换应用 */
 function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; onOpen: (app: string) => void; onCopyPath: () => void }) {
+  const { t } = useTranslation('work')
   const available = useMemo(() => apps.filter((a) => a.available), [apps])
   const [lastApp, setLastApp] = useState<string>(() => localStorage.getItem(OPEN_APP_STORAGE_KEY) ?? '')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1538,16 +1554,16 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
     <div ref={containerRef} className="relative flex items-center">
       <button
         onClick={() => onOpen(current.app)}
-        title={`用${current.label}打开项目`}
-        aria-label={`用${current.label}打开项目`}
+        title={t('session.openWith', { app: current.label })}
+        aria-label={t('session.openWith', { app: current.label })}
         className="rounded-l-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
         <AppIcon app={current.app} iconUrl={current.iconUrl} />
       </button>
       <button
         onClick={() => setMenuOpen((v) => !v)}
-        title="选择打开方式"
-        aria-label="选择打开方式"
+        title={t('session.pickOpenWith')}
+        aria-label={t('session.pickOpenWith')}
         className="rounded-r-lg border border-l-0 border-gray-200 p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
       >
         <ChevronDown size={12} />
@@ -1571,7 +1587,7 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50"
           >
             <Copy size={13} className="shrink-0" />
-            复制项目路径
+            {t('session.copyProjectPath')}
           </button>
         </div>
       )}
@@ -1601,6 +1617,7 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
   onCancel: () => void
   onSave: () => void
 }) {
+  const { t } = useTranslation('work')
   return (
     <div className="space-y-2">
       <textarea
@@ -1617,7 +1634,7 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
           disabled={!value.trim() || disabled}
           className="rounded bg-blue-600 px-2 py-1 text-xs text-white disabled:opacity-50"
         >
-          保存
+          {t('common:save')}
         </button>
       </div>
     </div>
@@ -1626,12 +1643,13 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
 
 /** 操作栏：复制 / 编辑 / 删除，悬停整行提亮 */
 function MessageActionBar({ message, actions }: { message: IWorkMessage; actions: MessageActions }) {
+  const { t } = useTranslation('work')
   return (
     <div className="mt-1 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
       <button
         onClick={() => actions.onCopy(message.id, message.content)}
-        title="复制"
-        aria-label="复制"
+        title={t('common:copy')}
+        aria-label={t('common:copy')}
         className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
       >
         {actions.isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
@@ -1639,8 +1657,8 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
       <button
         onClick={() => actions.onStartEdit(message.id, message.content)}
         disabled={actions.actionsDisabled}
-        title="编辑"
-        aria-label="编辑"
+        title={t('common:edit')}
+        aria-label={t('common:edit')}
         className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
       >
         <Pencil size={12} />
@@ -1648,8 +1666,8 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
       <button
         onClick={() => actions.onDelete(message.id)}
         disabled={actions.actionsDisabled}
-        title="删除"
-        aria-label="删除"
+        title={t('common:delete')}
+        aria-label={t('common:delete')}
         className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
       >
         <Trash2 size={12} />
@@ -1659,6 +1677,7 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
 }
 
 function UserBubble({ message, actions }: { message: IWorkMessage; actions?: MessageActions }) {
+  const { t } = useTranslation('work')
   const editing = actions?.isEditing === true
   return (
     <div className="group flex flex-row-reverse gap-3">
@@ -1667,7 +1686,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
       </div>
       <div className="flex min-w-0 max-w-[85%] flex-col items-end">
         <div className="flex items-center gap-2 px-1 pb-0.5">
-          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">我</span>
+          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{t('session.me')}</span>
           <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
         </div>
         {editing && actions ? (
@@ -1696,6 +1715,7 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
   onCodeAction?: (code: string, action: 'copy' | 'insert') => void
   actions?: MessageActions
 }) {
+  const { t } = useTranslation('work')
   if (message.type === 'system') {
     return (
       <div className="flex justify-center">
@@ -1728,7 +1748,7 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
               <Coins size={10} />
               <span>
                 {formatTokens(message.totalTokens ?? 0)} tokens
-                {message.cachedTokens ? `（缓存 ${formatTokens(message.cachedTokens)}）` : ''}
+                {message.cachedTokens ? t('session.cachedTokens', { tokens: formatTokens(message.cachedTokens) }) : ''}
                 {message.latencyMs ? ` · ${(message.latencyMs / 1000).toFixed(1)}s` : ''}
               </span>
             </div>
@@ -1797,6 +1817,7 @@ function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {
 
 /** 检查点行：会话内可直接回滚到该快照（与流式时间线共用 AgentCheckpointRow） */
 function CheckpointRow({ message }: { message: IWorkMessage }) {
+  const { t } = useTranslation('work')
   const confirm = useConfirm()
   let meta: { id?: string; fileCount?: number } = {}
   try { meta = JSON.parse(message.metadata ?? '{}') } catch { /* 使用默认值 */ }
@@ -1805,7 +1826,7 @@ function CheckpointRow({ message }: { message: IWorkMessage }) {
       label={message.content}
       fileCount={meta.fileCount}
       onRestore={meta.id ? () => confirm({
-        message: `确定回滚到检查点「${message.content}」吗？工作区相关文件将被覆盖。`,
+        message: t('session.rollbackCheckpointMessageConfirm', { label: message.content }),
         onConfirm: () => workCheckpointService.restore(meta.id!),
       }) : undefined}
     />
@@ -1815,7 +1836,7 @@ function CheckpointRow({ message }: { message: IWorkMessage }) {
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 

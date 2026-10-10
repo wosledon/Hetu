@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,9 +14,11 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class SubWorkflowNodeExecutor : INodeExecutor
 {
     private readonly IServiceProvider _serviceProvider;
-    public SubWorkflowNodeExecutor(IServiceProvider serviceProvider)
+    private readonly ILocalizer _localizer;
+    public SubWorkflowNodeExecutor(IServiceProvider serviceProvider, ILocalizer localizer)
     {
         _serviceProvider = serviceProvider;
+        _localizer = localizer;
     }
 
     public string NodeType => WorkflowNodeTypes.SubWorkflow;
@@ -24,10 +27,10 @@ public class SubWorkflowNodeExecutor : INodeExecutor
     {
         var config = ParseConfig(node.Config);
         if (config == null || !config.TryGetValue("subWorkflowId", out var swid) || swid == null)
-            return new NodeResult { Error = "SubWorkflow 节点未配置 subWorkflowId" };
+            return new NodeResult { Error = _localizer.T("workflowNode.subWorkflowIdRequired") };
 
         if (!Guid.TryParse(swid.ToString(), out var subWorkflowId))
-            return new NodeResult { Error = $"subWorkflowId 格式无效：{swid}" };
+            return new NodeResult { Error = _localizer.T("workflowNode.invalidSubWorkflowId", swid) };
 
         var inputTemplate = config.TryGetValue("inputTemplate", out var it) ? it?.ToString() : null;
         var subInput = TemplateResolver.Resolve(inputTemplate ?? "", ctx);
@@ -38,11 +41,11 @@ public class SubWorkflowNodeExecutor : INodeExecutor
 
         var depth = GetDepth(ctx) + 1;
         if (depth > 5)
-            return new NodeResult { Error = "SubWorkflow 递归深度超过上限 5" };
+            return new NodeResult { Error = _localizer.T("workflowNode.subWorkflowDepthExceeded") };
 
         var subResult = await engine.ExecuteAsync(subWorkflowId, subInput, ct, depth, null, null, ctx.GlobalApprovalMode);
         if (subResult.Status != "Succeeded")
-            return new NodeResult { Error = subResult.Error ?? "子工作流执行失败" };
+            return new NodeResult { Error = subResult.Error ?? _localizer.T("workflowNode.subWorkflowFailed") };
 
         return new NodeResult { Output = subResult.Output ?? "" };
     }

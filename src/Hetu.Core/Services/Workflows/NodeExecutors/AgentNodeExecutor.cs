@@ -18,12 +18,14 @@ public class AgentNodeExecutor : INodeExecutor
     private readonly AgentLoopService _agentLoopService;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AgentNodeExecutor> _logger;
-    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILlmUsageRecorder usageRecorder, ILogger<AgentNodeExecutor> logger)
+    private readonly ILocalizer _localizer;
+    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILlmUsageRecorder usageRecorder, ILogger<AgentNodeExecutor> logger, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _agentLoopService = agentLoopService;
         _usageRecorder = usageRecorder;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public string NodeType => WorkflowNodeTypes.Agent;
@@ -31,11 +33,11 @@ public class AgentNodeExecutor : INodeExecutor
     public async Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
     {
         if (node.AgentId == null)
-            return new NodeResult { Error = "Agent 节点未配置智能体" };
+            return new NodeResult { Error = _localizer.T("workflowNode.agentRequired") };
 
         var preset = await _unitOfWork.PromptPresets.GetByIdAsync(node.AgentId.Value, ct);
         if (preset == null)
-            return new NodeResult { Error = $"智能体 {node.AgentId} 不存在" };
+            return new NodeResult { Error = _localizer.T("workflowNode.agentNotFound", node.AgentId) };
 
         // 解析节点配置
         var config = ParseConfig(node.Config);
@@ -132,7 +134,7 @@ public class AgentNodeExecutor : INodeExecutor
         if (result.ToolCalls.Count > 0)
             nodeResult.ExtraVariables["toolCalls"] = JsonSerializer.Serialize(result.ToolCalls);
         if (string.IsNullOrWhiteSpace(agentOutput))
-            nodeResult.Error = "Agent 未返回任何内容，请检查模型配置";
+            nodeResult.Error = _localizer.T("workflowNode.agentEmptyOutput");
         return nodeResult;
     }
 

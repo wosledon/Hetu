@@ -10,15 +10,18 @@ public class SemanticSearchService : ISemanticSearchService
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
     private readonly ISemanticSearchStrategy _searchStrategy;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
     public SemanticSearchService(
         IEmbeddingProviderFactory embeddingProviderFactory,
         ISemanticSearchStrategy searchStrategy,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILocalizer localizer)
     {
         _embeddingProviderFactory = embeddingProviderFactory;
         _searchStrategy = searchStrategy;
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<PagedResult<NoteSearchResultDto>>> SearchAsync(string query, int topK = 10, CancellationToken cancellationToken = default)
@@ -28,7 +31,7 @@ public class SemanticSearchService : ISemanticSearchService
 
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail("未配置 Embedding 模型");
+            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail(_localizer.T("embedding.notConfigured"));
 
         float[] queryEmbedding;
         try
@@ -37,7 +40,7 @@ public class SemanticSearchService : ISemanticSearchService
         }
         catch (Exception ex)
         {
-            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail($"生成查询向量失败：{ex.Message}");
+            return ApiResponse<PagedResult<NoteSearchResultDto>>.Fail(_localizer.T("search.queryVectorFailed", ex.Message));
         }
         var results = await _searchStrategy.SearchAsync(queryEmbedding, topK, cancellationToken);
 

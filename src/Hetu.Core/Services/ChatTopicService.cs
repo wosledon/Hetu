@@ -8,10 +8,12 @@ namespace Hetu.Core.Services;
 public class ChatTopicService : IChatTopicService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public ChatTopicService(IUnitOfWork unitOfWork)
+    public ChatTopicService(IUnitOfWork unitOfWork, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<ChatTopicDto>>> GetByGroupAsync(Guid groupId, CancellationToken cancellationToken = default)
@@ -23,21 +25,21 @@ public class ChatTopicService : IChatTopicService
     public async Task<ApiResponse<ChatTopicDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(id, cancellationToken);
-        if (topic == null) return ApiResponse<ChatTopicDto>.Fail("话题不存在");
+        if (topic == null) return ApiResponse<ChatTopicDto>.Fail(_localizer.T("chatTopic.notFound"));
         return ApiResponse<ChatTopicDto>.Ok(Map(topic));
     }
 
     public async Task<ApiResponse<ChatTopicDto>> CreateAsync(CreateChatTopicRequest request, CancellationToken cancellationToken = default)
     {
         var group = await _unitOfWork.ChatGroups.GetByIdAsync(request.GroupId, cancellationToken);
-        if (group == null) return ApiResponse<ChatTopicDto>.Fail("会话组不存在");
-        if (group.IsMain) return ApiResponse<ChatTopicDto>.Fail("主对话不可创建子话题");
+        if (group == null) return ApiResponse<ChatTopicDto>.Fail(_localizer.T("chatGroup.notFound"));
+        if (group.IsMain) return ApiResponse<ChatTopicDto>.Fail(_localizer.T("chatTopic.mainCannotHaveSub"));
 
         var topic = new ChatTopic
         {
             Id = Guid.NewGuid(),
             GroupId = request.GroupId,
-            Title = string.IsNullOrWhiteSpace(request.Title) ? "新话题" : request.Title.Trim(),
+            Title = string.IsNullOrWhiteSpace(request.Title) ? _localizer.T("chatTopic.defaultTitle") : request.Title.Trim(),
             ModelId = request.ModelId,
             CustomSystemPrompt = request.CustomSystemPrompt,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -52,7 +54,7 @@ public class ChatTopicService : IChatTopicService
     public async Task<ApiResponse<ChatTopicDto>> UpdateAsync(Guid id, UpdateChatTopicRequest request, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(id, cancellationToken);
-        if (topic == null) return ApiResponse<ChatTopicDto>.Fail("话题不存在");
+        if (topic == null) return ApiResponse<ChatTopicDto>.Fail(_localizer.T("chatTopic.notFound"));
 
         topic.Title = string.IsNullOrWhiteSpace(request.Title) ? topic.Title : request.Title.Trim();
         topic.ModelId = request.ModelId;
@@ -72,7 +74,7 @@ public class ChatTopicService : IChatTopicService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(id, cancellationToken);
-        if (topic == null) return ApiResponse.Fail("话题不存在");
+        if (topic == null) return ApiResponse.Fail(_localizer.T("chatTopic.notFound"));
 
         await _unitOfWork.ChatTopics.DeleteAsync(topic, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -85,7 +87,7 @@ public class ChatTopicService : IChatTopicService
     public async Task<ApiResponse> ClearAsync(Guid topicId, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
-        if (topic == null) return ApiResponse.Fail("话题不存在");
+        if (topic == null) return ApiResponse.Fail(_localizer.T("chatTopic.notFound"));
 
         var messages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId, cancellationToken);
         foreach (var message in messages)
@@ -128,7 +130,7 @@ public class ChatTopicService : IChatTopicService
     public async Task<ApiResponse<ChatTopicDto>> ForkAsync(Guid topicId, Guid? branchMessageId, CancellationToken cancellationToken = default)
     {
         var sourceTopic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
-        if (sourceTopic == null) return ApiResponse<ChatTopicDto>.Fail("原话题不存在");
+        if (sourceTopic == null) return ApiResponse<ChatTopicDto>.Fail(_localizer.T("chatTopic.sourceNotFound"));
 
         var messages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId, cancellationToken);
         var orderedMessages = messages.OrderBy(m => m.CreatedAt).ToList();
@@ -146,7 +148,7 @@ public class ChatTopicService : IChatTopicService
         {
             Id = Guid.NewGuid(),
             GroupId = sourceTopic.GroupId,
-            Title = sourceTopic.Title + " (分支)",
+            Title = sourceTopic.Title + " " + _localizer.T("chatTopic.branchSuffix"),
             ModelId = sourceTopic.ModelId,
             CustomSystemPrompt = sourceTopic.CustomSystemPrompt,
             ParentTopicId = topicId,

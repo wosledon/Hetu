@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap, Search } from 'lucide-react'
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
@@ -10,23 +12,23 @@ const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
-function effortLabel(value: string): string {
+function effortLabel(value: string, t: TFunction): string {
   switch (value) {
     case 'off':
     case 'none':
-      return '关闭'
+      return t('ai.effortOff')
     case 'minimal':
-      return '最低'
+      return t('ai.effortMinimal')
     case 'low':
-      return '低'
+      return t('ai.effortLow')
     case 'medium':
-      return '中'
+      return t('ai.effortMedium')
     case 'high':
-      return '高'
+      return t('ai.effortHigh')
     case 'xhigh':
-      return '超高'
+      return t('ai.effortXHigh')
     case 'max':
-      return '最大'
+      return t('ai.effortMax')
     default:
       return /^\d+$/.test(value) ? `${value} tokens` : value
   }
@@ -87,6 +89,7 @@ async function lookupCatalogModel(modelId: string): Promise<CatalogModelInfo | n
 }
 
 export default function AiSettings() {
+  const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const [showProviderForm, setShowProviderForm] = useState(false)
   const [showModelForm, setShowModelForm] = useState(false)
@@ -172,14 +175,14 @@ export default function AiSettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">AI 模型</h2>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">管理 AI 提供商和模型配置</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('ai.title')}</h2>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowProviderForm(true)}
           className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
         >
-          <Plus size={15} /> 添加提供商
+          <Plus size={15} /> {t('ai.addProvider')}
         </button>
       </div>
 
@@ -220,8 +223,8 @@ export default function AiSettings() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
             <Bot size={24} className="text-gray-400" />
           </div>
-          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">还没有 AI 提供商</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">点击上方按钮添加第一个提供商</p>
+          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">{t('ai.noProviders')}</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('ai.noProvidersHint')}</p>
         </div>
       )}
 
@@ -240,7 +243,7 @@ export default function AiSettings() {
                   {provider.providerType}
                   <span className="mx-1.5">·</span>
                   <span className={provider.isEnabled ? 'text-emerald-500' : 'text-gray-400'}>
-                    {provider.isEnabled ? '启用' : '禁用'}
+                    {provider.isEnabled ? t('common:enabled') : t('common:disabled')}
                   </span>
                 </p>
               </div>
@@ -252,7 +255,7 @@ export default function AiSettings() {
                   setShowModelForm(true)
                 }}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-                title="添加模型"
+                title={t('ai.addModel')}
               >
                 <Plus size={15} />
               </button>
@@ -262,14 +265,14 @@ export default function AiSettings() {
                   setShowFetchForm(true)
                 }}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-400"
-                title="自动获取模型"
+                title={t('ai.fetchModels')}
               >
                 <Download size={15} />
               </button>
               <button
                 onClick={() => deleteProvider.mutate(provider.id)}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                title="删除提供商"
+                title={t('ai.deleteProvider')}
               >
                 <Trash2 size={15} />
               </button>
@@ -279,7 +282,7 @@ export default function AiSettings() {
           {/* Models List */}
           <div className="p-4">
             {provider.models.length === 0 ? (
-              <p className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">暂无模型，点击 + 添加</p>
+              <p className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">{t('ai.emptyModels')}</p>
             ) : (
               <div className="space-y-2">
                 {provider.models.map((model) => (
@@ -291,32 +294,32 @@ export default function AiSettings() {
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{model.displayName}</span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{model.modelId}</span>
                       <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                        {model.purpose === 'chat' ? '对话' : model.purpose === 'embedding' ? 'Embedding' : model.purpose}
+                        {model.purpose === 'chat' ? t('ai.purposeChat') : model.purpose === 'embedding' ? 'Embedding' : model.purpose}
                       </span>
                       {model.supportsVision && (
-                        <span title="视觉" className="inline-flex shrink-0 items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
-                          <Sparkles size={10} className="mr-0.5" />视觉
+                        <span title={t('ai.vision')} className="inline-flex shrink-0 items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+                          <Sparkles size={10} className="mr-0.5" />{t('ai.vision')}
                         </span>
                       )}
                       {model.supportsReasoning && (
-                        <span title="推理" className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                          <Brain size={10} className="mr-0.5" />推理
+                        <span title={t('ai.reasoning')} className="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                          <Brain size={10} className="mr-0.5" />{t('ai.reasoning')}
                         </span>
                       )}
                       {model.supportsTools && (
-                        <span title="工具调用" className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-                          <Wrench size={10} className="mr-0.5" />工具
+                        <span title={t('ai.toolCall')} className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+                          <Wrench size={10} className="mr-0.5" />{t('ai.tools')}
                         </span>
                       )}
                       {model.reasoningMode && model.reasoningMode !== 'none' && (
                         <span className="inline-flex shrink-0 items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
-                          {model.reasoningMode === 'native' ? '原生推理' : '标签推理'} · {effortLabel(model.reasoningEffort)}
+                          {model.reasoningMode === 'native' ? t('ai.nativeReasoning') : t('ai.tagReasoning')} · {effortLabel(model.reasoningEffort, t)}
                           {model.reasoningBudgetTokens ? ` (${model.reasoningBudgetTokens})` : ''}
                         </span>
                       )}
                       {!model.isVisible && (
                         <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:bg-white/[0.06] dark:text-gray-500">
-                          已隐藏
+                          {t('ai.hidden')}
                         </span>
                       )}
                     </div>
@@ -324,7 +327,7 @@ export default function AiSettings() {
                       <button
                         onClick={() => setDefaultModel.mutate(model.id)}
                         className={`rounded-md p-1.5 transition-colors ${model.isDefault ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600'}`}
-                        title={model.isDefault ? '默认模型' : '设为默认'}
+                        title={model.isDefault ? t('ai.defaultModel') : t('ai.setDefault')}
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
                       </button>
@@ -334,14 +337,14 @@ export default function AiSettings() {
                           setShowModelForm(true)
                         }}
                         className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400"
-                        title="编辑模型"
+                        title={t('ai.editModel')}
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => toggleModelVisibility.mutate({ id: model.id, isVisible: !model.isVisible })}
                         className={`rounded-md p-1.5 transition-colors ${model.isVisible ? 'text-gray-300 hover:text-gray-500 dark:text-gray-600' : 'text-gray-300 hover:text-blue-400 dark:text-gray-600'}`}
-                        title={model.isVisible ? '隐藏模型' : '显示模型'}
+                        title={model.isVisible ? t('ai.hideModel') : t('ai.showModel')}
                       >
                         {model.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                       </button>
@@ -415,6 +418,7 @@ function ProviderForm({
   }) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation('chat')
   const [providerType, setProviderType] = useState<'openai' | 'anthropic'>('openai')
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -462,7 +466,7 @@ function ProviderForm({
 
   return (
     <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
-      <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">添加提供商</h3>
+      <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">{t('ai.addProvider')}</h3>
       <div className="space-y-3">
         {/* 供应商目录：选中后只需填 API Key */}
         <div className="relative">
@@ -471,12 +475,12 @@ function ProviderForm({
             type="text"
             value={catalogQuery}
             onChange={(e) => setCatalogQuery(e.target.value)}
-            placeholder="从 models.dev 选择供应商，如 deepseek / moonshot / zhipu"
+            placeholder={t('ai.catalogProviderPlaceholder')}
             className={`${inputClass} pl-9`}
           />
           {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
             <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
-              {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">正在检索供应商目录...</p>}
+              {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">{t('ai.searchingProviders')}</p>}
               {!catalogLoading &&
                 catalogResults.map((p) => (
                   <button
@@ -487,7 +491,7 @@ function ProviderForm({
                   >
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.name}</span>
                     <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{p.id}</span>
-                    <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{p.modelCount} 个模型</span>
+                    <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{t('ai.modelCount', { count: p.modelCount })}</span>
                     {p.api && <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{p.api}</span>}
                   </button>
                 ))}
@@ -496,9 +500,9 @@ function ProviderForm({
         </div>
         {catalogProvider && (
           <div className="rounded-lg border border-gray-200 bg-white/60 px-3 py-2 text-[11px] text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400">
-            已选择目录供应商，名称与 Base URL 自动填充
-            {!catalogProvider.api && '（目录未提供 Base URL，请手动填写）'}
-            {catalogProvider.env && <span className="ml-1">· Key 对应环境变量 {catalogProvider.env}</span>}
+            {t('ai.catalogSelected')}
+            {!catalogProvider.api && t('ai.catalogNoBaseUrl')}
+            {catalogProvider.env && <span className="ml-1">{t('ai.catalogEnv', { env: catalogProvider.env })}</span>}
             <button
               type="button"
               onClick={() => {
@@ -509,7 +513,7 @@ function ProviderForm({
               }}
               className="ml-2 text-blue-500 hover:underline dark:text-blue-400"
             >
-              清除
+              {t('ai.clear')}
             </button>
           </div>
         )}
@@ -518,7 +522,7 @@ function ProviderForm({
           value={providerType}
           onChange={(value) => setProviderType(value as 'openai' | 'anthropic')}
           options={[
-            { value: 'openai', label: 'OpenAI 兼容' },
+            { value: 'openai', label: t('ai.openaiCompatible') },
             { value: 'anthropic', label: 'Anthropic' },
           ]}
         />
@@ -526,7 +530,7 @@ function ProviderForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="名称（如 My OpenAI）"
+          placeholder={t('ai.providerNamePlaceholder')}
           className={inputClass}
         />
         <input
@@ -540,7 +544,7 @@ function ProviderForm({
           type="text"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="Base URL（可选，默认官方地址）"
+          placeholder={t('ai.baseUrlPlaceholder')}
           className={inputClass}
         />
         <div className="flex items-center gap-2 pt-1">
@@ -556,13 +560,13 @@ function ProviderForm({
             disabled={!name.trim()}
             className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
           >
-            {catalogProvider && importModels ? '保存并导入模型' : '保存'}
+            {catalogProvider && importModels ? t('ai.saveAndImport') : t('common:save')}
           </button>
           <button
             onClick={onCancel}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
           >
-            取消
+            {t('common:cancel')}
           </button>
         </div>
         {catalogProvider && (
@@ -573,7 +577,7 @@ function ProviderForm({
               onChange={(e) => setImportModels(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
             />
-            同时导入该供应商模型（{Math.min(catalogProvider.modelCount, CATALOG_IMPORT_LIMIT)} 个，能力配置自动填充）
+            {t('ai.importModelsLabel', { count: Math.min(catalogProvider.modelCount, CATALOG_IMPORT_LIMIT) })}
           </label>
         )}
       </div>
@@ -594,6 +598,7 @@ function ModelForm({
   onSubmit: (data: { modelId: string; displayName: string; purpose: 'chat' | 'embedding'; isDefault: boolean; contextWindow?: number; dimensions?: number; reasoningMode: string; reasoningEffort: string; reasoningEfforts?: string; reasoningBudgetTokens?: number; supportsVision: boolean; supportsReasoning: boolean; supportsTools: boolean; isVisible: boolean }) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation('chat')
   const [modelId, setModelId] = useState(initialData?.modelId ?? '')
   const [displayName, setDisplayName] = useState(initialData?.displayName ?? '')
   const [purpose, setPurpose] = useState<'chat' | 'embedding'>(initialData?.purpose ?? 'chat')
@@ -723,7 +728,7 @@ function ModelForm({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{isEdit ? '编辑模型' : '添加模型'}</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{isEdit ? t('ai.editModel') : t('ai.addModel')}</h3>
           <button
             onClick={onCancel}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
@@ -737,7 +742,7 @@ function ModelForm({
           {!isEdit && (
             <section className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">从模型目录选择</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.fromCatalog')}</h4>
                 <a
                   href="https://models.dev"
                   target="_blank"
@@ -753,21 +758,21 @@ function ModelForm({
                   type="text"
                   value={catalogQuery}
                   onChange={(e) => setCatalogQuery(e.target.value)}
-                  placeholder="搜索模型，如 gpt-5 / claude / deepseek / glm / kimi"
+                  placeholder={t('ai.searchModelPlaceholder')}
                   className={`${inputClass} pl-9`}
                 />
               </div>
               {catalogQuery.trim().length === 1 && (
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">至少输入 2 个字符</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.minChars')}</p>
               )}
               {catalogActive && catalogLoading && (
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">正在检索模型目录...</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.searchingCatalog')}</p>
               )}
               {catalogActive && catalogError && (
                 <p className="text-[11px] text-red-500">{catalogError}</p>
               )}
               {catalogActive && !catalogLoading && !catalogError && catalogResults.length === 0 && (
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">未找到匹配模型，仍可手动填写</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.noCatalogMatch')}</p>
               )}
               {catalogActive && catalogResults.length > 0 && (
                 <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-1.5 dark:border-white/[0.06]">
@@ -786,16 +791,16 @@ function ModelForm({
                         <span className="shrink-0">{m.providerName}</span>
                         {m.reasoning && (
                           <span className="inline-flex shrink-0 items-center rounded bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
-                            推理{m.reasoningEffortValues.length > 0 ? `: ${m.reasoningEffortValues.map(effortLabel).join('/')}` : m.reasoningBudgetMin ? `: ≥${m.reasoningBudgetMin} tokens` : ''}
+                            {t('ai.reasoning')}{m.reasoningEffortValues.length > 0 ? `: ${m.reasoningEffortValues.map(v => effortLabel(v, t)).join('/')}` : m.reasoningBudgetMin ? `: ≥${m.reasoningBudgetMin} tokens` : ''}
                           </span>
                         )}
                         {m.supportsVision && (
-                          <span className="inline-flex shrink-0 items-center rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">视觉</span>
+                          <span className="inline-flex shrink-0 items-center rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">{t('ai.vision')}</span>
                         )}
                         {m.supportsTools && (
-                          <span className="inline-flex shrink-0 items-center rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">工具</span>
+                          <span className="inline-flex shrink-0 items-center rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">{t('ai.tools')}</span>
                         )}
-                        {m.contextWindow ? <span className="shrink-0">{(m.contextWindow / 1024).toLocaleString()}K 上下文</span> : null}
+                        {m.contextWindow ? <span className="shrink-0">{t('ai.contextK', { k: (m.contextWindow / 1024).toLocaleString() })}</span> : null}
                       </div>
                     </button>
                   ))}
@@ -806,9 +811,9 @@ function ModelForm({
 
           {/* ── 基础信息 ── */}
           <section className="space-y-3.5">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">基础信息</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.basicInfo')}</h4>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">用途</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.purpose')}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -820,7 +825,7 @@ function ModelForm({
                   }`}
                 >
                   <Bot size={16} />
-                  对话模型
+                  {t('ai.chatModel')}
                 </button>
                 <button
                   type="button"
@@ -832,12 +837,12 @@ function ModelForm({
                   }`}
                 >
                   <Zap size={16} />
-                  Embedding 模型
+                  {t('ai.embeddingModel')}
                 </button>
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">模型 ID</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.modelId')}</label>
               <input
                 type="text"
                 value={modelId}
@@ -848,12 +853,12 @@ function ModelForm({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">显示名称</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.displayName')}</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="留空则使用模型 ID"
+                placeholder={t('ai.displayNamePlaceholder')}
                 className={inputClass}
               />
             </div>
@@ -862,34 +867,34 @@ function ModelForm({
           {/* ── 对话模型专属配置 ── */}
           {isChat && (
             <section className="space-y-3.5">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">对话配置</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.chatConfig')}</h4>
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">上下文窗口</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.contextWindow')}</label>
                 <input
                   type="number"
                   value={contextWindow}
                   onChange={(e) => setContextWindow(e.target.value)}
-                  placeholder="如 128000"
+                  placeholder={t('ai.contextWindowPlaceholder')}
                   className={inputClass}
                 />
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">模型支持的最大 Token 数（可选）</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.contextWindowHint')}</p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理模式</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.reasoningMode')}</label>
                 <Select
                   value={reasoningMode}
                   onChange={(value) => setReasoningMode(value)}
                   options={[
-                    { value: 'none', label: '不支持推理' },
-                    { value: 'tag', label: '标签模式（<thinking> 标签）' },
-                    { value: 'native', label: '原生模式（o1 / Claude 等）' },
+                    { value: 'none', label: t('ai.reasoningNone') },
+                    { value: 'tag', label: t('ai.reasoningTag') },
+                    { value: 'native', label: t('ai.reasoningNative') },
                   ]}
                 />
               </div>
               {reasoningMode !== 'none' && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理强度</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.reasoningEffort')}</label>
                   <Select
                     value={effortInOptions && !customEffort ? reasoningEffort : '__custom__'}
                     onChange={(value) => {
@@ -901,8 +906,8 @@ function ModelForm({
                       setReasoningEffort(value)
                     }}
                     options={[
-                      ...effortOptions.map((value) => ({ value, label: effortLabel(value) })),
-                      { value: '__custom__', label: '自定义值…' },
+                      ...effortOptions.map((value) => ({ value, label: effortLabel(value, t) })),
+                      { value: '__custom__', label: t('ai.customEffort') },
                     ]}
                   />
                   {customEffort && (
@@ -910,35 +915,35 @@ function ModelForm({
                       type="text"
                       value={reasoningEffort}
                       onChange={(e) => setReasoningEffort(e.target.value)}
-                      placeholder="自定义强度，如 minimal / xhigh / max 或数字 Token 预算"
+                      placeholder={t('ai.customEffortPlaceholder')}
                       className={inputClass}
                     />
                   )}
                   {catalogEffortValues.length > 0 && (
                     <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                      选项来自模型目录声明：{catalogEffortValues.map(effortLabel).join(' / ')}
+                      {t('ai.catalogEffortHint', { list: catalogEffortValues.map(v => effortLabel(v, t)).join(' / ') })}
                     </p>
                   )}
                 </div>
               )}
               {reasoningMode !== 'none' && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">推理 Token 预算（可选）</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.reasoningBudget')}</label>
                   <input
                     type="number"
                     value={reasoningBudgetTokens}
                     onChange={(e) => setReasoningBudgetTokens(e.target.value)}
-                    placeholder={catalogBudgetMin ? `如 ${catalogBudgetMin}（Claude budget_tokens）` : '如 4096（Claude budget_tokens）'}
+                    placeholder={t('ai.budgetPlaceholder', { n: catalogBudgetMin ?? 4096 })}
                     className={inputClass}
                   />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                    留空按推理强度自动换算；Anthropic 最小 1024，且需小于最大输出 Token
+                    {t('ai.budgetHint')}
                   </p>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">AI 能力</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.capabilities')}</label>
                 <div className="grid grid-cols-3 gap-2">
                   <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
                     supportsVision
@@ -947,7 +952,7 @@ function ModelForm({
                   }`}>
                     <input type="checkbox" checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="sr-only" />
                     <Sparkles size={18} className={supportsVision ? 'text-sky-500' : 'text-gray-400'} />
-                    视觉
+                    {t('ai.vision')}
                   </label>
                   <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
                     supportsReasoning
@@ -956,7 +961,7 @@ function ModelForm({
                   }`}>
                     <input type="checkbox" checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="sr-only" />
                     <Brain size={18} className={supportsReasoning ? 'text-amber-500' : 'text-gray-400'} />
-                    推理
+                    {t('ai.reasoning')}
                   </label>
                   <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
                     supportsTools
@@ -965,7 +970,7 @@ function ModelForm({
                   }`}>
                     <input type="checkbox" checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="sr-only" />
                     <Wrench size={18} className={supportsTools ? 'text-emerald-500' : 'text-gray-400'} />
-                    工具
+                    {t('ai.tools')}
                   </label>
                 </div>
               </div>
@@ -975,25 +980,25 @@ function ModelForm({
           {/* ── Embedding 模型专属配置 ── */}
           {isEmbedding && (
             <section className="space-y-3.5">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Embedding 配置</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.embeddingConfig')}</h4>
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">向量维度</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.dimensions')}</label>
                 <input
                   type="number"
                   value={dimensions}
                   onChange={(e) => setDimensions(e.target.value)}
-                  placeholder="如 1536, 3072"
+                  placeholder={t('ai.dimensionsPlaceholder')}
                   className={inputClass}
                 />
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">必须与模型实际输出维度一致</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.dimensionsHint')}</p>
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">上下文窗口</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.contextWindow')}</label>
                 <input
                   type="number"
                   value={contextWindow}
                   onChange={(e) => setContextWindow(e.target.value)}
-                  placeholder="可选"
+                  placeholder={t('common:optional')}
                   className={inputClass}
                 />
               </div>
@@ -1009,7 +1014,7 @@ function ModelForm({
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
               />
-              设为默认{isChat ? '对话' : 'Embedding'}模型
+              {t('ai.setDefaultModel', { purpose: isChat ? t('ai.purposeChat') : 'Embedding' })}
             </label>
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
               <input
@@ -1018,7 +1023,7 @@ function ModelForm({
                 onChange={(e) => setIsVisible(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
               />
-              在 UI 中可见
+              {t('ai.visibleInUI')}
             </label>
           </section>
         </div>
@@ -1030,13 +1035,13 @@ function ModelForm({
             disabled={!modelId.trim()}
             className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
           >
-            {isEdit ? '更新' : '添加'}
+            {isEdit ? t('ai.update') : t('common:add')}
           </button>
           <button
             onClick={onCancel}
             className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
           >
-            取消
+            {t('common:cancel')}
           </button>
         </div>
       </div>
@@ -1058,6 +1063,7 @@ function FetchModelsForm({
   onAddBatch?: (models: CatalogModelInfo[]) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation('chat')
   const [models, setModels] = useState<RemoteModelInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1127,7 +1133,7 @@ function FetchModelsForm({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">自动获取模型</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('ai.fetchModels')}</h3>
           <button onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
             <X size={16} />
           </button>
@@ -1137,7 +1143,7 @@ function FetchModelsForm({
         {onAddBatch && (
           <section className="mb-5 space-y-2 border-b border-gray-100 pb-5 dark:border-white/[0.06]">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">从模型目录批量导入</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.batchImport')}</h4>
               <a href="https://models.dev" target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline dark:text-blue-400">
                 models.dev
               </a>
@@ -1148,13 +1154,13 @@ function FetchModelsForm({
                 type="text"
                 value={catalogQuery}
                 onChange={(e) => setCatalogQuery(e.target.value)}
-                placeholder="搜索模型，如 deepseek / glm / kimi / qwen"
+                placeholder={t('ai.batchSearchPlaceholder')}
                 className={`${inputClass} pl-9`}
               />
             </div>
             {catalogQuery.trim().length >= 2 && (
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                {catalogLoading ? '正在检索模型目录...' : catalogResults.length > 0 ? `匹配 ${catalogResults.length} 个模型，能力配置自动填充` : '未找到匹配模型'}
+                {catalogLoading ? t('ai.searchingCatalog') : catalogResults.length > 0 ? t('ai.matchedModels', { count: catalogResults.length }) : t('ai.noModelsMatched')}
               </p>
             )}
             {catalogResults.length > 0 && (
@@ -1177,13 +1183,13 @@ function FetchModelsForm({
                         <span className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200">{m.name || m.modelId}</span>
                         <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{m.providerName}</span>
                         {m.reasoning && (
-                          <span className="shrink-0 rounded bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">推理</span>
+                          <span className="shrink-0 rounded bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">{t('ai.reasoning')}</span>
                         )}
                         {m.supportsVision && (
-                          <span className="shrink-0 rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">视觉</span>
+                          <span className="shrink-0 rounded bg-sky-50 px-1 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">{t('ai.vision')}</span>
                         )}
                         {m.supportsTools && (
-                          <span className="shrink-0 rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">工具</span>
+                          <span className="shrink-0 rounded bg-emerald-50 px-1 py-px text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">{t('ai.tools')}</span>
                         )}
                         {m.contextWindow ? <span className="shrink-0 text-[11px] text-gray-400">{(m.contextWindow / 1024).toLocaleString()}K</span> : null}
                       </label>
@@ -1195,13 +1201,13 @@ function FetchModelsForm({
                     onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}
                     className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
                   >
-                    全选
+                    {t('common:selectAll')}
                   </button>
                   <button
                     onClick={() => setSelected(new Set())}
                     className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
                   >
-                    清空
+                    {t('ai.clearSelection')}
                   </button>
                   <button
                     onClick={() => {
@@ -1213,7 +1219,7 @@ function FetchModelsForm({
                     disabled={selectedModels.length === 0}
                     className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97] disabled:opacity-50"
                   >
-                    导入所选（{selectedModels.length}）
+                    {t('ai.importSelected', { count: selectedModels.length })}
                   </button>
                 </div>
               </>
@@ -1221,11 +1227,11 @@ function FetchModelsForm({
           </section>
         )}
 
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">供应商接口返回</h4>
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.providerResponse')}</h4>
         {loading && (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-            <span className="ml-3 text-sm text-gray-500">正在获取模型列表...</span>
+            <span className="ml-3 text-sm text-gray-500">{t('ai.fetchingModels')}</span>
           </div>
         )}
 
@@ -1236,12 +1242,12 @@ function FetchModelsForm({
         )}
 
         {!loading && !error && models.length === 0 && (
-          <p className="py-8 text-center text-sm text-gray-400">未获取到可用模型</p>
+          <p className="py-8 text-center text-sm text-gray-400">{t('ai.noRemoteModels')}</p>
         )}
 
         {!loading && !error && models.length > 0 && (
           <div className="space-y-2">
-            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">点击「添加」将模型加入配置：</p>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{t('ai.addHint')}</p>
             {models.map((m) => (
               <div
                 key={m.modelId}
@@ -1250,14 +1256,14 @@ function FetchModelsForm({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{m.modelId}</p>
                   {m.contextWindow && (
-                    <p className="text-xs text-gray-400">上下文: {m.contextWindow.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">{t('ai.contextLabel', { value: m.contextWindow.toLocaleString() })}</p>
                   )}
                 </div>
                 <button
                   onClick={() => onAdd(m.modelId)}
                   className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97]"
                 >
-                  添加
+                  {t('common:add')}
                 </button>
               </div>
             ))}
@@ -1269,7 +1275,7 @@ function FetchModelsForm({
             onClick={onCancel}
             className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
           >
-            关闭
+            {t('common:close')}
           </button>
         </div>
       </div>

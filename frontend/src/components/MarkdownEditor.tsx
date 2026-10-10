@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { enUS, zhCN } from 'date-fns/locale'
+import { uiLocale, formatDateTime } from '../utils/locale'
 import {
   Check,
   ChevronDown,
@@ -43,6 +45,7 @@ import {
   Square,
 } from 'lucide-react'
 import { useNotebooks } from '../hooks/useNotebooks'
+import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
@@ -56,36 +59,32 @@ import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
-const AI_ACTION_PRESETS: Record<string, string> = {
-  continue: '',
-  polish: '请润色以下文本，优化表达，提升文采：',
-  translate: '请将以下文本翻译为其他语言：',
-  condense: '请简化以下表达，去除冗余：',
-  expand: '请丰富以下内容，添加细节：',
-  explain: '请解释以下文本含义：',
-  custom: '',
+const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
+
+function aiActionPreset(action: string): string {
+  return AI_PRESET_ACTIONS.includes(action) ? i18n.t(`notes:editor.aiPresets.${action}`) : ''
 }
 
 /** 浮动工具栏动作表：模块级定义，避免渲染期闭包引用 ref */
 interface FormatAction {
   key: string
   icon: React.ComponentType<{ size?: number }>
-  title: string
+  titleKey: string
   run: (md: MilkdownEditorHandle) => void
 }
 
 const FORMAT_ACTIONS: FormatAction[] = [
-  { key: 'h2', icon: Heading2, title: '二级标题', run: (md) => md.toggleHeading(2) },
-  { key: 'h3', icon: Heading3, title: '三级标题', run: (md) => md.toggleHeading(3) },
-  { key: 'bold', icon: Bold, title: '加粗', run: (md) => md.toggleBold() },
-  { key: 'italic', icon: Italic, title: '斜体', run: (md) => md.toggleItalic() },
-  { key: 'strike', icon: Strikethrough, title: '删除线', run: (md) => md.toggleStrikethrough() },
-  { key: 'code', icon: Code2, title: '行内代码', run: (md) => md.toggleInlineCode() },
-  { key: 'quote', icon: Quote, title: '引用', run: (md) => md.toggleBlockquote() },
-  { key: 'ul', icon: List, title: '无序列表', run: (md) => md.toggleBulletList() },
-  { key: 'ol', icon: ListOrdered, title: '有序列表', run: (md) => md.toggleOrderedList() },
-  { key: 'todo', icon: ListTodo, title: '待办列表', run: (md) => md.toggleTodo() },
-  { key: 'codeblock', icon: SquareCode, title: '代码块', run: (md) => md.insertCodeBlock() },
+  { key: 'h2', icon: Heading2, titleKey: 'heading2', run: (md) => md.toggleHeading(2) },
+  { key: 'h3', icon: Heading3, titleKey: 'heading3', run: (md) => md.toggleHeading(3) },
+  { key: 'bold', icon: Bold, titleKey: 'bold', run: (md) => md.toggleBold() },
+  { key: 'italic', icon: Italic, titleKey: 'italic', run: (md) => md.toggleItalic() },
+  { key: 'strike', icon: Strikethrough, titleKey: 'strikethrough', run: (md) => md.toggleStrikethrough() },
+  { key: 'code', icon: Code2, titleKey: 'inlineCode', run: (md) => md.toggleInlineCode() },
+  { key: 'quote', icon: Quote, titleKey: 'quote', run: (md) => md.toggleBlockquote() },
+  { key: 'ul', icon: List, titleKey: 'bulletList', run: (md) => md.toggleBulletList() },
+  { key: 'ol', icon: ListOrdered, titleKey: 'orderedList', run: (md) => md.toggleOrderedList() },
+  { key: 'todo', icon: ListTodo, titleKey: 'todoList', run: (md) => md.toggleTodo() },
+  { key: 'codeblock', icon: SquareCode, titleKey: 'codeBlock', run: (md) => md.insertCodeBlock() },
 ]
 
 interface MarkdownEditorProps {
@@ -147,6 +146,7 @@ function sanitizeAiResult(
 
 export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const queryClient = useQueryClient()
+  const { t } = useTranslation('notes')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [isDirty, setIsDirty] = useState(false)
@@ -191,9 +191,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const chatModels = useMemo(() => allModels.filter((m) => m.purpose === 'chat'), [allModels])
   const [selectedModelId, setSelectedModelId] = useState<string>('')
   const activeModelName = useMemo(() => {
-    if (!selectedModelId) return '默认模型'
-    return chatModels.find((m) => m.id === selectedModelId)?.displayName ?? '默认模型'
-  }, [selectedModelId, chatModels])
+    if (!selectedModelId) return t('editor.defaultModel')
+    return chatModels.find((m) => m.id === selectedModelId)?.displayName ?? t('editor.defaultModel')
+  }, [selectedModelId, chatModels, t])
 
   // 点击外部关闭模型选择器
   useEffect(() => {
@@ -272,7 +272,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
     },
     onError: (err: Error) => {
-      setIndexError(err.message || '生成索引失败')
+      setIndexError(err.message || t('editor.indexFailed'))
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
       setTimeout(() => setIndexError(null), 5000)
     },
@@ -286,13 +286,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     onSuccess: (result) => {
       setExtractNotice(
         result.queuedCount > 0
-          ? { text: '已加入后台任务', ok: true }
-          : { text: '已有的图谱任务仍在进行中', ok: false }
+          ? { text: t('editor.queued'), ok: true }
+          : { text: t('editor.alreadyQueued'), ok: false }
       )
       setTimeout(() => setExtractNotice(null), 5000)
     },
     onError: (err: Error) => {
-      setExtractNotice({ text: err.message || '加入后台任务失败', ok: false })
+      setExtractNotice({ text: err.message || t('editor.queueFailed'), ok: false })
       setTimeout(() => setExtractNotice(null), 5000)
     },
   })
@@ -323,7 +323,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     const abortRef = context === 'inline' ? inlineAbortRef : assistantAbortRef
     const selection = context === 'inline' ? aiSelection : (milkdownRef.current?.getMarkdown() ?? '')
     // 自定义输入（用户改过提示词）优先，否则用动作预设
-    const systemPrompt = customPrompt.trim() || AI_ACTION_PRESETS[action] || ''
+    const systemPrompt = customPrompt.trim() || aiActionPreset(action)
     if (context === 'inline') setInlineAiAction(action)
     else setAssistantAction(action)
 
@@ -347,7 +347,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       )
       setResult(acc)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'AI 操作失败'
+      const message = err instanceof Error ? err.message : t('editor.aiFailed')
       if (controller.signal.aborted) {
         // 用户主动停止：保留已生成的部分
         setResult(acc)
@@ -441,7 +441,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     // 此时拒绝替换并提示用户改用「追加」
     const selection = milkdownRef.current?.getSelectionInfo()
     if (!selection?.hasSelection) {
-      setInlineAiResult(`[ERROR] 编辑器选区已丢失，无法替换；可使用「追加」将结果插入文末。`)
+      setInlineAiResult(`[ERROR] ${t('editor.selectionLost')}`)
       return
     }
     milkdownRef.current?.replaceSelection(cleaned)
@@ -501,7 +501,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   }
 
   const notebookPath = useMemo(() => {
-    if (!note?.notebookId || !notebooks.length) return '未分类'
+    if (!note?.notebookId || !notebooks.length) return t('note.uncategorized')
     const findPath = (items: INotebook[], id: string, path: string[] = []): string | null => {
       for (const item of items) {
         if (item.id === id) return [...path, item.name].join(' / ')
@@ -512,8 +512,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       }
       return null
     }
-    return findPath(notebooks, note.notebookId) || '未分类'
-  }, [note?.notebookId, notebooks])
+    return findPath(notebooks, note.notebookId) || t('note.uncategorized')
+  }, [note?.notebookId, notebooks, t])
 
   const save = useCallback(() => {
     if (!note || !isDirty) return
@@ -550,8 +550,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
             <PenLine size={28} className="text-white" />
           </div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">选择或创建一个笔记开始编写</p>
-          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">支持 Markdown 语法 · AI 辅助写作 · 历史版本</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('editor.emptyHint')}</p>
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">{t('editor.emptySubHint')}</p>
         </div>
       </div>
     )
@@ -564,8 +564,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         const Icon = item.icon
         return (
           <button
-            key={item.title}
-            title={item.title}
+            key={item.key}
+            title={t(`editor.format.${item.titleKey}`)}
             onClick={(e) => { e.preventDefault(); runFormat(item.run) }}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
@@ -575,7 +575,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       })}
       <span className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
       <button
-        title="行内 AI（对选中文本执行）"
+        title={t('editor.inlineAiHint')}
         onClick={() => { setShowInlineAi(true); setInlineAiResult(''); setInlineCustomPrompt('') }}
         className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
       >
@@ -585,33 +585,33 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       {linkDraft === null ? (
         <>
           <button
-            title='插入链接'
+            title={t('editor.insertLink')}
             onClick={() => setLinkDraft('')}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
             <Link2 size={14} />
           </button>
           <button
-            title='插入表格'
+            title={t('editor.insertTable')}
             onClick={() => runFormat((md) => md.insertTable())}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
             <Table2 size={14} />
           </button>
           <button
-            title='分割线'
+            title={t('editor.divider')}
             onClick={() => runFormat((md) => md.insertDivider())}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
             <Minus size={14} />
           </button>
           <button
-            title='插入流程图（mermaid）'
+            title={t('editor.insertDiagram')}
             onClick={() => runFormat((md) => md.insertDiagram())}
             className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]"
           >
             <Workflow size={14} />
-            流程图
+            {t('editor.diagramLabel')}
           </button>
         </>
       ) : (
@@ -626,7 +626,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             }
             if (e.key === 'Escape') setLinkDraft(null)
           }}
-          placeholder='输入链接地址后回车'
+          placeholder={t('editor.linkPlaceholder')}
           className="h-7 w-44 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[12px] outline-none dark:border-gray-600 dark:bg-gray-700"
         />
       )}
@@ -638,9 +638,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-4 dark:border-gray-800/50 dark:bg-gray-900/80">
         <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
           {[
-            { key: 'preview', label: '预览', icon: Eye },
-            { key: 'edit', label: '编辑', icon: Edit3 },
-            { key: 'split', label: '分栏', icon: Columns2 },
+            { key: 'preview', label: t('common:preview'), icon: Eye },
+            { key: 'edit', label: t('common:edit'), icon: Edit3 },
+            { key: 'split', label: t('editor.viewSplit'), icon: Columns2 },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -659,24 +659,24 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         <div className="flex items-center gap-1.5">
           <span className="hidden text-[11px] text-gray-400/80 sm:inline">
             {updateNote.isPending ? (
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse-soft" />保存中...</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse-soft" />{t('editor.saving')}</span>
             ) : isDirty ? (
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />有未保存的更改</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />{t('editor.unsavedChanges')}</span>
             ) : (
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />已保存</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{t('common:saved')}</span>
             )}
           </span>
           <button
             onClick={() => setShowVersions(!showVersions)}
             className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showVersions ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
-            title="历史版本"
+            title={t('editor.versions')}
           >
             <History size={15} />
           </button>
           <button
             onClick={() => setShowShareDialog(true)}
             className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showShareDialog ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
-            title="导出/分享"
+            title={t('editor.exportShare')}
           >
             <Share2 size={15} />
           </button>
@@ -689,10 +689,10 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 ? 'bg-gradient-to-r from-indigo-600 to-purple-700'
                 : 'bg-gradient-to-r from-indigo-500 to-purple-600'
             }`}
-            title="AI 助手面板（全文操作）"
+            title={t('editor.aiAssistantHint')}
           >
             <Sparkles size={13} />
-            AI 助手
+            {t('editor.aiAssistant')}
           </button>
         </div>
       </div>
@@ -702,17 +702,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="笔记标题"
+          placeholder={t('editor.titlePlaceholder')}
           className="w-full border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
         />
         <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Calendar size={11} />
-            {new Date(note!.createdAt).toLocaleDateString('zh-CN')}
+            {new Date(note!.createdAt).toLocaleDateString(uiLocale())}
           </span>
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Clock size={11} />
-            更新于 {formatDistanceToNow(new Date(note!.updatedAt), { addSuffix: true, locale: zhCN })}
+            {t('note.updated', { time: formatDistanceToNow(new Date(note!.updatedAt), { addSuffix: true, locale: uiLocale() === 'en' ? enUS : zhCN }) })}
           </span>
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Folder size={11} />
@@ -721,17 +721,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           {isIndexing ? (
             <span className="flex items-center gap-1.5 rounded-md bg-teal-50 px-2 py-1 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
               <Loader2 size={11} className="animate-spin" />
-              索引中...
+              {t('editor.indexing')}
             </span>
           ) : currentEmbedding?.hasEmbedding ? (
             <span className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
               <Database size={11} />
-              已索引 · {currentEmbedding.chunkCount} 块
+              {t('editor.indexed', { n: currentEmbedding.chunkCount })}
             </span>
           ) : (
             <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 text-gray-400 dark:bg-white/[0.04] dark:text-gray-500">
               <Database size={11} />
-              未索引
+              {t('editor.notIndexed')}
             </span>
           )}
           {indexError && (
@@ -744,7 +744,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             onClick={() => generateEmbedding.mutate()}
             disabled={generateEmbedding.isPending || isIndexing}
             className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
-            title={currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
+            title={currentEmbedding?.hasEmbedding ? t('editor.rebuildIndex') : t('editor.generateIndex')}
           >
             {isIndexing ? (
               <Loader2 size={11} className="animate-spin" />
@@ -755,20 +755,26 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             ) : (
               <Database size={11} />
             )}
-            {isIndexing ? '索引中...' : generateEmbedding.isPending ? '处理中...' : currentEmbedding?.hasEmbedding ? '重建索引' : '生成索引'}
+            {isIndexing
+              ? t('editor.indexing')
+              : generateEmbedding.isPending
+                ? t('editor.processing')
+                : currentEmbedding?.hasEmbedding
+                  ? t('editor.rebuildIndex')
+                  : t('editor.generateIndex')}
           </button>
           <button
             onClick={() => extractGraph.mutate()}
             disabled={extractGraph.isPending}
             className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
-            title="从当前笔记提取知识图谱实体与关系"
+            title={t('editor.extractHint')}
           >
             {extractGraph.isPending ? (
               <Loader2 size={11} className="animate-spin" />
             ) : (
               <Network size={11} />
             )}
-            {extractGraph.isPending ? '加入中...' : '提取图谱'}
+            {extractGraph.isPending ? t('editor.extracting') : t('editor.extract')}
           </button>
           {extractNotice && (
             <span
@@ -791,7 +797,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       {showShareDialog && (
         <div className="animate-fade-in border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 p-4 dark:border-gray-800/50 dark:from-blue-900/10 dark:to-indigo-900/5">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">分享笔记</h3>
+            <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">{t('share.title')}</h3>
             <button
               onClick={() => setShowShareDialog(false)}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/50 hover:text-gray-600"
@@ -801,9 +807,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </div>
           <div className="mb-3 flex flex-wrap gap-2">
             {[
-              { label: '永久链接', hours: undefined as number | undefined, primary: true },
-              { label: '24小时有效', hours: 24, primary: false },
-              { label: '3天有效', hours: 72, primary: false },
+              { label: t('share.permanentLink'), hours: undefined as number | undefined, primary: true },
+              { label: t('share.hours24'), hours: 24, primary: false },
+              { label: t('share.days3'), hours: 72, primary: false },
             ].map(({ label, hours, primary }) => (
               <button
                 key={label}
@@ -826,15 +832,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs text-gray-600 dark:text-gray-400">{link.shareUrl}</div>
                     <div className="mt-0.5 text-[10px] text-gray-400">
-                      {link.isActive ? `访问 ${link.viewCount} 次` : '已禁用'}
-                      {link.expiresAt && ` · 过期: ${new Date(link.expiresAt).toLocaleString('zh-CN')}`}
+                      {link.isActive ? t('share.visits', { n: link.viewCount }) : t('common:disabled')}
+                      {link.expiresAt && ` · ${t('share.expires', { time: formatDateTime(link.expiresAt) })}`}
                     </div>
                   </div>
                   {link.isActive && (
                     <button
                       onClick={() => handleCopyLink(link.shareUrl)}
                       className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                      title="复制链接"
+                      title={t('share.copyLink')}
                     >
                       {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                     </button>
@@ -843,7 +849,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     <button
                       onClick={() => deactivateShareLink.mutate(link.id)}
                       className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                      title="禁用链接"
+                      title={t('share.disableLink')}
                     >
                       <X size={14} />
                     </button>
@@ -853,7 +859,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             </div>
           )}
           {shareLinks.length === 0 && (
-            <div className="py-2 text-center text-xs text-gray-500">暂无分享链接</div>
+            <div className="py-2 text-center text-xs text-gray-500">{t('share.noLinks')}</div>
           )}
         </div>
       )}
@@ -873,7 +879,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 initialMarkdown={noteContent}
                 onChange={handleContentChange}
                 onSelectionChange={handleSelectionChange}
-                placeholder="开始编写..."
+                placeholder={t('editor.placeholder')}
               />
             </div>
 
@@ -897,9 +903,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               >                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={13} className="text-indigo-500" />
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">行内 AI</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{t('editor.inlineAi')}</span>
                     <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
-                      {aiSelection.length > 0 ? `${aiSelection.length} 字` : '全文'}
+                      {aiSelection.length > 0 ? t('editor.selectionChars', { n: aiSelection.length }) : t('editor.fullText')}
                     </span>
                   </div>
                   <button
@@ -914,17 +920,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   {!inlineAiResult && (
                     <div className="mb-2 flex flex-wrap gap-1">
                       {[
-                        { key: 'polish', label: '润色' },
-                        { key: 'translate', label: '翻译' },
-                        { key: 'condense', label: '精简' },
-                        { key: 'expand', label: '扩展' },
-                        { key: 'explain', label: '解释' },
+                        { key: 'polish', label: t('editor.ai.polish') },
+                        { key: 'translate', label: t('editor.ai.translate') },
+                        { key: 'condense', label: t('editor.ai.condense') },
+                        { key: 'expand', label: t('editor.ai.expand') },
+                        { key: 'explain', label: t('editor.ai.explain') },
                       ].map((a) => (
                         <button
                           key={a.key}
                       onClick={() => {
                         setInlineAiAction(a.key as typeof inlineAiAction)
-                        setInlineCustomPrompt(AI_ACTION_PRESETS[a.key] ?? '')
+                        setInlineCustomPrompt(aiActionPreset(a.key))
                         setInlineAiResult('')
                         requestAnimationFrame(() => inlineInputRef.current?.focus())
                       }}
@@ -955,7 +961,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                           closeInlineAi()
                         }
                       }}
-                      placeholder="描述想要的修改，回车执行…"
+                      placeholder={t('editor.inlinePlaceholder')}
                       rows={2}
                       className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-indigo-400 focus:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus:border-indigo-500 dark:focus:bg-gray-800"
                     />
@@ -973,7 +979,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     <button
                       onClick={() => setShowModelPicker((v) => !v)}
                       className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
-                      title="选择模型"
+                      title={t('editor.selectModel')}
                     >
                       <Bot size={11} />
                       {activeModelName}
@@ -985,7 +991,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                           onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
                           className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
-                          <span className="flex-1">默认模型</span>
+                          <span className="flex-1">{t('editor.defaultModel')}</span>
                           {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
                         </button>
                         {chatModels.filter((m) => !m.isDefault).map((m) => (
@@ -1008,19 +1014,19 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                           onClick={handleReplaceSelection}
                           className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700"
                         >
-                          接受替换
+                          {t('editor.acceptReplace')}
                         </button>
                         <button
                           onClick={handleInsertAiResult}
                           className="rounded-md px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
                         >
-                          追加
+                          {t('editor.append')}
                         </button>
                         <button
                           onClick={() => { setInlineAiResult(''); setInlineCustomPrompt('') }}
                           className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
                         >
-                          重写
+                          {t('editor.rewrite')}
                         </button>
                       </>
                     )}
@@ -1031,7 +1037,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
                       >
                         <Send size={11} />
-                        {inlineAiLoading ? '生成中…' : '执行'}
+                        {inlineAiLoading ? t('editor.generating') : t('editor.execute')}
                       </button>
                     )}
                     {inlineAiLoading && (
@@ -1040,7 +1046,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
                       >
                         <Square size={11} />
-                        停止
+                        {t('common:stop')}
                       </button>
                     )}
                   </div>
@@ -1064,8 +1070,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
                   <Sparkles size={14} className="text-indigo-500" />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">AI 助手</h3>
-                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">全文</span>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('editor.aiAssistant')}</h3>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">{t('editor.fullText')}</span>
               </div>
               <button
                 onClick={() => { setShowAssistant(false); setAssistantResult(''); setAssistantCustomPrompt(''); }}
@@ -1079,18 +1085,18 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               {!assistantResult && (
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {[
-                    { key: 'continue', label: '续写' },
-                    { key: 'polish', label: '润色' },
-                    { key: 'translate', label: '翻译' },
-                    { key: 'condense', label: '精简' },
-                    { key: 'expand', label: '扩展' },
-                    { key: 'explain', label: '解释' },
+                    { key: 'continue', label: t('editor.ai.continue') },
+                    { key: 'polish', label: t('editor.ai.polish') },
+                    { key: 'translate', label: t('editor.ai.translate') },
+                    { key: 'condense', label: t('editor.ai.condense') },
+                    { key: 'expand', label: t('editor.ai.expand') },
+                    { key: 'explain', label: t('editor.ai.explain') },
                   ].map((a) => (
                     <button
                       key={a.key}
                       onClick={() => {
                         setAssistantAction(a.key as typeof assistantAction)
-                        setAssistantCustomPrompt(AI_ACTION_PRESETS[a.key] ?? '')
+                        setAssistantCustomPrompt(aiActionPreset(a.key))
                         setAssistantResult('')
                       }}
                       className={`rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
@@ -1116,7 +1122,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       handleAiExecuteFor(assistantAction, assistantCustomPrompt, 'assistant')
                     }
                   }}
-                  placeholder="输入自定义指令，回车执行…"
+                  placeholder={t('editor.assistantPlaceholder')}
                   rows={3}
                   className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs outline-none transition-colors focus:border-indigo-400 focus:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus:border-indigo-500 dark:focus:bg-gray-800"
                 />
@@ -1135,7 +1141,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   <button
                     onClick={() => setShowModelPicker((v) => !v)}
                     className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
-                    title="选择模型"
+                    title={t('editor.selectModel')}
                   >
                     <Bot size={11} />
                     {activeModelName}
@@ -1147,7 +1153,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}
                         className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                       >
-                        <span className="flex-1">默认模型</span>
+                        <span className="flex-1">{t('editor.defaultModel')}</span>
                         {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
                       </button>
                       {chatModels.filter((m) => !m.isDefault).map((m) => (
@@ -1170,13 +1176,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         onClick={handleInsertAiResult}
                         className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700"
                       >
-                        追加到末尾
+                        {t('editor.appendToEnd')}
                       </button>
                       <button
                         onClick={() => { setAssistantResult(''); setAssistantCustomPrompt('') }}
                         className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800"
                       >
-                        重写
+                        {t('editor.rewrite')}
                       </button>
                     </>
                   )}
@@ -1187,7 +1193,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
                     >
                       <Send size={11} />
-                      {assistantLoading ? '生成中…' : '执行'}
+                      {assistantLoading ? t('editor.generating') : t('editor.execute')}
                     </button>
                   )}
                   {assistantLoading && (
@@ -1196,7 +1202,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
                     >
                       <Square size={11} />
-                      停止
+                      {t('common:stop')}
                     </button>
                   )}
                 </div>
@@ -1212,7 +1218,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
                   <History size={14} className="text-indigo-500" />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">历史版本</h3>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('editor.versions')}</h3>
               </div>
               <button
                 onClick={() => {
@@ -1227,7 +1233,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
               {versions.length === 0 && (
-                <div className="py-10 text-center text-sm text-gray-400">暂无历史版本</div>
+                <div className="py-10 text-center text-sm text-gray-400">{t('editor.noVersions')}</div>
               )}
               {versions.map((version) => (
                 <div
@@ -1239,7 +1245,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:border-gray-700 dark:hover:bg-white/[0.03]'
                   }`}
                 >
-                  <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{version.title || '无标题'}</div>
+                  <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{version.title || t('note.untitledShort')}</div>
                   <div className="mt-1 text-[11px] text-gray-400">{new Date(version.createdAt).toLocaleString()}</div>
                 </div>
               ))}
@@ -1248,22 +1254,22 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             {previewVersion && (
               <div className="border-t border-gray-100 p-4 dark:border-gray-800">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{diffMode ? '版本对比' : '版本预览'}</div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{diffMode ? t('editor.versionCompare') : t('editor.versionPreview')}</div>
                   <button
                     onClick={() => setDiffMode((v) => !v)}
                     className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    {diffMode ? '关闭对比' : '对比当前'}
+                    {diffMode ? t('editor.closeCompare') : t('editor.compareCurrent')}
                   </button>
                 </div>
                 {diffMode ? (
                   <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
                     <div>
-                      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">当前版本</div>
+                      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('editor.currentVersion')}</div>
                       <ThemedMarkdown source={content.slice(0, 1000)} />
                     </div>
                     <div>
-                      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">历史版本</div>
+                      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('editor.versions')}</div>
                       <ThemedMarkdown source={previewVersion.content.slice(0, 1000)} />
                     </div>
                   </div>
@@ -1278,7 +1284,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-emerald-500/20 transition-all hover:shadow-md hover:shadow-emerald-500/25 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >
                   <RotateCcw size={14} />
-                  恢复此版本
+                  {t('editor.restoreVersion')}
                 </button>
               </div>
             )}

@@ -1,22 +1,25 @@
+import i18n from '../i18n'
+
 /** 内置兜底档位：模型未声明可选档位时使用 */
 export const REASONING_EFFORT_LEVELS = ['low', 'medium', 'high'] as const
 
-/** 常见推理强度档位标签（models.dev reasoning_options: effort 覆盖这些取值） */
-const EFFORT_LABELS: Record<string, string> = {
-  off: '关闭',
-  none: '关闭',
-  minimal: '最低',
-  low: '低',
-  medium: '中',
-  high: '高',
-  xhigh: '超高',
-  max: '最大',
+/** 常见推理强度档位对应的文案键（models.dev reasoning_options: effort 覆盖这些取值） */
+const EFFORT_KEYS: Record<string, string> = {
+  off: 'reasoning.levels.off',
+  none: 'reasoning.levels.off',
+  minimal: 'reasoning.levels.minimal',
+  low: 'reasoning.levels.low',
+  medium: 'reasoning.levels.medium',
+  high: 'reasoning.levels.high',
+  xhigh: 'reasoning.levels.xhigh',
+  max: 'reasoning.levels.max',
 }
 
-/** 强度档位的中文标签；数字档位按 token 预算展示，其余原样 */
+/** 强度档位的文案；数字档位按 token 预算展示，其余原样 */
 export function reasoningEffortLabel(effort: string): string {
-  if (EFFORT_LABELS[effort]) return EFFORT_LABELS[effort]
-  return /^\d+$/.test(effort) ? `${effort} tokens` : effort
+  const key = EFFORT_KEYS[effort]
+  if (key) return i18n.t(`agent:${key}`)
+  return /^\d+$/.test(effort) ? i18n.t('agent:reasoning.tokenBudget', { n: effort }) : effort
 }
 
 /** 解析模型上保存的档位列表（逗号/分号/空格分隔） */

@@ -1,30 +1,33 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
+import { renderToolGroup } from '../utils/toolRendering'
 import { ChevronDown, ChevronRight, Search, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
-const PROFILE_META: Record<string, { label: string; cls: string }> = {
-  knowledge: { label: '对话 / 知识助手', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' },
-  work: { label: 'Code', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300' },
-  desktop: { label: '桌面 Agent', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
-  cowork: { label: '协作助手', cls: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300' },
+const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
+  knowledge: { labelKey: 'toolsPage.profile.knowledge', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' },
+  work: { labelKey: 'toolsPage.profile.work', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  desktop: { labelKey: 'toolsPage.profile.desktop', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
+  cowork: { labelKey: 'toolsPage.profile.cowork', cls: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300' },
 }
 
-const RISK_META: Record<string, { label: string; cls: string; Icon: typeof Eye }> = {
-  read: { label: '只读', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300', Icon: Eye },
-  write: { label: '写入', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', Icon: ShieldCheck },
-  execute: { label: '执行命令', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', Icon: ShieldAlert },
+const RISK_META: Record<string, { labelKey: string; cls: string; Icon: typeof Eye }> = {
+  read: { labelKey: 'toolsPage.risk.read', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300', Icon: Eye },
+  write: { labelKey: 'toolsPage.risk.write', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', Icon: ShieldCheck },
+  execute: { labelKey: 'toolsPage.risk.execute', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', Icon: ShieldAlert },
 }
 
-const APPROVAL_META: Record<string, { label: string; cls: string }> = {
-  auto: { label: '默认自动执行', cls: 'text-emerald-600 dark:text-emerald-400' },
-  ask: { label: '默认需确认', cls: 'text-amber-600 dark:text-amber-400' },
-  bypass: { label: '始终放行', cls: 'text-rose-600 dark:text-rose-400' },
+const APPROVAL_META: Record<string, { labelKey: string; cls: string }> = {
+  auto: { labelKey: 'toolsPage.approval.auto', cls: 'text-emerald-600 dark:text-emerald-400' },
+  ask: { labelKey: 'toolsPage.approval.ask', cls: 'text-amber-600 dark:text-amber-400' },
+  bypass: { labelKey: 'toolsPage.approval.bypass', cls: 'text-rose-600 dark:text-rose-400' },
 }
 
 function ToolCard({ tool }: { tool: IToolCatalogItem }) {
+  const { t } = useTranslation('agents')
   const [open, setOpen] = useState(false)
   const risk = RISK_META[tool.risk] ?? RISK_META.write
   const approval = APPROVAL_META[tool.defaultApproval] ?? APPROVAL_META.ask
@@ -49,21 +52,22 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
             <code className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">{tool.name}</code>
             <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${risk.cls}`}>
               <risk.Icon size={10} />
-              {risk.label}
+              {t(risk.labelKey)}
             </span>
-            <span className={`text-[10px] font-medium ${approval.cls}`}>{approval.label}</span>
+            <span className={`text-[10px] font-medium ${approval.cls}`}>{t(approval.labelKey)}</span>
           </div>
 
           <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-300">{tool.description}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{tool.group}</span>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{renderToolGroup(tool.group)}</span>
             {tool.profiles.map((p) => {
-              const meta = PROFILE_META[p] ?? { label: p, cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }
-              return <span key={p} className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span>
+              const meta = PROFILE_META[p]
+              const cls = meta?.cls ?? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+              return <span key={p} className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{meta ? t(meta.labelKey) : p}</span>
             })}
             {tool.profiles.length === 0 && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-gray-800">未挂载到任何会话人格</span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-gray-800">{t('toolsPage.noProfiles')}</span>
             )}
           </div>
 
@@ -74,7 +78,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
                 className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                参数与使用约定
+                {t('toolsPage.parametersAndGuidelines')}
               </button>
 
               {open && (
@@ -100,6 +104,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
 }
 
 export default function ToolsPage() {
+  const { t } = useTranslation('agents')
   const [keyword, setKeyword] = useState('')
   const [group, setGroup] = useState('')
   const [profile, setProfile] = useState('')
@@ -138,9 +143,9 @@ export default function ToolsPage() {
             <Terminal size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">内置工具</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('toolsPage.title')}</h1>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              共 {tools.length} 个内置工具 · 对话与 Code 共用同一套能力，区别只是 Code 会挂载项目上下文
+              {t('toolsPage.subtitle', { n: tools.length })}
             </p>
           </div>
         </div>
@@ -151,7 +156,7 @@ export default function ToolsPage() {
             <input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="搜索工具名、说明或使用约定..."
+              placeholder={t('toolsPage.searchPlaceholder')}
               className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
             />
           </div>
@@ -161,7 +166,7 @@ export default function ToolsPage() {
               onClick={() => { setGroup(''); setProfile('') }}
               className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
             >
-              全部 {tools.length}
+              {t('common:all')} {tools.length}
             </button>
             {(['knowledge', 'work', 'desktop', 'cowork'] as const).filter((p) => tools.some((t) => t.profiles.includes(p))).map((p) => (
               <button
@@ -169,7 +174,7 @@ export default function ToolsPage() {
                 onClick={() => { setProfile(profile === p ? '' : p); setGroup('') }}
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
               >
-                {PROFILE_META[p]?.label ?? p}
+                {PROFILE_META[p] ? t(PROFILE_META[p].labelKey) : p}
               </button>
             ))}
           </div>
@@ -181,18 +186,18 @@ export default function ToolsPage() {
                 onClick={() => { setGroup(group === g ? '' : g); setProfile('') }}
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'}`}
               >
-                {g} {tools.filter((t) => t.group === g).length}
+                {renderToolGroup(g)} {tools.filter((t) => t.group === g).length}
               </button>
             ))}
           </div>
         </div>
 
         {isLoading ? (
-          <div className="py-16 text-center text-xs text-gray-400">加载中…</div>
+          <div className="py-16 text-center text-xs text-gray-400">{t('common:loading')}</div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
             <Zap size={20} />
-            <span className="text-xs">没有匹配的工具</span>
+            <span className="text-xs">{t('toolsPage.noToolsMatch')}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">

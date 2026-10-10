@@ -46,6 +46,7 @@ public class WikiService : IWikiService
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<WikiService> _logger;
     private readonly CompressionPipelineService _compression;
+    private readonly ILocalizer _localizer;
 
     public WikiService(
         IUnitOfWork unitOfWork,
@@ -55,7 +56,8 @@ public class WikiService : IWikiService
         IBackgroundTaskQueue taskQueue,
         ILlmUsageRecorder usageRecorder,
         ILogger<WikiService> logger,
-        CompressionPipelineService compression)
+        CompressionPipelineService compression,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
@@ -65,6 +67,7 @@ public class WikiService : IWikiService
         _usageRecorder = usageRecorder;
         _logger = logger;
         _compression = compression;
+        _localizer = localizer;
     }
 
     /// <summary>
@@ -151,7 +154,7 @@ public class WikiService : IWikiService
     public async Task<ApiResponse<WikiDocumentDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var doc = await _unitOfWork.WikiDocuments.GetByIdAsync(id, cancellationToken);
-        if (doc == null) return ApiResponse<WikiDocumentDto>.Fail("Wiki 文档不存在");
+        if (doc == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.docNotFound"));
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(doc.ProjectId, cancellationToken);
         return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project?.Name ?? string.Empty));
     }
@@ -173,7 +176,7 @@ public class WikiService : IWikiService
     public async Task<ApiResponse<WikiGenerationJobDto>> GetJobAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var job = await _unitOfWork.WikiGenerationJobs.GetByIdAsync(id, cancellationToken);
-        if (job == null) return ApiResponse<WikiGenerationJobDto>.Fail("任务不存在");
+        if (job == null) return ApiResponse<WikiGenerationJobDto>.Fail(_localizer.T("wiki.jobNotFound"));
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(job.ProjectId, cancellationToken);
         return ApiResponse<WikiGenerationJobDto>.Ok(MapJob(job, project?.Name ?? string.Empty));
     }
@@ -185,7 +188,7 @@ public class WikiService : IWikiService
     public async Task<ApiResponse<WikiGenerationJobDto>> EnqueueGenerateAsync(Guid projectId, Guid? modelId, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(projectId, cancellationToken);
-        if (project == null) return ApiResponse<WikiGenerationJobDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WikiGenerationJobDto>.Fail(_localizer.T("wiki.projectNotFound"));
 
         // 同一项目已有进行中任务时直接返回，避免重复消耗 Token
         var active = (await _unitOfWork.WikiGenerationJobs.GetAllAsync(cancellationToken))
@@ -199,9 +202,9 @@ public class WikiService : IWikiService
         }
 
         // 入队前先做可读性校验，失败直接反馈，不占用后台任务
-        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, cancellationToken);
+        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, _localizer, cancellationToken);
         if (!material.HasContext)
-            return ApiResponse<WikiGenerationJobDto>.Fail(material.Failure ?? "未能读取到项目资料");
+            return ApiResponse<WikiGenerationJobDto>.Fail(material.Failure ?? _localizer.T("wiki.materialUnavailable"));
 
         var modelName = await ResolveModelNameAsync(modelId, cancellationToken);
         var job = new WikiGenerationJob
@@ -209,7 +212,7 @@ public class WikiService : IWikiService
             Id = Guid.NewGuid(),
             ProjectId = project.Id,
             Status = 0,
-            Stage = "排队中",
+            Stage = _localizer.T("wiki.stageQueued"),
             Progress = 0,
             TotalPages = 0,
             DonePages = 0,
@@ -253,25 +256,25 @@ public class WikiService : IWikiService
     private async Task RunGenerationCoreAsync(WikiGenerationJob job, Guid? modelId, CancellationToken cancellationToken)
     {
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(job.ProjectId, cancellationToken);
-        if (project == null) throw new InvalidOperationException("项目不存在");
+        if (project == null) throw new InvalidOperationException(_localizer.T("wiki.projectNotFound"));
 
         job.Status = 1;
-        job.Stage = "启动";
+        job.Stage = _localizer.T("wiki.stageStarting");
         job.Progress = 1;
         job.UpdatedAt = DateTimeOffset.UtcNow;
         await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var provider = await ResolveProviderAsync(modelId, cancellationToken);
-        if (provider == null) throw new InvalidOperationException("未找到可用的模型，请先在设置中配置大模型");
+        if (provider == null) throw new InvalidOperationException(_localizer.T("wiki.modelNotConfigured"));
 
-        job.Stage = "采集项目资料";
+        job.Stage = _localizer.T("wiki.stageCollecting");
         job.Progress = 5;
         await SaveJobAsync(job, cancellationToken);
 
-        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, cancellationToken);
+        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, _localizer, cancellationToken);
         if (!material.HasContext)
-            throw new InvalidOperationException(material.Failure ?? "未能读取到项目资料");
+            throw new InvalidOperationException(material.Failure ?? _localizer.T("wiki.materialUnavailable"));
 
         // 代码上下文：有语义索引用检索结果，否则用源码采样兜底
         var workProjectId = project.ProjectType == "Ssh"
@@ -284,7 +287,7 @@ public class WikiService : IWikiService
             useSemantic = status is { Success: true, Data.IsReady: true };
         }
 
-        job.Stage = "规划分页";
+        job.Stage = _localizer.T("wiki.stagePlanning");
         job.Progress = 10;
         await SaveJobAsync(job, cancellationToken);
 
@@ -328,7 +331,7 @@ public class WikiService : IWikiService
                 var done = Interlocked.Increment(ref donePages);
                 job.DonePages = done;
                 job.Progress = 15 + (int)(done * 70.0 / Math.Max(1, plans.Count));
-                job.Stage = $"生成页面 {done}/{plans.Count}";
+                job.Stage = _localizer.T("wiki.stageGeneratingPages", done, plans.Count);
                 job.UpdatedAt = DateTimeOffset.UtcNow;
                 try { await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { /* 进度写库失败不影响生成 */ }
@@ -337,9 +340,9 @@ public class WikiService : IWikiService
 
         var modulePages = (await Task.WhenAll(pageTasks)).Where(p => p != null).ToList()!;
         if (modulePages.Count == 0)
-            throw new InvalidOperationException("所有页面均生成失败，请检查模型配置后重试");
+            throw new InvalidOperationException(_localizer.T("wiki.allPagesFailed"));
 
-        job.Stage = "生成总览";
+        job.Stage = _localizer.T("wiki.stageOverview");
         job.Progress = 90;
         await SaveJobAsync(job, cancellationToken);
 
@@ -357,14 +360,14 @@ public class WikiService : IWikiService
             await _unitOfWork.WikiDocuments.AddAsync(page, cancellationToken);
 
         job.Status = 2;
-        job.Stage = "已完成";
+        job.Stage = _localizer.T("wiki.stageCompleted");
         job.Progress = 100;
         job.DonePages = modulePages.Count + 1;
         job.SetId = setId;
         // 失败不静默：告知用户哪些页面没拿到，可单独重试
         job.WarningMessage = failedPages.Count == 0
             ? null
-            : $"{failedPages.Count} 个页面生成失败（可点页面上的 ↺ 单独重试）：{string.Join("、", failedPages)}";
+            : _localizer.T("wiki.pagesFailedWarning", failedPages.Count, string.Join(_localizer.T("common.listSeparator"), failedPages));
         job.CompletedAt = DateTimeOffset.UtcNow;
         job.UpdatedAt = job.CompletedAt.Value;
         await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
@@ -488,17 +491,17 @@ public class WikiService : IWikiService
     public async Task<ApiResponse<WikiDocumentDto>> RegeneratePageAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var doc = await _unitOfWork.WikiDocuments.GetByIdAsync(id, cancellationToken);
-        if (doc == null) return ApiResponse<WikiDocumentDto>.Fail("Wiki 文档不存在");
+        if (doc == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.docNotFound"));
 
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(doc.ProjectId, cancellationToken);
-        if (project == null) return ApiResponse<WikiDocumentDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.projectNotFound"));
 
-        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, cancellationToken);
+        var material = await WikiContextCollector.CollectAsync(project, _runnerFactory, _unitOfWork, _localizer, cancellationToken);
         if (!material.HasContext)
-            return ApiResponse<WikiDocumentDto>.Fail(material.Failure ?? "未能读取到项目资料");
+            return ApiResponse<WikiDocumentDto>.Fail(material.Failure ?? _localizer.T("wiki.materialUnavailable"));
 
         var provider = await ResolveProviderAsync(null, cancellationToken);
-        if (provider == null) return ApiResponse<WikiDocumentDto>.Fail("未找到可用的模型，请先在设置中配置大模型");
+        if (provider == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.modelNotConfigured"));
 
         var workProjectId = project.ProjectType == "Ssh"
             ? material.WorkProjectId
@@ -534,7 +537,7 @@ public class WikiService : IWikiService
         }
         catch (Exception ex)
         {
-            return ApiResponse<WikiDocumentDto>.Fail($"重生成失败：{ex.Message.Split('\n')[0]}");
+            return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.regenerateFailed", ex.Message.Split('\n')[0]));
         }
 
         doc.Content = regenerated.Content;
@@ -549,7 +552,7 @@ public class WikiService : IWikiService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var doc = await _unitOfWork.WikiDocuments.GetByIdAsync(id, cancellationToken);
-        if (doc == null) return ApiResponse.Fail("Wiki 文档不存在");
+        if (doc == null) return ApiResponse.Fail(_localizer.T("wiki.docNotFound"));
         await _unitOfWork.WikiDocuments.DeleteAsync(doc, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -560,7 +563,7 @@ public class WikiService : IWikiService
         var docs = (await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken))
             .Where(d => d.SetId == setId)
             .ToList();
-        if (docs.Count == 0) return ApiResponse.Fail("Wiki 套件不存在");
+        if (docs.Count == 0) return ApiResponse.Fail(_localizer.T("wiki.setNotFound"));
         foreach (var doc in docs)
             await _unitOfWork.WikiDocuments.DeleteAsync(doc, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -573,7 +576,7 @@ public class WikiService : IWikiService
             .Where(d => d.SetId == setId)
             .OrderBy(d => d.SortOrder)
             .ToList();
-        if (docs.Count == 0) return ApiResponse<byte[]>.Fail("Wiki 套件不存在");
+        if (docs.Count == 0) return ApiResponse<byte[]>.Fail(_localizer.T("wiki.setNotFound"));
 
         var projectName = (await _unitOfWork.ManagedProjects.GetByIdAsync(docs[0].ProjectId, cancellationToken))?.Name ?? "wiki";
         using var ms = new MemoryStream();

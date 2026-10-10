@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Check, Loader2, Play, Terminal, Wrench, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
 
 export interface ChatToolCallRowProps {
@@ -56,10 +57,11 @@ function isFileTarget(name: string): boolean {
  * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
 export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand }: ChatToolCallRowProps) {
+  const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
   const Icon = isText ? Brain : (TOOL_ICON[name] ?? Wrench)
-  const rowLabel = isText ? (label ?? '思考') : renderToolName(name)
+  const rowLabel = isText ? (label ?? t('shared.thinking')) : renderToolName(name)
   const summary = isText ? null : summarizeArgs(name, args)
   const done = result !== undefined && !running
   const canRun = !isText && !!onRunCommand && (name === 'run_command' || name === 'work_run_command')
@@ -69,7 +71,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
       <div className="flex items-center gap-2 px-2.5 py-1.5">
         <button
           onClick={() => setOpen(!open)}
-          aria-label={open ? '收起详情' : '展开详情'}
+          aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
           className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
         >
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -80,7 +82,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
           onOpenPath && isFileTarget(name) ? (
             <button
               onClick={() => onOpenPath(summary)}
-              title="在编辑器中打开"
+              title={t('tool.openInEditor')}
               className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
             >
               {summary}
@@ -93,8 +95,8 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         {canRun && (
           <button
             onClick={() => onRunCommand?.(summary ?? '')}
-            title="在终端运行"
-            aria-label="在终端运行"
+            title={t('tool.runInTerminal')}
+            aria-label={t('tool.runInTerminal')}
             className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
           >
             <Play size={11} />

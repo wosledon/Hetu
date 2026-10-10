@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import i18n from '../i18n'
 import { chatMessageService } from '../services/chatService'
 
 export type InteractionTodoStatus = 'not-started' | 'in-progress' | 'completed'
@@ -79,7 +80,7 @@ function questionFromRaw(raw: RawChunk, toolCallId: string, i: number): Interact
   return {
     id: `${toolCallId || 'q'}_${i}`,
     toolCallId,
-    header: typeof raw.header === 'string' && raw.header ? raw.header : '请回答',
+    header: typeof raw.header === 'string' && raw.header ? raw.header : i18n.t('agent:interaction.defaultHeader'),
     question: typeof raw.question === 'string' ? raw.question : '',
     options: options && options.length > 0 ? options : undefined,
     allowCustom: raw.allowCustom !== false,

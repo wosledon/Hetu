@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Bot, FileText, Search, GitBranch, Check, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
+import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
@@ -54,7 +56,7 @@ function findNotebookName(notebooks: INotebook[], id: string): string {
       if (found) return found
     }
   }
-  return '默认笔记本'
+  return i18n.t('chat:shared.defaultNotebook')
 }
 
 function renderNotebookTree(
@@ -107,7 +109,7 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   } catch (error) {
     if (!controller.signal.aborted) {
       console.error('Stream error:', error)
-      store.setStreamError(topicId, '流式输出失败，请检查模型配置。')
+      store.setStreamError(topicId, i18n.t('chat:errors.streamFailed'))
     }
   } finally {
     chatStreamControl.unregister(topicId)
@@ -118,6 +120,7 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
 }
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated, projectId }: ChatMessageAreaProps) {
+  const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [input, setInput] = useState('')
@@ -274,7 +277,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const slashItems = useMemo(() => {
     const items: { key: string; label: string; description: string; icon: React.ReactNode; type: 'skill' | 'agent' }[] = []
     // 内置命令：压缩上下文（调用当前模型把较早历史压成摘要）
-    items.push({ key: 'command:compress', label: '/compress', description: '压缩上下文：调用当前模型把较早历史压成摘要', icon: <Gauge size={14} className="text-rose-500" />, type: 'skill' })
+    items.push({ key: 'command:compress', label: '/compress', description: t('messageArea.compressCommandDesc'), icon: <Gauge size={14} className="text-rose-500" />, type: 'skill' })
     const seenNames = new Set<string>()
     for (const s of skills as Array<{ name: string; description?: string; isEnabled: boolean }>) {
       if (s.isEnabled && !seenNames.has(s.name) && (!allowedSkillNames || allowedSkillNames.has(s.name))) {
@@ -292,19 +295,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       items.push({ key: `agent:${p.id}`, label: `/${p.name}`, description: p.category, icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
     }
     for (const p of localPresets as Array<{ id: string; name: string; category: string }>) {
-      items.push({ key: `agent-local:${p.id}`, label: `/${p.name}`, description: p.category || '本地', icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
+      items.push({ key: `agent-local:${p.id}`, label: `/${p.name}`, description: p.category || t('shared.local'), icon: <Bot size={14} className="text-blue-500" />, type: 'agent' })
     }
     // 项目 .github 下的提示词模板与技能：正文随选中项作为系统提示下发
     for (const p of copilotAssets?.prompts ?? []) {
       if (!p.content) continue
-      items.push({ key: `project-prompt:${p.name}`, label: `/${p.name}`, description: p.description || '项目提示词模板', icon: <Zap size={14} className="text-amber-500" />, type: 'skill' })
+      items.push({ key: `project-prompt:${p.name}`, label: `/${p.name}`, description: p.description || t('messageArea.projectPrompt'), icon: <Zap size={14} className="text-amber-500" />, type: 'skill' })
     }
     for (const s of copilotAssets?.skills ?? []) {
       if (!s.content) continue
-      items.push({ key: `project-skill:${s.name}`, label: `/${s.name}`, description: s.description || '项目技能', icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
+      items.push({ key: `project-skill:${s.name}`, label: `/${s.name}`, description: s.description || t('messageArea.projectSkill'), icon: <Zap size={14} className="text-violet-500" />, type: 'skill' })
     }
     return items
-  }, [skills, localSkills, presets, localPresets, allowedSkillNames, copilotAssets])
+  }, [skills, localSkills, presets, localPresets, allowedSkillNames, copilotAssets, t])
 
   // 浮层状态由 AgentInputBox 探测回传；这里只按查询词过滤候选项
   const slashQuery = inputMenu?.kind === 'slash' ? inputMenu.query.toLowerCase() : null
@@ -410,10 +413,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     setCompacting(true)
     try {
       const result = await chatMessageService.compact(topicId, { contextWindow, modelId: activeModelId || undefined })
-      setContextNotice(`已压缩 ${result.messageCount} 条早期消息为摘要（约 ${result.beforeTokens} → ${result.afterTokens} tokens）`)
+      setContextNotice(t('messageArea.compacted', { count: result.messageCount, before: result.beforeTokens, after: result.afterTokens }))
       refreshContextUsage()
     } catch (err) {
-      setContextNotice(`压缩失败：${err instanceof Error ? err.message : String(err)}`)
+      setContextNotice(t('messageArea.compactFailed', { error: err instanceof Error ? err.message : String(err) }))
     } finally {
       setCompacting(false)
     }
@@ -647,10 +650,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const handleClearTopic = useCallback(() => {
     if (!topic) return
     confirm({
-      message: '确定清空主对话的所有消息吗？清空后不可恢复，后续对话将从头开始。',
+      message: t('messageArea.clearConfirm'),
       onConfirm: () => clearTopicMutation.mutate(topic.id),
     })
-  }, [confirm, topic, clearTopicMutation])
+  }, [confirm, topic, clearTopicMutation, t])
 
   const startEditingMessage = useCallback((messageId: string, content: string) => {
     setEditingMessageId(messageId)
@@ -670,8 +673,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
   const deleteMessageMutate = deleteMessageMutation.mutate
   const deleteMessage = useCallback((messageId: string) => {
-    confirm({ message: '确定删除这条消息吗？', onConfirm: () => deleteMessageMutate(messageId) })
-  }, [confirm, deleteMessageMutate])
+    confirm({ message: t('messageArea.deleteConfirm'), onConfirm: () => deleteMessageMutate(messageId) })
+  }, [confirm, deleteMessageMutate, t])
 
   const removeAttachedFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index))
@@ -719,7 +722,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       const success = await readSseStream(response, (data) => {
         if (data.startsWith('[DONE]')) {
           const noteId = data.slice(6)
-          const title = preview.split('\n')[0]?.replace(/^#+\s*/, '').trim() ?? '整理笔记'
+          const title = preview.split('\n')[0]?.replace(/^#+\s*/, '').trim() ?? t('messageArea.organize')
           setOrganizeResult({ noteId, title })
           queryClient.invalidateQueries({ queryKey: ['notes'] })
           queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
@@ -759,7 +762,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
             <Bot size={28} className="text-white" />
           </div>
-          <p className="text-sm text-gray-400">选择一个话题开始对话</p>
+          <p className="text-sm text-gray-400">{t('messageArea.selectTopic')}</p>
         </div>
       </div>
     )
@@ -773,7 +776,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             <span className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
             {topic.title}
           </h2>
-          <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{messages.length} 条消息</p>
+          <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{t('messageArea.messagesCount', { count: messages.length })}</p>
         </div>
         <div className="flex items-center gap-1">
           {topic.isMain && (
@@ -781,7 +784,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               onClick={handleClearTopic}
               disabled={isStreaming || clearTopicMutation.isPending}
               className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-red-400"
-              title="清空主对话"
+              title={t('messageArea.clearMain')}
             >
               {clearTopicMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Eraser size={15} />}
             </button>
@@ -789,7 +792,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           <button
             onClick={() => { setShowSearch(!showSearch); if (showSearch) { setSearchQuery(''); setSearchResults([]) } }}
             className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
-            title="搜索"
+            title={t('common:search')}
           >
             <Search size={15} />
           </button>
@@ -797,7 +800,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
             disabled={messages.length === 0}
             className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300"
-            title="分支话题"
+            title={t('messageArea.forkTopic')}
           >
             <GitBranch size={15} />
           </button>
@@ -807,7 +810,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20"
           >
             <FileText size={14} />
-            {isOrganizing ? '整理中...' : '整理笔记'}
+            {isOrganizing ? t('messageArea.organizing') : t('messageArea.organize')}
             <ChevronDown size={12} />
           </button>
         </div>
@@ -818,13 +821,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       {isOrganizing && (
         <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
           <Loader2 size={14} className="animate-spin text-emerald-600" />
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">正在整理为笔记...</span>
+          <span className="text-sm text-emerald-700 dark:text-emerald-300">{t('messageArea.organizingToNote')}</span>
         </div>
       )}
       {organizeResult && !isOrganizing && (
         <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
           <Check size={14} className="text-emerald-600" />
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">已保存笔记：{organizeResult.title}</span>
+          <span className="text-sm text-emerald-700 dark:text-emerald-300">{t('messageArea.noteSaved', { title: organizeResult.title })}</span>
         </div>
       )}
 
@@ -832,25 +835,25 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div className="border-b border-gray-200 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-900/50">
           <div className="flex items-end gap-4">
             <div>
-              <span className="mb-1 block text-[11px] text-gray-500">整理风格</span>
+              <span className="mb-1 block text-[11px] text-gray-500">{t('messageArea.organizeStyle')}</span>
               <Select
                 value={organizeStyle}
                 onChange={(value) => setOrganizeStyle(value as typeof organizeStyle)}
                 options={[
-                  { value: 'summary', label: '摘要式' },
-                  { value: 'detailed', label: '详细式' },
-                  { value: 'qna', label: 'Q&A 式' },
+                  { value: 'summary', label: t('messageArea.styleSummary') },
+                  { value: 'detailed', label: t('messageArea.styleDetailed') },
+                  { value: 'qna', label: t('messageArea.styleQna') },
                 ]}
               />
             </div>
             <div className="flex-1 relative">
-              <span className="mb-1 block text-[11px] text-gray-500">目标笔记本</span>
+              <span className="mb-1 block text-[11px] text-gray-500">{t('messageArea.targetNotebook')}</span>
               <button
                 type="button"
                 onClick={() => setShowNotebookPicker(!showNotebookPicker)}
                 className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800"
               >
-                <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : '默认笔记本'}</span>
+                <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : t('shared.defaultNotebook')}</span>
                 <ChevronDown size={12} className="text-gray-400 shrink-0" />
               </button>
               {showNotebookPicker && (
@@ -862,7 +865,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                       !organizeTargetNotebook ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}
                   >
-                    默认笔记本
+                    {t('shared.defaultNotebook')}
                   </button>
                   {renderNotebookTree(notebooks, 0, organizeTargetNotebook, (id) => {
                     setOrganizeTargetNotebook(id)
@@ -876,13 +879,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               disabled={isOrganizing}
               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              开始整理
+              {t('messageArea.startOrganize')}
             </button>
             <button
               onClick={() => setShowOrganizeOptions(false)}
               className="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
             >
-              取消
+              {t('common:cancel')}
             </button>
           </div>
         </div>
@@ -898,18 +901,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
-                placeholder="搜索话题中的消息..."
+                placeholder={t('messageArea.searchPlaceholder')}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 outline-none focus:border-indigo-400"
               />
             </div>
-            <button onClick={handleSearch} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">搜索</button>
+            <button onClick={handleSearch} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">{t('common:search')}</button>
           </div>
           {searchResults.length > 0 && (
             <div className="max-h-48 overflow-y-auto space-y-1">
               {searchResults.map(r => (
                 <div key={r.id} className="p-2 text-xs bg-white dark:bg-gray-900 rounded border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-2 text-gray-500">
-                    <span className={`px-1 rounded ${r.role === 'user' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-800'}`}>{r.role === 'user' ? '我' : 'AI'}</span>
+                    <span className={`px-1 rounded ${r.role === 'user' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-800'}`}>{r.role === 'user' ? t('messageArea.roleMe') : 'AI'}</span>
                     <span>{r.topicTitle}</span>
                   </div>
                   <p className="mt-1 text-gray-600 dark:text-gray-400 line-clamp-2">{r.contentSnippet}</p>
@@ -918,7 +921,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             </div>
           )}
           {searchQuery && searchResults.length === 0 && (
-            <p className="text-xs text-gray-500">未找到匹配的消息</p>
+            <p className="text-xs text-gray-500">{t('messageArea.noMatchingMessages')}</p>
           )}
         </div>
       )}
@@ -929,8 +932,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
               <Bot size={28} className="text-white" />
             </div>
-            <h3 className="mb-1 text-lg font-medium text-gray-800 dark:text-gray-100">开始对话</h3>
-            <p className="max-w-xs text-sm text-gray-500">在下方输入消息开始对话，或从左侧选择一个已有话题继续</p>
+            <h3 className="mb-1 text-lg font-medium text-gray-800 dark:text-gray-100">{t('messageArea.emptyTitle')}</h3>
+            <p className="max-w-xs text-sm text-gray-500">{t('messageArea.emptyDescription')}</p>
           </div>
         )}
         <div className="mx-auto max-w-3xl space-y-5">
@@ -959,7 +962,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             </div>
             <div className="flex min-w-0 flex-1 flex-col items-end">
               <div className="mb-1.5">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('shared.you')}</span>
               </div>
               <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:bg-blue-950/30 dark:text-gray-100">
                 <UserMessageContent content={pendingUserMessage} />
@@ -988,7 +991,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     >
                       {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
                       <Brain size={11} className="shrink-0 text-gray-400" />
-                      <span>深度思考</span>
+                      <span>{t('messageArea.deepThinking')}</span>
                     </button>
                     {showThinking && (
                       <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
@@ -1003,7 +1006,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Search size={11} />
-                      参考来源
+                      {t('shared.sources')}
                     </div>
                     <div className="space-y-0.5 p-1.5">
                       {streamingSearchResults.map((r, i) => (
@@ -1029,7 +1032,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
                     <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
                       <Database size={11} />
-                      知识库参考
+                      {t('shared.knowledgeSources')}
                     </div>
                     <div className="space-y-1">
                       {streamingKnowledgeResults.map((r, i) => (
@@ -1054,7 +1057,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Atom size={11} />
-                      记忆参考
+                      {t('shared.memorySources')}
                     </div>
                     <div className="space-y-0.5 p-1.5">
                       {streamingMemoryResults.map((r, i) => (
@@ -1079,7 +1082,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 {timeline.length === 0 && !streamingContent && !streamingThinking && isStreaming && (
                   <div className="flex items-center gap-1.5 py-1">
                     <Loader2 size={12} className="animate-spin text-gray-400" />
-                    <span className="text-[11px] text-gray-400">思考中...</span>
+                    <span className="text-[11px] text-gray-400">{t('messageArea.thinkingNow')}</span>
                   </div>
                 )}
               </div>
@@ -1181,7 +1184,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                       }
                       setInput('')
                     },
-                    emptyHint: '没有匹配的技能或智能体',
+                    emptyHint: t('messageArea.noMatchingSlash'),
                   }
                 : null)
             : (showMentionMenu && mentionItems.length > 0
@@ -1189,7 +1192,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     kind: 'mention' as const,
                     items: mentionItems,
                     onSelect: applyMention,
-                    emptyHint: mentionQuery?.trim() ? '没有匹配的引用' : '输入关键词搜索...',
+                    emptyHint: mentionQuery?.trim() ? t('messageArea.noMatchingMention') : t('messageArea.mentionHint'),
                   }
                 : null)}
           chips={[
@@ -1199,7 +1202,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               icon: <FileText size={12} className="text-blue-500" />,
               // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
               struck: !currentModel?.supportsVision,
-              title: currentModel?.supportsVision ? file.name : `${file.name}（当前模型不支持图片输入，发送时会忽略）`,
+              title: currentModel?.supportsVision ? file.name : t('messageArea.imageUnsupported', { name: file.name }),
               onRemove: () => removeAttachedFile(i),
             })),
             ...selectedMentions.map((m) => ({
@@ -1220,17 +1223,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           ]}
           placeholder={
             selectedSlashItem
-              ? (selectedSlashItem.description || '输入内容...')
+              ? (selectedSlashItem.description || t('messageArea.inputFallback'))
               : attachedFiles.length > 0
-                ? `已附加 ${attachedFiles.length} 张图片，输入消息...`
-                : '输入消息，Enter 发送，/ 选技能，@ 引用笔记...'
+                ? t('messageArea.attachedImages', { count: attachedFiles.length })
+                : t('messageArea.inputPlaceholder')
           }
           streaming={isStreaming}
           onStop={handleStop}
           canSubmit={!!input.trim() || !!pastedBlock || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
-          hint="Shift + Enter 换行 · 支持粘贴文件"
+          hint={t('messageArea.inputHint')}
           trailing={
             <AgentContextUsage
               usage={contextUsage}
@@ -1251,9 +1254,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     name: p.name,
                     description: p.content.slice(0, 120),
                     icon: p.agentType === 'Professional' ? 'brain' as const : 'bot' as const,
-                    badge: p.agentType === 'Professional' ? '专业' : undefined,
+                    badge: p.agentType === 'Professional' ? t('messageArea.badgePro') : undefined,
                   })),
-                  ...localPresets.map(p => ({ id: p.id, name: p.name, description: p.content.slice(0, 120), icon: 'bot' as const, badge: '本地' })),
+                  ...localPresets.map(p => ({ id: p.id, name: p.name, description: p.content.slice(0, 120), icon: 'bot' as const, badge: t('shared.local') })),
                 ]}
                 value={selectedPreset?.id}
                 onSelect={(item) => {
@@ -1276,7 +1279,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   if (local) {
                     applyPreset({
                       id: local.id,
-                      category: local.category || '本地',
+                      category: local.category || t('shared.local'),
                       name: local.name,
                       content: local.content,
                       variables: local.variables,
@@ -1334,10 +1337,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                       ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
                       : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
                   }`}
-                  title="工具调用"
+                  title={t('messageArea.toolCalls')}
                 >
                   <Zap size={13} />
-                  工具
+                  {t('messageArea.tools')}
                 </button>
               </div>
 
@@ -1361,10 +1364,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                 }`}
-                title="网络搜索"
+                title={t('messageArea.webSearch')}
               >
                 <Globe size={14} />
-                网络搜索
+                {t('messageArea.webSearch')}
               </button>
 
               {/* Knowledge base toggle */}
@@ -1375,10 +1378,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                 }`}
-                title="知识库"
+                title={t('messageArea.knowledgeBase')}
               >
                 <Database size={14} />
-                知识库
+                {t('messageArea.knowledgeBase')}
               </button>
 
               {/* Memory toggle */}
@@ -1389,10 +1392,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
                     : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
                 }`}
-                title="记忆"
+                title={t('messageArea.memory')}
               >
                 <Atom size={14} />
-                记忆
+                {t('messageArea.memory')}
               </button>
             </>
           }

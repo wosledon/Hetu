@@ -1,7 +1,9 @@
 import { Cpu } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 
 export default function ModelsPage() {
+  const { t } = useTranslation('chat')
   return (
     <AppLayout
       showSidebar={false}
@@ -11,8 +13,8 @@ export default function ModelsPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.06]">
               <Cpu size={32} className="text-gray-400" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">大模型</h2>
-            <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">功能开发中，敬请期待</p>
+            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('models.title')}</h2>
+            <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">{t('models.comingSoon')}</p>
           </div>
         </div>
       }

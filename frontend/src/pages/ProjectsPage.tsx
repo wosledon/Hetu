@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -32,7 +33,7 @@ function orderProjects(list: IManagedProject[]): IManagedProject[] {
 }
 
 /** 按当前目录组织展示分区：全部分组视图按分组分节，筛选视图平铺 */
-function buildSections(list: IManagedProject[], groups: IProjectGroup[], groupBy: boolean): Section[] {
+function buildSections(list: IManagedProject[], groups: IProjectGroup[], groupBy: boolean, ungroupedName: string): Section[] {
   if (!groupBy) return list.length === 0 ? [] : [{ key: 'flat', name: null, projects: orderProjects(list) }]
   const sections: Section[] = []
   const sortedGroups = [...groups].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
@@ -41,7 +42,7 @@ function buildSections(list: IManagedProject[], groups: IProjectGroup[], groupBy
     if (items.length > 0) sections.push({ key: group.id, name: group.name, projects: items })
   }
   const ungrouped = orderProjects(list.filter((p) => !p.groupId))
-  if (ungrouped.length > 0) sections.push({ key: '__ungrouped', name: '未分组', projects: ungrouped })
+  if (ungrouped.length > 0) sections.push({ key: '__ungrouped', name: ungroupedName, projects: ungrouped })
   return sections
 }
 
@@ -62,6 +63,7 @@ function avatarClass(name: string): string {
 }
 
 export default function ProjectsPage() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -89,33 +91,33 @@ export default function ProjectsPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: ICreateProjectRequest) => projectService.create(data),
-    onSuccess: () => { invalidate(); setFormOpen(false); showToast(true, '项目已创建') },
-    onError: (e: Error) => showToast(false, e.message || '创建失败'),
+    onSuccess: () => { invalidate(); setFormOpen(false); showToast(true, t('page.created')) },
+    onError: (e: Error) => showToast(false, e.message || t('page.createFailed')),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: IUpdateProjectRequest }) => projectService.update(id, data),
-    onSuccess: () => { invalidate(); setFormOpen(false); setEditing(null); showToast(true, '已保存') },
-    onError: (e: Error) => showToast(false, e.message || '保存失败'),
+    onSuccess: () => { invalidate(); setFormOpen(false); setEditing(null); showToast(true, t('page.saved')) },
+    onError: (e: Error) => showToast(false, e.message || t('page.saveFailed')),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => projectService.delete(id),
-    onSuccess: () => { invalidate(); showToast(true, '项目已删除') },
-    onError: (e: Error) => showToast(false, e.message || '删除失败'),
+    onSuccess: () => { invalidate(); showToast(true, t('page.deleted')) },
+    onError: (e: Error) => showToast(false, e.message || t('page.deleteFailed')),
   })
 
   const sortMutation = useMutation({
     mutationFn: (items: { id: string; sortOrder: number }[]) => projectService.sort(items),
     onSuccess: invalidate,
-    onError: (e: Error) => showToast(false, e.message || '排序保存失败'),
+    onError: (e: Error) => showToast(false, e.message || t('page.sortFailed')),
   })
 
   const openMutation = useMutation({
     mutationFn: (id: string) => projectService.open(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
-      showToast(true, '已在文件管理器中打开')
+      showToast(true, t('page.openedInExplorer'))
     },
     onError: (e: Error) => showToast(false, e.message),
   })
@@ -123,19 +125,19 @@ export default function ProjectsPage() {
   const createGroupMutation = useMutation({
     mutationFn: (data: ICreateProjectGroupRequest) => projectGroupService.create(data),
     onSuccess: () => invalidate(),
-    onError: (e: Error) => showToast(false, e.message || '创建分组失败'),
+    onError: (e: Error) => showToast(false, e.message || t('page.groupCreateFailed')),
   })
 
   const updateGroupMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: IUpdateProjectGroupRequest }) => projectGroupService.update(id, data),
     onSuccess: invalidate,
-    onError: (e: Error) => showToast(false, e.message || '保存分组失败'),
+    onError: (e: Error) => showToast(false, e.message || t('page.groupSaveFailed')),
   })
 
   const deleteGroupMutation = useMutation({
     mutationFn: (id: string) => projectGroupService.delete(id),
-    onSuccess: () => { invalidate(); setFilter(ALL_PROJECTS_FILTER); showToast(true, '分组已删除，项目移到未分组') },
-    onError: (e: Error) => showToast(false, e.message || '删除分组失败'),
+    onSuccess: () => { invalidate(); setFilter(ALL_PROJECTS_FILTER); showToast(true, t('page.groupDeleted')) },
+    onError: (e: Error) => showToast(false, e.message || t('page.groupDeleteFailed')),
   })
 
   /** 当前目录视图：目录筛选 + 关键字 */
@@ -155,8 +157,8 @@ export default function ProjectsPage() {
   }, [projects, groups, filter, keyword])
 
   const sections = useMemo(
-    () => buildSections(visible, groups, filter.type === 'all' || filter.type === 'category' || filter.type === 'tag'),
-    [visible, groups, filter.type],
+    () => buildSections(visible, groups, filter.type === 'all' || filter.type === 'category' || filter.type === 'tag', t('page.ungrouped')),
+    [visible, groups, filter.type, t],
   )
 
   const moveToGroup = (project: IManagedProject, groupId: string | null) => {
@@ -227,9 +229,9 @@ export default function ProjectsPage() {
               <FolderInput size={20} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">项目</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                管理本地与 SSH 远程项目目录 · {projects.length} 个项目 / {groups.length} 个分组
+                {t('page.subtitle', { projects: projects.length, groups: groups.length })}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -238,7 +240,7 @@ export default function ProjectsPage() {
                 <input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="搜索名称 / 路径 / 标签"
+                  placeholder={t('page.searchPlaceholder')}
                   className="w-56 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-[13px] outline-none transition-all focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:bg-gray-900"
                 />
               </div>
@@ -247,14 +249,14 @@ export default function ProjectsPage() {
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
               >
                 <Settings2 size={14} />
-                分组管理
+                {t('page.manageGroups')}
               </button>
               <button
                 onClick={openCreate}
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.97]"
               >
                 <Plus size={15} />
-                新建项目
+                {t('page.newProject')}
               </button>
             </div>
           </div>
@@ -279,21 +281,21 @@ export default function ProjectsPage() {
             ) : projects.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
                 <FolderInput size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">还没有项目</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('page.emptyTitle')}</p>
                 <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-                  添加本地目录或通过 SSH 登记远程项目目录，用分组和归类把它们整理清楚。
+                  {t('page.emptyHint')}
                 </p>
                 <button
                   onClick={openCreate}
                   className="mt-5 rounded-full bg-indigo-600 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-indigo-700"
                 >
-                  新建第一个项目
+                  {t('page.createFirst')}
                 </button>
               </div>
             ) : visible.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">没有符合条件的项目</p>
-                <p className="mt-1 text-xs text-gray-400">换个关键字，或在左侧切换目录</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('page.noMatchTitle')}</p>
+                <p className="mt-1 text-xs text-gray-400">{t('page.noMatchHint')}</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -339,7 +341,7 @@ export default function ProjectsPage() {
                                     : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
                                 }`}>
                                   {project.projectType === 'Ssh' ? <Server size={9} /> : <HardDrive size={9} />}
-                                  {project.projectType === 'Ssh' ? 'SSH' : '本地'}
+                                  {project.projectType === 'Ssh' ? 'SSH' : t('page.typeLocal')}
                                 </span>
                               </div>
                               <p
@@ -388,7 +390,7 @@ export default function ProjectsPage() {
                                 className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
                               >
                                 <HardDrive size={12} />
-                                打开目录
+                                {t('page.openDirectory')}
                               </button>
                             )}
                             <button
@@ -396,7 +398,7 @@ export default function ProjectsPage() {
                               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
                             >
                               {copiedId === project.id ? <Check size={12} /> : <Copy size={12} />}
-                              {copiedId === project.id ? '已复制' : '复制路径'}
+                              {copiedId === project.id ? t('common:copied') : t('page.copyPath')}
                             </button>
                             {/* 与 Code 工作区互通：直接跳到对应工作项目 */}
                             <button
@@ -404,7 +406,7 @@ export default function ProjectsPage() {
                               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
                             >
                               <Code size={12} />
-                              在 Code 中打开
+                              {t('page.openInCode')}
                             </button>
                             {/* 生成项目 Wiki：本地项目进入即触发生成，远程项目仅跳转（不支持） */}
                             <button
@@ -413,11 +415,11 @@ export default function ProjectsPage() {
                                   ? `/wiki?project=${project.id}&generate=1`
                                   : `/wiki?project=${project.id}`,
                               )}
-                              title={project.projectType === 'Local' ? '生成项目 Wiki 文档' : '远程（SSH）项目暂不支持生成 Wiki'}
+                              title={project.projectType === 'Local' ? t('page.generateWikiTitle') : t('page.wikiRemoteUnsupported')}
                               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
                             >
                               <BookText size={12} />
-                              生成 Wiki
+                              {t('page.generateWiki')}
                             </button>
                             {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
                             <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">
@@ -429,36 +431,36 @@ export default function ProjectsPage() {
                                     isPinned: !project.isPinned,
                                   },
                                 })}
-                                title={project.isPinned ? '取消置顶' : '置顶'}
-                                aria-label={project.isPinned ? '取消置顶' : '置顶'}
+                                title={project.isPinned ? t('page.unpin') : t('page.pin')}
+                                aria-label={project.isPinned ? t('page.unpin') : t('page.pin')}
                                 className={cardActionClass}
                               >
                                 {project.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
                               </button>
                               <button
                                 onClick={() => openEdit(project)}
-                                title="编辑"
-                                aria-label="编辑"
+                                title={t('common:edit')}
+                                aria-label={t('common:edit')}
                                 className={cardActionClass}
                               >
                                 <Pencil size={13} />
                               </button>
                               <button
                                 onClick={() => setMenuFor(menuFor === project.id ? null : project.id)}
-                                title="移动到分组"
-                                aria-label="移动到分组"
+                                title={t('page.moveToGroup')}
+                                aria-label={t('page.moveToGroup')}
                                 className={cardActionClass}
                               >
                                 <MoreHorizontal size={13} />
                               </button>
                               <button
                                 onClick={() => confirm({
-                                  title: '删除项目',
-                                  message: `删除「${project.name}」？仅移除登记信息，不会删除磁盘上的目录。`,
+                                  title: t('page.deleteTitle'),
+                                  message: t('page.deleteConfirm', { name: project.name }),
                                   onConfirm: () => deleteMutation.mutate(project.id),
                                 })}
-                                title="删除"
-                                aria-label="删除"
+                                title={t('common:delete')}
+                                aria-label={t('common:delete')}
                                 className={`${cardActionClass} hover:text-red-500`}
                               >
                                 <Trash2 size={13} />
@@ -469,12 +471,12 @@ export default function ProjectsPage() {
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
                                   <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                                    <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">移动到</p>
+                                    <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
                                     <button
                                       onClick={() => moveToGroup(project, null)}
                                       className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
-                                      未分组
+                                      {t('page.ungrouped')}
                                     </button>
                                     {groups.map((group) => (
                                       <button

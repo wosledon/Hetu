@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, HelpCircle, Send } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { InteractionQuestion } from '../../stores/interactionStore'
 
 interface QuestionFlowProps {
@@ -26,6 +27,7 @@ export default function QuestionFlow({
   onSubmitAll,
   compact = false,
 }: QuestionFlowProps) {
+  const { t } = useTranslation('agents')
   const [customDraft, setCustomDraft] = useState('')
   const total = questions.length
   const idx = Math.min(currentIndex, total - 1)
@@ -51,10 +53,10 @@ export default function QuestionFlow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-gray-800 dark:text-gray-100">
-            {q.header || '请回答'}
+            {q.header || t('question.defaultHeader')}
           </div>
           <div className="text-[11px] text-gray-400">
-            已答 {answeredCount} / {total}
+            {t('question.answered', { done: answeredCount, total })}
           </div>
         </div>
         {/* Progress dots */}
@@ -68,7 +70,7 @@ export default function QuestionFlow({
                 type="button"
                 onClick={() => onIndexChange(i)}
                 title={qq.question}
-                aria-label={`跳到第 ${i + 1} 题`}
+                aria-label={t('question.jumpTo', { n: i + 1 })}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   isCurrent
                     ? 'w-5 bg-indigo-500'
@@ -167,7 +169,7 @@ export default function QuestionFlow({
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder={isCustomDraft ? '继续补充自定义回答（回车下一题）' : '输入自定义回答...（回车下一题）'}
+              placeholder={isCustomDraft ? t('question.customContinue') : t('question.customPlaceholder')}
               value={isCustomDraft ? (currentAnswer || '') : customDraft}
               onChange={(e) => {
                 setCustomDraft(e.target.value)
@@ -198,7 +200,7 @@ export default function QuestionFlow({
               : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/60'
           }`}
         >
-          <ChevronLeft size={14} /> 上一题
+          <ChevronLeft size={14} /> {t('question.prev')}
         </button>
         <span className="text-[10px] tabular-nums text-gray-400">
           {idx + 1} / {total}
@@ -213,7 +215,7 @@ export default function QuestionFlow({
                 : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
             }`}
           >
-            下一题 <ChevronRight size={14} />
+            {t('question.next')} <ChevronRight size={14} />
           </button>
         ) : (
           <button
@@ -225,7 +227,7 @@ export default function QuestionFlow({
                 : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
             }`}
           >
-            <Send size={12} /> 提交全部
+            <Send size={12} /> {t('question.submitAll')}
           </button>
         )}
       </div>

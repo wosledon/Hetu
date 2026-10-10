@@ -154,6 +154,7 @@ public class AgentLoopService
     private readonly CompressionPipelineService _compressionPipeline;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AgentLoopService> _logger;
+    private readonly ILocalizer _localizer;
 
     public AgentLoopService(
         ILLMProviderFactory llmProviderFactory,
@@ -161,7 +162,8 @@ public class AgentLoopService
         ToolExecutionService toolExecution,
         CompressionPipelineService compressionPipeline,
         IUnitOfWork unitOfWork,
-        ILogger<AgentLoopService> logger)
+        ILogger<AgentLoopService> logger,
+        ILocalizer localizer)
     {
         _llmProviderFactory = llmProviderFactory;
         _toolRegistry = toolRegistry;
@@ -169,6 +171,7 @@ public class AgentLoopService
         _compressionPipeline = compressionPipeline;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _localizer = localizer;
     }
 
     /// <summary>
@@ -191,11 +194,11 @@ public class AgentLoopService
 
             try
             {
-                using var client = new StdioMcpClient(server.ConnectionConfig);
+                using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
                 var tools = await client.ListToolsAsync(ct);
                 foreach (var tool in tools)
                 {
-                    var adapter = new McpToolAdapter(server.Name, server.ConnectionConfig, tool);
+                    var adapter = new McpToolAdapter(server.Name, server.ConnectionConfig, tool, _localizer);
                     _toolRegistry.AddRuntimeTool(adapter);
                     names.Add(adapter.Name);
                 }
@@ -228,7 +231,7 @@ public class AgentLoopService
             provider = await _llmProviderFactory.CreateChatProviderAsync(ct);
         }
         if (provider == null)
-            throw new InvalidOperationException("未找到可用的对话模型，请先在设置中配置 AI 模型");
+            throw new InvalidOperationException(_localizer.T("model.noModelConfigured"));
 
         // 2. 加载 MCP 工具并合并工具名
         var mcpToolNames = await LoadMcpToolsAsync(request.McpServerIds, ct);

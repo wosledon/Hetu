@@ -11,8 +11,13 @@ public class WorkApprovalRuleService : IWorkApprovalRuleService
     private static readonly HashSet<string> Decisions = new(StringComparer.OrdinalIgnoreCase) { "allow", "deny" };
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILocalizer _localizer;
 
-    public WorkApprovalRuleService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public WorkApprovalRuleService(IUnitOfWork unitOfWork, ILocalizer localizer)
+    {
+        _unitOfWork = unitOfWork;
+        _localizer = localizer;
+    }
 
     public async Task<ApiResponse<List<WorkApprovalRuleDto>>> GetByProjectAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -27,12 +32,12 @@ public class WorkApprovalRuleService : IWorkApprovalRuleService
     public async Task<ApiResponse<WorkApprovalRuleDto>> CreateAsync(Guid projectId, CreateWorkApprovalRuleRequest request, CancellationToken cancellationToken = default)
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(projectId, cancellationToken);
-        if (project == null) return ApiResponse<WorkApprovalRuleDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WorkApprovalRuleDto>.Fail(_localizer.T("project.notFound"));
 
         var toolName = string.IsNullOrWhiteSpace(request.ToolName) ? "*" : request.ToolName.Trim();
         var decision = string.IsNullOrWhiteSpace(request.Decision) ? "allow" : request.Decision.Trim().ToLowerInvariant();
         if (!Decisions.Contains(decision))
-            return ApiResponse<WorkApprovalRuleDto>.Fail("决策非法，可选值：allow | deny");
+            return ApiResponse<WorkApprovalRuleDto>.Fail(_localizer.T("approvalRule.invalidDecision"));
 
         var pathPattern = string.IsNullOrWhiteSpace(request.PathPattern) ? null : request.PathPattern.Trim().Replace('\\', '/');
 
@@ -70,7 +75,7 @@ public class WorkApprovalRuleService : IWorkApprovalRuleService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var rule = await _unitOfWork.WorkApprovalRules.GetByIdAsync(id, cancellationToken);
-        if (rule == null) return ApiResponse.Fail("规则不存在");
+        if (rule == null) return ApiResponse.Fail(_localizer.T("approvalRule.notFound"));
 
         await _unitOfWork.WorkApprovalRules.DeleteAsync(rule, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -94,6 +99,8 @@ public class WorkCheckpointService : IWorkCheckpointService
     private const int MaxFilesPerCheckpoint = 200;
     private const long MaxFileBytes = 2 * 1024 * 1024;
 
+    private readonly ILocalizer _localizer;
+
     /// <summary>单个差异文件返回的最大字符数</summary>
     private const int MaxDiffFileChars = 200_000;
 
@@ -102,7 +109,11 @@ public class WorkCheckpointService : IWorkCheckpointService
 
     private readonly IUnitOfWork _unitOfWork;
 
-    public WorkCheckpointService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public WorkCheckpointService(IUnitOfWork unitOfWork, ILocalizer localizer)
+    {
+        _unitOfWork = unitOfWork;
+        _localizer = localizer;
+    }
 
     public async Task<ApiResponse<List<WorkCheckpointDto>>> GetBySessionAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
@@ -128,11 +139,11 @@ public class WorkCheckpointService : IWorkCheckpointService
     public async Task<ApiResponse<RestoreCheckpointResultDto>> RestoreAsync(Guid checkpointId, CancellationToken cancellationToken = default)
     {
         var checkpoint = await _unitOfWork.WorkCheckpoints.GetByIdAsync(checkpointId, cancellationToken);
-        if (checkpoint == null) return ApiResponse<RestoreCheckpointResultDto>.Fail("检查点不存在");
+        if (checkpoint == null) return ApiResponse<RestoreCheckpointResultDto>.Fail(_localizer.T("checkpoint.notFound"));
 
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(checkpoint.ProjectId, cancellationToken);
-        if (project == null) return ApiResponse<RestoreCheckpointResultDto>.Fail("项目不存在");
-        if (!Directory.Exists(project.RootPath)) return ApiResponse<RestoreCheckpointResultDto>.Fail("项目目录不存在，请检查路径");
+        if (project == null) return ApiResponse<RestoreCheckpointResultDto>.Fail(_localizer.T("project.notFound"));
+        if (!Directory.Exists(project.RootPath)) return ApiResponse<RestoreCheckpointResultDto>.Fail(_localizer.T("project.directoryNotExists"));
 
         var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => f.CheckpointId == checkpointId, cancellationToken);
         var result = new RestoreCheckpointResultDto { CheckpointId = checkpointId };
@@ -144,7 +155,7 @@ public class WorkCheckpointService : IWorkCheckpointService
             var full = WorkPath.Resolve(project.RootPath, snapshot.FilePath);
             if (full == null)
             {
-                result.Errors.Add($"{snapshot.FilePath}: 路径超出项目范围");
+                result.Errors.Add(_localizer.T("checkpoint.pathOutOfProject", snapshot.FilePath));
                 continue;
             }
 
@@ -177,10 +188,10 @@ public class WorkCheckpointService : IWorkCheckpointService
     public async Task<ApiResponse<WorkCheckpointDiffDto>> GetDiffAsync(Guid checkpointId, CancellationToken cancellationToken = default)
     {
         var checkpoint = await _unitOfWork.WorkCheckpoints.GetByIdAsync(checkpointId, cancellationToken);
-        if (checkpoint == null) return ApiResponse<WorkCheckpointDiffDto>.Fail("检查点不存在");
+        if (checkpoint == null) return ApiResponse<WorkCheckpointDiffDto>.Fail(_localizer.T("checkpoint.notFound"));
 
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(checkpoint.ProjectId, cancellationToken);
-        if (project == null) return ApiResponse<WorkCheckpointDiffDto>.Fail("项目不存在");
+        if (project == null) return ApiResponse<WorkCheckpointDiffDto>.Fail(_localizer.T("project.notFound"));
 
         var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => f.CheckpointId == checkpointId, cancellationToken);
         var diff = new WorkCheckpointDiffDto
@@ -222,7 +233,7 @@ public class WorkCheckpointService : IWorkCheckpointService
                     Action = "skipped",
                     IsBinary = binary,
                     Truncated = true,
-                    Note = binary ? "二进制文件，已跳过内容比对" : $"文件超过 {MaxFileBytes / 1024 / 1024} MB，已跳过内容比对"
+                    Note = binary ? _localizer.T("checkpoint.binarySkipped") : _localizer.T("checkpoint.tooLargeSkipped", MaxFileBytes / 1024 / 1024)
                 });
                 diff.Truncated = true;
                 continue;
@@ -250,7 +261,7 @@ public class WorkCheckpointService : IWorkCheckpointService
                 OldContent = old,
                 NewContent = next,
                 Truncated = truncated,
-                Note = truncated ? "内容过大，仅显示前部分" : null
+                Note = truncated ? _localizer.T("checkpoint.contentTruncated") : null
             });
 
             budget -= Math.Max(old?.Length ?? 0, next?.Length ?? 0);
@@ -279,7 +290,7 @@ public class WorkCheckpointService : IWorkCheckpointService
     public async Task<ApiResponse> DeleteAsync(Guid checkpointId, CancellationToken cancellationToken = default)
     {
         var checkpoint = await _unitOfWork.WorkCheckpoints.GetByIdAsync(checkpointId, cancellationToken);
-        if (checkpoint == null) return ApiResponse.Fail("检查点不存在");
+        if (checkpoint == null) return ApiResponse.Fail(_localizer.T("checkpoint.notFound"));
 
         var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => f.CheckpointId == checkpointId, cancellationToken);
         foreach (var file in files) await _unitOfWork.WorkCheckpointFiles.DeleteAsync(file, cancellationToken);
@@ -340,7 +351,7 @@ public class WorkCheckpointService : IWorkCheckpointService
             Id = Guid.NewGuid(),
             ProjectId = projectId,
             SessionId = sessionId,
-            Label = string.IsNullOrWhiteSpace(label) ? "工具批次" : label,
+            Label = string.IsNullOrWhiteSpace(label) ? _localizer.T("checkpoint.toolBatchLabel") : label,
             Tools = string.Join(", ", tools.Distinct()),
             FileCount = snapshots.Count,
             Files = snapshots,

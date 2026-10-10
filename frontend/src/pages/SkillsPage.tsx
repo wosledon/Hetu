@@ -16,6 +16,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import { skillService } from '../services/skillService'
@@ -37,6 +38,7 @@ const getCategoryColor = (c: string) => CATEGORY_COLORS[c] || 'bg-gray-100 text-
 const defaultConfig = JSON.stringify({ promptTemplate: '请处理以下内容：\n\n{{input}}', systemPrompt: '你是智能助手。' }, null, 2)
 
 export default function SkillsPage() {
+  const { t } = useTranslation('agents')
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
@@ -82,18 +84,21 @@ export default function SkillsPage() {
   const skills = tab === 'database' ? dbSkills : localSkills
   const categories = useMemo(() => {
     const map = new Map<string, number>()
-    for (const s of skills) map.set(s.category || '未分类', (map.get(s.category || '未分类') || 0) + 1)
+    for (const s of skills) {
+      const key = s.category || t('skillsPage.uncategorized')
+      map.set(key, (map.get(key) || 0) + 1)
+    }
     return [...map.entries()].sort((a, b) => b[1] - a[1])
-  }, [skills])
+  }, [skills, t])
 
   const filteredSkills = useMemo(() => {
     const kw = search.trim().toLowerCase()
     return skills.filter(s => {
-      if (activeCategory && (s.category || '未分类') !== activeCategory) return false
+      if (activeCategory && (s.category || t('skillsPage.uncategorized')) !== activeCategory) return false
       if (kw && !s.name.toLowerCase().includes(kw) && !s.description.toLowerCase().includes(kw)) return false
       return true
     })
-  }, [skills, search, activeCategory])
+  }, [skills, search, activeCategory, t])
 
   const openCreateForm = () => { setEditingId(null); setForm({ category: '自定义', name: '', description: '', config: defaultConfig, isEnabled: true }); setShowForm(true) }
   const openEditForm = (s: ISkill) => { setEditingId(s.id); setForm({ category: s.category, name: s.name, description: s.description, config: s.config || defaultConfig, isEnabled: s.isEnabled }); setShowForm(true) }
@@ -149,16 +154,16 @@ export default function SkillsPage() {
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">/{s.name}</h3>
-              <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryColor(s.category || '未分类')}`}>
-                {s.category || '未分类'}
+              <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryColor(s.category || t('skillsPage.uncategorized'))}`}>
+                {s.category || t('skillsPage.uncategorized')}
               </span>
             </div>
           </div>
           {isDb && (s as ISkill).isBuiltIn && (
-            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">内置</span>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('card.builtIn')}</span>
           )}
           {isLocal && (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">本地</span>
+            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
           )}
         </div>
 
@@ -169,16 +174,16 @@ export default function SkillsPage() {
         {isDb && !(s as ISkill).isBuiltIn && (
           <div className="flex items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
             <button onClick={() => openEditForm(s as ISkill)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700">
-              <Pencil size={11} /> 编辑
+              <Pencil size={11} /> {t('common:edit')}
             </button>
-            <button onClick={() => { confirm({ message: '确认删除？', onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
-              <Trash2 size={11} /> 删除
+            <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+              <Trash2 size={11} /> {t('common:delete')}
             </button>
           </div>
         )}
         {isDb && (s as ISkill).isBuiltIn && (
           <div className="border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <span className="text-[10px] text-gray-300 dark:text-gray-600">内置技能</span>
+            <span className="text-[10px] text-gray-300 dark:text-gray-600">{t('card.builtInSkill')}</span>
           </div>
         )}
         {isLocal && (
@@ -207,36 +212,40 @@ export default function SkillsPage() {
               <Zap size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">技能</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">通过 /name 触发预设技能，自定义提示词与工具组合</p>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('skillsPage.title')}</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('skillsPage.subtitle')}</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-            <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{skills.length}</b> 个技能</span>
+            <span>
+              <Trans ns="agents" i18nKey="skillsPage.skillCount" values={{ n: skills.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+            </span>
             <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-            <span><b className="text-sm font-semibold text-amber-600 dark:text-amber-400">{categories.length}</b> 个分类</span>
+            <span>
+              <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-amber-600 dark:text-amber-400" /> }} />
+            </span>
           </div>
         </div>
 
         {/* 选项卡 */}
         <div className="mb-4 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
           {([
-            { key: 'database' as TabKey, label: '数据库', icon: Zap },
-            { key: 'local' as TabKey, label: '本地', icon: FolderOpen },
-          ]).map((t) => {
-            const Icon = t.icon
+            { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Zap },
+            { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
+          ]).map((item) => {
+            const Icon = item.icon
             return (
               <button
-                key={t.key}
-                onClick={() => { setTab(t.key); setActiveCategory(null); if (t.key === 'local') refetchLocal() }}
+                key={item.key}
+                onClick={() => { setTab(item.key); setActiveCategory(null); if (item.key === 'local') refetchLocal() }}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
-                  tab === t.key
+                  tab === item.key
                     ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 <Icon size={14} />
-                {t.label}
+                {t(item.labelKey)}
               </button>
             )
           })}
@@ -249,7 +258,7 @@ export default function SkillsPage() {
               onClick={() => setActiveCategory(null)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
             >
-              全部
+              {t('common:all')}
               <span className="text-[11px] opacity-70">{skills.length}</span>
             </button>
             {categories.map(([cat, count]) => (
@@ -268,7 +277,7 @@ export default function SkillsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索技能..."
+              placeholder={t('skillsPage.searchSkills')}
               className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-amber-950/40"
             />
           </div>
@@ -279,15 +288,15 @@ export default function SkillsPage() {
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <Settings size={14} />
-                配置目录{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
+                {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
               </button>
               <button
                 onClick={() => refetchLocal()}
-                title="刷新本地技能"
+                title={t('skillsPage.refreshLocalSkills')}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <RefreshCw size={14} />
-                刷新
+                {t('common:refresh')}
               </button>
             </>
           ) : (
@@ -296,7 +305,7 @@ export default function SkillsPage() {
               className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
             >
               <Plus size={16} />
-              新建技能
+              {t('skillsPage.newSkill')}
             </button>
           )}
         </div>
@@ -305,21 +314,21 @@ export default function SkillsPage() {
         {tab === 'local' && localLoading ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
             <Loader2 size={32} className="mb-3 animate-spin text-amber-400" />
-            <p className="text-sm">正在扫描本地技能...</p>
+            <p className="text-sm">{t('skillsPage.scanningLocalSkills')}</p>
           </div>
         ) : filteredSkills.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
             <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
               <Zap size={36} className="opacity-50" />
             </div>
-            <p className="text-sm font-medium">{tab === 'local' ? '未发现本地技能' : '暂无技能'}</p>
+            <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
             {tab === 'local' ? (
               <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-amber-500 hover:underline">
-                配置技能目录
+                {t('empty.configureSkillDirs')}
               </button>
             ) : (
               <button onClick={openCreateForm} className="mt-2 text-xs text-amber-500 hover:underline">
-                创建第一个技能
+                {t('empty.createFirstSkill')}
               </button>
             )}
           </div>
@@ -344,7 +353,7 @@ export default function SkillsPage() {
                   <Zap size={16} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {editingId ? '编辑技能' : '新建技能'}
+                  {editingId ? t('form.editSkill') : t('skillsPage.newSkill')}
                 </h3>
               </div>
               <button onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
@@ -352,33 +361,33 @@ export default function SkillsPage() {
             <div className="space-y-4 px-5 py-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">分类</label>
-                  <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="如：通用、编程" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.category')}</label>
+                  <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={t('form.skillCategoryPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">名称（英文）</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="用于 /name 触发" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.skillName')}</label>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('form.skillNamePlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">描述</label>
-                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="技能功能描述" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:description')}</label>
+                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('form.skillDescriptionPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">配置 JSON</label>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.configJson')}</label>
                 <textarea value={form.config} onChange={(e) => setForm({ ...form, config: e.target.value })} className="h-32 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-xs outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
               </div>
               {editingId && (
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.isEnabled} onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })} />
-                  启用
+                  {t('common:enable')}
                 </label>
               )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">取消</button>
+              <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
               <button onClick={handleSave} disabled={!form.name.trim() || !form.description.trim()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
-                {editingId ? '保存' : '创建'}
+                {editingId ? t('common:save') : t('common:create')}
               </button>
             </div>
           </div>
@@ -394,8 +403,8 @@ export default function SkillsPage() {
                   <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">配置技能目录</h3>
-                  <p className="text-xs text-gray-500">点击「浏览」选择目录，或手动输入路径</p>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('dir.skillTitle')}</h3>
+                  <p className="text-xs text-gray-500">{t('dir.hint')}</p>
                 </div>
               </div>
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
@@ -407,24 +416,24 @@ export default function SkillsPage() {
                   className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
                 >
                   <FolderSearch size={14} />
-                  浏览
+                  {t('dir.browse')}
                 </button>
                 <input
                   value={dirInput}
                   onChange={(e) => setDirInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
-                  placeholder="或手动输入目录路径，如 /home/user/skills"
+                  placeholder={t('dir.skillPathPlaceholder')}
                   className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                 />
                 <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                  添加
+                  {t('common:add')}
                 </button>
               </div>
               <div className="max-h-48 space-y-1.5 overflow-y-auto">
                 {directories.length === 0 ? (
                   <div className="py-4 text-center text-xs text-gray-400">
                     <AlertCircle size={16} className="mx-auto mb-1" />
-                    暂未配置技能目录
+                    {t('dir.noSkillDirs')}
                   </div>
                 ) : (
                   directories.map(dir => (
@@ -437,14 +446,17 @@ export default function SkillsPage() {
               </div>
               <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
                 <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
-                  目录结构：每个子文件夹包含一个 <code className="rounded bg-amber-100 px-1 dark:bg-amber-800">skill.json</code> 或 <code className="rounded bg-amber-100 px-1 dark:bg-amber-800">SKILL.md</code> 文件。
-                  也支持根目录下的 <code className="rounded bg-amber-100 px-1 dark:bg-amber-800">.json</code> 文件。
+                  <Trans
+                    ns="agents"
+                    i18nKey="dir.skillStructure"
+                    components={{ code: <code className="rounded bg-amber-100 px-1 dark:bg-amber-800" /> }}
+                  />
                 </p>
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-                完成
+                {t('dir.done')}
               </button>
             </div>
           </div>
@@ -455,7 +467,7 @@ export default function SkillsPage() {
       {showFolderPicker && (
         <FolderPickerDialog
           initialPath={dirInput.trim() || directories[directories.length - 1]}
-          title="选择技能目录"
+          title={t('dir.pickSkillDir')}
           onClose={() => setShowFolderPicker(false)}
           onPick={handleFolderPicked}
         />

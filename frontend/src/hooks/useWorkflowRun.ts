@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import i18n from '../i18n'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
 import { chatMessageService } from '../services/chatService'
 import type { IWorkflow, IWorkflowEvent } from '../types/workflow'
@@ -51,29 +52,29 @@ export function useWorkflowRun(onOutput?: (text: string) => void) {
               setNodes((prev) => prev.map((n) => n.nodeId === evt.nodeId ? { ...n, status: 'failed', output: evt.error } : n))
               break
             case 'human_approval_required':
-              setPendingApproval({ nodeId: evt.nodeId!, prompt: evt.prompt ?? '请确认是否继续执行', runId: evt.runId ?? runIdRef.current })
+              setPendingApproval({ nodeId: evt.nodeId!, prompt: evt.prompt ?? i18n.t('workflows:run.defaultApprovalPrompt'), runId: evt.runId ?? runIdRef.current })
               break
             case 'agent_tool_call':
               setToolCall({ nodeId: evt.nodeId!, toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
               break
             case 'run_completed':
-              onOutput?.(evt.output ?? '工作流执行完成')
+              onOutput?.(evt.output ?? i18n.t('workflows:run.completed'))
               break
             case 'run_failed':
               setError(evt.error ?? '')
-              onOutput?.('工作流执行失败：' + (evt.error ?? ''))
+              onOutput?.(i18n.t('workflows:run.failedWith', { error: evt.error ?? '' }))
               break
             case 'run_result':
               if (evt.result?.error) setError(evt.result.error)
-              onOutput?.(evt.result?.output ?? evt.result?.error ?? '工作流执行完成')
+              onOutput?.(evt.result?.output ?? evt.result?.error ?? i18n.t('workflows:run.completed'))
               break
           }
         },
-        (err) => onOutput?.('工作流执行失败：' + err),
+        (err) => onOutput?.(i18n.t('workflows:run.failedWith', { error: err })),
         controller.signal,
         toolApprovalMode)
     } catch {
-      onOutput?.('工作流执行异常')
+      onOutput?.(i18n.t('workflows:run.exception'))
     }
   }, [workflow, onOutput])
 

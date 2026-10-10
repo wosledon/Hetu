@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { settingService } from './services/settingService'
 import { useUIStore } from './stores/uiStore'
+import { applyLanguage } from './i18n'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
@@ -29,8 +31,9 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
 function RouteFallback() {
+  const { t } = useTranslation()
   return (
-    <div className="flex h-screen w-full items-center justify-center text-xs text-gray-400">加载中…</div>
+    <div className="flex h-screen w-full items-center justify-center text-xs text-gray-400">{t('common:loading')}</div>
   )
 }
 
@@ -48,6 +51,7 @@ function App() {
           store.setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
         if (snapshot.theme === 'light' || snapshot.theme === 'dark' || snapshot.theme === 'system')
           store.setTheme(snapshot.theme)
+        if (snapshot.language === 'zh' || snapshot.language === 'en') void applyLanguage(snapshot.language)
         try {
           const items = JSON.parse(snapshot.pinnedNavItems)
           if (Array.isArray(items) && items.length > 0) store.setPinnedNavItems(items)

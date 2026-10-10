@@ -1,0 +1,8 @@
+{
+  "api.settingKeyRequired": "Setting key is required",
+  "api.modelNotFound": "Model not found",
+  "api.providerNotFound": "Provider not found",
+  "api.notFound": "Resource not found",
+  "api.invalidRequest": "Invalid request",
+  "settings.defaultAssistantName": "AI Assistant"
+}

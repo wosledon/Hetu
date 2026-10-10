@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Edit2, Check, X, Wrench, RefreshCw, Loader2 } from 'lucide-react'
 import { mcpService } from '../services/mcpService'
@@ -19,6 +20,7 @@ const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 
 
 export default function McpServerManager() {
   const queryClient = useQueryClient()
+  const { t } = useTranslation('settings')
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<IMcpServer | null>(null)
@@ -118,7 +120,7 @@ export default function McpServerManager() {
 
   const handleCallTool = async (tool: IMcpTool) => {
     if (!selectedServer) return
-    const argsText = window.prompt(`调用 ${tool.name}，请输入 JSON 参数：`, '{}')
+    const argsText = window.prompt(t('mcp.callPrompt', { name: tool.name }), '{}')
     if (argsText === null) return
 
     try {
@@ -128,7 +130,7 @@ export default function McpServerManager() {
     } catch (error) {
       setToolResult({
         toolName: tool.name,
-        content: '调用失败：' + (error instanceof Error ? error.message : '未知错误'),
+        content: t('mcp.callFailed', { error: error instanceof Error ? error.message : t('mcp.unknownError') }),
         isError: true,
       })
     }
@@ -143,8 +145,8 @@ export default function McpServerManager() {
             <Wrench size={16} />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">MCP Server</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">管理工具服务连接</p>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('mcp.title')}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('mcp.subtitle')}</p>
           </div>
         </div>
         {!isCreating && !editingId && (
@@ -152,7 +154,7 @@ export default function McpServerManager() {
             onClick={() => setIsCreating(true)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md active:scale-[0.98]"
           >
-            <Plus size={15} /> 新增
+            <Plus size={15} /> {t('mcp.add')}
           </button>
         )}
       </div>
@@ -161,19 +163,19 @@ export default function McpServerManager() {
       {(isCreating || editingId) && (
         <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
           <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {editingId ? '编辑 Server' : '新增 Server'}
+            {editingId ? t('mcp.editServer') : t('mcp.createServer')}
           </h3>
           <div className="space-y-3">
             <input
               type="text"
-              placeholder="名称"
+              placeholder={t('common:name')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={inputClass}
             />
             <input
               type="text"
-              placeholder="描述"
+              placeholder={t('common:description')}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className={inputClass}
@@ -187,7 +189,7 @@ export default function McpServerManager() {
               ]}
             />
             <textarea
-              placeholder='连接配置 JSON：{ "command": "...", "args": [], "env": {} }'
+              placeholder={t('mcp.configPlaceholder')}
               value={form.connectionConfig}
               onChange={(e) => setForm({ ...form, connectionConfig: e.target.value })}
               className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 font-mono text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
@@ -200,7 +202,7 @@ export default function McpServerManager() {
                   onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
                   className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
                 />
-                启用
+                {t('common:enable')}
               </label>
             )}
             <div className="flex gap-2 pt-1">
@@ -208,7 +210,7 @@ export default function McpServerManager() {
                 onClick={handleSave}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
               >
-                <Check size={14} /> 保存
+                <Check size={14} /> {t('common:save')}
               </button>
               <button
                 onClick={() => {
@@ -218,7 +220,7 @@ export default function McpServerManager() {
                 }}
                 className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
               >
-                <span className="inline-flex items-center gap-1.5"><X size={14} /> 取消</span>
+                <span className="inline-flex items-center gap-1.5"><X size={14} /> {t('common:cancel')}</span>
               </button>
             </div>
           </div>
@@ -231,8 +233,8 @@ export default function McpServerManager() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
             <Wrench size={24} className="text-gray-400" />
           </div>
-          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">暂无 MCP Server</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">点击上方按钮新增</p>
+          <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">{t('mcp.empty')}</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('mcp.emptyHint')}</p>
         </div>
       )}
 
@@ -256,7 +258,7 @@ export default function McpServerManager() {
                   </span>
                   {!server.isEnabled && (
                     <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:bg-white/[0.06] dark:text-gray-500">
-                      已禁用
+                      {t('common:disabled')}
                     </span>
                   )}
                 </div>
@@ -268,7 +270,7 @@ export default function McpServerManager() {
                 <button
                   onClick={() => handleListTools(server)}
                   className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600 dark:hover:bg-white/[0.06] dark:hover:text-indigo-400"
-                  title="发现工具"
+                  title={t('mcp.discoverTools')}
                 >
                   <RefreshCw size={14} />
                 </button>
@@ -297,13 +299,13 @@ export default function McpServerManager() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />
             </div>
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{selectedServer.name} 的工具</span>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('mcp.toolsOf', { name: selectedServer.name })}</span>
           </div>
 
           {isLoadingTools && (
             <div className="flex items-center gap-2 py-4 text-sm text-gray-400">
               <Loader2 size={14} className="animate-spin" />
-              加载工具中...
+              {t('mcp.loadingTools')}
             </div>
           )}
 

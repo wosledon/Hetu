@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Trash2, X } from 'lucide-react'
 import type { IWorkflowNode } from '../../types/workflow'
@@ -43,6 +44,7 @@ export default function NodeConfigPanel({
   onDelete,
   onClose,
 }: NodeConfigPanelProps) {
+  const { t } = useTranslation('workflows')
   const [config, setConfig] = useState<Record<string, unknown>>(() => parseConfig(node?.config))
   const lastNodeId = useRef<string | undefined>(node?.id)
 
@@ -60,7 +62,7 @@ export default function NodeConfigPanel({
   if (!node) {
     return (
       <div className="flex w-72 items-center justify-center border-l border-gray-200 bg-white p-4 text-center text-sm text-gray-400 dark:border-white/[0.08] dark:bg-gray-900/50">
-        选择一个节点以编辑配置
+        {t('config.selectNodeHint')}
       </div>
     )
   }
@@ -86,12 +88,12 @@ export default function NodeConfigPanel({
   return (
     <div className="flex w-80 flex-col border-l border-gray-200 bg-white dark:border-white/[0.08] dark:bg-gray-900/50">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-white/[0.08]">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">节点配置</h3>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('config.title')}</h3>
         <div className="flex items-center gap-1">
           <button
             onClick={onDelete}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-            title="删除节点"
+            title={t('config.deleteNode')}
           >
             <Trash2 size={15} />
           </button>
@@ -106,17 +108,17 @@ export default function NodeConfigPanel({
 
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         <div>
-          <label className={labelClass}>名称</label>
+          <label className={labelClass}>{t('common:name')}</label>
           <input
             className={inputClass}
             value={node.label}
             onChange={(e) => onChange({ label: e.target.value })}
-            placeholder="节点名称"
+            placeholder={t('config.nodeNamePlaceholder')}
           />
         </div>
 
         <div>
-          <label className={labelClass}>类型</label>
+          <label className={labelClass}>{t('common:type')}</label>
           <div className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
             {node.type}
           </div>
@@ -125,22 +127,22 @@ export default function NodeConfigPanel({
         {/* Agent 节点：选择智能体（数据源为智能体页面的 PromptPreset，仅取提示词） */}
         {node.type === WorkflowNodeTypes.Agent && (
           <div>
-            <label className={labelClass}>智能体</label>
+            <label className={labelClass}>{t('config.agent')}</label>
             <Select
               value={node.agentId ?? ''}
               onChange={(v) => onChange({ agentId: v || undefined })}
               options={[
-                { value: '', label: '— 未选择 —' },
+                { value: '', label: t('config.notSelected') },
                 ...agents.map((a) => ({ value: a.id, label: a.name })),
               ]}
               searchable
-              placeholder="选择智能体（取其提示词）"
+              placeholder={t('config.selectAgent')}
             />
             {agentRefInvalid && (
-              <p className="mt-1 text-xs text-amber-500">该智能体引用已失效，请重新选择</p>
+              <p className="mt-1 text-xs text-amber-500">{t('config.agentRefInvalid')}</p>
             )}
             {agents.length === 0 && (
-              <p className="mt-1 text-xs text-amber-500">暂无智能体，请先在「智能体」页面创建</p>
+              <p className="mt-1 text-xs text-amber-500">{t('config.noAgents')}</p>
             )}
           </div>
         )}
@@ -148,13 +150,13 @@ export default function NodeConfigPanel({
         {/* Agent 节点：对话模型（节点级配置） */}
         {node.type === WorkflowNodeTypes.Agent && (
           <div>
-            <label className={labelClass}>对话模型 *</label>
+            <label className={labelClass}>{t('config.chatModel')}</label>
             <Select
               value={(config.modelId as string) ?? ''}
               onChange={(v) => updateConfig('modelId', v || undefined)}
-              options={[{ value: '', label: '默认模型' }, ...chatModels.map((m) => ({ value: m.id, label: m.displayName }))]}
+              options={[{ value: '', label: t('config.defaultModel') }, ...chatModels.map((m) => ({ value: m.id, label: m.displayName }))]}
               searchable
-              placeholder="选择模型"
+              placeholder={t('config.selectModel')}
             />
           </div>
         )}
@@ -162,19 +164,19 @@ export default function NodeConfigPanel({
         {/* Agent 节点：工具勾选（节点级配置） */}
         {node.type === WorkflowNodeTypes.Agent && (
           <div>
-            <label className={labelClass}>工具</label>
+            <label className={labelClass}>{t('config.tools')}</label>
             <div className="flex flex-wrap gap-1.5">
-              {availableTools.map((t) => (
+              {availableTools.map((tool) => (
                 <button
-                  key={t.name}
-                  onClick={() => toggleTool(t.name)}
+                  key={tool.name}
+                  onClick={() => toggleTool(tool.name)}
                   className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
-                    toolNames.includes(t.name)
+                    toolNames.includes(tool.name)
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
                   }`}
                 >
-                  {t.label}
+                  {tool.label}
                 </button>
               ))}
             </div>
@@ -184,10 +186,10 @@ export default function NodeConfigPanel({
         {/* Agent 节点：MCP 服务器勾选（节点级配置） */}
         {node.type === WorkflowNodeTypes.Agent && (
           <div>
-            <label className={labelClass}>MCP 服务器</label>
+            <label className={labelClass}>{t('config.mcpServers')}</label>
             <div className="flex flex-wrap gap-1.5">
               {enabledMcpServers.length === 0 && (
-                <span className="text-xs text-gray-400">暂无已启用的 MCP 服务器</span>
+                <span className="text-xs text-gray-400">{t('config.noMcpServers')}</span>
               )}
               {enabledMcpServers.map((s) => (
                 <button
@@ -210,7 +212,7 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Agent && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>单轮工具上限</label>
+              <label className={labelClass}>{t('config.maxToolCallsPerTurn')}</label>
               <input
                 type="number"
                 className={inputClass}
@@ -219,7 +221,7 @@ export default function NodeConfigPanel({
               />
             </div>
             <div>
-              <label className={labelClass}>最大迭代</label>
+              <label className={labelClass}>{t('config.maxIterations')}</label>
               <input
                 type="number"
                 className={inputClass}
@@ -234,16 +236,16 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Agent && (
           <>
             <div>
-              <label className={labelClass}>指令</label>
+              <label className={labelClass}>{t('config.instruction')}</label>
               <textarea
                 className={`${inputClass} h-20 resize-none`}
                 value={(config.instruction as string) ?? ''}
                 onChange={(e) => updateConfig('instruction', e.target.value)}
-                placeholder="告诉这个智能体要做什么，如：请根据以下内容整理一篇笔记"
+                placeholder={t('config.instructionPlaceholder')}
               />
             </div>
             <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-              上游节点输出会自动拼接在指令后作为输入；多上游时按来源分组。
+              {t('config.upstreamHint')}
             </p>
           </>
         )}
@@ -251,9 +253,9 @@ export default function NodeConfigPanel({
         {/* Condition 节点：分支配置 */}
         {node.type === WorkflowNodeTypes.Condition && (
           <div>
-            <label className={labelClass}>分支条件（JSON）</label>
+            <label className={labelClass}>{t('config.branchCondition')}</label>
             <p className="mb-1 text-xs text-gray-400">
-              顺序求值，首个匹配的 handle 决定走向。handle 需与边的 sourceHandle 对应。
+              {t('config.branchHint')}
             </p>
             <textarea
               className={`${inputClass} h-40 resize-none font-mono text-xs`}
@@ -268,7 +270,7 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Loop && (
           <>
             <div>
-              <label className={labelClass}>最大循环次数</label>
+              <label className={labelClass}>{t('config.maxLoopIterations')}</label>
               <input
                 type="number"
                 className={inputClass}
@@ -277,14 +279,14 @@ export default function NodeConfigPanel({
               />
             </div>
             <div>
-              <label className={labelClass}>退出条件</label>
+              <label className={labelClass}>{t('config.exitCondition')}</label>
               <input
                 className={inputClass}
                 value={(config.exitCondition as string) ?? ''}
                 onChange={(e) => updateConfig('exitCondition', e.target.value)}
                 placeholder={'{{prev.output}} == done'}
               />
-              <p className="mt-1 text-xs text-gray-400">出边 handle: body（循环体）/ exit（退出）</p>
+              <p className="mt-1 text-xs text-gray-400">{t('config.loopHandleHint')}</p>
             </div>
           </>
         )}
@@ -293,17 +295,17 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Tool && (
           <>
             <div>
-              <label className={labelClass}>工具</label>
+              <label className={labelClass}>{t('config.tools')}</label>
               <Select
                 value={(config.toolName as string) ?? ''}
                 onChange={(v) => updateConfig('toolName', v)}
-                options={availableTools.map((t) => ({ value: t.name, label: t.label }))}
+                options={availableTools.map((tool) => ({ value: tool.name, label: tool.label }))}
                 searchable
-                placeholder="选择工具"
+                placeholder={t('config.selectTool')}
               />
             </div>
             <div>
-              <label className={labelClass}>参数模板（JSON）</label>
+              <label className={labelClass}>{t('config.argumentsTemplate')}</label>
               <textarea
                 className={`${inputClass} h-24 resize-none font-mono text-xs`}
                 value={(config.argumentsTemplate as string) ?? '{}'}
@@ -318,17 +320,17 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.SubWorkflow && (
           <>
             <div>
-              <label className={labelClass}>子工作流</label>
+              <label className={labelClass}>{t('nodeTypes.subWorkflow')}</label>
               <Select
                 value={(config.subWorkflowId as string) ?? ''}
                 onChange={(v) => updateConfig('subWorkflowId', v)}
                 options={workflows.map((w) => ({ value: w.id, label: w.name }))}
                 searchable
-                placeholder="选择子工作流"
+                placeholder={t('config.selectSubWorkflow')}
               />
             </div>
             <div>
-              <label className={labelClass}>输入模板</label>
+              <label className={labelClass}>{t('config.inputTemplate')}</label>
               <input
                 className={inputClass}
                 value={(config.inputTemplate as string) ?? ''}
@@ -343,16 +345,16 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Human && (
           <>
             <div>
-              <label className={labelClass}>审批提示语</label>
+              <label className={labelClass}>{t('config.approvalPrompt')}</label>
               <textarea
                 className={`${inputClass} h-20 resize-none`}
                 value={(config.prompt as string) ?? ''}
                 onChange={(e) => updateConfig('prompt', e.target.value)}
-                placeholder="请确认是否继续执行"
+                placeholder={t('config.approvalPromptPlaceholder')}
               />
             </div>
             <div>
-              <label className={labelClass}>超时（秒）</label>
+              <label className={labelClass}>{t('config.timeoutSeconds')}</label>
               <input
                 type="number"
                 className={inputClass}
@@ -366,26 +368,26 @@ export default function NodeConfigPanel({
         {/* Merge 节点：输出模板 */}
         {node.type === WorkflowNodeTypes.Merge && (
           <div>
-            <label className={labelClass}>输出模板</label>
+            <label className={labelClass}>{t('config.outputTemplate')}</label>
             <textarea
               className={`${inputClass} h-20 resize-none font-mono text-xs`}
               value={(config.outputTemplate as string) ?? ''}
               onChange={(e) => updateConfig('outputTemplate', e.target.value)}
-              placeholder={'{{branchA.output}} — 留空则输出所有分支结果的 JSON 汇总'}
+              placeholder={t('config.mergeOutputTemplatePlaceholder', { ref: '{{branchA.output}}' })}
             />
-            <p className="mt-1 text-xs text-gray-400">等待所有上游分支完成后执行，聚合各分支输出。</p>
+            <p className="mt-1 text-xs text-gray-400">{t('config.mergeHint')}</p>
           </div>
         )}
 
         {/* End 节点：输出模板 */}
         {node.type === WorkflowNodeTypes.End && (
           <div>
-            <label className={labelClass}>输出模板</label>
+            <label className={labelClass}>{t('config.outputTemplate')}</label>
             <textarea
               className={`${inputClass} h-20 resize-none font-mono text-xs`}
               value={(config.outputTemplate as string) ?? ''}
               onChange={(e) => updateConfig('outputTemplate', e.target.value)}
-              placeholder={'{{agent.output}} — 引用要输出的节点结果'}
+              placeholder={t('config.endOutputTemplatePlaceholder', { ref: '{{agent.output}}' })}
             />
           </div>
         )}

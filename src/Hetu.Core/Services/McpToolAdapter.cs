@@ -13,12 +13,14 @@ public class McpToolAdapter : IToolExecutor
     private readonly string _serverName;
     private readonly string _connectionConfig;
     private readonly McpToolDto _tool;
+    private readonly ILocalizer _localizer;
 
-    public McpToolAdapter(string serverName, string connectionConfig, McpToolDto tool)
+    public McpToolAdapter(string serverName, string connectionConfig, McpToolDto tool, ILocalizer localizer)
     {
         _serverName = serverName;
         _connectionConfig = connectionConfig;
         _tool = tool;
+        _localizer = localizer;
         Name = BuildName(serverName, tool.Name);
         Description = string.IsNullOrWhiteSpace(tool.Description) ? $"MCP 工具 ({serverName}/{tool.Name})" : tool.Description!;
         ParametersSchema = NormalizeSchema(tool.InputSchema);
@@ -40,12 +42,12 @@ public class McpToolAdapter : IToolExecutor
         }
         catch (Exception ex)
         {
-            return ToolExecutionResult.Error($"MCP 工具 {Name} 参数解析失败：{ex.Message}");
+            return ToolExecutionResult.Error(_localizer.T("mcp.argsParseFailed", Name, ex.Message));
         }
 
         try
         {
-            using var client = new StdioMcpClient(_connectionConfig);
+            using var client = new StdioMcpClient(_connectionConfig, _localizer);
             var result = await client.CallToolAsync(_tool.Name, arguments, cancellationToken);
             if (result.IsError)
                 return ToolExecutionResult.Error(result.Content);
@@ -53,7 +55,7 @@ public class McpToolAdapter : IToolExecutor
         }
         catch (Exception ex)
         {
-            return ToolExecutionResult.Error($"MCP 工具 {Name} 调用失败：{ex.Message}");
+            return ToolExecutionResult.Error(_localizer.T("mcp.toolCallFailed", Name, ex.Message));
         }
     }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle, Check, ChevronRight, CornerLeftUp, Folder, FolderOpen, HardDrive, Loader2, Server, Wifi, X,
@@ -37,6 +38,7 @@ function DirBrowser({
   onPick: (path: string) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation('projects')
   const [path, setPath] = useState('')
   const listing = useQuery<IDirListing>({
     queryKey: kind === 'local' ? ['projLocalDirs', path] : ['projRemoteDirs', ssh?.host, ssh?.port, ssh?.user, path],
@@ -58,8 +60,8 @@ function DirBrowser({
         <button
           onClick={onClose}
           className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-          title="关闭浏览"
-          aria-label="关闭目录浏览"
+          title={t('browser.close')}
+          aria-label={t('browser.closeAria')}
         >
           <X size={12} />
         </button>
@@ -71,16 +73,16 @@ function DirBrowser({
             className="flex w-full items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5 text-left text-[12px] text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <CornerLeftUp size={12} className="shrink-0" />
-            上级目录
+            {t('browser.parent')}
           </button>
         )}
         {listing.isLoading && (
           <div className="flex items-center gap-1.5 px-2.5 py-3 text-[12px] text-gray-400">
-            <Loader2 size={12} className="animate-spin" />读取中...
+            <Loader2 size={12} className="animate-spin" />{t('browser.reading')}
           </div>
         )}
         {listing.isError && (
-          <div className="px-2.5 py-3 text-[12px] text-red-500">{(listing.error as Error)?.message || '读取失败'}</div>
+          <div className="px-2.5 py-3 text-[12px] text-red-500">{(listing.error as Error)?.message || t('browser.readFailed')}</div>
         )}
         {data?.entries.filter((e) => e.isDirectory).map((entry) => (
           <button
@@ -94,7 +96,7 @@ function DirBrowser({
           </button>
         ))}
         {data && data.entries.filter((e) => e.isDirectory).length === 0 && !listing.isLoading && (
-          <div className="px-2.5 py-3 text-[12px] text-gray-400">没有子目录</div>
+          <div className="px-2.5 py-3 text-[12px] text-gray-400">{t('browser.empty')}</div>
         )}
       </div>
       <div className="mt-1.5 flex justify-end">
@@ -103,7 +105,7 @@ function DirBrowser({
           disabled={!data?.current}
           className="rounded-lg bg-blue-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
         >
-          选择当前目录
+          {t('browser.pickCurrent')}
         </button>
       </div>
     </div>
@@ -115,6 +117,7 @@ const inputCls = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 
 export default function ProjectFormDialog({
   project, groups, projects, onSubmit, onCreateGroup, onClose, pending,
 }: ProjectFormDialogProps) {
+  const { t } = useTranslation('projects')
   const isEdit = !!project
   const [mode, setMode] = useState<'local' | 'ssh'>(project?.projectType === 'Ssh' ? 'ssh' : 'local')
   const [name, setName] = useState(project?.name ?? '')
@@ -157,7 +160,7 @@ export default function ProjectFormDialog({
       setNewGroupName('')
       setGroupCreateOpen(false)
     } catch (e) {
-      setError((e as Error).message || '创建分组失败')
+      setError((e as Error).message || t('form.createGroupFailed'))
     } finally {
       setCreatingGroup(false)
     }
@@ -165,11 +168,11 @@ export default function ProjectFormDialog({
 
   const handleSubmit = () => {
     setError('')
-    if (!name.trim()) { setError('请输入项目名称'); return }
-    if (!directoryPath.trim()) { setError(mode === 'local' ? '请输入本地目录' : '请输入远程项目目录'); return }
+    if (!name.trim()) { setError(t('form.nameRequired')); return }
+    if (!directoryPath.trim()) { setError(mode === 'local' ? t('form.localDirRequired') : t('form.remoteDirRequired')); return }
     if (mode === 'ssh') {
-      if (!host.trim()) { setError('请输入 SSH 主机地址'); return }
-      if (authType === 'Password' && !password && !(isEdit && project?.hasSshPassword)) { setError('请输入 SSH 密码'); return }
+      if (!host.trim()) { setError(t('form.hostRequired')); return }
+      if (authType === 'Password' && !password && !(isEdit && project?.hasSshPassword)) { setError(t('form.passwordRequired')); return }
     }
 
     const base: ICreateProjectRequest = {
@@ -202,15 +205,15 @@ export default function ProjectFormDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{isEdit ? '编辑项目' : '新建项目'}</h3>
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{isEdit ? t('form.editTitle') : t('form.createTitle')}</h3>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 类型切换 */}
           <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             {([
-              { key: 'local' as const, label: '本地目录', icon: HardDrive },
-              { key: 'ssh' as const, label: 'SSH 远程', icon: Server },
+              { key: 'local' as const, label: t('form.localDirTab'), icon: HardDrive },
+              { key: 'ssh' as const, label: t('form.sshTab'), icon: Server },
             ]).map((m) => {
               const Icon = m.icon
               return (
@@ -229,33 +232,33 @@ export default function ProjectFormDialog({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">项目名称</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：我的服务端项目" className={inputCls} />
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.name')}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('form.namePlaceholder')} className={inputCls} />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">备注</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选，记录项目用途" className={inputCls} />
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.description')}</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} className={inputCls} />
           </div>
 
           {/* 分组与归类 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">分组</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.group')}</label>
               <div className="flex items-center gap-2">
                 <Select
                   value={groupId}
                   onChange={setGroupId}
                   options={[
-                    { value: '', label: '未分组' },
+                    { value: '', label: t('form.ungrouped') },
                     ...groups.map((g) => ({ value: g.id, label: g.name })),
                   ]}
                   triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
                 />
                 <button
                   onClick={() => setGroupCreateOpen((v) => !v)}
-                  title="新建分组"
-                  aria-label="新建分组"
+                  title={t('form.newGroup')}
+                  aria-label={t('form.newGroup')}
                   aria-expanded={groupCreateOpen}
                   className="shrink-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
@@ -272,7 +275,7 @@ export default function ProjectFormDialog({
                       if (e.key === 'Enter') { e.preventDefault(); void handleCreateGroup() }
                       if (e.key === 'Escape') { setGroupCreateOpen(false); setNewGroupName('') }
                     }}
-                    placeholder="新分组名称"
+                    placeholder={t('form.newGroupPlaceholder')}
                     disabled={creatingGroup}
                     className={inputCls}
                   />
@@ -281,18 +284,18 @@ export default function ProjectFormDialog({
                     disabled={creatingGroup || !newGroupName.trim()}
                     className="shrink-0 rounded-xl bg-blue-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
                   >
-                    {creatingGroup ? <Loader2 size={13} className="animate-spin" /> : '确定'}
+                    {creatingGroup ? <Loader2 size={13} className="animate-spin" /> : t('common:confirm')}
                   </button>
                 </div>
               )}
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">分类</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.category')}</label>
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 list="project-category-options"
-                placeholder="如：服务端 / 工具"
+                placeholder={t('form.categoryPlaceholder')}
                 className={inputCls}
               />
               <datalist id="project-category-options">
@@ -302,14 +305,14 @@ export default function ProjectFormDialog({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              标签
-              <span className="ml-1 text-[11px] font-normal text-gray-400">（用逗号分隔，可多个）</span>
+              {t('form.tags')}
+              <span className="ml-1 text-[11px] font-normal text-gray-400">{t('form.tagsHint')}</span>
             </label>
             <input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               list="project-tag-options"
-              placeholder="如：React，内部工具"
+              placeholder={t('form.tagsPlaceholder')}
               className={inputCls}
             />
             <datalist id="project-tag-options">
@@ -319,12 +322,12 @@ export default function ProjectFormDialog({
 
           {mode === 'local' ? (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">本地目录</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.directory')}</label>
               <div className="flex items-center gap-2">
                 <input
                   value={directoryPath}
                   onChange={(e) => setDirectoryPath(e.target.value)}
-                  placeholder="如 D:\repos\MyProject 或 /home/me/project"
+                  placeholder={t('form.directoryPlaceholder')}
                   className={`${inputCls} font-mono text-[13px]`}
                 />
                 <button
@@ -332,7 +335,7 @@ export default function ProjectFormDialog({
                   className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <FolderOpen size={13} />
-                  浏览
+                  {t('form.browse')}
                 </button>
               </div>
               {localBrowsing && <DirBrowser kind="local" onPick={(p) => setDirectoryPath(p)} onClose={() => setLocalBrowsing(false)} />}
@@ -343,7 +346,7 @@ export default function ProjectFormDialog({
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
                   <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
                     <Wifi size={13} />
-                    未检测到 ssh 命令（{sshStatus.os}）
+                    {t('form.sshMissing', { os: sshStatus.os })}
                   </div>
                   <p className="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">{sshStatus.installHint}</p>
                 </div>
@@ -352,8 +355,8 @@ export default function ProjectFormDialog({
               {sshConfigHosts.length > 0 && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    从本机 SSH 配置导入
-                    <span className="ml-1 text-[11px] font-normal text-gray-400">（~/.ssh/config，可选）</span>
+                    {t('form.importFromConfig')}
+                    <span className="ml-1 text-[11px] font-normal text-gray-400">{t('form.sshConfigHint')}</span>
                   </label>
                   <Select
                     value=""
@@ -365,10 +368,10 @@ export default function ProjectFormDialog({
                       if (picked.user) setUser(picked.user)
                       if (picked.identityFile) { setAuthType('Key'); setKeyPath(picked.identityFile) }
                     }}
-                    placeholder="选择已配置的主机…"
+                    placeholder={t('form.sshConfigPlaceholder')}
                     options={sshConfigHosts.map((h) => ({
                       value: h.alias,
-                      label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? `（${h.user}）` : ''}`,
+                      label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? t('form.sshConfigUser', { user: h.user }) : ''}`,
                     }))}
                     triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
                   />
@@ -377,28 +380,28 @@ export default function ProjectFormDialog({
 
               <div className="grid grid-cols-[1fr_96px] gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">主机地址</label>
-                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10 或 example.com" className={`${inputCls} font-mono text-[13px]`} />
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.host')}</label>
+                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder={t('form.hostPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">端口</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.port')}</label>
                   <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} className={inputCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">登录用户</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.loginUser')}</label>
                   <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" className={`${inputCls} font-mono text-[13px]`} />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">认证方式</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.authType')}</label>
                   <Select
                     value={authType}
                     onChange={setAuthType}
                     options={[
-                      { value: 'Key', label: '私钥文件' },
-                      { value: 'Password', label: '密码' },
-                      { value: 'Agent', label: 'SSH Agent' },
+                      { value: 'Key', label: t('form.authKey') },
+                      { value: 'Password', label: t('form.authPassword') },
+                      { value: 'Agent', label: t('form.authAgent') },
                     ]}
                     triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
                   />
@@ -406,29 +409,29 @@ export default function ProjectFormDialog({
               </div>
               {authType === 'Key' && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">私钥文件路径</label>
-                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder="如 ~/.ssh/id_rsa" className={`${inputCls} font-mono text-[13px]`} />
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.keyPath')}</label>
+                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder={t('form.keyPathPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
                 </div>
               )}
               {authType === 'Password' && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">密码</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.password')}</label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isEdit && project?.hasSshPassword ? '已保存，留空保持不变；切换认证方式可清除' : 'SSH 登录密码（加密保存）'}
+                    placeholder={isEdit && project?.hasSshPassword ? t('form.passwordKeepPlaceholder') : t('form.passwordPlaceholder')}
                     className={inputCls}
                   />
                 </div>
               )}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">远程项目目录</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.remoteDirectory')}</label>
                 <div className="flex items-center gap-2">
                   <input
                     value={directoryPath}
                     onChange={(e) => setDirectoryPath(e.target.value)}
-                    placeholder="如 /home/me/projects/app（绝对路径）"
+                    placeholder={t('form.remoteDirectoryPlaceholder')}
                     className={`${inputCls} font-mono text-[13px]`}
                   />
                   <button
@@ -437,7 +440,7 @@ export default function ProjectFormDialog({
                     className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
                     <FolderOpen size={13} />
-                    浏览
+                    {t('form.browse')}
                   </button>
                 </div>
                 {remoteBrowsing && (
@@ -460,13 +463,13 @@ export default function ProjectFormDialog({
                       rootPath: directoryPath.trim() || '~',
                     })
                       .then((r) => setTestResult({ ok: r.success, text: r.remoteBanner ? `${r.message}（${r.remoteBanner}）` : r.message }))
-                      .catch((e: Error) => setTestResult({ ok: false, text: e.message || '连接测试失败' }))
+                      .catch((e: Error) => setTestResult({ ok: false, text: e.message || t('form.testFailed') }))
                   }}
                   disabled={!host.trim()}
                   className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                 >
                   <Wifi size={12} />
-                  测试连接
+                  {t('form.testConnection')}
                 </button>
                 {testResult && (
                   <span className={`flex items-center gap-1 text-[11px] ${testResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -481,13 +484,13 @@ export default function ProjectFormDialog({
           {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">取消</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">{t('common:cancel')}</button>
           <button
             onClick={handleSubmit}
             disabled={pending}
             className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
           >
-            {pending ? '保存中...' : isEdit ? '保存' : '创建'}
+            {pending ? t('form.saving') : isEdit ? t('common:save') : t('common:create')}
           </button>
         </div>
       </div>

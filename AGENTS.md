@@ -352,8 +352,18 @@ Closes #42
 - 配置项命名：PascalCase
 
 #### 国际化
-- 当前版本：仅支持中文
-- 预留国际化能力（资源文件）
+- 支持简体中文（`zh`）与英文（`en`），语言保存在应用设置 `Language`，请求通过 `Accept-Language` 传给后端
+- 前端：i18next + react-i18next，资源按「语言/命名空间」拆分为 TS 模块
+  - 位置：`frontend/src/i18n/locales/{zh,en}/<area>.ts`，默认导出嵌套对象（键名英文小驼峰，zh/en 同键同结构）
+  - 由 `frontend/src/i18n/index.ts` 的 `import.meta.glob` 自动收集，新增页面只需新增一对文件，无需注册
+  - 组件内：`const { t } = useTranslation('<area>')` + `t('group.key')`；插值 `t('key', { n })` 配 `{{n}}`
+  - 非组件（services/utils/stores）：`i18n.t('<area>:key')`
+  - 通用文案（保存/取消/删除等）复用 `common` 命名空间；导航文案走 `nav` 命名空间
+  - 切换语言：`applyLanguage(lng)`（写 localStorage + 落库 + 同步 `<html lang>`）
+- 后端：`ILocalizer`（`T("区域.键", args)`），文案放 `src/Hetu.Infrastructure/Localization/Locales/{zh,en}/*.json`（嵌入资源，按区域拆文件）
+  - 语言解析顺序：请求头 `Accept-Language` → 应用设置 `Language`（`ILanguagePreference`，启动时由 `LanguageWarmupService` 预热）→ 中文
+  - 缺失键回退中文，再回退键名本身，便于增量补齐
+- AI 回复语言跟随该设置：`PromptComposer` 注入「回复语言」段落
 
 #### 辅助功能
 - 键盘快捷键支持

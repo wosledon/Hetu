@@ -9,10 +9,12 @@ namespace Hetu.Api.Controllers;
 public class ExportController : ControllerBase
 {
     private readonly IExportService _exportService;
+    private readonly ILocalizer _localizer;
 
-    public ExportController(IExportService exportService)
+    public ExportController(IExportService exportService, ILocalizer localizer)
     {
         _exportService = exportService;
+        _localizer = localizer;
     }
 
     [HttpGet("notes")]
@@ -33,7 +35,7 @@ public class ExportController : ControllerBase
     public async Task<ApiResponse<string>> RestoreDatabase(IFormFile file, CancellationToken cancellationToken)
     {
         if (file == null || file.Length == 0)
-            return ApiResponse<string>.Fail("请选择有效的备份文件");
+            return ApiResponse<string>.Fail(_localizer.T("export.fileRequired"));
 
         await using var stream = file.OpenReadStream();
         var message = await _exportService.RestoreDatabaseAsync(stream, cancellationToken);

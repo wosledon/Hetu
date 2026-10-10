@@ -14,17 +14,20 @@ public class ScheduledTaskService : IScheduledTaskService
     private readonly ISkillService _skillService;
     private readonly ILocalSkillService _localSkillService;
     private readonly ILogger<ScheduledTaskService> _logger;
+    private readonly ILocalizer _localizer;
 
     public ScheduledTaskService(
         IUnitOfWork unitOfWork,
         ISkillService skillService,
         ILocalSkillService localSkillService,
-        ILogger<ScheduledTaskService> logger)
+        ILogger<ScheduledTaskService> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _skillService = skillService;
         _localSkillService = localSkillService;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<List<ScheduledTaskDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -40,7 +43,7 @@ public class ScheduledTaskService : IScheduledTaskService
     public async Task<ApiResponse<ScheduledTaskDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.ScheduledTasks.GetByIdAsync(id, cancellationToken);
-        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail("定时任务不存在");
+        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail(_localizer.T("scheduledTask.notFound"));
         return ApiResponse<ScheduledTaskDto>.Ok(MapToDto(task));
     }
 
@@ -83,7 +86,7 @@ public class ScheduledTaskService : IScheduledTaskService
         if (error != null) return ApiResponse<ScheduledTaskDto>.Fail(error);
 
         var task = await _unitOfWork.ScheduledTasks.GetByIdAsync(id, cancellationToken);
-        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail("定时任务不存在");
+        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail(_localizer.T("scheduledTask.notFound"));
 
         task.Name = request.Name.Trim();
         task.Description = request.Description?.Trim();
@@ -111,7 +114,7 @@ public class ScheduledTaskService : IScheduledTaskService
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.ScheduledTasks.GetByIdAsync(id, cancellationToken);
-        if (task is null) return ApiResponse.Fail("定时任务不存在");
+        if (task is null) return ApiResponse.Fail(_localizer.T("scheduledTask.notFound"));
 
         task.IsDeleted = true;
         task.IsEnabled = false;
@@ -125,7 +128,7 @@ public class ScheduledTaskService : IScheduledTaskService
     public async Task<ApiResponse<ScheduledTaskDto>> ToggleAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.ScheduledTasks.GetByIdAsync(id, cancellationToken);
-        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail("定时任务不存在");
+        if (task is null) return ApiResponse<ScheduledTaskDto>.Fail(_localizer.T("scheduledTask.notFound"));
 
         task.IsEnabled = !task.IsEnabled;
         task.RetryCount = 0;
@@ -140,7 +143,7 @@ public class ScheduledTaskService : IScheduledTaskService
     public async Task<ApiResponse<ScheduledTaskExecutionDto>> RunNowAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.ScheduledTasks.GetByIdAsync(id, cancellationToken);
-        if (task is null) return ApiResponse<ScheduledTaskExecutionDto>.Fail("定时任务不存在");
+        if (task is null) return ApiResponse<ScheduledTaskExecutionDto>.Fail(_localizer.T("scheduledTask.notFound"));
 
         // 立即触发：把 NextRunAt 置为当下，由 Runner 拾取执行
         task.NextRunAt = DateTimeOffset.UtcNow;
@@ -250,18 +253,18 @@ public class ScheduledTaskService : IScheduledTaskService
             .ToList();
     }
 
-    private static string? ValidateRequest(CreateScheduledTaskRequest request)
+    private string? ValidateRequest(CreateScheduledTaskRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Name)) return "任务名称不能为空";
-        if (!ScheduledTaskKinds.All.Contains(request.TaskKind)) return $"不支持的任务种类: {request.TaskKind}";
+        if (string.IsNullOrWhiteSpace(request.Name)) return _localizer.T("scheduledTask.nameRequired");
+        if (!ScheduledTaskKinds.All.Contains(request.TaskKind)) return _localizer.T("scheduledTask.unsupportedKind", request.TaskKind);
         if (request.ScheduleType == ScheduleTypes.Cron && string.IsNullOrWhiteSpace(request.CronExpression))
-            return "Cron 调度必须提供 Cron 表达式";
+            return _localizer.T("scheduledTask.cronRequired");
         if (request.ScheduleType == ScheduleTypes.Interval && request.IntervalMinutes <= 0)
-            return "间隔调度必须提供大于 0 的间隔分钟数";
+            return _localizer.T("scheduledTask.intervalRequired");
         if (request.TaskKind == ScheduledTaskKinds.Skill && string.IsNullOrWhiteSpace(request.TargetId))
-            return "执行 Skill 任务必须选择目标技能";
+            return _localizer.T("scheduledTask.skillTargetRequired");
         if (request.TaskKind == ScheduledTaskKinds.AiTask && string.IsNullOrWhiteSpace(request.Parameters))
-            return "AI 任务必须提供任务指令";
+            return _localizer.T("scheduledTask.aiInstructionRequired");
         return null;
     }
 

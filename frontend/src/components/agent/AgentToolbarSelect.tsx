@@ -1,4 +1,5 @@
 import { useState, useRef, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface AgentToolbarSelectOption {
   value: string
@@ -28,6 +29,7 @@ export default function AgentToolbarSelect({
   title,
   className = 'flex h-[26px] max-w-[140px] shrink-0 items-center justify-between gap-1 rounded-md px-1.5 text-[11px] text-gray-600 outline-none transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/50',
 }: AgentToolbarSelectProps) {
+  const { t } = useTranslation('agent')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = options.find((o) => o.value === value)
@@ -47,7 +49,7 @@ export default function AgentToolbarSelect({
       >
         {/* 图标跟随当前选项，放在触发器内部，不再单独展示 */}
         {current?.icon && <span className="shrink-0">{current.icon}</span>}
-        <span className="truncate">{current?.label ?? '未选择'}</span>
+        <span className="truncate">{current?.label ?? t('toolbar.none')}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0 opacity-60">
           <path d="m6 9 6 6 6-6" />
         </svg>

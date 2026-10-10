@@ -21,6 +21,7 @@ public class MemoryService : IMemoryService
     private readonly IAppSettingService _appSettingService;
     private readonly HetuDbContext _dbContext;
     private readonly ILogger<MemoryService> _logger;
+    private readonly ILocalizer _localizer;
 
     // 回归权重参数
     private const double Alpha = 0.4;   // 语义相似度权重
@@ -40,7 +41,8 @@ public class MemoryService : IMemoryService
         ILLMProviderFactory llmProviderFactory,
         IAppSettingService appSettingService,
         HetuDbContext dbContext,
-        ILogger<MemoryService> logger)
+        ILogger<MemoryService> logger,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
@@ -48,6 +50,7 @@ public class MemoryService : IMemoryService
         _appSettingService = appSettingService;
         _dbContext = dbContext;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public async Task<ApiResponse<PagedResult<MemoryDto>>> GetAllAsync(int page = 1, int pageSize = 50, string? scope = null, CancellationToken cancellationToken = default)
@@ -98,14 +101,14 @@ public class MemoryService : IMemoryService
     public async Task<ApiResponse<MemoryDto>> CreateAsync(CreateMemoryRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return ApiResponse<MemoryDto>.Fail("记忆内容不能为空");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.contentRequired"));
 
         var scope = NormalizeScope(request.Scope);
         if (scope == MemoryScopes.Project && request.ProjectId == null)
-            return ApiResponse<MemoryDto>.Fail("项目记忆必须指定项目");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.projectRequired"));
         // 会话记忆只能由对话提取产生（需要绑定会话），手动创建不接受
         if (scope == MemoryScopes.Session)
-            return ApiResponse<MemoryDto>.Fail("会话记忆由对话自动提取产生，请选择全局或项目作用域");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.sessionScopeReserved"));
 
         var memory = new Memory
         {
@@ -136,13 +139,13 @@ public class MemoryService : IMemoryService
     {
         var memory = await _unitOfWork.Memories.GetByIdAsync(id, cancellationToken);
         if (memory == null || memory.IsDeleted)
-            return ApiResponse<MemoryDto>.Fail("记忆不存在");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.notFound"));
 
         var scope = NormalizeScope(request.Scope);
         if (scope == MemoryScopes.Project && request.ProjectId == null)
-            return ApiResponse<MemoryDto>.Fail("项目记忆必须指定项目");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.projectRequired"));
         if (scope == MemoryScopes.Session && memory.TopicId == null)
-            return ApiResponse<MemoryDto>.Fail("该记忆未绑定会话，无法设为会话作用域");
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.sessionNotBound"));
 
         memory.Content = request.Content.Trim();
         memory.Category = request.Category;
@@ -176,7 +179,7 @@ public class MemoryService : IMemoryService
     {
         var memory = await _unitOfWork.Memories.GetByIdAsync(id, cancellationToken);
         if (memory == null)
-            return ApiResponse.Fail("记忆不存在");
+            return ApiResponse.Fail(_localizer.T("memory.notFound"));
 
         memory.IsDeleted = true;
         memory.UpdatedAt = DateTimeOffset.UtcNow;
@@ -201,7 +204,7 @@ public class MemoryService : IMemoryService
         // 使用快速模型提取事实
         var provider = await CreateFastProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<List<MemoryDto>>.Fail("未配置快速模型，无法提取记忆");
+            return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.fastModelNotConfigured"));
 
         var conversationText = new StringBuilder();
         foreach (var msg in messages.TakeLast(20)) // 最多取最近20条
@@ -288,7 +291,7 @@ public class MemoryService : IMemoryService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<MemoryDto>>.Fail($"记忆提取失败：{ex.Message}");
+            return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.extractFailed", ex.Message));
         }
     }
 
@@ -364,7 +367,7 @@ public class MemoryService : IMemoryService
     public async Task<ApiResponse<List<MemoryDto>>> ExtractFromWorkSessionAsync(Guid workSessionId, CancellationToken cancellationToken = default)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(workSessionId, cancellationToken);
-        if (session == null) return ApiResponse<List<MemoryDto>>.Fail("会话不存在");
+        if (session == null) return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("workSession.notFound"));
 
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
         var managedProjectId = project?.ManagedProjectId;
@@ -378,7 +381,7 @@ public class MemoryService : IMemoryService
 
         var provider = await CreateFastProviderAsync(cancellationToken);
         if (provider == null)
-            return ApiResponse<List<MemoryDto>>.Fail("未配置快速模型，无法提取记忆");
+            return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.fastModelNotConfigured"));
 
         var conversationText = new StringBuilder();
         foreach (var msg in messages.TakeLast(20))
@@ -461,7 +464,7 @@ public class MemoryService : IMemoryService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<MemoryDto>>.Fail($"记忆提取失败：{ex.Message}");
+            return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.extractFailed", ex.Message));
         }
     }
 
@@ -934,7 +937,7 @@ public class MemoryService : IMemoryService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Dream 记忆巩固失败");
-            return ApiResponse<DreamResultDto>.Fail($"记忆巩固失败：{ex.Message}");
+            return ApiResponse<DreamResultDto>.Fail(_localizer.T("memory.dreamFailed", ex.Message));
         }
     }
 

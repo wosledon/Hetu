@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Check, Plus, X } from 'lucide-react'
 import { tagService } from '../services/tagService'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
@@ -11,6 +12,7 @@ interface TagInputProps {
 }
 
 export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
+  const { t } = useTranslation('notes')
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [isOpen, setIsOpen] = useState(false)
@@ -93,7 +95,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
             <button
               onClick={() => handleRemoveTag(tag.id)}
               className="opacity-60 hover:opacity-100"
-              title="移除标签"
+              title={t('tagInput.remove')}
             >
               <X size={12} />
             </button>
@@ -110,7 +112,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
           className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:border-gray-600"
         >
           <Plus size={12} />
-          添加标签
+          {t('tagInput.add')}
         </button>
 
         {isOpen && (
@@ -126,18 +128,18 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入标签名，回车创建"
+                placeholder={t('tagInput.placeholder')}
                 className="w-full rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-blue-400 dark:border-gray-700"
               />
               <div className="mt-2">
-                <div className="mb-1 px-1 text-[10px] text-gray-400">颜色（新建标签生效）</div>
+                <div className="mb-1 px-1 text-[10px] text-gray-400">{t('tagInput.colorLabel')}</div>
                 <div className="flex flex-wrap items-center gap-1.5 px-1">
                   <button
                     onClick={() => setSelectedColor('')}
                     className={`flex h-5 w-5 items-center justify-center rounded-full border-2 bg-gray-200 dark:bg-gray-600 ${
                       selectedColor === '' ? 'border-gray-700 dark:border-white' : 'border-gray-200 dark:border-gray-600'
                     }`}
-                    title="不设颜色（灰色）"
+                    title={t('tagInput.noColor')}
                   >
                     {selectedColor === '' && <Check size={11} className="text-gray-700 dark:text-white" />}
                   </button>
@@ -157,7 +159,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
               <div className="mt-2 max-h-40 overflow-y-auto">
                 {availableTags.length === 0 ? (
                   <div className="px-2 py-1 text-xs text-gray-400">
-                    {input.trim() ? '按回车创建新标签' : '暂无可用标签'}
+                    {input.trim() ? t('tagInput.createHint') : t('tagInput.noAvailable')}
                   </div>
                 ) : (
                   availableTags.map((tag) => {

@@ -40,6 +40,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import Select from '../components/Select'
@@ -103,10 +104,10 @@ const renderToolIcon = (name: string, className = 'text-gray-500') => {
 }
 
 const REASONING_EFFORT_OPTIONS = [
-  { value: '', label: '跟随模型' },
-  { value: 'low', label: '低' },
-  { value: 'medium', label: '中' },
-  { value: 'high', label: '高' },
+  { value: '', labelKey: 'effort.followModel' },
+  { value: 'low', labelKey: 'effort.low' },
+  { value: 'medium', labelKey: 'effort.medium' },
+  { value: 'high', labelKey: 'effort.high' },
 ]
 
 const parseIdList = (json?: string): string[] => {
@@ -120,73 +121,73 @@ const parseIdList = (json?: string): string[] => {
 }
 
 const AVAILABLE_TOOLS = [
-  { name: 'search_notes', label: '搜索笔记', category: '检索' },
-  { name: 'read_note', label: '读取笔记', category: '检索' },
-  { name: 'list_notes', label: '浏览笔记', category: '检索' },
-  { name: 'list_notebooks', label: '笔记本列表', category: '检索' },
-  { name: 'list_tags', label: '标签列表', category: '检索' },
-  { name: 'list_note_versions', label: '版本历史', category: '检索' },
-  { name: 'list_knowledge_items', label: '知识库列表', category: '检索' },
-  { name: 'search_web', label: '网络搜索', category: '检索' },
-  { name: 'search_memory', label: '搜索记忆', category: '检索' },
-  { name: 'list_memories', label: '浏览记忆', category: '检索' },
-  { name: 'search_graph', label: '搜索图谱', category: '检索' },
-  { name: 'list_skills', label: '技能列表', category: '检索' },
-  { name: 'create_note', label: '创建笔记', category: '写入' },
-  { name: 'update_note', label: '更新笔记', category: '写入' },
-  { name: 'delete_note', label: '删除笔记', category: '写入' },
-  { name: 'move_note', label: '移动笔记', category: '写入' },
-  { name: 'set_note_tags', label: '设置标签', category: '写入' },
-  { name: 'create_notebook', label: '创建笔记本', category: '写入' },
-  { name: 'restore_note_version', label: '恢复版本', category: '写入' },
-  { name: 'create_memory', label: '保存记忆', category: '写入' },
-  { name: 'delete_memory', label: '删除记忆', category: '写入' },
-  { name: 'ask_question', label: '向用户提问', category: '交互' },
-  { name: 'todo', label: '任务管理', category: '交互' },
-  { name: 'plan', label: '提交执行计划', category: '交互' },
-  { name: 'create_scheduled_task', label: '创建定时任务', category: '执行' },
-  { name: 'list_scheduled_tasks', label: '定时任务列表', category: '执行' },
-  { name: 'delete_scheduled_task', label: '删除定时任务', category: '执行' },
-  { name: 'run_command', label: '执行命令', category: '执行' },
+  { name: 'search_notes', labelKey: 'tools.labels.searchNotes', category: 'retrieval' },
+  { name: 'read_note', labelKey: 'tools.labels.readNote', category: 'retrieval' },
+  { name: 'list_notes', labelKey: 'tools.labels.listNotes', category: 'retrieval' },
+  { name: 'list_notebooks', labelKey: 'tools.labels.listNotebooks', category: 'retrieval' },
+  { name: 'list_tags', labelKey: 'tools.labels.listTags', category: 'retrieval' },
+  { name: 'list_note_versions', labelKey: 'tools.labels.listNoteVersions', category: 'retrieval' },
+  { name: 'list_knowledge_items', labelKey: 'tools.labels.listKnowledgeItems', category: 'retrieval' },
+  { name: 'search_web', labelKey: 'tools.labels.searchWeb', category: 'retrieval' },
+  { name: 'search_memory', labelKey: 'tools.labels.searchMemory', category: 'retrieval' },
+  { name: 'list_memories', labelKey: 'tools.labels.listMemories', category: 'retrieval' },
+  { name: 'search_graph', labelKey: 'tools.labels.searchGraph', category: 'retrieval' },
+  { name: 'list_skills', labelKey: 'tools.labels.listSkills', category: 'retrieval' },
+  { name: 'create_note', labelKey: 'tools.labels.createNote', category: 'write' },
+  { name: 'update_note', labelKey: 'tools.labels.updateNote', category: 'write' },
+  { name: 'delete_note', labelKey: 'tools.labels.deleteNote', category: 'write' },
+  { name: 'move_note', labelKey: 'tools.labels.moveNote', category: 'write' },
+  { name: 'set_note_tags', labelKey: 'tools.labels.setNoteTags', category: 'write' },
+  { name: 'create_notebook', labelKey: 'tools.labels.createNotebook', category: 'write' },
+  { name: 'restore_note_version', labelKey: 'tools.labels.restoreNoteVersion', category: 'write' },
+  { name: 'create_memory', labelKey: 'tools.labels.createMemory', category: 'write' },
+  { name: 'delete_memory', labelKey: 'tools.labels.deleteMemory', category: 'write' },
+  { name: 'ask_question', labelKey: 'tools.labels.askQuestion', category: 'interaction' },
+  { name: 'todo', labelKey: 'tools.labels.todo', category: 'interaction' },
+  { name: 'plan', labelKey: 'tools.labels.plan', category: 'interaction' },
+  { name: 'create_scheduled_task', labelKey: 'tools.labels.createScheduledTask', category: 'execute' },
+  { name: 'list_scheduled_tasks', labelKey: 'tools.labels.listScheduledTasks', category: 'execute' },
+  { name: 'delete_scheduled_task', labelKey: 'tools.labels.deleteScheduledTask', category: 'execute' },
+  { name: 'run_command', labelKey: 'tools.labels.runCommand', category: 'execute' },
   // 项目/文件类工具：与知识助手共用同一份工具集，未挂载项目时调用会提示先打开项目
-  { name: 'work_list_dir', label: '浏览目录', category: '文件' },
-  { name: 'work_read_file', label: '读取文件', category: '文件' },
-  { name: 'work_glob', label: '查找文件', category: '文件' },
-  { name: 'work_grep', label: '搜索代码', category: '文件' },
-  { name: 'work_write_file', label: '写入文件', category: '文件' },
-  { name: 'work_apply_patch', label: '局部修改', category: '文件' },
-  { name: 'work_delete_file', label: '删除文件', category: '文件' },
-  { name: 'work_move_file', label: '移动文件', category: '文件' },
-  { name: 'work_git', label: 'Git 操作', category: '执行' },
-  { name: 'work_run_command', label: '执行项目命令', category: '执行' },
-  { name: 'work_diagnostics', label: '构建诊断', category: '执行' },
-  { name: 'work_semantic_search', label: '语义检索代码', category: '文件' },
-  { name: 'work_task', label: '派子 Agent', category: '交互' },
-  { name: 'work_skill', label: '读取技能', category: '交互' },
+  { name: 'work_list_dir', labelKey: 'tools.labels.workListDir', category: 'file' },
+  { name: 'work_read_file', labelKey: 'tools.labels.workReadFile', category: 'file' },
+  { name: 'work_glob', labelKey: 'tools.labels.workGlob', category: 'file' },
+  { name: 'work_grep', labelKey: 'tools.labels.workGrep', category: 'file' },
+  { name: 'work_write_file', labelKey: 'tools.labels.workWriteFile', category: 'file' },
+  { name: 'work_apply_patch', labelKey: 'tools.labels.workApplyPatch', category: 'file' },
+  { name: 'work_delete_file', labelKey: 'tools.labels.workDeleteFile', category: 'file' },
+  { name: 'work_move_file', labelKey: 'tools.labels.workMoveFile', category: 'file' },
+  { name: 'work_git', labelKey: 'tools.labels.workGit', category: 'execute' },
+  { name: 'work_run_command', labelKey: 'tools.labels.workRunCommand', category: 'execute' },
+  { name: 'work_diagnostics', labelKey: 'tools.labels.workDiagnostics', category: 'execute' },
+  { name: 'work_semantic_search', labelKey: 'tools.labels.workSemanticSearch', category: 'file' },
+  { name: 'work_task', labelKey: 'tools.labels.workTask', category: 'interaction' },
+  { name: 'work_skill', labelKey: 'tools.labels.workSkill', category: 'interaction' },
   // 应用各能力面：项目 / 任务看板 / Wiki / 工作流 / 智能体 / 标签 / 知识条目 / 收件箱 / 用量
-  { name: 'list_projects', label: '项目列表', category: '项目' },
-  { name: 'create_project', label: '新建项目', category: '项目' },
-  { name: 'update_project', label: '修改项目', category: '项目' },
-  { name: 'delete_project', label: '删除项目', category: '项目' },
-  { name: 'list_work_projects', label: 'Code 项目列表', category: '项目' },
-  { name: 'list_kanban_tasks', label: '看板任务', category: '任务看板' },
-  { name: 'create_kanban_task', label: '新建看板任务', category: '任务看板' },
-  { name: 'update_kanban_task', label: '修改看板任务', category: '任务看板' },
-  { name: 'move_kanban_task', label: '流转看板任务', category: '任务看板' },
-  { name: 'delete_kanban_task', label: '删除看板任务', category: '任务看板' },
-  { name: 'list_wiki_docs', label: 'Wiki 列表', category: 'Wiki' },
-  { name: 'read_wiki_doc', label: '读取 Wiki', category: 'Wiki' },
-  { name: 'list_workflows', label: '工作流列表', category: '工作流' },
-  { name: 'run_workflow', label: '执行工作流', category: '工作流' },
-  { name: 'list_agents', label: '智能体列表', category: '检索' },
-  { name: 'use_skill', label: '读取技能', category: '检索' },
-  { name: 'create_tag', label: '新建标签', category: '写入' },
-  { name: 'update_tag', label: '修改标签', category: '写入' },
-  { name: 'delete_tag', label: '删除标签', category: '写入' },
-  { name: 'read_knowledge_item', label: '读取知识条目', category: '检索' },
-  { name: 'get_usage_stats', label: '用量统计', category: '检索' },
-  { name: 'list_inbox_items', label: '收件箱列表', category: '检索' },
-  { name: 'update_inbox_items', label: '处理通知', category: '写入' },
+  { name: 'list_projects', labelKey: 'tools.labels.listProjects', category: 'project' },
+  { name: 'create_project', labelKey: 'tools.labels.createProject', category: 'project' },
+  { name: 'update_project', labelKey: 'tools.labels.updateProject', category: 'project' },
+  { name: 'delete_project', labelKey: 'tools.labels.deleteProject', category: 'project' },
+  { name: 'list_work_projects', labelKey: 'tools.labels.listWorkProjects', category: 'project' },
+  { name: 'list_kanban_tasks', labelKey: 'tools.labels.listKanbanTasks', category: 'kanban' },
+  { name: 'create_kanban_task', labelKey: 'tools.labels.createKanbanTask', category: 'kanban' },
+  { name: 'update_kanban_task', labelKey: 'tools.labels.updateKanbanTask', category: 'kanban' },
+  { name: 'move_kanban_task', labelKey: 'tools.labels.moveKanbanTask', category: 'kanban' },
+  { name: 'delete_kanban_task', labelKey: 'tools.labels.deleteKanbanTask', category: 'kanban' },
+  { name: 'list_wiki_docs', labelKey: 'tools.labels.listWikiDocs', category: 'wiki' },
+  { name: 'read_wiki_doc', labelKey: 'tools.labels.readWikiDoc', category: 'wiki' },
+  { name: 'list_workflows', labelKey: 'tools.labels.listWorkflows', category: 'workflow' },
+  { name: 'run_workflow', labelKey: 'tools.labels.runWorkflow', category: 'workflow' },
+  { name: 'list_agents', labelKey: 'tools.labels.listAgents', category: 'retrieval' },
+  { name: 'use_skill', labelKey: 'tools.labels.useSkill', category: 'retrieval' },
+  { name: 'create_tag', labelKey: 'tools.labels.createTag', category: 'write' },
+  { name: 'update_tag', labelKey: 'tools.labels.updateTag', category: 'write' },
+  { name: 'delete_tag', labelKey: 'tools.labels.deleteTag', category: 'write' },
+  { name: 'read_knowledge_item', labelKey: 'tools.labels.readKnowledgeItem', category: 'retrieval' },
+  { name: 'get_usage_stats', labelKey: 'tools.labels.getUsageStats', category: 'retrieval' },
+  { name: 'list_inbox_items', labelKey: 'tools.labels.listInboxItems', category: 'retrieval' },
+  { name: 'update_inbox_items', labelKey: 'tools.labels.updateInboxItems', category: 'write' },
 ] as const
 
 /** 表单内下拉触发器样式（含 flex 布局，避免文字与箭头换行） */
@@ -194,6 +195,7 @@ const agentFormTriggerCls =
   'flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 dark:border-gray-600 dark:bg-gray-700'
 
 export default function AgentsPage() {
+  const { t } = useTranslation('agents')
   const queryClient = useQueryClient()
   // 通用智能体的数据来源：本地目录 / 数据库（专业智能体仅数据库）
   const [generalSource, setGeneralSource] = useState<TabKey>('database')
@@ -345,9 +347,9 @@ export default function AgentsPage() {
   const sourceAgentOptions = useMemo(() => [
     ...dbPresets
       .filter(p => (p.agentType ?? 'General') === 'General')
-      .map(a => ({ value: `db:${a.id}`, label: `${a.name}（${a.category} · 数据库）` })),
-    ...localPresets.map(a => ({ value: `local:${a.id}`, label: `${a.name}（${a.category} · 本地）` })),
-  ], [dbPresets, localPresets])
+      .map(a => ({ value: `db:${a.id}`, label: t('form.agentOptionDb', { name: a.name, category: a.category }) })),
+    ...localPresets.map(a => ({ value: `local:${a.id}`, label: t('form.agentOptionLocal', { name: a.name, category: a.category }) })),
+  ], [dbPresets, localPresets, t])
 
   // 可用技能：数据库技能 + 本地技能
   const selectableSkills = useMemo(() => [
@@ -399,14 +401,14 @@ export default function AgentsPage() {
   // 可用工具：按分类分组 + 搜索过滤
   const toolGroups = useMemo(() => {
     const q = toolSearch.trim().toLowerCase()
-    const matched = AVAILABLE_TOOLS.filter(t => !q || t.label.toLowerCase().includes(q) || t.name.toLowerCase().includes(q))
+    const matched = AVAILABLE_TOOLS.filter(tool => !q || t(tool.labelKey).toLowerCase().includes(q) || tool.name.toLowerCase().includes(q))
     return Object.entries(
       matched.reduce((acc, tool) => {
         (acc[tool.category] ??= []).push(tool)
         return acc
       }, {} as Record<string, typeof AVAILABLE_TOOLS[number][]>)
     )
-  }, [toolSearch])
+  }, [toolSearch, t])
 
   const toggleToolGroup = (tools: readonly typeof AVAILABLE_TOOLS[number][]) => {
     const allOn = tools.every(t => enabledTools.includes(t.name))
@@ -524,7 +526,7 @@ export default function AgentsPage() {
     const skillIds = isProfessionalAgent ? parseIdList((p as IPromptPreset).skillIds) : []
     const dbPreset = p as IPromptPreset
     const boundModel = isProfessionalAgent && dbPreset.modelId ? models.find(m => m.id === dbPreset.modelId) : undefined
-    const effortLabel = REASONING_EFFORT_OPTIONS.find(o => o.value === dbPreset.reasoningEffort)?.label
+    const effortOption = REASONING_EFFORT_OPTIONS.find(o => o.value === dbPreset.reasoningEffort)
     return (
       <div
         key={p.id}
@@ -544,16 +546,16 @@ export default function AgentsPage() {
                     isProfessionalAgent
                       ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
                       : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
-                  }`}>{isProfessionalAgent ? '专业' : '通用'}</span>
+                  }`}>{isProfessionalAgent ? t('card.professional') : t('card.general')}</span>
                 )}
               </div>
             </div>
           </div>
           {!isLocal && dbPreset.isBuiltIn && (
-            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">内置</span>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('card.builtIn')}</span>
           )}
           {isLocal && (
-            <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-900/30">本地</span>
+            <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-900/30">{t('card.local')}</span>
           )}
         </div>
 
@@ -563,22 +565,24 @@ export default function AgentsPage() {
           <div className="mb-2 flex flex-wrap gap-1">
             {boundModel && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                <Brain size={9} />{boundModel.displayName}{effortLabel && effortLabel !== '跟随模型' ? ` · ${effortLabel}` : ''}
+                <Brain size={9} />{effortOption?.value
+                  ? t('card.modelWithEffort', { model: boundModel.displayName, effort: t(effortOption.labelKey) })
+                  : boundModel.displayName}
               </span>
             )}
-            {!boundModel && effortLabel && effortLabel !== '跟随模型' && (
+            {!boundModel && effortOption?.value && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                <Brain size={9} />推理：{effortLabel}
+                <Brain size={9} />{t('card.reasoning', { label: t(effortOption.labelKey) })}
               </span>
             )}
             {subAgentIds.length > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-300">
-                <Network size={9} />{subAgentIds.length} 个子智能体
+                <Network size={9} />{t('card.subAgentCount', { n: subAgentIds.length })}
               </span>
             )}
             {skillIds.length > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
-                <Sparkles size={9} />{skillIds.length} 个技能
+                <Sparkles size={9} />{t('card.skillCount', { n: skillIds.length })}
               </span>
             )}
           </div>
@@ -587,22 +591,22 @@ export default function AgentsPage() {
         {toolCount > 0 && (
           <div className="mb-1 flex items-center gap-1 text-[10px] text-gray-400">
             <Zap size={11} />
-            <span>{toolCount} 个工具</span>
+            <span>{t('card.toolCount', { n: toolCount })}</span>
           </div>
         )}
 
         {!isLocal && !dbPreset.isBuiltIn && (
           <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <button onClick={() => openEditForm(dbPreset)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> 编辑</button>
+            <button onClick={() => openEditForm(dbPreset)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"><Edit2 size={11} /> {t('common:edit')}</button>
             {!isProfessionalAgent && (
               <button
                 onClick={() => createProfessionalMutation.mutate(p.id)}
                 disabled={createProfessionalMutation.isPending}
-                title="从该通用智能体创建专业智能体"
+                title={t('card.fromGeneralTitle')}
                 className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20"
-              ><Brain size={11} /> 创建专业版</button>
+              ><Brain size={11} /> {t('card.createProfessional')}</button>
             )}
-            <button onClick={() => { confirm({ message: '确认删除？', onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"><Trash2 size={11} /> 删除</button>
+            <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"><Trash2 size={11} /> {t('common:delete')}</button>
           </div>
         )}
         {!isLocal && dbPreset.isBuiltIn && (
@@ -610,11 +614,11 @@ export default function AgentsPage() {
             <button
               onClick={() => createProfessionalMutation.mutate(p.id)}
               disabled={createProfessionalMutation.isPending}
-              title="从该内置智能体创建专业智能体"
+              title={t('card.fromBuiltInTitle')}
               className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20"
-            ><Brain size={11} /> 创建专业版</button>
+            ><Brain size={11} /> {t('card.createProfessional')}</button>
             <Lock size={11} className="text-gray-300 dark:text-gray-600" />
-            <span className="text-[10px] text-gray-300 dark:text-gray-600">内置智能体</span>
+            <span className="text-[10px] text-gray-300 dark:text-gray-600">{t('card.builtInAgent')}</span>
           </div>
         )}
         {isLocal && (
@@ -623,9 +627,9 @@ export default function AgentsPage() {
               <button
                 onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
                 disabled={createProfessionalFromLocalMutation.isPending}
-                title="从该本地智能体创建专业智能体"
+                title={t('card.fromLocalTitle')}
                 className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20"
-              ><Brain size={11} /> 创建专业版</button>
+              ><Brain size={11} /> {t('card.createProfessional')}</button>
             </div>
             <span className="block truncate text-[10px] text-gray-300 dark:text-gray-600" title={(p as ILocalPromptPreset).filePath}>
               {(p as ILocalPromptPreset).filePath}
@@ -651,14 +655,18 @@ export default function AgentsPage() {
               <Bot size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">智能体</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">通用智能体分本地与数据库两种来源；专业智能体仅存于数据库，可由任意通用智能体创建</p>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-            <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{presets.length}</b> 个智能体</span>
+            <span>
+              <Trans ns="agents" i18nKey="page.agentCount" values={{ n: presets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+            </span>
             <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-            <span><b className="text-sm font-semibold text-rose-600 dark:text-rose-400">{categories.length}</b> 个分类</span>
+            <span>
+              <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-rose-600 dark:text-rose-400" /> }} />
+            </span>
           </div>
         </div>
 
@@ -669,7 +677,7 @@ export default function AgentsPage() {
               onClick={() => setActiveCategory(null)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
             >
-              全部
+              {t('common:all')}
               <span className="text-[11px] opacity-70">{presets.length}</span>
             </button>
             {categories.map(([cat, count]) => (
@@ -688,7 +696,7 @@ export default function AgentsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索智能体..."
+              placeholder={t('page.searchAgents')}
               className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-rose-950/40"
             />
           </div>
@@ -706,41 +714,41 @@ export default function AgentsPage() {
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <Settings size={14} />
-                配置目录
+                {t('page.configureDirectories')}
               </button>
               <button
                 onClick={() => refetchLocal()}
-                title="刷新本地智能体"
+                title={t('page.refreshLocalAgents')}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <RefreshCw size={14} />
-                刷新
+                {t('common:refresh')}
               </button>
             </>
           ) : (
             <>
               <button
                 onClick={handleExport}
-                title="导出"
+                title={t('common:export')}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <Download size={14} />
-                导出
+                {t('common:export')}
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                title="导入"
+                title={t('common:import')}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 <Import size={14} />
-                导入
+                {t('common:import')}
               </button>
               <button
                 onClick={openCreateForm}
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
               >
                 <Plus size={16} />
-                新建智能体
+                {t('page.newAgent')}
               </button>
             </>
           )}
@@ -750,44 +758,44 @@ export default function AgentsPage() {
         {generalSource === 'local' && localLoading ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
             <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
-            <p className="text-sm">正在扫描本地智能体...</p>
+            <p className="text-sm">{t('page.scanningLocalAgents')}</p>
           </div>
         ) : (
           <div className="space-y-8">
             {[
-              { title: '通用智能体', desc: '提示词 + 工具配置', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
-              { title: '专业智能体', desc: '子智能体 / 绑定模型 / 推理强度 / 可用技能', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
+              { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
+              { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
             ].map(section => {
               const SectionIcon = section.icon
               const empty = section.items.length === 0
-              const isGeneralSection = section.title === '通用智能体'
+              const isGeneralSection = section.key === 'general'
               return (
-                <section key={section.title}>
+                <section key={section.key}>
                   <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                     <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${section.accent}`}>
-                      <SectionIcon size={15} />{section.title}
+                      <SectionIcon size={15} />{t(section.titleKey)}
                     </span>
-                    <span className="text-[11px] text-gray-400">{section.items.length} 个</span>
-                    <span className="text-[11px] text-gray-400">· {section.desc}</span>
+                    <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
+                    <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                     {isGeneralSection ? (
                       <div className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
                         {([
-                          { key: 'database' as TabKey, label: '数据库', icon: Bot },
-                          { key: 'local' as TabKey, label: '本地', icon: FolderOpen },
-                        ]).map((t) => {
-                          const Icon = t.icon
+                          { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Bot },
+                          { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
+                        ]).map((tabItem) => {
+                          const Icon = tabItem.icon
                           return (
                             <button
-                              key={t.key}
-                              onClick={() => { setGeneralSource(t.key); setActiveCategory(null); if (t.key === 'local') refetchLocal() }}
+                              key={tabItem.key}
+                              onClick={() => { setGeneralSource(tabItem.key); setActiveCategory(null); if (tabItem.key === 'local') refetchLocal() }}
                               className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-all ${
-                                generalSource === t.key
+                                generalSource === tabItem.key
                                   ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
                                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                               }`}
                             >
                               <Icon size={13} />
-                              {t.label}
+                              {t(tabItem.labelKey)}
                             </button>
                           )
                         })}
@@ -797,22 +805,22 @@ export default function AgentsPage() {
                         onClick={openCreateProfessionalForm}
                         className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600"
                       >
-                        <Plus size={13} />新建专业智能体
+                        <Plus size={13} />{t('sections.newProfessional')}
                       </button>
                     )}
                     <span className={`h-3.5 w-0.5 rounded-full ${section.bar}`} />
                   </div>
                   {empty ? (
                     <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
-                      暂无{section.title}
+                      {t('sections.empty', { title: t(section.titleKey) })}
                       {isGeneralSection
                         ? (isLocalTab ? (
-                            <button onClick={() => setShowDirConfig(true)} className="text-rose-500 hover:underline">配置本地目录</button>
+                            <button onClick={() => setShowDirConfig(true)} className="text-rose-500 hover:underline">{t('sections.configureLocalDirs')}</button>
                           ) : (
-                            <button onClick={openCreateForm} className="text-rose-500 hover:underline">创建{section.title}</button>
+                            <button onClick={openCreateForm} className="text-rose-500 hover:underline">{t('sections.create', { title: t(section.titleKey) })}</button>
                           ))
                         : (
-                          <button onClick={openCreateProfessionalForm} className="text-violet-500 hover:underline">创建{section.title}</button>
+                          <button onClick={openCreateProfessionalForm} className="text-violet-500 hover:underline">{t('sections.create', { title: t(section.titleKey) })}</button>
                         )}
                     </div>
                   ) : (
@@ -828,14 +836,14 @@ export default function AgentsPage() {
                 <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
                   <Sparkles size={36} className="opacity-50" />
                 </div>
-                <p className="text-sm font-medium">{isLocalTab ? '未发现本地智能体' : '暂无智能体'}</p>
+                <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
                 {isLocalTab ? (
                   <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-rose-500 hover:underline">
-                    配置智能体目录
+                    {t('empty.configureAgentDirs')}
                   </button>
                 ) : (
                   <button onClick={openCreateForm} className="mt-2 text-xs text-rose-500 hover:underline">
-                    创建第一个智能体
+                    {t('empty.createFirstAgent')}
                   </button>
                 )}
               </div>
@@ -855,35 +863,35 @@ export default function AgentsPage() {
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/30"><Bot size={16} className="text-rose-600 dark:text-rose-400" /></div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingId ? '编辑智能体' : '新建智能体'}</h3>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingId ? t('form.editAgent') : t('page.newAgent')}</h3>
               </div>
               <button onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">分类</label>
-                  <input type="text" placeholder="如：通用、编程、创意" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.category')}</label>
+                  <input type="text" placeholder={t('form.categoryPlaceholder')} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">名称</label>
-                  <input type="text" placeholder="智能体名称" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:name')}</label>
+                  <input type="text" placeholder={t('form.namePlaceholder')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
                 </div>
               </div>
               {/* 智能体类型：通用 / 专业 */}
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">类型</label>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:type')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { key: 'General' as const, label: '通用智能体', desc: '提示词 + 工具配置', icon: Bot },
-                    { key: 'Professional' as const, label: '专业智能体', desc: '可指定子智能体 / 模型 / 推理强度 / 技能', icon: Brain },
-                  ]).map(t => {
-                    const Icon = t.icon
-                    const active = form.agentType === t.key
+                    { key: 'General' as const, labelKey: 'sections.generalTitle', descKey: 'sections.generalDesc', icon: Bot },
+                    { key: 'Professional' as const, labelKey: 'sections.professionalTitle', descKey: 'form.professionalDesc', icon: Brain },
+                  ]).map(typeItem => {
+                    const Icon = typeItem.icon
+                    const active = form.agentType === typeItem.key
                     return (
                       <button
-                        key={t.key}
-                        onClick={() => setForm({ ...form, agentType: t.key })}
+                        key={typeItem.key}
+                        onClick={() => setForm({ ...form, agentType: typeItem.key })}
                         className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
                           active
                             ? 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-900/20'
@@ -892,8 +900,8 @@ export default function AgentsPage() {
                       >
                         <Icon size={16} className={active ? 'mt-0.5 text-violet-500' : 'mt-0.5 text-gray-400'} />
                         <div className="min-w-0">
-                          <div className={`text-xs font-semibold ${active ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{t.label}</div>
-                          <div className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t.desc}</div>
+                          <div className={`text-xs font-semibold ${active ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{t(typeItem.labelKey)}</div>
+                          <div className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t(typeItem.descKey)}</div>
                         </div>
                       </button>
                     )
@@ -905,19 +913,19 @@ export default function AgentsPage() {
                 <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-800/50 dark:bg-violet-900/10">
                   <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">
                     <FolderTree size={13} />
-                    从通用智能体创建
+                    {t('form.fromGeneral')}
                   </div>
                   <p className="mb-2 text-[10px] leading-relaxed text-violet-600/80 dark:text-violet-300/70">
-                    复用所选通用智能体（本地或数据库）的提示词与工具配置，生成专业版草稿。
+                    {t('form.fromGeneralHint')}
                   </p>
                   <div className="flex gap-2">
                     <Select
                       className="flex-1"
                       value={sourceAgentId}
                       onChange={setSourceAgentId}
-                      placeholder="选择通用智能体..."
+                      placeholder={t('form.selectGeneral')}
                       searchable
-                      searchPlaceholder="搜索名称或分类..."
+                      searchPlaceholder={t('form.searchNameOrCategory')}
                       triggerClassName="flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-violet-200 bg-white px-2.5 text-xs outline-none dark:border-violet-700 dark:bg-gray-800"
                       options={sourceAgentOptions}
                     />
@@ -926,47 +934,47 @@ export default function AgentsPage() {
                       disabled={!sourceAgentId || createProfessionalMutation.isPending || createProfessionalFromLocalMutation.isPending}
                       className="h-8 shrink-0 rounded-lg bg-violet-500 px-3 text-xs font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      创建
+                      {t('common:create')}
                     </button>
                   </div>
                 </div>
               )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">System Prompt</label>
-                <textarea placeholder="定义智能体的角色和行为规则..." value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="h-48 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
-                <p className="mt-1 text-[10px] text-gray-400">定义智能体的角色、能力和行为准则。对话时将作为系统提示词使用。</p>
+                <textarea placeholder={t('form.systemPromptPlaceholder')} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="h-48 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                <p className="mt-1 text-[10px] text-gray-400">{t('form.systemPromptHint')}</p>
               </div>
               {/* 专业智能体能力配置 */}
               {isProfessional && (
                 <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50/40 p-3.5 dark:border-violet-800/50 dark:bg-violet-900/10">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">
                     <Settings size={13} />
-                    专业智能体能力
+                    {t('form.professionalAbility')}
                   </div>
 
                   {/* 绑定的模型 + 推理强度 */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">绑定模型</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.boundModel')}</label>
                       <Select
                         value={form.modelId}
                         onChange={(value) => setForm({ ...form, modelId: value })}
-                        placeholder="跟随请求 / 话题"
+                        placeholder={t('form.followRequest')}
                         triggerClassName={agentFormTriggerCls}
                         options={[
-                          { value: '', label: '跟随请求 / 话题' },
+                          { value: '', label: t('form.followRequest') },
                           ...models.filter(m => m.purpose === 'chat').map(m => ({ value: m.id, label: m.displayName })),
                         ]}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">推理强度</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.reasoningEffort')}</label>
                       <Select
                         value={form.reasoningEffort}
                         onChange={(value) => setForm({ ...form, reasoningEffort: value })}
-                        placeholder="跟随模型默认"
+                        placeholder={t('form.followModelDefault')}
                         triggerClassName={agentFormTriggerCls}
-                        options={REASONING_EFFORT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                        options={REASONING_EFFORT_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))}
                       />
                     </div>
                   </div>
@@ -974,24 +982,24 @@ export default function AgentsPage() {
                   {/* 可管理的子智能体：仅专业智能体 */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      可管理的子智能体
-                      <span className="ml-1 font-normal text-gray-400">（仅专业智能体，已选 {form.subAgentIds.length} 个）</span>
+                      {t('form.subAgents')}
+                      <span className="ml-1 font-normal text-gray-400">{t('form.subAgentsHint', { n: form.subAgentIds.length })}</span>
                     </label>
                     <MultiSelect
                       values={form.subAgentIds}
                       onChange={(subAgentIds) => setForm({ ...form, subAgentIds })}
                       options={manageableAgents.map(a => ({ value: a.id, label: a.name, hint: a.category }))}
-                      placeholder={manageableAgents.length === 0 ? '暂无可管理的专业智能体' : '点击选择专业智能体...'}
-                      searchPlaceholder="搜索专业智能体..."
-                      emptyText="无匹配的专业智能体"
+                      placeholder={manageableAgents.length === 0 ? t('form.noManageableAgents') : t('form.pickSubAgents')}
+                      searchPlaceholder={t('form.searchSubAgents')}
+                      emptyText={t('form.noSubAgentsMatch')}
                     />
                   </div>
 
                   {/* 可使用的技能：数据库技能 + 本地技能 */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      可使用的技能
-                      <span className="ml-1 font-normal text-gray-400">（含数据库与本地技能，已选 {form.skillIds.length} 个，不选则不限制）</span>
+                      {t('form.skills')}
+                      <span className="ml-1 font-normal text-gray-400">{t('form.skillsHint', { n: form.skillIds.length })}</span>
                     </label>
                     <MultiSelect
                       values={form.skillIds}
@@ -1000,12 +1008,12 @@ export default function AgentsPage() {
                         value: s.id,
                         label: `/${s.name}`,
                         hint: s.description,
-                        group: s.isLocal ? '本地技能' : '数据库技能',
+                        group: s.isLocal ? t('form.localSkills') : t('form.dbSkills'),
                         disabled: !s.isEnabled,
                       }))}
-                      placeholder={selectableSkills.length === 0 ? '暂无技能可选' : '点击选择技能，不选则不限制...'}
-                      searchPlaceholder="搜索技能名称或描述..."
-                      emptyText="无匹配的技能"
+                      placeholder={selectableSkills.length === 0 ? t('form.noSkills') : t('form.pickSkills')}
+                      searchPlaceholder={t('form.searchSkills')}
+                      emptyText={t('form.noSkillsMatch')}
                     />
                   </div>
                 </div>
@@ -1013,11 +1021,11 @@ export default function AgentsPage() {
               {/* Tool Configuration：搜索 + 分类分组 + 分组全选 */}
               <div>
                 <div className="mb-2 flex items-center gap-2">
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">可用工具</label>
-                  <span className="text-[11px] text-gray-400">{enabledTools.length}/{AVAILABLE_TOOLS.length} 已启用</span>
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.availableTools')}</label>
+                  <span className="text-[11px] text-gray-400">{t('form.enabledCount', { done: enabledTools.length, total: AVAILABLE_TOOLS.length })}</span>
                   <div className="ml-auto flex items-center gap-2">
-                    <button onClick={() => setEnabledTools(AVAILABLE_TOOLS.map(t => t.name))} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">全选</button>
-                    <button onClick={() => setEnabledTools([])} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">清空</button>
+                    <button onClick={() => setEnabledTools(AVAILABLE_TOOLS.map(tool => tool.name))} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('common:selectAll')}</button>
+                    <button onClick={() => setEnabledTools([])} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('form.clear')}</button>
                   </div>
                 </div>
                 <div className="relative mb-2">
@@ -1025,7 +1033,7 @@ export default function AgentsPage() {
                   <input
                     value={toolSearch}
                     onChange={(e) => setToolSearch(e.target.value)}
-                    placeholder="搜索工具名称..."
+                    placeholder={t('form.searchTools')}
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                   />
                 </div>
@@ -1033,15 +1041,15 @@ export default function AgentsPage() {
                   {toolGroups.map(([category, tools]) => (
                     <div key={category}>
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category}</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{t(`tools.categories.${category}`)}</span>
                         <span className="text-[10px] text-gray-300 dark:text-gray-600">
-                          {tools.filter(t => enabledTools.includes(t.name)).length}/{tools.length}
+                          {tools.filter(tool => enabledTools.includes(tool.name)).length}/{tools.length}
                         </span>
                         <button
                           onClick={() => toggleToolGroup(tools)}
                           className="ml-auto text-[10px] text-gray-400 transition-colors hover:text-rose-500"
                         >
-                          {tools.every(t => enabledTools.includes(t.name)) ? '全不选' : '全选'}
+                          {tools.every(tool => enabledTools.includes(tool.name)) ? t('form.deselectAll') : t('common:selectAll')}
                         </button>
                       </div>
                       <div className="space-y-1">
@@ -1061,16 +1069,16 @@ export default function AgentsPage() {
                                   className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
                                 />
                                 <span className="text-xs">{renderToolIcon(tool.name)}</span>
-                                <span className="text-xs text-gray-700 dark:text-gray-300">{tool.label}</span>
+                                <span className="text-xs text-gray-700 dark:text-gray-300">{t(tool.labelKey)}</span>
                               </label>
                               {isEnabled && (
                                 <Select
                                   value={approval}
                                   onChange={(value) => setToolApprovals(prev => ({ ...prev, [tool.name]: value }))}
                                   options={[
-                                    { value: 'bypass', label: '静默' },
-                                    { value: 'auto', label: '自动' },
-                                    { value: 'ask', label: '询问' },
+                                    { value: 'bypass', label: t('approval.bypass') },
+                                    { value: 'auto', label: t('approval.auto') },
+                                    { value: 'ask', label: t('approval.ask') },
                                   ]}
                                 />
                               )}
@@ -1081,14 +1089,14 @@ export default function AgentsPage() {
                     </div>
                   ))}
                   {toolGroups.length === 0 && (
-                    <p className="py-4 text-center text-[11px] text-gray-400">无匹配工具</p>
+                    <p className="py-4 text-center text-[11px] text-gray-400">{t('form.noToolsMatch')}</p>
                   )}
                 </div>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">取消</button>
-              <button onClick={handleSave} disabled={!form.name.trim() || !form.content.trim()} className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50">{editingId ? '保存' : '创建'}</button>
+              <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
+              <button onClick={handleSave} disabled={!form.name.trim() || !form.content.trim()} className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50">{editingId ? t('common:save') : t('common:create')}</button>
             </div>
           </div>
         </div>
@@ -1104,8 +1112,8 @@ export default function AgentsPage() {
                   <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">配置智能体目录</h3>
-                  <p className="text-xs text-gray-500">点击「浏览」选择目录，或手动输入路径</p>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('dir.agentTitle')}</h3>
+                  <p className="text-xs text-gray-500">{t('dir.hint')}</p>
                 </div>
               </div>
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
@@ -1117,24 +1125,24 @@ export default function AgentsPage() {
                   className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
                 >
                   <FolderSearch size={14} />
-                  浏览
+                  {t('dir.browse')}
                 </button>
                 <input
                   value={dirInput}
                   onChange={(e) => setDirInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
-                  placeholder="或手动输入目录路径，如 /home/user/agents"
+                  placeholder={t('dir.agentPathPlaceholder')}
                   className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                 />
                 <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                  添加
+                  {t('common:add')}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto">
                 {directories.length === 0 ? (
                   <div className="py-4 text-center text-xs text-gray-400">
                     <AlertCircle size={16} className="mx-auto mb-1" />
-                    暂未配置智能体目录
+                    {t('dir.noAgentDirs')}
                   </div>
                 ) : (
                   directories.map(dir => (
@@ -1147,14 +1155,17 @@ export default function AgentsPage() {
               </div>
               <div className="rounded-lg bg-rose-50 p-3 dark:bg-rose-900/20">
                 <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
-                  目录结构：每个子文件夹包含一个 <code className="rounded bg-rose-100 px-1 dark:bg-rose-800">agent.json</code> 或 <code className="rounded bg-rose-100 px-1 dark:bg-rose-800">AGENT.md</code> 文件。
-                  也支持根目录下的 <code className="rounded bg-rose-100 px-1 dark:bg-rose-800">.json</code> 文件。
+                  <Trans
+                    ns="agents"
+                    i18nKey="dir.agentStructure"
+                    components={{ code: <code className="rounded bg-rose-100 px-1 dark:bg-rose-800" /> }}
+                  />
                 </p>
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
               <button onClick={() => setShowDirConfig(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-                完成
+                {t('dir.done')}
               </button>
             </div>
           </div>
@@ -1165,7 +1176,7 @@ export default function AgentsPage() {
       {showFolderPicker && (
         <FolderPickerDialog
           initialPath={dirInput.trim() || directories[directories.length - 1]}
-          title="选择智能体目录"
+          title={t('dir.pickAgentDir')}
           onClose={() => setShowFolderPicker(false)}
           onPick={handleFolderPicked}
         />
