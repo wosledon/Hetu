@@ -217,6 +217,14 @@ interface SkyStar {
   ring: string
   dashed: boolean
   dying: boolean
+  /** 记忆强度（0–1）：驱动亮度、光晕、呼吸与核心高光 */
+  strength: number
+  /** 强记忆（≥0.72）叠加核心高光，像真正在发光 */
+  core: boolean
+  haloR: number
+  haloO: number
+  /** 呼吸深度：强浅弱深 */
+  twk: number
   /** 运动性格：0 漫游（随机目标） / 1 轨道（缓绕原位） / 2 冲刺（蛰伏后快速掠到附近） */
   mode: 0 | 1 | 2
   speed: number
@@ -247,19 +255,32 @@ function buildSkyStars(memories: IMemory[], decayDays: number, forgetDays: numbe
     const r1 = ((seed >>> 2) % 997) / 997
     const r2 = ((seed >>> 11) % 991) / 991
     const r3 = ((seed >>> 19) % 983) / 983
-    const angle = i * 2.399963229728653 + (r1 - 0.5) * 1.25
-    const radius = GALAXY_R * Math.pow((i + 0.8) / n, 0.62) * (0.62 + r2 * 0.55)
+    // 径向按强度分层：越强越靠中心（列表已按强度降序），越弱越靠外；
+    // 衰退中的 ×1.12、濒临遗忘的 ×1.28 直接推到外缘。
+    // 抖动主要放在角度上，保持有机但不打乱「由内到外 = 由强到弱」的可读性
+    const angle = i * 2.399963229728653 + (r1 - 0.5) * 1.6
+    const stateBias = state.key === 'dying' ? 1.28 : state.key === 'fading' ? 1.12 : 0.98
+    const radius = Math.max(66, GALAXY_R * Math.pow((i + 0.8) / n, 0.62) * stateBias * (0.9 + r2 * 0.2))
+    const strength = strengthOf(m)
+    const starR = (3 + m.importance * 7) * (0.85 + r3 * 0.3)
     return {
       memory: m,
       i,
       x: radius * Math.cos(angle),
       y: radius * Math.sin(angle) * 0.82,
-      r: (3 + m.importance * 7) * (0.85 + r3 * 0.3),
-      opacity: 0.4 + strengthOf(m) * 0.6,
+      r: starR,
+      // 强度可读性四件套：亮度区间拉大（弱星更暗）、光晕随强度变大变亮、
+      // 强星叠加核心高光、呼吸强浅弱深（弱星闪得深——不稳定的直觉）
+      opacity: 0.22 + strength * 0.78,
       fill: pal[scopeOf(m)],
       ring: ringFor(state.key, pal),
       dashed: state.key !== 'fresh',
       dying: state.key === 'dying',
+      strength,
+      core: strength >= 0.72,
+      haloR: starR * (1.3 + strength * 1.7),
+      haloO: pal.halo * (0.3 + strength),
+      twk: 0.55 + strength * 0.4,
       // 运动性格按种子分配：约一半漫游、四分之一轨道、四分之一冲刺
       mode: ((seed >>> 24) % 4 === 3 ? 2 : (seed >>> 24) % 4 === 2 ? 1 : 0) as 0 | 1 | 2,
       speed: 5 + (seed % 9),
@@ -542,9 +563,9 @@ const MemorySky = forwardRef<MemorySkyHandle, {
                 }}
                 cx={s.x}
                 cy={s.y}
-                r={s.r * 2.1}
+                r={s.haloR}
                 fill={s.fill}
-                opacity={pal.halo}
+                opacity={s.haloO}
               />
             ))}
           </g>
@@ -585,11 +606,17 @@ const MemorySky = forwardRef<MemorySkyHandle, {
                   className="star-dot"
                   style={{
                     opacity: 'var(--star-o, 1)',
-                    animation: `starTwinkle ${(4.5 + (s.speed % 5) * 0.9).toFixed(1)}s ease-in-out ${((s.radius % 7) * 0.5).toFixed(1)}s infinite`,
+                    animation: `starTwinkle ${(2.6 + s.strength * 6).toFixed(1)}s ease-in-out ${((s.radius % 7) * 0.5).toFixed(1)}s infinite`,
                     animationPlayState: hover?.id === s.memory.id ? 'paused' : 'running',
                     transition: 'cx .5s ease, cy .5s ease, r .5s ease, transform .2s ease',
-                  }}
+                    ['--twk' as string]: s.twk,
+                  } as React.CSSProperties}
                 />
+                {s.core && (
+                  isDark
+                    ? <circle cx={s.x} cy={s.y} r={s.r * 0.42} fill="rgba(255,255,255,0.9)" />
+                    : <circle cx={s.x} cy={s.y} r={s.r * 0.52} fill={s.fill} />
+                )}
                 <circle cx={s.x} cy={s.y} r={Math.max(s.r + 8 / cam.scale, 13 / cam.scale)} fill="transparent" />
               </g>
             </g>
@@ -864,7 +891,7 @@ export default function MemoriesPage() {
             <div className="pointer-events-none absolute left-6 top-6">
               <h1 className={`text-[15px] font-semibold tracking-wide ${pal.label}`}>长期记忆</h1>
               <p className={`mt-1 text-[11px] ${pal.quiet}`}>
-                {allMemories.length} 条记忆 · 大小=重要性 · 亮度=强度 · 描边=状态 · 颜色=作用域
+                {allMemories.length} 条记忆 · 大小=重要性 · 光晕/亮度=强度 · 描边=状态 · 颜色=作用域 · 由内到外=由强到弱
               </p>
             </div>
 

@@ -159,7 +159,8 @@ body {
 
 @keyframes starTwinkle {
   0%, 100% { opacity: var(--star-o, 1); }
-  50% { opacity: calc(var(--star-o, 1) * 0.7); }
+  /* --twk 为每颗星的呼吸深度：强记忆呼吸浅而慢（稳定），弱记忆闪得深而快（不稳） */
+  50% { opacity: calc(var(--star-o, 1) * var(--twk, 0.85)); }
 }
 
 /* 萤火虫的随机游走由 JS（rAF）驱动，见 MemoriesPage 的随机目标点逻辑；此处只保留呼吸与 Dream 夜波 */
