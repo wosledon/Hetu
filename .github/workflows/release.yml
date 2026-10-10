@@ -153,17 +153,26 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # latest*.json：Tauri 自动更新清单（GitHub 主源 + 两个加速镜像各一份，fat/slim 各一套）
+      # latest*.json：Tauri 自动更新清单（GitHub 主源 + 三个加速镜像各一份，fat/slim 各一套）
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="${{ github.ref_name }}" -f target_commitish=main --jq .body > notes.md
+          head -c 400 notes.md
+
       - name: Generate updater manifests
         run: |
           node shell/hetu-desktop/scripts/make-latest-json.mjs \
             --dir dist \
             --version "${{ github.ref_name }}" \
             --repo "${{ github.repository }}" \
-            --notes "Hetu ${{ github.ref_name }}"
+            --notes-file notes.md
           ls -1 dist | grep -E '^latest' || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: notes.md
           files: dist/**
