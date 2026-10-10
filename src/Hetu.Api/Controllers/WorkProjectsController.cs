@@ -1,6 +1,7 @@
 using Hetu.Api.Services;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Work;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -15,17 +16,20 @@ public class WorkProjectsController : ControllerBase
     private readonly IWorkSessionService _sessionService;
     private readonly IWorkApprovalRuleService _approvalRuleService;
     private readonly IWorkCodeIndexService _codeIndexService;
+    private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
 
     public WorkProjectsController(
         IWorkProjectService projectService,
         IWorkSessionService sessionService,
         IWorkApprovalRuleService approvalRuleService,
-        IWorkCodeIndexService codeIndexService)
+        IWorkCodeIndexService codeIndexService,
+        IWorkCommandRunnerFactory commandRunnerFactory)
     {
         _projectService = projectService;
         _sessionService = sessionService;
         _approvalRuleService = approvalRuleService;
         _codeIndexService = codeIndexService;
+        _commandRunnerFactory = commandRunnerFactory;
     }
 
     [HttpGet]
@@ -89,6 +93,7 @@ public class WorkProjectsController : ControllerBase
     /// <summary>
     /// GitHub Copilot 资产：扫描项目 .github 目录下的指令 / 自定义智能体 / 提示词 / 技能。
     /// 智能体会自动出现在 Work 会话的 Agent 下拉框中（前缀 copilot:），其正文作为 AgentPrompt 生效。
+    /// SSH 项目通过远端 shell 扫描（远端 .github 常为软链），本地项目直接读文件系统。
     /// </summary>
     [HttpGet("{id:guid}/copilot-assets")]
     public async Task<ApiResponse<WorkCopilotAssetsDto>> GetCopilotAssets(Guid id, CancellationToken cancellationToken)
@@ -97,7 +102,8 @@ public class WorkProjectsController : ControllerBase
         if (!project.Success || project.Data == null)
             return ApiResponse<WorkCopilotAssetsDto>.Fail(project.Error ?? "项目不存在");
 
-        var assets = WorkCopilotAssets.Load(project.Data.RootPath);
+        var runner = await _commandRunnerFactory.GetRunnerAsync(id, cancellationToken);
+        var assets = await WorkCopilotAssets.LoadAsync(project.Data.RootPath, runner, cancellationToken);
         var dto = new WorkCopilotAssetsDto
         {
             Agents = assets.Agents.Select(a => new WorkCopilotAgentDto
@@ -112,14 +118,14 @@ public class WorkProjectsController : ControllerBase
                 Name = p.Name,
                 Description = p.Description,
                 FilePath = p.FilePath,
-                Content = ReadAssetBody(p.FilePath)
+                Content = ClipAssetBody(p.Text)
             }).ToList(),
             Skills = assets.Skills.Select(s => new WorkCopilotAssetItemDto
             {
                 Name = s.Name,
                 Description = s.Description,
                 FilePath = s.FilePath,
-                Content = ReadAssetBody(s.FilePath)
+                Content = ClipAssetBody(s.Text)
             }).ToList(),
             Instructions = assets.Instructions.Select(i => new WorkCopilotAssetItemDto
             {
@@ -131,23 +137,11 @@ public class WorkProjectsController : ControllerBase
         return ApiResponse<WorkCopilotAssetsDto>.Ok(dto);
     }
 
-    /// <summary>
-    /// 读取 .github 提示词 / 技能正文（对话侧要把它当系统提示用，编码侧由后端自行读取）。
-    /// 只读取小文本文件，异常时返回空串，不影响资产列表本身。
-    /// </summary>
-    private static string ReadAssetBody(string filePath)
+    /// <summary>资产正文上限：超长截断，与列表加载时的读取共用同一份内容（避免逐文件再读一次）。</summary>
+    private static string ClipAssetBody(string text)
     {
         const int maxChars = 12_000;
-        try
-        {
-            if (!System.IO.File.Exists(filePath) || !WorkProjectRules.IsProbablyText(filePath)) return string.Empty;
-            var text = System.IO.File.ReadAllText(filePath);
-            return text.Length > maxChars ? text[..maxChars] : text;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return string.Empty;
-        }
+        return text.Length > maxChars ? text[..maxChars] : text;
     }
 
     [HttpPost("{id:guid}/approval-rules")]
