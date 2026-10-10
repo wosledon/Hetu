@@ -5,7 +5,6 @@ import { useUIStore } from './stores/uiStore'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
-const SearchPage = lazy(() => import('./pages/SearchPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphPage = lazy(() => import('./pages/GraphPage'))
@@ -69,7 +68,6 @@ function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
-        <Route path="/search" element={<SearchPage />} />
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/tasks" element={<Navigate to="/tasks/background" replace />} />
         <Route path="/tasks/background" element={<TasksPage mode="background" />} />
