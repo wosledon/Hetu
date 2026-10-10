@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- 产品版本：与桌面壳 shell/hetu-desktop/src-tauri/tauri.conf.json 的 version 保持一致，
          前端「关于」页通过 GET /api/system/version 读取此处 -->
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
