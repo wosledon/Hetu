@@ -31,4 +31,16 @@ public static class LlmTokenEstimator
     /// <summary>工具定义的实际字符数（按传给 LLM 的形式紧凑序列化）</summary>
     public static int ToolDefinitionChars(IEnumerable<LlmToolDefinition>? tools)
         => tools?.Sum(t => JsonSerializer.Serialize(t, CompactJson).Length) ?? 0;
+
+    /// <summary>
+    /// 粗估一轮请求的规模：消息正文 + 系统提示 + 工具 schema（约 <see cref="CharsPerToken"/> 字符 / token）。
+    /// 用量日志的「输入 / 压缩后」在没有走压缩管道时用这个兜底，保证每条记录都有可比的数字。
+    /// </summary>
+    public static int EstimateRequestTokens(IEnumerable<LlmChatMessage> messages, string? systemPrompt, IEnumerable<LlmToolDefinition>? tools)
+    {
+        var chars = messages.Sum(m => m.Content?.Length ?? 0)
+            + (systemPrompt?.Length ?? 0)
+            + ToolDefinitionChars(tools);
+        return EstimateChars(chars);
+    }
 }

@@ -318,7 +318,7 @@ public class WorkStreamController : ControllerBase
         var usageTotal = new WorkMessageUsage();
         var executedToolNames = new List<string>();
         var sink = new SseAgentSink(writer, this, sessionId);
-        var hooks = new WorkStreamHooks(this, sessionId, project, runner, writer, fileChanges, executedToolNames);
+        var hooks = new WorkStreamHooks(this, sessionId, project, runner, writer, fileChanges, executedToolNames, chatMessages, options);
 
         var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
@@ -407,9 +407,14 @@ public class WorkStreamController : ControllerBase
             refId: sessionId,
             modelId: modelId,
             latencyMs: usageTotal.LatencyMs > 0 ? usageTotal.LatencyMs : null,
-            // 用量日志的「输入 / 压缩后」：压缩管道本轮的实际规模（无压缩时为 null）
-            inputTokens: loopResult.FirstIterationInputChars > 0 ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars) : null,
-            compressedTokens: loopResult.FirstIterationCompressedChars > 0 ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars) : null,
+            // 用量日志的「输入 / 压缩后」：压缩管道本轮的实际规模；没有历史可压时退回首次请求规模估算
+            // （与对话页同一口径：两个值相同即压缩率 0%，而不是留空）
+            inputTokens: loopResult.FirstIterationInputChars > 0
+                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars)
+                : (hooks.FirstIterationEstimate > 0 ? hooks.FirstIterationEstimate : null),
+            compressedTokens: loopResult.FirstIterationCompressedChars > 0
+                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars)
+                : (hooks.FirstIterationEstimate > 0 ? hooks.FirstIterationEstimate : null),
             contentPreview: request.Content,
             ct: CancellationToken.None);
 
@@ -534,7 +539,9 @@ public class WorkStreamController : ControllerBase
             IWorkCommandRunner runner,
             SseStreamWriter writer,
             List<object> fileChanges,
-            List<string> executedToolNames)
+            List<string> executedToolNames,
+            List<LlmChatMessage> messages,
+            ChatOptions options)
         {
             _owner = owner;
             _sessionId = sessionId;
@@ -543,10 +550,22 @@ public class WorkStreamController : ControllerBase
             _writer = writer;
             _fileChanges = fileChanges;
             _executedToolNames = executedToolNames;
+            _messages = messages;
+            _options = options;
         }
+
+        private readonly List<LlmChatMessage> _messages;
+        private readonly ChatOptions _options;
 
         /// <summary>最近一次迭代耗时（Provider 未分批上报 latency 时用于会话累计）</summary>
         public int LastIterationMs { get; private set; }
+
+        /// <summary>
+        /// 本轮首次请求的规模估算（消息 + 系统提示 + 工具 schema）。
+        /// 用量日志「输入 / 压缩后」在没走压缩管道（没有历史可压）时用它兜底，
+        /// 否则那条日志会只有输入没有压缩后，压缩率列显示成「—」。
+        /// </summary>
+        public int FirstIterationEstimate { get; private set; }
 
         /// <summary>本轮首次请求的用量：其 prompt tokens 即本轮起初的上下文规模（含系统提示与工具），
         /// 上下文占用面板据此反推固定开销；逐轮累加会把该开销按迭代次数放大。</summary>
@@ -557,6 +576,8 @@ public class WorkStreamController : ControllerBase
             _iteration = iteration;
             LastIterationMs = (int)_iterationClock.ElapsedMilliseconds;
             _iterationClock.Restart();
+            // 只记首轮：后续迭代的 messages/工具已被本轮工具结果撑大，不是本轮起始规模
+            if (iteration == 0) FirstIterationEstimate = LlmTokenEstimator.EstimateRequestTokens(_messages, _options.SystemPrompt, _options.Tools);
             if (usage is { PromptTokens: > 0 } && FirstIterationUsage == null) FirstIterationUsage = usage;
 
             // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）

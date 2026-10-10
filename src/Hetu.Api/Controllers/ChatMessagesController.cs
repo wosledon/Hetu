@@ -707,12 +707,7 @@ public class ChatMessagesController : ControllerBase
         return (true, overrides);
     }
 
-    /// <summary>按字符数粗略估算一轮请求的 token 数（约 3 字符 / token）</summary>
+    /// <summary>按字符数粗略估算一轮请求的 token 数（消息 + 系统提示 + 工具 schema）</summary>
     private static int EstimateTokens(List<LlmChatMessage> messages, ChatOptions options)
-    {
-        var chars = messages.Sum(m => m.Content?.Length ?? 0)
-            + (options.SystemPrompt?.Length ?? 0)
-            + LlmTokenEstimator.ToolDefinitionChars(options.Tools);
-        return (int)Math.Ceiling(chars / (double)LlmTokenEstimator.CharsPerToken);
-    }
+        => LlmTokenEstimator.EstimateRequestTokens(messages, options.SystemPrompt, options.Tools);
 }
