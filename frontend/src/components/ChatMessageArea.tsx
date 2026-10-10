@@ -1138,14 +1138,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             )}
             <button onClick={() => setSelectedPreset(null)} className="ml-auto text-indigo-400 hover:text-indigo-600"><X size={14} /></button>          </div>
         )}
-        {runningWorkflow && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-900/20">
-            <GitBranch size={14} className="text-blue-500" />
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">工作流：{runningWorkflow.name}</span>
-            <button onClick={() => workflowRun.setWorkflow(null)} className="ml-auto text-blue-400 hover:text-blue-600"><X size={14} /></button>
-          </div>
-        )}
-        {/* 工作流独立面板：流程图 + 状态 + 交互 */}
+        {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
           <div className="mb-3">
             <InlineWorkflowPanel
@@ -1174,11 +1167,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
         {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
 
-        {/* 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出（对话页与编码页共用） */}
-        <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
-
-        {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有 */}
+        {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有
+            工具交互抽屉（ask_question / todo / plan）挂在 aboveInput 上，宽度与输入框保持一致 */}
         <AgentInputBox
+          aboveInput={<ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />}
           value={input}
           onChange={(v) => setInput(v)}
           onMenuChange={setInputMenu}

@@ -247,7 +247,8 @@ public class WorkStreamController : ControllerBase
             systemPromptParts.Add($"\n项目规则（来自仓库内的约定文件，必须遵守）：\n{ruleContext}");
 
         // GitHub Copilot 兼容：自动加载 .github 下的指令 / 智能体 / 提示词 / 技能
-        var copilotAssets = WorkCopilotAssets.Load(project.RootPath);
+        // （SSH 项目走远端扫描：远端 .github 常是软链）
+        var copilotAssets = await WorkCopilotAssets.LoadAsync(project.RootPath, runner, ct);
         var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, project.RootPath);
         if (!string.IsNullOrWhiteSpace(copilotContext))
             systemPromptParts.Add($"\n{copilotContext}");
@@ -255,20 +256,12 @@ public class WorkStreamController : ControllerBase
         // /prompt 模板：读取 .github/prompts 下的文件内容并注入 system prompt
         if (!string.IsNullOrWhiteSpace(request.PromptFile))
         {
-            var promptFull = WorkPath.Resolve(project.RootPath, request.PromptFile);
-            if (promptFull != null && System.IO.File.Exists(promptFull) && WorkProjectRules.IsProbablyText(promptFull))
+            var promptBody = await ReadPromptTemplateAsync(copilotAssets, project.RootPath, request.PromptFile, ct);
+            if (!string.IsNullOrWhiteSpace(promptBody))
             {
-                try
-                {
-                    var promptBody = (await System.IO.File.ReadAllTextAsync(promptFull, ct)).Trim();
-                    var (_, promptInstruction) = WorkCopilotAssets.SplitPromptBody(promptBody);
-                    if (!string.IsNullOrWhiteSpace(promptInstruction))
-                        systemPromptParts.Add($"\n【/{Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(request.PromptFile))} 提示词模板（来自 {request.PromptFile}，本轮必须严格按此执行）】\n{promptInstruction}");
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    // 模板文件不可读时不注入，让 Agent 按用户原文执行
-                }
+                var (_, promptInstruction) = WorkCopilotAssets.SplitPromptBody(promptBody);
+                if (!string.IsNullOrWhiteSpace(promptInstruction))
+                    systemPromptParts.Add($"\n【/{Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(request.PromptFile))} 提示词模板（来自 {request.PromptFile}，本轮必须严格按此执行）】\n{promptInstruction}");
             }
         }
 
@@ -402,6 +395,41 @@ public class WorkStreamController : ControllerBase
 
         await writer.WriteJsonAsync(new { type = "done" });
     }
+
+    /// <summary>
+    /// 提示词模板正文：优先用已加载的 .github 资产内容（SSH 项目的模板在远端，本地路径读不到），
+    /// 其次退回项目内路径解析（兼容历史会话里保存的绝对路径）。
+    /// </summary>
+    private static async Task<string?> ReadPromptTemplateAsync(
+        WorkCopilotAssets.CopilotAssets assets, string root, string promptFile, CancellationToken ct)
+    {
+        var requested = NormalizeAssetPath(promptFile);
+        var requestedName = Path.GetFileName(requested);
+
+        var asset = assets.Prompts.FirstOrDefault(p => string.Equals(NormalizeAssetPath(p.FilePath), requested, StringComparison.OrdinalIgnoreCase));
+        if (asset == null)
+        {
+            var sameName = assets.Prompts.Where(p => string.Equals(Path.GetFileName(p.FilePath), requestedName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (sameName.Count == 1) asset = sameName[0];
+        }
+        if (asset != null && !string.IsNullOrWhiteSpace(asset.Text)) return asset.Text.Trim();
+
+        var promptFull = WorkPath.Resolve(root, promptFile);
+        if (promptFull == null || !System.IO.File.Exists(promptFull) || !WorkProjectRules.IsProbablyText(promptFull))
+            return null;
+        try
+        {
+            return (await System.IO.File.ReadAllTextAsync(promptFull, ct)).Trim();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 模板文件不可读时不注入，让 Agent 按用户原文执行
+            return null;
+        }
+    }
+
+    /// <summary>资产路径归一：去掉开头的 ./ 与分隔符差异，便于和请求里的路径比较</summary>
+    private static string NormalizeAssetPath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
 
     /// <summary>把 Agent Loop 事件写进 SSE 流。</summary>
     private sealed class SseAgentSink : IAgentLoopSink

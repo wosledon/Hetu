@@ -41,7 +41,6 @@ export interface InteractionState {
   questionIndex: number
   questionAnswers: Record<string, string>
   todos: InteractionTodo[]
-  todoCollapsed: boolean
   plan: InteractionPlan | null
 }
 
@@ -50,7 +49,6 @@ export const emptyInteraction = (): InteractionState => ({
   questionIndex: 0,
   questionAnswers: {},
   todos: [],
-  todoCollapsed: false,
   plan: null,
 })
 
@@ -194,7 +192,6 @@ interface InteractionStore {
   submitAnswers: (streamKey: string) => Promise<void>
   decidePlan: (streamKey: string, approved: boolean) => Promise<void>
   setPlanFeedback: (streamKey: string, feedback: string) => void
-  toggleTodoCollapsed: (streamKey: string) => void
   clear: (streamKey: string) => void
 }
 
@@ -266,11 +263,6 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
       if (!plan) return st
       return { streams: patch(st.streams, streamKey, { plan: { ...plan, feedback } }) }
     }),
-
-  toggleTodoCollapsed: (streamKey) =>
-    set((st) => ({
-      streams: patch(st.streams, streamKey, { todoCollapsed: !(st.streams[streamKey]?.todoCollapsed ?? false) }),
-    })),
 
   clear: (streamKey) =>
     set((st) => ({ streams: patch(st.streams, streamKey, emptyInteraction()) })),

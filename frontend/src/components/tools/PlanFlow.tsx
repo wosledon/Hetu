@@ -5,13 +5,15 @@ interface PlanFlowProps {
   plan: InteractionPlan
   onFeedback: (feedback: string) => void
   onDecide: (approved: boolean) => void
+  /** 抽屉内嵌：标题与状态已在抽屉头部展示，不再重复一层头部 */
+  hideHeader?: boolean
 }
 
 /**
  * 计划工具（plan）的确认面板：步骤列表 + 修改意见 + 批准 / 驳回。
  * 输入框抽屉与工作流内联面板共用。
  */
-export default function PlanFlow({ plan, onFeedback, onDecide }: PlanFlowProps) {
+export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = false }: PlanFlowProps) {
   const decided = plan.decided
   const pending = !decided
   const completed = plan.steps.filter(s => s.status === 'completed').length
@@ -19,31 +21,33 @@ export default function PlanFlow({ plan, onFeedback, onDecide }: PlanFlowProps) 
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <div className="flex items-start gap-2.5 px-4 pt-3.5 pb-3">
-        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ${
-          decided === 'approved'
-            ? 'bg-emerald-100 text-emerald-600 ring-emerald-200/60 dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-800/50'
-            : decided === 'rejected'
-              ? 'bg-red-100 text-red-600 ring-red-200/60 dark:bg-red-900/50 dark:text-red-300 dark:ring-red-800/50'
-              : 'bg-teal-100 text-teal-600 ring-teal-200/60 dark:bg-teal-900/50 dark:text-teal-300 dark:ring-teal-800/50'
-        }`}>
-          {decided === 'approved' ? <CircleCheckBig size={15} />
-            : decided === 'rejected' ? <X size={15} />
-              : <ListChecks size={15} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
-            {plan.title || '执行计划'}
+      {!hideHeader && (
+        <div className="flex items-start gap-2.5 px-4 pt-3.5 pb-3">
+          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ${
+            decided === 'approved'
+              ? 'bg-emerald-100 text-emerald-600 ring-emerald-200/60 dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-800/50'
+              : decided === 'rejected'
+                ? 'bg-red-100 text-red-600 ring-red-200/60 dark:bg-red-900/50 dark:text-red-300 dark:ring-red-800/50'
+                : 'bg-teal-100 text-teal-600 ring-teal-200/60 dark:bg-teal-900/50 dark:text-teal-300 dark:ring-teal-800/50'
+          }`}>
+            {decided === 'approved' ? <CircleCheckBig size={15} />
+              : decided === 'rejected' ? <X size={15} />
+                : <ListChecks size={15} />}
           </div>
-          <div className="text-[11px] text-gray-400">
-            {plan.steps.length} 个步骤{plan.steps.length > 0 && ` · 已完成 ${completed}`}
-            {decided === 'approved' && ' · 已批准，正在执行'}
-            {decided === 'rejected' && ' · 已驳回'}
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">
+              {plan.title || '执行计划'}
+            </div>
+            <div className="text-[11px] text-gray-400">
+              {plan.steps.length} 个步骤{plan.steps.length > 0 && ` · 已完成 ${completed}`}
+              {decided === 'approved' && ' · 已批准，正在执行'}
+              {decided === 'rejected' && ' · 已驳回'}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="px-4 pb-3">
+      <div className={hideHeader ? 'px-4 pt-3 pb-3' : 'px-4 pb-3'}>
         {plan.summary && (
           <p className="mb-3 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
             {plan.summary}

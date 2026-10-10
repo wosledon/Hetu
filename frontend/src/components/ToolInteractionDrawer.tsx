@@ -57,65 +57,26 @@ function TodoRow({ todo, index }: { todo: InteractionTodo; index: number }) {
   )
 }
 
-/** 工作计划面板：进度概览 + 可折叠步骤列表 */
-function TodoSection({
-  todos,
-  collapsed,
-  onToggleCollapsed,
-}: {
-  todos: InteractionTodo[]
-  collapsed: boolean
-  onToggleCollapsed: () => void
-}) {
+/** 工作计划面板：进度条 + 步骤列表（标题/计数已在抽屉头部展示，这里不再重复一层“额头”） */
+function TodoSection({ todos }: { todos: InteractionTodo[] }) {
   const total = todos.length
   const completed = todos.filter(t => t.status === 'completed').length
-  const inProgress = todos.find(t => t.status === 'in-progress')
-  const allDone = completed === total
+  const allDone = total > 0 && completed === total
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100)
 
   return (
-    <div className="flex flex-col">
-      <button
-        type="button"
-        onClick={onToggleCollapsed}
-        className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-gray-700/40"
-      >
-        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ${
-          allDone
-            ? 'bg-emerald-100 text-emerald-600 ring-emerald-200/60 dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-800/50'
-            : 'bg-sky-100 text-sky-600 ring-sky-200/60 dark:bg-sky-900/50 dark:text-sky-300 dark:ring-sky-800/50'
-        }`}>
-          {allDone ? <CircleCheckBig size={15} /> : <ClipboardList size={15} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-100">工作计划</span>
-            <span className="text-[11px] tabular-nums text-gray-400">{completed} / {total}</span>
-            {!allDone && inProgress && (
-              <span className="hidden truncate text-[11px] text-gray-400 sm:inline">· {inProgress.title}</span>
-            )}
-            {allDone && <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">· 已全部完成</span>}
-          </div>
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                allDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-sky-400 to-indigo-500'
-              }`}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
-        <ChevronRight
-          size={14}
-          className={`flex-shrink-0 text-gray-400 transition-transform ${collapsed ? '' : 'rotate-90'}`}
+    <div className="px-4 py-3">
+      <div className="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            allDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-sky-400 to-indigo-500'
+          }`}
+          style={{ width: `${percent}%` }}
         />
-      </button>
-
-      {!collapsed && (
-        <ul className="space-y-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700/60">
-          {todos.map((t, idx) => <TodoRow key={t.id} todo={t} index={idx} />)}
-        </ul>
-      )}
+      </div>
+      <ul className="mt-3 space-y-2">
+        {todos.map((t, idx) => <TodoRow key={t.id} todo={t} index={idx} />)}
+      </ul>
     </div>
   )
 }
@@ -131,7 +92,6 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
   const submitAnswers = useInteractionStore((st) => st.submitAnswers)
   const decidePlan = useInteractionStore((st) => st.decidePlan)
   const setPlanFeedback = useInteractionStore((st) => st.setPlanFeedback)
-  const toggleTodoCollapsed = useInteractionStore((st) => st.toggleTodoCollapsed)
 
   const [collapsed, setCollapsed] = useState(false)
   // 用户手动切换过的分区；新交互到达时自动跟随优先级（提问 > 计划 > 任务）
@@ -177,9 +137,9 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
   const activeMeta = tabs.find(t => t.key === active)
 
   const summary = active === 'plan'
-    ? plan && `${plan.title || '执行计划'}${plan.decided === 'approved' ? ' · 已批准' : plan.decided === 'rejected' ? ' · 已驳回' : ' · 待确认'}`
+    ? plan && `${plan.title || '执行计划'} · ${plan.steps.length} 个步骤${plan.decided === 'approved' ? ' · 已批准' : plan.decided === 'rejected' ? ' · 已驳回' : ' · 待确认'}`
     : active === 'todo'
-      ? `工作计划 · ${todos.filter(t => t.status === 'completed').length}/${todos.length}`
+      ? `工作计划 · ${todos.filter(t => t.status === 'completed').length}/${todos.length}${todos.length > 0 && todos.every(t => t.status === 'completed') ? ' · 已全部完成' : ''}`
       : '提问作答中'
 
   return (
@@ -239,7 +199,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
 
         {/* Body */}
         {!collapsed && (
-          <div className="max-h-[min(52vh,420px)] overflow-y-auto border-t border-gray-100 dark:border-gray-700/60">
+          <div className="max-h-[min(40vh,320px)] overflow-y-auto border-t border-gray-100 dark:border-gray-700/60">
             {active === 'question' && questions.length > 0 && (
               <QuestionFlow
                 questions={questions}
@@ -256,15 +216,10 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
                 plan={plan}
                 onFeedback={(feedback) => setPlanFeedback(streamKey, feedback)}
                 onDecide={(approved) => void decidePlan(streamKey, approved)}
+                hideHeader
               />
             )}
-            {active === 'todo' && todos.length > 0 && (
-              <TodoSection
-                todos={todos}
-                collapsed={state.todoCollapsed}
-                onToggleCollapsed={() => toggleTodoCollapsed(streamKey)}
-              />
-            )}
+            {active === 'todo' && todos.length > 0 && <TodoSection todos={todos} />}
           </div>
         )}
       </div>

@@ -578,18 +578,21 @@ public class WorkUseSkillTool : IToolExecutor
             return BuildResult(skill.Name, skill.Category, body);
         }
 
-        // 2) 项目 .github/skills 下的技能
+        // 2) 项目 .github/skills 下的技能（SSH 项目走远端扫描）
         if (!string.IsNullOrWhiteSpace(_context.ProjectRoot))
         {
-            var copilotSkill = WorkCopilotAssets.Load(_context.ProjectRoot).Skills.FirstOrDefault(s =>
+            var copilotAssets = await WorkCopilotAssets.LoadAsync(_context.ProjectRoot, _context.Runner, cancellationToken);
+            var copilotSkill = copilotAssets.Skills.FirstOrDefault(s =>
                 string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
             if (copilotSkill != null)
             {
                 try
                 {
-                    var body = File.Exists(copilotSkill.FilePath)
-                        ? await File.ReadAllTextAsync(copilotSkill.FilePath, cancellationToken)
-                        : "（技能文件不存在或已被删除）";
+                    var body = copilotSkill.Text.Length > 0
+                        ? copilotSkill.Text
+                        : Path.IsPathRooted(copilotSkill.FilePath) && File.Exists(copilotSkill.FilePath)
+                            ? await File.ReadAllTextAsync(copilotSkill.FilePath, cancellationToken)
+                            : "（技能文件不存在或已被删除）";
                     return BuildResult(copilotSkill.Name, ".github", body);
                 }
                 catch (Exception ex)

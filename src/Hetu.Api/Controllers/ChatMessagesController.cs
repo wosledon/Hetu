@@ -252,6 +252,10 @@ public class ChatMessagesController : ControllerBase
             finalContent += "\n\n*（已停止生成）*";
         else if (finalContent.Trim().Length == 0 && loopError != null)
             finalContent = $"处理请求时出错: {loopError}";
+        // 模型只调用工具、没有正文（如 todo / plan / ask_question 之后直接结束）时也要落库，
+        // 否则该轮在消息列表里完全不可见，历史也丢失这轮上下文（与编码会话同一处理）
+        else if (finalContent.Trim().Length == 0 && loopResult.ToolCalls.Count > 0)
+            finalContent = $"（本轮未输出正文，已调用工具：{string.Join("、", loopResult.ToolCalls.Select(t => t.Name).Distinct())}）";
 
         if (!string.IsNullOrEmpty(finalContent))
         {
