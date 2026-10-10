@@ -14,8 +14,8 @@
  * 用法：
  *   node scripts/make-latest-json.mjs --dir dist --version 0.3.1 [--repo owner/repo] [--notes "…"] [--notes-file f]
  */
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs'
+import { join, resolve, basename } from 'node:path'
 
 const args = new Map()
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -41,13 +41,24 @@ const notes = notesFile && existsSync(notesFile)
   ? readFileSync(notesFile, 'utf8').trim()
   : (args.get('notes') ?? `Hetu v${version}`)
 
-const files = readdirSync(dir)
+/** 递归收集目录下的文件（artifact 解包后可能带 nsis/ msi/ appimage/ deb/ 等子目录） */
+function walk(dir, out = []) {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) walk(full, out)
+    else out.push(full)
+  }
+  return out
+}
+
+const files = walk(dir)
+const fileNames = files.map((f) => basename(f))
 const tag = `v${version}`
 const releaseUrl = (asset) => `https://github.com/${repo}/releases/download/${tag}/${asset}`
 
 /** Windows 走 NSIS 安装包，Linux 走 AppImage；两者都要有同名 .sig */
 function pickAsset(channel, kind) {
-  const wanted = files.filter((f) => {
+  const wanted = fileNames.filter((f) => {
     const isSlim = /\.slim\./i.test(f)
     if (channel === 'slim' ? !isSlim : isSlim) return false
     if (kind === 'windows') return f.endsWith('-setup.exe')
@@ -55,8 +66,8 @@ function pickAsset(channel, kind) {
   })
   if (wanted.length === 0) return null
   const asset = wanted.sort()[0]
-  const sigPath = join(dir, `${asset}.sig`)
-  if (!existsSync(sigPath)) {
+  const sigPath = files.find((f) => basename(f) === `${asset}.sig`)
+  if (!sigPath) {
     console.warn(`[latest.json] ${channel}: 缺少 ${asset}.sig（构建时未提供签名私钥？）`)
     return null
   }
