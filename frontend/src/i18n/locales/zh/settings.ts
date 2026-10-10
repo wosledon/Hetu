@@ -385,6 +385,9 @@ export default {
     viewVersion: '查看版本与更新',
     desktopOnly: '自动更新仅在桌面客户端内可用；浏览器版本请从 GitHub Releases 下载新版本。',
     releaseNotes: '更新说明',
+    currentNotes: '本版本更新内容',
+    currentNotesEmpty: '没找到这个版本的发布说明（内测版可能没有对应的 Release）',
+    viewOnGitHub: '在 GitHub 查看',
     sourceHint: '更新包来自 GitHub Releases（主源）与 ghproxy.net / gh-proxy.com 加速镜像（备用）',
   },
 }
