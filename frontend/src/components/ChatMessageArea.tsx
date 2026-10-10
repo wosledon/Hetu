@@ -7,7 +7,7 @@ import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
 import { aiModelService, aiProviderService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
-import CollapsedLongText from './CollapsedLongText'
+import UserMessageContent from './UserMessageContent'
 import ChatMessageItem from './ChatMessageItem'
 import Select from './Select'
 
@@ -33,6 +33,7 @@ import { useWorkflowRun } from '../hooks/useWorkflowRun'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
+import { wrapLongTextBlock } from '../utils/longText'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
 
@@ -528,8 +529,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
     const typed = (slashPrefix + input.trim()).trim()
-    // 折叠的长文本块排在正文前（粘贴日志后通常还要写一句需求）
-    const content = [pastedBlock, typed].filter(Boolean).join('\n\n')
+    // 折叠的长文本块排在正文前，并带上标记：会话里折叠成块展示，自己写的那句话照常显示
+    const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', typed].filter(Boolean).join('\n\n')
     const mentions = selectedMentions.map(m => ({ type: m.type, id: m.id }))
     setInput('')
     setPastedBlock('')
@@ -961,7 +962,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
               </div>
               <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:bg-blue-950/30 dark:text-gray-100">
-                <CollapsedLongText text={pendingUserMessage}>{pendingUserMessage}</CollapsedLongText>
+                <UserMessageContent content={pendingUserMessage} />
               </div>
             </div>
           </div>

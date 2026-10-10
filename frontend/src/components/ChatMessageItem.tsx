@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X, User } from 'lucide-react'
 import ThemedMarkdown from './ThemedMarkdown'
-import CollapsedLongText from './CollapsedLongText'
+import UserMessageContent from './UserMessageContent'
 import ChatToolCallRow from './ChatToolCallRow'
 import ToolCallGroup from './ToolCallGroup'
 import { foldConsecutiveToolCalls } from '../utils/toolRendering'
@@ -220,11 +220,7 @@ export default memo(function ChatMessageItem({
               )}
               {!interleaved && (
                 isUser ? (
-                  <CollapsedLongText text={message.content}>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ThemedMarkdown source={message.content} />
-                    </div>
-                  </CollapsedLongText>
+                  <UserMessageContent content={message.content} />
                 ) : (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ThemedMarkdown source={message.content} />
