@@ -14,32 +14,65 @@ export default function CollapsedLongText({ text, children, className = '' }: { 
 
   if (!expanded) {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        title="点击展开查看原文"
-        className={`flex w-full items-center gap-2 text-left text-sm opacity-80 transition-opacity hover:opacity-100 ${className}`}
-      >
-        <FileText size={13} className="shrink-0" />
-        <span className="shrink-0 font-medium">已折叠长文本</span>
-        <span className="text-xs opacity-80">{longTextSummary(text)}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-xs underline">
-          展开 <ChevronDown size={12} />
-        </span>
-      </button>
+      <CollapsedCard label="已折叠长文本" summary={longTextSummary(text)} onExpand={() => setExpanded(true)} className={className} />
     )
   }
 
   return (
     <div className={className}>
       {children}
-      <button
-        type="button"
-        onClick={() => setExpanded(false)}
-        className="mt-1.5 flex items-center gap-0.5 text-[11px] opacity-60 transition-opacity hover:opacity-100"
-      >
-        <ChevronUp size={11} /> 收起
-      </button>
+      <RollupButton onClick={() => setExpanded(false)} />
     </div>
+  )
+}
+
+/** 粘贴的长文本块：折叠态只显示行数/字符数，展开后按原文展示（不做 Markdown 渲染） */
+export function PastedLongTextBlock({ text, label, className = '' }: { text: string; label: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className={className}>
+      <CollapsedCard
+        label={expanded ? '粘贴的长文本' : '已折叠粘贴的长文本'}
+        summary={label}
+        expanded={expanded}
+        onExpand={() => setExpanded((v) => !v)}
+      />
+      {expanded && (
+        <pre className="mt-1.5 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/5 p-2 text-[11px] leading-relaxed dark:bg-white/5">
+          {text}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+function CollapsedCard({ label, summary, onExpand, expanded = false, className = '' }: { label: string; summary: string; onExpand: () => void; expanded?: boolean; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      title={expanded ? '收起原文' : '点击展开查看原文'}
+      className={`flex w-full items-center gap-2 text-left text-sm opacity-80 transition-opacity hover:opacity-100 ${className}`}
+    >
+      <FileText size={13} className="shrink-0" />
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className="shrink-0 text-xs opacity-80">{summary}</span>
+      <span className="ml-auto flex shrink-0 items-center gap-0.5 text-xs underline">
+        {expanded ? '收起' : '展开'} {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </span>
+    </button>
+  )
+}
+
+function RollupButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-1.5 flex items-center gap-0.5 text-[11px] opacity-60 transition-opacity hover:opacity-100"
+    >
+      <ChevronUp size={11} /> 收起
+    </button>
   )
 }

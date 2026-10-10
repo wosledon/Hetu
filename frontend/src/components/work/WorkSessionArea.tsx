@@ -14,7 +14,8 @@ import { skillService } from '../../services/skillService'
 import { type InputCommandItem } from '../InputCommandMenu'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
-import CollapsedLongText from '../CollapsedLongText'
+import UserMessageContent from '../UserMessageContent'
+import { wrapLongTextBlock } from '../../utils/longText'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -679,8 +680,8 @@ export default function WorkSessionArea({
   }
 
   const handleSend = async () => {
-    // 折叠的长文本块排在正文前（粘贴日志后通常还要写一句需求）
-    const content = [pastedBlock, input.trim()].filter(Boolean).join('\n\n')
+    // 折叠的长文本块排在正文前，并带上标记：会话里折叠成块展示，自己写的那句话照常显示
+    const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', input.trim()].filter(Boolean).join('\n\n')
     setPastedBlock('')
     // /compress 命令：调用当前模型压缩上下文，不发消息
     if (content === '/compress') {
@@ -1160,7 +1161,7 @@ export default function WorkSessionArea({
               </div>
               <div className="flex max-w-[85%] flex-col items-end">
                 <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
-                  <CollapsedLongText text={pendingUser}>{pendingUser}</CollapsedLongText>
+                  <UserMessageContent content={pendingUser} />
                 </div>
               </div>
             </div>
@@ -1681,7 +1682,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
           </div>
         ) : (
           <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
-            <CollapsedLongText text={message.content}>{message.content}</CollapsedLongText>
+            <UserMessageContent content={message.content} />
           </div>
         )}
         {!editing && actions && <MessageActionBar message={message} actions={actions} />}
