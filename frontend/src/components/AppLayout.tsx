@@ -259,7 +259,6 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <div className="flex-1" data-rail-spacer="" />
 
       <GithubEntry variant="rail" />
-      <VersionEntry variant="rail" />
 
       <button
         onClick={() => navigate('/settings')}
@@ -274,6 +273,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <Settings size={18} />
         {t('nav:settings')}
       </button>
+
+      <VersionEntry variant="rail" />
     </nav>
   )
 
@@ -328,7 +329,6 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         </div>
         <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />
-          <VersionEntry variant="top" />
           <button
             onClick={() => navigate('/settings')}
             className={`rounded-lg p-2 transition-all ${
@@ -340,6 +340,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           >
             <Settings size={17} />
           </button>
+          <VersionEntry variant="top" />
         </div>
         </nav>
         )}
