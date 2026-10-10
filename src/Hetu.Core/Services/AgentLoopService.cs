@@ -23,6 +23,10 @@ public class AgentLoopResult
     public List<AgentTimelineSegment> Timeline { get; set; } = new();
     /// <summary>实际执行的迭代次数</summary>
     public int Iterations { get; set; }
+    /// <summary>首轮请求里压缩管道处理的输入字符数（压缩前），供用量日志「输入 / 压缩后」展示；0 = 本轮无内容需要压缩</summary>
+    public int FirstIterationInputChars { get; set; }
+    /// <summary>首轮请求里压缩管道的输出字符数（压缩后）</summary>
+    public int FirstIterationCompressedChars { get; set; }
     /// <summary>是否被用户中断</summary>
     public bool Cancelled { get; set; }
     /// <summary>循环级错误信息（已通知 sink，可由调用方决定落库内容）</summary>
@@ -256,6 +260,9 @@ public class AgentLoopService
             LlmTokenEstimator.EstimateChars(systemPromptChars + toolSchemaChars));
 
         var chatMessages = new List<LlmChatMessage>(request.Messages);
+        // 历史压缩只处理本轮之前的内容：当前用户消息（初始列表最后一条）及其后新产生的助手/工具消息
+        // 不压缩，否则用户原话会被摘要掉、模型拿到的请求与用户输入不一致
+        var historyCompressBoundary = Math.Max(0, chatMessages.Count - 1);
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations;
         // 已压缩过的消息下标：长会话反复迭代时不再重复压缩（LLM 摘要模式尤其重要）
@@ -292,23 +299,37 @@ public class AgentLoopService
                     var compressedCount = 0;
                     var beforeChars = 0;
                     var afterChars = 0;
+                    var pending = new List<(int Index, string Text)>();
                     for (int i = 0; i < chatMessages.Count; i++)
                     {
+                        if (i >= historyCompressBoundary) break; // 本轮新增内容不压缩（见上）
                         var msg = chatMessages[i];
                         if (string.IsNullOrWhiteSpace(msg.Content)) continue;
                         if (!compressedIndexes.Add(i)) continue;
                         candidates++;
                         beforeChars += msg.Content.Length;
-                        var compressed = await _compressionPipeline.CompressAsync(msg.Content, ct);
-                        if (compressed != msg.Content && !string.IsNullOrWhiteSpace(compressed))
+                        pending.Add((i, msg.Content));
+                    }
+
+                    if (pending.Count > 0)
+                    {
+                        // 并行压缩：LLM 摘要每条一次模型调用，串行会把一轮的等待时间累加（7 条 ≈ 20s）
+                        var compressedTexts = await Task.WhenAll(pending.Select(p => _compressionPipeline.CompressAsync(p.Text, ct)));
+                        for (var k = 0; k < pending.Count; k++)
                         {
-                            chatMessages[i] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
-                            compressedCount++;
-                            afterChars += compressed.Length;
-                        }
-                        else
-                        {
-                            afterChars += msg.Content.Length;
+                            var (index, original) = pending[k];
+                            var compressed = compressedTexts[k];
+                            if (compressed != original && !string.IsNullOrWhiteSpace(compressed))
+                            {
+                                var msg = chatMessages[index];
+                                chatMessages[index] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls };
+                                compressedCount++;
+                                afterChars += compressed.Length;
+                            }
+                            else
+                            {
+                                afterChars += original.Length;
+                            }
                         }
                     }
 
@@ -317,6 +338,13 @@ public class AgentLoopService
                         _logger.LogInformation(
                             "[Compression] iter={Iter} 候选={Candidates} 条 实际压缩={Compressed} 条 字符 {Before} → {After}",
                             iter + 1, candidates, compressedCount, beforeChars, afterChars);
+                    }
+
+                    // 用量日志的「输入 / 压缩后」：记首轮请求压缩管道的实际规模（有压缩时才记）
+                    if (iter == 0 && beforeChars > 0)
+                    {
+                        result.FirstIterationInputChars = beforeChars;
+                        result.FirstIterationCompressedChars = afterChars;
                     }
                 }
                 else if (iter == 0)

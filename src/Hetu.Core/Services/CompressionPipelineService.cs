@@ -18,7 +18,7 @@ public class CompressionPipelineService
     public CompressionPipelineService(
         IAppSettingService appSettingService,
         ILogger<CompressionPipelineService> logger,
-        ILLMProviderFactory? llmProviderFactory = null)
+        ILLMProviderFactory llmProviderFactory)
     {
         _appSettingService = appSettingService;
         _logger = logger;
@@ -98,14 +98,20 @@ public class CompressionPipelineService
 
             if (node.Key == "llm_summary")
             {
-                if (config.Mode is not ("llm" or "hybrid") || _llmProviderFactory == null) continue;
+                if (config.Mode is not ("llm" or "hybrid"))
+                {
+                    _logger.LogDebug("[Compression] 跳过 LLM 摘要：模式={Mode}（需 llm/hybrid）", config.Mode);
+                    continue;
+                }
                 if (result.Length < Math.Max(0, config.LlmThreshold))
                 {
                     _logger.LogDebug("[Compression] 跳过 LLM 摘要：{Len} 字符低于阈值 {Threshold}",
                         result.Length, config.LlmThreshold);
                     continue;
                 }
+                var before = result.Length;
                 result = await LlmCompressAsync(result, config, ct);
+                _logger.LogInformation("[Compression] LLM 摘要：{Before} → {After} 字符", before, result.Length);
                 continue;
             }
 
@@ -128,29 +134,48 @@ public class CompressionPipelineService
 
     private async Task<string> LlmCompressAsync(string input, CompressionPipelineDto config, CancellationToken ct)
     {
-        if (_llmProviderFactory == null) return input;
-
         ILLMProvider? provider;
         if (!string.IsNullOrWhiteSpace(config.LlmModelId) && Guid.TryParse(config.LlmModelId, out var modelId))
         {
             provider = await _llmProviderFactory.CreateProviderAsync(modelId, ct);
+            // 配置里记的模型可能已被删除/重建：回落到默认对话模型，避免压缩静默失效
+            if (provider == null)
+                _logger.LogWarning("[Compression] LLM 摘要模型 {ModelId} 不可用（可能已删除），回落到默认对话模型", modelId);
         }
         else
         {
-            provider = await _llmProviderFactory.CreateChatProviderAsync(ct);
+            provider = null;
         }
 
-        if (provider == null) return input;
+        provider ??= await _llmProviderFactory.CreateChatProviderAsync(ct);
+        if (provider == null)
+        {
+            _logger.LogWarning("[Compression] LLM 摘要跳过：没有可用的对话模型");
+            return input;
+        }
 
         var prompt = config.LlmSystemPrompt ?? "压缩以下文本，保留所有关键信息：";
 
         try
         {
+            // 预算下限 1024：推理类模型会先消耗思考 token，给太少会导致正文为空（压缩静默失效）
+            var maxTokens = Math.Clamp(input.Length / 2, 1024, 4096);
             var compressed = await provider.ChatAsync(
                 [new LlmChatMessage { Role = "user", Content = input }],
-                new ChatOptions { ModelId = string.Empty, SystemPrompt = prompt, MaxTokens = Math.Min(input.Length / 2, 4096) },
+                new ChatOptions { ModelId = string.Empty, SystemPrompt = prompt, MaxTokens = maxTokens },
                 ct);
-            return string.IsNullOrWhiteSpace(compressed) ? input : compressed;
+            if (string.IsNullOrWhiteSpace(compressed))
+            {
+                _logger.LogWarning("[Compression] LLM 摘要返回空内容（maxTokens={MaxTokens}），保留原文", maxTokens);
+                return input;
+            }
+            // 安全网：明显过度压缩（不足原文 20%）时保留原文，避免信息被摘要掉
+            if (compressed.Length < Math.Max(40, input.Length / 5))
+            {
+                _logger.LogWarning("[Compression] LLM 摘要过度压缩（{Before} → {After} 字符），保留原文", input.Length, compressed.Length);
+                return input;
+            }
+            return compressed;
         }
         catch (Exception ex)
         {

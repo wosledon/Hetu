@@ -5,7 +5,9 @@ public class CompressionPipelineDto
     public bool Enabled { get; set; }
     public string Mode { get; set; } = "algorithmic"; // algorithmic | llm | hybrid
     public string? LlmModelId { get; set; }
-    public string? LlmSystemPrompt { get; set; } = "压缩以下文本，保留所有关键信息，尽可能减少 token 数量：";
+    public string? LlmSystemPrompt { get; set; } =
+        "压缩下面这段文本：保留全部关键信息（结论、数字、路径与文件名、命令、待办与约束），" +
+        "删除重复表述、寒暄与无信息量的格式；不要编造或改变事实，输出与原文相同语言。";
     /// <summary>
     /// LLM 摘要触发阈值（字符）：算法节点对任意长度文本都生效，只有 LLM 摘要按阈值触发（避免为短文本多花一次模型调用）
     /// </summary>
