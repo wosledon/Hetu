@@ -56,10 +56,11 @@ public static class WorkCopilotAssets
     /// <summary>
     /// 按项目类型加载：SSH 项目通过远端 shell 扫描（远端 <c>.github</c> 常是软链），
     /// 本地项目直接读文件系统。
+    /// <paramref name="force"/> 为 false 时远端结果走短缓存（每条消息都 ssh 一次既慢又怕网络抽风）。
     /// </summary>
-    public static async Task<CopilotAssets> LoadAsync(string root, IWorkCommandRunner? runner, CancellationToken ct = default)
+    public static async Task<CopilotAssets> LoadAsync(string root, IWorkCommandRunner? runner, CancellationToken ct = default, bool force = false)
     {
-        if (runner is { IsRemote: true }) return await LoadRemoteAsync(runner, ct);
+        if (runner is { IsRemote: true }) return await LoadRemoteAsync(runner, force, ct);
         return Load(root);
     }
 
@@ -251,9 +252,17 @@ public static class WorkCopilotAssets
     /// 远端（SSH）扫描：一条命令列出并回传 .github 下的资产文件内容，避免逐文件一次 ssh。
     /// 远端 .github 常是软链（<c>ln -s ~/dev-collection .github</c>），<c>cd</c> 会跟随链接；
     /// find 同时接受普通文件与软链文件（<c>-type f -o -type l</c>），否则软链进来的文件会被漏掉。
+    ///
+    /// 这里必须「失败也不影响发消息」：SSH 网络抖动时若让异常冒到控制器，
+    /// 整轮请求会 500（用户看到的是「发了没回复、也没有日志」）。所以超时/失败一律降级为空资产，
+    /// 并把结果（含失败）短缓存，避免每条消息都卡一次超时。
     /// </summary>
-    private static async Task<CopilotAssets> LoadRemoteAsync(IWorkCommandRunner runner, CancellationToken ct)
+    private static async Task<CopilotAssets> LoadRemoteAsync(IWorkCommandRunner runner, bool force, CancellationToken ct)
     {
+        var cacheKey = runner.RootPath ?? string.Empty;
+        if (!force && RemoteCache.TryGetValue(cacheKey, out var cached) && DateTimeOffset.UtcNow - cached.At < RemoteCacheTtl)
+            return cached.Assets;
+
         var names = "\\( -name 'copilot-instructions.md' -o -name '*.instructions.md' -o -name '*.agent.md' " +
                     "-o -name '*.chatmode.md' -o -name '*.prompt.md' -o -name 'SKILL.md' " +
                     "-o -path './agents/*.md' -o -path './chatmodes/*.md' \\)";
@@ -262,21 +271,26 @@ public static class WorkCopilotAssets
             $"while IFS= read -r f; do printf '{RemoteFileMarker}%s\\n' \"$f\"; head -c {MaxRemoteFileBytes} \"$f\" 2>/dev/null; echo; done; fi";
 
         WorkCommandResult result;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(RemoteScanTimeout);
         try
         {
-            result = await runner.RunAsync(command, ct);
+            result = await runner.RunAsync(command, timeout.Token);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            throw;
-        }
-        catch
-        {
+            // 超时（网络抖动 / 远端命令卡住）或执行失败：本轮按「没有 .github 资产」继续
+            Console.Error.WriteLine($"[WorkCopilotAssets] 远端扫描失败，按无资产继续：{ex.GetType().Name} {ex.Message}");
+            RemoteCache[cacheKey] = (DateTimeOffset.UtcNow, Empty);
             return Empty;
         }
 
         var stdout = result.StdOut;
-        if (string.IsNullOrWhiteSpace(stdout)) return Empty;
+        if (string.IsNullOrWhiteSpace(stdout))
+        {
+            RemoteCache[cacheKey] = (DateTimeOffset.UtcNow, Empty);
+            return Empty;
+        }
 
         var instructions = new List<CopilotInstruction>();
         var agents = new List<CopilotAgent>();
@@ -311,8 +325,18 @@ public static class WorkCopilotAssets
             }
         }
 
-        return new CopilotAssets(instructions, agents, prompts, skills);
+        var assets = new CopilotAssets(instructions, agents, prompts, skills);
+        RemoteCache[cacheKey] = (DateTimeOffset.UtcNow, assets);
+        return assets;
     }
+
+    /// <summary>远端扫描超时：正常 0.5s 内返回；压到 10s 是为了网络抽风时不拖垮整轮对话</summary>
+    private static readonly TimeSpan RemoteScanTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>远端资产缓存（含失败结果）：避免每条消息都 ssh 一次</summary>
+    private static readonly TimeSpan RemoteCacheTtl = TimeSpan.FromMinutes(2);
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTimeOffset At, CopilotAssets Assets)> RemoteCache = new();
 
     /// <summary>解析远端回传的分段输出：<c>@@HETU-FILE@@相对路径</c> 起一段，段内余下内容为该文件正文。</summary>
     private static List<(string Relative, string Text)> ParseRemoteDump(string stdout)
