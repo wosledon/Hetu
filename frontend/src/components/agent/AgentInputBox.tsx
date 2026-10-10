@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
 import { countTextLines, isLongText } from '../../utils/longText'
@@ -52,6 +52,12 @@ export interface AgentInputBoxProps {
   footerLeading?: ReactNode
   /** 输入框上方的插槽（工具交互抽屉等） */
   aboveInput?: ReactNode
+  /**
+   * 折叠的长文本块（粘贴的超长文本）。与输入框里的文字是两份内容：
+   * 输入框始终可正常打字，长文本以块的形式挂在上面，发送时由调用方拼进正文。
+   */
+  block?: string
+  onBlockChange?: (text: string) => void
   placeholder?: string
   /** 流式中：禁止提交 */
   busy?: boolean
@@ -101,6 +107,8 @@ export default function AgentInputBox({
   trailing,
   footerLeading,
   aboveInput,
+  block = '',
+  onBlockChange,
   placeholder = '输入消息，Enter 发送...',
   busy = false,
   streaming = false,
@@ -119,20 +127,24 @@ export default function AgentInputBox({
   // 候选项为空时仍显示标题与 emptyHint，与改造前行为一致。
   const showMenu = menu !== null
 
-  // 超长输入（粘贴的日志/JSON/base64）默认折叠成一行摘要，只展示行数与字符数，
-  // 需要改动时再展开；内容一直在 value 里，折叠不影响发送。
-  const lineCount = countTextLines(value)
-  const isOverlong = isLongText(value)
-  const [expanded, setExpanded] = useState(false)
-  const collapsed = isOverlong && !expanded
+  // 超长粘贴不塞进输入框：转成块挂在上方（只显示行数/字符数），输入框继续用来打需求。
+  // 判定只看「粘贴进来的这段」本身——短文本粘贴若把输入框顶长，仍按普通输入处理。
+  const lineCount = countTextLines(block)
+  const [showBlockPreview, setShowBlockPreview] = useState(false)
 
-  useEffect(() => {
-    if (!isOverlong) setExpanded(false)
-  }, [isOverlong])
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    onPaste?.(e)
+    if (!onBlockChange) return
 
-  useEffect(() => {
-    if (expanded) inputRef.current?.focus()
-  }, [expanded, inputRef])
+    const pasted = e.clipboardData?.getData('text/plain') ?? ''
+    if (!pasted || !isLongText(pasted)) return
+
+    e.preventDefault()
+    onBlockChange(block ? `${block}\n${pasted}` : pasted)
+    onMenuChange?.(detectInputMenu(value, e.currentTarget.selectionStart ?? value.length))
+    setMenuIndex(0)
+    historyIndexRef.current = -1
+  }
 
   /** 输入变化：探测 @ / / 查询词回传调用方，并复位菜单/历史索引 */
   const handleChange = (next: string, cursor: number) => {
@@ -239,56 +251,48 @@ export default function AgentInputBox({
             </div>
           )}
 
-          {collapsed ? (
-            <div
-              role="button"
-              tabIndex={0}
-              title="点击展开编辑"
-              onClick={() => setExpanded(true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  onSubmit()
-                }
-              }}
-              className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm"
-            >
-              <FileText size={14} className="shrink-0 text-gray-400" />
-              <span className="shrink-0 text-gray-600 dark:text-gray-300">已折叠粘贴的长文本</span>
-              <span className="truncate text-xs text-gray-400">{lineCount} 行 · {value.length} 字符</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setExpanded(true)
-                }}
-                className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[11px] text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-              >
-                展开
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onChange('', 0)
-                  onMenuChange?.(null)
-                }}
-                aria-label="清空输入"
-                className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-              >
-                清空
-              </button>
+          {block && (
+            <div className="px-3 pt-2.5">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
+                <FileText size={12} className="shrink-0 text-gray-400" />
+                <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">已折叠长文本</span>
+                <span className="truncate text-gray-400">{lineCount} 行 · {block.length} 字符</span>
+                <button
+                  onClick={() => setShowBlockPreview((v) => !v)}
+                  className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                >
+                  {showBlockPreview ? '收起' : '查看'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBlockPreview(false)
+                    onBlockChange?.('')
+                  }}
+                  aria-label="移除长文本"
+                  title="移除长文本"
+                  className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+              {showBlockPreview && (
+                <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                  {block}
+                </pre>
+              )}
             </div>
-          ) : (
-            <textarea
-              ref={inputRef}
-              value={value}
-              onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
-              onKeyDown={handleKeyDown}
-              onPaste={onPaste}
-              placeholder={placeholder}
-              rows={rows}
-              className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
-            />
           )}
+
+          <textarea
+            ref={inputRef}
+            value={value}
+            onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={placeholder}
+            rows={rows}
+            className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          />
 
           <div className="flex flex-wrap items-center gap-1 px-1.5 py-1.5">
             {toolbar}
