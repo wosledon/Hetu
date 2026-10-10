@@ -184,7 +184,12 @@ export default function KnowledgeBasePage() {
     addUrlMutation.mutate({ url: urlInput.trim(), title: urlTitle.trim() || undefined })
   }
 
-  const indexedPercent = status ? (status.totalItems > 0 ? Math.round((status.indexedItems / status.totalItems) * 100) : 0) : 0
+  // 覆盖率按 0~100 夹紧：已索引数来自后端统计，历史数据异常时也不会出现 200% 这种读数
+  const indexedPercent = status
+    ? status.totalItems > 0
+      ? Math.min(100, Math.max(0, Math.round((status.indexedItems / status.totalItems) * 100)))
+      : 0
+    : 0
 
   const openChunkDetail = (id: string, title: string) => {
     setChunkDetailId(id)

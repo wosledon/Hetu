@@ -114,8 +114,12 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
 
     public async Task<IReadOnlyList<ChunkEmbeddingMetadata>> GetAllChunkEmbeddingMetadataAsync(CancellationToken cancellationToken = default)
     {
+        // 只回传「仍然存在且未删除」的知识项的分块向量：
+        // 笔记移入回收站只软删 KnowledgeItem（分块与向量保留，便于恢复后仍是已索引），
+        // 不在这里过滤的话，状态统计会把已删项算进「已索引」，出现 未索引 = -2、覆盖率 200% 这类结果。
         return await Context.NoteChunkEmbeddings
             .AsNoTracking()
+            .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted)
             .Select(e => new ChunkEmbeddingMetadata
             {
                 ChunkId = e.ChunkId,
