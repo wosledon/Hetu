@@ -34,6 +34,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -41,6 +42,20 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI3QjVENDM4RUMwQ0YzRjIKUldUeTh3enNPTlMxSnp4TzRhQWR4ZGp5SENhUElvUEF0aXhlZlY4bXZwQ1FrUnU1OFJwOUNvbisK",
+      "endpoints": [
+        "https://github.com/wosledon/Hetu/releases/latest/download/latest.json",
+        "https://ghproxy.net/https://github.com/wosledon/Hetu/releases/latest/download/latest-mirror.json",
+        "https://gh-proxy.com/https://github.com/wosledon/Hetu/releases/latest/download/latest-mirror2.json",
+        "https://ghfast.top/https://github.com/wosledon/Hetu/releases/latest/download/latest-mirror3.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
 

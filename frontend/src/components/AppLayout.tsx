@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
 import BrandMark from './BrandMark'
+import UpdateBanner from './UpdateBanner'
 import { segmentButtonClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
@@ -336,13 +337,16 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         </nav>
         )}
         {moreMenu}
-        <div className="flex min-h-0 min-w-0 flex-1">
-        {showSidebar && <Sidebar />}
-        <div className="flex min-w-0 flex-1">
-          {children}
-          {mainContent}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <UpdateBanner />
+          <div className="flex min-h-0 min-w-0 flex-1">
+          {showSidebar && <Sidebar />}
+          <div className="flex min-w-0 flex-1">
+            {children}
+            {mainContent}
+          </div>
         </div>
-      </div>
+        </div>
     </div>
   )
 }

@@ -295,6 +295,12 @@ Closes #42
 - dev 期 Tauri 检测 5000 端口已有后端则复用，避免与开发者自己跑的 `dotnet run` 冲突
 - 关闭主窗口默认最小化到系统托盘（后端保持后台运行，设置项 `CloseToTray`，可在设置页关闭）；托盘菜单「退出 Hetu」才真正退出并结束后端
 - 退出清理后端子进程时 netstat/taskkill 需带 `CREATE_NO_WINDOW`，否则 Windows 会闪一下命令行窗口
+- 自动更新（Tauri updater，仅桌面壳）：
+  - 更新源按顺序尝试：GitHub Releases → `ghproxy.net` 镜像 → `gh-proxy.com` 镜像；镜像用的是 `latest-mirror*.json`（里面资源直链也带镜像前缀，所以 GitHub 不通时下载同样走通）
+  - 三个源都要签名：公钥在 `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`，私钥与口令存仓库 Secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（本地备份在 `%USERPROFILE%\.tauri\hetu-updater.key`）
+  - 清单由 `shell/hetu-desktop/scripts/make-latest-json.mjs` 在 release 任务里生成：fat/slim 两个渠道 × 3 个源 = 6 个 `latest*.json`
+  - 前端：`services/updateService.ts` + `stores/updateStore.ts`；启动后 4 秒自动检测一次（仅桌面壳），顶部横幅与「设置 → 关于」共用同一状态，安装完成后重启应用
+  - 换密钥 = 换公钥：老版本无法再自动更新到新密钥签名的包，需要用户手动装一次
 
 #### 数据库切换（SQLite / PostgreSQL）
 - 通过 `DatabaseProvider` 配置切换：`Sqlite`（默认）或 `Postgresql`

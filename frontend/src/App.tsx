@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { settingService } from './services/settingService'
 import { useUIStore } from './stores/uiStore'
+import { useUpdateStore } from './stores/updateStore'
+import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
@@ -47,6 +49,14 @@ function App() {
     i18n.on('languageChanged', handler)
     return () => { i18n.off('languageChanged', handler) }
   }, [queryClient])
+
+  // 启动后延迟自动检测更新（仅桌面壳）：GitHub 不通时 Tauri 会自动改走加速镜像；
+  // 静默失败不打扰用户，设置 → 关于 里可以手动检测
+  useEffect(() => {
+    if (!updateService.supported()) return
+    const timer = window.setTimeout(() => { void useUpdateStore.getState().check(true) }, 4000)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // 启动时把服务端设置灌入 UI store：桌面壳/新安装的 localStorage 为空，
   // 若不预热，导航样式、主题等会一直显示默认值，直到用户进一次设置页
