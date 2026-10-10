@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Work;
+using Hetu.Core.Streaming;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Projects;
@@ -31,6 +32,9 @@ public class WikiService : IWikiService
     /// </summary>
     private const int ContentMaxTokens = 8192;
 
+    /// <summary>输出被截断时的最大续写次数（每次续写都携带全部已有内容，不截断）</summary>
+    private const int MaxContinueRounds = 4;
+
     private const string SystemPromptDocEngineer = "你是资深项目文档工程师，擅长阅读代码仓库并撰写准确、清晰的中文技术文档。";
     private const string SystemPromptArchitect = "你是资深软件架构师，擅长为代码仓库规划文档结构。";
 
@@ -41,6 +45,7 @@ public class WikiService : IWikiService
     private readonly IBackgroundTaskQueue _taskQueue;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<WikiService> _logger;
+    private readonly CompressionPipelineService _compression;
 
     public WikiService(
         IUnitOfWork unitOfWork,
@@ -49,7 +54,8 @@ public class WikiService : IWikiService
         IWorkCommandRunnerFactory runnerFactory,
         IBackgroundTaskQueue taskQueue,
         ILlmUsageRecorder usageRecorder,
-        ILogger<WikiService> logger)
+        ILogger<WikiService> logger,
+        CompressionPipelineService compression)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
@@ -58,16 +64,33 @@ public class WikiService : IWikiService
         _taskQueue = taskQueue;
         _usageRecorder = usageRecorder;
         _logger = logger;
+        _compression = compression;
     }
 
-    /// <summary>Wiki 生成统一记用量：非流式接口拿不到 usage，按输入规模估算</summary>
-    private Task RecordWikiUsageAsync(string prompt, string? preview, Guid? projectId, CancellationToken ct)
+    /// <summary>
+    /// Wiki 请求日志：输入=压缩前估算，压缩后=实际发送 prompt；
+    /// 输出/总计取 Provider 上报的用量（SSE usage 帧），并附本次延迟。
+    /// </summary>
+    private Task RecordWikiUsageAsync(
+        string prompt, int inputTokens, string? preview, Guid? projectId, LlmCallResult result, CancellationToken ct)
         => _usageRecorder.RecordAsync(
-            LlmUsageSources.Wiki, null,
+            LlmUsageSources.Wiki,
+            result.Usage,
             refId: projectId,
-            inputTokens: LlmTokenEstimator.Estimate(prompt),
+            inputTokens: inputTokens,
+            compressedTokens: LlmTokenEstimator.Estimate(prompt),
+            latencyMs: (int)result.ElapsedMs,
             contentPreview: preview,
             ct: ct);
+
+    /// <summary>压缩前输入估算 = 实际发送 prompt + 被压缩部分（原始 − 压缩后）的增量</summary>
+    private static int EstimateBeforeCompression(string prompt, params (string Raw, string Sent)[] parts)
+    {
+        var tokens = LlmTokenEstimator.Estimate(prompt);
+        foreach (var (raw, sent) in parts)
+            tokens += LlmTokenEstimator.Estimate(raw) - LlmTokenEstimator.Estimate(sent);
+        return tokens;
+    }
 
     #region 查询
 
@@ -372,12 +395,7 @@ public class WikiService : IWikiService
                     await Task.Delay(RetryBackoff, cancellationToken);
                     continue;
                 }
-                // 代码围栏成对却仍未闭合 = 模型输出被截断，续写一次把剩余内容补回来
-                if (CountFences(page.Content) % 2 == 1)
-                {
-                    var tail = await ContinueTruncatedAsync(provider, page.Content, cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(tail)) page.Content += tail;
-                }
+                // 输出截断的续写已并入 BuildPageAsync（SSE 检测结束原因 + 围栏检查，多次续写到真正结束）
                 return page.Content;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -407,42 +425,64 @@ public class WikiService : IWikiService
         return sb.ToString().Trim();
     }
 
-    /// <summary>续写被截断的内容：从截断处接着输出，避免重复已有部分</summary>
-    private async Task<string> ContinueTruncatedAsync(ILLMProvider provider, string existing, CancellationToken cancellationToken)
+    /// <summary>续写提示：携带全部已有内容（不截断），从截断处继续输出</summary>
+    private static string BuildContinuePrompt(string existing) => $"""
+        以下是一篇 Wiki 文档已生成的内容，输出在末尾被截断（可能停在句子中途或未闭合的代码块内）。
+        请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释，保持原有格式续写下去。
+        若停在代码块内，请先补全该代码块（含收尾的 ```）。
+
+        【已有内容】
+        {existing}
+        """;
+
+    /// <summary>
+    /// 流式生成正文并按需多次续写：结束原因为 length/max_tokens（被输出上限截断）
+    /// 或代码围栏未闭合时，携带全部已有内容继续生成，直到真正结束——不截断，避免生成不全。
+    /// 每一轮（含续写）各记一条请求日志：输入/压缩后/输出/总计/延迟。
+    /// </summary>
+    private async Task<string> GenerateContinuedAsync(
+        ILLMProvider provider, string initialPrompt, string systemPrompt,
+        int inputTokens, string? preview, Guid? projectId, CancellationToken cancellationToken)
     {
-        try
+        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+        await RecordWikiUsageAsync(initialPrompt, inputTokens, preview, projectId, first, cancellationToken);
+        var full = first.Content;
+        var finish = first.Finish;
+
+        for (var round = 0; round < MaxContinueRounds; round++)
         {
-            // 注意：^0 在 C# 索引里等于长度（空区间），必须用「从起始位置」的索引取尾部
-            var tail = existing.Length > 6000 ? existing[^6000..] : existing;
-            var prompt = $"""
-                以下是一篇 Wiki 页面已生成的内容，输出在末尾被截断（最后的代码块没有闭合）。
-                请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释，保持原有格式续写下去。
-                若截断处位于代码块内，请先补全该代码块（含收尾的 ```）。
+            var truncatedByLimit = finish is "length" or "max_tokens";
+            if (!truncatedByLimit && CountFences(full) % 2 == 0) break;
 
-                【已有内容】
-                {tail}
-                """;
-            var content = await provider.CompleteAsync(prompt, new CompletionOptions
+            string more;
+            LlmCallResult result;
+            try
             {
-                ModelId = string.Empty,
-                SystemPrompt = SystemPromptDocEngineer,
-                MaxTokens = ContentMaxTokens,
-            }, cancellationToken);
+                var continuePrompt = BuildContinuePrompt(full);
+                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+                // 续写不再经过压缩管道：输入 = 压缩后 = 实际发送
+                await RecordWikiUsageAsync(continuePrompt, LlmTokenEstimator.Estimate(continuePrompt), null, projectId, result, cancellationToken);
+                more = result.Content;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Wiki 续写失败，保留已生成部分");
+                break;
+            }
 
-            await RecordWikiUsageAsync(prompt, null, null, cancellationToken);
-            if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(more)) break;
             // 模型偶尔会把提示词回显或拒答（「【已有内容】为空」之类），不能写进文档
-            if (content.Contains("【已有内容】") || content.Contains("未提供") || content.Contains("无法判断"))
+            if (more.Contains("【已有内容】") || more.Contains("未提供") || more.Contains("无法判断"))
             {
                 _logger.LogWarning("Wiki 续写返回了非内容文本，已丢弃");
-                return string.Empty;
+                break;
             }
-            return "\n" + content.Trim();
+            full += more.StartsWith("\n") ? more : "\n" + more;
+            finish = result.Finish;
+            if (round == MaxContinueRounds - 1)
+                _logger.LogWarning("Wiki 内容已达最大续写次数 {Max}，可能仍未生成完整", MaxContinueRounds);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return string.Empty;
-        }
+        return full;
     }
 
     public async Task<ApiResponse<WikiDocumentDto>> RegeneratePageAsync(Guid id, CancellationToken cancellationToken = default)
@@ -566,12 +606,13 @@ public class WikiService : IWikiService
         ILLMProvider provider, ManagedProject project, WikiSourceMaterial material, CancellationToken cancellationToken)
     {
         const string JsonSpec = "{\"chapters\":[{\"title\":\"章节标题（10字以内）\",\"pages\":[{\"title\":\"页面标题（12字以内）\",\"brief\":\"该页应涵盖的内容要点（60字以内）\"}]}]}";
+        var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
         var prompt = $"""
             项目名称：{project.Name}
             项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
 
             【项目资料】
-            {material.BaseContext}
+            {baseContext}
 
             请为该项目规划一套 Wiki 文档的章节与页面（DeepWiki 风格，父子级结构：章节为父级、页面为子级；总览页单独生成，不在此列）。
             按项目的真实结构划分 2-4 个章节，每章 1-3 个页面，总页面数 4-{MaxModulePages} 个。
@@ -582,14 +623,10 @@ public class WikiService : IWikiService
         List<WikiPagePlan> plans = [];
         try
         {
-            var response = await provider.CompleteAsync(prompt, new CompletionOptions
-            {
-                ModelId = string.Empty,
-                SystemPrompt = SystemPromptArchitect,
-                MaxTokens = 3072,
-            }, cancellationToken);
-
-            await RecordWikiUsageAsync(prompt, null, project.Id, cancellationToken);
+            var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
+            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 3072, cancellationToken);
+            await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
+            var response = planResult.Content;
             var outline = LlmJsonExtractor.Deserialize<WikiOutline>(response);
             if (outline != null)
             {
@@ -638,7 +675,9 @@ public class WikiService : IWikiService
         bool useSemantic,
         CancellationToken cancellationToken)
     {
-        var codeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, $"{plan.Title} {plan.Brief}", cancellationToken);
+        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, $"{plan.Title} {plan.Brief}", cancellationToken);
+        var codeContext = await _compression.CompressAlgorithmicAsync(rawCodeContext, cancellationToken);
+        var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
         var siblings = string.Join("、", siblingTitles.Where(t => t != plan.Title));
         var siblingLine = siblings.Length > 0 ? $"\n同套其他页面：{siblings}（可在正文中按名称相互引用）" : string.Empty;
 
@@ -648,7 +687,7 @@ public class WikiService : IWikiService
             项目目录：{project.DirectoryPath}
 
             【项目资料】
-            {material.BaseContext}
+            {baseContext}
             {codeContext}
             【本页任务】
             页面标题：{plan.Title}
@@ -663,14 +702,9 @@ public class WikiService : IWikiService
             6. 直接输出 Markdown 正文，不要用代码块包裹整篇内容。
             """;
 
-        var content = await provider.CompleteAsync(prompt, new CompletionOptions
-        {
-            ModelId = string.Empty,
-            SystemPrompt = SystemPromptDocEngineer,
-            MaxTokens = ContentMaxTokens,
-        }, cancellationToken);
-
-            await RecordWikiUsageAsync(prompt, plan.Title, project.Id, cancellationToken);
+        var inputTokens = EstimateBeforeCompression(prompt,
+            (material.BaseContext, baseContext), (rawCodeContext, codeContext));
+        var content = await GenerateContinuedAsync(provider, prompt, SystemPromptDocEngineer, inputTokens, plan.Title, project.Id, cancellationToken);
 
         return new WikiDocument { Title = plan.Title, Brief = plan.Brief, Content = content.Trim() };
     }
@@ -687,7 +721,9 @@ public class WikiService : IWikiService
     {
         // 章节 → 页面 的导航结构，供总览页列出真实目录
         var nav = BuildNavText(modulePages);
-        var codeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, "总体架构 核心组件 数据流", cancellationToken);
+        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, "总体架构 核心组件 数据流", cancellationToken);
+        var codeContext = await _compression.CompressAlgorithmicAsync(rawCodeContext, cancellationToken);
+        var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
 
         var prompt = $"""
             项目名称：{project.Name}
@@ -695,7 +731,7 @@ public class WikiService : IWikiService
             项目目录：{project.DirectoryPath}
 
             【项目资料】
-            {material.BaseContext}
+            {baseContext}
             {codeContext}
             【本套件包含以下章节与页面】
             {nav}
@@ -710,14 +746,9 @@ public class WikiService : IWikiService
 
         try
         {
-            var content = await provider.CompleteAsync(prompt, new CompletionOptions
-            {
-                ModelId = string.Empty,
-                SystemPrompt = SystemPromptDocEngineer,
-                MaxTokens = ContentMaxTokens,
-            }, cancellationToken);
-
-            await RecordWikiUsageAsync(prompt, project.Name, project.Id, cancellationToken);
+            var inputTokens = EstimateBeforeCompression(prompt,
+                (material.BaseContext, baseContext), (rawCodeContext, codeContext));
+            var content = await GenerateContinuedAsync(provider, prompt, SystemPromptDocEngineer, inputTokens, project.Name, project.Id, cancellationToken);
             if (!string.IsNullOrWhiteSpace(content))
                 return new WikiDocument { Title = project.Name, Content = content.Trim() };
         }

@@ -132,6 +132,8 @@ public class OpenAiLlmProvider : ILLMProvider
             var finishReason = choice?.FinishReason;
             if (finishReason != null)
             {
+                // 透传结束原因：length/max_tokens 表示被输出上限截断，消费方可据此续写
+                yield return JsonSerializer.Serialize(new { type = "finish", reason = finishReason }, JsonOptionsOut);
                 if (toolCallAccumulators.Count > 0)
                 {
                     var toolCalls = toolCallAccumulators.Values.Select((tc, i) => new LlmToolCall
@@ -152,6 +154,7 @@ public class OpenAiLlmProvider : ILLMProvider
         }
 
         // Stream ended without explicit finish_reason — emit any accumulated tool calls / usage
+        yield return JsonSerializer.Serialize(new { type = "finish", reason = "stop" }, JsonOptionsOut);
         if (toolCallAccumulators.Count > 0)
         {
             var toolCalls = toolCallAccumulators.Values.Select((tc, i) => new LlmToolCall

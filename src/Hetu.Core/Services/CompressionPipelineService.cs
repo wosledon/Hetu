@@ -124,8 +124,31 @@ public class CompressionPipelineService
     /// <see cref="CompressionPipelineDto.LlmThreshold"/> 时触发（短文本不值得多花一次模型调用）。
     /// </summary>
     public async Task<string> CompressAsync(string input, CancellationToken ct = default)
+        => await CompressCoreAsync(input, await GetConfigAsync(ct), allowLlm: true, ct);
+
+    /// <summary>
+    /// 单轮任务压缩（wiki 生成、知识图谱提取等）：只执行算法节点，
+    /// 即使配置为 llm/hybrid 也不触发 LLM 摘要——单轮输入不值得额外再花一次模型调用。
+    /// </summary>
+    public async Task<string> CompressAlgorithmicAsync(string input, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(input)) return input;
+
         var config = await GetConfigAsync(ct);
+        var hasAlgorithm = config.Enabled && config.Nodes.Any(n => n.Enabled && n.Key != "llm_summary");
+        if (!hasAlgorithm)
+        {
+            _logger.LogInformation("[Compression] 单轮任务：管道关闭或无启用算法节点，跳过压缩");
+            return input;
+        }
+
+        var result = await CompressCoreAsync(input, config, allowLlm: false, ct);
+        _logger.LogInformation("[Compression] 单轮任务算法压缩：{Before} → {After} 字符", input.Length, result.Length);
+        return result;
+    }
+
+    private async Task<string> CompressCoreAsync(string input, CompressionPipelineDto config, bool allowLlm, CancellationToken ct)
+    {
         if (string.IsNullOrWhiteSpace(input)) return input;
 
         // 总开关关闭或无任何节点启用则跳过
@@ -141,6 +164,11 @@ public class CompressionPipelineService
 
             if (node.Key == "llm_summary")
             {
+                if (!allowLlm)
+                {
+                    _logger.LogInformation("[Compression] 单轮任务：跳过 LLM 摘要（仅算法压缩）");
+                    continue;
+                }
                 if (config.Mode is not ("llm" or "hybrid"))
                 {
                     _logger.LogDebug("[Compression] 跳过 LLM 摘要：模式={Mode}（需 llm/hybrid）", config.Mode);

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Streaming;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Graph;
@@ -15,6 +16,7 @@ public class GraphService : IGraphService
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly IMemoryCache _cache;
+    private readonly CompressionPipelineService _compression;
     private const string GraphCacheKey = "graph_data";
 
     private const string CustomType = "custom";
@@ -41,12 +43,13 @@ public class GraphService : IGraphService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache)
+    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache, CompressionPipelineService compression)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
         _usageRecorder = usageRecorder;
         _cache = cache;
+        _compression = compression;
     }
 
     public async Task<ApiResponse<GraphDataDto>> GetGraphAsync(CancellationToken cancellationToken = default)
@@ -308,7 +311,8 @@ public class GraphService : IGraphService
         if (provider == null)
             return ApiResponse<ExtractGraphResultDto>.Fail("未找到可用的 LLM 模型");
 
-        var content = note.Content.Length > 4000 ? note.Content[..4000] : note.Content;
+        // 单轮提取：只过算法压缩（跳过 LLM 摘要），不截断——长笔记靠压缩瘦身，避免提取不全
+        var content = await _compression.CompressAlgorithmicAsync(note.Content, cancellationToken);
         var jsonExample = $$"""
             {
               "entities": [
@@ -336,19 +340,23 @@ public class GraphService : IGraphService
             - 只提取真正重要的实体和关系，不要过度提取
             """;
 
-        var response = await provider.ChatAsync(
-            [new LlmChatMessage { Role = "user", Content = prompt }],
-            new ChatOptions { ModelId = string.Empty, SystemPrompt = "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。" },
-            cancellationToken);
+        // SSE 调用：拿正文的同时取 Provider 用量（输出/总计）与延迟，供请求日志展示
+        var callResult = await LlmStreamCaller.CallAsync(
+            provider, prompt, "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。", maxTokens: null, cancellationToken);
 
         await _usageRecorder.RecordAsync(
-            LlmUsageSources.Graph, null,
+            LlmUsageSources.Graph,
+            callResult.Usage,
             refId: noteId,
-            inputTokens: LlmTokenEstimator.Estimate(prompt),
+            // 输入=压缩前估算（实际发送 + 被压缩的笔记内容增量），压缩后=实际发送 prompt
+            inputTokens: LlmTokenEstimator.Estimate(prompt)
+                + LlmTokenEstimator.Estimate(note.Content) - LlmTokenEstimator.Estimate(content),
+            compressedTokens: LlmTokenEstimator.Estimate(prompt),
+            latencyMs: (int)callResult.ElapsedMs,
             contentPreview: note.Title,
             ct: cancellationToken);
 
-        var extracted = ParseExtractionResult(response);
+        var extracted = ParseExtractionResult(callResult.Content);
         if (extracted == null)
             return ApiResponse<ExtractGraphResultDto>.Fail("无法解析 LLM 返回的结果");
 
