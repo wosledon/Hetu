@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Profiles;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.AI;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -82,28 +83,8 @@ public class ToolsController : ControllerBase
         return map;
     }
 
-    /// <summary>按名称推断功能分组，用于工具页归类与筛选</summary>
-    private static string ResolveGroup(string name)
-    {
-        if (name.StartsWith("work_", StringComparison.OrdinalIgnoreCase)) return "工作区与命令";
-        if (name.Contains("notebook", StringComparison.OrdinalIgnoreCase)) return "笔记本";
-        if (name.Contains("note", StringComparison.OrdinalIgnoreCase)) return "笔记";
-        if (name.Contains("tag", StringComparison.OrdinalIgnoreCase)) return "标签";
-        if (name.Contains("memor", StringComparison.OrdinalIgnoreCase)) return "记忆";
-        if (name.Contains("graph", StringComparison.OrdinalIgnoreCase)) return "知识图谱";
-        if (name.Contains("knowledge", StringComparison.OrdinalIgnoreCase)) return "知识库";
-        if (name.Contains("scheduled", StringComparison.OrdinalIgnoreCase)) return "定时任务";
-        if (name.Contains("kanban", StringComparison.OrdinalIgnoreCase)) return "任务看板";
-        if (name.Contains("wiki", StringComparison.OrdinalIgnoreCase)) return "Wiki";
-        if (name.Contains("workflow", StringComparison.OrdinalIgnoreCase)) return "工作流";
-        if (name.Contains("agent", StringComparison.OrdinalIgnoreCase)) return "智能体";
-        if (name.Contains("skill", StringComparison.OrdinalIgnoreCase)) return "技能";
-        if (name.Contains("project", StringComparison.OrdinalIgnoreCase)) return "项目";
-        if (name.Contains("inbox", StringComparison.OrdinalIgnoreCase)) return "收件箱";
-        if (name.Contains("usage", StringComparison.OrdinalIgnoreCase)) return "用量";
-        if (name.Contains("web", StringComparison.OrdinalIgnoreCase)) return "联网";
-        return "通用";
-    }
+    /// <summary>按名称推断功能分组，用于工具页归类与筛选（与系统提示索引、load_tools 分组共用同一套映射）</summary>
+    private static string ResolveGroup(string name) => ToolGroupMap.Resolve(name);
 
     private static string? Serialize(JsonElement schema)
         => schema.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? null : schema.GetRawText();

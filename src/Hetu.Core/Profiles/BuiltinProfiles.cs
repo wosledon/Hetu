@@ -40,11 +40,35 @@ public static class BuiltinProfiles
     ];
 
     /// <summary>
-    /// 两个会话人格共用同一份内置工具集：能力一致，差异只在是否挂载项目
-    /// （知识助手没有项目上下文，文件/命令类工具会提示需要先在 Code 视图打开项目）。
+    /// 知识助手（对话页）常驻工具：只保留最基础的本职能力 + 交互编排，其余一律按需 load_tools。
+    /// 文件与命令类工具需要项目作用域，对话页拿不到（会提示先到 Code 视图打开项目），因此不归入知识人格。
     /// </summary>
+    public static readonly string[] KnowledgeCoreTools =
+    [
+        // 交互编排
+        "ask_question", "todo", "plan", "load_tools",
+        // 本职基础：检索与写入笔记、记忆与联网
+        "search_notes", "read_note", "create_note", "update_note",
+        "search_memory", "create_memory", "search_web",
+    ];
+
+    /// <summary>Code 会话常驻工具：项目内最基础的读/写/搜索/命令 + 交互编排，其余（诊断、git、子 Agent、技能、项目/看板等）按需加载</summary>
+    public static readonly string[] WorkCoreTools =
+    [
+        // 交互编排
+        "ask_question", "todo", "plan", "load_tools",
+        // 基础代码工作
+        "work_list_dir", "work_read_file", "work_glob", "work_grep",
+        "work_apply_patch", "work_write_file", "work_run_command",
+    ];
+
+    /// <summary>知识工具 + 工作区工具（Code 会话与看板自动执行使用完整集合）</summary>
     private static HashSet<string> SharedTools() =>
-        new(KnowledgeTools.Concat(WorkspaceTools), StringComparer.OrdinalIgnoreCase);
+        new(KnowledgeTools.Concat(WorkspaceTools).Concat(["load_tools"]), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>知识助手人格的工具：不含工作区/文件/命令类（对话页没有项目作用域，这些工具只会报「先在 Code 视图打开项目」）</summary>
+    private static HashSet<string> KnowledgeOnlyTools() =>
+        new(KnowledgeTools.Concat(["load_tools"]), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>知识助手 —— 当前 Hetu 笔记/对话场景的默认人格</summary>
     public static readonly RuntimeProfile Knowledge = new()
@@ -79,7 +103,7 @@ public static class BuiltinProfiles
             - 不泄露 API Key、密码、Token 等敏感配置
             - 涉及破坏性操作（删除笔记、清空数据、覆盖文件）必须先用 ask_question 与用户确认
             """,
-        AllowedTools = SharedTools(),
+        AllowedTools = KnowledgeOnlyTools(),
         DeniedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
         },

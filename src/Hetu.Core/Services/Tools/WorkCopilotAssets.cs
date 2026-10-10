@@ -374,7 +374,7 @@ public static class WorkCopilotAssets
                 if (!string.IsNullOrWhiteSpace(agent.Model)) extras.Add($"model: {agent.Model}");
                 if (!string.IsNullOrWhiteSpace(agent.Tools)) extras.Add($"tools: {agent.Tools}");
                 var extra = extras.Count > 0 ? $"（{string.Join("，", extras)}）" : "";
-                sb.AppendLine($"- {agent.Name}{extra}: {agent.Description} [文件: {Relative(root, agent.FilePath)}]");
+                sb.AppendLine($"- {agent.Name}{extra}: {Shorten(agent.Description)} [文件: {Relative(root, agent.FilePath)}]");
             }
         }
 
@@ -384,7 +384,7 @@ public static class WorkCopilotAssets
             sb.AppendLine("### 提示词模板（.github/prompts）");
             sb.AppendLine("用户以 /模板名 形式触发（如 /review、/explain）时，先用 work_read_file 读取对应文件，严格按其中的步骤执行。");
             foreach (var prompt in assets.Prompts)
-                sb.AppendLine($"- /{prompt.Name}: {prompt.Description} [文件: {Relative(root, prompt.FilePath)}]");
+                sb.AppendLine($"- /{prompt.Name}: {Shorten(prompt.Description)} [文件: {Relative(root, prompt.FilePath)}]");
         }
 
         if (assets.Skills.Count > 0)
@@ -393,7 +393,7 @@ public static class WorkCopilotAssets
             sb.AppendLine("### 仓库技能（.github/skills）");
             sb.AppendLine("任务匹配某个技能的用途时，先用 work_read_file 读取对应 SKILL.md，再按其中的步骤执行。");
             foreach (var skill in assets.Skills)
-                sb.AppendLine($"- {skill.Name}: {skill.Description} [文件: {Relative(root, skill.FilePath)}]");
+                sb.AppendLine($"- {skill.Name}: {Shorten(skill.Description)} [文件: {Relative(root, skill.FilePath)}]");
         }
 
         return sb.ToString().TrimEnd();
@@ -417,6 +417,14 @@ public static class WorkCopilotAssets
     {
         var lines = text.Split('\n').Select(l => l.TrimEnd('\r'));
         return string.Join('\n', lines.Select(l => l.Length == 0 ? l : "  " + l));
+    }
+
+    /// <summary>资产索引里的描述压缩到一行：完整说明在文件里，索引只用于挑选（省系统提示占用）</summary>
+    private static string Shorten(string? text, int maxChars = 120)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var oneLine = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return oneLine.Length > maxChars ? oneLine[..maxChars] + "…" : oneLine;
     }
 
     private static IEnumerable<string> SafeEnumerateFiles(string dir, string searchPattern, bool recursive)
