@@ -928,11 +928,18 @@ export default function WorkSessionArea({
     } finally {
       streamRef.current = null
       setIsStreaming(false)
-      queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] })
-      queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
-      queryClient.invalidateQueries({ queryKey: ['workProjects'] })
-      queryClient.invalidateQueries({ queryKey: ['workFileChanges', session.id] })
-      queryClient.invalidateQueries({ queryKey: ['workCheckpoints', session.id] })
+      // 等消息列表回读（后端已落库）后再清空本轮输出，避免完成后正文瞬间消失
+      void Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] }),
+        queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['workProjects'] }),
+        queryClient.invalidateQueries({ queryKey: ['workFileChanges', session.id] }),
+        queryClient.invalidateQueries({ queryKey: ['workCheckpoints', session.id] }),
+      ]).then(() => {
+        if (streamRef.current) return // 期间已开始新一轮流，状态交给新一轮管理
+        setStreamItems((prev) => (prev.length > 0 ? [] : prev))
+        setLiveUsage((prev) => (prev === null ? prev : null))
+      })
       workSessionService.getById(session.id).then((s) => onSessionUpdated?.(s)).catch(() => {})
     }
   }
@@ -1152,23 +1159,24 @@ export default function WorkSessionArea({
             </div>
             )}
 
-            {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示（与对话页/任务看板共用 AgentTimeline） */}
-            {isStreaming && (
+            {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示（与对话页/任务看板共用 AgentTimeline）
+                流结束后保留到消息列表刷新，避免正文在落库回读前闪断 */}
+            {(isStreaming || streamItems.length > 0) && (
               <div className="space-y-2">
                 <AgentTimeline
                   items={fromWorkStreamItems(streamItems)}
-                  streaming
+                  streaming={isStreaming}
                   onOpenPath={onOpenFilePath}
                   onRunCommand={onRunCommand}
                   onInsertCode={(code) => onInsertCode?.(code)}
                   onApprove={(id, approved) => submitApproval(id, approved)}
                   onRestoreCheckpoint={(id) => restoreCheckpoint(id)}
-                  emptyHint={(
+                  emptyHint={isStreaming ? (
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       <Loader2 size={14} className="animate-spin" />
                       思考中...
                     </div>
-                  )}
+                  ) : null}
                 />
               </div>
             )}
