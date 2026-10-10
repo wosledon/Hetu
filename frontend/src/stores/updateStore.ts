@@ -12,10 +12,14 @@ interface UpdateState {
   error?: string
   /** 用户点了「稍后」：本次会话不再弹横幅 */
   dismissed: boolean
+  /** 更新面板是否打开（导航里的版本号点击打开） */
+  panelOpen: boolean
   check: (silent?: boolean) => Promise<void>
   install: () => Promise<void>
   restart: () => Promise<void>
   dismiss: () => void
+  openPanel: () => void
+  closePanel: () => void
 }
 
 /**
@@ -27,6 +31,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   info: null,
   downloaded: 0,
   dismissed: false,
+  panelOpen: false,
 
   check: async (silent = false) => {
     if (!updateService.supported()) return
@@ -58,4 +63,13 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   },
 
   dismiss: () => set({ dismissed: true }),
+
+  openPanel: () => {
+    set({ panelOpen: true })
+    // 打开面板即检查一次（正在下载/已安装时不打断当前流程）
+    const { status } = get()
+    if (status === 'idle' || status === 'up-to-date' || status === 'error') void get().check()
+  },
+
+  closePanel: () => set({ panelOpen: false }),
 }))
