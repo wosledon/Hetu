@@ -124,6 +124,16 @@ export default function KanbanPage() {
   const { data: board, isLoading, isRefetching } = useQuery({
     queryKey: ['kanban-board'],
     queryFn: kanbanTaskService.getBoard,
+    // 有执行中或待自动处理的任务时轮询，状态流转实时反映到看板
+    refetchInterval: (query) => {
+      const b = query.state.data
+      if (!b) return false
+      const busy = COLUMN_STATUSES.some((s) => columnTasks(b, s).some((t) =>
+        t.lastRunStatus === 'Running' || t.lastRunStatus === 'WaitingAnswer'
+        || (t.hasAutomation && (t.status === 'Todo' || t.status === 'InProgress'))
+      ))
+      return busy ? 3000 : false
+    },
   })
 
   // 任务可绑定的项目 / 专业智能体 / 工作流
