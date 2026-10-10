@@ -120,6 +120,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [input, setInput] = useState('')
+  /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
+  const [pastedBlock, setPastedBlock] = useState('')
   const topicId = topic?.id
   // 会话级配置：从缓存恢复（组件以 key=topic.id 重挂载，切会话自动换缓存）
   const cachedSettings = useMemo(() => loadTopicSettings(topicId), [topicId])
@@ -522,12 +524,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       await compactContext()
       return
     }
-    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0) || isStreaming) return
+    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0 && !pastedBlock) || isStreaming) return
 
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
-    const content = (slashPrefix + input.trim()).trim()
+    const typed = (slashPrefix + input.trim()).trim()
+    // 折叠的长文本块排在正文前（粘贴日志后通常还要写一句需求）
+    const content = [pastedBlock, typed].filter(Boolean).join('\n\n')
     const mentions = selectedMentions.map(m => ({ type: m.type, id: m.id }))
     setInput('')
+    setPastedBlock('')
     setSelectedSlashItem(null)
     setSelectedMentions([])
     setInputMenu(null)
@@ -1221,7 +1226,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           }
           streaming={isStreaming}
           onStop={handleStop}
-          canSubmit={!!input.trim() || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
+          canSubmit={!!input.trim() || !!pastedBlock || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
+          block={pastedBlock}
+          onBlockChange={setPastedBlock}
           hint="Shift + Enter 换行 · 支持粘贴文件"
           trailing={
             <AgentContextUsage

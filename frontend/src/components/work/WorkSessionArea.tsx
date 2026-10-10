@@ -182,6 +182,8 @@ export default function WorkSessionArea({
   const queryClient = useQueryClient()
   const confirmRef = useRef(useConfirm())
   const [input, setInput] = useState('')
+  /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
+  const [pastedBlock, setPastedBlock] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
@@ -677,7 +679,9 @@ export default function WorkSessionArea({
   }
 
   const handleSend = async () => {
-    const content = input.trim()
+    // 折叠的长文本块排在正文前（粘贴日志后通常还要写一句需求）
+    const content = [pastedBlock, input.trim()].filter(Boolean).join('\n\n')
+    setPastedBlock('')
     // /compress 命令：调用当前模型压缩上下文，不发消息
     if (content === '/compress') {
       setInput('')
@@ -1362,7 +1366,9 @@ export default function WorkSessionArea({
           placeholder="描述你要完成的开发任务，/ 用模板或技能，@ 引用笔记、文件或智能体（↑ 回溯历史输入）"
           streaming={isStreaming}
           onStop={() => streamRef.current?.abort()}
-          canSubmit={!!session && (!!input.trim() || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
+          canSubmit={!!session && (!!input.trim() || !!pastedBlock || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
+          block={pastedBlock}
+          onBlockChange={setPastedBlock}
           history={inputHistory}
           hint="Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦"
           toolbar={
