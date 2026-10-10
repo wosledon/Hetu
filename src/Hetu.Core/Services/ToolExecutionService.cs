@@ -56,12 +56,12 @@ public class SessionPendingState
 /// <summary>用户对计划工具的决策：批准 / 驳回（可附修改意见）。</summary>
 public record PlanDecision(bool Approved, string Feedback)
 {
-    /// <summary>回传给模型的自然语言结论。</summary>
-    public string ToToolResult() => Approved
-        ? "用户已批准该计划，请严格按照计划的步骤依次执行。"
+    /// <summary>回传给模型的自然语言结论（文案走 i18n，随界面语言切换）</summary>
+    public string ToToolResult(ILocalizer localizer) => Approved
+        ? localizer.T("toolExec.planApproved")
         : string.IsNullOrWhiteSpace(Feedback)
-            ? "用户驳回了该计划，未给出原因。请修改计划后重新提交，不要继续执行。"
-            : $"用户驳回了该计划，修改意见：{Feedback}。请按意见调整后重新提交计划。";
+            ? localizer.T("toolExec.planRejectedNoReason")
+            : localizer.T("toolExec.planRejectedWithFeedback", Feedback);
 }
 
 /// <summary>
@@ -74,13 +74,15 @@ public class ToolExecutionService
 {
     private readonly ILogger<ToolExecutionService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILocalizer _localizer;
 
     private readonly Session<SessionPendingState> _sessions = new();
 
-    public ToolExecutionService(ILogger<ToolExecutionService> logger, IServiceScopeFactory scopeFactory)
+    public ToolExecutionService(ILogger<ToolExecutionService> logger, IServiceScopeFactory scopeFactory, ILocalizer localizer)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _localizer = localizer;
     }
 
     /// <summary>Submit an answer to a pending ask_question in the given session.</summary>
@@ -198,7 +200,7 @@ public class ToolExecutionService
                 var decision = decideToolCall(toolCall, approval);
                 if (!decision.Allowed)
                 {
-                    var denyMessage = decision.DenyMessage ?? $"工具 \"{toolCall.Name}\" 被权限策略拒绝。";
+                    var denyMessage = decision.DenyMessage ?? _localizer.T("toolExec.denied", toolCall.Name);
                     await writeJsonAsync(new
                     {
                         type = "tool_result",
@@ -228,7 +230,7 @@ public class ToolExecutionService
             }
             else
             {
-                resultContent = $"未找到工具: {toolCall.Name}";
+                resultContent = _localizer.T("toolExec.notFound", toolCall.Name);
                 isError = true;
             }
 
@@ -269,7 +271,7 @@ public class ToolExecutionService
         }
         catch (TimeoutException)
         {
-            return ($"用户未在规定时间内确认工具 \"{toolCall.Name}\" 的执行，已跳过。", true);
+            return (_localizer.T("toolExec.approvalTimeout", toolCall.Name), true);
         }
         finally
         {
@@ -277,12 +279,12 @@ public class ToolExecutionService
         }
 
         if (!approved)
-            return ($"用户拒绝了工具 \"{toolCall.Name}\" 的执行。", true);
+            return (_localizer.T("toolExec.userDenied", toolCall.Name), true);
 
         if (executor != null)
             return await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct);
 
-        return ($"未找到工具: {toolCall.Name}", true);
+        return (_localizer.T("toolExec.notFound", toolCall.Name), true);
     }
 
     private async Task<(string content, bool isError)> ExecuteSingleToolAsync(
@@ -315,7 +317,7 @@ public class ToolExecutionService
         }
         catch (Exception ex)
         {
-            return ($"工具执行失败: {ex.Message}", true);
+            return (_localizer.T("toolExec.failed", ex.Message), true);
         }
     }
 
@@ -343,7 +345,7 @@ public class ToolExecutionService
         }
         catch (TimeoutException)
         {
-            return ("用户未在规定时间内回答，跳过此问题。", false);
+            return (_localizer.T("toolExec.questionTimeout"), false);
         }
         finally
         {
@@ -366,11 +368,11 @@ public class ToolExecutionService
         try
         {
             var decision = await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
-            return (decision.ToToolResult(), false);
+            return (decision.ToToolResult(_localizer), false);
         }
         catch (TimeoutException)
         {
-            return ("用户未在规定时间内确认计划，按驳回处理。请简化计划或直接执行最必要的步骤。", false);
+            return (_localizer.T("toolExec.planTimeout"), false);
         }
         finally
         {
@@ -444,17 +446,17 @@ public class ToolExecutionService
         });
 
         if (sessionTodos.Count == 0)
-            return ("当前工作计划为空。使用 action=create 创建步骤。", false);
+            return (_localizer.T("toolExec.planEmpty"), false);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"当前工作计划（共 {sessionTodos.Count} 个步骤）：");
+        sb.AppendLine(_localizer.T("toolExec.planHeader", sessionTodos.Count));
         foreach (var t in sessionTodos)
         {
             var mark = t.Status switch
             {
-                "completed" => "[已完成]",
-                "in-progress" => "[进行中]",
-                _ => "[未开始]"
+                "completed" => _localizer.T("toolExec.statusDone"),
+                "in-progress" => _localizer.T("toolExec.statusInProgress"),
+                _ => _localizer.T("toolExec.statusTodo")
             };
             sb.AppendLine($"  - id={t.Id} {mark} {t.Title}");
         }
@@ -463,12 +465,12 @@ public class ToolExecutionService
         if (next != null)
         {
             sb.AppendLine();
-            sb.AppendLine($"下一步：开始执行 \"{next.Title}\"（id={next.Id}）。先调用 todo(action=update, id={next.Id}, status=in-progress)，做完后调用 todo(action=complete, id={next.Id})。");
+            sb.AppendLine(_localizer.T("toolExec.planNext", next.Title, next.Id));
         }
         else
         {
             sb.AppendLine();
-            sb.AppendLine("所有步骤已完成。");
+            sb.AppendLine(_localizer.T("toolExec.planAllDone"));
         }
 
         return (sb.ToString(), false);

@@ -3,6 +3,12 @@ export default {
     title: '设置',
     subtitle: '管理应用偏好、导航、默认模型、供应商与数据存储',
   },
+  language: {
+    title: '界面语言',
+    desc: '界面文案、后端提示与 AI 回复都会跟随这个设置',
+    zhDesc: '中文界面与提示',
+    enDesc: 'English UI and messages',
+  },
   sections: {
     app: '应用设置',
     appDesc: '名称、主题、图谱',

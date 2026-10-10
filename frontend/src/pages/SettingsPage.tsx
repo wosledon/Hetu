@@ -54,6 +54,12 @@ const navStyleOptions = [
   { key: 'vertical' as NavStyle, labelKey: 'app.navStyleVertical', descKey: 'app.navStyleVerticalDesc', icon: GalleryVerticalEnd },
 ]
 
+/** 语言选项：名称用各自语言书写（中/English），与主题卡片同一套视觉 */
+const languageOptions = [
+  { key: 'zh' as const, labelKey: 'common:languageZh', descKey: 'language.zhDesc', badge: '中' },
+  { key: 'en' as const, labelKey: 'common:languageEn', descKey: 'language.enDesc', badge: 'EN' },
+]
+
 const configurableNavItems = [
   { path: '/tags', labelKey: 'navigation.items.tags', icon: Tag },
   { path: '/agents', labelKey: 'navigation.items.agents', icon: Bot },
@@ -460,21 +466,41 @@ function AppSettingsSection({
 
       {/* Language Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('common:language')}</label>
-        <div className="flex max-w-md gap-3">
-          {([['zh', t('common:languageZh')], ['en', t('common:languageEn')]] as const).map(([key, label]) => {
-            const isActive = language === key
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings:language.title')}</label>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('settings:language.desc')}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {languageOptions.map((opt) => {
+            const isActive = language === opt.key
             return (
               <button
-                key={key}
-                onClick={() => onLanguageChange(key)}
-                className={`flex flex-1 items-center justify-center rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                key={opt.key}
+                onClick={() => onLanguageChange(opt.key)}
+                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 text-blue-700 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-200'
-                    : 'border-gray-200/80 text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-300 dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                {label}
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  {opt.badge}
+                </div>
+                <div className="text-center">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {t(opt.labelKey)}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    {t('app.current')}
+                  </div>
+                )}
               </button>
             )
           })}

@@ -363,6 +363,7 @@ Closes #42
 - 后端：`ILocalizer`（`T("区域.键", args)`），文案放 `src/Hetu.Infrastructure/Localization/Locales/{zh,en}/*.json`（嵌入资源，按区域拆文件）
   - 语言解析顺序：请求头 `Accept-Language` → 应用设置 `Language`（`ILanguagePreference`，启动时由 `LanguageWarmupService` 预热）→ 中文
   - 缺失键回退中文，再回退键名本身，便于增量补齐
+  - `ILocalizer` 注册为**单例**（只依赖 `IHttpContextAccessor` 与 `ILanguagePreference`），因此单例服务（如 `ModelCatalogService`、`ToolExecutionService`）也能直接注入使用
 - AI 回复语言跟随该设置：`PromptComposer` 注入「回复语言」段落
 
 #### 辅助功能

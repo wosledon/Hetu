@@ -3,6 +3,12 @@ export default {
     title: 'Settings',
     subtitle: 'Manage app preferences, navigation, default models, providers, and data storage',
   },
+  language: {
+    title: 'Interface language',
+    desc: 'Interface copy, backend messages, and AI replies all follow this setting',
+    zhDesc: 'Chinese UI and messages',
+    enDesc: 'English UI and messages',
+  },
   sections: {
     app: 'App settings',
     appDesc: 'Name, theme, graph',
