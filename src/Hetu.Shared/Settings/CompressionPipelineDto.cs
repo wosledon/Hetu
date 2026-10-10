@@ -33,7 +33,7 @@ public static class CompressionDefaults
         LlmThreshold = 500,
         Nodes = new List<CompressionNodeDto>
         {
-            new() { Key = "dedup", Label = "去重合并", Description = "移除重复行和段落，保留首次出现", Enabled = true, Order = 1 },
+            new() { Key = "dedup", Label = "去重合并", Description = "去除重复段落、重复行与行内重复句，保留首次出现", Enabled = true, Order = 1 },
             new() { Key = "whitespace", Label = "格式压缩", Description = "去除多余空格、换行和缩进", Enabled = true, Order = 2 },
             new() { Key = "number_normalize", Label = "数字归一化", Description = "将数字替换为占位符，减少变化", Enabled = true, Order = 3 },
             new() { Key = "log_dedup", Label = "日志去重", Description = "识别并折叠重复的日志模式", Enabled = true, Order = 4 },
