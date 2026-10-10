@@ -61,6 +61,8 @@ public static class BuiltinProfiles
         // 基础代码工作
         "work_list_dir", "work_read_file", "work_glob", "work_grep",
         "work_apply_patch", "work_write_file", "work_run_command",
+        // 项目记忆检索：Code 会话经常需要回忆项目约定/技术栈（注入之外按需主动检索）
+        "search_memory",
     ];
 
     /// <summary>知识工具 + 工作区工具（Code 会话与看板自动执行使用完整集合）</summary>

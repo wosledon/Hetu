@@ -53,6 +53,8 @@ public class SearchMemoryTool : IToolExecutor
             {
                 id = m.Id,
                 content = m.Content,
+                scope = m.Scope,
+                projectName = m.ProjectName,
                 category = m.Category,
                 importance = m.Importance,
                 score = m.Score,

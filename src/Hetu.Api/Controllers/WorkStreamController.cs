@@ -38,6 +38,7 @@ public class WorkStreamController : ControllerBase
     private readonly MentionContextBuilder _mentionContext;
     private readonly ChatContextInjector _contextInjector;
     private readonly ContextCompactionService _contextCompaction;
+    private readonly IMemoryService _memoryService;
     private readonly ILogger<WorkStreamController> _logger;
 
     public WorkStreamController(
@@ -55,6 +56,7 @@ public class WorkStreamController : ControllerBase
         MentionContextBuilder mentionContext,
         ChatContextInjector contextInjector,
         ContextCompactionService contextCompaction,
+        IMemoryService memoryService,
         ILogger<WorkStreamController> logger)
     {
         _unitOfWork = unitOfWork;
@@ -71,6 +73,7 @@ public class WorkStreamController : ControllerBase
         _mentionContext = mentionContext;
         _contextInjector = contextInjector;
         _contextCompaction = contextCompaction;
+        _memoryService = memoryService;
         _logger = logger;
     }
 
@@ -203,8 +206,10 @@ public class WorkStreamController : ControllerBase
         ChatContextInjector.AttachImages(request.Images, provider, chatMessages);
 
         // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件
+        // 记忆作用域：Code 会话按关联的受管项目注入「全局 ∪ 该项目」记忆（未关联项目则只有全局）
         await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, provider, ct);
+            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, provider,
+            topicId: null, projectId: project.ManagedProjectId, ct);
 
         var profile = BuiltinProfiles.Work;
         var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
@@ -435,6 +440,11 @@ public class WorkStreamController : ControllerBase
         try { await _unitOfWork.SaveChangesAsync(ct); } catch { }
 
         await writer.WriteJsonAsync(new { type = "done" });
+
+        // 自动项目记忆：Code 会话累计到阈值后提取项目级事实，写入该会话关联项目的项目作用域。
+        // 放在 done 之后执行——不阻塞前端收尾；失败不影响本轮结果（与对话侧的自动提取同一节奏）。
+        try { await _memoryService.TryAutoExtractWorkAsync(sessionId, CancellationToken.None); }
+        catch (Exception ex) { Log.Debug(ex, "[WorkStream] 自动项目记忆提取失败"); }
     }
 
     /// <summary>

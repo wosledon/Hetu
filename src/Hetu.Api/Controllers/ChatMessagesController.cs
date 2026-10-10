@@ -207,7 +207,7 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        var (searchJson, kbJson, memJson) = await InjectRagAsync(request, chatMessages, writer, provider, ct);
+        var (searchJson, kbJson, memJson) = await InjectRagAsync(topicId, request, chatMessages, writer, provider, ct);
         await InjectMentionsAsync(request, chatMessages, writer, ct);
 
         var profile = BuiltinProfiles.Knowledge;
@@ -680,10 +680,12 @@ public class ChatMessagesController : ControllerBase
     }
 
     private async Task<(string? search, string? knowledge, string? memory)> InjectRagAsync(
-        SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider, CancellationToken ct)
+        Guid topicId, SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider, CancellationToken ct)
     {
+        // 对话会话：记忆作用域 = 全局 ∪ 当前会话（对话话题没有项目绑定）
         var result = await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, messages, writer, provider, ct);
+            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, messages, writer, provider,
+            topicId, projectId: null, ct);
         return (result.SearchJson, result.KnowledgeJson, result.MemoryJson);
     }
 

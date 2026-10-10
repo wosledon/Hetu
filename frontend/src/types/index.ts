@@ -399,11 +399,17 @@ export interface ICreateScheduledTaskRequest {
 
 export type IUpdateScheduledTaskRequest = ICreateScheduledTaskRequest;
 
+/** 记忆作用域：Global 全局公共 / Session 会话私有 / Project 项目内 */
+export type MemoryScope = 'Global' | 'Session' | 'Project';
+
 export interface IMemory {
   id: string;
   content: string;
   source: string;
   topicId?: string;
+  scope: MemoryScope;
+  projectId?: string;
+  projectName?: string;
   category?: string;
   importance: number;
   accessCount: number;
@@ -411,6 +417,16 @@ export interface IMemory {
   createdAt: string;
   updatedAt: string;
   score?: number;
+}
+
+/** Dream 记忆巩固的执行结果 */
+export interface IDreamResult {
+  ranAt: string;
+  merged: number;
+  decayed: number;
+  forgotten: number;
+  remaining: number;
+  durationMs: number;
 }
 
 /* ─── 任务看板 ─── */

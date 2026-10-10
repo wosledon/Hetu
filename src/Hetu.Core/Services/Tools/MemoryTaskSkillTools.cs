@@ -14,16 +14,18 @@ public class ListMemoriesTool : IToolExecutor
     public ListMemoriesTool(IMemoryService memoryService) => _memoryService = memoryService;
 
     public string Name => "list_memories";
-    public string Description => "浏览长期记忆列表（按分类查看，如偏好、习惯、事实）";
+    public string Description => "浏览长期记忆列表（按作用域/分类查看：Global 全局 / Session 会话 / Project 项目内）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
     public ToolRisk Risk => ToolRisk.Read;
-    public string? UsageGuideline => "用户问「你记得我什么 / 我的偏好设置」时调用；需要语义检索时改用 search_memory。";
+    public string? UsageGuideline => "用户问「你记得我什么 / 我的偏好设置 / 这个项目的约定」时调用；需要语义检索时改用 search_memory。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
         "type": "object",
         "properties": {
             "category": { "type": "string", "description": "按分类过滤（可选，如 preference、fact、habit）" },
+            "scope": { "type": "string", "description": "按作用域过滤（可选）：Global | Session | Project" },
+            "projectId": { "type": "string", "description": "按项目过滤（可选，配合 scope=Project）" },
             "limit": { "type": "integer", "description": "返回条数，默认 20，最大 50" }
         }
     }
@@ -40,18 +42,25 @@ public class ListMemoriesTool : IToolExecutor
 
             var limit = root.TryGetProperty("limit", out var l) ? Math.Clamp(l.GetInt32(), 1, 50) : 20;
             var category = root.TryGetProperty("category", out var c) ? c.GetString() : null;
+            var scope = root.TryGetProperty("scope", out var s) ? s.GetString() : null;
+            var projectId = root.TryGetProperty("projectId", out var p) && Guid.TryParse(p.GetString(), out var pid) ? pid : (Guid?)null;
 
-            var result = await _memoryService.GetAllAsync(1, limit, cancellationToken);
+            var result = await _memoryService.GetAllAsync(1, limit, scope, cancellationToken);
             if (!result.Success || result.Data == null)
                 return ToolExecutionResult.Error(result.Error ?? "获取记忆列表失败");
 
             var items = result.Data.Items
                 .Where(m => string.IsNullOrEmpty(category) || string.Equals(m.Category, category, StringComparison.OrdinalIgnoreCase))
+                .Where(m => projectId == null || m.ProjectId == projectId)
                 .Select(m => new
                 {
                     id = m.Id,
                     content = m.Content,
+                    scope = m.Scope,
+                    projectName = m.ProjectName,
                     category = m.Category,
+                    importance = m.Importance,
+                    lastAccessedAt = m.LastAccessedAt,
                     createdAt = m.CreatedAt
                 }).ToList();
 
