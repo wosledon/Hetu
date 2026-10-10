@@ -7,6 +7,7 @@ import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
 import { aiModelService, aiProviderService } from '../services/aiProviderService'
 import ThemedMarkdown from './ThemedMarkdown'
+import CollapsedLongText from './CollapsedLongText'
 import ChatMessageItem from './ChatMessageItem'
 import Select from './Select'
 
@@ -955,7 +956,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">你</span>
               </div>
               <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:bg-blue-950/30 dark:text-gray-100">
-                {pendingUserMessage}
+                <CollapsedLongText text={pendingUserMessage}>{pendingUserMessage}</CollapsedLongText>
               </div>
             </div>
           </div>

@@ -14,6 +14,7 @@ import { skillService } from '../../services/skillService'
 import { type InputCommandItem } from '../InputCommandMenu'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
+import CollapsedLongText from '../CollapsedLongText'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -1154,7 +1155,9 @@ export default function WorkSessionArea({
                 <User size={15} />
               </div>
               <div className="flex max-w-[85%] flex-col items-end">
-                <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">{pendingUser}</div>
+                <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
+                  <CollapsedLongText text={pendingUser}>{pendingUser}</CollapsedLongText>
+                </div>
               </div>
             </div>
             )}
@@ -1672,7 +1675,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
           </div>
         ) : (
           <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
-            {message.content}
+            <CollapsedLongText text={message.content}>{message.content}</CollapsedLongText>
           </div>
         )}
         {!editing && actions && <MessageActionBar message={message} actions={actions} />}
