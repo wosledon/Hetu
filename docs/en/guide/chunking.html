@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chunking &amp; vector index · Hetu</title>
+<meta name="description" content="Chunking and vector indexing in detail: LLM vs structural chunking (1500/200/100), write order and DELETE+INSERT on virtual tables, reusing vectors for unchanged chunks, three-level dimension resolution, and degradation paths that keep relational data intact.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/chunking.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/chunking.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Chunking &amp; vector index · Hetu">
+<meta property="og:description" content="Chunking and vector indexing in detail: LLM vs structural chunking (1500/200/100), write order and DELETE+INSERT on virtual tables, reusing vectors for unchanged chunks, three-level dimension resolution, and degradation paths that keep relational data intact.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/chunking.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/chunking.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html" aria-current="page">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Chunking &amp; vector index</h1>
+      <p class="lede">This pipeline turns "the text of a note, file or URL" into "retrievable chunks with vectors": chunk first, embed per chunk, then write both the relational tables and the <code>sqlite-vec</code> virtual tables. Every step can degrade, because the goal is <strong>indexing may be slow, but data must never be corrupted</strong>.</p>
+
+      <h2>Chunking strategy</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Preferred</td><td>With a chunk model configured and a working provider, LLM chunking runs (<code>ChunkMethod = llm</code>)</td></tr>
+          <tr><td>Fallback</td><td>No model, a failed call or an unparsable answer falls back to structural chunking (<code>ChunkMethod = structure</code>) splitting on headings and paragraphs</td></tr>
+          <tr><td>Structural values</td><td><code>MaxChunkSize = 1500</code>, <code>MinChunkSize = 200</code>, <code>OverlapSize = 100</code> characters</td></tr>
+          <tr><td>LLM constraints</td><td>The prompt asks for 300–1500 characters per chunk; text under 500 characters may return a single chunk</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Write order</h2>
+      <ol>
+        <li>Write <code>NoteChunks</code> keyed by knowledge item and chunk index (content, method, summary).</li>
+        <li>Embed each chunk and write <code>NoteChunkEmbeddings</code> (model, dimensions, timestamp) plus the vector itself.</li>
+        <li>Mirror into the <code>sqlite-vec</code> table (<code>vec_chunk_embeddings</code>); the virtual table <strong>does not support REPLACE</strong>, so rows are always deleted and re-inserted.</li>
+        <li>For single-chunk content an extra whole-note vector is written (<code>vec_note_embeddings</code>) so the note itself can be recalled directly.</li>
+      </ol>
+      <div class="note">Reuse: chunks whose content and summary are <strong>unchanged</strong> keep their existing vectors, so editing a note does not re-embed the whole document. The note-level check also repairs vectors that exist in the relational table but are missing from the <code>vec</code> table after an interrupted run.</div>
+
+      <h2>Dimension resolution</h2>
+      <table>
+        <thead><tr><th>Order</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>Dimensions</code> of the most recent embedding row (most trustworthy)</td></tr>
+          <tr><td>2</td><td>The model configured for the <code>embedding</code> purpose</td></tr>
+          <tr><td>3</td><td>Setting <code>Embedding:Dimensions</code> (default 1536)</td></tr>
+        </tbody>
+      </table>
+      <p>When a connection opens and the dimensions no longer match, the four <code>vec</code> tables (notes, chunks, memories, code) are dropped and rebuilt — that is the mechanism behind "change the embedding model and you must re-index".</p>
+
+      <h2>Failure and degradation</h2>
+      <table>
+        <thead><tr><th>Case</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>No embedding provider</td><td>The whole pipeline is skipped; no half-written data</td></tr>
+          <tr><td>LLM chunking fails</td><td>Falls back to structural chunking, so a flaky chunk model never loses the index</td></tr>
+          <tr><td><code>sqlite-vec</code> missing / table missing / dimension mismatch</td><td>Retrieval falls back to in-memory cosine similarity; <strong>relational data stays complete</strong></td></tr>
+          <tr><td>A single vector write fails</td><td>Logged; three consecutive failures in a batch abort that batch to avoid a cascade</td></tr>
+          <tr><td>Cancellation</td><td><code>OperationCanceledException</code> propagates and is not treated as a failure</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Observability</h2>
+      <ul>
+        <li>Log prefixes <code>[Chunk]</code> and <code>[KI Embed]</code>, including chunk method, chunk count, dimensions and failure reasons.</li>
+        <li><code>NoteChunkDto</code> exposes <code>ChunkIndex / ChunkMethod / HasEmbedding / Summary</code> for the chunk list and index status in the UI.</li>
+        <li>Background task types: <code>GenerateEmbedding</code> (notes) and <code>GenerateKnowledgeItemEmbedding</code> (files / URLs), with duration and errors visible on the Tasks page.</li>
+      </ul>
+
+      <h2>Practical notes</h2>
+      <ul>
+        <li>Chunking decides index quality: structural chunking splits on headings, so keep subheadings in long notes.</li>
+        <li>After switching embedding models you must re-index and update <code>Embedding:Dimensions</code>.</li>
+        <li>Vectors serve retrieval only; <code>NoteChunkEmbeddings</code> carries metadata and powers the fallback — both must be written.</li>
+        <li>Code chunks live in their own <code>vec_work_code_chunks</code> table and never interfere with note vectors.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+

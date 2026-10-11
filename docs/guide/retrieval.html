@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>知识图谱与 Wiki · Hetu</title>
-<meta name="description" content="知识图谱与 Wiki 详解：实体与关系抽取流程、类型清单、可视化操作、Wiki 生成材料与阶段、套件结构与任务记录。">
+<title>语义检索 · Hetu</title>
+<meta name="description" content="语义检索详解：笔记与分块两路召回与候选倍数（×3 / clamp ×5,20,200）、去重合并规则、结果投影（分块优先摘要、整篇 120 字）、四类消费方、失败降级与检索质量实践。">
 <meta name="theme-color" content="#4f46e5">
-<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/graph-wiki.html">
-<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/graph-wiki.html">
-<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/graph-wiki.html">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/retrieval.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/retrieval.html">
 <link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="知识图谱与 Wiki · Hetu">
-<meta property="og:description" content="知识图谱与 Wiki 详解：实体与关系抽取流程、类型清单、可视化操作、Wiki 生成材料与阶段、套件结构与任务记录。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/graph-wiki.html">
+<meta property="og:title" content="语义检索 · Hetu">
+<meta property="og:description" content="语义检索详解：笔记与分块两路召回与候选倍数（×3 / clamp ×5,20,200）、去重合并规则、结果投影（分块优先摘要、整篇 120 字）、四类消费方、失败降级与检索质量实践。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/retrieval.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -42,7 +42,7 @@
     <div class="header-actions">
       <span class="lang" role="group" aria-label="Language">
         <a href="#" aria-current="true">中文</a>
-        <a href="../en/guide/graph-wiki.html" title="English version">EN</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
       </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
@@ -65,7 +65,7 @@
       <li><a href="workspace.html">Agent 工作台</a></li>
       <li><a href="code-sessions.html">Code 会话</a></li>
       <li><a href="knowledge.html">知识库</a></li>
-      <li><a href="graph-wiki.html" aria-current="page">知识图谱与 Wiki</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
       <li><a href="memories.html">记忆与 Dream</a></li>
       <li><a href="organize.html">看板与自动化</a></li>
       <li><a href="extensions.html">扩展与集成</a></li>
@@ -84,84 +84,61 @@
       <li><a href="context.html">上下文与自动压缩</a></li>
       <li><a href="sse.html">SSE 事件协议</a></li>
       <li><a href="chunking.html">分块与向量索引</a></li>
-      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="retrieval.html" aria-current="page">语义检索</a></li>
     </ol>
   </aside>
     <div class="docs-body">
-      <h1>知识图谱与 Wiki</h1>
-      <p class="lede">两个把「零散内容」变成「结构化知识」的功能：图谱抽出实体与关系，Wiki 把项目资料写成成篇文档。</p>
+      <h1>语义检索</h1>
+      <p class="lede">检索在两条路上跑：<strong>sqlite-vec / pgvector 近似检索</strong>（快）与<strong>内存余弦相似度</strong>（兜底）。两条路都优先保证「不中断」，再保证「准」。</p>
 
-      <h2>知识图谱</h2>
-      <h3>抽取流程</h3>
-      <ol>
-        <li>在笔记编辑器点「提取图谱」，或对已有内容重新抽取。</li>
-        <li>LLM 从正文抽取实体（名称、类型）与关系（源实体、目标实体、关系类型），随后做去重与合并。</li>
-        <li>结果写入图谱表，同时生成一条后台任务记录（类型「知识图谱提取」），可查看耗时与状态。</li>
-      </ol>
-
-      <h3>实体与关系类型</h3>
+      <h2>两路召回</h2>
       <table>
-        <thead><tr><th>实体类型</th><th>说明</th></tr></thead>
+        <thead><tr><th>路径</th><th>实现</th></tr></thead>
         <tbody>
-          <tr><td>概念 / 技术 / 项目</td><td>默认内置类型，界面按类型着色区分</td></tr>
-          <tr><td>人物 / 组织</td><td>用于记录来源、团队、作者等</td></tr>
-          <tr><td>自定义</td><td>抽取时模型可给出其他类型</td></tr>
-        </tbody>
-      </table>
-      <table>
-        <thead><tr><th>关系类型</th><th>语义</th></tr></thead>
-        <tbody>
-          <tr><td>belongs-to</td><td>属于（子概念 → 父概念 / 项目）</td></tr>
-          <tr><td>related-to</td><td>相关（弱关联）</td></tr>
-          <tr><td>depends-on</td><td>依赖</td></tr>
-          <tr><td>contains</td><td>包含</td></tr>
-          <tr><td>compared-with</td><td>对比（常用于选型笔记）</td></tr>
-          <tr><td>custom</td><td>其他关系</td></tr>
+          <tr><td>笔记检索</td><td>先搜整篇笔记向量（<code>vec_note_embeddings</code>），再搜分块向量（<code>vec_chunk_embeddings</code>），两路各取 <code>topK × 3</code> 条候选</td></tr>
+          <tr><td>代码检索</td><td>独立的 <code>vec_work_code_chunks</code>；sqlite 侧候选量取 <code>clamp(topK × 5, 20, 200)</code>（抵消多项目共表的过滤损耗），PostgreSQL 侧用 <code>ORDER BY Vector &lt;=&gt; @query LIMIT topK</code></td></tr>
+          <tr><td>合并</td><td>同一知识项可能同时被笔记路与分块路命中：按 ID 去重，<strong>保留先出现的</strong>，最后截断到 <code>topK</code></td></tr>
+          <tr><td>回退</td><td>扩展缺失、虚表不存在、维度不符、无 pgvector → 内存余弦相似度</td></tr>
         </tbody>
       </table>
 
-      <h3>可视化操作</h3>
+      <h2>结果投影</h2>
       <table>
-        <thead><tr><th>操作</th><th>说明</th></tr></thead>
+        <thead><tr><th>来源</th><th>展示内容</th></tr></thead>
         <tbody>
-          <tr><td>缩放 / 平移</td><td>滚轮缩放、拖拽平移；提供重置视图按钮</td></tr>
-          <tr><td>搜索</td><td>按实体名过滤高亮；侧栏可按类型筛选</td></tr>
-          <tr><td>查看详情</td><td>点实体看它的关系列表与来源笔记，可直接跳回编辑器</td></tr>
-          <tr><td>统计</td><td>顶部显示实体总数与关系总数，以及各类型计数</td></tr>
+          <tr><td>分块命中</td><td>优先显示分块 <code>Summary</code>，没有摘要才截取正文片段</td></tr>
+          <tr><td>整篇命中</td><td>截取正文前 120 字</td></tr>
+          <tr><td>返回结构</td><td><code>Id / Title / ContentSnippet / UpdatedAt</code>——前端直接渲染命中列表，点击可跳转来源</td></tr>
         </tbody>
       </table>
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/04-graph.png" alt="知识图谱页：实体按类型着色，边表示关系"></div>
-      <span class="shot-hint">点图看原图</span>
 
-      <h2>Wiki 生成</h2>
-      <h3>输入材料</h3>
+      <h2>谁在用</h2>
       <ul>
-        <li>项目资料：README、目录结构、关键源码片段（按项目根目录扫描）。</li>
-        <li>可选叠加语义检索：从已索引内容里补充与模块相关的片段。</li>
-        <li>生成模型取「默认模型 → Wiki 生成」这一场景设置。</li>
+        <li><strong>对话输入框的「知识库」开关</strong>：召回结果作为上下文注入，并显示命中列表。</li>
+        <li><strong>知识库页「搜索测试」</strong>：输入查询、调 <code>TopK</code>（默认 10）、看命中片段与高亮，用来验证索引质量。</li>
+        <li><strong>Wiki 生成</strong>：用代码检索为每个模块页补充相关代码片段。</li>
+        <li><strong>模型主动调用</strong>：检索工具让模型自己决定何时检索（受权限模式与工具白名单约束）。</li>
       </ul>
 
-      <h3>生成阶段</h3>
+      <h2>失败与降级</h2>
       <table>
-        <thead><tr><th>阶段</th><th>产物</th></tr></thead>
+        <thead><tr><th>情况</th><th>行为</th></tr></thead>
         <tbody>
-          <tr><td>资料收集</td><td>读取 README 与目录，挑选代表文件</td></tr>
-          <tr><td>模块页</td><td>按模块生成多页文档（并发执行，可配置模块数上限与并发度）</td></tr>
-          <tr><td>总览页</td><td>汇总项目简介、结构、快速开始等（标题取项目名，排序置顶）</td></tr>
-          <tr><td>落库</td><td>一次生成 = 一个<strong>套件</strong>（<code>SetId</code>），页面带排序号</td></tr>
+          <tr><td>查询为空 / <code>topK ≤ 0</code></td><td>直接返回空结果</td></tr>
+          <tr><td>向量库不可用</td><td>回退内存计算（比较慢，但结果仍可用）</td></tr>
+          <tr><td>统计接口失败</td><td>返回 -1 表示「未知」，不阻塞页面</td></tr>
+          <tr><td>取消</td><td>透传，不吞异常</td></tr>
         </tbody>
       </table>
-      <p>整个过程是后台任务（类型 <code>WikiGenerate</code>），阶段与进度记录在任务里；失败时任务详情给出原因，可重跑。</p>
 
-      <h3>浏览</h3>
+      <h2>检索质量实践</h2>
       <ul>
-        <li>Wiki 页按套件分组：套件头显示项目名、生成时间、页数；「有更新」表示项目资料在生成后有变动。</li>
-        <li>套件内按排序展示：总览在前，其后是各模块页。</li>
-        <li>可在项目卡片上直接发起生成，生成完在 Wiki 页查看。</li>
+        <li>命中不准先看「索引管理」：该项是否已索引、分块数是否合理（1 块说明内容太短或被合并）。</li>
+        <li>多取候选再截断是刻意设计（笔记路 ×3、代码路 ×5）：去重与业务过滤会消耗候选，宁可多取。</li>
+        <li>合并时不做二次按分数重排：命中顺序即两条路的原始相似度顺序，避免「分数不可比」带来的抖动。</li>
+        <li>分块摘要质量直接影响命中片段的可读性——LLM 分块的价值主要在这里。</li>
       </ul>
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/07-wiki.png" alt="Wiki 页：按套件分组的生成结果与章节"></div>
-      <span class="shot-hint">点图看原图</span>
-    <div class="docs-pager"><a href="knowledge.html">← 知识库</a><a href="memories.html">记忆与 Dream →</a></div>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
     </div>
   </div>
 </main>
@@ -187,6 +164,10 @@
 </div>
 </body>
 </html>
+
+
+
+
 
 
 
