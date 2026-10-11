@@ -31,8 +31,6 @@ export default {
     searchPlaceholder: '搜索话题中的消息...',
     noMatchingMessages: '未找到匹配的消息',
     roleMe: '我',
-    emptyTitle: '开始对话',
-    emptyDescription: '在下方输入消息开始对话，或从左侧选择一个已有话题继续',
     deepThinking: '深度思考',
     thinkingNow: '思考中...',
     compacted: '已压缩 {{count}} 条早期消息为摘要（约 {{before}} → {{after}} tokens）',

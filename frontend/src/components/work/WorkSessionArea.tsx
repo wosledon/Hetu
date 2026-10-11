@@ -1043,8 +1043,22 @@ export default function WorkSessionArea({
 
   // 会话已开始（发过消息或已建好工作树）：工作区/分支固定，输入框里不再展示切换按钮
   const sessionStarted = messages.length > 0 || !!session.worktreePath || isStreaming
-  // 空会话：把起步引导放在消息区正中，而不是贴在顶部
+  // 空会话：起步引导与输入框一起居中展示
   const emptyConversation = messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0
+  // 空会话：只保留起步示例，与输入框一起居中（图标/标题/描述不展示）
+  const emptyStart = (
+    <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
+      {startPrompts.map((prompt) => (
+        <button
+          key={prompt}
+          onClick={() => sendPreset(prompt)}
+          className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+        >
+          {prompt}
+        </button>
+      ))}
+    </div>
+  )
 
   const usageTotal: UsageView = liveUsage ?? {
     promptTokens: session.promptTokens ?? 0,
@@ -1122,28 +1136,8 @@ export default function WorkSessionArea({
         )}
       </div>
 
-      {/* 消息区：瀑布流；空会话时把起步引导居中展示 */}
-      <div className={`flex-1 overflow-y-auto overflow-x-hidden ${emptyConversation ? 'flex' : ''}`}>
-        {emptyConversation ? (
-          <div className="m-auto max-w-md px-6 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/20">
-              <Bot size={28} className="text-white" />
-            </div>
-            <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('session.startTitle', { name: project?.name ?? '' })}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{t('session.startHint')}</p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
-              {startPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendPreset(prompt)}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
+      {/* 消息区：瀑布流；空会话时不占位，起步引导随输入框一起居中 */}
+      <div className={emptyConversation ? 'hidden' : 'flex-1 overflow-y-auto overflow-x-hidden'}>
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
           {olderCount > 0 && (
             <button
@@ -1281,8 +1275,10 @@ export default function WorkSessionArea({
 
           <div ref={messagesEndRef} />
         </div>
-        )}
       </div>
+
+      {/* 输入区：空会话时整块居中（起步引导作为 aboveInput 一起居中） */}
+      <div className={emptyConversation ? 'flex min-h-0 flex-1 flex-col justify-center pb-24' : 'contents'}>
 
 
         {/* 输入区：与对话页共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为编码会话独有 */}
@@ -1364,6 +1360,8 @@ export default function WorkSessionArea({
           ]}
           aboveInput={session ? (
             <>
+              {/* 空会话：起步引导与输入框一起居中 */}
+              {emptyConversation && emptyStart}
               {/* 上下文提示：自动压缩 / /compress 结果 */}
               {contextNotice && (
                 <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
@@ -1523,6 +1521,7 @@ export default function WorkSessionArea({
             </>
           }
         />
+      </div>
     </div>
     )
   }

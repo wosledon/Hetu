@@ -768,6 +768,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     )
   }
 
+  // 空会话：不展示图标/标题/描述，只把输入框居中
+  const emptyChat = messages.length === 0 && !isStreaming
+
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
       <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
@@ -926,16 +929,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
-      <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
-        {messages.length === 0 && !isStreaming && (
-          <div className="m-auto max-w-md text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
-              <Bot size={28} className="text-white" />
-            </div>
-            <h3 className="mb-1 text-lg font-medium text-gray-800 dark:text-gray-100">{t('messageArea.emptyTitle')}</h3>
-            <p className="text-sm text-gray-500">{t('messageArea.emptyDescription')}</p>
-          </div>
-        )}
+      <div className={emptyChat ? 'hidden' : 'flex flex-1 flex-col overflow-y-auto px-6 py-6'}>
         <div className="mx-auto max-w-3xl space-y-5">
           {messages.map((message) => (
             <ChatMessageItem
@@ -1110,7 +1104,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className={`border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900 ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
         {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
         {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
@@ -1404,7 +1398,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     </div>
   )
 }
-
 
 
 
