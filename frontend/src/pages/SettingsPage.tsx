@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,7 @@ import McpServerManager from '../components/McpServerManager'
 import CompressionSettings from '../components/CompressionSettings'
 import DreamSettings from '../components/DreamSettings'
 import WorktreeCleanupSettings from '../components/WorktreeCleanupSettings'
+import WorktreeLocationSettings from '../components/WorktreeLocationSettings'
 import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
@@ -20,7 +21,7 @@ import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'cost' | 'memory' | 'about'
+type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
   { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
@@ -32,6 +33,7 @@ const settingsSections = [
   { key: 'mcp', labelKey: 'sections.mcp', descKey: 'sections.mcpDesc', icon: Wrench },
   { key: 'database', labelKey: 'sections.database', descKey: 'sections.databaseDesc', icon: Database },
   { key: 'trash', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
+  { key: 'workspace', labelKey: 'sections.workspace', descKey: 'sections.workspaceDesc', icon: FolderGit2 },
   { key: 'about', labelKey: 'sections.about', descKey: 'sections.aboutDesc', icon: Info },
 ] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings }[]
 
@@ -288,9 +290,11 @@ export default function SettingsPage() {
                   {activeSection === 'cost' && <CompressionSettings />}
                   {activeSection === 'memory' && <DreamSettings />}
 
-                  {activeSection === 'trash' && (
+                  {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
+
+                  {activeSection === 'workspace' && (
                     <section className="space-y-8">
-                      <TrashSection onNavigate={navigate} />
+                      <WorktreeLocationSettings />
                       <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
                         <WorktreeCleanupSettings />
                       </div>

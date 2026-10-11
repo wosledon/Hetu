@@ -29,6 +29,8 @@ export const settingService = {
   getWorktreeCleanupConfig: () => get<WorktreeCleanupConfig>('/settings/worktree-cleanup'),
   setWorktreeCleanupConfig: (data: WorktreeCleanupConfig) => put<void>('/settings/worktree-cleanup', data),
   runWorktreeCleanup: () => post<WorktreeCleanupResult>('/settings/worktree-cleanup/run'),
+  getWorktreeConfig: () => get<WorktreeConfig>('/settings/worktree'),
+  setWorktreeConfig: (data: WorktreeConfig) => put<void>('/settings/worktree', data),
 };
 
 /** Dream（记忆巩固）配置：与后端 DreamConfigDto 对应 */
@@ -46,6 +48,16 @@ export interface DreamConfig {
   forgetBelowImportance: number;
   /** 最近一次执行时间（只读） */
   lastRunAt?: string;
+}
+
+/** Code 工作树位置配置：与后端 WorktreeConfigDto 对应 */
+export interface WorktreeConfig {
+  /** 工作树根目录；空字符串/未设置 = 仓库父目录下的 .hetu-worktrees */
+  rootDirectory?: string;
+  /** 实际生效的根目录（按第一个本地项目算，只读） */
+  exampleRoot?: string;
+  /** 实际生效的工作树路径示例（只读） */
+  examplePath?: string;
 }
 
 /** Code 工作树自动清理配置：与后端 WorktreeCleanupConfigDto 对应 */

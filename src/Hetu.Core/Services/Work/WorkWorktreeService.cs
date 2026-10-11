@@ -1,31 +1,76 @@
 using System.Diagnostics;
+using Hetu.Core.Interfaces;
 
 namespace Hetu.Core.Services.Work;
 
 /// <summary>
-/// Code 会话的独立工作树：放在仓库**同级**目录（<c>&lt;父目录&gt;/&lt;仓库名&gt;.hetu-worktrees/&lt;名字&gt;</c>），
-/// 不污染仓库、也无需用户维护 .gitignore。仅支持本地项目（SSH 项目直接跳过）。
+/// Code 会话的独立工作树位置解析。默认统一放在**仓库父目录下的一个文件夹**里
+/// （<c>&lt;父目录&gt;/.hetu-worktrees/&lt;仓库名&gt;/&lt;名字&gt;</c>），脏目录只有这一个，不会在父目录里
+/// 给每个仓库各堆一个 <c>&lt;仓库名&gt;.hetu-worktrees</c>；也可在设置里指定别的根目录。
 /// 名字由模型按用户首条消息决定（见 <see cref="WorktreeNameSuggester"/>），目录名与分支名同名。
 /// </summary>
 public class WorkWorktreeService
 {
-    /// <summary>工作树绝对路径（<paramref name="name"/> 既是目录名也是分支名）</summary>
-    public static string ResolvePath(string projectRoot, string name)
+    private const string LocationConfigKey = "WorktreeConfig";
+
+    /// <summary>父目录下统一存放工作树的文件夹名</summary>
+    private const string SharedFolderName = ".hetu-worktrees";
+
+    private readonly IAppSettingService _appSettings;
+
+    public WorkWorktreeService(IAppSettingService appSettings) => _appSettings = appSettings;
+
+    /// <summary>仓库名（用作统一文件夹下的子目录名）</summary>
+    public static string RepoName(string projectRoot)
     {
         var full = Path.GetFullPath(projectRoot);
-        var parent = Path.GetDirectoryName(full) ?? full;
-        var repo = Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        return Path.Combine(parent, $"{repo}.hetu-worktrees", name);
+        return Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     }
 
-    /// <summary>工作树根目录（<c>&lt;父目录&gt;/&lt;仓库名&gt;.hetu-worktrees</c>）</summary>
-    public static string ResolveRoot(string projectRoot)
+    /// <summary>仓库父目录</summary>
+    public static string ParentDirectory(string projectRoot)
     {
         var full = Path.GetFullPath(projectRoot);
-        var parent = Path.GetDirectoryName(full) ?? full;
-        var repo = Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        return Path.Combine(parent, $"{repo}.hetu-worktrees");
+        return Path.GetDirectoryName(full) ?? full;
     }
+
+    /// <summary>默认的统一工作树根目录：<c>&lt;仓库父目录&gt;/.hetu-worktrees</c></summary>
+    public static string DefaultRoot(string projectRoot)
+        => Path.Combine(ParentDirectory(projectRoot), SharedFolderName);
+
+    /// <summary>旧版默认位置：仓库同级的 <c>&lt;仓库名&gt;.hetu-worktrees</c>（现在只用于清理遗留目录）</summary>
+    public static string LegacyRoot(string projectRoot)
+        => Path.Combine(ParentDirectory(projectRoot), $"{RepoName(projectRoot)}.hetu-worktrees");
+
+    /// <summary>配置的工作树根目录（未配置时返回 null）</summary>
+    public async Task<string?> GetConfiguredRootAsync(CancellationToken cancellationToken = default)
+    {
+        var setting = await _appSettings.GetAsync(LocationConfigKey, cancellationToken);
+        var value = setting.Data?.Value;
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        try
+        {
+            var config = System.Text.Json.JsonSerializer.Deserialize<Hetu.Shared.Settings.WorktreeConfigDto>(value);
+            var root = config?.RootDirectory?.Trim();
+            return string.IsNullOrWhiteSpace(root) ? null : root;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>项目的工作树根目录：配置优先，其次仓库父目录下的统一文件夹（每个仓库一层子目录）</summary>
+    public async Task<string> ResolveRootAsync(string projectRoot, CancellationToken cancellationToken = default)
+    {
+        var configured = await GetConfiguredRootAsync(cancellationToken);
+        var baseRoot = string.IsNullOrWhiteSpace(configured) ? DefaultRoot(projectRoot) : Path.GetFullPath(configured);
+        return Path.Combine(baseRoot, RepoName(projectRoot));
+    }
+
+    /// <summary>工作树绝对路径（<paramref name="name"/> 既是目录名也是分支名）</summary>
+    public async Task<string> ResolvePathAsync(string projectRoot, string name, CancellationToken cancellationToken = default)
+        => Path.Combine(await ResolveRootAsync(projectRoot, cancellationToken), name);
 
     private static async Task<(int ExitCode, string Output)> RunGitAsync(string directory, string arguments, CancellationToken cancellationToken)
     {

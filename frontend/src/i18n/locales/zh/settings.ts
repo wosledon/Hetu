@@ -12,6 +12,8 @@ export default {
   sections: {
     app: '应用设置',
     appDesc: '名称、主题、图谱',
+    workspace: '工作区',
+    workspaceDesc: '工作树目录与自动清理',
     navigation: '导航菜单',
     navigationDesc: '顶部功能入口',
     models: '默认模型',
@@ -126,6 +128,18 @@ export default {
     title: '回收站',
     subtitle: '查看和管理已删除的笔记，可恢复或彻底删除',
     open: '打开回收站',
+  },
+  worktreeLocation: {
+    title: '工作树目录',
+    subtitle: 'Code 会话的独立工作树统一放在仓库父目录的 .hetu-worktrees 里（再按仓库名分子目录），父目录里只会多这一个文件夹，不会每个仓库旁边都堆一个；也可以指定别的根目录，软件自己管理下面的子目录。',
+    rootLabel: '工作树根目录',
+    placeholder: '留空 = 仓库父目录/.hetu-worktrees',
+    hint: '需要绝对路径，且不能放在某个仓库里面；目录不存在会自动创建。改动只影响之后新建的工作树，已有工作树仍在原位置直到被清理。',
+    reset: '默认',
+    resetTitle: '恢复为「仓库父目录/.hetu-worktrees」默认位置',
+    save: '保存',
+    exampleRoot: '示例根目录：{{path}}',
+    examplePath: '示例工作树：{{path}}',
   },
   worktreeCleanup: {
     title: 'Code 工作树自动清理',

@@ -52,6 +52,81 @@ public class SettingsController : ControllerBase
         return ApiResponse<CompressionPipelineDto>.Ok(config);
     }
 
+    /// <summary>Code 工作树位置配置：空 = 仓库父目录下的 .hetu-worktrees；指定后按「根目录/仓库名/工作树名」管理</summary>
+    [HttpGet("worktree")]
+    public async Task<ApiResponse<WorktreeConfigDto>> GetWorktreeConfig(CancellationToken ct)
+        => ApiResponse<WorktreeConfigDto>.Ok(await BuildWorktreeConfigAsync(ct));
+
+    [HttpPut("worktree")]
+    public async Task<ApiResponse> SetWorktreeConfig([FromBody] WorktreeConfigDto config, CancellationToken ct)
+    {
+        var root = config?.RootDirectory?.Trim();
+        if (!string.IsNullOrWhiteSpace(root))
+        {
+            if (!Path.IsPathFullyQualified(root))
+                return ApiResponse.Fail(_localizer.T("worktree.rootNotAbsolute"));
+            try
+            {
+                Directory.CreateDirectory(root);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+            {
+                return ApiResponse.Fail(_localizer.T("worktree.rootCreateFailed", root, ex.Message));
+            }
+
+            // 根目录落在仓库里会把工作树变成仓库内的未跟踪内容，直接拒绝
+            foreach (var project in await LoadLocalProjectsAsync(ct))
+            {
+                var repo = Path.GetFullPath(project.RootPath);
+                if (root.StartsWith(repo + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || string.Equals(root, repo, StringComparison.OrdinalIgnoreCase))
+                    return ApiResponse.Fail(_localizer.T("worktree.rootInsideRepo", project.Name));
+            }
+        }
+
+        await _appSettingService.SetAsync(new UpdateAppSettingRequest
+        {
+            Key = "WorktreeConfig",
+            Value = System.Text.Json.JsonSerializer.Serialize(new WorktreeConfigDto { RootDirectory = string.IsNullOrWhiteSpace(root) ? null : root })
+        }, ct);
+        return ApiResponse.Ok();
+    }
+
+    private async Task<WorktreeConfigDto> BuildWorktreeConfigAsync(CancellationToken ct)
+    {
+        var setting = await _appSettingService.GetAsync("WorktreeConfig", ct);
+        WorktreeConfigDto config = new();
+        if (!string.IsNullOrWhiteSpace(setting.Data?.Value))
+        {
+            try
+            {
+                config = System.Text.Json.JsonSerializer.Deserialize<WorktreeConfigDto>(setting.Data.Value) ?? new WorktreeConfigDto();
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // 配置损坏时按默认处理
+            }
+        }
+
+        var project = (await LoadLocalProjectsAsync(ct)).FirstOrDefault();
+        if (project != null)
+        {
+            var worktrees = HttpContext.RequestServices.GetRequiredService<Hetu.Core.Services.Work.WorkWorktreeService>();
+            var root = await worktrees.ResolveRootAsync(project.RootPath, ct);
+            config.ExampleRoot = root;
+            config.ExamplePath = await worktrees.ResolvePathAsync(project.RootPath, "fix-login-timeout", ct);
+        }
+        return config;
+    }
+
+    private async Task<List<Hetu.Core.Entities.WorkProject>> LoadLocalProjectsAsync(CancellationToken ct)
+    {
+        var unitOfWork = HttpContext.RequestServices.GetRequiredService<IUnitOfWork>();
+        var projects = await unitOfWork.WorkProjects.GetAllAsync(ct);
+        return projects
+            .Where(p => p.ConnectionType != "Ssh" && !string.IsNullOrWhiteSpace(p.RootPath))
+            .ToList();
+    }
+
     /// <summary>Dream（记忆巩固）配置：自动开关、周期与巩固阈值</summary>
     [HttpGet("dream")]
     public async Task<ApiResponse<DreamConfigDto>> GetDreamConfig(CancellationToken ct)
