@@ -338,6 +338,18 @@ export default {
       explainChanges: 'Explain the changes above',
     },
   },
+  gitSync: {
+    title: 'Git sync: pull / push',
+    ahead: '{{count}} commit(s) to push',
+    behind: '{{count}} commit(s) to pull',
+    uncommitted: '{{count}} uncommitted file(s)',
+    noUpstream: 'no upstream',
+    pull: 'Pull',
+    push: 'Push',
+    publish: 'Publish branch',
+    pullHint: 'Pull is fast-forward only; resolve conflicts in the terminal',
+    dismiss: 'Click to clear output',
+  },
   workspace: {
     title: 'Workspace',
     currentBranch: 'Current branch',

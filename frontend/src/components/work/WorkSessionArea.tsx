@@ -37,6 +37,7 @@ import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentModeSelect from '../agent/AgentModeSelect'
 import AgentContextUsage from '../agent/AgentContextUsage'
 import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
+import WorkGitSyncControl from './WorkGitSyncControl'
 import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
@@ -1365,6 +1366,7 @@ export default function WorkSessionArea({
           trailing={
             <div className="flex items-center gap-1">
               <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />
+              <WorkGitSyncControl session={session} />
               <AgentContextUsage
                 usage={contextUsage}
                 onRefresh={refreshContextUsage}

@@ -22,6 +22,7 @@ import type {
   IUpdateWorkSessionRequest,
   IWorkGitStatus,
   IWorkGitFileContent,
+  IWorkGitCommandResult,
   IWorkBranchList,
   IWorkOpenApp,
   IWorkCopilotAssets,
@@ -215,6 +216,10 @@ export const workGitService = {
     get<IWorkGitFileContent>(`/work-projects/${projectId}/git/file`, { path, session: sessionId || undefined }),
   commit: (projectId: string, message: string, paths: string[], sessionId?: string) =>
     post<{ success: boolean; output: string }>(`/work-projects/${projectId}/git/commit`, { message, paths, session: sessionId || undefined }),
+  pull: (projectId: string, sessionId?: string) =>
+    post<IWorkGitCommandResult>(`/work-projects/${projectId}/git/pull${sessionId ? `?session=${sessionId}` : ''}`),
+  push: (projectId: string, sessionId?: string) =>
+    post<IWorkGitCommandResult>(`/work-projects/${projectId}/git/push${sessionId ? `?session=${sessionId}` : ''}`),
 };
 
 export const workFileService = {

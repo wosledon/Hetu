@@ -50,12 +50,21 @@ public class WorkGitService
         return _runnerFactory(project);
     }
 
-    private static async Task<(int ExitCode, string Output)> RunGitAsync(IWorkCommandRunner runner, string arguments, string? stdin = null, CancellationToken cancellationToken = default)
+    private static async Task<(int ExitCode, string Output)> RunGitAsync(
+        IWorkCommandRunner runner, string arguments, string? stdin = null,
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(30));
-        var result = await runner.RunAsync($"git {arguments}", stdin, cts.Token);
-        return (result.ExitCode, result.Combined);
+        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(30));
+        try
+        {
+            var result = await runner.RunAsync($"git {arguments}", stdin, cts.Token, timeout);
+            return (result.ExitCode, result.Combined);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return (-1, "命令超时（网络较慢时请在终端里手动执行）");
+        }
     }
 
     private static string NormalizeRelativePath(string root, string path)
@@ -185,7 +194,55 @@ public class WorkGitService
             if (arrow >= 0) path = path[(arrow + 4)..];
             status.Files.Add(new WorkGitFileStatusDto { Path = path, Status = code.Length == 0 ? "??" : code });
         }
+
+        // 上游与领先/落后：porcelain=v2 的 branch.* 头信息（不用 @{u}，避免 PowerShell 把 @{} 当哈希表解析）
+        var (_, v2) = await RunGitAsync(runner, "status --porcelain=v2 --branch", cancellationToken: cancellationToken);
+        foreach (var line in v2.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.TrimEnd('\r');
+            if (trimmed.StartsWith("# branch.upstream ", StringComparison.Ordinal))
+            {
+                status.Upstream = trimmed["# branch.upstream ".Length..].Trim();
+            }
+            else if (trimmed.StartsWith("# branch.ab ", StringComparison.Ordinal))
+            {
+                var parts = trimmed["# branch.ab ".Length..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2 && parts[0].StartsWith('+') && parts[1].StartsWith('-'))
+                {
+                    if (int.TryParse(parts[0][1..], out var ahead)) status.Ahead = ahead;
+                    if (int.TryParse(parts[1][1..], out var behind)) status.Behind = behind;
+                }
+            }
+        }
         return status;
+    }
+
+    /// <summary>拉取：只允许快进（--ff-only），避免在用户仓库里自动产生合并提交</summary>
+    public async Task<WorkGitCommandResultDto> PullAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
+    {
+        var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
+        if (runner == null) return new WorkGitCommandResultDto { Success = false, Output = "项目不存在" };
+
+        var (code, output) = await RunGitAsync(runner, "pull --ff-only", cancellationToken: cancellationToken, timeout: TimeSpan.FromMinutes(3));
+        return new WorkGitCommandResultDto { Success = code == 0, Output = output.Trim() };
+    }
+
+    /// <summary>推送：没有上游时按当前分支设置上游（push -u origin &lt;branch&gt;）</summary>
+    public async Task<WorkGitCommandResultDto> PushAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
+    {
+        var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
+        if (runner == null) return new WorkGitCommandResultDto { Success = false, Output = "项目不存在" };
+
+        var (branchCode, branchOutput) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
+        if (branchCode != 0) return new WorkGitCommandResultDto { Success = false, Output = "当前目录不是 git 仓库" };
+        var branch = branchOutput.Trim();
+
+        var (remoteCode, remoteOutput) = await RunGitAsync(runner, $"config --get branch.{branch}.remote", cancellationToken: cancellationToken);
+        var hasUpstream = remoteCode == 0 && !string.IsNullOrWhiteSpace(remoteOutput);
+
+        var arguments = hasUpstream ? "push" : $"push -u origin {branch}";
+        var (code, output) = await RunGitAsync(runner, arguments, cancellationToken: cancellationToken, timeout: TimeSpan.FromMinutes(3));
+        return new WorkGitCommandResultDto { Success = code == 0, Output = output.Trim() };
     }
 
     public async Task<WorkGitFileContentDto?> GetFileContentAsync(Guid projectId, string path, Guid? sessionId = null, CancellationToken cancellationToken = default)
