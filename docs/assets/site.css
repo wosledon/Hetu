@@ -106,6 +106,9 @@ p { margin: 0 0 1em; }
 
 @media (max-width: 430px) {
   .header-actions .btn [data-latest-version] { display: none; }
+  /* 窄屏放下不整行时允许换行，避免站点头部撑出横向滚动 */
+  .site-header .wrap { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 8px; }
+  .site-nav { inset: auto 0 auto; top: 100%; }
 }
 
 /* buttons */
@@ -205,6 +208,8 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 .docs-body h3 { margin-top: 1.7em; }
 .docs-body > .lede { font-size: 1.08rem; color: var(--muted); }
 .docs-body table { width: 100%; border-collapse: collapse; margin: 0 0 1.2em; font-size: .92rem; }
+.docs-body .table-wrap { overflow-x: auto; margin: 0 0 1.2em; }
+.docs-body .table-wrap > table { margin-bottom: 0; }
 .docs-body th, .docs-body td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .docs-body th { color: var(--text); font-weight: 600; background: var(--surface-2); }
 /* 只作用于行内 code（不在 <pre> 里）；代码块的颜色由 .code 容器决定 */

@@ -100,18 +100,18 @@
       <p class="lede">Chat and code sessions both stream "what the model is doing" over the same SSE channel. The protocol carries no business semantics: the backend writes structured frames, the frontend dispatches on <code>type</code>.</p>
 
       <h2>Three frame shapes</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Shape</th><th>Detection</th><th>Frontend handling</th></tr></thead>
         <tbody>
           <tr><td>Structured event</td><td>Valid JSON with a <code>type</code></td><td>Mapped to a typed object and dispatched</td></tr>
           <tr><td>Plain text chunk</td><td>Not JSON</td><td>Appended as <code>plainText</code> to the body — content is never dropped</td></tr>
           <tr><td>Error frame</td><td>Starts with <code>[ERROR]</code></td><td>Rendered as an error state</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">Unknown <code>type</code> values are kept as <code>unknown</code> with the raw JSON, so shipping a backend event before its frontend mapping never loses frames.</div>
 
       <h2>Event list</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Event</th><th>Key fields</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>content</code></td><td><code>text</code></td><td>Body delta</td></tr>
@@ -131,13 +131,13 @@
           <tr><td><code>debug</code></td><td><code>text</code></td><td>Debug output</td></tr>
           <tr><td><code>done</code></td><td>—</td><td>Turn finished (appended by the caller)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Workflow events are separate</h2>
       <p>Workflow runs use their own names over the same transport: <code>run_started</code> / <code>node_started</code> / <code>node_completed</code> / <code>node_failed</code> / <code>human_approval_required</code> / <code>agent_tool_call</code> / <code>run_completed</code> / <code>run_failed</code>.</p>
 
       <h2>Differences between the two streams</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Aspect</th><th>Chat</th><th>Code session</th></tr></thead>
         <tbody>
           <tr><td>Error frames</td><td>Rendered directly</td><td><code>[ERROR]</code> prefix is re-applied before the shared parser</td></tr>
@@ -145,7 +145,7 @@
           <tr><td>Retrieval results</td><td>Rendered as hit lists</td><td>Not shown on the timeline today (no-op in the dispatcher)</td></tr>
           <tr><td><code>done</code></td><td>Appended by the caller</td><td>Explicitly appended after the loop</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Implementation notes</h2>
       <ul>

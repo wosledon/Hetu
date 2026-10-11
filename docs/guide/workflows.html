@@ -146,7 +146,7 @@
       </figure>
 
       <h2>定义模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>Name</code> · <code>Description</code> · <code>SortOrder</code> · <code>IsEnabled</code></td><td>元数据与列表排序</td></tr>
@@ -155,10 +155,10 @@
           <tr><td><code>Version</code></td><td>新建为 1，每次更新自增</td></tr>
           <tr><td>节点 <code>Config</code></td><td>各节点类型的 JSON 配置，见下方执行器表</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>端点</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>端点</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/workflows</code> · <code>GET /api/workflows/{id}</code></td><td>列表 / 详情</td></tr>
@@ -171,7 +171,7 @@
           <tr><td><code>GET /api/workflows/{id}/runs</code> · <code>GET /api/workflows/runs/{runId}</code></td><td>运行历史 / 单次运行详情（含节点记录）</td></tr>
           <tr><td><code>POST /api/workflows/runs/{runId}/approve</code></td><td>人审节点回传：<code>{ nodeId?, approve }</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>图校验规则</h2>
       <ul>
@@ -183,7 +183,7 @@
       <p>运行前会再次校验，所以「保存成功但运行报校验失败」通常意味着定义被外部改动或边被删。</p>
 
       <h2>节点执行器</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>节点</th><th>配置与行为</th></tr></thead>
         <tbody>
           <tr><td><code>start</code></td><td>把原始输入存为 <code>start.input</code>；若输入是 JSON 对象，还会把每个字段拆成独立变量</td></tr>
@@ -196,11 +196,11 @@
           <tr><td><code>parallel</code> / <code>merge</code></td><td>普通节点出现多条出边时自动 fan-out，分支结果汇总后在下游公共节点合并</td></tr>
           <tr><td><code>end</code></td><td>有 <code>outputTemplate</code> 则渲染模板，否则取首个非空上游输出，再无则回退运行输入</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">「并行」在这里是<strong>结构上并行、执行上顺序</strong>：分支会被逐个执行再合并，以共享同一个作用域 DbContext。理解这点能解释两件事：分支里的 Agent 调用是串行的；任何一个分支失败会终止整次运行。</div>
 
       <h2>运行与上限</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>值 / 行为</th></tr></thead>
         <tbody>
           <tr><td>运行记录</td><td><code>WorkflowRun</code>：<code>Status</code>（<code>Pending</code> / <code>Running</code> / <code>Succeeded</code> / <code>Failed</code> / <code>Cancelled</code>）· <code>Input</code> · <code>Output</code> · <code>GraphSnapshot</code> · <code>ChatTopicId</code> · <code>Error</code> · <code>TotalIterations</code></td></tr>
@@ -210,7 +210,7 @@
           <tr><td>取消</td><td><code>OperationCanceledException</code> → 运行置 <code>Cancelled</code></td></tr>
           <tr><td>其它异常</td><td>运行置 <code>Failed</code>，<code>Error</code> 写入异常消息</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>人审与工具审批</h2>
       <ul>
@@ -220,7 +220,7 @@
       </ul>
 
       <h2>SSE 事件</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>事件</th><th>含义</th></tr></thead>
         <tbody>
           <tr><td><code>run_started</code> · <code>run_completed</code> · <code>run_failed</code></td><td>运行生命周期</td></tr>
@@ -229,7 +229,7 @@
           <tr><td><code>agent_tool_call</code></td><td>Agent 节点的工具调用过程（前端可按问答 / 计划 / 审批三类回传）</td></tr>
           <tr><td><code>run_result</code></td><td>最终结果载荷</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>更完整的事件协议（三种帧形态、未知事件的处理）见 <a href="sse.html">SSE 事件协议</a>。Agent 节点内部仍会写出 <code>[ERROR]</code> 兜底帧。</p>
 
       <h2>与任务看板的关系</h2>

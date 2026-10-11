@@ -100,7 +100,7 @@
       <p class="lede">权限系统回答一个问题：这个工具调用能不能执行、还是要先问人。它由三层组成——<strong>模式</strong>（用户当前选择）、<strong>项目规则</strong>（<code>WorkApprovalRules</code>）、<strong>工具风险</strong>（读 / 写）。规则永远优先于模式。</p>
 
       <h2>五档权限模式</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模式</th><th>行为</th><th>典型场景</th></tr></thead>
         <tbody>
           <tr><td><code>plan</code> 计划</td><td>非只读工具<strong>直接拒绝</strong>（不是「问了再执行」），返回固定拒绝话术</td><td>只想让模型出方案，不许动文件</td></tr>
@@ -109,7 +109,7 @@
           <tr><td><code>auto</code> 自动</td><td>常规写操作直接执行，敏感操作仍会询问</td><td>信任的重复性任务</td></tr>
           <tr><td><code>bypass</code> 绕过</td><td>全部放行，包括规则里被 deny 之外的一切</td><td>一次性、隔离环境</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>非法值一律回落到 <code>ask</code>（同时兼容历史写法 <code>read-only</code> / <code>read_only</code>）。</p>
 
       <h2>判定顺序</h2>
@@ -120,7 +120,7 @@
       </ol>
 
       <h2>项目规则模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>ToolName</code></td><td>工具名，支持 <code>*</code> 通配</td></tr>
@@ -128,7 +128,7 @@
           <tr><td><code>Decision</code></td><td><code>allow</code> 或 <code>deny</code>，其他取值创建失败</td></tr>
           <tr><td><code>IsEnabled</code></td><td>规则可临时停用而不删除</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>匹配评分：<strong>精确工具名优先于通配</strong>，<strong>带路径的规则优先于不带路径</strong>；同一工具 + 同一路径模式的重复规则会在创建时合并成一条，避免规则抖动。</p>
 
       <h2>运行模式对权限的影响</h2>
@@ -138,14 +138,14 @@
       </ul>
 
       <h2>三条入口的差异</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>入口</th><th>权限来源</th></tr></thead>
         <tbody>
           <tr><td>编码会话</td><td>完整三层：模式 + 项目规则 + 工具风险；会话上持久化 <code>PermissionMode</code> 与 <code>AgentMode</code></td></tr>
           <tr><td>对话页</td><td>模式 + <strong>逐工具覆盖</strong>（<code>ToolApprovalOverrides</code>）；不读取项目规则——对话没有项目上下文</td></tr>
           <tr><td>工作流节点</td><td>节点配置的 <code>toolApprovals</code> 与运行级 <code>toolApprovalMode</code> 叠加，后者只覆盖未显式配置的工具</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>审批交互链路</h2>
       <ol>

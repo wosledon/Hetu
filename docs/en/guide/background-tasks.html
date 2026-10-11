@@ -147,7 +147,7 @@
       </figure>
 
       <h2>Background task model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field / constraint</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>TaskItem</code></td><td><code>TaskType</code> · <code>EntityId</code> · <code>EntityTitle</code> · <code>Status</code> · <code>ErrorMessage</code> · <code>Metadata</code> · <code>StartedAt</code> · <code>CompletedAt</code> · <code>IsDeleted</code></td></tr>
@@ -155,7 +155,7 @@
           <tr><td>Unique index</td><td><code>IX_TaskItems_ActiveUniqueness</code> filtered to "queued or running and not deleted", so one <code>(TaskType, EntityId)</code> can only have one active task</td></tr>
           <tr><td>Indexes</td><td><code>TaskType</code> · <code>Status</code> · <code>IsDeleted</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Enqueue and dedupe</h2>
       <ol>
@@ -168,7 +168,7 @@
       <div class="note">The queue itself is in memory and the database is the source of truth: after a restart, startup recovery plus the periodic sweep pick up what the queue lost instead of persisting the queue.</div>
 
       <h2>Consumption, sweep and recovery</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>Consumer</td><td>One background service loops over the queue; there is no multi-threaded consumption</td></tr>
@@ -180,10 +180,10 @@
           <tr><td>Execution error</td><td>Marked failed with the exception message</td></tr>
           <tr><td>Wrap-up</td><td>The <code>finally</code> block writes completion and update timestamps regardless of outcome</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Task types</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Type</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td><code>GenerateEmbedding</code></td><td>Note vectorisation (see <a href="chunking.html">Chunking &amp; vector index</a>)</td></tr>
@@ -192,10 +192,10 @@
           <tr><td><code>KanbanTaskExecute</code></td><td>Automated board task execution (see <a href="kanban.html">Task board &amp; automation</a>)</td></tr>
           <tr><td><code>WikiGenerate</code></td><td>Whole-set Wiki generation, with the model id carried in the task <code>Metadata</code> (see <a href="wiki-generation.html">Wiki generation</a>)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Scheduled task model and endpoints</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field / endpoint</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>ScheduledTask</code></td><td><code>Name</code> · <code>Description</code> · <code>TaskKind</code> · <code>TargetId</code> / <code>TargetName</code> · <code>Parameters</code> · <code>ScheduleType</code> · <code>IntervalMinutes</code> · <code>CronExpression</code> · <code>IsEnabled</code> · <code>NextRunAt</code> · <code>LastRunAt</code> · <code>LastStatus</code> · <code>LastError</code> · <code>MaxRetries</code> · <code>RetryCount</code> · <code>TopicId</code></td></tr>
@@ -204,10 +204,10 @@
           <tr><td>Execution record</td><td><code>ScheduledTaskExecution</code>: <code>Status</code> (<code>Running</code> / <code>Success</code> / <code>Failed</code>) · <code>ErrorMessage</code> · <code>Result</code> · <code>RetryAttempt</code> · <code>IsManual</code> · start/end times</td></tr>
           <tr><td>Endpoints</td><td><code>GET /api/scheduled-tasks</code> · <code>GET /api/scheduled-tasks/{id}</code> · <code>GET /api/scheduled-tasks/target-options</code> · <code>POST</code> · <code>PUT</code> · <code>DELETE</code> · <code>POST {id}/toggle</code> · <code>POST {id}/run</code> · <code>GET {id}/executions</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Next run time</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mode</th><th>How it is computed</th></tr></thead>
         <tbody>
           <tr><td><code>Interval</code></td><td>Base is <code>LastRunAt ?? now</code>; next = base + <code>IntervalMinutes</code>. If that is already in the past it rolls to "now + interval", so a long backlog of windows is not replayed</td></tr>
@@ -217,10 +217,10 @@
           <tr><td>Update semantics</td><td>Saving the configuration resets <code>RetryCount = 0</code> and recomputes <code>NextRunAt</code></td></tr>
           <tr><td>Delete semantics</td><td>Soft delete: <code>IsDeleted = true</code> · <code>IsEnabled = false</code> · <code>NextRunAt = null</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Executors</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Kind</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td><code>Skill</code></td><td>Runs a database skill or a local skill: when <code>TargetId</code> starts with <code>local:</code> it resolves to a local skill (see <a href="extensions.html">Extensions &amp; tools</a>)</td></tr>
@@ -228,7 +228,7 @@
           <tr><td><code>GraphRebuild</code></td><td>Walks every note and rebuilds the graph</td></tr>
           <tr><td><code>EmbeddingRegenerate</code></td><td>Walks every note and rebuilds embeddings with <code>force: true</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Validation, failure and observability</h2>
       <ul>

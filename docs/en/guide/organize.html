@@ -101,7 +101,7 @@
 
       <h2>Kanban board</h2>
       <p>Entry: <strong>Kanban</strong> (<code>/kanban</code>), detail view at <code>/kanban/:taskId</code>.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td>In progress</td><td>Picked up by an agent and running</td></tr>
@@ -110,8 +110,8 @@
           <tr><td>Done</td><td>Confirmed complete</td></tr>
           <tr><td>Archived</td><td>History (filterable by time range)</td></tr>
         </tbody>
-      </table>
-      <table>
+      </table></div>
+      <div class="table-wrap"><table>
         <thead><tr><th>Task field</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Title / description</td><td>What to do; the more concrete the description, the more reliable the run</td></tr>
@@ -120,23 +120,23 @@
           <tr><td>Run steps</td><td>Per execution: each action, duration and output summary</td></tr>
           <tr><td>Comments</td><td>Human–agent thread; the agent reads it while executing</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Execution obeys the same permission modes and task system: a run creates a <code>KanbanTaskExecute</code> background task, and failures show their reason in the task detail.</p>
 
       <h2>Workflows</h2>
       <p>Entry: <code>/workflows</code>. Draw multi-step agent tasks as a flow — handy for repeatable sequences like “research → implement → self-test”.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Nodes</td><td>Each node is an agent task with its own prompt, agent and dependencies</td></tr>
           <tr><td>Enable / disable</td><td>Whole workflows can be toggled so drafts stay around</td></tr>
           <tr><td>Runs</td><td>Every run records node status, duration and artifacts, viewable as history</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Background tasks</h2>
       <p>Entry: <code>/tasks/background</code>. Every long-running operation is queued here with status, duration and failure reason.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Task type</th><th>Triggered by</th></tr></thead>
         <tbody>
           <tr><td>Generate embedding</td><td>Note indexing, batch index</td></tr>
@@ -146,7 +146,7 @@
           <tr><td>Kanban task execute</td><td>Assigning an agent on the board</td></tr>
           <tr><td>Workflow run</td><td>Workflow execution</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>States: queued / running / completed / failed; filter by type, clear completed items, delete individually. The page polls only while something is running.</p>
 
       <h2>Scheduled tasks</h2>

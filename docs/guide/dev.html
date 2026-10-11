@@ -126,7 +126,7 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
       <div class="note"><strong>告警零容忍</strong>：不接受 <code>#pragma warning disable</code>、<code>SuppressMessage</code>、<code>eslint-disable</code>、<code>@ts-ignore</code>。可空性加判空、平台 API 加 <code>OperatingSystem.IsXxxVersionAtLeast</code> 守卫、依赖漏洞升级包。</div>
 
       <h2>容易踩的约定</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>主题</th><th>约定</th></tr></thead>
         <tbody>
           <tr><td>列表接口</td><td>必须分页，且分页与排序在数据库完成（不要 <code>ToList()</code> 后再 <code>Skip/Take</code>）</td></tr>
@@ -138,7 +138,7 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
           <tr><td>后台任务</td><td>长耗时操作交给 <code>IBackgroundTaskCoordinator</code>，别用即发即忘的 <code>Task.Run</code></td></tr>
           <tr><td>文档站</td><td>双语页面成对维护；改完本地起静态服务器逐页点一遍</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 232" role="img" aria-label="发版与更新流水线">

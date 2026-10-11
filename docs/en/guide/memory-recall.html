@@ -148,7 +148,7 @@
       </figure>
 
       <h2>Memory model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>Scope</code></td><td><code>Global</code> / <code>Session</code> / <code>Project</code>, defaulting to <code>Global</code></td></tr>
@@ -159,21 +159,21 @@
           <tr><td><code>AccessCount</code> / <code>LastAccessedAt</code></td><td>Recall side effects: a hit increments the counter and refreshes the timestamp; both feed scoring</td></tr>
           <tr><td><code>Score</code></td><td>Returned only in search results, never persisted</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Three write paths</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Path</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/memories</code></td><td>Manual create; <code>Session</code> scope is <strong>not allowed here</strong> (session memories come from extraction) and <code>Project</code> scope must carry <code>ProjectId</code></td></tr>
           <tr><td><code>POST /api/memories/extract/{topicId}</code></td><td>Conversation extraction (<code>conversation</code>); the automatic entry point weighs user message count, elapsed time and density</td></tr>
           <tr><td><code>POST /api/memories/extract-work/{sessionId}</code></td><td>Work session extraction (<code>work</code>); fires every <strong>10</strong> user messages and only when the session belongs to a managed project</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">Both constraints are deliberate: work sessions are noisy and expensive, so skipping extraction beats writing a pile of meaningless memories.</div>
 
       <h2>Recall and scoring</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Component</th><th>Weight / formula</th></tr></thead>
         <tbody>
           <tr><td>Similarity</td><td><code>0.4 × similarity</code> from the vector search</td></tr>
@@ -182,7 +182,7 @@
           <tr><td>Access frequency</td><td><code>0.1 × log(1 + AccessCount) / log(51)</code>, capped at 50 hits</td></tr>
           <tr><td>Scope bonus</td><td>Extra weight per scope; <code>Global</code> always matches, <code>Session</code> matches the same <code>TopicId</code>, <code>Project</code> the same <code>ProjectId</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Results are sorted by total score and truncated: <code>topK = 5</code> when injecting context, <code>topK = 10</code> on the search page. Every hit immediately writes back <code>LastAccessedAt</code> and <code>AccessCount</code>, so <strong>a memory that was used is more likely to be used again</strong>. That positive feedback loop is the first thing to check when an irrelevant memory keeps showing up.</p>
       <p>Work sessions inject the union of global and current-project memories (passing the project's <code>ManagedProjectId</code>), which keeps project-specific rules inside their project.</p>
 
@@ -195,7 +195,7 @@
       </ul>
 
       <h2>Constants and observability</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Constant</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>Score weights</td><td><code>Alpha = 0.4</code> · <code>Beta = 0.3</code> · <code>Gamma = 0.2</code> · <code>Delta = 0.1</code></td></tr>
@@ -203,7 +203,7 @@
           <tr><td>Work auto-extract interval</td><td><code>AutoExtractInterval = 10</code> user messages</td></tr>
           <tr><td>Conversation time signal</td><td><code>TimeTriggerMinutes = 30</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Practice notes</h2>
       <ul>

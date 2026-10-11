@@ -100,7 +100,7 @@
       <p class="lede">记忆解决「跨会话的长期上下文」：偏好、身份、工作习惯、固定事实。入口：左侧导航「记忆」（路由 <code>/memories</code>）。</p>
 
       <h2>记忆条目</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>内容</td><td>一句话事实或偏好，越具体召回越准</td></tr>
@@ -109,7 +109,7 @@
           <tr><td>作用域</td><td>全局 / 会话 / 项目：决定在什么上下文里会被注入</td></tr>
           <tr><td>生命周期</td><td>最近访问时间、访问次数、状态（新鲜 / 衰退中）由 Dream 维护</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>召回时机</h2>
       <ul>
@@ -127,7 +127,7 @@
       <span class="shot-hint">点图看原图</span>
 
       <h2>Dream 巩固</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>参数</th><th>作用</th></tr></thead>
         <tbody>
           <tr><td>衰退天数</td><td>超过该天数未被访问的记忆进入「衰退中」</td></tr>
@@ -135,7 +135,7 @@
           <tr><td>运行间隔</td><td>自动巩固周期，默认每 24 小时一次，可在设置里调整</td></tr>
           <tr><td>阶段</td><td>合并重复记忆 → 衰减过时信息 → 遗忘无用条目，最后给出统计</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>页面显示上次运行时间与「正在衰退」条数，可手动触发一次巩固；执行结果会给出合并 / 衰减 / 遗忘 / 剩余数量。</p>
 
       <h2>实践建议</h2>

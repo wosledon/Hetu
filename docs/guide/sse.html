@@ -100,18 +100,18 @@
       <p class="lede">对话页与编码会话都靠同一条 SSE 流把「模型在做什么」实时推给前端。协议本身不含业务语义：后端只负责把结构化事件按帧写出，前端按 <code>type</code> 分派。</p>
 
       <h2>帧的三种形态</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>形态</th><th>识别方式</th><th>前端处理</th></tr></thead>
         <tbody>
           <tr><td>结构化事件</td><td>合法 JSON，且含 <code>type</code></td><td>映射成强类型对象后分派</td></tr>
           <tr><td>纯文本片段</td><td>不是 JSON</td><td>作为 <code>plainText</code> 直接追加到正文（不丢内容）</td></tr>
           <tr><td>错误帧</td><td>以 <code>[ERROR]</code> 前缀开头</td><td>渲染为错误状态</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">未知 <code>type</code> 不会被丢弃，而是归到 <code>unknown</code> 并保留原始 JSON——这样后端先上新事件、前端后适配也不会丢帧。</div>
 
       <h2>事件清单</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>事件</th><th>关键字段</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>content</code></td><td><code>text</code></td><td>正文增量</td></tr>
@@ -131,13 +131,13 @@
           <tr><td><code>debug</code></td><td><code>text</code></td><td>调试输出</td></tr>
           <tr><td><code>done</code></td><td>—</td><td>本轮流结束（由调用方补齐）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>工作流的独立事件</h2>
       <p>工作流运行走自己的事件名（同一套 SSE 传输，但语义不同）：<code>run_started</code> / <code>node_started</code> / <code>node_completed</code> / <code>node_failed</code> / <code>human_approval_required</code> / <code>agent_tool_call</code> / <code>run_completed</code> / <code>run_failed</code>。</p>
 
       <h2>两条流的差异</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>维度</th><th>对话页</th><th>编码会话</th></tr></thead>
         <tbody>
           <tr><td>错误帧</td><td>直接渲染</td><td>重新拼回 <code>[ERROR]</code> 前缀后交给统一解析器</td></tr>
@@ -145,7 +145,7 @@
           <tr><td>检索类结果</td><td>渲染命中列表</td><td>当前未在时间线展示（解析器里是 no-op）</td></tr>
           <tr><td><code>done</code></td><td>由调用方补齐</td><td>循环结束后显式补一帧</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>实现注意</h2>
       <ul>

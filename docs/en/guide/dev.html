@@ -126,7 +126,7 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
       <div class="note"><strong>Zero warnings.</strong> No <code>#pragma warning disable</code>, <code>SuppressMessage</code>, <code>eslint-disable</code> or <code>@ts-ignore</code>. Fix nullability with guards, platform APIs with <code>OperatingSystem.IsXxxVersionAtLeast</code>, and dependency advisories by upgrading.</div>
 
       <h2>Gotchas worth knowing</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Area</th><th>Rule</th></tr></thead>
         <tbody>
           <tr><td>List endpoints</td><td>Always paged, with paging and ordering done in the database (never <code>ToList()</code> then <code>Skip/Take</code>)</td></tr>
@@ -138,7 +138,7 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
           <tr><td>Background work</td><td>Submit to <code>IBackgroundTaskCoordinator</code> rather than fire-and-forget <code>Task.Run</code></td></tr>
           <tr><td>This site</td><td>Keep both language versions in sync and click through pages locally after editing</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 232" role="img" aria-label="Release and update pipeline">

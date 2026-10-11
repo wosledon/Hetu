@@ -100,7 +100,7 @@
       <p class="lede">The permission system answers one question: may this tool call run, or must a human be asked first? It has three layers — the <strong>mode</strong> (what the user selected), <strong>project rules</strong> (<code>WorkApprovalRules</code>) and <strong>tool risk</strong> (read / write). Rules always outrank the mode.</p>
 
       <h2>The five modes</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mode</th><th>Behaviour</th><th>Typical use</th></tr></thead>
         <tbody>
           <tr><td><code>plan</code></td><td>Non-read-only tools are <strong>refused outright</strong> (not "ask then run"), with a fixed refusal message</td><td>Let the model design, touch nothing</td></tr>
@@ -109,7 +109,7 @@
           <tr><td><code>auto</code></td><td>Routine writes run directly; sensitive operations still ask</td><td>Trusted, repetitive work</td></tr>
           <tr><td><code>bypass</code></td><td>Everything allowed except what rules explicitly deny</td><td>One-off tasks in disposable environments</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Invalid values fall back to <code>ask</code> (with legacy <code>read-only</code> / <code>read_only</code> accepted).</p>
 
       <h2>Decision order</h2>
@@ -120,7 +120,7 @@
       </ol>
 
       <h2>Rule model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td><code>ToolName</code></td><td>Tool name, <code>*</code> wildcard supported</td></tr>
@@ -128,7 +128,7 @@
           <tr><td><code>Decision</code></td><td><code>allow</code> or <code>deny</code>; anything else fails on create</td></tr>
           <tr><td><code>IsEnabled</code></td><td>Rules can be disabled without deleting them</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Match scoring: an <strong>exact tool name beats a wildcard</strong>, and a rule <strong>with a path beats one without</strong>. Duplicate rules for the same tool and path pattern are merged on create to avoid rule churn.</p>
 
       <h2>How run modes interact</h2>
@@ -138,14 +138,14 @@
       </ul>
 
       <h2>Differences across the three entry points</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Entry</th><th>Permission source</th></tr></thead>
         <tbody>
           <tr><td>Code sessions</td><td>All three layers: mode + project rules + tool risk; <code>PermissionMode</code> and <code>AgentMode</code> persist on the session</td></tr>
           <tr><td>Chat page</td><td>Mode + <strong>per-tool overrides</strong> (<code>ToolApprovalOverrides</code>); project rules are not read — chat has no project context</td></tr>
           <tr><td>Workflow nodes</td><td>Node-level <code>toolApprovals</code> plus the run-level <code>toolApprovalMode</code>, the latter only filling tools without an explicit setting</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Approval round trip</h2>
       <ol>

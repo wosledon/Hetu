@@ -146,7 +146,7 @@
       </figure>
 
       <h2>触发与任务模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>端点</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/wiki/projects/{projectId}/generate</code></td><td>入队整套生成，请求体 <code>{ modelId? }</code></td></tr>
@@ -156,7 +156,7 @@
           <tr><td><code>GET /api/wiki/sets/{setId}/export</code></td><td>导出 zip：每页一个 Markdown（<code>00-…md</code>、<code>01-…md</code>）+ 一个 <code>README.md</code> 索引</td></tr>
           <tr><td><code>DELETE /api/wiki/{id}</code> · <code>DELETE /api/wiki/sets/{setId}</code></td><td>删除单页 / 整套</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>后台任务类型是 <code>WikiGenerate</code>，模型 id 通过任务元数据传递（<code>Guid.TryParse(item.Metadata)</code>）。同一个项目若已有排队中或运行中的生成任务，<code>EnqueueGenerateAsync</code> 直接返回那条任务，不重复排队。前端在项目页跳转 <code>/wiki?project=…&amp;generate=1</code> 会进入后自动触发一次生成并清掉参数；模型选择器只列非 embedding 用途的模型，留空表示用默认补全模型。</p>
 
       <h2>资料采集与压缩</h2>
@@ -168,7 +168,7 @@
       </ul>
 
       <h2>规划阶段</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>取值</th></tr></thead>
         <tbody>
           <tr><td>返回结构</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
@@ -176,11 +176,11 @@
           <tr><td>规划 token 上限</td><td><code>3072</code></td></tr>
           <tr><td>规划失败</td><td>异常被捕获后回退默认四页：项目概述与技术栈 / 目录结构 / 核心模块详解 / 快速开始与配置，不阻塞整套生成</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p><code>Brief</code> 会落库，成为该页的写作要点；单页重生成时直接复用它，因此重生成不会偏离原规划。</p>
 
       <h2>生成阶段</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>机制</th><th>取值 / 行为</th></tr></thead>
         <tbody>
           <tr><td>并发</td><td><code>MaxPageConcurrency = 4</code></td></tr>
@@ -192,11 +192,11 @@
           <tr><td>正文要求</td><td>Markdown、中文、只能依据资料不得编造、结构/流程/模块关系必须配 Mermaid 图、目录树用 <code>text</code> 代码块、路径与类型用行内代码</td></tr>
           <tr><td>页间协作</td><td>提示词会列出同套其他页面，允许相互引用</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>总览页单独生成：要求含项目简介、核心特性、技术栈、<code>## 总体架构</code>（必须带 Mermaid <code>graph</code> / <code>flowchart</code>）与末节 <code>## 文档导航</code>（按章节层级原样列出）。总览页失败时回退为纯文本总览（项目简介 + 文档导航）。</p>
 
       <h2>落库、套件与过期判定</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段 / 规则</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>WikiDocument</code></td><td><code>ProjectId</code> · <code>SetId</code> · <code>SortOrder</code> · <code>Title</code> · <code>Chapter</code> · <code>Brief</code> · <code>Content</code></td></tr>
@@ -205,10 +205,10 @@
           <tr><td>套件聚合</td><td><code>GetAllAsync</code> 按 <code>SetId</code> 分组、组内按 <code>SortOrder</code> 排序，总览页恒在最前</td></tr>
           <tr><td>过期判定</td><td><code>GetSetsAsync</code> 调用上下文采集器的过期计算，填充 <code>IsStale</code> 与 <code>StaleFileCount</code>（项目文件变动后提示重新生成）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>失败与降级</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>情况</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>没有可用模型</td><td>任务失败，记录 <code>wiki.modelNotConfigured</code></td></tr>
@@ -219,7 +219,7 @@
           <tr><td>单页重生成失败</td><td>返回 <code>wiki.regenerateFailed</code></td></tr>
           <tr><td>后台任务被停止打断 / 主动取消</td><td>同图谱任务：停止则重新排队，主动取消记失败</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>观测</h2>
       <ul>

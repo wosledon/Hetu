@@ -148,7 +148,7 @@
       </figure>
 
       <h2>记忆模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>Scope</code></td><td><code>Global</code> / <code>Session</code> / <code>Project</code>，默认 <code>Global</code></td></tr>
@@ -159,21 +159,21 @@
           <tr><td><code>AccessCount</code> / <code>LastAccessedAt</code></td><td>召回副作用：命中即 <code>+1</code> 并刷新时间，两者参与打分</td></tr>
           <tr><td><code>Score</code></td><td>只在检索结果里返回，不落库</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>三条写入路径</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>路径</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/memories</code></td><td>手动新增；<strong>不允许</strong>手动建 <code>Session</code> 作用域（会话记忆由提取产生），<code>Project</code> 作用域必须给 <code>ProjectId</code></td></tr>
           <tr><td><code>POST /api/memories/extract/{topicId}</code></td><td>从对话提取（<code>conversation</code>）；自动入口按「用户消息数 / 时间 / 密度」三个信号判断是否值得提取</td></tr>
           <tr><td><code>POST /api/memories/extract-work/{sessionId}</code></td><td>从工作会话提取（<code>work</code>）；每累计 <strong>10 条</strong>用户消息触发一次，且<strong>仅当会话关联受管项目</strong>时才提取</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">「每 10 条用户消息」与「仅受管项目」这两条约束是有意的：工作会话噪音大、token 贵，宁可不提取也不要写一堆无意义记忆进来。</div>
 
       <h2>召回与打分</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>分量</th><th>权重 / 公式</th></tr></thead>
         <tbody>
           <tr><td>相似度</td><td><code>0.4 × similarity</code>（向量检索）</td></tr>
@@ -182,7 +182,7 @@
           <tr><td>访问频率</td><td><code>0.1 × log(1 + AccessCount) / log(51)</code>，50 次封顶</td></tr>
           <tr><td>作用域加成</td><td>按作用域额外加权，<code>Global</code> 恒命中，<code>Session</code> 只匹配同 <code>TopicId</code>，<code>Project</code> 只匹配同 <code>ProjectId</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>结果按总分降序取前 K 条：注入上下文时默认 <code>topK = 5</code>，检索页默认 <code>topK = 10</code>。被命中的记忆会立刻写回 <code>LastAccessedAt</code> 与 <code>AccessCount</code>——这意味着<strong>用过的记忆下次更容易被用到</strong>，是一个正反馈回路，排查「某条无关记忆总出现」时要看它的访问计数。</p>
       <p>工作会话注入时用的是「全局 ∪ 当前项目」两段并集（带入项目的 <code>ManagedProjectId</code>），这样项目规则类记忆只在对应项目内生效。</p>
 
@@ -195,7 +195,7 @@
       </ul>
 
       <h2>观测与常量</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>常量</th><th>值</th></tr></thead>
         <tbody>
           <tr><td>打分权重</td><td><code>Alpha = 0.4</code> · <code>Beta = 0.3</code> · <code>Gamma = 0.2</code> · <code>Delta = 0.1</code></td></tr>
@@ -203,7 +203,7 @@
           <tr><td>工作会话自动提取间隔</td><td><code>AutoExtractInterval = 10</code> 条用户消息</td></tr>
           <tr><td>对话自动提取时间信号</td><td><code>TimeTriggerMinutes = 30</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>实作要点</h2>
       <ul>

@@ -146,7 +146,7 @@
       </figure>
 
       <h2>Triggers and job model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/wiki/projects/{projectId}/generate</code></td><td>Enqueue a full set with <code>{ modelId? }</code></td></tr>
@@ -156,7 +156,7 @@
           <tr><td><code>GET /api/wiki/sets/{setId}/export</code></td><td>Zip export: one Markdown per page (<code>00-…md</code>, <code>01-…md</code>) plus a <code>README.md</code> index</td></tr>
           <tr><td><code>DELETE /api/wiki/{id}</code> · <code>DELETE /api/wiki/sets/{setId}</code></td><td>Delete a page or a whole set</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The background task type is <code>WikiGenerate</code> and the model id travels in the task metadata (<code>Guid.TryParse(item.Metadata)</code>). If a project already has a queued or running job, <code>EnqueueGenerateAsync</code> returns that job instead of queueing another. Entering the frontend at <code>/wiki?project=…&amp;generate=1</code> triggers one generation and clears the parameter; the model selector lists non-embedding models only, and an empty selection means the default completion model.</p>
 
       <h2>Material collection and compression</h2>
@@ -168,7 +168,7 @@
       </ul>
 
       <h2>Planning</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>Return shape</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
@@ -176,11 +176,11 @@
           <tr><td>Plan token budget</td><td><code>3072</code></td></tr>
           <tr><td>Planning failure</td><td>The exception is caught and the run falls back to four default pages (project overview &amp; stack / directory layout / core modules / quick start &amp; configuration) without blocking generation</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p><code>Brief</code> is persisted and becomes the writing brief for that page; single-page regeneration reuses it, so a regeneration stays aligned with the original outline.</p>
 
       <h2>Generation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mechanism</th><th>Value / behaviour</th></tr></thead>
         <tbody>
           <tr><td>Concurrency</td><td><code>MaxPageConcurrency = 4</code></td></tr>
@@ -192,11 +192,11 @@
           <tr><td>Body requirements</td><td>Markdown, Chinese, strictly grounded in the material, Mermaid diagrams for structure/flow/module relations, <code>text</code> code blocks for trees, inline code for paths and types</td></tr>
           <tr><td>Cross-page context</td><td>The prompt lists sibling pages in the same set so pages can reference each other</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The overview page is generated separately and must contain a project intro, key features, tech stack, an <code>## Overall architecture</code> section (with a Mermaid <code>graph</code> / <code>flowchart</code>) and a final documentation index listing chapters verbatim. If it fails, a plain-text overview (intro + documentation index) is written instead.</p>
 
       <h2>Persistence, sets and staleness</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field / rule</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>WikiDocument</code></td><td><code>ProjectId</code> · <code>SetId</code> · <code>SortOrder</code> · <code>Title</code> · <code>Chapter</code> · <code>Brief</code> · <code>Content</code></td></tr>
@@ -205,10 +205,10 @@
           <tr><td>Set aggregation</td><td><code>GetAllAsync</code> groups by <code>SetId</code> and sorts by <code>SortOrder</code>, so the overview is always first</td></tr>
           <tr><td>Staleness</td><td><code>GetSetsAsync</code> asks the context collector to compute staleness, filling <code>IsStale</code> and <code>StaleFileCount</code> (project files changed → suggest regenerating)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Failure and degradation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Situation</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>No model available</td><td>Job fails with <code>wiki.modelNotConfigured</code></td></tr>
@@ -219,7 +219,7 @@
           <tr><td>Single-page regeneration fails</td><td>Returns <code>wiki.regenerateFailed</code></td></tr>
           <tr><td>Background job interrupted / cancelled</td><td>Same as graph jobs: shutdown requeues, explicit cancel marks failure</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Observability</h2>
       <ul>

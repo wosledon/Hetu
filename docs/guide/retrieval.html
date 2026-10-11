@@ -100,7 +100,7 @@
       <p class="lede">检索在两条路上跑：<strong>sqlite-vec / pgvector 近似检索</strong>（快）与<strong>内存余弦相似度</strong>（兜底）。两条路都优先保证「不中断」，再保证「准」。</p>
 
       <h2>两路召回</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>路径</th><th>实现</th></tr></thead>
         <tbody>
           <tr><td>笔记检索</td><td>先搜整篇笔记向量（<code>vec_note_embeddings</code>），再搜分块向量（<code>vec_chunk_embeddings</code>），两路各取 <code>topK × 3</code> 条候选</td></tr>
@@ -108,17 +108,17 @@
           <tr><td>合并</td><td>同一知识项可能同时被笔记路与分块路命中：按 ID 去重，<strong>保留先出现的</strong>，最后截断到 <code>topK</code></td></tr>
           <tr><td>回退</td><td>扩展缺失、虚表不存在、维度不符、无 pgvector → 内存余弦相似度</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>结果投影</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>来源</th><th>展示内容</th></tr></thead>
         <tbody>
           <tr><td>分块命中</td><td>优先显示分块 <code>Summary</code>，没有摘要才截取正文片段</td></tr>
           <tr><td>整篇命中</td><td>截取正文前 120 字</td></tr>
           <tr><td>返回结构</td><td><code>Id / Title / ContentSnippet / UpdatedAt</code>——前端直接渲染命中列表，点击可跳转来源</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>谁在用</h2>
       <ul>
@@ -129,7 +129,7 @@
       </ul>
 
       <h2>失败与降级</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>情况</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>查询为空 / <code>topK ≤ 0</code></td><td>直接返回空结果</td></tr>
@@ -137,7 +137,7 @@
           <tr><td>统计接口失败</td><td>返回 -1 表示「未知」，不阻塞页面</td></tr>
           <tr><td>取消</td><td>透传，不吞异常</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>检索质量实践</h2>
       <ul>

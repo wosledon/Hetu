@@ -100,23 +100,23 @@
       <p class="lede">This is the part that <em>does</em> things: the agent reads files, edits code, runs commands, commits and opens PRs inside your repository — with line-level review and rollback.</p>
 
       <h2>Projects</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Types</td><td>Local directory, or SSH remote (<code>user@host:port</code> plus path)</td></tr>
           <tr><td>Organization</td><td>Groups; each card offers “Open in Code”, “Generate Wiki”, “Copy path”</td></tr>
           <tr><td>Credentials</td><td>SSH passwords are encrypted with DataProtection</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Workspace: current branch or isolated worktree</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mode</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>Current branch</td><td>Work directly in the project directory; the branch chosen at session creation is checked out immediately</td></tr>
           <tr><td>New worktree</td><td><code>git worktree</code> creates a separate directory and branch so the main checkout is untouched. Default location: <code>.hetu-worktrees/&lt;repo&gt;/&lt;worktree&gt;</code> next to the repository; the name comes from your first message</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">The worktree root is configurable in <strong>Settings → Workspace</strong> (absolute path, must not be inside a repository). Finished worktrees are cleaned up when their changes are merged, the working tree is clean and they have been idle past the threshold — configurable interval (1 / 6 / 12 / 24 h), idle time, and whether the branch is deleted too.</div>
 
       <figure class="diagram">
@@ -185,7 +185,7 @@
       </ul>
 
             <h2>Directory layout</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Path</th><th>Content</th></tr></thead>
         <tbody>
           <tr><td><code>&lt;repo&gt;/</code></td><td>Main checkout; sessions never edit it directly unless you pick “current branch” mode</td></tr>
@@ -193,10 +193,10 @@
           <tr><td><code>&lt;data dir&gt;/hetu.db</code></td><td>SQLite database (sessions, messages, checkpoint metadata, code chunk vectors)</td></tr>
           <tr><td><code>&lt;data dir&gt;/logs/</code></td><td>Backend logs (Serilog daily rolling)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Commands underneath</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Action</th><th>Implementation notes</th></tr></thead>
         <tbody>
           <tr><td>Status and sync</td><td><code>git status --porcelain=v2 --branch</code> parses branch, ahead / behind and per-file state (never localized output)</td></tr>
@@ -207,8 +207,8 @@
           <tr><td>PR / MR</td><td>GitHub via <code>gh pr view|list|create</code> (body sent through <code>--body-file -</code>), GitLab via <code>glab mr view|list|create</code></td></tr>
           <tr><td>Terminal</td><td>ConPTY on Windows, <code>script</code> on Unix, so interactive programs work</td></tr>
         </tbody>
-      </table><h2>The seven panels</h2>
-      <table>
+      </table></div><h2>The seven panels</h2>
+      <div class="table-wrap"><table>
         <thead><tr><th>Panel</th><th>Capabilities</th></tr></thead>
         <tbody>
           <tr><td>Files</td><td>Directory tree, filename and content search, built-in editor with save; files touched by the agent are marked</td></tr>
@@ -219,10 +219,10 @@
           <tr><td>Browser</td><td>Embedded browser with address bar, back / forward, reload and quick links (local dev server, API docs, GitHub)</td></tr>
           <tr><td>Terminal</td><td>A real PTY (ConPTY on Windows, <code>script</code> on Unix) so <code>vim</code> / <code>htop</code> work; SSH projects run <code>ssh -tt</code> inside the PTY</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>What the agent can do</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td>File read / write</td><td>List directories, read files (binary detection), write files, batch replace, move and delete</td></tr>
@@ -230,7 +230,7 @@
           <tr><td>Terminal interaction</td><td>For interactive programs, use the Terminal panel or let the agent drive a PTY</td></tr>
           <tr><td>Code search</td><td>Filename and content search, plus semantic search over code chunks stored separately</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Every side-effecting action is governed by the <strong>permission mode</strong> (see <a href="workspace.html">Agent workspace</a>); risky operations go through approval, edits land in checkpoints, and everything can be rolled back.</p>
 
       <h2>A typical flow</h2>

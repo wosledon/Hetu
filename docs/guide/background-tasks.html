@@ -147,7 +147,7 @@
       </figure>
 
       <h2>后台任务模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段 / 约束</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>TaskItem</code></td><td><code>TaskType</code> · <code>EntityId</code> · <code>EntityTitle</code> · <code>Status</code> · <code>ErrorMessage</code> · <code>Metadata</code> · <code>StartedAt</code> · <code>CompletedAt</code> · <code>IsDeleted</code></td></tr>
@@ -155,7 +155,7 @@
           <tr><td>唯一索引</td><td><code>IX_TaskItems_ActiveUniqueness</code>：过滤条件为「排队或运行中且未删除」，因此同一 <code>(TaskType, EntityId)</code> 同时只能有一条活跃任务</td></tr>
           <tr><td>索引</td><td><code>TaskType</code> · <code>Status</code> · <code>IsDeleted</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>入队与去重</h2>
       <ol>
@@ -168,7 +168,7 @@
       <div class="note">队列本身在内存里，数据库才是真实状态：进程重启后靠启动恢复 + 巡检把遗漏的任务捡回来，而不是靠队列持久化。</div>
 
       <h2>消费、巡检与恢复</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>消费者</td><td>单个后台服务循环消费队列（无多线程并发消费）</td></tr>
@@ -180,10 +180,10 @@
           <tr><td>执行异常</td><td>状态置失败，错误信息为异常消息</td></tr>
           <tr><td>收尾</td><td><code>finally</code> 中无论成败都写回完成时间与更新时间</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>任务类型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>类型</th><th>做什么</th></tr></thead>
         <tbody>
           <tr><td><code>GenerateEmbedding</code></td><td>笔记向量化（见 <a href="chunking.html">分块与向量索引</a>）</td></tr>
@@ -192,10 +192,10 @@
           <tr><td><code>KanbanTaskExecute</code></td><td>看板任务的自动化执行（见 <a href="kanban.html">任务看板与自动化</a>）</td></tr>
           <tr><td><code>WikiGenerate</code></td><td>Wiki 整套生成，模型 id 通过任务 <code>Metadata</code> 传递（见 <a href="wiki-generation.html">Wiki 生成</a>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>定时任务模型与端点</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段 / 端点</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>ScheduledTask</code></td><td><code>Name</code> · <code>Description</code> · <code>TaskKind</code> · <code>TargetId</code> / <code>TargetName</code> · <code>Parameters</code> · <code>ScheduleType</code> · <code>IntervalMinutes</code> · <code>CronExpression</code> · <code>IsEnabled</code> · <code>NextRunAt</code> · <code>LastRunAt</code> · <code>LastStatus</code> · <code>LastError</code> · <code>MaxRetries</code> · <code>RetryCount</code> · <code>TopicId</code></td></tr>
@@ -204,10 +204,10 @@
           <tr><td>执行记录</td><td><code>ScheduledTaskExecution</code>：<code>Status</code>（<code>Running</code> / <code>Success</code> / <code>Failed</code>）· <code>ErrorMessage</code> · <code>Result</code> · <code>RetryAttempt</code> · <code>IsManual</code> · 起止时间</td></tr>
           <tr><td>端点</td><td><code>GET /api/scheduled-tasks</code> · <code>GET /api/scheduled-tasks/{id}</code> · <code>GET /api/scheduled-tasks/target-options</code> · <code>POST</code> · <code>PUT</code> · <code>DELETE</code> · <code>POST {id}/toggle</code> · <code>POST {id}/run</code> · <code>GET {id}/executions</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>下次运行时间</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模式</th><th>计算方式</th></tr></thead>
         <tbody>
           <tr><td><code>Interval</code></td><td>基准取 <code>LastRunAt ?? 当前时间</code>，下次 = 基准 + <code>IntervalMinutes</code>；若结果已过期则滚到「当前时间 + 间隔」，避免补跑一长串历史窗口</td></tr>
@@ -217,10 +217,10 @@
           <tr><td>更新语义</td><td>保存配置会重置 <code>RetryCount = 0</code> 并重算 <code>NextRunAt</code></td></tr>
           <tr><td>删除语义</td><td>软删：<code>IsDeleted = true</code> · <code>IsEnabled = false</code> · <code>NextRunAt = null</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>执行器</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>类型</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td><code>Skill</code></td><td>执行数据库技能或本地技能：<code>TargetId</code> 以 <code>local:</code> 开头时走本地技能（见 <a href="extensions.html">扩展与工具</a>）</td></tr>
@@ -228,7 +228,7 @@
           <tr><td><code>GraphRebuild</code></td><td>遍历全部笔记重建图谱</td></tr>
           <tr><td><code>EmbeddingRegenerate</code></td><td>遍历全部笔记重建向量，强制重算（<code>force: true</code>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>校验、失败与观测</h2>
       <ul>

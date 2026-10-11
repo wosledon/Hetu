@@ -100,7 +100,7 @@
       <p class="lede">This pipeline turns "the text of a note, file or URL" into "retrievable chunks with vectors": chunk first, embed per chunk, then write both the relational tables and the <code>sqlite-vec</code> virtual tables. Every step can degrade, because the goal is <strong>indexing may be slow, but data must never be corrupted</strong>.</p>
 
       <h2>Chunking strategy</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>Preferred</td><td>With a chunk model configured and a working provider, LLM chunking runs (<code>ChunkMethod = llm</code>)</td></tr>
@@ -108,7 +108,7 @@
           <tr><td>Structural values</td><td><code>MaxChunkSize = 1500</code>, <code>MinChunkSize = 200</code>, <code>OverlapSize = 100</code> characters</td></tr>
           <tr><td>LLM constraints</td><td>The prompt asks for 300–1500 characters per chunk; text under 500 characters may return a single chunk</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Write order</h2>
       <ol>
@@ -120,18 +120,18 @@
       <div class="note">Reuse: chunks whose content and summary are <strong>unchanged</strong> keep their existing vectors, so editing a note does not re-embed the whole document. The note-level check also repairs vectors that exist in the relational table but are missing from the <code>vec</code> table after an interrupted run.</div>
 
       <h2>Dimension resolution</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Order</th><th>Source</th></tr></thead>
         <tbody>
           <tr><td>1</td><td><code>Dimensions</code> of the most recent embedding row (most trustworthy)</td></tr>
           <tr><td>2</td><td>The model configured for the <code>embedding</code> purpose</td></tr>
           <tr><td>3</td><td>Setting <code>Embedding:Dimensions</code> (default 1536)</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>When a connection opens and the dimensions no longer match, the four <code>vec</code> tables (notes, chunks, memories, code) are dropped and rebuilt — that is the mechanism behind "change the embedding model and you must re-index".</p>
 
       <h2>Failure and degradation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Case</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>No embedding provider</td><td>The whole pipeline is skipped; no half-written data</td></tr>
@@ -140,7 +140,7 @@
           <tr><td>A single vector write fails</td><td>Logged; three consecutive failures in a batch abort that batch to avoid a cascade</td></tr>
           <tr><td>Cancellation</td><td><code>OperationCanceledException</code> propagates and is not treated as a failure</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Observability</h2>
       <ul>

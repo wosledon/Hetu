@@ -100,7 +100,7 @@
       <p class="lede">This layer answers two questions: <strong>how much context is in use</strong>, and <strong>when history must be compacted</strong>. Its division of labour with the compression pipeline is explicit: the pipeline compresses a single text, while this compresses the message sequence of a session and persists the summary on the session.</p>
 
       <h2>How usage is computed</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Part</th><th>Method</th></tr></thead>
         <tbody>
           <tr><td>History</td><td>Counts only messages <em>not yet covered by a summary</em>: everything up to <code>ContextSummaryThroughMessageId</code> is excluded</td></tr>
@@ -108,11 +108,11 @@
           <tr><td>System prompt</td><td>A <strong>derived value</strong>: the last reported <code>PromptTokens</code> minus history and summary; when unavailable it falls back to an empirical value (1500 chat / 3500 code sessions)</td></tr>
           <tr><td>Window</td><td>The request's <code>contextWindow</code> first, then the model's <code>ContextWindow</code>, otherwise <code>128000</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">An empty session reports 0 usage but still returns all three parts (<code>system / history / summary</code>), so the UI never jumps between "two parts" and "three parts".</div>
 
       <h2>When auto compaction triggers</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Constant</th><th>Default</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>AutoCompactRatio</code></td><td>0.8</td><td>Compaction only triggers at ≥ 80% of the window; otherwise null is returned and the caller ignores it</td></tr>
@@ -120,7 +120,7 @@
           <tr><td><code>MaxTranscriptChars</code></td><td>60000</td><td>At most the last 60k characters of history are sent to the summarizer, so the summary prompt cannot blow up</td></tr>
           <tr><td><code>MaxSummaryAttempts</code></td><td>3</td><td>Up to three attempts: an empty or too-short summary retries immediately (no fixed delay)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>What compaction actually changes</h2>
       <ol>
@@ -131,7 +131,7 @@
       </ol>
 
       <h2>Division of labour with the compression pipeline</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Aspect</th><th>Compression pipeline</th><th>Auto compaction (this page)</th></tr></thead>
         <tbody>
           <tr><td>Applies to</td><td>One text (a history slice, a tool output)</td><td>The whole message sequence of a session</td></tr>
@@ -139,7 +139,7 @@
           <tr><td>Persistence</td><td>Replaces only the text sent this turn</td><td>Summary persisted in <code>ContextSummary</code> + <code>ThroughMessageId</code></td></tr>
           <tr><td>On failure</td><td>Falls back to the original text, no side effects</td><td>Simply does not inject a summary; the flow continues</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Failure and degradation</h2>
       <ul>

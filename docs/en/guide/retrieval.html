@@ -100,7 +100,7 @@
       <p class="lede">Retrieval runs on two paths: <strong>approximate search in sqlite-vec / pgvector</strong> (fast) and <strong>in-memory cosine similarity</strong> (fallback). Both optimise for "never break the flow" before "be exact".</p>
 
       <h2>Two recall paths</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Path</th><th>Implementation</th></tr></thead>
         <tbody>
           <tr><td>Note retrieval</td><td>Whole-note vectors first (<code>vec_note_embeddings</code>), then chunk vectors (<code>vec_chunk_embeddings</code>); each path takes <code>topK × 3</code> candidates</td></tr>
@@ -108,17 +108,17 @@
           <tr><td>Merge</td><td>The same knowledge item can be hit by both paths: deduplicated by id, <strong>keeping the first occurrence</strong>, then truncated to <code>topK</code></td></tr>
           <tr><td>Fallback</td><td>Missing extension, missing virtual table, dimension mismatch or no pgvector → in-memory cosine similarity</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Result projection</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Source</th><th>Shown</th></tr></thead>
         <tbody>
           <tr><td>Chunk hit</td><td>The chunk <code>Summary</code> when present, otherwise a trimmed content snippet</td></tr>
           <tr><td>Note hit</td><td>The first 120 characters of the note</td></tr>
           <tr><td>Shape</td><td><code>Id / Title / ContentSnippet / UpdatedAt</code> — rendered directly as the hit list, clickable to the source</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Who consumes it</h2>
       <ul>
@@ -129,7 +129,7 @@
       </ul>
 
       <h2>Failure and degradation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Case</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>Empty query / <code>topK ≤ 0</code></td><td>Returns an empty result immediately</td></tr>
@@ -137,7 +137,7 @@
           <tr><td>Count endpoint fails</td><td>Returns -1 for "unknown" instead of blocking the page</td></tr>
           <tr><td>Cancellation</td><td>Propagates; never swallowed</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Quality practice</h2>
       <ul>

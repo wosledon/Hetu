@@ -169,7 +169,7 @@
 </svg><figcaption>一次请求会经过外壳或浏览器 → React 前端 → ASP.NET Core API → 领域服务 → 仓储 → 本地数据库；模型、MCP、Git 与搜索是外部依赖。</figcaption>
 </figure>
 <h2>功能文档</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>页面</th><th>覆盖内容</th></tr></thead>
         <tbody>
           <tr><td><a href="getting-started.html">快速开始</a></td><td>三种运行方式、首次配置模型与索引、数据目录位置</td></tr>
@@ -188,11 +188,11 @@
           <tr><td><a href="faq.html">常见问题</a></td><td>安装失败、模型不可用、索引不动、工作树、更新报错、性能</td></tr>
           <tr><td><a href="dev.html">参与开发</a></td><td>目录结构、构建与验证命令、易踩约定、发版流程</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>深入实现</h2>
       <p>写给要读代码或改行为的人：每个模块的关键机制、配置项与默认值、守卫与降级、以及排查方式。</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模块</th><th>覆盖内容</th></tr></thead>
         <tbody>
           <tr><td><a href="compression.html">压缩管道</a></td><td>两个入口、三种模式、十个节点的顺序与默认状态、LLM 摘要四道门槛、未变短保留原文、配置合并与升级语义</td></tr>
@@ -211,10 +211,10 @@
           <tr><td><a href="background-tasks.html">后台与定时任务</a></td><td>后台任务唯一索引与入队去重、单消费者与 2 分钟巡检恢复、五类任务；定时任务字段、Interval/cron 排期、四个执行器</td></tr>
           <tr><td><a href="inbox.html">收件箱与通知</a></td><td>通知模型与级别/类别常量、按 CategoryKey 聚合与合并动作、端点清单、状态与删除语义、前端行为</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
 <h2>它解决什么问题</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>现状</th><th>Hetu 的处理方式</th></tr></thead>
         <tbody>
           <tr><td>笔记、聊天记录、代码改动分散在不同工具</td><td>三者写同一份数据库；检索、图谱、记忆、Wiki 都建在这份数据上</td></tr>
@@ -222,7 +222,7 @@
           <tr><td>长会话上下文爆炸、成本不可控</td><td>压缩管道 + 用量统计（输入/压缩后/输出/缓存、延迟、按模型与来源分布）</td></tr>
           <tr><td>担心数据与密钥外流</td><td>无账号无遥测；Key 用 DataProtection 加密；请求只发往你配置的供应商</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><span></span><a href="getting-started.html">快速开始 →</a></div>
     </div>
   </div>

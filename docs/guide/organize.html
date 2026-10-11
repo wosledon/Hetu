@@ -101,7 +101,7 @@
 
       <h2>任务看板</h2>
       <p>入口：左侧导航「任务看板」（<code>/kanban</code>）；详情页 <code>/kanban/:taskId</code>。</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>列</th><th>含义</th></tr></thead>
         <tbody>
           <tr><td>进行中</td><td>已被 Agent 接手、正在执行</td></tr>
@@ -110,8 +110,8 @@
           <tr><td>已完成</td><td>已确认完成</td></tr>
           <tr><td>已归档</td><td>历史任务（可按时间范围筛选）</td></tr>
         </tbody>
-      </table>
-      <table>
+      </table></div>
+      <div class="table-wrap"><table>
         <thead><tr><th>任务字段</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>标题 / 描述</td><td>要做什么；描述越具体，Agent 执行越稳</td></tr>
@@ -120,23 +120,23 @@
           <tr><td>运行记录</td><td>每次执行的步骤列表（每一步的动作、耗时、输出摘要）</td></tr>
           <tr><td>评论</td><td>人机协作的讨论线程，Agent 执行时会参考</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>执行同样受权限模式与后台任务系统约束：一次执行会创建一条 <code>KanbanTaskExecute</code> 后台任务，失败可在任务详情看到原因。</p>
 
       <h2>工作流</h2>
       <p>入口：<code>/workflows</code>。把多步 Agent 任务画成流程，适合「先调研再实现再自测」这类固定套路。</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>节点</td><td>每个节点是一次 Agent 任务，可配置提示、智能体与依赖关系</td></tr>
           <tr><td>启停</td><td>工作流可整体启用 / 禁用，便于保留草稿</td></tr>
           <tr><td>运行</td><td>每次运行记录节点状态、耗时与产物，可在界面查看运行历史</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>后台任务</h2>
       <p>入口：<code>/tasks/background</code>。所有长耗时操作都进这个队列并留下记录，可查状态、耗时与失败原因。</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>任务类型</th><th>触发来源</th></tr></thead>
         <tbody>
           <tr><td>生成 Embedding</td><td>笔记索引、批量补索引</td></tr>
@@ -146,7 +146,7 @@
           <tr><td>看板任务执行</td><td>任务看板指派 Agent</td></tr>
           <tr><td>工作流运行</td><td>工作流执行</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>任务状态：排队 / 运行中 / 已完成 / 失败；列表可按类型筛选、清理已完成、逐条删除。存在运行中任务时页面自动轮询刷新。</p>
 
       <h2>定时任务</h2>

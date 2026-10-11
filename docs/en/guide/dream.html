@@ -139,17 +139,17 @@
       </figure>
 
       <h2>Triggers</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mode</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>Manual</td><td><code>POST /api/memories/dream</code> runs immediately and returns the stats</td></tr>
           <tr><td>Background</td><td><code>DreamMemoryService</code> checks once on startup and then polls every <strong>30 minutes</strong></td></tr>
           <tr><td>Precondition</td><td><code>Enabled = true</code> and more than <code>IntervalHours</code> (default 24 h) since the last run</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Configuration and defaults</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Setting</th><th>Default</th><th>Constraint</th></tr></thead>
         <tbody>
           <tr><td><code>Enabled</code></td><td><code>true</code></td><td>Disabling stops the background run; manual execution still works</td></tr>
@@ -160,7 +160,7 @@
           <tr><td><code>ForgetBelowImportance</code></td><td><code>0.15</code></td><td>0.01–1</td></tr>
           <tr><td><code>LastRunAt</code></td><td>—</td><td>Written by the run; <strong>saving settings never overwrites it</strong>, otherwise every edit would reset the cadence</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The settings key is <code>DreamConfig</code>.</p>
 
       <h2>Clustering and merging</h2>
@@ -173,13 +173,13 @@
       <div class="note">The merge prefers the more public and older wording: project- or session-scoped duplicates get absorbed into a global memory — worth a glance afterwards to confirm the surviving text is still accurate.</div>
 
       <h2>Decay and forgetting</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Stage</th><th>Condition</th><th>Action</th></tr></thead>
         <tbody>
           <tr><td>Decay</td><td>Not accessed for &gt; <code>DecayDays</code> and <code>Importance &gt; 0.05</code></td><td><code>Importance ×= 0.8</code>, floor 0.05</td></tr>
           <tr><td>Forget</td><td>Not accessed for &gt; <code>ForgetDays</code> and <code>Importance &lt; ForgetBelowImportance</code></td><td>Soft-delete and remove the embedding</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Results and observability</h2>
       <ul>

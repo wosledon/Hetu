@@ -100,14 +100,14 @@
       <p class="lede">桌面版是 Tauri 2 外壳：Rust 进程负责窗口、托盘与更新，同时把打包好的后端 sidecar 拉起来，前端跑在 WebView 里。</p>
 
       <h2>安装</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>渠道</th><th>产物</th><th>依赖</th></tr></thead>
         <tbody>
           <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>无（自带 .NET 运行时）</td></tr>
           <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>系统需安装 .NET 10 运行时</td></tr>
           <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage 免安装</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 232" role="img" aria-label="发版与更新流水线">
@@ -163,7 +163,7 @@
       <div class="note">安装包内置安装钩子：在覆盖文件前先结束可能残留的后端进程（<code>taskkill /F /IM Hetu.Api.exe</code>），避免 <code>sqlite-vec\vec0.dll</code> 被占用导致安装失败。</div>
 
       <h2>托盘与进程生命周期</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>行为</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>关闭窗口</td><td>默认最小化到托盘，后端继续运行（后台任务不中断）；可在设置 → 应用设置关闭该行为</td></tr>
@@ -171,10 +171,10 @@
           <tr><td>异常退出</td><td>后端记住外壳进程号（<code>HETU_PARENT_PID</code>）；检测到父进程消失会自行退出，不留孤儿进程占用端口</td></tr>
           <tr><td>开发复用</td><td>开发期若 <code>HETU_API_DEV_PORT</code> 指定的端口已有后端，外壳复用它而不重复启动</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h2>安装目录与数据目录</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>路径（Windows 示例）</th><th>内容</th></tr></thead>
         <tbody>
           <tr><td><code>&lt;安装目录&gt;\Hetu (Slim).exe</code></td><td>外壳可执行文件（fat 渠道为 <code>Hetu.exe</code>）</td></tr>
@@ -184,7 +184,7 @@
           <tr><td><code>%LOCALAPPDATA%\Hetu\hetu.db</code></td><td>数据库（+ <code>-wal</code> / <code>-shm</code>）</td></tr>
           <tr><td><code>%LOCALAPPDATA%\Hetu\logs\</code></td><td>日志</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>安装钩子</h2>
       <p><code>src-tauri/nsis-hooks.nsh</code> 在复制文件前执行（<code>NSIS_HOOK_PREINSTALL</code>）：</p>
@@ -194,7 +194,7 @@
   Pop $0
   Sleep 500
 !macroend</code></pre></div><h2>工作树目录与自动清理</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>默认 / 可选项</th></tr></thead>
         <tbody>
           <tr><td>根目录</td><td>仓库父目录下的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code></td></tr>
@@ -204,7 +204,7 @@
           <tr><td>是否删分支</td><td>默认只删工作树目录，分支保留；可改为连分支一起删</td></tr>
           <tr><td>手动执行</td><td>设置页有「立即清理」按钮，返回检查 / 删除 / 保留的统计</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>数据位置</h2>
       <p>外壳通过 <code>HETU_DATA_DIR</code> 告诉后端数据目录：Windows 上是 <code>%LOCALAPPDATA%\Hetu</code>（<code>hetu.db</code> + WAL、<code>logs/</code>）；迁移机器时整体拷贝该目录即可。</p>
@@ -221,14 +221,14 @@ npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></p
       <p>sidecar 命名必须符合 Tauri 约定：<code>binaries/Hetu.Api-&lt;rust-target-triple&gt;(.exe)</code>。</p>
 
       <h2>排障</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>现象</th><th>处理</th></tr></thead>
         <tbody>
           <tr><td>安装报 <code>Error opening file for writing</code></td><td>有残留后端在占用文件：任务管理器结束所有 <code>Hetu.Api.exe</code> 后点重试；新版本安装包会自动处理</td></tr>
           <tr><td>更新报 <code>Could not fetch a valid release JSON</code></td><td>清单没取到。用浏览器打开 <code>releases/latest/download/latest.json</code>（slim 是 <code>latest-slim.json</code>）确认可访问，再升级到最新版</td></tr>
           <tr><td>窗口不见了</td><td>点托盘图标唤回；仍在后台运行（后端未退出）</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="data.html">数据与安全 →</a></div>
     </div>
   </div>

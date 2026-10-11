@@ -149,7 +149,7 @@
       </figure>
 
       <h2>状态机</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>状态</th><th>允许迁移到</th></tr></thead>
         <tbody>
           <tr><td><code>Backlog</code></td><td><code>Todo</code> · <code>Archived</code></td></tr>
@@ -160,11 +160,11 @@
           <tr><td><code>Done</code></td><td><code>Archived</code> · <code>InReview</code></td></tr>
           <tr><td><code>Archived</code></td><td>（终态）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>迁移表是硬编码白名单，非法跳转直接拒绝。时间戳由统一逻辑维护：进入 <code>Done</code> 写 <code>CompletedAt</code>、离开则清空；进入 <code>Archived</code> 写 <code>ArchivedAt</code>、离开则清空；进入 <code>Blocked</code> 保留或写入 <code>BlockedReason</code>，离开时清空。优先级枚举是 <code>Low</code> / <code>Medium</code> / <code>High</code> / <code>Urgent</code>。</p>
 
       <h2>卡片数据模型</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>分组</th><th>字段</th></tr></thead>
         <tbody>
           <tr><td>基本</td><td><code>Id</code> · <code>Title</code> · <code>Description</code> · <code>Status</code> · <code>Priority</code> · <code>Assignee</code> · <code>Tags</code> · <code>DueDate</code> · <code>SortOrder</code> · <code>BlockedReason</code> · <code>CompletedAt</code> · <code>ArchivedAt</code></td></tr>
@@ -174,11 +174,11 @@
           <tr><td>运行记录</td><td><code>KanbanTaskRunDto</code>：<code>Kind</code> · <code>Trigger</code> · <code>Status</code> · <code>Input</code> · <code>Output</code> · <code>Error</code> · <code>WorkflowRunId</code> · <code>StartedAt</code> · <code>CompletedAt</code></td></tr>
           <tr><td>详情聚合</td><td><code>KanbanTaskDetailDto</code> = 任务 + 评论 + 运行记录 + 步骤（<code>Steps</code>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p><code>HasAutomation</code> 的判定是「配了项目智能体 或 工作流 或 自定义提示词」三者之一。<code>AgentPrompt</code> / <code>AgentPromptName</code> 只在<strong>没有选项目智能体（<code>AgentId</code> 为空）</strong>时保存——这就是「从项目 .github 里选智能体」与「手填提示词」两条路径的落库差异。</p>
 
       <h2>端点</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>端点</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/kanban-tasks</code></td><td>看板数据：七列 + 统计（<code>Archived</code> 列只回最近 <strong>7 天</strong>归档的任务）</td></tr>
@@ -189,7 +189,7 @@
           <tr><td><code>POST /api/kanban-tasks/{id}/rerun</code></td><td>仅 <code>Todo</code> 状态允许重跑</td></tr>
           <tr><td><code>GET /api/kanban-tasks/{id}</code> · <code>DELETE /api/kanban-tasks/{id}</code></td><td>单卡查询 / 删除</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>自动化与状态推进</h2>
       <ol>
@@ -201,7 +201,7 @@
       <div class="note">「看板会自动更新状态吗」的准确回答是：<strong>状态推进由后端在触发点写入</strong>（换列、评论回流、执行器回写），前端负责把变化拉回来显示。手动把卡片拖到 <code>InProgress</code> 只是改状态，不会自行开始执行。</div>
 
       <h2>详情回填与前端刷新</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>规则</th></tr></thead>
         <tbody>
           <tr><td>名称回填</td><td>列表与详情都会补 <code>ProjectName</code>（受管项目）、<code>AgentName</code>（项目智能体）、<code>WorkflowName</code>、<code>LastRunStatus</code>、<code>CommentCount</code>；列表用批量字典查询避免 N+1</td></tr>
@@ -210,7 +210,7 @@
           <tr><td>轮询条件</td><td>看板与详情都在「存在 <code>Running</code> / <code>WaitingAnswer</code> 的运行，或任务有自动化且状态是 <code>Todo</code> / <code>InProgress</code>」时每 <strong>3000ms</strong> 轮询一次；条件不成立即停止</td></tr>
           <tr><td>刷新通道</td><td>React Query 轮询 + 失效重取；<strong>没有</strong>任务看板专用 SSE 事件</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>「配置了项目和智能体但详情不展示」这类问题通常出在展示回退上：卡片是从项目 <code>.github</code> 里选的智能体时，落库的是 <code>AgentPrompt</code> / <code>AgentPromptName</code> 而非 <code>AgentId</code>，只看 <code>AgentId</code> 就会显示为空。当前实现已把两种来源都纳入展示（选择项目后自动加载该项目 <code>.github</code> 智能体列表并写回提示词字段）。</p>
 
       <h2>统计与归档</h2>

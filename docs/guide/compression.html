@@ -175,27 +175,27 @@
 </figure>
 
       <h2>两个入口</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>入口</th><th>行为</th><th>用在哪</th></tr></thead>
         <tbody>
           <tr><td><code>CompressAsync</code></td><td>执行完整管道，<strong>允许</strong> LLM 摘要节点参与</td><td>对话 / 编码会话的历史文本压缩</td></tr>
           <tr><td><code>CompressAlgorithmicAsync</code></td><td>只跑算法节点（<code>allowLlm=false</code>）：即使配置成 <code>llm</code> / <code>hybrid</code> 也不触发模型调用</td><td>单轮任务：Wiki 生成、知识图谱提取等一次性输入</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">单轮任务为什么要区分？因为一次性的长输入只压缩一次，再花一次模型调用不划算；而对话历史会被反复送进模型，LLM 摘要摊薄之后才值得。</div>
 
       <h2>三种模式</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模式</th><th>含义</th></tr></thead>
         <tbody>
           <tr><td><code>algorithmic</code>（默认）</td><td>只跑算法节点，<code>llm_summary</code> 即使勾选也会被跳过（日志中会写明原因）</td></tr>
           <tr><td><code>llm</code></td><td>算法节点 + LLM 摘要（满足长度阈值时）</td></tr>
           <tr><td><code>hybrid</code></td><td>与 <code>llm</code> 相同：先算法后 LLM——算法先把明显冗余去掉，LLM 再处理语义级压缩</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>十个节点（按执行顺序）</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>#</th><th>节点 Key</th><th>名称</th><th>做法</th><th>默认</th></tr></thead>
         <tbody>
           <tr><td>1</td><td><code>structured</code></td><td>结构化折叠</td><td>折叠 base64 / HTML / JSON / 表格等长载荷，只留结构骨架与样本</td><td>启用</td></tr>
@@ -209,12 +209,12 @@
           <tr><td>9</td><td><code>headtail</code></td><td>超长头尾保留</td><td>超长输出保留首尾、折叠中间（构建日志、大文件内容）</td><td>启用</td></tr>
           <tr><td>10</td><td><code>llm_summary</code></td><td>LLM 摘要</td><td>调用模型做语义级摘要（按下面的门槛触发）</td><td><strong>关闭</strong></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">节点顺序在代码里固定（<code>Order</code> 1–10），配置只决定「哪些节点启用」。顺序有讲究：先去结构噪声，再去重复，最后才做数字归一化与关键行抽取；LLM 摘要永远在最后。</div>
 
       <h2>LLM 摘要的四个门槛</h2>
       <p><code>llm_summary</code> 要同时满足以下条件才会真正调用模型，任何一条不满足都会跳过并写日志：</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>门槛</th><th>取值</th><th>不满足时</th></tr></thead>
         <tbody>
           <tr><td>入口允许</td><td><code>allowLlm=true</code>（<code>CompressAsync</code>）</td><td>单轮任务直接跳过</td></tr>
@@ -222,7 +222,7 @@
           <tr><td>长度阈值</td><td><code>LlmThreshold ≥ 500</code> 字符（可配置）</td><td>短文本跳过，省一次调用</td></tr>
           <tr><td>可用模型</td><td>配置里指定的摘要模型可用，否则回落到默认对话模型</td><td>都没有则记 warning 并保留原文</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>摘要提示词默认要求：保留结论、数字、路径与文件名、命令、待办与约束，删除重复与寒暄，不编造事实，输出与原文同语言。</p>
 
       <h2>守卫与降级</h2>
@@ -234,7 +234,7 @@
       </ul>
 
       <h2>配置存储与升级语义</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>存储键</td><td>应用设置 <code>CompressionConfig</code>（JSON）</td></tr>
@@ -243,10 +243,10 @@
           <tr><td>历史节点</td><td>配置里存在但代码已没有的节点会保留并排到末尾（<code>Order + 100</code>），便于回滚排查</td></tr>
           <tr><td>自检</td><td><code>DescribeAsync()</code> 输出当前真正会执行的节点与模式，并明确写出 <code>llm_summary</code> 是否被跳过及原因（日志排查用）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>与「会话级自动压缩」的区别</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>维度</th><th>压缩管道（本页）</th><th>会话级自动压缩</th></tr></thead>
         <tbody>
           <tr><td>作用对象</td><td>单段文本（历史片段、工具输出）</td><td>整个会话的历史消息序列</td></tr>
@@ -254,7 +254,7 @@
           <tr><td>结果落点</td><td>只替换送入模型的那段文本</td><td>摘要写回话题 / 会话的 <code>ContextSummary</code> 与 <code>ContextSummaryThroughMessageId</code>，原始消息不动</td></tr>
           <tr><td>可调项</td><td>节点启停、模式、阈值、摘要模型与提示词</td><td>保留最近条数、摘要模型、自动触发比例</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>调优建议（基于实现）</h2>
       <ul>

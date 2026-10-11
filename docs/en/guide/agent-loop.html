@@ -110,7 +110,7 @@
       </ol>
 
       <h2>Key parameters</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
@@ -119,7 +119,7 @@
           <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>When set, only these core tools are exposed; the rest follow session configuration</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Mid-run steering</h2>
       <ul>
@@ -130,7 +130,7 @@
       </ul>
 
       <h2>History compression boundaries</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Behaviour</th><th>Implementation</th></tr></thead>
         <tbody>
           <tr><td>Scope</td><td>The boundary stops before the current user message: the message being answered and anything produced after it are never compressed, so the user's own words are not summarized away</td></tr>
@@ -138,7 +138,7 @@
           <tr><td>Method</td><td>Calls the full compression pipeline entry (LLM summary allowed, subject to pipeline mode and threshold)</td></tr>
           <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Tool loading and MCP</h2>
       <ul>
@@ -148,7 +148,7 @@
       </ul>
 
       <h2>Event outlets</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Outlet</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>Structured event passthrough: SSE writes frames verbatim, non-streaming callers may ignore it</td></tr>
@@ -156,7 +156,7 @@
           <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>Post-processing hook (code sessions persist the tool timeline here)</td></tr>
           <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions additionally persist <code>subagent</code> events for replay</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Failure and degradation</h2>
       <ul>
