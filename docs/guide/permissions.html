@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>权限与审批 · Hetu</title>
+<meta name="description" content="权限与审批详解：五档模式的具体行为、三层判定顺序（模式硬约束 → 项目规则 → 模式+工具风险）、规则字段与匹配评分、autopilot 对模式的影响、对话页/编码会话/工作流三条入口的差异、审批交互链路与安全建议。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/permissions.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/permissions.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="权限与审批 · Hetu">
+<meta property="og:description" content="权限与审批详解：五档模式的具体行为、三层判定顺序（模式硬约束 → 项目规则 → 模式+工具风险）、规则字段与匹配评分、autopilot 对模式的影响、对话页/编码会话/工作流三条入口的差异、审批交互链路与安全建议。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/permissions.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html" aria-current="page">权限与审批</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>权限与审批</h1>
+      <p class="lede">权限系统回答一个问题：这个工具调用能不能执行、还是要先问人。它由三层组成——<strong>模式</strong>（用户当前选择）、<strong>项目规则</strong>（<code>WorkApprovalRules</code>）、<strong>工具风险</strong>（读 / 写）。规则永远优先于模式。</p>
+
+      <h2>五档权限模式</h2>
+      <table>
+        <thead><tr><th>模式</th><th>行为</th><th>典型场景</th></tr></thead>
+        <tbody>
+          <tr><td><code>plan</code> 计划</td><td>非只读工具<strong>直接拒绝</strong>（不是「问了再执行」），返回固定拒绝话术</td><td>只想让模型出方案，不许动文件</td></tr>
+          <tr><td><code>readonly</code> 只读</td><td>只读工具放行，写工具直接拒绝</td><td>读代码、查资料、做分析</td></tr>
+          <tr><td><code>ask</code> 询问（默认）</td><td>写操作逐个请求批准</td><td>第一次在陌生仓库里动手</td></tr>
+          <tr><td><code>auto</code> 自动</td><td>常规写操作直接执行，敏感操作仍会询问</td><td>信任的重复性任务</td></tr>
+          <tr><td><code>bypass</code> 绕过</td><td>全部放行，包括规则里被 deny 之外的一切</td><td>一次性、隔离环境</td></tr>
+        </tbody>
+      </table>
+      <p>非法值一律回落到 <code>ask</code>（同时兼容历史写法 <code>read-only</code> / <code>read_only</code>）。</p>
+
+      <h2>判定顺序</h2>
+      <ol>
+        <li><strong>模式硬约束</strong>：<code>plan</code> / <code>readonly</code> 先判，命中即结束——这两个模式不受项目规则影响。</li>
+        <li><strong>项目规则</strong>：按工具名与路径匹配 <code>WorkApprovalRule</code>；<code>deny</code> 覆盖任何模式，<code>allow</code> 也会放行 <code>ask</code> / <code>auto</code> 下的调用。</li>
+        <li><strong>模式 + 工具风险</strong>：没有命中规则时，只读工具按模式放行，写工具按模式决定「直接执行」还是「请求批准」。</li>
+      </ol>
+
+      <h2>项目规则模型</h2>
+      <table>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>ToolName</code></td><td>工具名，支持 <code>*</code> 通配</td></tr>
+          <tr><td><code>PathPattern</code></td><td>可选路径匹配；只对文件类工具生效（读写/删除/移动/打补丁五种），其他工具不参与路径匹配</td></tr>
+          <tr><td><code>Decision</code></td><td><code>allow</code> 或 <code>deny</code>，其他取值创建失败</td></tr>
+          <tr><td><code>IsEnabled</code></td><td>规则可临时停用而不删除</td></tr>
+        </tbody>
+      </table>
+      <p>匹配评分：<strong>精确工具名优先于通配</strong>，<strong>带路径的规则优先于不带路径</strong>；同一工具 + 同一路径模式的重复规则会在创建时合并成一条，避免规则抖动。</p>
+
+      <h2>运行模式对权限的影响</h2>
+      <ul>
+        <li><code>interactive</code>：保持所选模式，逐步确认。</li>
+        <li><code>autopilot</code>：把 <code>ask</code> 提升为 <code>auto</code>（少打断），但 <code>plan</code> / <code>readonly</code> <strong>不会</strong>被提升——强约束不被托管执行绕过。</li>
+      </ul>
+
+      <h2>三条入口的差异</h2>
+      <table>
+        <thead><tr><th>入口</th><th>权限来源</th></tr></thead>
+        <tbody>
+          <tr><td>编码会话</td><td>完整三层：模式 + 项目规则 + 工具风险；会话上持久化 <code>PermissionMode</code> 与 <code>AgentMode</code></td></tr>
+          <tr><td>对话页</td><td>模式 + <strong>逐工具覆盖</strong>（<code>ToolApprovalOverrides</code>）；不读取项目规则——对话没有项目上下文</td></tr>
+          <tr><td>工作流节点</td><td>节点配置的 <code>toolApprovals</code> 与运行级 <code>toolApprovalMode</code> 叠加，后者只覆盖未显式配置的工具</td></tr>
+        </tbody>
+      </table>
+
+      <h2>审批交互链路</h2>
+      <ol>
+        <li>判定器返回「需要批准」后，Agent 循环发出 <code>approval_request</code> 事件（含工具名与参数）。</li>
+        <li>前端渲染成审批卡片：批准 / 拒绝，可附带理由。</li>
+        <li>批准则执行该次调用并把结果回填；拒绝则把拒绝原因作为工具结果返回给模型，让它换方案。</li>
+        <li>与 <code>question</code> 事件的区别：<code>approval_request</code> 是「要不要执行这个工具」，<code>question</code> 是「向用户追问信息」，两者都有自己的 id，不能混用。</li>
+      </ol>
+
+      <h2>安全建议</h2>
+      <ul>
+        <li>在陌生仓库先跑 <code>ask</code>，确认工具面符合预期后再切 <code>auto</code>。</li>
+        <li>把「永不希望自动执行」的工具（例如删除文件、推送代码）写成 <code>deny</code> 规则，这样连 <code>auto</code> / <code>bypass</code> 都不会绕过。</li>
+        <li>用路径规则限定作用范围：例如允许写 <code>docs/**</code>，其余仍走确认。</li>
+        <li>MCP 工具与内置工具共用这套判定；接新服务器先用 <code>ask</code> 跑一遍，确认它到底会调用什么。</li>
+      </ul>
+
+      <h2>观测与排查</h2>
+      <ul>
+        <li>规则接口返回 <code>WorkApprovalRuleDto</code>；非法 decision 报 <code>approvalRule.invalidDecision</code>，规则不存在报 <code>approvalRule.notFound</code>。</li>
+        <li>被拒绝的工具调用会在消息流里显示为工具结果（含拒绝原因），便于解释「为什么模型没做那件事」。</li>
+        <li>怀疑权限覆盖顺序时，先确认是否命中项目规则（规则优先于模式），再确认运行模式是否把 <code>ask</code> 提升成了 <code>auto</code>。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+

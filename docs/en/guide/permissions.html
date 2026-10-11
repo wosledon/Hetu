@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Permission modes & approvals · Hetu</title>
+<meta name="description" content="Permission modes and approvals in detail: what each of the five modes does, the three-layer decision order, rule fields and match scoring, how autopilot changes modes, differences across the three entry points, the approval round trip and safety advice.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/permissions.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/permissions.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Permission modes & approvals · Hetu">
+<meta property="og:description" content="Permission modes and approvals in detail: what each of the five modes does, the three-layer decision order, rule fields and match scoring, how autopilot changes modes, differences across the three entry points, the approval round trip and safety advice.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/permissions.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/permissions.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html" aria-current="page">Permission modes & approvals</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Permission modes &amp; approvals</h1>
+      <p class="lede">The permission system answers one question: may this tool call run, or must a human be asked first? It has three layers — the <strong>mode</strong> (what the user selected), <strong>project rules</strong> (<code>WorkApprovalRules</code>) and <strong>tool risk</strong> (read / write). Rules always outrank the mode.</p>
+
+      <h2>The five modes</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Behaviour</th><th>Typical use</th></tr></thead>
+        <tbody>
+          <tr><td><code>plan</code></td><td>Non-read-only tools are <strong>refused outright</strong> (not "ask then run"), with a fixed refusal message</td><td>Let the model design, touch nothing</td></tr>
+          <tr><td><code>readonly</code></td><td>Read-only tools allowed, write tools refused</td><td>Reading code, researching, analysis</td></tr>
+          <tr><td><code>ask</code> (default)</td><td>Each write operation asks for approval</td><td>First pass in an unfamiliar repository</td></tr>
+          <tr><td><code>auto</code></td><td>Routine writes run directly; sensitive operations still ask</td><td>Trusted, repetitive work</td></tr>
+          <tr><td><code>bypass</code></td><td>Everything allowed except what rules explicitly deny</td><td>One-off tasks in disposable environments</td></tr>
+        </tbody>
+      </table>
+      <p>Invalid values fall back to <code>ask</code> (with legacy <code>read-only</code> / <code>read_only</code> accepted).</p>
+
+      <h2>Decision order</h2>
+      <ol>
+        <li><strong>Mode hard limits</strong>: <code>plan</code> / <code>readonly</code> are evaluated first and short-circuit — project rules cannot loosen them.</li>
+        <li><strong>Project rules</strong>: match <code>WorkApprovalRule</code> by tool name and path; <code>deny</code> overrides any mode, and <code>allow</code> also lets calls through under <code>ask</code> / <code>auto</code>.</li>
+        <li><strong>Mode + tool risk</strong>: with no rule matched, read-only tools follow the mode, write tools resolve to "execute" or "request approval".</li>
+      </ol>
+
+      <h2>Rule model</h2>
+      <table>
+        <thead><tr><th>Field</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td><code>ToolName</code></td><td>Tool name, <code>*</code> wildcard supported</td></tr>
+          <tr><td><code>PathPattern</code></td><td>Optional path match; only file tools participate (read/write/delete/move/apply-patch)</td></tr>
+          <tr><td><code>Decision</code></td><td><code>allow</code> or <code>deny</code>; anything else fails on create</td></tr>
+          <tr><td><code>IsEnabled</code></td><td>Rules can be disabled without deleting them</td></tr>
+        </tbody>
+      </table>
+      <p>Match scoring: an <strong>exact tool name beats a wildcard</strong>, and a rule <strong>with a path beats one without</strong>. Duplicate rules for the same tool and path pattern are merged on create to avoid rule churn.</p>
+
+      <h2>How run modes interact</h2>
+      <ul>
+        <li><code>interactive</code>: keeps the selected mode and confirms step by step.</li>
+        <li><code>autopilot</code>: promotes <code>ask</code> to <code>auto</code> (fewer interruptions) but never promotes <code>plan</code> / <code>readonly</code> — hard limits are not bypassed by unattended runs.</li>
+      </ul>
+
+      <h2>Differences across the three entry points</h2>
+      <table>
+        <thead><tr><th>Entry</th><th>Permission source</th></tr></thead>
+        <tbody>
+          <tr><td>Code sessions</td><td>All three layers: mode + project rules + tool risk; <code>PermissionMode</code> and <code>AgentMode</code> persist on the session</td></tr>
+          <tr><td>Chat page</td><td>Mode + <strong>per-tool overrides</strong> (<code>ToolApprovalOverrides</code>); project rules are not read — chat has no project context</td></tr>
+          <tr><td>Workflow nodes</td><td>Node-level <code>toolApprovals</code> plus the run-level <code>toolApprovalMode</code>, the latter only filling tools without an explicit setting</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Approval round trip</h2>
+      <ol>
+        <li>When the decider returns "needs approval", the loop emits an <code>approval_request</code> event (tool name and arguments).</li>
+        <li>The UI renders an approval card: approve or reject, optionally with a reason.</li>
+        <li>Approval executes that single call and feeds the result back; rejection returns the reason as the tool result so the model can choose another approach.</li>
+        <li>Not to be confused with <code>question</code>: <code>approval_request</code> asks "may I run this tool", <code>question</code> asks the user for information. They carry separate ids.</li>
+      </ol>
+
+      <h2>Safety advice</h2>
+      <ul>
+        <li>Start unfamiliar repositories in <code>ask</code>, then switch to <code>auto</code> once the tool surface matches expectations.</li>
+        <li>Write <code>deny</code> rules for tools that must never run unattended (deleting files, pushing code) — those hold even under <code>auto</code> / <code>bypass</code>.</li>
+        <li>Use path rules to scope access, e.g. allow writes under <code>docs/**</code> while the rest still asks.</li>
+        <li>MCP tools share the same decision path; run a new server in <code>ask</code> once to see what it actually calls.</li>
+      </ul>
+
+      <h2>Observability and troubleshooting</h2>
+      <ul>
+        <li>The rule API returns <code>WorkApprovalRuleDto</code>; an invalid decision reports <code>approvalRule.invalidDecision</code>, a missing rule <code>approvalRule.notFound</code>.</li>
+        <li>A rejected tool call appears in the message stream as a tool result with the reason — that is why the model "did not do that thing".</li>
+        <li>If a call was allowed or blocked unexpectedly, check project rules first (they outrank the mode), then whether the run mode promoted <code>ask</code> to <code>auto</code>.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+

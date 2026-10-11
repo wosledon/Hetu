@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent loop · Hetu</title>
+<meta name="description" content="Agent loop in detail: the six steps of a run, key parameters (15 iterations / 5 tools per turn / compression flag), steering injection point and semantics, history compression boundaries and dedup, MCP tool loading and degradation, event outlets and caller duties, failure branches and debugging.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/agent-loop.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/agent-loop.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Agent loop · Hetu">
+<meta property="og:description" content="Agent loop in detail: the six steps of a run, key parameters (15 iterations / 5 tools per turn / compression flag), steering injection point and semantics, history compression boundaries and dedup, MCP tool loading and degradation, event outlets and caller duties, failure branches and debugging.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/agent-loop.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/agent-loop.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html" aria-current="page">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Agent loop</h1>
+      <p class="lede">Chat, code sessions, the kanban board and workflows all share one kernel: <code>AgentLoopService.RunAsync</code>. It turns messages, tools, approvals, compression and the event stream into a single turn; business semantics stay with each caller.</p>
+
+      <h2>Order of a single run</h2>
+      <ol>
+        <li><strong>Resolve the model</strong>: a <code>ModelId</code> on the request creates that provider, otherwise the default chat model is used; if neither exists the run throws instead of silently substituting another model.</li>
+        <li><strong>Load tools</strong>: built-in / session tools first, then <code>tools/list</code> from the MCP servers bound to the session; the merged set refreshes the tool schemas and system prompt.</li>
+        <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context, then compresses history per configuration, then calls the model.</li>
+        <li><strong>Handle output</strong>: prose and thinking stream out as events; tool calls go to the caller's decider, which either executes them or requests approval.</li>
+        <li><strong>Feed results back</strong>: tool results enter the context and are pushed to the UI; per-iteration prose, thinking, tools and usage accumulate into the run result.</li>
+        <li><strong>Finish</strong>: the run ends at the iteration cap or when no further tool calls arrive; the caller persists messages, records usage and appends the <code>done</code> frame.</li>
+      </ol>
+
+      <h2>Key parameters</h2>
+      <table>
+        <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
+          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Per-turn tool budget, enforced through the system prompt rather than hard truncation</td></tr>
+          <tr><td><code>CompressHistory</code></td><td>true</td><td>Set false to skip history compression when debugging compression side effects</td></tr>
+          <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>
+          <tr><td><code>CoreToolNames</code></td><td>null</td><td>When set, only these core tools are exposed; the rest follow session configuration</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Mid-run steering</h2>
+      <ul>
+        <li>Injected at a fixed point — <strong>the start of each iteration</strong> — so it never interrupts a tool chain halfway and contradicts the context.</li>
+        <li>The injected text carries a fixed prefix (<code>【运行中引导，请立即结合它调整当前工作】</code>) so the model can tell it is a mid-run redirection.</li>
+        <li>Clicking "steer" while streaming queues the instruction in <code>AgentSteeringHub</code>; the next iteration picks it up and a <code>steering</code> event is echoed to the UI.</li>
+        <li>Queue vs steer: a queued message is sent after the current turn; a steer changes the running turn immediately.</li>
+      </ul>
+
+      <h2>History compression boundaries</h2>
+      <table>
+        <thead><tr><th>Behaviour</th><th>Implementation</th></tr></thead>
+        <tbody>
+          <tr><td>Scope</td><td>The boundary stops before the current user message: the message being answered and anything produced after it are never compressed, so the user's own words are not summarized away</td></tr>
+          <tr><td>Deduplication</td><td>Already-compressed slices are remembered in <code>compressedIndexes</code>; long sessions never re-compress the same slice</td></tr>
+          <tr><td>Method</td><td>Calls the full compression pipeline entry (LLM summary allowed, subject to pipeline mode and threshold)</td></tr>
+          <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Tool loading and MCP</h2>
+      <ul>
+        <li>MCP servers that are <strong>missing, disabled or not stdio</strong> are skipped with a warning; a single server failing to load logs an error and continues the turn instead of breaking it.</li>
+        <li>Successfully loaded tools merge with built-ins; name conflicts resolve in favour of built-ins, and the merged schemas feed permission decisions.</li>
+        <li>MCP tools are registered at runtime only and never persisted; server configuration lives in settings.</li>
+      </ul>
+
+      <h2>Event outlets</h2>
+      <table>
+        <thead><tr><th>Outlet</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>Structured event passthrough: SSE writes frames verbatim, non-streaming callers may ignore it</td></tr>
+          <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>Callback when a steer is accepted</td></tr>
+          <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>Post-processing hook (code sessions persist the tool timeline here)</td></tr>
+          <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions additionally persist <code>subagent</code> events for replay</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Failure and degradation</h2>
+      <ul>
+        <li><strong>Model unavailable</strong>: throws, and the UI receives an error frame — no silent model substitution.</li>
+        <li><strong>A single MCP server fails</strong>: that server is skipped, other tools keep working.</li>
+        <li><strong>Cancellation</strong>: <code>OperationCanceledException</code> is not swallowed; the caller decides whether it means "cancelled" or "requeue" (background tasks requeue).</li>
+        <li><strong>Compression failure</strong>: the pipeline degrades internally only (missing provider or a non-shorter result returns the original text).</li>
+      </ul>
+
+      <h2>Non-obvious but important</h2>
+      <ul>
+        <li>The iteration and tool limits are guard rails, not business rules: the former stops loops, the latter is enforced through the prompt so the model keeps judgement.</li>
+        <li>Steering is injected only at iteration boundaries; several clicks within one iteration are drained as one instruction.</li>
+        <li>Chat and code sessions differ in their <strong>permission decider and tool set</strong>, not in the kernel (code sessions bring <code>work_*</code> tools and a workspace scope).</li>
+        <li>Kanban and workflows reuse the same kernel, swapping the event outlet for run-step / node-event recording.</li>
+      </ul>
+
+      <h2>Debugging hints</h2>
+      <ul>
+        <li>Start with the <code>[AgentLoop]</code> and <code>[Compression]</code> log lines: the first shows iteration counts and tool loading, the second shows before/after sizes of history compression.</li>
+        <li>Suspect compression is changing behaviour? Turn <code>CompressHistory</code> off and reproduce.</li>
+        <li>Tool unexpectedly unavailable: check whether the MCP server is disabled or non-stdio, and whether the tool is denied by the permission mode or a project rule.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
