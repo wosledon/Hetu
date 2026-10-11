@@ -193,6 +193,26 @@ export default function WorkPage() {
 
   const handleDeleteTopic = useCallback(() => setTopicChoice(null), [])
 
+  /** 新建话题：只放一个「草稿话题」占位（id 为空），真正发第一条消息时才落库 */
+  const handleStartDraftTopic = useCallback((group: IChatGroup) => {
+    const now = new Date().toISOString()
+    setGroupChoice(group)
+    setTopicChoice({
+      id: '',
+      groupId: group.id,
+      title: '',
+      messageCount: 0,
+      isPinned: false,
+      noteSyncStatus: 'synced',
+      isAutoOrganizeEnabled: false,
+      createdAt: now,
+      updatedAt: now,
+    } as IChatTopic)
+    setView('chat')
+    setSections((prev) => (prev.chat ? prev : { ...prev, chat: true }))
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [setSearchParams])
+
   // —— 项目：项目/会话选择（原 Code 页）——
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
   const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
@@ -242,6 +262,35 @@ export default function WorkPage() {
     setSelectedSession(session)
     setView('code')
     setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
+  }
+
+  /**
+   * 新建会话：只放一个「草稿会话」占位（id 为空），真正发第一条消息时才落库，
+   * 避免点一下就在侧栏留下一条空会话。
+   */
+  const handleStartDraftSession = (project: IWorkProject) => {
+    const now = new Date().toISOString()
+    setPreferredProject(project)
+    setSelectedSession({
+      id: '',
+      projectId: project.id,
+      title: '',
+      messageCount: 0,
+      permissionMode: 'ask',
+      agentMode: 'interactive',
+      turnCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      cachedTokens: 0,
+      totalTokens: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    setView('code')
+    setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
+    const params = new URLSearchParams(searchParams)
+    params.set('project', project.id)
+    setSearchParams(params, { replace: true })
   }
 
   const requestOpenFile = (path: string) => setOpenFileRequest({ path, nonce: Date.now() })
@@ -346,6 +395,7 @@ export default function WorkPage() {
                   onSelectTopic={handleSelectTopic}
                   onSelectMain={handleSelectMain}
                   onDeleteTopic={handleDeleteTopic}
+                  onStartDraftTopic={handleStartDraftTopic}
                 />
               </div>
             )}
@@ -375,6 +425,7 @@ export default function WorkPage() {
                   selectedSessionId={view === 'code' ? selectedSession?.id : undefined}
                   onSelectProject={handleSelectProject}
                   onSelectSession={handleSelectSession}
+                  onStartDraftSession={handleStartDraftSession}
                   onProjectDeleted={(projectId) => {
                     if (preferredProject?.id === projectId) setPreferredProject(null)
                     if (selectedSession?.projectId === projectId) setSelectedSession(null)
@@ -407,11 +458,12 @@ export default function WorkPage() {
           ) : (
             <>
               <WorkSessionArea
-                key={selectedSession?.id ?? 'no-session'}
+                key={selectedSession?.id || selectedSession?.projectId || 'no-session'}
                 project={selectedProject ?? undefined}
                 session={selectedSession ?? undefined}
                 onSessionUpdated={handleSessionUpdated}
                 onSessionCreated={handleSessionCreated}
+                onStartDraft={() => selectedProject && handleStartDraftSession(selectedProject)}
                 activeFilePath={activeFilePath}
                 onClearActiveFile={() => setActiveFilePath(null)}
                 pendingContext={pendingContext}

@@ -20,6 +20,8 @@ export default function WorkGitSyncControl({ session }: { session: IWorkSession 
     queryFn: () => workGitService.status(session.projectId, session.id),
     staleTime: 15_000,
     refetchInterval: 30_000,
+    // 草稿会话还没落库：不同步状态
+    enabled: !!session.id,
   })
 
   const invalidate = () => {
