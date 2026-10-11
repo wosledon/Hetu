@@ -54,13 +54,27 @@ function walk(dir, out = []) {
 const files = walk(dir)
 const fileNames = files.map((f) => basename(f))
 const tag = `v${version}`
-const releaseUrl = (asset) => `https://github.com/${repo}/releases/download/${tag}/${asset}`
+
+/**
+ * GitHub 资产名清洗规则：`Hetu (Slim)_0.3.2_x64-setup.exe` 上传后会变成
+ * `Hetu.Slim._0.3.2_x64-setup.exe`（非法字符连续出现时只替换成一个点）。
+ * 清单里的下载地址必须用清洗后的名字，否则 404。
+ */
+const toAssetName = (name) => name.replace(/[^A-Za-z0-9._-]+/g, '.')
+
+const releaseUrl = (asset) => `https://github.com/${repo}/releases/download/${tag}/${toAssetName(asset)}`
+
+/**
+ * 渠道判定：fat 的 productName 是 `Hetu`，slim 是 `Hetu (Slim)`
+ * （见 src-tauri/tauri.slim.conf.json），资产名里一定带 Slim。
+ */
+const isSlim = (name) => /slim/i.test(name)
 
 /** Windows 走 NSIS 安装包，Linux 走 AppImage；两者都要有同名 .sig */
 function pickAsset(channel, kind) {
+  const wantSlim = channel === 'slim'
   const wanted = fileNames.filter((f) => {
-    const isSlim = /\.slim\./i.test(f)
-    if (channel === 'slim' ? !isSlim : isSlim) return false
+    if (isSlim(f) !== wantSlim) return false
     if (kind === 'windows') return f.endsWith('-setup.exe')
     return f.endsWith('.AppImage')
   })
@@ -85,6 +99,7 @@ function buildManifest(channel, urlFor) {
 
 function write(name, manifest) {
   if (Object.keys(manifest.platforms).length === 0) {
+    missing.push(name)
     console.warn(`[latest.json] ${name}: 没有任何平台的签名产物，跳过`)
     return
   }
@@ -93,10 +108,19 @@ function write(name, manifest) {
   console.log(`[latest.json] ${name}: ${Object.entries(manifest.platforms).map(([k, v]) => `${k}=${v.url.split('/').pop()}`).join(', ')}`)
 }
 
+const missing = []
+
 for (const channel of ['fat', 'slim']) {
   const base = channel === 'fat' ? 'latest' : 'latest-slim'
   write(`${base}.json`, buildManifest(channel, releaseUrl))
   for (const proxy of proxies) {
     write(`${base}${proxy.suffix}.json`, buildManifest(channel, (asset) => proxy.prefix + releaseUrl(asset)))
   }
+}
+
+// 缺清单 = 该渠道的自动更新会 404（曾出现：slim 资产判定写错，slim 清单没生成）。
+// 发布环节必须直接失败，而不是发一个更新点不动的版本。
+if (missing.length > 0) {
+  console.error(`[latest.json] 以下清单未生成：${missing.join(', ')}；请检查构建产物是否包含对应渠道的安装包与 .sig`)
+  process.exit(1)
 }
