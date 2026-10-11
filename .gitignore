@@ -491,3 +491,7 @@ $RECYCLE.BIN/
 
 # impeccable 设计 hook 缓存
 .impeccable/
+
+# Playwright CLI 截图/快照工作目录（浏览器实测用）
+.playwright-cli/
+
