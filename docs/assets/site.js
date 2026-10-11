@@ -136,4 +136,61 @@
       })
       .catch(function () { window.clearTimeout(timer); });
   }
+
+  /* 访问计数：匿名，无 Cookie；访客数用 localStorage 去重，浏览量按页面加载计。
+     统计服务不可用时整块保持隐藏，页脚不会出现空白或 0。 */
+  var counter = document.querySelector('[data-visit-counter]');
+  if (counter) {
+    var host = window.location.hostname;
+    var offline = !host || host === 'localhost' || host === '127.0.0.1' || host === '[::1]' ||
+      window.location.protocol === 'file:';
+    var api = 'https://abacus.jasoncameron.dev/';
+    var scope = 'hetu-docs/';
+    var visitorFlag = 'hetu.docs.visitor.v1';
+
+    function readCount(key) {
+      return fetch(api + 'get/' + scope + key, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { return data && typeof data.value === 'number' ? data.value : null; })
+        .catch(function () { return null; });
+    }
+
+    function bumpCount(key) {
+      return fetch(api + 'hit/' + scope + key, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { return data && typeof data.value === 'number' ? data.value : null; })
+        .catch(function () { return null; });
+    }
+
+    /* 首次访问才计入访客数；本地预览不写数，避免污染线上统计。 */
+    var seenVisitor = false;
+    try { seenVisitor = window.localStorage.getItem(visitorFlag) === '1'; } catch (e) {}
+    var visitorsJob;
+    if (offline || seenVisitor) {
+      visitorsJob = readCount('visitors');
+    } else {
+      visitorsJob = bumpCount('visitors').then(function (value) {
+        if (typeof value === 'number') {
+          try { window.localStorage.setItem(visitorFlag, '1'); } catch (e) {}
+        }
+        return value;
+      });
+    }
+    var viewsJob = offline ? readCount('views') : bumpCount('views');
+
+    function show(selector, segment, value) {
+      var node = counter.querySelector(selector);
+      var box = counter.querySelector('[data-visit-segment="' + segment + '"]');
+      if (!node || !box || typeof value !== 'number') return false;
+      node.textContent = value.toLocaleString();
+      box.removeAttribute('hidden');
+      return true;
+    }
+
+    Promise.all([visitorsJob, viewsJob]).then(function (values) {
+      var showedVisitors = show('[data-visit-visitors]', 'visitors', values[0]);
+      var showedViews = show('[data-visit-views]', 'views', values[1]);
+      if (showedVisitors && showedViews) counter.querySelector('[data-visit-sep]').removeAttribute('hidden');
+    });
+  }
 })();

@@ -241,6 +241,7 @@ dotnet ef migrations add <Name> --project src/Hetu.Infrastructure.PostgresMigrat
   - 样式与脚本在 `docs/assets/`（无外部依赖、无构建步骤），`docs/.nojekyll` 关闭 Jekyll 处理
   - 每页必须带 `lang`、`canonical`、`og:*` 与三套 `hreflang`（zh-CN / en / x-default）；语言切换链接指向对应页面的另一语言
   - 截图放 `docs/screenshots/`，页面里用 `<img class="shot" src="../screenshots/xxx.png">` 引用（相对路径按页面深度算：`/guide` 用 `../`、`/en/guide` 用 `../../`），灯箱由 `site.js` 自动接管
+  - 页脚访问计数：每页页脚内联 `<span class="visit-counter" data-visit-counter>`，数据由 `site.js` 从 abacus（命名空间 `hetu-docs`）读取，展示「访问人数 / 浏览量」；访客数用 `localStorage` 去重，`localhost`/`file:` 只读不写，接口不可用时整块隐藏（新增页面不要漏掉这段页脚标记）
   - 改完在本地起静态服务器（`python -m http.server 5180 --directory docs`）逐页点一遍：无失效链接、无横向滚动条、移动端导航可展开、灯箱与主题切换正常
 - 公共 API 加 XML 文档注释；复杂业务逻辑写清楚「为什么」；TODO 用 `// TODO(名字): 描述`。
 - 接口文档由 Scalar 生成（`/scalar/v1`），新增端点尽量给出示例请求/响应。
@@ -248,6 +249,6 @@ dotnet ef migrations add <Name> --project src/Hetu.Infrastructure.PostgresMigrat
 ## 安全
 
 - API Key 用 DataProtection 加密落库（Windows 走 DPAPI），不要明文写日志或返回给前端。
-- 所有数据本地优先，不引入遥测/上报；网络请求只发往用户配置的模型供应商、用户启用的 MCP/搜索服务。
+- 所有数据本地优先，不引入遥测/上报；网络请求只发往用户配置的模型供应商、用户启用的 MCP/搜索服务。唯一例外是官网页脚的聚合访问计数（写入 abacus 的 `hetu-docs` 命名空间，只上报递增计数，不携带 Cookie、账号或内容）。
 - 命令执行类工具必须经过权限模式（`plan` / `readonly` / `ask` / `auto` / `bypass`）判定，不要绕过。
 - SQL 一律走 EF Core 参数化查询；用户输入渲染 Markdown 前经 DOMPurify 过滤。
