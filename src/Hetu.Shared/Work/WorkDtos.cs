@@ -476,7 +476,11 @@ public class WorkPrStatusDto
     public string? Branch { get; set; }
     /// <summary>默认目标分支（创建 PR 用）</summary>
     public string? BaseBranch { get; set; }
+    /// <summary>当前分支是否已推送到远端（没推送时远端还看不到这个分支）</summary>
+    public bool BranchPushed { get; set; }
     public WorkPrInfoDto? Pr { get; set; }
+    /// <summary>仓库里开放中的 PR / MR（便于对照「当前 PR」）</summary>
+    public List<WorkPrInfoDto> OpenPrs { get; set; } = [];
     /// <summary>补充信息：no-remote / unsupported-host / 未登录或无 PR 时的原始输出</summary>
     public string? Message { get; set; }
 }

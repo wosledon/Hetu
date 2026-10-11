@@ -880,7 +880,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   }
 
   // 空会话：不展示图标/标题/描述，只把输入框居中
-  const emptyChat = messages.length === 0 && !isStreaming
+  const emptyChat = !messagesLoading && messages.length === 0 && !isStreaming
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
