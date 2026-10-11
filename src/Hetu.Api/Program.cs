@@ -1,6 +1,7 @@
 using Hetu.Api.Extensions;
 using Hetu.Api.Hosting;
 using Hetu.Api.Seeding;
+using Hetu.Api.Services;
 using Hetu.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,8 @@ builder.Services.AddDataProtection(options => options.ApplicationDiscriminator =
 var providerInfo = builder.Services.AddHetuDatabase(builder.Configuration, dataDir);
 builder.Services.AddHetuDomainServices();
 builder.Services.AddHetuBackgroundWorkers();
+// 桌面外壳启动的后端：外壳被强杀时自行退出，避免留下占用端口/文件的孤儿进程
+builder.Services.AddHostedService<ParentProcessWatchdog>();
 
 var app = builder.Build();
 
