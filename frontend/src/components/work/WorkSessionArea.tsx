@@ -37,6 +37,7 @@ import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentModeSelect from '../agent/AgentModeSelect'
 import AgentContextUsage from '../agent/AgentContextUsage'
 import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
+import WorkSessionWorkspaceBadge from './WorkSessionWorkspaceBadge'
 import WorkGitSyncControl from './WorkGitSyncControl'
 import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
@@ -1040,6 +1041,11 @@ export default function WorkSessionArea({
     t('session.followUps.explainChanges'),
   ]
 
+  // 会话已开始（发过消息或已建好工作树）：工作区/分支固定，输入框里不再展示切换按钮
+  const sessionStarted = messages.length > 0 || !!session.worktreePath || isStreaming
+  // 空会话：把起步引导放在消息区正中，而不是贴在顶部
+  const emptyConversation = messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0
+
   const usageTotal: UsageView = liveUsage ?? {
     promptTokens: session.promptTokens ?? 0,
     completionTokens: session.completionTokens ?? 0,
@@ -1057,6 +1063,8 @@ export default function WorkSessionArea({
           title={isStreaming ? t('common:running') : t('session.idle')}
         />
         <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || t('sidebar.newSession')}</h2>
+        {/* 会话开始后工作区/分支已固定：只在标题旁展示，输入框里不再放切换按钮 */}
+        {sessionStarted && <WorkSessionWorkspaceBadge session={session} className="hidden md:inline-flex" />}
         <span className="hidden shrink-0 text-[11px] text-gray-400 sm:inline">
           {project ? `${project.name} · ` : ''}{t('session.messageCount', { count: messages.length })}
           {session.turnCount > 0 && ` · ${t('session.turnCount', { count: session.turnCount })}`}
@@ -1114,8 +1122,28 @@ export default function WorkSessionArea({
         )}
       </div>
 
-      {/* 消息区：瀑布流 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      {/* 消息区：瀑布流；空会话时把起步引导居中展示 */}
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden ${emptyConversation ? 'flex' : ''}`}>
+        {emptyConversation ? (
+          <div className="m-auto max-w-md px-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/20">
+              <Bot size={28} className="text-white" />
+            </div>
+            <h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('session.startTitle', { name: project?.name ?? '' })}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{t('session.startHint')}</p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
+              {startPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => sendPreset(prompt)}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
           {olderCount > 0 && (
             <button
@@ -1154,21 +1182,6 @@ export default function WorkSessionArea({
                 />
               )
           })}
-
-          {/* 空会话：快捷起步 */}
-          {!isStreaming && lastUserIndex < 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {startPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendPreset(prompt)}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* 刚发出、后端尚在持久化的消息（即时反馈） */}
           {showPendingUser && pendingUser && (
@@ -1268,6 +1281,7 @@ export default function WorkSessionArea({
 
           <div ref={messagesEndRef} />
         </div>
+        )}
       </div>
 
 
@@ -1365,7 +1379,7 @@ export default function WorkSessionArea({
           ) : undefined}
           trailing={
             <div className="flex items-center gap-1">
-              <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />
+              {!sessionStarted && <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />}
               <WorkGitSyncControl session={session} />
               <AgentContextUsage
                 usage={contextUsage}

@@ -926,14 +926,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
         {messages.length === 0 && !isStreaming && (
-          <div className="flex h-full flex-col items-center justify-center text-center py-20">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+          <div className="m-auto max-w-md text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
               <Bot size={28} className="text-white" />
             </div>
             <h3 className="mb-1 text-lg font-medium text-gray-800 dark:text-gray-100">{t('messageArea.emptyTitle')}</h3>
-            <p className="max-w-xs text-sm text-gray-500">{t('messageArea.emptyDescription')}</p>
+            <p className="text-sm text-gray-500">{t('messageArea.emptyDescription')}</p>
           </div>
         )}
         <div className="mx-auto max-w-3xl space-y-5">
