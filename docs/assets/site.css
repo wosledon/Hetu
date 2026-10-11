@@ -54,7 +54,8 @@ body {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
-img { max-width: 100%; display: block; }
+/* height:auto 必须写死：img 的 width/height 属性会作为高度提示生效，否则每次都会把截图拉变形 */
+img { max-width: 100%; height: auto; display: block; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 3px; }
 h1, h2, h3, h4 { color: var(--text); line-height: 1.25; letter-spacing: -.02em; margin: 0 0 .6em; }
@@ -113,6 +114,11 @@ p { margin: 0 0 1em; }
 .hero h1 { margin-top: 18px; }
 .hero .lede { font-size: 1.12rem; color: var(--text-soft); max-width: 34em; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 18px; }
+/* 首页：文案块 + 下方整幅产品截图（侧栏并排会把 1440px 截图压到 520px，文字不可读） */
+.hero-copy { max-width: 800px; }
+.hero-shot { margin-top: 44px; }
+.hero-shot .frame { max-width: var(--wrap); }
+.hero-shot .shot-hint { display: block; margin-top: 10px; color: var(--muted); }
 .hero-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: .86rem; }
 .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
 .hero-meta svg { width: 15px; height: 15px; color: var(--accent); }
@@ -160,11 +166,11 @@ p { margin: 0 0 1em; }
 .docs-cards span { color: var(--muted); font-size: .9rem; }
 
 /* code */
-.code { position: relative; background: var(--code-bg); border-radius: var(--radius-sm); border: 1px solid var(--border); margin: 0 0 1.1em; }
-/* 行内 code：浅底 + 深字；代码块内的 code 由下面 .code code 覆盖（背景/边框清零，文字用浅色） */
+.code { position: relative; background: var(--code-bg); border-radius: var(--radius-sm); border: 1px solid var(--border); margin: 0 0 1.1em; color: var(--code-text); }
+/* 行内 code：浅底深字；代码块内的 code 用 inherit 继承容器的浅色（任何针对 code 的规则都不会让代码块看不清） */
 code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .88em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
 
-.code code { background: none; border: 0; padding: 0; color: var(--code-text); }
+.code code { background: none; border: 0; padding: 0; color: inherit; font-size: .86rem; line-height: 1.75; white-space: pre; }
 .code pre { margin: 0; padding: 18px 46px 18px 18px; overflow-x: auto; }
 .code .copy { position: absolute; top: 9px; right: 9px; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(226,232,240,.22); background: rgba(226,232,240,.08); color: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .code .copy:hover { background: rgba(226,232,240,.16); }
@@ -190,7 +196,8 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 .docs-body table { width: 100%; border-collapse: collapse; margin: 0 0 1.2em; font-size: .92rem; }
 .docs-body th, .docs-body td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .docs-body th { color: var(--text); font-weight: 600; background: var(--surface-2); }
-.docs-body code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .86em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+/* 只作用于行内 code（不在 <pre> 里）；代码块的颜色由 .code 容器决定 */
+.docs-body :not(pre) > code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .86em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
 /* 代码块里的 code 必须是浅字（否则浅色主题下深字叠深底＝看不见） */
 .docs-body .code code { background: none; border: 0; padding: 0; color: var(--code-text); }
 .note { border: 1px solid var(--accent-border); background: var(--accent-soft); border-radius: var(--radius-sm); padding: 14px 18px; margin: 0 0 1.2em; font-size: .94rem; color: var(--text-soft); }
