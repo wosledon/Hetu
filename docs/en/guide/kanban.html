@@ -151,7 +151,7 @@
       </figure>
 
       <h2>State machine</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Status</th><th>Allowed transitions</th></tr></thead>
         <tbody>
           <tr><td><code>Backlog</code></td><td><code>Todo</code> · <code>Archived</code></td></tr>
@@ -162,11 +162,11 @@
           <tr><td><code>Done</code></td><td><code>Archived</code> · <code>InReview</code></td></tr>
           <tr><td><code>Archived</code></td><td>(terminal)</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The transition table is a hard-coded whitelist and invalid jumps are rejected. Timestamps follow one rule set: entering <code>Done</code> sets <code>CompletedAt</code> and leaving clears it; entering <code>Archived</code> sets <code>ArchivedAt</code> and leaving clears it; entering <code>Blocked</code> keeps or sets <code>BlockedReason</code> and leaving clears it. Priority values are <code>Low</code> / <code>Medium</code> / <code>High</code> / <code>Urgent</code>.</p>
 
       <h2>Card model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Group</th><th>Fields</th></tr></thead>
         <tbody>
           <tr><td>Core</td><td><code>Id</code> · <code>Title</code> · <code>Description</code> · <code>Status</code> · <code>Priority</code> · <code>Assignee</code> · <code>Tags</code> · <code>DueDate</code> · <code>SortOrder</code> · <code>BlockedReason</code> · <code>CompletedAt</code> · <code>ArchivedAt</code></td></tr>
@@ -176,11 +176,11 @@
           <tr><td>Runs</td><td><code>KanbanTaskRunDto</code>: <code>Kind</code> · <code>Trigger</code> · <code>Status</code> · <code>Input</code> · <code>Output</code> · <code>Error</code> · <code>WorkflowRunId</code> · <code>StartedAt</code> · <code>CompletedAt</code></td></tr>
           <tr><td>Detail aggregate</td><td><code>KanbanTaskDetailDto</code> = task + comments + runs + steps</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p><code>HasAutomation</code> is true when a project agent, a workflow or a custom prompt is configured. <code>AgentPrompt</code> / <code>AgentPromptName</code> are only stored when <strong>no project agent is selected</strong> (<code>AgentId</code> empty) — that is the real difference between the "pick an agent from the project's <code>.github</code>" path and the "write your own prompt" path.</p>
 
       <h2>Endpoints</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/kanban-tasks</code></td><td>Board data: seven columns plus stats; the <code>Archived</code> column only returns tasks archived in the last <strong>7 days</strong></td></tr>
@@ -191,7 +191,7 @@
           <tr><td><code>POST /api/kanban-tasks/{id}/rerun</code></td><td>Re-run; only allowed from <code>Todo</code></td></tr>
           <tr><td><code>GET /api/kanban-tasks/{id}</code> · <code>DELETE /api/kanban-tasks/{id}</code></td><td>Fetch or delete a single card</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Automation and status progression</h2>
       <ol>
@@ -203,7 +203,7 @@
       <div class="note">The precise answer to "does the board update status by itself" is: <strong>the backend writes status at the trigger points</strong> (column moves, comment loops, executor write-back) and the frontend pulls the change for display. Dragging a card to <code>InProgress</code> only changes status; it does not start execution on its own.</div>
 
       <h2>Detail enrichment and frontend refresh</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Rule</th></tr></thead>
         <tbody>
           <tr><td>Name enrichment</td><td>List and detail both fill <code>ProjectName</code> (managed project), <code>AgentName</code> (project agent), <code>WorkflowName</code>, <code>LastRunStatus</code> and <code>CommentCount</code>; the list uses batched dictionary lookups to avoid N+1</td></tr>
@@ -212,7 +212,7 @@
           <tr><td>Polling condition</td><td>Both board and detail refetch every <strong>3000ms</strong> while a run is <code>Running</code> / <code>WaitingAnswer</code>, or an automated task sits in <code>Todo</code> / <code>InProgress</code>; otherwise polling stops</td></tr>
           <tr><td>Refresh channel</td><td>React Query polling with invalidation; there is <strong>no</strong> task-board specific SSE event</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Problems of the form "project and agent are configured but the detail page shows nothing" usually come from the display fallback: when the agent is picked from the project's <code>.github</code>, the persisted fields are <code>AgentPrompt</code> / <code>AgentPromptName</code> rather than <code>AgentId</code>, so checking only <code>AgentId</code> renders empty. The current implementation shows both sources (selecting a project loads that project's <code>.github</code> agents and writes the prompt fields back).</p>
 
       <h2>Stats and archive window</h2>

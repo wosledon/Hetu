@@ -100,14 +100,14 @@
       <p class="lede">The desktop build is a Tauri 2 shell: a Rust process owns the window, tray and updater, starts the packaged backend as a sidecar, and renders the frontend in a WebView.</p>
 
       <h2>Installation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Channel</th><th>Artifact</th><th>Dependency</th></tr></thead>
         <tbody>
           <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>None (bundles the .NET runtime)</td></tr>
           <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Requires the .NET 10 runtime</td></tr>
           <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage needs no installation</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 232" role="img" aria-label="Release and update pipeline">
@@ -163,7 +163,7 @@
       <div class="note">Installers embed a preinstall hook that terminates leftover backend processes (<code>taskkill /F /IM Hetu.Api.exe</code>) before overwriting files, so a locked <code>sqlite-vec\vec0.dll</code> can no longer break an upgrade.</div>
 
       <h2>Tray and process lifecycle</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Behaviour</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Close window</td><td>Minimizes to the tray by default; the backend keeps running so background jobs continue. Disable in Settings → App</td></tr>
@@ -171,10 +171,10 @@
           <tr><td>Hard kill</td><td>The backend remembers the shell PID (<code>HETU_PARENT_PID</code>); if the shell disappears it exits by itself, leaving no orphan holding the port</td></tr>
           <tr><td>Dev reuse</td><td>In development, if <code>HETU_API_DEV_PORT</code> already has a backend, the shell reuses it</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h2>Install and data directories</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Path (Windows example)</th><th>Content</th></tr></thead>
         <tbody>
           <tr><td><code>&lt;install&gt;\Hetu (Slim).exe</code></td><td>Shell executable (the fat channel ships <code>Hetu.exe</code>)</td></tr>
@@ -184,7 +184,7 @@
           <tr><td><code>%LOCALAPPDATA%\Hetu\hetu.db</code></td><td>Database (plus <code>-wal</code> / <code>-shm</code>)</td></tr>
           <tr><td><code>%LOCALAPPDATA%\Hetu\logs\</code></td><td>Logs</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Install hook</h2>
       <p><code>src-tauri/nsis-hooks.nsh</code> runs before files are copied (<code>NSIS_HOOK_PREINSTALL</code>):</p>
@@ -194,7 +194,7 @@
   Pop $0
   Sleep 500
 !macroend</code></pre></div><h2>Worktree root and cleanup</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Default / options</th></tr></thead>
         <tbody>
           <tr><td>Root</td><td><code>.hetu-worktrees/&lt;repo&gt;/&lt;worktree&gt;</code> next to the repository</td></tr>
@@ -204,7 +204,7 @@
           <tr><td>Branch deletion</td><td>Off by default (directory only); can be enabled</td></tr>
           <tr><td>Manual run</td><td>“Clean now” in settings returns checked / removed / kept counts</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Data location</h2>
       <p>The shell passes the data directory to the backend via <code>HETU_DATA_DIR</code>: on Windows that is <code>%LOCALAPPDATA%\Hetu</code> (<code>hetu.db</code> plus WAL, and <code>logs/</code>). Copy that directory to migrate machines.</p>
@@ -221,14 +221,14 @@ npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></p
       <p>Sidecar naming must follow the Tauri convention: <code>binaries/Hetu.Api-&lt;rust-target-triple&gt;(.exe)</code>.</p>
 
       <h2>Troubleshooting</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
         <tbody>
           <tr><td><code>Error opening file for writing</code> during install</td><td>A leftover backend holds the file: end all <code>Hetu.Api.exe</code> in Task Manager and retry. Newer installers handle this automatically</td></tr>
           <tr><td><code>Could not fetch a valid release JSON</code></td><td>The manifest could not be fetched. Open <code>releases/latest/download/latest.json</code> (slim: <code>latest-slim.json</code>) in a browser to confirm, then upgrade to the latest build</td></tr>
           <tr><td>Window is gone but the app still runs</td><td>Click the tray icon to restore it; the backend intentionally keeps running</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="models.html">← Models & usage</a><a href="data.html">Data & security →</a></div>
     </div>
   </div>

@@ -108,15 +108,15 @@
       </ol>
 
       <h3>实体与关系类型</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>实体类型</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>概念 / 技术 / 项目</td><td>默认内置类型，界面按类型着色区分</td></tr>
           <tr><td>人物 / 组织</td><td>用于记录来源、团队、作者等</td></tr>
           <tr><td>自定义</td><td>抽取时模型可给出其他类型</td></tr>
         </tbody>
-      </table>
-      <table>
+      </table></div>
+      <div class="table-wrap"><table>
         <thead><tr><th>关系类型</th><th>语义</th></tr></thead>
         <tbody>
           <tr><td>belongs-to</td><td>属于（子概念 → 父概念 / 项目）</td></tr>
@@ -126,10 +126,10 @@
           <tr><td>compared-with</td><td>对比（常用于选型笔记）</td></tr>
           <tr><td>custom</td><td>其他关系</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h3>可视化操作</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>操作</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>缩放 / 平移</td><td>滚轮缩放、拖拽平移；提供重置视图按钮</td></tr>
@@ -137,7 +137,7 @@
           <tr><td>查看详情</td><td>点实体看它的关系列表与来源笔记，可直接跳回编辑器</td></tr>
           <tr><td>统计</td><td>顶部显示实体总数与关系总数，以及各类型计数</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/04-graph.png" alt="知识图谱页：实体按类型着色，边表示关系"></div>
       <span class="shot-hint">点图看原图</span>
 
@@ -150,7 +150,7 @@
       </ul>
 
       <h3>生成阶段</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>阶段</th><th>产物</th></tr></thead>
         <tbody>
           <tr><td>资料收集</td><td>读取 README 与目录，挑选代表文件</td></tr>
@@ -158,7 +158,7 @@
           <tr><td>总览页</td><td>汇总项目简介、结构、快速开始等（标题取项目名，排序置顶）</td></tr>
           <tr><td>落库</td><td>一次生成 = 一个<strong>套件</strong>（<code>SetId</code>），页面带排序号</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>整个过程是后台任务（类型 <code>WikiGenerate</code>），阶段与进度记录在任务里；失败时任务详情给出原因，可重跑。</p>
 
       <h3>浏览</h3>

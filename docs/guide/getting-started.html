@@ -101,14 +101,14 @@
 
       <h2>方式一：桌面安装包</h2>
       <p>到 <a href="https://github.com/wosledon/Hetu/releases/latest">Releases</a> 下载：</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>渠道</th><th>Windows 产物</th><th>依赖与体积</th></tr></thead>
         <tbody>
           <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>自带 .NET 10 运行时，装完即用，约 100 MB+</td></tr>
           <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>需系统已安装 .NET 10 运行时，体积小</td></tr>
           <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage 需要 <code>chmod +x</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">两个渠道是相互独立的更新流：装 <code>slim</code> 只会收到 <code>slim</code> 的更新清单，不会把 fat 版覆盖上去。</div>
       <p>关闭窗口默认最小化到托盘（后端继续跑，后台任务不中断）；要真正退出用托盘菜单「退出 Hetu」。该行为可在 <strong>设置 → 应用设置</strong> 关闭。</p>
 
@@ -122,7 +122,7 @@ pwsh ./scripts/start.ps1        # Windows：一键起前后端
 # 分开启动
 dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
 cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5174</code></pre></div>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>地址</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>http://localhost:5174</code></td><td>前端界面</td></tr>
@@ -130,7 +130,7 @@ cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5
           <tr><td><code>http://localhost:5000/scalar/v1</code></td><td>接口文档（Scalar）</td></tr>
           <tr><td><code>http://localhost:5000/api/health</code></td><td>健康检查（桌面壳用它判断就绪）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>方式三：桌面开发模式</h2>
       <p>并行启动 dotnet + vite + tauri，用于改 Rust 外壳、托盘、更新逻辑或联调 sidecar：</p>
@@ -138,7 +138,7 @@ cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5
       <p>开发期若 5000 端口已有后端，Tauri 会直接复用，避免和你自己跑的 <code>dotnet run</code> 冲突。</p>
 
       <h2>第一次配置</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>步骤</th><th>位置</th><th>要点</th></tr></thead>
         <tbody>
           <tr><td>加供应商</td><td>大模型 → 新增供应商</td><td>协议选 OpenAI 兼容或 Anthropic；填 Base URL 与 API Key（本地推理服务同样适用）</td></tr>
@@ -147,17 +147,17 @@ cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5
           <tr><td>喂知识</td><td>知识库</td><td>添加网址 / 上传文件；笔记在编辑器顶部点「生成索引」</td></tr>
           <tr><td>试一下</td><td>Code 页</td><td>输入问题时打开输入框上方的「知识库」开关即可引用检索结果</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note note--warn">Anthropic 没有公开 Embedding 接口，<code>embedding</code> 用途请选 OpenAI 兼容供应商。向量维度必须与模型一致（<code>Embedding:Dimensions</code>，默认 1536）。</div>
 
       <h2>数据落在哪</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>运行方式</th><th>位置</th></tr></thead>
         <tbody>
           <tr><td>桌面版（Windows）</td><td><code>%LOCALAPPDATA%\Hetu</code>：<code>hetu.db</code> + WAL、<code>logs/</code></td></tr>
           <tr><td>源码运行</td><td>由 <code>HETU_DATA_DIR</code> 指定；未设置时是工作目录下的 <code>hetu.db</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>接下来</h2>
       <ul>

@@ -238,7 +238,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
       </ol>
 
       <h2>数据模型要点</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>约定</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>基类</td><td>实体继承 <code>BaseEntity</code>：<code>Id</code>（Guid）、<code>CreatedAt</code>、<code>UpdatedAt</code></td></tr>
@@ -246,10 +246,10 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
           <tr><td>软删除</td><td><code>IsDeleted</code>（+ <code>DeletedAt</code>）配合全局查询过滤器；需要包含已删数据时显式 <code>IgnoreQueryFilters()</code></td></tr>
           <tr><td>迁移</td><td>Code First；SQLite 与 PostgreSQL 各有一套迁移（后者在 <code>Hetu.Infrastructure.PostgresMigrations</code>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h3>数据表一览（按域）</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>域</th><th>表</th><th>关键列 / 说明</th></tr></thead>
         <tbody>
           <tr><td>笔记</td><td><code>Notes</code> · <code>Notebooks</code> · <code>Tags</code> · <code>NoteTags</code> · <code>NoteVersions</code> · <code>ShareLinks</code></td><td>笔记含 <code>Title/Content/NotebookId/IsPinned/IsFavorite/IsDeleted/DeletedAt</code>；版本表按 <code>NoteId</code> 关联并靠 <code>CreatedAt</code> 排序保留 20 条；分享表存 <code>ShareCode/ExpiresAt/ViewCount</code></td></tr>
@@ -262,8 +262,8 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
           <tr><td>模型与用量</td><td><code>AiProviders</code> · <code>AiModels</code> · <code>LlmUsageLogs</code> · <code>AppSettings</code></td><td>模型含 <code>ProviderId/ModelId/Purpose/IsDefault</code>；用量含 <code>Source/RefId/ModelId/InputTokens/CompressedTokens/OutputTokens/CachedTokens/LatencyMs</code>；应用设置为键值表</td></tr>
           <tr><td>其它</td><td><code>InboxNotifications</code> · <code>ManagedProjects</code> · <code>McpServers</code> · <code>Skills</code> · <code>PromptPresets</code></td><td>MCP 服务器含 <code>Type(stdio/sse)/ConnectionConfig(JSON)/IsEnabled</code>；收件箱含分类键与出现次数（相同事件合并计数）</td></tr>
         </tbody>
-      </table><h2>仓储接口</h2>
-      <table>
+      </table></div><h2>仓储接口</h2>
+      <div class="table-wrap"><table>
         <thead><tr><th>方法</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>GetByIdAsync</code> / <code>GetAllAsync</code> / <code>FindAsync</code></td><td>常规读取（只读场景内部用 <code>AsNoTracking</code>）</td></tr>
@@ -273,10 +273,10 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
           <tr><td><code>GetPagedByDateAsync</code></td><td>按时间字段分页：非 SQLite 走 <code>ORDER BY</code> + <code>OFFSET/FETCH</code>；SQLite 先投影 <code>Id + 排序键</code> 内存定序，再按主键回表取这一页</td></tr>
           <tr><td><code>PruneAsync</code></td><td>保留排序后前 N 条，其余用一条 <code>DELETE</code> 清理</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h3>关键文件落点</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>关注点</th><th>文件</th></tr></thead>
         <tbody>
           <tr><td>应用装配 / 中间件</td><td><code>src/Hetu.Api/Program.cs</code>（DI、响应缓存、健康检查、Scalar）</td></tr>
@@ -289,7 +289,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
           <tr><td>桌面外壳</td><td><code>shell/hetu-desktop/src/backend.rs</code>（sidecar 生命周期）· <code>src-tauri/nsis-hooks.nsh</code>（安装钩子）</td></tr>
           <tr><td>前端路由与服务</td><td><code>frontend/src/App.tsx</code> · <code>frontend/src/services/</code> · <code>frontend/src/stores/</code></td></tr>
         </tbody>
-      </table><h2>SQLite 的 DateTimeOffset 限制（实际踩过的坑）</h2>
+      </table></div><h2>SQLite 的 DateTimeOffset 限制（实际踩过的坑）</h2>
       <ul>
         <li>EF Core 的 SQLite provider <strong>不支持在 SQL 中排序或聚合 <code>DateTimeOffset</code></strong>：<code>ORDER BY</code> 抛 <code>NotSupportedException</code>，<code>MAX()</code> 无法翻译；比较表达式（<code>x.CreatedAt &gt; since</code>）同样不能翻译。</li>
         <li>处理方式：分页用 <code>GetPagedByDateAsync</code>；分组计数用 <code>CountByAsync</code>；时间戳聚合只投影两列后在内存取最大值；需要「最近 N 天」这类判断时先投影时间戳再在内存过滤。</li>
@@ -297,7 +297,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
       </ul>
 
       <h2>性能实践</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>场景</th><th>做法</th></tr></thead>
         <tbody>
           <tr><td>列表接口</td><td>分页与排序下推数据库；先 <code>COUNT</code> 取总数，再取当前页</td></tr>
@@ -306,7 +306,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
           <tr><td>批量写入 / 清理</td><td>用 <code>ExecuteDeleteAsync</code> 等集合操作，避免逐条加载实体</td></tr>
           <tr><td>前端渲染</td><td>派生状态代替 <code>useEffect</code> 里同步 <code>setState</code>；不稳定数组用 <code>useMemo</code> 固定引用</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Agent 循环</h2>
       <ol>

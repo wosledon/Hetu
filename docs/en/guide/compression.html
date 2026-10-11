@@ -175,27 +175,27 @@
 </figure>
 
       <h2>Two entry points</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Entry</th><th>Behaviour</th><th>Used by</th></tr></thead>
         <tbody>
           <tr><td><code>CompressAsync</code></td><td>Runs the whole pipeline, <strong>including</strong> the LLM summary node</td><td>Chat / code session history compression</td></tr>
           <tr><td><code>CompressAlgorithmicAsync</code></td><td>Algorithm nodes only (<code>allowLlm=false</code>): no model call even when the mode is <code>llm</code> or <code>hybrid</code></td><td>Single-shot inputs: Wiki generation, graph extraction</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">Why the distinction? A one-shot long input is compressed once, so paying for an extra model call does not pay off. Chat history is re-sent on every turn, so LLM summarization amortizes.</div>
 
       <h2>Three modes</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Mode</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>algorithmic</code> (default)</td><td>Algorithm nodes only; <code>llm_summary</code> is skipped even when enabled (with a log line explaining why)</td></tr>
           <tr><td><code>llm</code></td><td>Algorithm nodes plus the LLM summary (subject to the length threshold)</td></tr>
           <tr><td><code>hybrid</code></td><td>Same as <code>llm</code>: algorithms strip obvious redundancy first, then the model handles semantic compression</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>The ten nodes (execution order)</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>#</th><th>Key</th><th>Name</th><th>What it does</th><th>Default</th></tr></thead>
         <tbody>
           <tr><td>1</td><td><code>structured</code></td><td>Structured folding</td><td>Folds long payloads — base64, HTML, JSON, tables — keeping a structural skeleton and samples</td><td>on</td></tr>
@@ -209,11 +209,11 @@
           <tr><td>9</td><td><code>headtail</code></td><td>Head / tail</td><td>For very long output, keeps the head and tail and folds the middle (build logs, large files)</td><td>on</td></tr>
           <tr><td>10</td><td><code>llm_summary</code></td><td>LLM summary</td><td>Model-based semantic summary, gated as described below</td><td><strong>off</strong></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">Node order is fixed in code (<code>Order</code> 1–10); configuration only chooses which nodes stay enabled. The order matters: structural noise first, then duplicates, then numeric/key-line reduction, with the LLM summary always last.</div>
 
       <h2>Four gates for the LLM summary</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Gate</th><th>Value</th><th>When unmet</th></tr></thead>
         <tbody>
           <tr><td>Entry allows it</td><td><code>allowLlm=true</code> (<code>CompressAsync</code>)</td><td>Single-shot tasks skip it</td></tr>
@@ -221,7 +221,7 @@
           <tr><td>Length threshold</td><td><code>LlmThreshold ≥ 500</code> characters (configurable)</td><td>Short text is skipped to save a call</td></tr>
           <tr><td>Model available</td><td>The configured summary model, falling back to the default chat model</td><td>Neither available: log a warning and keep the original</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The default summary prompt asks the model to keep conclusions, numbers, paths and file names, commands, todos and constraints; drop repetition and pleasantries; never invent facts; and answer in the source language.</p>
 
       <h2>Guard and degradation</h2>
@@ -233,7 +233,7 @@
       </ul>
 
       <h2>Configuration storage and upgrade semantics</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Storage key</td><td>App setting <code>CompressionConfig</code> (JSON)</td></tr>
@@ -242,10 +242,10 @@
           <tr><td>Historic nodes</td><td>Nodes present in a stored config but removed from code are kept at the end (<code>Order + 100</code>) for easier rollback and debugging</td></tr>
           <tr><td>Self-inspection</td><td><code>DescribeAsync()</code> reports the nodes that will actually run, the mode, and whether <code>llm_summary</code> is skipped and why</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>How it differs from session-level auto compaction</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Aspect</th><th>Compression pipeline (this page)</th><th>Session auto compaction</th></tr></thead>
         <tbody>
           <tr><td>Applies to</td><td>A single text (a history slice, a tool output)</td><td>The whole message sequence of a session</td></tr>
@@ -253,7 +253,7 @@
           <tr><td>Result</td><td>Replaces only the text sent to the model</td><td>Writes a summary into <code>ContextSummary</code> / <code>ContextSummaryThroughMessageId</code>; original messages are untouched</td></tr>
           <tr><td>Knobs</td><td>Node toggles, mode, threshold, summary model and prompt</td><td>Recent-message count, summary model, auto ratio</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Tuning advice grounded in the implementation</h2>
       <ul>

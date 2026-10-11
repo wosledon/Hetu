@@ -137,7 +137,7 @@
       </figure>
 
       <h2>Model and fields</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field / constant</th><th>Values</th></tr></thead>
         <tbody>
           <tr><td><code>InboxNotification</code></td><td><code>Category</code> · <code>CategoryKey</code> · <code>Level</code> · <code>Title</code> · <code>Content</code> · <code>IsRead</code> · <code>IsArchived</code> · <code>OccurrenceCount</code> · <code>Link</code> · <code>IsDeleted</code></td></tr>
@@ -146,7 +146,7 @@
           <tr><td>Batch actions</td><td><code>read</code> · <code>unread</code> · <code>archive</code> · <code>unarchive</code> · <code>delete</code></td></tr>
           <tr><td>Database constraints</td><td><code>Category</code> required; length limits on <code>CategoryKey</code> / <code>Level</code> / <code>Title</code> / <code>Content</code> / <code>Link</code>; indexes on <code>CategoryKey</code> / <code>IsArchived</code> / <code>UpdatedAt</code>; soft deletes filtered out</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Aggregation rules</h2>
       <ol>
@@ -157,7 +157,7 @@
       </ol>
 
       <h2>Endpoints</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/inbox?archived=&amp;category=&amp;page=&amp;pageSize=</code></td><td>Paged list filtered by archive state and category</td></tr>
@@ -169,7 +169,7 @@
           <tr><td><code>POST /api/inbox/batch</code></td><td>Batch: <code>{ ids, action }</code></td></tr>
           <tr><td><code>DELETE /api/inbox/{id}</code></td><td>Soft-delete one record</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>State transitions and deletion</h2>
       <ul>

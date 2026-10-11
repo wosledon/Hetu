@@ -133,7 +133,7 @@
         <h2>Technical choices and boundaries</h2>
         <p>Everything below is a mechanism that actually runs in the codebase, not a concept slide.</p>
       </div>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Topic</th><th>Implementation</th></tr></thead>
         <tbody>
           <tr><td>Storage</td><td>SQLite by default (<code>Data Source=hetu.db</code>) with the <code>sqlite-vec</code> extension; switchable to PostgreSQL 16+ with <code>pgvector</code> via <code>DatabaseProvider</code> — same feature set</td></tr>
@@ -146,7 +146,7 @@
           <tr><td>Desktop</td><td>Tauri 2 shell with a backend sidecar; <code>fat</code> / <code>slim</code> installer channels; updates via GitHub with three mirror fallbacks; an installer hook kills leftover backend processes before overwriting files</td></tr>
           <tr><td>Quality bar</td><td>Backend <code>dotnet build</code> and frontend <code>eslint</code> must be warning-free, and no suppression is accepted (<code>pragma</code> / <code>eslint-disable</code> / <code>SuppressMessage</code>)</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Deeper details (layering, request path, data model, performance work) are in <a href="guide/architecture.html">Architecture</a>.</p>
     </div>
   </section>

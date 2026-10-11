@@ -239,7 +239,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
       </ol>
 
       <h2>Data model conventions</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Convention</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Base class</td><td>Entities derive from <code>BaseEntity</code>: <code>Id</code> (Guid), <code>CreatedAt</code>, <code>UpdatedAt</code></td></tr>
@@ -247,10 +247,10 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
           <tr><td>Soft delete</td><td><code>IsDeleted</code> (plus <code>DeletedAt</code>) with a global query filter; use <code>IgnoreQueryFilters()</code> explicitly when deleted rows are needed</td></tr>
           <tr><td>Migrations</td><td>Code First, with separate migration projects for SQLite and PostgreSQL (<code>Hetu.Infrastructure.PostgresMigrations</code>)</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h3>Tables by domain</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Domain</th><th>Tables</th><th>Key columns / notes</th></tr></thead>
         <tbody>
           <tr><td>Notes</td><td><code>Notes</code> · <code>Notebooks</code> · <code>Tags</code> · <code>NoteTags</code> · <code>NoteVersions</code> · <code>ShareLinks</code></td><td>Notes carry <code>Title/Content/NotebookId/IsPinned/IsFavorite/IsDeleted/DeletedAt</code>; versions link by <code>NoteId</code> and keep the newest 20 by <code>CreatedAt</code>; share links store <code>ShareCode/ExpiresAt/ViewCount</code></td></tr>
@@ -263,8 +263,8 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
           <tr><td>Models and usage</td><td><code>AiProviders</code> · <code>AiModels</code> · <code>LlmUsageLogs</code> · <code>AppSettings</code></td><td>Models: <code>ProviderId/ModelId/Purpose/IsDefault</code>; usage: <code>Source/RefId/ModelId/InputTokens/CompressedTokens/OutputTokens/CachedTokens/LatencyMs</code>; settings are key-value</td></tr>
           <tr><td>Other</td><td><code>InboxNotifications</code> · <code>ManagedProjects</code> · <code>McpServers</code> · <code>Skills</code> · <code>PromptPresets</code></td><td>MCP servers: <code>Type(stdio/sse)/ConnectionConfig(JSON)/IsEnabled</code>; inbox merges repeated events by category key with an occurrence count</td></tr>
         </tbody>
-      </table><h2>Repository surface</h2>
-      <table>
+      </table></div><h2>Repository surface</h2>
+      <div class="table-wrap"><table>
         <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>GetByIdAsync</code> / <code>GetAllAsync</code> / <code>FindAsync</code></td><td>Standard reads (read-only paths use <code>AsNoTracking</code>)</td></tr>
@@ -274,10 +274,10 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
           <tr><td><code>GetPagedByDateAsync</code></td><td>Time-ordered paging: <code>ORDER BY</code> + <code>OFFSET/FETCH</code> elsewhere, but on SQLite it projects <code>Id + sort key</code>, orders in memory and fetches the page by primary key</td></tr>
           <tr><td><code>PruneAsync</code></td><td>Keeps the newest N rows and deletes the rest with one <code>DELETE</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h3>Where the code lives</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Concern</th><th>File</th></tr></thead>
         <tbody>
           <tr><td>App wiring / middleware</td><td><code>src/Hetu.Api/Program.cs</code> (DI, response caching, health probe, Scalar)</td></tr>
@@ -290,7 +290,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
           <tr><td>Desktop shell</td><td><code>shell/hetu-desktop/src/backend.rs</code> (sidecar lifecycle) · <code>src-tauri/nsis-hooks.nsh</code> (install hook)</td></tr>
           <tr><td>Frontend routing and services</td><td><code>frontend/src/App.tsx</code> · <code>frontend/src/services/</code> · <code>frontend/src/stores/</code></td></tr>
         </tbody>
-      </table><h2>The SQLite DateTimeOffset limitation</h2>
+      </table></div><h2>The SQLite DateTimeOffset limitation</h2>
       <ul>
         <li>EF Core's SQLite provider <strong>cannot order or aggregate <code>DateTimeOffset</code> in SQL</strong>: <code>ORDER BY</code> throws <code>NotSupportedException</code>, <code>MAX()</code> fails to translate, and comparisons such as <code>x.CreatedAt &gt; since</code> do not translate either.</li>
         <li>Workarounds already in the repository: paging via <code>GetPagedByDateAsync</code>, grouped counts via <code>CountByAsync</code>, timestamp aggregates by projecting two columns and taking the maximum in memory, and “recent N days” checks by projecting timestamps and filtering in memory.</li>
@@ -298,7 +298,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
       </ul>
 
       <h2>Performance practice</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Case</th><th>Approach</th></tr></thead>
         <tbody>
           <tr><td>List endpoints</td><td>Paging and ordering pushed to the database; count first, then fetch the page</td></tr>
@@ -307,7 +307,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
           <tr><td>Bulk writes and cleanup</td><td>Set-based operations such as <code>ExecuteDeleteAsync</code> instead of loading entities one by one</td></tr>
           <tr><td>Frontend rendering</td><td>Derived state instead of synchronous <code>setState</code> inside effects; <code>useMemo</code> for unstable array identities</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Agent loop</h2>
       <ol>

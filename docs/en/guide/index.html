@@ -170,7 +170,7 @@
 </svg><figcaption>A request travels through the shell or browser → React frontend → ASP.NET Core API → domain services → repositories → the local database; models, MCP, Git and search are external dependencies.</figcaption>
 </figure>
 <h2>Pages</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Page</th><th>Covers</th></tr></thead>
         <tbody>
           <tr><td><a href="getting-started.html">Getting started</a></td><td>Three ways to run, first provider and index, data directory locations</td></tr>
@@ -189,11 +189,11 @@
           <tr><td><a href="faq.html">FAQ</a></td><td>Install failures, model errors, stuck indexing, worktrees, update errors, performance</td></tr>
           <tr><td><a href="dev.html">Development</a></td><td>Repository layout, build and verify commands, gotchas, release flow</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Internals</h2>
       <p>For readers who change code or behaviour: the concrete mechanism, configuration and defaults, guards and degradation, and the debugging path of each module.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Module</th><th>Covers</th></tr></thead>
         <tbody>
           <tr><td><a href="compression.html">Compression pipeline</a></td><td>Two entry points, three modes, the ten nodes with order and defaults, the four gates on the LLM summary, the not-shorter guard and config merge semantics</td></tr>
@@ -212,10 +212,10 @@
           <tr><td><a href="background-tasks.html">Background &amp; scheduled tasks</a></td><td>Unique index and enqueue dedupe, single consumer with a 2-minute sweep, five task branches; scheduled fields, interval/cron scheduling, four executors</td></tr>
           <tr><td><a href="inbox.html">Inbox &amp; notifications</a></td><td>Notification model with level and category constants, aggregation by CategoryKey, endpoints, state and deletion rules, frontend behaviour</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
 <h2>What problem it solves</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Situation</th><th>How Hetu handles it</th></tr></thead>
         <tbody>
           <tr><td>Notes, chat logs and code changes live in separate tools</td><td>All three write one database; retrieval, graph, memories and Wiki are built on top of that data</td></tr>
@@ -223,7 +223,7 @@
           <tr><td>Long sessions explode context and cost</td><td>Compression pipeline plus usage accounting (input / compressed / output / cached tokens, latency, per-model and per-source split)</td></tr>
           <tr><td>Worried about data and keys leaving the machine</td><td>No account, no telemetry; keys encrypted with DataProtection; requests only go to providers you configure</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><span></span><a href="getting-started.html">Getting started →</a></div>
     </div>
   </div>

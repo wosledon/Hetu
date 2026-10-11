@@ -146,7 +146,7 @@
       </figure>
 
       <h2>Definition model</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td><code>Name</code> · <code>Description</code> · <code>SortOrder</code> · <code>IsEnabled</code></td><td>Metadata and list ordering</td></tr>
@@ -155,10 +155,10 @@
           <tr><td><code>Version</code></td><td>Starts at 1 and increments on every update</td></tr>
           <tr><td>Node <code>Config</code></td><td>Per-node JSON configuration, see the executor table</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Endpoints</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/workflows</code> · <code>GET /api/workflows/{id}</code></td><td>List / detail</td></tr>
@@ -171,7 +171,7 @@
           <tr><td><code>GET /api/workflows/{id}/runs</code> · <code>GET /api/workflows/runs/{runId}</code></td><td>Run history / one run with its node records</td></tr>
           <tr><td><code>POST /api/workflows/runs/{runId}/approve</code></td><td>Human review callback: <code>{ nodeId?, approve }</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Graph validation rules</h2>
       <ul>
@@ -183,7 +183,7 @@
       <p>Validation runs again before execution, so "saved fine but fails validation at run time" usually means the definition changed underneath or an edge was removed.</p>
 
       <h2>Node executors</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Node</th><th>Config and behaviour</th></tr></thead>
         <tbody>
           <tr><td><code>start</code></td><td>Stores the raw input as <code>start.input</code>; if the input is a JSON object, each field also becomes a variable</td></tr>
@@ -196,11 +196,11 @@
           <tr><td><code>parallel</code> / <code>merge</code></td><td>A node with multiple outgoing edges fans out automatically; branch results are collected and merged at the common successor</td></tr>
           <tr><td><code>end</code></td><td>Renders <code>outputTemplate</code> when configured, otherwise takes the first non-empty upstream output, falling back to the run input</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">"Parallel" here is <strong>structurally parallel but sequentially executed</strong>: branches run one after another and then merge, sharing one scoped DbContext. That explains two behaviours: agent calls in branches are serial, and a failure in any branch aborts the whole run.</div>
 
       <h2>Runs and limits</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Value / behaviour</th></tr></thead>
         <tbody>
           <tr><td>Run record</td><td><code>WorkflowRun</code>: <code>Status</code> (<code>Pending</code> / <code>Running</code> / <code>Succeeded</code> / <code>Failed</code> / <code>Cancelled</code>) · <code>Input</code> · <code>Output</code> · <code>GraphSnapshot</code> · <code>ChatTopicId</code> · <code>Error</code> · <code>TotalIterations</code></td></tr>
@@ -210,7 +210,7 @@
           <tr><td>Cancellation</td><td><code>OperationCanceledException</code> → status <code>Cancelled</code></td></tr>
           <tr><td>Other exceptions</td><td>Status <code>Failed</code> with the message in <code>Error</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Human review and tool approvals</h2>
       <ul>
@@ -220,7 +220,7 @@
       </ul>
 
       <h2>SSE events</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Event</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>run_started</code> · <code>run_completed</code> · <code>run_failed</code></td><td>Run lifecycle</td></tr>
@@ -229,7 +229,7 @@
           <tr><td><code>agent_tool_call</code></td><td>Tool activity inside an agent node (the frontend can answer questions, plans or approvals)</td></tr>
           <tr><td><code>run_result</code></td><td>Final result payload</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The full protocol (three frame shapes, unknown event handling) is in <a href="sse.html">SSE event protocol</a>; agent nodes still emit the <code>[ERROR]</code> fallback frame.</p>
 
       <h2>Relation to the task board</h2>
