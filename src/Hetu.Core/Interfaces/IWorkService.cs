@@ -19,6 +19,12 @@ public interface IWorkSessionService
     Task<ApiResponse<WorkSessionDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkSessionDto>> CreateAsync(CreateWorkSessionRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkSessionDto>> UpdateAsync(Guid id, UpdateWorkSessionRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 会话首次发消息时准备独立工作树（名字由模型按用户输入决定，基分支取会话选择或项目当前分支）。
+    /// Data 为提示文案（无需创建时为 null），Error 为失败原因——失败时调用方仍可继续在项目目录里跑。
+    /// </summary>
+    Task<ApiResponse<string?>> EnsureWorktreeAsync(Guid sessionId, string? userMessage, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<WorkMessageDto>>> GetMessagesAsync(Guid sessionId, CancellationToken cancellationToken = default);
     Task<List<WorkFileChangeDto>> GetFileChangesAsync(Guid sessionId, CancellationToken cancellationToken = default);
