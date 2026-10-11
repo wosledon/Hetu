@@ -302,12 +302,21 @@ public class WorkSessionService : IWorkSessionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalizer _localizer;
     private readonly WorkWorktreeService _worktrees;
+    private readonly WorktreeNameSuggester _namer;
+    private readonly ILLMProviderFactory _llmProviderFactory;
 
-    public WorkSessionService(IUnitOfWork unitOfWork, ILocalizer localizer, WorkWorktreeService worktrees)
+    public WorkSessionService(
+        IUnitOfWork unitOfWork,
+        ILocalizer localizer,
+        WorkWorktreeService worktrees,
+        WorktreeNameSuggester namer,
+        ILLMProviderFactory llmProviderFactory)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
         _worktrees = worktrees;
+        _namer = namer;
+        _llmProviderFactory = llmProviderFactory;
     }
 
     public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
@@ -358,22 +367,12 @@ public class WorkSessionService : IWorkSessionService
                 ? request.PermissionMode!.Trim().ToLowerInvariant()
                 : WorkToolPolicy.DefaultMode,
             AgentMode = AgentModePolicy.Normalize(request.AgentMode),
+            // 工作树只记录意图，首次发消息时才创建（名字由模型按首条消息决定）
+            UseWorktree = request.UseWorktree,
+            BaseBranch = string.IsNullOrWhiteSpace(request.BaseBranch) ? null : request.BaseBranch.Trim(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
-
-        // 独立工作树：仅本地 git 项目，建会话时就挂好，后续所有工具都在工作树里跑
-        if (request.UseWorktree)
-        {
-            var prepared = await PrepareWorktreeAsync(project, session, request.Branch, cancellationToken);
-            if (prepared != null) return ApiResponse<WorkSessionDto>.Fail(prepared);
-        }
-        else if (!string.IsNullOrWhiteSpace(request.Branch))
-        {
-            // 不进工作树时，分支只作为记录（真正切换分支请用工作树，避免动到主工作区）
-            session.Branch = request.Branch.Trim();
-            session.WorktreePath = null;
-        }
 
         await _unitOfWork.WorkSessions.AddAsync(session, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -381,46 +380,54 @@ public class WorkSessionService : IWorkSessionService
     }
 
     /// <summary>
-    /// 为会话准备工作树：已有则按需切分支，没有则新建（分支为空或等于项目当前分支时派生 hetu/&lt;短 id&gt;）。
-    /// 返回 null 表示成功，否则是给用户看的失败原因。
+    /// 会话首次发消息时准备独立工作树：用模型按用户输入起名（目录名 = 分支名），基分支取会话选择或项目当前分支。
+    /// Data 为给用户看的提示文案（无需创建时为 null），Error 为失败原因（失败时调用方仍可继续在项目目录里跑）。
     /// </summary>
-    private async Task<string?> PrepareWorktreeAsync(
-        WorkProject project, WorkSession session, string? requestedBranch, CancellationToken cancellationToken)
+    public async Task<ApiResponse<string?>> EnsureWorktreeAsync(Guid sessionId, string? userMessage, CancellationToken cancellationToken = default)
     {
-        if (project.ConnectionType == "Ssh")
-            return _localizer.T("workSession.worktreeLocalOnly");
-        if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
-            return _localizer.T("workSession.worktreeProjectMissing");
-        if (!await _worktrees.IsGitRepoAsync(project.RootPath, cancellationToken))
-            return _localizer.T("workSession.worktreeNotRepo");
-
-        var currentBranch = await _worktrees.GetCurrentBranchAsync(project.RootPath, cancellationToken);
-        var branch = string.IsNullOrWhiteSpace(requestedBranch) ? null : requestedBranch.Trim();
-        var wantsNewBranch = branch == null || string.Equals(branch, currentBranch, StringComparison.OrdinalIgnoreCase);
-
-        var worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, session.Id);
-        if (Directory.Exists(worktreePath) || session.WorktreePath != null)
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);
+        if (session == null) return ApiResponse<string?>.Fail(_localizer.T("workSession.notFound"));
+        if (!session.UseWorktree) return ApiResponse<string?>.Ok(null);
+        if (!string.IsNullOrWhiteSpace(session.WorktreePath))
         {
-            // 已存在：只切分支
-            worktreePath = session.WorktreePath ?? worktreePath;
-            if (branch != null && !string.Equals(branch, await _worktrees.GetCurrentBranchAsync(worktreePath, cancellationToken), StringComparison.OrdinalIgnoreCase))
-            {
-                var switched = await _worktrees.SwitchBranchAsync(worktreePath, branch, createIfMissing: true, cancellationToken);
-                if (!switched.Ok) return switched.Error ?? _localizer.T("workSession.worktreeBranchFailed");
-            }
-            session.Branch = branch ?? await _worktrees.GetCurrentBranchAsync(worktreePath, cancellationToken);
-            session.WorktreePath = worktreePath;
-            return null;
+            if (Directory.Exists(session.WorktreePath)) return ApiResponse<string?>.Ok(null);
+            // 目录被手工删了：清掉记录后重建
+            session.WorktreePath = null;
         }
 
-        var branchName = branch ?? WorkWorktreeService.DeriveBranchName(session.Id);
-        var created = await _worktrees.CreateAsync(
-            project.RootPath, worktreePath, branchName, createBranch: wantsNewBranch, baseBranch: branch ?? currentBranch, cancellationToken);
-        if (!created.Ok) return created.Error ?? _localizer.T("workSession.worktreeCreateFailed");
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+        if (project == null) return ApiResponse<string?>.Fail(_localizer.T("project.notFound"));
+        if (project.ConnectionType == "Ssh") return ApiResponse<string?>.Fail(_localizer.T("workSession.worktreeLocalOnly"));
+        if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+            return ApiResponse<string?>.Fail(_localizer.T("workSession.worktreeProjectMissing"));
+        if (!await _worktrees.IsGitRepoAsync(project.RootPath, cancellationToken))
+            return ApiResponse<string?>.Fail(_localizer.T("workSession.worktreeNotRepo"));
 
-        session.Branch = branchName;
+        var baseBranch = string.IsNullOrWhiteSpace(session.BaseBranch)
+            ? await _worktrees.GetCurrentBranchAsync(project.RootPath, cancellationToken)
+            : session.BaseBranch.Trim();
+
+        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        var name = await _namer.SuggestAsync(userMessage, session.Id, provider, cancellationToken);
+
+        // 名字冲突（目录或分支已存在）时加序号后缀，避免动到已有分支
+        var branch = name;
+        var worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, branch);
+        for (var suffix = 2; suffix <= 20 && (Directory.Exists(worktreePath) || await _worktrees.BranchExistsAsync(project.RootPath, branch, cancellationToken)); suffix++)
+        {
+            branch = $"{name}-{suffix}";
+            worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, branch);
+        }
+
+        var created = await _worktrees.CreateAsync(project.RootPath, worktreePath, branch, baseBranch, cancellationToken);
+        if (!created.Ok) return ApiResponse<string?>.Fail(created.Error ?? _localizer.T("workSession.worktreeCreateFailed"));
+
+        session.Branch = created.Branch;
         session.WorktreePath = worktreePath;
-        return null;
+        session.UpdatedAt = DateTimeOffset.UtcNow;
+        await _unitOfWork.WorkSessions.UpdateAsync(session, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return ApiResponse<string?>.Ok(_localizer.T("workSession.worktreeCreated", Path.GetFileName(worktreePath), created.Branch ?? branch));
     }
 
     public async Task<ApiResponse<WorkSessionDto>> UpdateAsync(Guid id, UpdateWorkSessionRequest request, CancellationToken cancellationToken = default)
@@ -443,24 +450,32 @@ public class WorkSessionService : IWorkSessionService
             session.AgentMode = AgentModePolicy.Normalize(request.AgentMode);
         }
 
-        // 工作树开关 / 分支切换
+        // 工作区切换：只是意图（首次发消息时才创建）；退回项目目录时清掉已有工作树
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
         if (project == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("project.notFound"));
 
         if (request.UseWorktree == false)
         {
             if (session.WorktreePath != null)
-            {
                 await _worktrees.RemoveAsync(project.RootPath, session.WorktreePath, cancellationToken);
-                session.WorktreePath = null;
-                session.Branch = null;
-            }
+            session.WorktreePath = null;
+            session.Branch = null;
+            session.UseWorktree = false;
         }
-        else if (request.UseWorktree == true || !string.IsNullOrWhiteSpace(request.Branch))
+        else if (request.UseWorktree == true)
         {
-            var branch = string.IsNullOrWhiteSpace(request.Branch) ? session.Branch : request.Branch.Trim();
-            var error = await PrepareWorktreeAsync(project, session, branch, cancellationToken);
-            if (error != null) return ApiResponse<WorkSessionDto>.Fail(error);
+            session.UseWorktree = true;
+        }
+        if (request.BaseBranch != null)
+            session.BaseBranch = string.IsNullOrWhiteSpace(request.BaseBranch) ? null : request.BaseBranch.Trim();
+
+        // 主工作区模式：显式选分支就是检出分支（“当前分支”即所选分支）；工作树模式下它只是新分支的起点
+        if (request.BaseBranch != null && !session.UseWorktree && !string.IsNullOrWhiteSpace(session.BaseBranch))
+        {
+            if (project.ConnectionType == "Ssh")
+                return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.checkoutRemoteUnsupported"));
+            var checkoutError = await _worktrees.CheckoutAsync(project.RootPath, session.BaseBranch, cancellationToken);
+            if (checkoutError != null) return ApiResponse<WorkSessionDto>.Fail(checkoutError);
         }
 
         session.UpdatedAt = DateTimeOffset.UtcNow;
@@ -627,6 +642,8 @@ public class WorkSessionService : IWorkSessionService
         AgentMode = AgentModePolicy.Normalize(session.AgentMode),
         Branch = session.Branch,
         WorktreePath = session.WorktreePath,
+        UseWorktree = session.UseWorktree,
+        BaseBranch = session.BaseBranch,
         HasContextSummary = !string.IsNullOrWhiteSpace(session.ContextSummary),
         MessageCount = messageCount,
         TurnCount = session.TurnCount,

@@ -2136,6 +2136,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BaseBranch")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Branch")
                         .HasColumnType("TEXT");
 
@@ -2183,6 +2186,9 @@ namespace Hetu.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("UseWorktree")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("WorktreePath")
                         .HasColumnType("TEXT");

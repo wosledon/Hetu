@@ -109,7 +109,18 @@ public class WorkStreamController : ControllerBase
             return;
         }
 
-        // 会话带独立工作树时，本轮所有文件/命令/git 操作都落在工作树里
+        // 会话带独立工作树时，本轮所有文件/命令/git 操作都落在工作树里；
+        // 工作树在首次发消息时才创建（名字由模型按这条消息决定），失败不阻断本轮（退回项目目录）
+        var worktreeResult = await _sessionService.EnsureWorktreeAsync(sessionId, request.Content, ct);
+        if (!worktreeResult.Success && !string.IsNullOrWhiteSpace(worktreeResult.Error))
+        {
+            await writer.WriteJsonAsync(new { type = "notice", kind = "worktree", text = worktreeResult.Error });
+        }
+        else if (!string.IsNullOrWhiteSpace(worktreeResult.Data))
+        {
+            await writer.WriteJsonAsync(new { type = "notice", kind = "worktree", text = worktreeResult.Data });
+        }
+
         var sessionEntity = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, ct);
         var root = !string.IsNullOrWhiteSpace(sessionEntity?.WorktreePath) && Directory.Exists(sessionEntity.WorktreePath)
             ? sessionEntity.WorktreePath
