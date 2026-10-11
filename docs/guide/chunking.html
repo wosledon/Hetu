@@ -100,7 +100,7 @@
       <p class="lede">这条链路把「笔记 / 文件 / 网址的正文」变成「可分块检索的向量」：先分块，再逐块算 embedding，最后同时写正规表与 <code>sqlite-vec</code> 虚表。它的每一步都有可降级路径，目标是<strong>索引可以慢，但不能把数据写坏</strong>。</p>
 
       <h2>分块策略</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>取值</th></tr></thead>
         <tbody>
           <tr><td>首选方式</td><td>配了「分块模型」且 provider 可用时走 LLM 分块（<code>ChunkMethod = llm</code>）</td></tr>
@@ -108,7 +108,7 @@
           <tr><td>结构参数</td><td><code>MaxChunkSize = 1500</code>、<code>MinChunkSize = 200</code>、<code>OverlapSize = 100</code> 字符</td></tr>
           <tr><td>LLM 分块约束</td><td>提示词要求每块 300–1500 字；原文 &lt; 500 字时允许返回单块</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>写入顺序</h2>
       <ol>
@@ -120,18 +120,18 @@
       <div class="note">复用策略：内容与摘要都<strong>未变</strong>的旧分块会被保留，不重算向量——避免每次编辑笔记都把全文重新 embedding。笔记级检查还会顺手把「正规表里有、vec 表里缺」的向量补写回去，修复上次中断留下的缺口。</div>
 
       <h2>维度处理</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>顺序</th><th>来源</th></tr></thead>
         <tbody>
           <tr><td>1</td><td>数据库中最近一条 embedding 的 <code>Dimensions</code>（最可信）</td></tr>
           <tr><td>2</td><td>用途为 <code>embedding</code> 的模型配置</td></tr>
           <tr><td>3</td><td>配置项 <code>Embedding:Dimensions</code>（默认 1536）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>连接打开时若发现维度与虚表不一致，会 drop 并重建四张 vec 表（笔记 / 分块 / 记忆 / 代码）——这是「换 embedding 模型后必须重新索引」的技术原因。</p>
 
       <h2>失败与降级</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>情况</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>没有 embedding provider</td><td>整条链路直接跳过，不写半成品数据</td></tr>
@@ -140,7 +140,7 @@
           <tr><td>单块向量写入失败</td><td>记日志；批量写入连续失败 3 次则中止本批，避免雪崩</td></tr>
           <tr><td>任务被取消</td><td><code>OperationCanceledException</code> 透传，不算失败</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>观测</h2>
       <ul>

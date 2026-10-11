@@ -138,14 +138,14 @@
 </svg><figcaption>索引管线与检索出口：分块 → 向量化 → 写向量表与元数据；对话、搜索测试、Wiki 与模型工具都从同一份向量里召回。</figcaption>
 </figure>
 <h2>三种来源</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>来源</th><th>添加方式</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>笔记</td><td>编辑器顶部「生成索引」，或知识库批量补索引</td><td>按 Markdown 结构分块</td></tr>
           <tr><td>文件</td><td>知识库页上传</td><td>记录文件名、大小、MIME，正文抽取后分块</td></tr>
           <tr><td>网址</td><td>知识库页填入 URL</td><td>抓取网页正文（含标题）后分块</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>索引管线</h2>
       <ol>
@@ -156,26 +156,26 @@
       </ol>
 
       <h2>三个页签</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>页签</th><th>内容</th></tr></thead>
         <tbody>
           <tr><td>概览</td><td>知识项总数、已索引数、覆盖率、向量维度、按类型（笔记 / 文件 / 网址）分布、运行中任务数</td></tr>
           <tr><td>索引管理</td><td>逐项状态：分块数、模型、维度、最近索引时间、是否有运行中任务；单项重新索引与「批量生成索引」（只处理未索引项）</td></tr>
           <tr><td>搜索测试</td><td>输入查询直接看向量召回结果，可调 Top-K，命中片段高亮——用来验证索引质量</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/03-knowledge-base.png" alt="知识库页：索引覆盖率、向量维度与索引管理"></div>
       <span class="shot-hint">点图看原图</span>
 
             <h3>索引相关字段</h3>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>表</th><th>字段</th></tr></thead>
         <tbody>
           <tr><td><code>KnowledgeItems</code></td><td><code>Type</code>（Note / File / Url）、<code>Title</code>、<code>Content</code>、<code>SourceUrl</code>、<code>FileName</code>、<code>FileSize</code>、<code>MimeType</code>、<code>NoteId</code>、<code>IsDeleted</code></td></tr>
           <tr><td><code>NoteChunks</code></td><td><code>KnowledgeItemId</code>、<code>ChunkIndex</code>、<code>ChunkMethod</code>、<code>Content</code>、<code>Summary</code></td></tr>
           <tr><td><code>NoteChunkEmbeddings</code></td><td><code>ChunkId</code>、<code>Model</code>、<code>Dimensions</code>、<code>UpdatedAt</code>、<code>Embedding</code>（SQLite 侧向量在 <code>vec_chunk_embeddings</code>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>状态接口返回 <code>totalItems</code> / <code>indexedItems</code> / <code>unindexedItems</code> / <code>noteCount</code> / <code>fileCount</code> / <code>urlCount</code> / <code>hasEmbeddingProvider</code> / <code>dimensions</code> / <code>runningTaskCount</code>；索引列表每项含 <code>chunkCount</code>、<code>embeddingModel</code>、<code>embeddingDimensions</code>、<code>embeddingUpdatedAt</code>、<code>hasRunningTask</code>。</p><h2>检索如何被使用</h2>
       <ul>
         <li>对话输入框的「知识库」开关：召回结果作为上下文注入，并在界面给出命中列表。</li>
@@ -184,7 +184,7 @@
       </ul>
 
       <h2>配置与限制</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>Embedding:Dimensions</code></td><td>向量维度，默认 1536；必须与模型实际维度一致，否则 SQLite 侧写入会失败</td></tr>
@@ -192,7 +192,7 @@
           <tr><td>Anthropic</td><td>无公开 Embedding 接口，需用 OpenAI 兼容供应商</td></tr>
           <tr><td>删除语义</td><td>笔记进回收站只软删知识项，分块与向量保留，恢复后仍是已索引状态</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>性能相关</h2>
       <ul>

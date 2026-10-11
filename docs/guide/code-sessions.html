@@ -100,23 +100,23 @@
       <p class="lede">Code 会话是「能动手」的部分：Agent 在你的仓库里读文件、改代码、跑命令、提交、开 PR，改动可逐行审阅与回滚。</p>
 
       <h2>项目</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>类型</td><td>本地目录或 SSH 远程仓库（<code>user@host:port</code> + 路径）</td></tr>
           <tr><td>组织</td><td>分组管理；卡片上可「在 Code 中打开」「生成 Wiki」「复制路径」</td></tr>
           <tr><td>凭据</td><td>SSH 密码用 DataProtection 加密存储</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>工作区：当前分支 or 独立工作树</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模式</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>当前分支</td><td>直接在项目目录工作；在会话创建时选的分支会立即检出</td></tr>
           <tr><td>新工作树</td><td>用 <code>git worktree</code> 创建独立目录与分支，主工作区不受影响；默认在<strong>仓库父目录</strong>的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code>，名字由首条消息内容生成</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">工作树根目录可在 <strong>设置 → 工作区</strong> 修改（绝对路径，不能位于仓库内部）。已完成的工作树按「改动已合并 + 工作区干净 + 空闲超过阈值」自动清理，可配置间隔（1 / 6 / 12 / 24 小时）、空闲时长与是否连分支一起删。</div>
 
       <figure class="diagram">
@@ -185,7 +185,7 @@
       </ul>
 
             <h2>目录布局</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>路径</th><th>内容</th></tr></thead>
         <tbody>
           <tr><td><code>&lt;仓库&gt;/</code></td><td>主工作区，会话不会直接改这里（选「当前分支」模式时才会）</td></tr>
@@ -193,10 +193,10 @@
           <tr><td><code>&lt;数据目录&gt;/hetu.db</code></td><td>SQLite 数据库（会话、消息、检查点元数据、代码块向量）</td></tr>
           <tr><td><code>&lt;数据目录&gt;/logs/</code></td><td>后端日志（Serilog 按天滚动）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>底层命令</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>动作</th><th>实现要点</th></tr></thead>
         <tbody>
           <tr><td>状态与同步</td><td><code>git status --porcelain=v2 --branch</code> 解析分支、ahead / behind 与逐文件状态（避免依赖本地化输出）</td></tr>
@@ -207,8 +207,8 @@
           <tr><td>PR / MR</td><td>GitHub 走 <code>gh pr view|list|create</code>（创建用 <code>--body-file -</code> 传正文），GitLab 走 <code>glab mr view|list|create</code></td></tr>
           <tr><td>终端</td><td>Windows 用 ConPTY、Unix 用 <code>script</code> 包装成 PTY，交互式程序正常工作</td></tr>
         </tbody>
-      </table><h2>七个工作面板</h2>
-      <table>
+      </table></div><h2>七个工作面板</h2>
+      <div class="table-wrap"><table>
         <thead><tr><th>面板</th><th>能力</th></tr></thead>
         <tbody>
           <tr><td>文件</td><td>目录树浏览、文件名与内容搜索、内置编辑器保存；AI 修改过的文件有标记</td></tr>
@@ -219,10 +219,10 @@
           <tr><td>浏览器</td><td>内嵌浏览器：地址栏、前进后退、刷新、常用链接（本地 dev 服务、API 文档、GitHub）</td></tr>
           <tr><td>终端</td><td>真实 PTY（Windows 走 ConPTY，Unix 用 <code>script</code> 包装），<code>vim</code> / <code>htop</code> 等交互程序可用；SSH 项目在 PTY 内跑 <code>ssh -tt</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Agent 如何动手</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>工具</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td>文件读写</td><td>列目录、读文件（支持二进制识别）、写文件、批量替换、移动 / 删除</td></tr>
@@ -230,7 +230,7 @@
           <tr><td>终端交互</td><td>需要交互式程序时用工作面板的终端，或让 Agent 在 PTY 里操作</td></tr>
           <tr><td>代码检索</td><td>按文件名 / 内容搜索（含语义检索，代码块向量化后独立存储）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>每个有副作用的动作都受<strong>权限模式</strong>约束（见 <a href="workspace.html">Agent 工作台</a>）；高风险操作走审批，改动进检查点，随时可回滚。</p>
 
       <h2>典型工作流</h2>

@@ -100,7 +100,7 @@
       <p class="lede">Hetu ships no models of its own: it adapts protocols and assigns capability to scenarios, then records what every call cost.</p>
 
       <h2>Providers and models</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Protocols</td><td>OpenAI-compatible (including Ollama / LM Studio / vLLM) and Anthropic</td></tr>
@@ -108,10 +108,10 @@
           <tr><td>Purposes</td><td><code>chat</code> (conversation and agent loop) / <code>embedding</code> (indexing and retrieval) / <code>completion</code> (light rewrites)</td></tr>
           <tr><td>Model ID</td><td>Sent as-is in requests; must match what the provider expects</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Per-scenario default models</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Scenario</th><th>Typical choice</th></tr></thead>
         <tbody>
           <tr><td>Chat / code sessions</td><td>Your strongest reasoning model</td></tr>
@@ -120,7 +120,7 @@
           <tr><td>Note AI / query rewriting</td><td>Low-latency small model</td></tr>
           <tr><td>Embedding</td><td>A vector model whose dimensions match <code>Embedding:Dimensions</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Proxy service</h2>
       <p>Entry: <code>/proxy</code>. Exposes your configured models through local compatible endpoints so editors, CLIs and scripts reuse the same keys and the same usage accounting.</p>
@@ -130,14 +130,14 @@ API key : generated on the Proxy page
 
 # Anthropic-compatible endpoint
 Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Feature</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Routing</td><td>Controls which models are visible through the proxy</td></tr>
           <tr><td>Shadow model</td><td>Sends the same request to a second model for output comparison</td></tr>
           <tr><td>Usage attribution</td><td>Proxied calls are counted too, tagged with the <code>proxy</code> source</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
             <h2>Calling the proxy</h2>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># list the models exposed by the proxy
@@ -152,15 +152,15 @@ curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
       <p>Proxied calls are recorded in usage with the <code>proxy</code> source; model visibility and the shadow model are configured on the Proxy page.</p>
 
       <h2>Provider and model fields</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Level</th><th>Fields</th></tr></thead>
         <tbody>
           <tr><td>Provider</td><td>Name, protocol (OpenAI-compatible / Anthropic), Base URL, API key (encrypted), enabled flag</td></tr>
           <tr><td>Model</td><td><code>ModelId</code> (sent verbatim), display name, purpose (<code>chat</code> / <code>embedding</code> / <code>completion</code>), default flag per purpose, context metadata</td></tr>
           <tr><td>Compression</td><td>Trigger threshold, target size, summary model; both pre- and post-compression tokens land in usage</td></tr>
         </tbody>
-      </table><h2>Usage and cost</h2>
-      <table>
+      </table></div><h2>Usage and cost</h2>
+      <div class="table-wrap"><table>
         <thead><tr><th>Metric</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Overview</td><td>Total messages, input / compressed / output / cached tokens, average latency, active days, today's usage</td></tr>
@@ -168,13 +168,13 @@ curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
           <tr><td>Distribution</td><td>By model and by source (chat / code / kanban / Wiki / graph / scheduled / proxy …)</td></tr>
           <tr><td>Detail log</td><td>Paged entries with time, model, token segments, latency, source and content preview; filterable by source and business reference</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/09-usage.png" alt="Usage page: token trend, distribution by model and source, heatmaps"></div>
       <span class="shot-hint">Click for full size</span>
 
       <h2>Compression pipeline</h2>
       <p>Entry: Settings → Cost control. Long conversations cannot grow forever, so the pipeline summarizes at a threshold.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Parameter</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Trigger threshold</td><td>Context usage ratio at which compression starts</td></tr>
@@ -182,10 +182,10 @@ curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
           <tr><td>Summary model</td><td>Which model writes the summary (falls back to the default chat model)</td></tr>
           <tr><td>Accounting</td><td>Both pre- and post-compression tokens are recorded so savings are measurable</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Keeping cost down</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Practice</th><th>Why</th></tr></thead>
         <tbody>
           <tr><td>Use cheap models for indexing, organizing and tagging</td><td>High volume, low reasoning demand</td></tr>
@@ -193,7 +193,7 @@ curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
           <tr><td>Use isolated worktrees and define task boundaries in code sessions</td><td>Fewer trial-and-error turns</td></tr>
           <tr><td>Autopilot for long tasks, interactive for quick questions</td><td>The former saves confirmation rounds, the latter avoids pointless tool calls</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="extensions.html">← Extensions & MCP</a><a href="desktop.html">Desktop app →</a></div>
     </div>
   </div>

@@ -100,7 +100,7 @@
       <p class="lede">数据主权是前提：单文件数据库、可整体搬迁、随时导出；无账号、无遥测。</p>
 
       <h2>数据目录</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>运行方式</th><th>位置</th></tr></thead>
         <tbody>
           <tr><td>桌面版（Windows）</td><td><code>%LOCALAPPDATA%\Hetu</code></td></tr>
@@ -109,7 +109,7 @@
           <tr><td>日志</td><td><code>logs/</code>，Serilog 按天滚动，保留 7 天</td></tr>
           <tr><td>SQLite 向量扩展</td><td><code>sqlite-vec/vec0.dll</code>（Linux/macOS 为 <code>vec0.so</code>），连接打开时自动加载</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>备份与迁移</h2>
       <ul>
@@ -119,7 +119,7 @@
       <div class="note note--warn">运行中用文件级拷贝备份，可能丢掉尚未 checkpoint 的 WAL 内容。稳妥做法：在应用内退出后拷贝，或用内置备份功能。</div>
 
             <h2>环境变量与配置键</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>名称</th><th>作用</th></tr></thead>
         <tbody>
           <tr><td><code>HETU_DATA_DIR</code></td><td>数据目录（数据库与日志）；桌面版由外壳注入</td></tr>
@@ -132,7 +132,7 @@
           <tr><td><code>WorktreeCleanupConfig</code></td><td>自动清理：间隔、空闲阈值、是否删除分支</td></tr>
           <tr><td><code>CloseToTray</code></td><td>关闭窗口是否最小化到托盘</td></tr>
         </tbody>
-      </table><h2>切换到 PostgreSQL</h2>
+      </table></div><h2>切换到 PostgreSQL</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
 export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
 
@@ -142,16 +142,16 @@ dotnet ef database update \
       <p>PostgreSQL 需 16+ 并启用 <code>pgvector</code> 扩展。两种数据库功能一致，但数据不互通：切换后需要在新的库里重建笔记与索引。</p>
 
       <h2>向量存储</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>数据库</th><th>方案</th><th>维度</th></tr></thead>
         <tbody>
           <tr><td>SQLite</td><td><code>sqlite-vec</code> 的 <code>vec0</code> 虚拟表（与元数据表通过 rowid 对应）</td><td>由 <code>Embedding:Dimensions</code> 决定，默认 1536</td></tr>
           <tr><td>PostgreSQL</td><td><code>pgvector</code> 列 + 索引</td><td>同上</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>安全边界</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>实现</th></tr></thead>
         <tbody>
           <tr><td>API Key</td><td>ASP.NET DataProtection 加密后落库（Windows 用 DPAPI 保护密钥），日志与接口响应不含明文</td></tr>
@@ -162,7 +162,7 @@ dotnet ef database update \
           <tr><td>分享链接</td><td>只暴露单篇笔记的渲染结果，可随时停用，并记录访问次数</td></tr>
           <tr><td>SQL 注入</td><td>全部走 EF Core 参数化查询</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="desktop.html">← 桌面应用</a><a href="architecture.html">架构与实现 →</a></div>
     </div>
   </div>

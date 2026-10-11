@@ -100,7 +100,7 @@
       <p class="lede">Memories carry context across sessions: preferences, identity, working habits, stable facts. Entry: <strong>Memories</strong> (route <code>/memories</code>).</p>
 
       <h2>Memory fields</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Field</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Content</td><td>One fact or preference; the more specific, the better the recall</td></tr>
@@ -109,7 +109,7 @@
           <tr><td>Scope</td><td>Global / session / project — determines the contexts it is injected into</td></tr>
           <tr><td>Lifecycle</td><td>Last access time, access count and state (fresh / decaying) maintained by Dream</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>When memories are used</h2>
       <ul>
@@ -127,7 +127,7 @@
       <span class="shot-hint">Click for full size</span>
 
       <h2>Dream consolidation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Parameter</th><th>Effect</th></tr></thead>
         <tbody>
           <tr><td>Decay days</td><td>Memories not accessed within this window are marked “decaying”</td></tr>
@@ -135,7 +135,7 @@
           <tr><td>Interval</td><td>Automatic consolidation cadence, 24 hours by default and configurable</td></tr>
           <tr><td>Phases</td><td>Merge duplicates → decay stale information → forget useless entries, then report counts</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>The page shows the last run and how many memories are decaying, and you can trigger a consolidation manually.</p>
 
       <h2>Practical advice</h2>

@@ -142,7 +142,7 @@
       </figure>
 
       <h2>Entry points</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Entry</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/graph/extract/{noteId}</code></td><td>Extract one note synchronously, no request body</td></tr>
@@ -151,11 +151,11 @@
           <tr><td>Background task type</td><td><code>GraphExtract</code>, dispatched by the background processor; status and failures appear on the background tasks page</td></tr>
           <tr><td>Frontend entry</td><td>Knowledge graph page → "Extract from notes", with note search, notebook grouping and select-all</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">Enqueue dedupe works on two levels: <code>(Type, EntityId)</code> pairs are deduped inside a batch, and targets that already have a queued or running job are skipped. Clicking extract repeatedly therefore does not pile up duplicate jobs.</div>
 
       <h2>Prompt contract</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>Return shape</td><td><code>{ entities: [{ name, type, description }], relations: [{ source, target, relation, description }] }</code></td></tr>
@@ -165,11 +165,11 @@
           <tr><td>Defaults</td><td>Unknown entity type becomes <code>concept</code>; unknown relation type becomes <code>related_to</code></td></tr>
           <tr><td>Parsing tolerance</td><td>Strip <code>```json</code> fences, then take the outermost <code>{...}</code> / <code>[...]</code>; on failure return <code>null</code> and surface <code>graph.parseFailed</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Model resolution is "graph purpose provider" → fall back to "chat purpose provider"; with neither available the call returns <code>graph.modelUnavailable</code> and writes nothing. Usage is recorded under source <code>Graph</code> with input tokens, compressed tokens, latency and a content preview (the note title).</p>
 
       <h2>Dedupe, merge and cleanup</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Object</th><th>Rule</th></tr></thead>
         <tbody>
           <tr><td>Entity dedupe</td><td>Compare <code>Trim()</code>-ed lowercased names; reuse an existing entity instead of creating a second one, then dedupe again within the batch via <code>createdEntities</code></td></tr>
@@ -179,7 +179,7 @@
           <tr><td>Restore by note</td><td><code>RestoreByNoteIdAsync</code> clears the soft-delete flag on that note's relations (useful after re-indexing)</td></tr>
           <tr><td>Entity merge</td><td><code>POST /api/graph/merge</code> repoints related edges to the survivor, drops self-loops (source = target) and deletes the merged entity</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Rendering adds one more filter: only entities with <strong>at least one relation</strong> and edges whose <strong>both ends still exist</strong> are returned. Isolated nodes count as dirty data and are hidden — a common reason for "extraction succeeded but the canvas did not change" when the model produced no edges.</p>
 
       <h2>Manual maintenance endpoints</h2>
@@ -194,7 +194,7 @@
       <p>When extraction quality drops, check two things first: the before/after lengths in the log (over-compression cuts long-tail entities) and whether the call fell back to a weaker chat model.</p>
 
       <h2>Failure and degradation</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Situation</th><th>Behaviour</th></tr></thead>
         <tbody>
           <tr><td>No model available</td><td>Returns <code>graph.modelUnavailable</code>, nothing is written</td></tr>
@@ -203,7 +203,7 @@
           <tr><td>Background job interrupted by shutdown</td><td>Reset to queued and enqueued again; not counted as a failure</td></tr>
           <tr><td>Background job cancelled on purpose</td><td>Marked failed with the message "task cancelled"</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Observability</h2>
       <ul>

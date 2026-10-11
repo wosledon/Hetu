@@ -103,7 +103,7 @@
       <span class="shot-hint">点图看原图</span>
 
       <h2>会话与话题</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>概念</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>会话组</td><td>话题的容器，用于分区（如按主题或项目分组）</td></tr>
@@ -111,11 +111,11 @@
           <tr><td>懒创建</td><td>新建会话 / 话题只占位，不写库；发出第一条消息才真正创建（标题取消息前 50 字）</td></tr>
           <tr><td>消息操作</td><td>复制、编辑后重发、删除；思考过程可折叠；长回复支持复制 Markdown 原文</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>流式事件</h2>
       <p>回复通过 SSE 推送，界面按事件类型分区渲染：</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>事件</th><th>界面表现</th></tr></thead>
         <tbody>
           <tr><td><code>delta</code></td><td>正文增量输出</td></tr>
@@ -127,10 +127,10 @@
           <tr><td>检查点</td><td>任务开始前的文件快照记录</td></tr>
           <tr><td>审批请求</td><td>需要确认的高风险操作，就地批准 / 拒绝</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>输入工具带</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>控件</th><th>作用与细节</th></tr></thead>
         <tbody>
           <tr><td>联网搜索</td><td>先做查询改写再检索，结果作为上下文注入并给出引用列表</td></tr>
@@ -143,10 +143,10 @@
           <tr><td><code>/</code> 技能菜单</td><td>输入 <code>/</code> 唤起技能或智能体</td></tr>
           <tr><td>附件</td><td>图片（视觉模型多模态）与文件；超长粘贴自动折叠成块</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>权限模式</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>模式</th><th>允许的动作</th></tr></thead>
         <tbody>
           <tr><td><code>plan</code> 计划</td><td>只规划与讨论，不改文件、不跑有副作用的命令</td></tr>
@@ -155,7 +155,7 @@
           <tr><td><code>auto</code> 自动</td><td>常规操作直接执行，敏感操作仍询问</td></tr>
           <tr><td><code>bypass</code> 绕过</td><td>全部放行，仅建议在隔离环境使用</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>Code 会话另有<strong>运行模式</strong>：<strong>交互式</strong>（逐步确认）与 <strong>Autopilot</strong>（托管执行到任务完成）。审批粒度可在「智能体」页按工具逐个配置。</p>
 
       <figure class="diagram">
@@ -230,7 +230,7 @@
       </ul>
 
             <h2>一次请求带什么</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段</th><th>取值 / 作用</th></tr></thead>
         <tbody>
           <tr><td>权限模式</td><td><code>plan</code> / <code>readonly</code> / <code>ask</code> / <code>auto</code> / <code>bypass</code>，决定工具是否需要审批</td></tr>
@@ -240,12 +240,12 @@
           <tr><td>模型与智能体</td><td>本次请求临时覆盖模型；智能体带来系统提示、工具白名单与审批策略</td></tr>
           <tr><td>附件</td><td>图片（多模态输入）与文件；超长文本折叠为块后随消息发送</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>这些开关按会话缓存在 <code>localStorage</code>（按会话 ID 隔离），下次打开同一会话沿用上次设置。</p><h2>把话题变成笔记</h2>
       <p>「整理成笔记」支持四种风格：摘要、详细、问答、自定义提示；带流式预览，可指定目标笔记本后保存为正式笔记。</p>
 
       <h2>快捷键</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>操作</th><th>快捷键</th></tr></thead>
         <tbody>
           <tr><td>新建会话</td><td><span class="kbd">Alt</span> + <span class="kbd">N</span></td></tr>
@@ -253,7 +253,7 @@
           <tr><td>回溯历史输入</td><td>输入框内 <span class="kbd">↑</span></td></tr>
           <tr><td>发送 / 换行</td><td><span class="kbd">Enter</span> / <span class="kbd">Shift</span> + <span class="kbd">Enter</span></td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="notes.html">← 笔记</a><a href="code-sessions.html">Code 会话 →</a></div>
     </div>
   </div>

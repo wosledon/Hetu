@@ -142,7 +142,7 @@
       </figure>
 
       <h2>触发入口</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>入口</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td><code>POST /api/graph/extract/{noteId}</code></td><td>同步抽取单篇笔记，无请求体</td></tr>
@@ -151,11 +151,11 @@
           <tr><td>后台任务类型</td><td><code>GraphExtract</code>，由后台任务处理器分发到抽取服务，可在「后台任务」页看状态与失败原因</td></tr>
           <tr><td>前端入口</td><td>知识图谱页「从笔记抽取」，弹窗支持按笔记搜索与按笔记本分组、全选 / 取消全选</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">入队去重是双重的：同一批次内按 <code>(Type, EntityId)</code> 去重，数据库中已存在「排队中 / 运行中」的同目标任务也会跳过。所以反复点「抽取」不会堆出一队重复任务。</div>
 
       <h2>提示词与输出契约</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>取值</th></tr></thead>
         <tbody>
           <tr><td>返回结构</td><td><code>{ entities: [{ name, type, description }], relations: [{ source, target, relation, description }] }</code></td></tr>
@@ -165,11 +165,11 @@
           <tr><td>缺省值</td><td>未识别的实体类型落 <code>concept</code>，未识别的关系类型落 <code>related_to</code></td></tr>
           <tr><td>解析容错</td><td>先剥 <code>```json</code> 代码围栏，再截取最外层 <code>{...}</code> / <code>[...]</code>；仍失败则返回 <code>null</code> 并向上报 <code>graph.parseFailed</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>模型选择顺序是「图谱用途模型」→ 回落「会话用途模型」；两者都不可用时直接返回 <code>graph.modelUnavailable</code>，不做任何落库。抽取调用的用量记在来源 <code>Graph</code> 下，含输入 token、压缩后 token、延迟与内容预览（笔记标题）。</p>
 
       <h2>去重、合并与清理</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>对象</th><th>规则</th></tr></thead>
         <tbody>
           <tr><td>实体去重</td><td>名做 <code>Trim()</code> + 小写比较；同名已存在则复用，不新建；同一轮抽取内再用 <code>createdEntities</code> 二次去重</td></tr>
@@ -179,7 +179,7 @@
           <tr><td>按笔记恢复</td><td><code>RestoreByNoteIdAsync</code> 取消该笔记关系上的软删标记（笔记重新索引后可复原）</td></tr>
           <tr><td>实体合并</td><td><code>POST /api/graph/merge</code>：把被合并实体的关系改指向保留实体，出现自环（源 = 目标）则删除该边，最后删除被合并实体</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>渲染侧还有一层过滤：只返回<strong>至少有一条关系的实体</strong>，以及<strong>源和目标都还存在的关系</strong>。孤立节点被视为脏数据不展示，这也是「抽取成功但画布没变化」的常见原因——模型没产出任何边。</p>
 
       <h2>手工维护接口</h2>
@@ -194,7 +194,7 @@
       <p>所以「抽取结果变差」时要先看两件事：日志里压缩前后长度（压缩过度会砍掉长尾实体），以及模型是否被降级到能力较弱的会话模型。</p>
 
       <h2>失败与降级</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>情况</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>没有可用模型</td><td>返回 <code>graph.modelUnavailable</code>，不写库</td></tr>
@@ -203,7 +203,7 @@
           <tr><td>后台任务被服务停止打断</td><td>任务重置为排队态并重新入队，不算失败</td></tr>
           <tr><td>后台任务被主动取消</td><td>状态置为失败，错误信息「任务被取消」</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>观测</h2>
       <ul>

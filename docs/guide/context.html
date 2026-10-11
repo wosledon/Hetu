@@ -100,7 +100,7 @@
       <p class="lede">这一层负责回答两个问题：<strong>现在用了多少上下文</strong>，以及<strong>什么时候必须把历史压掉</strong>。它与「压缩管道」分工明确：管道压的是单段文本，这里压的是整个会话的消息序列，并把摘要持久化到会话上。</p>
 
       <h2>占用是怎么算出来的</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>组成</th><th>算法</th></tr></thead>
         <tbody>
           <tr><td>历史（history）</td><td>只统计「尚未被摘要覆盖」的消息：<code>ContextSummaryThroughMessageId</code> 之前的消息直接排除</td></tr>
@@ -108,11 +108,11 @@
           <tr><td>系统提示（system）</td><td><strong>反推值</strong>：用最近一次真实上报的 <code>PromptTokens</code> 减去历史与摘要估算得到，拿不到时回退经验值（对话 1500 / 编码会话 3500）</td></tr>
           <tr><td>窗口（window）</td><td>优先请求参数 <code>contextWindow</code>，其次模型的 <code>ContextWindow</code>，都没有则默认 <code>128000</code></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">空会话时占用为 0，但面板仍固定返回 <code>system / history / summary</code> 三段，避免前端出现「少一段」的跳动。</div>
 
       <h2>自动压缩的触发条件</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>常量</th><th>默认</th><th>含义</th></tr></thead>
         <tbody>
           <tr><td><code>AutoCompactRatio</code></td><td>0.8</td><td>占用 ≥ 窗口的 80% 才自动压缩；未触发时直接返回 null，调用方忽略</td></tr>
@@ -120,7 +120,7 @@
           <tr><td><code>MaxTranscriptChars</code></td><td>60000</td><td>交给摘要模型的历史最多截取到末尾 6 万字符，避免摘要提示本身超长</td></tr>
           <tr><td><code>MaxSummaryAttempts</code></td><td>3</td><td>摘要最多尝试 3 次：空返回或内容过短就立刻重试（不是固定等待）</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>压缩时到底改了什么</h2>
       <ol>
@@ -131,7 +131,7 @@
       </ol>
 
       <h2>与压缩管道的分工</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>维度</th><th>压缩管道</th><th>上下文自动压缩（本页）</th></tr></thead>
         <tbody>
           <tr><td>作用对象</td><td>单段文本（历史片段 / 工具输出）</td><td>整个会话的消息序列</td></tr>
@@ -139,7 +139,7 @@
           <tr><td>落点</td><td>只替换当次送入模型的文本</td><td>摘要持久化到 <code>ContextSummary</code> + <code>ThroughMessageId</code></td></tr>
           <tr><td>失败影响</td><td>降级为原文，无副作用</td><td>失败只是不注入摘要，主流程继续</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>失败与降级</h2>
       <ul>

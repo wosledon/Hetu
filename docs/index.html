@@ -133,7 +133,7 @@
         <h2>技术选择与边界</h2>
         <p>以下都是代码里实际生效的机制，不是概念描述。</p>
       </div>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>主题</th><th>实现</th></tr></thead>
         <tbody>
           <tr><td>存储</td><td>SQLite（默认，<code>Data Source=hetu.db</code>）+ <code>sqlite-vec</code> 向量扩展；可切 PostgreSQL 16+ + <code>pgvector</code>，同一套功能，<code>DatabaseProvider</code> 配置切换</td></tr>
@@ -146,7 +146,7 @@
           <tr><td>桌面</td><td>Tauri 2 外壳 + sidecar 后端；<code>fat</code> / <code>slim</code> 双渠道安装包；更新走 GitHub + 三个加速镜像；安装钩子在覆盖文件前清理残留后端进程</td></tr>
           <tr><td>工程约束</td><td>后端 <code>dotnet build</code> 与前端 <code>eslint</code> 均要求 0 告警，且不允许任何抑制注释（<code>pragma</code> / <code>eslint-disable</code> / <code>SuppressMessage</code>）</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>更多实现细节（分层、请求流、数据模型、性能实践）见 <a href="guide/architecture.html">架构与实现</a>。</p>
     </div>
   </section>

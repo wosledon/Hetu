@@ -137,7 +137,7 @@
       </figure>
 
       <h2>模型与字段</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>字段 / 常量</th><th>取值</th></tr></thead>
         <tbody>
           <tr><td><code>InboxNotification</code></td><td><code>Category</code> · <code>CategoryKey</code> · <code>Level</code> · <code>Title</code> · <code>Content</code> · <code>IsRead</code> · <code>IsArchived</code> · <code>OccurrenceCount</code> · <code>Link</code> · <code>IsDeleted</code></td></tr>
@@ -146,7 +146,7 @@
           <tr><td>批量动作</td><td><code>read</code> · <code>unread</code> · <code>archive</code> · <code>unarchive</code> · <code>delete</code></td></tr>
           <tr><td>数据库约束</td><td><code>Category</code> 必填；<code>CategoryKey</code> / <code>Level</code> / <code>Title</code> / <code>Content</code> / <code>Link</code> 有长度限制；索引 <code>CategoryKey</code> / <code>IsArchived</code> / <code>UpdatedAt</code>；查询过滤软删</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>聚合规则</h2>
       <ol>
@@ -157,7 +157,7 @@
       </ol>
 
       <h2>端点</h2>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>端点</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td><code>GET /api/inbox?archived=&amp;category=&amp;page=&amp;pageSize=</code></td><td>列表，按归档状态与类别过滤，分页</td></tr>
@@ -169,7 +169,7 @@
           <tr><td><code>POST /api/inbox/batch</code></td><td>批量：<code>{ ids, action }</code></td></tr>
           <tr><td><code>DELETE /api/inbox/{id}</code></td><td>软删单条</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>状态与删除语义</h2>
       <ul>

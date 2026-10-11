@@ -101,7 +101,7 @@
 
       <h2>Agents (prompt presets)</h2>
       <p>Entry: <code>/agents</code>. An agent = system prompt + model preference + tool allowlist + per-tool approval policy.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Categories and search</td><td>Group by purpose (coding, writing, analysis …) and search by name</td></tr>
@@ -109,22 +109,22 @@
           <tr><td>Approval policy</td><td>Per tool: silent / auto / ask</td></tr>
           <tr><td>Import / export</td><td>JSON import and export of all agents for backup or sharing</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Skills</h2>
       <p>Entry: <code>/skills</code>. A skill is a reusable prompt template, invoked in chat with <code>/skill-name</code>.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Source</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Built-in</td><td>Translate, summarize, explain, polish — available immediately</td></tr>
           <tr><td>Custom</td><td>Your own prompt template and system prompt; test output right on the page</td></tr>
           <tr><td>On-disk directories</td><td>Load Markdown / JSON skill files from configured directories — good for sharing via a repository</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>Tools</h2>
       <p>Entry: <code>/tools</code>. Built-in tools can be toggled; disabled tools are not callable.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td>Note search / read / create / update</td><td>Read and write notes from chat, with conditional search</td></tr>
@@ -136,11 +136,11 @@
           <tr><td>File operations</td><td>List, read, write, move, delete</td></tr>
           <tr><td>Ask question</td><td>Interactive question when a decision is needed</td></tr>
         </tbody>
-      </table>
+      </table></div>
 
       <h2>MCP servers</h2>
       <p>Entry: Settings → MCP server. Connect external Model Context Protocol services to bring their tools into chat.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Transport</td><td><code>stdio</code>: spawns a child process and speaks JSON-RPC 2.0 (fully supported). <code>sse</code>: configurable, not wired up yet</td></tr>
@@ -149,7 +149,7 @@
           <tr><td>Tool invocation</td><td>Calls <code>tools/call</code>; arguments and results render structurally in the message stream</td></tr>
           <tr><td>Enable / disable</td><td>Per server, with ordering</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="note">MCP tools share the same permission modes and approval policies as built-in tools; run a new server in “ask” mode first if you are unsure what it does.</div>
 
             <h2>Configuration examples</h2>
@@ -181,14 +181,14 @@ Review the selected code in this order:
   "toolPolicies": { "run_command": "ask", "update_note": "silent" }
 }</code></pre></div><h2>Apps (embedded browser)</h2>
       <p>Entry: <code>/apps</code>. Register frequently used pages as “apps” and open them inside the app instead of switching windows.</p>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
           <tr><td>Registration</td><td>Name plus URL (a local service such as <code>http://localhost:5174</code>, or any site)</td></tr>
           <tr><td>Opening</td><td>Embedded view with address bar, back / forward, reload and quick links</td></tr>
           <tr><td>Timeout hint</td><td>When a site refuses embedding via <code>X-Frame-Options</code> / CSP, a hint appears after 4 seconds suggesting the system browser</td></tr>
         </tbody>
-      </table>
+      </table></div>
     <div class="docs-pager"><a href="organize.html">← Kanban & automation</a><a href="models.html">Models & usage →</a></div>
     </div>
   </div>
