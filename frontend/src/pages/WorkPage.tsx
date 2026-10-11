@@ -488,6 +488,7 @@ export default function WorkPage() {
                       key={selectedProject?.id}
                       projectId={selectedProject?.id}
                       sessionId={selectedSession?.id}
+    sessionTitle={selectedSession?.title}
                       onActiveFileChange={setActiveFilePath}
                       openFileRequest={openFileRequest}
                       onAddSelectionContext={addSelectionContext}

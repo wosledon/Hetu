@@ -458,6 +458,60 @@ public class WorkGitCommandResultDto
     public string Output { get; set; } = string.Empty;
 }
 
+/// <summary>Code 会话的 PR / MR 状态：按远端自动选 gh（GitHub）或 glab（GitLab）</summary>
+public class WorkPrStatusDto
+{
+    public bool IsRepo { get; set; }
+    public string? RemoteUrl { get; set; }
+    /// <summary>托管类型：github | gitlab；null 表示不认识的远端（不支持 PR 面板）</summary>
+    public string? Host { get; set; }
+    /// <summary>使用的 CLI：gh | glab</summary>
+    public string? Tool { get; set; }
+    /// <summary>CLI 是否已安装</summary>
+    public bool ToolInstalled { get; set; }
+    /// <summary>当前系统的安装命令（未安装时引导用户）</summary>
+    public string? InstallHint { get; set; }
+    /// <summary>CLI 官方地址</summary>
+    public string? InstallUrl { get; set; }
+    public string? Branch { get; set; }
+    /// <summary>默认目标分支（创建 PR 用）</summary>
+    public string? BaseBranch { get; set; }
+    public WorkPrInfoDto? Pr { get; set; }
+    /// <summary>补充信息：no-remote / unsupported-host / 未登录或无 PR 时的原始输出</summary>
+    public string? Message { get; set; }
+}
+
+/// <summary>PR / MR 概要</summary>
+public class WorkPrInfoDto
+{
+    public int Number { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    /// <summary>OPEN / MERGED / CLOSED / DRAFT 等（原样回传托管平台的状态）</summary>
+    public string State { get; set; } = string.Empty;
+    public bool IsDraft { get; set; }
+    public string? BaseBranch { get; set; }
+    public string? HeadBranch { get; set; }
+}
+
+/// <summary>创建 PR / MR</summary>
+public class CreateWorkPrRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public string? Body { get; set; }
+    /// <summary>目标分支；留空用远端默认分支</summary>
+    public string? BaseBranch { get; set; }
+    public bool Draft { get; set; }
+}
+
+/// <summary>PR 操作结果（含刷新后的状态）</summary>
+public class WorkPrCommandResultDto
+{
+    public bool Success { get; set; }
+    public string Output { get; set; } = string.Empty;
+    public WorkPrStatusDto? Status { get; set; }
+}
+
 public class WorkGitFileContentDto
 {
     public string Path { get; set; } = string.Empty;
