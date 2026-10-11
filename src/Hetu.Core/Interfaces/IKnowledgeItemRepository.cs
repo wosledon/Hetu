@@ -30,8 +30,17 @@ public interface IKnowledgeItemRepository : IRepository<KnowledgeItem>
     /// <summary>获取指定知识项下已有向量的分块 ID（不加载向量字节）</summary>
     Task<IReadOnlyList<Guid>> GetEmbeddedChunkIdsAsync(Guid knowledgeItemId, CancellationToken cancellationToken = default);
 
-    /// <summary>获取所有 chunk embedding 的元数据（不加载向量字节），用于状态统计</summary>
-    Task<IReadOnlyList<ChunkEmbeddingMetadata>> GetAllChunkEmbeddingMetadataAsync(CancellationToken cancellationToken = default);
+    /// <summary>按类型统计知识项数量（数据库 GROUP BY，不加载实体）</summary>
+    Task<Dictionary<KnowledgeItemType, int>> CountByTypeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>统计已建立分块向量且知识项仍存在的条数（数据库 DISTINCT + EXISTS）</summary>
+    Task<int> CountIndexedItemsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>分块向量按知识项聚合（数据库 GROUP BY，只回传每个知识项一行摘要）</summary>
+    Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>查询尚未建立分块向量的知识项（只取入队所需字段，可按类型筛选）</summary>
+    Task<IReadOnlyList<UnindexedKnowledgeItem>> GetUnindexedAsync(KnowledgeItemType? type = null, CancellationToken cancellationToken = default);
 
     Task SyncChunkEmbeddingToVecTableAsync(Guid chunkId, float[] embedding, CancellationToken cancellationToken = default);
 }

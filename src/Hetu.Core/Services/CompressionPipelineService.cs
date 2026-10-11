@@ -216,10 +216,17 @@ public class CompressionPipelineService
 
     private async Task<string> LlmCompressAsync(string input, CompressionPipelineDto config, CancellationToken ct)
     {
+        var factory = _llmProviderFactory;
+        if (factory == null)
+        {
+            _logger.LogWarning("[Compression] LLM 摘要跳过：没有可用的 LLM Provider 工厂");
+            return input;
+        }
+
         ILLMProvider? provider;
         if (!string.IsNullOrWhiteSpace(config.LlmModelId) && Guid.TryParse(config.LlmModelId, out var modelId))
         {
-            provider = await _llmProviderFactory.CreateProviderAsync(modelId, ct);
+            provider = await factory.CreateProviderAsync(modelId, ct);
             // 配置里记的模型可能已被删除/重建：回落到默认对话模型，避免压缩静默失效
             if (provider == null)
                 _logger.LogWarning("[Compression] LLM 摘要模型 {ModelId} 不可用（可能已删除），回落到默认对话模型", modelId);
@@ -229,7 +236,7 @@ public class CompressionPipelineService
             provider = null;
         }
 
-        provider ??= await _llmProviderFactory.CreateChatProviderAsync(ct);
+        provider ??= await factory.CreateChatProviderAsync(ct);
         if (provider == null)
         {
             _logger.LogWarning("[Compression] LLM 摘要跳过：没有可用的对话模型");

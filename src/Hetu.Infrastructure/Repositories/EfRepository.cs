@@ -38,6 +38,48 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
         return result;
     }
 
+    public virtual Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+        => predicate == null
+            ? DbSet.CountAsync(cancellationToken)
+            : DbSet.CountAsync(predicate, cancellationToken);
+
+    public virtual Task<List<TResult>> SelectAsync<TResult>(Expression<Func<T, bool>> predicate, Expression<Func<T, TResult>> selector, CancellationToken cancellationToken = default)
+        => DbSet.AsNoTracking().Where(predicate).Select(selector).ToListAsync(cancellationToken);
+
+    public virtual async Task<int> PruneAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, DateTimeOffset>> orderBy, int keep, CancellationToken cancellationToken = default)
+    {
+        List<Guid> keepIds;
+        if (Context.Database.IsSqlite())
+        {
+            // SQLite 的 EF provider 不支持在 SQL 中排序 DateTimeOffset：只投影 Id + 排序键（不加载实体）后在内存定序
+            var keyName = orderBy.Body is MemberExpression member
+                ? member.Member.Name
+                : throw new ArgumentException("排序键必须是实体属性", nameof(orderBy));
+
+            var rows = await DbSet.AsNoTracking()
+                .Where(predicate)
+                .Select(e => new { e.Id, Key = EF.Property<DateTimeOffset>(e, keyName) })
+                .ToListAsync(cancellationToken);
+
+            keepIds = rows.OrderByDescending(r => r.Key).Take(keep).Select(r => r.Id).ToList();
+        }
+        else
+        {
+            // 只查询要保留的 Id（数据库排序 + 取前 keep 条），再用一条 DELETE 清掉其余的
+            keepIds = await DbSet.AsNoTracking()
+                .Where(predicate)
+                .OrderByDescending(orderBy)
+                .Take(keep)
+                .Select(e => e.Id)
+                .ToListAsync(cancellationToken);
+        }
+
+        return await DbSet
+            .Where(predicate)
+            .Where(e => !keepIds.Contains(e.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await DbSet.AddAsync(entity, cancellationToken);

@@ -29,6 +29,8 @@ HetuLogging.Configure(dataDir);
 builder.Host.UseSerilog();
 
 builder.Services.AddHetuWebInfrastructure();
+// 只读列表接口的短时响应缓存（knowledge-base 状态/索引列表被页面反复拉取）
+builder.Services.AddResponseCaching();
 // 固定 DataProtection 应用判别值：默认值取自 content root（bin 目录），
 // 不同检出目录/部署位置的实例无法解密彼此加密的 API Key
 builder.Services.AddDataProtection(options => options.ApplicationDiscriminator = "Hetu");
@@ -40,6 +42,7 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseResponseCompression();
+app.UseResponseCaching();
 
 if (app.Environment.IsDevelopment())
 {

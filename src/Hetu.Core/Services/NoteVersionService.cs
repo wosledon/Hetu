@@ -70,20 +70,11 @@ public class NoteVersionService : INoteVersionService
         };
 
         await _unitOfWork.NoteVersions.AddAsync(version, cancellationToken);
+        // 先落库：PruneAsync 走 SQL DELETE，看不到尚未提交的新版本
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 保留最近 20 个版本
-        var versions = (await _unitOfWork.NoteVersions.FindAsync(v => v.NoteId == note.Id, cancellationToken))
-            .OrderByDescending(v => v.CreatedAt)
-            .ToList();
-
-        if (versions.Count > 20)
-        {
-            var toDelete = versions.Skip(20).ToList();
-            foreach (var old in toDelete)
-            {
-                await _unitOfWork.NoteVersions.DeleteAsync(old, cancellationToken);
-            }
-        }
+        // 保留最近 20 个版本：数据库侧一次清理，不再把全部历史版本读进内存
+        await _unitOfWork.NoteVersions.PruneAsync(v => v.NoteId == note.Id, v => v.CreatedAt, 20, cancellationToken);
     }
 
     private static NoteVersionDto Map(NoteVersion version) => new()
