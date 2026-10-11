@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wiki generation — Internals · Hetu</title>
+<meta name="description" content="The six stages of Wiki generation: collection and compression, planning constraints, concurrent generation with continuation, overview requirements, set persistence and staleness, failure handling and observability.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/wiki-generation.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/wiki-generation.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Wiki generation — Internals · Hetu">
+<meta property="og:description" content="The six stages of Wiki generation: collection and compression, planning constraints, concurrent generation with continuation, overview requirements, set persistence and staleness, failure handling and observability.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/wiki-generation.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/wiki-generation.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html" aria-current="page">Wiki generation</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Wiki generation</h1>
+      <p class="lede">Wiki generation is a long job: <strong>collect material → compress → plan the outline → generate pages concurrently → write the overview → persist the whole set</strong>. The difficulty is not the prose of one page but the engineering chain around it: 4–10 pages per run, each possibly continued to completion, and partial failures that must not sink the set.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 250" role="img" aria-label="Wiki generation stages">
+  <defs>
+    <marker id="a-wiki-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="34" width="176" height="70" rx="9"/>
+  <text class="label" x="30" y="60">Collect material</text>
+  <text class="sub" x="30" y="80">project dir · code context</text>
+  <text class="sub" x="30" y="96">10 semantic hits / page</text>
+
+  <rect class="box" x="216" y="34" width="150" height="70" rx="9"/>
+  <text class="label" x="230" y="60">Compress</text>
+  <text class="sub" x="230" y="80">BaseContext</text>
+  <text class="sub" x="230" y="96">rawCodeContext</text>
+
+  <rect class="box-dark" x="390" y="34" width="164" height="70" rx="9"/>
+  <text class="label-light" x="404" y="60">Plan</text>
+  <text class="sub" x="404" y="80">2–4 chapters · 1–3 pages each</text>
+  <text class="sub" x="404" y="96">4–10 pages · maxTokens 3072</text>
+
+  <rect class="box" x="578" y="34" width="286" height="70" rx="9"/>
+  <text class="label" x="592" y="60">Generate topic pages</text>
+  <text class="sub" x="592" y="80">concurrency 4 · 8192 tokens / page</text>
+  <text class="sub" x="592" y="96">continued up to 4 rounds</text>
+
+  <rect class="box" x="578" y="140" width="286" height="88" rx="9"/>
+  <text class="label" x="592" y="166">Overview page</text>
+  <text class="sub" x="592" y="186">must include "Overall architecture" + Mermaid</text>
+  <text class="sub" x="592" y="204">ends with a documentation index</text>
+
+  <rect class="box-accent" x="16" y="140" width="538" height="88" rx="9"/>
+  <text class="label" x="30" y="166">Persist as one set</text>
+  <text class="sub" x="30" y="186">shared SetId · overview SortOrder = 0 · topics = plan order + 1</text>
+  <text class="sub" x="30" y="204">job status: 0 queued / 1 running / 2 done / 3 failed</text>
+
+  <path class="flow" d="M192 69 H210" marker-end="url(#a-wiki-en)"/>
+  <path class="flow" d="M366 69 H384" marker-end="url(#a-wiki-en)"/>
+  <path class="flow" d="M554 69 H572" marker-end="url(#a-wiki-en)"/>
+  <path class="flow" d="M720 104 V134" marker-end="url(#a-wiki-en)"/>
+  <path class="flow-dashed" d="M578 184 H560" marker-end="url(#a-wiki-en)"/>
+</svg><figcaption>The stage order is fixed: planning precedes generation and the overview is written last; a failed page lands in the warning set instead of aborting the run.</figcaption>
+      </figure>
+
+      <h2>Triggers and job model</h2>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/wiki/projects/{projectId}/generate</code></td><td>Enqueue a full set with <code>{ modelId? }</code></td></tr>
+          <tr><td><code>POST /api/wiki/{id}/regenerate</code></td><td>Regenerate one page, reusing its planned <code>Brief</code></td></tr>
+          <tr><td><code>GET /api/wiki</code> · <code>GET /api/wiki/sets</code> · <code>GET /api/wiki/{id}</code></td><td>Page list / set list / single page, all filterable by <code>projectId</code></td></tr>
+          <tr><td><code>GET /api/wiki/jobs</code> · <code>GET /api/wiki/jobs/{id}</code></td><td>Job list and detail (stage, progress, errors, warnings)</td></tr>
+          <tr><td><code>GET /api/wiki/sets/{setId}/export</code></td><td>Zip export: one Markdown per page (<code>00-…md</code>, <code>01-…md</code>) plus a <code>README.md</code> index</td></tr>
+          <tr><td><code>DELETE /api/wiki/{id}</code> · <code>DELETE /api/wiki/sets/{setId}</code></td><td>Delete a page or a whole set</td></tr>
+        </tbody>
+      </table>
+      <p>The background task type is <code>WikiGenerate</code> and the model id travels in the task metadata (<code>Guid.TryParse(item.Metadata)</code>). If a project already has a queued or running job, <code>EnqueueGenerateAsync</code> returns that job instead of queueing another. Entering the frontend at <code>/wiki?project=…&amp;generate=1</code> triggers one generation and clears the parameter; the model selector lists non-embedding models only, and an empty selection means the default completion model.</p>
+
+      <h2>Material collection and compression</h2>
+      <ul>
+        <li>The collector turns a managed project into material: a local directory or a remote work project, base context and code context.</li>
+        <li>When the code semantic index is available it supplies fragments per page — roughly <strong>10 hits</strong> (<code>SemanticHitsPerPage = 10</code>); otherwise it falls back to sampling source files.</li>
+        <li>Before the model call, both <code>BaseContext</code> and <code>rawCodeContext</code> pass through the compression pipeline (so <code>Enabled</code>, <code>Mode</code> and node configuration all matter).</li>
+        <li>Collection failures abort immediately and <strong>never reach the background queue</strong>: missing local directory, failed remote connection, unknown work project and empty directory each have their own message.</li>
+      </ul>
+
+      <h2>Planning</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Return shape</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
+          <tr><td>Size constraints</td><td>2–4 chapters, 1–3 pages each, 4–10 pages total (cap constant <code>MaxModulePages = 10</code>)</td></tr>
+          <tr><td>Plan token budget</td><td><code>3072</code></td></tr>
+          <tr><td>Planning failure</td><td>The exception is caught and the run falls back to four default pages (project overview &amp; stack / directory layout / core modules / quick start &amp; configuration) without blocking generation</td></tr>
+        </tbody>
+      </table>
+      <p><code>Brief</code> is persisted and becomes the writing brief for that page; single-page regeneration reuses it, so a regeneration stays aligned with the original outline.</p>
+
+      <h2>Generation</h2>
+      <table>
+        <thead><tr><th>Mechanism</th><th>Value / behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Concurrency</td><td><code>MaxPageConcurrency = 4</code></td></tr>
+          <tr><td>Per-page output cap</td><td><code>ContentMaxTokens = 8192</code></td></tr>
+          <tr><td>Continue trigger</td><td>Finish reason <code>length</code> / <code>max_tokens</code>, or an unbalanced code fence (odd fence count)</td></tr>
+          <tr><td>Continue limit</td><td><code>MaxContinueRounds = 4</code>; the continue prompt carries everything generated so far</td></tr>
+          <tr><td>Continue guard</td><td>Continuations containing meta phrases such as "existing content", "not provided" or "cannot determine" are dropped</td></tr>
+          <tr><td>Page retry</td><td><code>PageRetryCount = 1</code> with an <code>800ms</code> backoff</td></tr>
+          <tr><td>Body requirements</td><td>Markdown, Chinese, strictly grounded in the material, Mermaid diagrams for structure/flow/module relations, <code>text</code> code blocks for trees, inline code for paths and types</td></tr>
+          <tr><td>Cross-page context</td><td>The prompt lists sibling pages in the same set so pages can reference each other</td></tr>
+        </tbody>
+      </table>
+      <p>The overview page is generated separately and must contain a project intro, key features, tech stack, an <code>## Overall architecture</code> section (with a Mermaid <code>graph</code> / <code>flowchart</code>) and a final documentation index listing chapters verbatim. If it fails, a plain-text overview (intro + documentation index) is written instead.</p>
+
+      <h2>Persistence, sets and staleness</h2>
+      <table>
+        <thead><tr><th>Field / rule</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>WikiDocument</code></td><td><code>ProjectId</code> · <code>SetId</code> · <code>SortOrder</code> · <code>Title</code> · <code>Chapter</code> · <code>Brief</code> · <code>Content</code></td></tr>
+          <tr><td><code>WikiGenerationJob</code></td><td><code>Status</code> (0 queued / 1 running / 2 done / 3 failed) · <code>Stage</code> · <code>Progress</code> · <code>TotalPages</code> · <code>DonePages</code> · <code>ErrorMessage</code> · <code>WarningMessage</code> · <code>ModelId</code> · <code>SetId</code> · <code>CompletedAt</code></td></tr>
+          <tr><td>Write order</td><td>Topic pages are generated and collected first, then the overview, and only then does a single write happen: overview <code>SortOrder = 0</code>, topic pages = plan order <code>+ 1</code></td></tr>
+          <tr><td>Set aggregation</td><td><code>GetAllAsync</code> groups by <code>SetId</code> and sorts by <code>SortOrder</code>, so the overview is always first</td></tr>
+          <tr><td>Staleness</td><td><code>GetSetsAsync</code> asks the context collector to compute staleness, filling <code>IsStale</code> and <code>StaleFileCount</code> (project files changed → suggest regenerating)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Failure and degradation</h2>
+      <table>
+        <thead><tr><th>Situation</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>No model available</td><td>Job fails with <code>wiki.modelNotConfigured</code></td></tr>
+          <tr><td>Empty page content</td><td>Warning + retry per <code>PageRetryCount</code>; still empty → the page fails and lands in <code>failedPages</code></td></tr>
+          <tr><td>Some pages fail</td><td>The set is still persisted; failures are reported in <code>WarningMessage</code> (orange banner in the UI)</td></tr>
+          <tr><td>All topic pages fail</td><td>Throws <code>wiki.allPagesFailed</code></td></tr>
+          <tr><td>Overview fails</td><td>Falls back to a plain-text overview (intro + documentation index)</td></tr>
+          <tr><td>Single-page regeneration fails</td><td>Returns <code>wiki.regenerateFailed</code></td></tr>
+          <tr><td>Background job interrupted / cancelled</td><td>Same as graph jobs: shutdown requeues, explicit cancel marks failure</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Observability</h2>
+      <ul>
+        <li>Frontend job bar: <code>stage</code> + <code>donePages/totalPages</code> + percentage; failures show a red bar with <code>errorMessage</code>, partial failures an orange notice with <code>warningMessage</code>.</li>
+        <li>Stage labels come from localisation keys: <code>wiki.stageQueued</code>, <code>stageStarting</code>, <code>stageCollecting</code>, <code>stagePlanning</code>, <code>stageGeneratingPages</code>, <code>stageOverview</code>, <code>stageCompleted</code>.</li>
+        <li>Usage source <code>Wiki</code>: input tokens, compressed tokens, latency.</li>
+        <li>There is no per-page timing field: only job-level stage and progress, so page-level triage means reading logs.</li>
+      </ul>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li>Plan quality sets the ceiling: a vague plan makes every page vague. To change structure, change the planning prompt and its size constraints first.</li>
+        <li>Continuation completes rather than rewrites: it resends everything generated so far, so a smaller <code>ContentMaxTokens</code> means more rounds and a bigger context bill.</li>
+        <li>Partial failure is not an incident: the set stays usable and failing pages can be regenerated individually.</li>
+        <li>Exported filenames start with an index (<code>00-</code>, <code>01-</code>) so file-manager order matches the in-app order.</li>
+        <li>Changing compression settings changes the material sent to the model, which changes Wiki output; factor that in when content quality regresses.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

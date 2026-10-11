@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wiki 生成 — 深入实现 · Hetu</title>
+<meta name="description" content="Wiki 生成的六个阶段：资料采集与压缩、规划约束、并发生成与续写机制、总览页要求、整套落库与过期判定，以及失败降级与观测点。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/wiki-generation.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/wiki-generation.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Wiki 生成 — 深入实现 · Hetu">
+<meta property="og:description" content="Wiki 生成的六个阶段：资料采集与压缩、规划约束、并发生成与续写机制、总览页要求、整套落库与过期判定，以及失败降级与观测点。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/wiki-generation.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html" aria-current="page">Wiki 生成</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Wiki 生成</h1>
+      <p class="lede">Wiki 生成是长任务：<strong>采集资料 → 压缩 → 规划目录 → 并发生成每一页 → 生成总览页 → 整套落库</strong>。它的难点不在单页文案，而在「一次生成 4–10 页、每页可能被续写补全、部分页失败不能拖垮整套」这条工程链上。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 250" role="img" aria-label="Wiki 生成阶段">
+  <defs>
+    <marker id="a-wiki" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="34" width="176" height="70" rx="9"/>
+  <text class="label" x="30" y="60">采集资料</text>
+  <text class="sub" x="30" y="80">项目目录 · 代码上下文</text>
+  <text class="sub" x="30" y="96">语义命中 10 条 / 页</text>
+
+  <rect class="box" x="216" y="34" width="150" height="70" rx="9"/>
+  <text class="label" x="230" y="60">压缩</text>
+  <text class="sub" x="230" y="80">BaseContext</text>
+  <text class="sub" x="230" y="96">rawCodeContext</text>
+
+  <rect class="box-dark" x="390" y="34" width="164" height="70" rx="9"/>
+  <text class="label-light" x="404" y="60">规划</text>
+  <text class="sub" x="404" y="80">2–4 章 / 每章 1–3 页</text>
+  <text class="sub" x="404" y="96">总 4–10 页 · maxTokens 3072</text>
+
+  <rect class="box" x="578" y="34" width="286" height="70" rx="9"/>
+  <text class="label" x="592" y="60">并发生成主题页</text>
+  <text class="sub" x="592" y="80">并发 4 · 单页上限 8192 token</text>
+  <text class="sub" x="592" y="96">截断则续写（最多 4 轮）</text>
+
+  <rect class="box" x="578" y="140" width="286" height="88" rx="9"/>
+  <text class="label" x="592" y="166">总览页</text>
+  <text class="sub" x="592" y="186">必含「总体架构」+ Mermaid</text>
+  <text class="sub" x="592" y="204">末节「文档导航」</text>
+
+  <rect class="box-accent" x="16" y="140" width="538" height="88" rx="9"/>
+  <text class="label" x="30" y="166">落库：一套多页</text>
+  <text class="sub" x="30" y="186">同一 SetId · 总览 SortOrder = 0 · 主题页 = 规划序 + 1</text>
+  <text class="sub" x="30" y="204">任务状态：0 排队 / 1 运行 / 2 完成 / 3 失败</text>
+
+  <path class="flow" d="M192 69 H210" marker-end="url(#a-wiki)"/>
+  <path class="flow" d="M366 69 H384" marker-end="url(#a-wiki)"/>
+  <path class="flow" d="M554 69 H572" marker-end="url(#a-wiki)"/>
+  <path class="flow" d="M720 104 V134" marker-end="url(#a-wiki)"/>
+  <path class="flow-dashed" d="M578 184 H560" marker-end="url(#a-wiki)"/>
+</svg><figcaption>阶段顺序固定：规划先于生成、总览最后写；任何一页失败都会进入警告集合，而不是中断整套。</figcaption>
+      </figure>
+
+      <h2>触发与任务模型</h2>
+      <table>
+        <thead><tr><th>端点</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/wiki/projects/{projectId}/generate</code></td><td>入队整套生成，请求体 <code>{ modelId? }</code></td></tr>
+          <tr><td><code>POST /api/wiki/{id}/regenerate</code></td><td>重生成单页，复用该页规划阶段的 <code>Brief</code></td></tr>
+          <tr><td><code>GET /api/wiki</code> · <code>GET /api/wiki/sets</code> · <code>GET /api/wiki/{id}</code></td><td>页面列表 / 套件列表 / 单页详情，均可按 <code>projectId</code> 过滤</td></tr>
+          <tr><td><code>GET /api/wiki/jobs</code> · <code>GET /api/wiki/jobs/{id}</code></td><td>生成任务列表与详情（阶段、进度、错误、警告）</td></tr>
+          <tr><td><code>GET /api/wiki/sets/{setId}/export</code></td><td>导出 zip：每页一个 Markdown（<code>00-…md</code>、<code>01-…md</code>）+ 一个 <code>README.md</code> 索引</td></tr>
+          <tr><td><code>DELETE /api/wiki/{id}</code> · <code>DELETE /api/wiki/sets/{setId}</code></td><td>删除单页 / 整套</td></tr>
+        </tbody>
+      </table>
+      <p>后台任务类型是 <code>WikiGenerate</code>，模型 id 通过任务元数据传递（<code>Guid.TryParse(item.Metadata)</code>）。同一个项目若已有排队中或运行中的生成任务，<code>EnqueueGenerateAsync</code> 直接返回那条任务，不重复排队。前端在项目页跳转 <code>/wiki?project=…&amp;generate=1</code> 会进入后自动触发一次生成并清掉参数；模型选择器只列非 embedding 用途的模型，留空表示用默认补全模型。</p>
+
+      <h2>资料采集与压缩</h2>
+      <ul>
+        <li>采集器负责把「受管项目」变成资料：本地目录或远端工作项目、基础资料与代码上下文。</li>
+        <li>代码语义索引可用时按语义命中取片段，<strong>每页约 10 条</strong>（<code>SemanticHitsPerPage = 10</code>）；索引不可用时回退源码采样。</li>
+        <li>送进模型前对 <code>BaseContext</code> 与 <code>rawCodeContext</code> 各跑一次压缩管道（同样受 <code>Enabled</code> / <code>Mode</code> / 节点配置影响）。</li>
+        <li>采集失败会直接返回错误且<strong>不入后台队列</strong>：本地目录不存在、远端连接失败、工作项目未找到、目录为空各有独立文案。</li>
+      </ul>
+
+      <h2>规划阶段</h2>
+      <table>
+        <thead><tr><th>项</th><th>取值</th></tr></thead>
+        <tbody>
+          <tr><td>返回结构</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
+          <tr><td>规模约束</td><td>2–4 章，每章 1–3 页，总 4–10 页（上限常量 <code>MaxModulePages = 10</code>）</td></tr>
+          <tr><td>规划 token 上限</td><td><code>3072</code></td></tr>
+          <tr><td>规划失败</td><td>异常被捕获后回退默认四页：项目概述与技术栈 / 目录结构 / 核心模块详解 / 快速开始与配置，不阻塞整套生成</td></tr>
+        </tbody>
+      </table>
+      <p><code>Brief</code> 会落库，成为该页的写作要点；单页重生成时直接复用它，因此重生成不会偏离原规划。</p>
+
+      <h2>生成阶段</h2>
+      <table>
+        <thead><tr><th>机制</th><th>取值 / 行为</th></tr></thead>
+        <tbody>
+          <tr><td>并发</td><td><code>MaxPageConcurrency = 4</code></td></tr>
+          <tr><td>单页输出上限</td><td><code>ContentMaxTokens = 8192</code></td></tr>
+          <tr><td>续写触发</td><td>结束原因是 <code>length</code> / <code>max_tokens</code>，或代码围栏未闭合（围栏计数为奇数）</td></tr>
+          <tr><td>续写上限</td><td><code>MaxContinueRounds = 4</code>，续写提示会带上已生成的全部内容</td></tr>
+          <tr><td>续写容错</td><td>续写结果里出现「已有内容」/「未提供」/「无法判断」等元话术时直接丢弃这一段</td></tr>
+          <tr><td>单页重试</td><td><code>PageRetryCount = 1</code>，退避 <code>800ms</code></td></tr>
+          <tr><td>正文要求</td><td>Markdown、中文、只能依据资料不得编造、结构/流程/模块关系必须配 Mermaid 图、目录树用 <code>text</code> 代码块、路径与类型用行内代码</td></tr>
+          <tr><td>页间协作</td><td>提示词会列出同套其他页面，允许相互引用</td></tr>
+        </tbody>
+      </table>
+      <p>总览页单独生成：要求含项目简介、核心特性、技术栈、<code>## 总体架构</code>（必须带 Mermaid <code>graph</code> / <code>flowchart</code>）与末节 <code>## 文档导航</code>（按章节层级原样列出）。总览页失败时回退为纯文本总览（项目简介 + 文档导航）。</p>
+
+      <h2>落库、套件与过期判定</h2>
+      <table>
+        <thead><tr><th>字段 / 规则</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>WikiDocument</code></td><td><code>ProjectId</code> · <code>SetId</code> · <code>SortOrder</code> · <code>Title</code> · <code>Chapter</code> · <code>Brief</code> · <code>Content</code></td></tr>
+          <tr><td><code>WikiGenerationJob</code></td><td><code>Status</code>(0 排队 / 1 运行 / 2 完成 / 3 失败) · <code>Stage</code> · <code>Progress</code> · <code>TotalPages</code> · <code>DonePages</code> · <code>ErrorMessage</code> · <code>WarningMessage</code> · <code>ModelId</code> · <code>SetId</code> · <code>CompletedAt</code></td></tr>
+          <tr><td>写入顺序</td><td>先把主题页生成完并汇总，再生成总览页，最后一次性写库：总览 <code>SortOrder = 0</code>，主题页 = 规划序 <code>+ 1</code></td></tr>
+          <tr><td>套件聚合</td><td><code>GetAllAsync</code> 按 <code>SetId</code> 分组、组内按 <code>SortOrder</code> 排序，总览页恒在最前</td></tr>
+          <tr><td>过期判定</td><td><code>GetSetsAsync</code> 调用上下文采集器的过期计算，填充 <code>IsStale</code> 与 <code>StaleFileCount</code>（项目文件变动后提示重新生成）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>失败与降级</h2>
+      <table>
+        <thead><tr><th>情况</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>没有可用模型</td><td>任务失败，记录 <code>wiki.modelNotConfigured</code></td></tr>
+          <tr><td>单页内容为空</td><td>记警告并按 <code>PageRetryCount</code> 重试；仍为空则该页失败，进入 <code>failedPages</code></td></tr>
+          <tr><td>部分页失败</td><td>整套仍写库，失败页写入 <code>WarningMessage</code>（前端橙色提示），不影响已成功的页</td></tr>
+          <tr><td>全部主题页失败</td><td>抛 <code>wiki.allPagesFailed</code></td></tr>
+          <tr><td>总览页失败</td><td>回退纯文本总览（项目简介 + 文档导航）</td></tr>
+          <tr><td>单页重生成失败</td><td>返回 <code>wiki.regenerateFailed</code></td></tr>
+          <tr><td>后台任务被停止打断 / 主动取消</td><td>同图谱任务：停止则重新排队，主动取消记失败</td></tr>
+        </tbody>
+      </table>
+
+      <h2>观测</h2>
+      <ul>
+        <li>前端任务条：<code>stage</code> + <code>donePages/totalPages</code> + 百分比；失败红色条带 <code>errorMessage</code>；部分失败橙色提示带 <code>warningMessage</code>。</li>
+        <li>阶段文案来自本地化键：<code>wiki.stageQueued</code>、<code>stageStarting</code>、<code>stageCollecting</code>、<code>stagePlanning</code>、<code>stageGeneratingPages</code>、<code>stageOverview</code>、<code>stageCompleted</code>。</li>
+        <li>用量来源 <code>Wiki</code>：输入 token、压缩后 token、延迟。</li>
+        <li>没有页面级耗时字段：目前只有任务级的进度与阶段，页级排查看日志。</li>
+      </ul>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>规划质量决定整套质量：规划若是泛泛而谈，后面每页都会泛。想调整结构，先改规划阶段的提示词与规模约束。</li>
+        <li>续写是「补全」不是「重写」：它把已生成内容一并送回模型，所以 <code>ContentMaxTokens</code> 越小续写轮次越多、上下文越贵。</li>
+        <li>部分页失败不是事故：整套仍可用，直接对失败页点「重生成」即可。</li>
+        <li>导出 zip 的文件名以序号开头（<code>00-</code>、<code>01-</code>），保证在文件管理器里与站内顺序一致。</li>
+        <li>换了压缩管道配置会改变送进模型的资料，从而影响 Wiki 内容；排查「内容不如以前」时把这条算进去。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
