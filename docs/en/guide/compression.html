@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compression pipeline · Hetu</title>
+<meta name="description" content="Compression pipeline in detail: two entry points (full / algorithmic-only), three modes, the ten nodes with order and defaults, the four gates on the LLM summary, the not-shorter guard, config merge semantics, and how it differs from session-level auto compaction.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/compression.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/guide/compression.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/compression.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/en/guide/compression.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Compression pipeline · Hetu">
+<meta property="og:description" content="Compression pipeline in detail: two entry points (full / algorithmic-only), three modes, the ten nodes with order and defaults, the four gates on the LLM summary, the not-shorter guard, config merge semantics, and how it differs from session-level auto compaction.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/compression.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/compression.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html" aria-current="page">Compression pipeline</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Compression pipeline</h1>
+      <p class="lede">The compression pipeline shrinks long text before it reaches a model: ten nodes run in a fixed order, algorithms first with an LLM fallback, and one hard guard — if the result is not shorter, the original text is kept. It is the first layer of context cost control, paired with the second layer, session-level auto compaction.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 250" role="img" aria-label="Compression pipeline: ten algorithmic/LLM nodes run in order, then a guard that keeps the original if the result is not shorter">
+  <defs>
+    <marker id="a-pipe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-pipe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="12" y="96" width="132" height="60" rx="9"/>
+  <text class="label" x="24" y="120">Input text</text>
+  <text class="sub" x="24" y="140">history / tool output</text>
+
+  <rect class="box" x="170" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="52">structured folding</text>
+  <text class="sub" x="182" y="70">base64 / HTML / JSON / tables</text>
+
+  <rect class="box" x="170" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="118">dedup</text>
+  <text class="sub" x="182" y="136">paragraph / line / sentence level</text>
+
+  <rect class="box" x="170" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="184">whitespace</text>
+  <text class="sub" x="182" y="202">spaces, newlines, indentation</text>
+
+  <rect class="box" x="346" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="52">log_dedup</text>
+  <text class="sub" x="358" y="70">collapse repeated log patterns</text>
+
+  <rect class="box" x="346" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="118">near_dup</text>
+  <text class="sub" x="358" y="136">SimHash similarity</text>
+
+  <rect class="box" x="346" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="184">number_normalize</text>
+  <text class="sub" x="358" y="202">numbers to placeholders</text>
+
+  <rect class="box" x="522" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="52">keywords</text>
+  <text class="sub" x="534" y="70">keep high-signal lines</text>
+
+  <rect class="box" x="522" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="118">headtail</text>
+  <text class="sub" x="534" y="136">keep head and tail</text>
+
+  <rect class="box" x="522" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="184">stopwords</text>
+  <text class="sub" x="534" y="202">off by default</text>
+
+  <rect class="box-dark" x="700" y="30" width="168" height="80" rx="9"/>
+  <text class="label-light" x="712" y="54">LLM summary</text>
+  <text class="sub" x="712" y="74">only in llm / hybrid mode</text>
+  <text class="sub" x="712" y="92">and length >= threshold (500)</text>
+
+  <rect class="box-accent" x="700" y="150" width="168" height="64" rx="9"/>
+  <text class="label" x="712" y="176">Guard</text>
+  <text class="sub" x="712" y="196">not shorter → keep original</text>
+
+  <path class="flow" d="M144 126 H160 V56 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M144 126 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M144 126 H160 V188 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 56 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 122 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 188 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 56 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 122 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 188 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M672 122 H694 V70 H696" marker-end="url(#a-pipe)"/>
+  <path class="flow-muted" d="M672 122 H694 V182 H696" marker-end="url(#am-pipe)"/>
+</svg>
+<figcaption>Node order and default enablement come from code; users only choose what stays enabled. New nodes appear in existing configs after an upgrade.</figcaption>
+</figure>
+
+      <h2>Two entry points</h2>
+      <table>
+        <thead><tr><th>Entry</th><th>Behaviour</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr><td><code>CompressAsync</code></td><td>Runs the whole pipeline, <strong>including</strong> the LLM summary node</td><td>Chat / code session history compression</td></tr>
+          <tr><td><code>CompressAlgorithmicAsync</code></td><td>Algorithm nodes only (<code>allowLlm=false</code>): no model call even when the mode is <code>llm</code> or <code>hybrid</code></td><td>Single-shot inputs: Wiki generation, graph extraction</td></tr>
+        </tbody>
+      </table>
+      <div class="note">Why the distinction? A one-shot long input is compressed once, so paying for an extra model call does not pay off. Chat history is re-sent on every turn, so LLM summarization amortizes.</div>
+
+      <h2>Three modes</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>algorithmic</code> (default)</td><td>Algorithm nodes only; <code>llm_summary</code> is skipped even when enabled (with a log line explaining why)</td></tr>
+          <tr><td><code>llm</code></td><td>Algorithm nodes plus the LLM summary (subject to the length threshold)</td></tr>
+          <tr><td><code>hybrid</code></td><td>Same as <code>llm</code>: algorithms strip obvious redundancy first, then the model handles semantic compression</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The ten nodes (execution order)</h2>
+      <table>
+        <thead><tr><th>#</th><th>Key</th><th>Name</th><th>What it does</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>structured</code></td><td>Structured folding</td><td>Folds long payloads — base64, HTML, JSON, tables — keeping a structural skeleton and samples</td><td>on</td></tr>
+          <tr><td>2</td><td><code>dedup</code></td><td>Duplicate merge</td><td>Removes duplicate paragraphs, lines and inline sentences, keeping the first occurrence</td><td>on</td></tr>
+          <tr><td>3</td><td><code>whitespace</code></td><td>Whitespace</td><td>Trims redundant spaces, newlines and indentation</td><td>on</td></tr>
+          <tr><td>4</td><td><code>log_dedup</code></td><td>Log dedup</td><td>Detects and collapses repeated log patterns</td><td>on</td></tr>
+          <tr><td>5</td><td><code>near_dup</code></td><td>Near duplicates</td><td>SimHash similarity so repeated content differing only by timestamp / id is merged</td><td>on</td></tr>
+          <tr><td>6</td><td><code>number_normalize</code></td><td>Number normalization</td><td>Replaces numbers with placeholders to reduce variation</td><td>on</td></tr>
+          <tr><td>7</td><td><code>stopwords</code></td><td>Stop word filter</td><td>Removes common low-signal words (Chinese and English)</td><td><strong>off</strong></td></tr>
+          <tr><td>8</td><td><code>keywords</code></td><td>Key line extraction</td><td>Scores lines by information content and keeps errors, conclusions and paths, folding the rest</td><td>on</td></tr>
+          <tr><td>9</td><td><code>headtail</code></td><td>Head / tail</td><td>For very long output, keeps the head and tail and folds the middle (build logs, large files)</td><td>on</td></tr>
+          <tr><td>10</td><td><code>llm_summary</code></td><td>LLM summary</td><td>Model-based semantic summary, gated as described below</td><td><strong>off</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="note">Node order is fixed in code (<code>Order</code> 1–10); configuration only chooses which nodes stay enabled. The order matters: structural noise first, then duplicates, then numeric/key-line reduction, with the LLM summary always last.</div>
+
+      <h2>Four gates for the LLM summary</h2>
+      <table>
+        <thead><tr><th>Gate</th><th>Value</th><th>When unmet</th></tr></thead>
+        <tbody>
+          <tr><td>Entry allows it</td><td><code>allowLlm=true</code> (<code>CompressAsync</code>)</td><td>Single-shot tasks skip it</td></tr>
+          <tr><td>Mode</td><td><code>llm</code> or <code>hybrid</code></td><td>Skipped under <code>algorithmic</code></td></tr>
+          <tr><td>Length threshold</td><td><code>LlmThreshold ≥ 500</code> characters (configurable)</td><td>Short text is skipped to save a call</td></tr>
+          <tr><td>Model available</td><td>The configured summary model, falling back to the default chat model</td><td>Neither available: log a warning and keep the original</td></tr>
+        </tbody>
+      </table>
+      <p>The default summary prompt asks the model to keep conclusions, numbers, paths and file names, commands, todos and constraints; drop repetition and pleasantries; never invent facts; and answer in the source language.</p>
+
+      <h2>Guard and degradation</h2>
+      <ul>
+        <li><strong>Not shorter → keep the original:</strong> if the pipeline output is not shorter than the input, the input is returned (nodes such as number normalization and duplicate annotation can make certain text longer).</li>
+        <li><strong>Empty input / pipeline off / no enabled nodes:</strong> passthrough, no processing.</li>
+        <li><strong>LLM failure:</strong> a missing provider only logs a warning and returns the original; it never blocks the main flow.</li>
+        <li>Every node logs input/output character counts, and the run logs the final compression ratio.</li>
+      </ul>
+
+      <h2>Configuration storage and upgrade semantics</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Storage key</td><td>App setting <code>CompressionConfig</code> (JSON)</td></tr>
+          <tr><td>Master switch</td><td><code>Enabled</code>, <strong>off by default</strong> — the whole pipeline is skipped when off</td></tr>
+          <tr><td>Merge strategy</td><td>Node set, order and labels come from <strong>code</strong>; only the user's enable/disable choice is preserved, so nodes added in a release show up in existing configs instead of staying invisible</td></tr>
+          <tr><td>Historic nodes</td><td>Nodes present in a stored config but removed from code are kept at the end (<code>Order + 100</code>) for easier rollback and debugging</td></tr>
+          <tr><td>Self-inspection</td><td><code>DescribeAsync()</code> reports the nodes that will actually run, the mode, and whether <code>llm_summary</code> is skipped and why</td></tr>
+        </tbody>
+      </table>
+
+      <h2>How it differs from session-level auto compaction</h2>
+      <table>
+        <thead><tr><th>Aspect</th><th>Compression pipeline (this page)</th><th>Session auto compaction</th></tr></thead>
+        <tbody>
+          <tr><td>Applies to</td><td>A single text (a history slice, a tool output)</td><td>The whole message sequence of a session</td></tr>
+          <tr><td>Triggered by</td><td>Explicit calls (before each iteration, before one-shot tasks)</td><td>Automatically when usage reaches 80% of the window</td></tr>
+          <tr><td>Result</td><td>Replaces only the text sent to the model</td><td>Writes a summary into <code>ContextSummary</code> / <code>ContextSummaryThroughMessageId</code>; original messages are untouched</td></tr>
+          <tr><td>Knobs</td><td>Node toggles, mode, threshold, summary model and prompt</td><td>Recent-message count, summary model, auto ratio</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Tuning advice grounded in the implementation</h2>
+      <ul>
+        <li><strong>Turn the master switch on first</strong> — the pipeline ships disabled; enabling it with default nodes already helps.</li>
+        <li><strong>Long logs / build output:</strong> keep <code>structured</code>, <code>log_dedup</code> and <code>headtail</code> on; those three handle CLI noise best.</li>
+        <li><strong>De-noise without touching semantics:</strong> stay in <code>algorithmic</code> mode and leave <code>llm_summary</code> off.</li>
+        <li><strong>Long-session cost:</strong> switch to <code>llm</code> / <code>hybrid</code>, keep the threshold at 500+ characters, and pick a cheap summary model.</li>
+        <li><strong>Enable with care:</strong> <code>number_normalize</code> replaces digits and <code>stopwords</code> deletes words — turn both off for tasks that depend on exact values or wording.</li>
+        <li><strong>Troubleshooting:</strong> grep the backend log for <code>[Compression]</code>; it lists per-node before/after sizes, skip reasons and the final ratio.</li>
+      </ul>
+    <div class="docs-pager"><a href="architecture.html">← Architecture</a><a href="index.html">Docs index</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+

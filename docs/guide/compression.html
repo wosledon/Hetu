@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>压缩管道 · Hetu</title>
+<meta name="description" content="压缩管道详解：两个入口（完整 / 单轮算法）、三种模式、十个节点的顺序与默认状态、LLM 摘要四道门槛、未变短保留原文的守卫、配置合并与升级语义、与会话级自动压缩的区别与调优建议。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/compression.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/en/guide/compression.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/compression.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/guide/compression.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="压缩管道 · Hetu">
+<meta property="og:description" content="压缩管道详解：两个入口（完整 / 单轮算法）、三种模式、十个节点的顺序与默认状态、LLM 摘要四道门槛、未变短保留原文的守卫、配置合并与升级语义、与会话级自动压缩的区别与调优建议。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/compression.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html" aria-current="page">压缩管道</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>压缩管道</h1>
+      <p class="lede">压缩管道负责「把长文本在进入模型前压到可承受的大小」：十个节点按固定顺序执行，算法优先、LLM 兜底，并且有一道硬性守卫——压缩结果只要没变短，就保留原文。它是上下文成本控制的第一层，与第二层「会话级自动压缩」配合使用。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 250" role="img" aria-label="压缩管道：十个算法/LLM 节点按顺序执行，最后做「未变短则保留原文」的守卫">
+  <defs>
+    <marker id="a-pipe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-pipe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="12" y="96" width="132" height="60" rx="9"/>
+  <text class="label" x="24" y="120">输入文本</text>
+  <text class="sub" x="24" y="140">历史 / 工具输出</text>
+
+  <rect class="box" x="170" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="52">结构化折叠 structured</text>
+  <text class="sub" x="182" y="70">base64 / HTML / JSON / 表格</text>
+
+  <rect class="box" x="170" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="118">去重合并 dedup</text>
+  <text class="sub" x="182" y="136">段落 / 行 / 句去重</text>
+
+  <rect class="box" x="170" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="182" y="184">格式压缩 whitespace</text>
+  <text class="sub" x="182" y="202">空格、换行、缩进</text>
+
+  <rect class="box" x="346" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="52">日志去重 log_dedup</text>
+  <text class="sub" x="358" y="70">折叠重复日志模式</text>
+
+  <rect class="box" x="346" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="118">近似重复 near_dup</text>
+  <text class="sub" x="358" y="136">SimHash 相似度</text>
+
+  <rect class="box" x="346" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="358" y="184">数字归一化 number_normalize</text>
+  <text class="sub" x="358" y="202">数字 → 占位符</text>
+
+  <rect class="box" x="522" y="30" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="52">关键行抽取 keywords</text>
+  <text class="sub" x="534" y="70">按信息量保留关键行</text>
+
+  <rect class="box" x="522" y="96" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="118">超长头尾 headtail</text>
+  <text class="sub" x="534" y="136">保留首尾、折叠中间</text>
+
+  <rect class="box" x="522" y="162" width="150" height="52" rx="9"/>
+  <text class="label" x="534" y="184">停用词 stopwords</text>
+  <text class="sub" x="534" y="202">默认关闭</text>
+
+  <rect class="box-dark" x="700" y="30" width="168" height="80" rx="9"/>
+  <text class="label-light" x="712" y="54">LLM 摘要 llm_summary</text>
+  <text class="sub" x="712" y="74">仅 llm / hybrid 模式</text>
+  <text class="sub" x="712" y="92">且长度 ≥ 阈值（默认 500）</text>
+
+  <rect class="box-accent" x="700" y="150" width="168" height="64" rx="9"/>
+  <text class="label" x="712" y="176">守卫</text>
+  <text class="sub" x="712" y="196">结果未变短 → 保留原文</text>
+
+  <path class="flow" d="M144 126 H160 V56 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M144 126 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M144 126 H160 V188 H164" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 56 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 122 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M320 188 H340" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 56 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 122 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M496 188 H516" marker-end="url(#a-pipe)"/>
+  <path class="flow" d="M672 122 H694 V70 H696" marker-end="url(#a-pipe)"/>
+  <path class="flow-muted" d="M672 122 H694 V182 H696" marker-end="url(#am-pipe)"/>
+</svg>
+<figcaption>节点顺序与「是否启用」由代码里的默认值决定，用户可以改启用状态；升级后新增节点会自动出现在配置里。</figcaption>
+</figure>
+
+      <h2>两个入口</h2>
+      <table>
+        <thead><tr><th>入口</th><th>行为</th><th>用在哪</th></tr></thead>
+        <tbody>
+          <tr><td><code>CompressAsync</code></td><td>执行完整管道，<strong>允许</strong> LLM 摘要节点参与</td><td>对话 / 编码会话的历史文本压缩</td></tr>
+          <tr><td><code>CompressAlgorithmicAsync</code></td><td>只跑算法节点（<code>allowLlm=false</code>）：即使配置成 <code>llm</code> / <code>hybrid</code> 也不触发模型调用</td><td>单轮任务：Wiki 生成、知识图谱提取等一次性输入</td></tr>
+        </tbody>
+      </table>
+      <div class="note">单轮任务为什么要区分？因为一次性的长输入只压缩一次，再花一次模型调用不划算；而对话历史会被反复送进模型，LLM 摘要摊薄之后才值得。</div>
+
+      <h2>三种模式</h2>
+      <table>
+        <thead><tr><th>模式</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>algorithmic</code>（默认）</td><td>只跑算法节点，<code>llm_summary</code> 即使勾选也会被跳过（日志中会写明原因）</td></tr>
+          <tr><td><code>llm</code></td><td>算法节点 + LLM 摘要（满足长度阈值时）</td></tr>
+          <tr><td><code>hybrid</code></td><td>与 <code>llm</code> 相同：先算法后 LLM——算法先把明显冗余去掉，LLM 再处理语义级压缩</td></tr>
+        </tbody>
+      </table>
+
+      <h2>十个节点（按执行顺序）</h2>
+      <table>
+        <thead><tr><th>#</th><th>节点 Key</th><th>名称</th><th>做法</th><th>默认</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>structured</code></td><td>结构化折叠</td><td>折叠 base64 / HTML / JSON / 表格等长载荷，只留结构骨架与样本</td><td>启用</td></tr>
+          <tr><td>2</td><td><code>dedup</code></td><td>去重合并</td><td>去除重复段落、重复行与行内重复句，保留首次出现</td><td>启用</td></tr>
+          <tr><td>3</td><td><code>whitespace</code></td><td>格式压缩</td><td>去除多余空格、换行和缩进</td><td>启用</td></tr>
+          <tr><td>4</td><td><code>log_dedup</code></td><td>日志去重</td><td>识别并折叠重复的日志模式</td><td>启用</td></tr>
+          <tr><td>5</td><td><code>near_dup</code></td><td>近似重复</td><td>SimHash 相似度去重，抓只有时间戳 / ID 不同的重复内容</td><td>启用</td></tr>
+          <tr><td>6</td><td><code>number_normalize</code></td><td>数字归一化</td><td>把数字替换成占位符，减少变化量</td><td>启用</td></tr>
+          <tr><td>7</td><td><code>stopwords</code></td><td>停用词过滤</td><td>移除中英文常见无意义词</td><td><strong>关闭</strong></td></tr>
+          <tr><td>8</td><td><code>keywords</code></td><td>关键行抽取</td><td>按信息量打分，保留错误 / 结论 / 路径等关键行，折叠其余流水行</td><td>启用</td></tr>
+          <tr><td>9</td><td><code>headtail</code></td><td>超长头尾保留</td><td>超长输出保留首尾、折叠中间（构建日志、大文件内容）</td><td>启用</td></tr>
+          <tr><td>10</td><td><code>llm_summary</code></td><td>LLM 摘要</td><td>调用模型做语义级摘要（按下面的门槛触发）</td><td><strong>关闭</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="note">节点顺序在代码里固定（<code>Order</code> 1–10），配置只决定「哪些节点启用」。顺序有讲究：先去结构噪声，再去重复，最后才做数字归一化与关键行抽取；LLM 摘要永远在最后。</div>
+
+      <h2>LLM 摘要的四个门槛</h2>
+      <p><code>llm_summary</code> 要同时满足以下条件才会真正调用模型，任何一条不满足都会跳过并写日志：</p>
+      <table>
+        <thead><tr><th>门槛</th><th>取值</th><th>不满足时</th></tr></thead>
+        <tbody>
+          <tr><td>入口允许</td><td><code>allowLlm=true</code>（<code>CompressAsync</code>）</td><td>单轮任务直接跳过</td></tr>
+          <tr><td>模式</td><td><code>llm</code> 或 <code>hybrid</code></td><td><code>algorithmic</code> 下跳过</td></tr>
+          <tr><td>长度阈值</td><td><code>LlmThreshold ≥ 500</code> 字符（可配置）</td><td>短文本跳过，省一次调用</td></tr>
+          <tr><td>可用模型</td><td>配置里指定的摘要模型可用，否则回落到默认对话模型</td><td>都没有则记 warning 并保留原文</td></tr>
+        </tbody>
+      </table>
+      <p>摘要提示词默认要求：保留结论、数字、路径与文件名、命令、待办与约束，删除重复与寒暄，不编造事实，输出与原文同语言。</p>
+
+      <h2>守卫与降级</h2>
+      <ul>
+        <li><strong>未变短就保留原文</strong>：整条管道跑完后，如果结果长度 ≥ 原始长度，直接返回原文（<code>number_normalize</code>、重复标注等节点在特定文本上确实会变长）。</li>
+        <li><strong>空输入 / 管道关闭 / 无启用节点</strong>：原样返回，不做任何处理。</li>
+        <li><strong>LLM 失败</strong>：摘要模型不可用时只记 warning 返回原文，不阻断主流程。</li>
+        <li>每个节点执行前后都会记录字符数，最终记录压缩比（<code>ratio</code>）。</li>
+      </ul>
+
+      <h2>配置存储与升级语义</h2>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>存储键</td><td>应用设置 <code>CompressionConfig</code>（JSON）</td></tr>
+          <tr><td>总开关</td><td><code>Enabled</code>，默认<strong>关闭</strong>：关闭时管道整体跳过</td></tr>
+          <tr><td>合并策略</td><td>节点集合、顺序与文案<strong>以代码为准</strong>；只保留用户对「是否启用」的选择——所以升级后新增节点会自动出现在配置里，不会因为老配置而不可见</td></tr>
+          <tr><td>历史节点</td><td>配置里存在但代码已没有的节点会保留并排到末尾（<code>Order + 100</code>），便于回滚排查</td></tr>
+          <tr><td>自检</td><td><code>DescribeAsync()</code> 输出当前真正会执行的节点与模式，并明确写出 <code>llm_summary</code> 是否被跳过及原因（日志排查用）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>与「会话级自动压缩」的区别</h2>
+      <table>
+        <thead><tr><th>维度</th><th>压缩管道（本页）</th><th>会话级自动压缩</th></tr></thead>
+        <tbody>
+          <tr><td>作用对象</td><td>单段文本（历史片段、工具输出）</td><td>整个会话的历史消息序列</td></tr>
+          <tr><td>触发方式</td><td>调用方显式调用（每轮前、单轮任务前）</td><td>上下文占用 ≥ 窗口 80% 时自动触发</td></tr>
+          <tr><td>结果落点</td><td>只替换送入模型的那段文本</td><td>摘要写回话题 / 会话的 <code>ContextSummary</code> 与 <code>ContextSummaryThroughMessageId</code>，原始消息不动</td></tr>
+          <tr><td>可调项</td><td>节点启停、模式、阈值、摘要模型与提示词</td><td>保留最近条数、摘要模型、自动触发比例</td></tr>
+        </tbody>
+      </table>
+
+      <h2>调优建议（基于实现）</h2>
+      <ul>
+        <li><strong>先开总开关</strong>：管道默认是关闭的，设置里打开后即使只保留默认节点也有明显效果。</li>
+        <li><strong>长日志 / 构建输出</strong>：确保 <code>structured</code>、<code>log_dedup</code>、<code>headtail</code> 开启；这三个对命令行噪音最有效。</li>
+        <li><strong>只想降噪、不想动语义</strong>：保持 <code>algorithmic</code>，不要开 <code>llm_summary</code>。</li>
+        <li><strong>长会话成本</strong>：开 <code>llm</code> / <code>hybrid</code>，阈值别设太小（默认 500 字符已经很激进），摘要模型选便宜的小模型。</li>
+        <li><strong>谨慎开启</strong>：<code>number_normalize</code> 会把数字换成占位符、<code>stopwords</code> 会删词，涉及精确数值或措辞的任务建议关闭。</li>
+        <li><strong>排查</strong>：看后端日志里 <code>[Compression]</code> 前缀的行，能看到每个节点的前后字符数、跳过原因与最终压缩比。</li>
+      </ul>
+    <div class="docs-pager"><a href="architecture.html">← 架构与实现</a><a href="index.html">文档索引</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
