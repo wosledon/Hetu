@@ -75,11 +75,18 @@
       <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
-    </ol>    <h2>深入实现</h2>
+    </ol>
+    <h2>深入实现</h2>
     <ol>
       <li><a href="compression.html">压缩管道</a></li>
       <li><a href="agent-loop.html">Agent 循环</a></li>
       <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
     </ol>
   </aside>
     <div class="docs-body">
@@ -189,6 +196,8 @@
           <tr><td><a href="sse.html">SSE 事件协议</a></td><td>三种帧形态、完整事件清单与字段、工作流事件、两条流的差异、新增事件的适配流程</td></tr>
           <tr><td><a href="chunking.html">分块与向量索引</a></td><td>LLM 与结构化分块参数、写入顺序与虚表 DELETE+INSERT、未变块复用向量、维度三级解析与重建、降级路径</td></tr>
           <tr><td><a href="retrieval.html">语义检索</a></td><td>笔记与分块两路召回与候选倍数、去重合并、结果投影、四类消费方、降级与质量实践</td></tr>
+          <tr><td><a href="graph-extraction.html">知识图谱抽取</a></td><td>单轮抽取路径、JSON 输出契约与白名单、名称归一化与去重、按笔记清理与恢复、实体合并、失败路径</td></tr>
+          <tr><td><a href="wiki-generation.html">Wiki 生成</a></td><td>资料采集与压缩、规划约束与回退、并发 4 的生成与续写机制、总览页要求、整套落库与过期判定、失败降级</td></tr>
         </tbody>
       </table>
 
@@ -228,6 +237,7 @@
 </div>
 </body>
 </html>
+
 
 
 

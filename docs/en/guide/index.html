@@ -75,11 +75,18 @@
       <li><a href="architecture.html">Architecture</a></li>
       <li><a href="faq.html">FAQ</a></li>
       <li><a href="dev.html">Development</a></li>
-    </ol>    <h2>Internals</h2>
+    </ol>
+    <h2>Internals</h2>
     <ol>
       <li><a href="compression.html">Compression pipeline</a></li>
       <li><a href="agent-loop.html">Agent loop</a></li>
       <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
     </ol>
   </aside>
     <div class="docs-body">
@@ -190,6 +197,8 @@
           <tr><td><a href="sse.html">SSE event protocol</a></td><td>Three frame shapes, the full event list with fields, workflow events, stream differences, adding an event safely</td></tr>
           <tr><td><a href="chunking.html">Chunking &amp; vector index</a></td><td>LLM vs structural chunking, write order and DELETE+INSERT, vector reuse, dimension resolution and rebuild, degradation paths</td></tr>
           <tr><td><a href="retrieval.html">Semantic retrieval</a></td><td>Note and chunk recall with over-fetch factors, dedup merge, projection, the four consumers, degradation and quality practice</td></tr>
+          <tr><td><a href="graph-extraction.html">Knowledge graph extraction</a></td><td>The single-pass path, JSON contract and type whitelists, normalisation and dedupe, per-note cleanup and restore, entity merge, failure paths</td></tr>
+          <tr><td><a href="wiki-generation.html">Wiki generation</a></td><td>Collection and compression, planning constraints and fallback, concurrency 4 with continuation, overview requirements, set persistence and staleness</td></tr>
         </tbody>
       </table>
 
@@ -229,6 +238,7 @@
 </div>
 </body>
 </html>
+
 
 
 
