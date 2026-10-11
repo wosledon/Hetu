@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Cloud, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
 import { workGitService, workSessionService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
 
@@ -134,7 +134,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
         <div className="relative">
           <button
             onClick={() => setMenu(menu === 'branch' ? null : 'branch')}
-            disabled={busy || created || !!unsupportedHint || (branchInfo?.branches.length ?? 0) === 0}
+            disabled={busy || created || !!unsupportedHint || ((branchInfo?.branches.length ?? 0) === 0 && (branchInfo?.remoteBranches?.length ?? 0) === 0)}
             title={
               created
                 ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' })
@@ -170,6 +170,29 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                         {branch}
                         {branch === currentBranch && <span className="ml-1 text-gray-400">{t('workspace.baseBranchCurrentTag')}</span>}
                       </span>
+                    </button>
+                  )
+                })}
+
+                {/* 远程分支：选中后按同名建本地跟踪分支（主工作区）或作为工作树起点 */}
+                {(branchInfo?.remoteBranches ?? []).length > 0 && (
+                  <p className="mt-1 border-t border-gray-100 px-2 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:border-white/[0.06]">
+                    {t('workspace.remoteBranches')}
+                  </p>
+                )}
+                {(branchInfo?.remoteBranches ?? []).map((branch) => {
+                  const active = useWorktree && session.baseBranch === branch
+                  return (
+                    <button
+                      key={branch}
+                      onClick={() => apply.mutate({ baseBranch: branch })}
+                      disabled={busy || active}
+                      title={t('workspace.remoteBranchHint')}
+                      className={itemClass(active)}
+                    >
+                      <span className="w-3 shrink-0">{active && <Check size={12} className="text-emerald-500" />}</span>
+                      <Cloud size={12} className="shrink-0 text-gray-400" />
+                      <span className="min-w-0 flex-1 truncate">{branch}</span>
                     </button>
                   )
                 })}

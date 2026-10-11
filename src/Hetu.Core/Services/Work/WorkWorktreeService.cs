@@ -118,6 +118,23 @@ public class WorkWorktreeService
         }
 
         var path = worktreePath.Replace('\\', '/');
+        // 远程引用（origin/feature-x）：直接检出会进 detached HEAD，改为按它建本地跟踪分支
+        var useRemoteBase = !string.IsNullOrWhiteSpace(baseBranch) && await IsRemoteRefAsync(projectRoot, baseBranch!, cancellationToken);
+        if (useRemoteBase)
+        {
+            var local = LocalNameOf(baseBranch!);
+            if (!await BranchExistsAsync(projectRoot, local, cancellationToken))
+            {
+                var (trackCode, trackOut) = await RunGitAsync(
+                    projectRoot, $"worktree add -b {local} \"{path}\" {baseBranch}", cancellationToken);
+                if (trackCode == 0) return (true, null, local);
+                await RunGitAsync(projectRoot, "worktree prune", cancellationToken);
+                TryDeleteDirectory(worktreePath);
+                return (false, FirstLine(trackOut), null);
+            }
+            baseBranch = local;
+        }
+
         if (!string.IsNullOrWhiteSpace(baseBranch))
         {
             var (code, _) = await RunGitAsync(projectRoot, $"worktree add \"{path}\" {baseBranch}", cancellationToken);
@@ -132,13 +149,47 @@ public class WorkWorktreeService
         return newCode == 0 ? (true, null, fallbackBranch) : (false, FirstLine(newOutput), null);
     }
 
-    /// <summary>把工作目录检出到指定分支；已经是该分支时什么都不做。返回 null 表示成功</summary>
-    public async Task<string?> CheckoutAsync(string directory, string branch, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 把工作目录检出到指定分支；已经是该分支时什么都不做。返回 null 表示成功。
+    /// <paramref name="branch"/> 可以是远程引用（origin/feature-x）：本地没有同名分支时按远程建跟踪分支。
+    /// </summary>
+    public async Task<string?> CheckoutAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
     {
-        var current = await GetCurrentBranchAsync(directory, cancellationToken);
+        if (await IsRemoteRefAsync(projectRoot, branch, cancellationToken))
+        {
+            var local = LocalNameOf(branch);
+            if (!await BranchExistsAsync(projectRoot, local, cancellationToken))
+            {
+                var (createCode, createOut) = await RunGitAsync(projectRoot, $"checkout -b {local} {branch}", cancellationToken);
+                return createCode == 0 ? null : FirstLine(createOut);
+            }
+            branch = local;
+        }
+
+        var current = await GetCurrentBranchAsync(projectRoot, cancellationToken);
         if (string.Equals(current, branch, StringComparison.OrdinalIgnoreCase)) return null;
-        var (code, output) = await RunGitAsync(directory, $"checkout {branch}", cancellationToken);
+        var (code, output) = await RunGitAsync(projectRoot, $"checkout {branch}", cancellationToken);
         return code == 0 ? null : FirstLine(output);
+    }
+
+    /// <summary>是否形如 <c>&lt;remote&gt;/&lt;branch&gt;</c> 的远程引用（<c>&lt;remote&gt;</c> 必须是真实远程名）</summary>
+    public async Task<bool> IsRemoteRefAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
+    {
+        var slash = branch.IndexOf('/');
+        if (slash <= 0) return false;
+        var (code, remotes) = await RunGitAsync(projectRoot, "remote", cancellationToken);
+        if (code != 0) return false;
+        return remotes
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(r => r.Trim())
+            .Any(r => string.Equals(r, branch[..slash], StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>远程引用对应的本地分支名（origin/feature-x → feature-x）</summary>
+    public static string LocalNameOf(string remoteRef)
+    {
+        var slash = remoteRef.IndexOf('/');
+        return slash > 0 ? remoteRef[(slash + 1)..] : remoteRef;
     }
 
     /// <summary>工作目录是否干净（含未跟踪文件）</summary>

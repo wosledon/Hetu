@@ -95,15 +95,27 @@ public class WorkGitService
         dto.Current = current.Trim();
         // rev-parse 而非 for-each-ref --format=%(...)：本地命令经 PowerShell / bash 执行，%() 会被 PowerShell 解析
         var (_, refs) = await RunGitAsync(runner, "rev-parse --symbolic --branches", cancellationToken: cancellationToken);
-        dto.Branches = refs
+        dto.Branches = SplitRefs(refs);
+        // 远程分支（origin/main 等）：选它时按同名建本地跟踪分支；symbolic refs（origin/HEAD）不算
+        var (remoteCode, remoteRefs) = await RunGitAsync(runner, "rev-parse --symbolic --remotes", cancellationToken: cancellationToken);
+        if (remoteCode == 0)
+        {
+            dto.RemoteBranches = SplitRefs(remoteRefs)
+                .Where(name => !name.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        return dto;
+    }
+
+    /// <summary>把 rev-parse 输出的多行引用整理成去重排序的列表</summary>
+    private static List<string> SplitRefs(string output)
+        => output
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(line => line, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return dto;
-    }
 
     /// <summary>
     /// 在项目里挂一个独立工作树（仅本地项目）。分支已存在于本地时直接检出该分支，
