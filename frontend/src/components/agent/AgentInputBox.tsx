@@ -328,8 +328,8 @@ export default function AgentInputBox({
         {(hint || trailing || footerLeading) && (
           <div className="mt-1.5 flex items-center gap-2">
             {footerLeading && <div className="flex shrink-0 items-center gap-1">{footerLeading}</div>}
-            {/* 无提示文字时也要占位，否则右侧控件会被挤到左边 */}
-            <p className={`min-w-0 flex-1 truncate text-[10px] text-gray-400 ${hint ? '' : 'hidden sm:block'}`}>{hint ?? ''}</p>
+            {/* 无提示文字时也占位撑开（用 flex-1 的空 span），否则右侧控件会被挤到左边 */}
+            <span className={`min-w-0 flex-1 truncate text-[10px] text-gray-400 ${hint ? '' : 'hidden sm:block'}`}>{hint ?? ''}</span>
             {trailing && <div className="flex shrink-0 items-center gap-1">{trailing}</div>}
           </div>
         )}
