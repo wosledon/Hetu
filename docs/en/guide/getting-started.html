@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started · Hetu</title>
+<meta name="description" content="Install Hetu: desktop installers (fat/slim), running from source, desktop dev mode; first provider, models, defaults and knowledge indexing; data directory locations.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/getting-started.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Getting started · Hetu">
+<meta property="og:description" content="Install Hetu: desktop installers (fat/slim), running from source, desktop dev mode; first provider, models, defaults and knowledge indexing; data directory locations.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/getting-started.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html" aria-current="page">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Getting started</h1>
+      <p class="lede">Three ways in: desktop installer (least setup), from source (if you want to change code), or desktop dev mode (when working on the Rust shell or sidecar).</p>
+
+      <h2>1. Desktop installer</h2>
+      <table>
+        <thead><tr><th>Channel</th><th>Windows artifact</th><th>Runtime and size</th></tr></thead>
+        <tbody>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Bundles the .NET 10 runtime, ready after install, ~100 MB+</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Requires the .NET 10 runtime, smaller download</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage needs <code>chmod +x</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note">The two channels are independent update streams: a <code>slim</code> install only receives <code>latest-slim.json</code> and never gets overwritten by the fat build.</div>
+      <p>Closing the window minimizes to the tray by default (the backend keeps running, background jobs continue). Quit from the tray menu. This can be turned off in <strong>Settings → App</strong>.</p>
+
+      <h2>2. From source</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
+cd Hetu
+
+pwsh ./scripts/start.ps1        # Windows: starts backend + frontend
+./scripts/start.sh              # Linux / macOS
+
+# or separately
+dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
+cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5174</code></pre></div>
+      <table>
+        <thead><tr><th>Address</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>http://localhost:5174</code></td><td>Frontend UI</td></tr>
+          <tr><td><code>http://localhost:5000/api</code></td><td>Backend API</td></tr>
+          <tr><td><code>http://localhost:5000/scalar/v1</code></td><td>API reference (Scalar)</td></tr>
+          <tr><td><code>http://localhost:5000/api/health</code></td><td>Health check used by the desktop shell</td></tr>
+        </tbody>
+      </table>
+
+      <h2>3. Desktop dev mode</h2>
+      <p>Runs dotnet + vite + tauri in parallel — useful when changing the Rust shell, the tray or the updater:</p>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>pwsh ./scripts/desktop-dev.ps1</code></pre></div>
+      <p>If port 5000 already has a backend running, the shell reuses it instead of starting another one.</p>
+
+      <h2>First configuration</h2>
+      <table>
+        <thead><tr><th>Step</th><th>Where</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Add a provider</td><td>Models → add provider</td><td>Protocol: OpenAI-compatible or Anthropic; set Base URL and API key (local inference servers work too)</td></tr>
+          <tr><td>Add models</td><td>Under that provider</td><td>Purpose: <code>chat</code> / <code>embedding</code> / <code>completion</code></td></tr>
+          <tr><td>Set defaults</td><td>Settings → Default models</td><td>Per scenario: chat, code, Wiki, graph, organize, note AI, query rewrite</td></tr>
+          <tr><td>Feed knowledge</td><td>Knowledge base</td><td>Add URLs or upload files; for notes use “Generate index” in the editor toolbar</td></tr>
+          <tr><td>Try it</td><td>Code page</td><td>Toggle “Knowledge base” above the input to inject retrieval results</td></tr>
+        </tbody>
+      </table>
+      <div class="note note--warn">Anthropic has no public embedding API — use an OpenAI-compatible provider for the <code>embedding</code> purpose. Vector dimensions must match the model (<code>Embedding:Dimensions</code>, default 1536).</div>
+
+      <h2>Where data lives</h2>
+      <table>
+        <thead><tr><th>How you run it</th><th>Location</th></tr></thead>
+        <tbody>
+          <tr><td>Desktop (Windows)</td><td><code>%LOCALAPPDATA%\Hetu</code>: <code>hetu.db</code> (+ WAL) and <code>logs/</code></td></tr>
+          <tr><td>From source</td><td>Whatever <code>HETU_DATA_DIR</code> points at; otherwise <code>hetu.db</code> in the working directory</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Next</h2>
+      <ul>
+        <li>Let it change code for you: <a href="code-sessions.html">Code sessions</a>.</li>
+        <li>Turn documents into searchable knowledge: <a href="knowledge.html">Knowledge base</a>, <a href="graph-wiki.html">Graph &amp; Wiki</a>.</li>
+        <li>Keep cost visible: <a href="models.html">Models &amp; usage</a>.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="notes.html">Notes →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

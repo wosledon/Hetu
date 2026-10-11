@@ -121,6 +121,22 @@ p { margin: 0 0 1em; }
 .frame-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .frame-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); display: block; }
 .frame img { width: 100%; }
+.shot { cursor: zoom-in; }
+.shot-hint { display: block; margin-top: 6px; font-size: .8rem; color: var(--muted); }
+
+/* 图片灯箱：截图缩略无法辨认时点开看原图 */
+.lightbox { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; padding: 32px; background: rgba(8, 11, 22, .86); }
+.lightbox[data-open="true"] { display: flex; }
+.lightbox img { max-width: 100%; max-height: calc(100vh - 96px); width: auto; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); box-shadow: 0 24px 64px -24px rgba(0, 0, 0, .8); }
+.lightbox .lightbox-close { position: absolute; top: 18px; right: 20px; width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(226, 232, 240, .3); background: rgba(226, 232, 240, .12); color: #e2e8f0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.lightbox .lightbox-close svg { width: 20px; height: 20px; }
+.lightbox-caption { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; color: #cbd5e1; font-size: .86rem; padding: 0 24px; }
+
+/* 语言切换 */
+.lang { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.lang a { padding: 7px 11px; font-size: .86rem; color: var(--muted); }
+.lang a:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }
+.lang a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* cards */
 .grid { display: grid; gap: 18px; }

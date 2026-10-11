@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code 会话 · Hetu</title>
+<meta name="description" content="Code 会话详解：项目（本地/SSH）、当前分支与独立工作树、本地与远程分支、Git 同步、七个工作面板（文件/更改/检查点/Git/PR/浏览器/终端）、Agent 工具与典型工作流。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/code-sessions.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/code-sessions.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/code-sessions.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Code 会话 · Hetu">
+<meta property="og:description" content="Code 会话详解：项目（本地/SSH）、当前分支与独立工作树、本地与远程分支、Git 同步、七个工作面板（文件/更改/检查点/Git/PR/浏览器/终端）、Agent 工具与典型工作流。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/code-sessions.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/code-sessions.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html" aria-current="page">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Code 会话</h1>
+      <p class="lede">Code 会话是「能动手」的部分：Agent 在你的仓库里读文件、改代码、跑命令、提交、开 PR，改动可逐行审阅与回滚。</p>
+
+      <h2>项目</h2>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>类型</td><td>本地目录或 SSH 远程仓库（<code>user@host:port</code> + 路径）</td></tr>
+          <tr><td>组织</td><td>分组管理；卡片上可「在 Code 中打开」「生成 Wiki」「复制路径」</td></tr>
+          <tr><td>凭据</td><td>SSH 密码用 DataProtection 加密存储</td></tr>
+        </tbody>
+      </table>
+
+      <h2>工作区：当前分支 or 独立工作树</h2>
+      <table>
+        <thead><tr><th>模式</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>当前分支</td><td>直接在项目目录工作；在会话创建时选的分支会立即检出</td></tr>
+          <tr><td>新工作树</td><td>用 <code>git worktree</code> 创建独立目录与分支，主工作区不受影响；默认在<strong>仓库父目录</strong>的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code>，名字由首条消息内容生成</td></tr>
+        </tbody>
+      </table>
+      <div class="note">工作树根目录可在 <strong>设置 → 工作区</strong> 修改（绝对路径，不能位于仓库内部）。已完成的工作树按「改动已合并 + 工作区干净 + 空闲超过阈值」自动清理，可配置间隔（1 / 6 / 12 / 24 小时）、空闲时长与是否连分支一起删。</div>
+
+      <h2>分支与 Git 同步</h2>
+      <ul>
+        <li>分支选择器同时列出<strong>本地与远程分支</strong>；选远程引用会创建对应的本地跟踪分支。</li>
+        <li>会话开始后工作区与分支固定（避免中途换环境导致改动错位），标题旁常驻工作区 / 分支徽标。</li>
+        <li>标题旁一个同步按钮，按状态自动决定拉取、推送或刷新，结果显示在提示气泡里。</li>
+      </ul>
+
+      <h2>七个工作面板</h2>
+      <table>
+        <thead><tr><th>面板</th><th>能力</th></tr></thead>
+        <tbody>
+          <tr><td>文件</td><td>目录树浏览、文件名与内容搜索、内置编辑器保存；AI 修改过的文件有标记</td></tr>
+          <tr><td>更改</td><td>本会话产生的文件改动清单，逐行 Diff（新增 / 删除 / 修改）与单文件回滚</td></tr>
+          <tr><td>检查点</td><td>任务开始前的文件快照列表，可整体还原工作区到某个检查点</td></tr>
+          <tr><td>Git</td><td>当前分支与工作区状态、逐文件 Diff、暂存（含部分暂存）并提交</td></tr>
+          <tr><td>PR</td><td>按 <code>origin</code> 远端自动选 <code>gh</code>（GitHub）或 <code>glab</code>（GitLab）：当前分支 PR 状态、开放 PR 列表、创建表单（标题/描述/目标分支/草稿）；未安装时给出对应平台安装命令；分支未推送时提前提示</td></tr>
+          <tr><td>浏览器</td><td>内嵌浏览器：地址栏、前进后退、刷新、常用链接（本地 dev 服务、API 文档、GitHub）</td></tr>
+          <tr><td>终端</td><td>真实 PTY（Windows 走 ConPTY，Unix 用 <code>script</code> 包装），<code>vim</code> / <code>htop</code> 等交互程序可用；SSH 项目在 PTY 内跑 <code>ssh -tt</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Agent 如何动手</h2>
+      <table>
+        <thead><tr><th>工具</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>文件读写</td><td>列目录、读文件（支持二进制识别）、写文件、批量替换、移动 / 删除</td></tr>
+          <tr><td>命令执行</td><td>在工作区里跑命令（构建、测试、脚本），输出回传给模型</td></tr>
+          <tr><td>终端交互</td><td>需要交互式程序时用工作面板的终端，或让 Agent 在 PTY 里操作</td></tr>
+          <tr><td>代码检索</td><td>按文件名 / 内容搜索（含语义检索，代码块向量化后独立存储）</td></tr>
+        </tbody>
+      </table>
+      <p>每个有副作用的动作都受<strong>权限模式</strong>约束（见 <a href="workspace.html">Agent 工作台</a>）；高风险操作走审批，改动进检查点，随时可回滚。</p>
+
+      <h2>典型工作流</h2>
+      <ol>
+        <li>在项目卡片点「在 Code 中打开」，选工作区模式（建议新任务用「新工作树」）。</li>
+        <li>描述任务，权限模式保持「询问」或按需切「自动」。</li>
+        <li>用「更改」面板逐项审阅 Diff，必要时用「检查点」整体还原。</li>
+        <li>满意后在「Git」面板暂存并提交，再到「PR」面板创建 PR（可先开草稿）。</li>
+        <li>合并后工作树会在空闲期被自动清理，分支按配置保留或删除。</li>
+      </ol>
+    <div class="docs-pager"><a href="workspace.html">← Agent 工作台</a><a href="knowledge.html">知识库 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

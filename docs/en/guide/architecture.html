@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture · Hetu</title>
+<meta name="description" content="Architecture and internals: layers and dependency direction, request path, data model conventions, repository surface, SQLite DateTimeOffset limits, performance practice, agent loop and quality rules.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Architecture · Hetu">
+<meta property="og:description" content="Architecture and internals: layers and dependency direction, request path, data model conventions, repository surface, SQLite DateTimeOffset limits, performance practice, agent loop and quality rules.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/architecture.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html" aria-current="page">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Architecture</h1>
+      <p class="lede">For people reading or changing the code: layers, request path, data model, and how the SQLite limitations are handled.</p>
+
+      <h2>Layers and dependency direction</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>Hetu.Api             controllers, SSE streams, background workers, DI wiring
+   |  (depends on Core and Infrastructure interfaces)
+Hetu.Core            entities, domain services, repository interfaces   &lt;- no EF Core / ASP.NET impl
+   ^
+Hetu.Infrastructure  EF Core implementations, AI providers, MCP, sqlite-vec, files and processes
+Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</code></pre></div>
+      <p>The dependency direction is <code>Api → Core ← Infrastructure</code>: Core defines the rules and interfaces, Infrastructure holds the concrete implementations (database, model calls, processes, filesystem).</p>
+
+      <h2>Path of a request</h2>
+      <ol>
+        <li>The frontend (React + TanStack Query) calls <code>/api/*</code> through a shared axios instance with response interceptors.</li>
+        <li>Controllers validate input and delegate; business logic lives in <code>Hetu.Core/Services</code>.</li>
+        <li>Services reach the database through repositories exposed by <code>IUnitOfWork</code> (EF Core), using <code>AsNoTracking</code> and projections for reads.</li>
+        <li>Long-running work (indexing, extraction, Wiki, kanban execution) goes to <code>IBackgroundTaskCoordinator</code>, which writes a <code>TaskItem</code> row and lets a worker execute it.</li>
+        <li>Chat requests stream over SSE: the controller writes events back and the frontend renders per event type.</li>
+      </ol>
+
+      <h2>Data model conventions</h2>
+      <table>
+        <thead><tr><th>Convention</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Base class</td><td>Entities derive from <code>BaseEntity</code>: <code>Id</code> (Guid), <code>CreatedAt</code>, <code>UpdatedAt</code></td></tr>
+          <tr><td>Time</td><td>Always <code>DateTimeOffset</code> in UTC; SQLite stores it as fixed-width text (<code>yyyy-MM-dd HH:mm:ss.fffffff+00:00</code>)</td></tr>
+          <tr><td>Soft delete</td><td><code>IsDeleted</code> (plus <code>DeletedAt</code>) with a global query filter; use <code>IgnoreQueryFilters()</code> explicitly when deleted rows are needed</td></tr>
+          <tr><td>Migrations</td><td>Code First, with separate migration projects for SQLite and PostgreSQL (<code>Hetu.Infrastructure.PostgresMigrations</code>)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Repository surface</h2>
+      <table>
+        <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>GetByIdAsync</code> / <code>GetAllAsync</code> / <code>FindAsync</code></td><td>Standard reads (read-only paths use <code>AsNoTracking</code>)</td></tr>
+          <tr><td><code>CountAsync</code></td><td>SQL <code>COUNT</code> without materializing entities</td></tr>
+          <tr><td><code>SelectAsync</code></td><td>Projection of selected columns only</td></tr>
+          <tr><td><code>CountByAsync</code></td><td>SQL <code>GROUP BY</code> counts returned as a dictionary</td></tr>
+          <tr><td><code>GetPagedByDateAsync</code></td><td>Time-ordered paging: <code>ORDER BY</code> + <code>OFFSET/FETCH</code> elsewhere, but on SQLite it projects <code>Id + sort key</code>, orders in memory and fetches the page by primary key</td></tr>
+          <tr><td><code>PruneAsync</code></td><td>Keeps the newest N rows and deletes the rest with one <code>DELETE</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>The SQLite DateTimeOffset limitation</h2>
+      <ul>
+        <li>EF Core's SQLite provider <strong>cannot order or aggregate <code>DateTimeOffset</code> in SQL</strong>: <code>ORDER BY</code> throws <code>NotSupportedException</code>, <code>MAX()</code> fails to translate, and comparisons such as <code>x.CreatedAt &gt; since</code> do not translate either.</li>
+        <li>Workarounds already in the repository: paging via <code>GetPagedByDateAsync</code>, grouped counts via <code>CountByAsync</code>, timestamp aggregates by projecting two columns and taking the maximum in memory, and “recent N days” checks by projecting timestamps and filtering in memory.</li>
+        <li>Never put <code>OrderBy(x =&gt; x.CreatedAt)</code> on an <code>IQueryable</code> — it fails at runtime. PostgreSQL is unaffected.</li>
+      </ul>
+
+      <h2>Performance practice</h2>
+      <table>
+        <thead><tr><th>Case</th><th>Approach</th></tr></thead>
+        <tbody>
+          <tr><td>List endpoints</td><td>Paging and ordering pushed to the database; count first, then fetch the page</td></tr>
+          <tr><td>Status aggregation</td><td>Aggregated in SQL (<code>GROUP BY</code> / <code>DISTINCT</code> / <code>EXISTS</code>) instead of loading whole tables</td></tr>
+          <tr><td>Polled endpoints</td><td>Short <code>[ResponseCache]</code> on read-only status endpoints; the frontend only polls while tasks are running</td></tr>
+          <tr><td>Bulk writes and cleanup</td><td>Set-based operations such as <code>ExecuteDeleteAsync</code> instead of loading entities one by one</td></tr>
+          <tr><td>Frontend rendering</td><td>Derived state instead of synchronous <code>setState</code> inside effects; <code>useMemo</code> for unstable array identities</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Agent loop</h2>
+      <ol>
+        <li>The request carries permission mode, tool allowlist, search / knowledge / memory toggles and reasoning effort.</li>
+        <li>Each loop iteration first drains “steering”: instructions injected while streaming are merged into the context here.</li>
+        <li>The model returns tool calls; the permission mode decides direct execution or an approval request, and results are fed back.</li>
+        <li>Progress events stream over SSE: body deltas, thinking, tool calls and results, checkpoints, notices.</li>
+        <li>Queued messages fire after the turn ends; the persisted session row is created by the first message.</li>
+      </ol>
+
+      <h2>Quality rules</h2>
+      <ul>
+        <li>Backend <code>dotnet build</code> and frontend <code>npx eslint .</code> must be warning-free, and no suppression is allowed (<code>#pragma warning disable</code> / <code>SuppressMessage</code> / <code>eslint-disable</code> / <code>@ts-ignore</code>).</li>
+        <li>Dependency vulnerabilities are fixed by upgrading the package (pinning transitive dependencies to patched versions), not by ignoring the advisory.</li>
+        <li>README and site documentation are bilingual and must be updated together; screenshots live in <code>docs/screenshots/</code> with stable names.</li>
+      </ul>
+    <div class="docs-pager"><a href="data.html">← Data & security</a><a href="faq.html">FAQ →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

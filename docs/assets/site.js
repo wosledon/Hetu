@@ -73,8 +73,44 @@
         document.body.removeChild(area);
         done();
       }
-    }
-  });
+        return;
+      }
+
+      /* 截图灯箱：缩略图看不清文字时点开看原图 */
+      var shot = event.target.closest('.frame img, .gallery img');
+      var box = document.querySelector('[data-lightbox]');
+      if (!box) return;
+      if (shot) {
+        var big = box.querySelector('img');
+        var caption = box.querySelector('.lightbox-caption');
+        big.src = shot.getAttribute('src');
+        big.alt = shot.getAttribute('alt') || '';
+        if (caption) {
+          var fig = shot.closest('figure');
+          var cap = fig && fig.querySelector('figcaption');
+          caption.textContent = cap ? cap.innerText : (shot.getAttribute('alt') || '');
+        }
+        box.setAttribute('data-open', 'true');
+        box.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        return;
+      }
+
+      if (event.target.closest('[data-lightbox-close]') || event.target === box) {
+        box.setAttribute('data-open', 'false');
+        box.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      var box = document.querySelector('[data-lightbox][data-open="true"]');
+      if (!box) return;
+      box.setAttribute('data-open', 'false');
+      box.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    });
 
   /* 侧栏当前页高亮（docs 页面在静态 HTML 里已标注，这里兜底处理相对路径差异） */
   var path = window.location.pathname.replace(/index\.html$/, '');

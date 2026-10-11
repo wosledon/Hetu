@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extensions &amp; MCP · Hetu</title>
+<meta name="description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls, embedded apps.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/extensions.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/extensions.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/extensions.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Extensions &amp; MCP · Hetu">
+<meta property="og:description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls, embedded apps.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/extensions.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/extensions.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html" aria-current="page">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Extensions &amp; MCP</h1>
+      <p class="lede">Four systems decide what the agent can do, under which persona, and which external tools it can reach.</p>
+
+      <h2>Agents (prompt presets)</h2>
+      <p>Entry: <code>/agents</code>. An agent = system prompt + model preference + tool allowlist + per-tool approval policy.</p>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Categories and search</td><td>Group by purpose (coding, writing, analysis …) and search by name</td></tr>
+          <tr><td>Tool allowlist</td><td>Restrict which tools the agent may call</td></tr>
+          <tr><td>Approval policy</td><td>Per tool: silent / auto / ask</td></tr>
+          <tr><td>Import / export</td><td>JSON import and export of all agents for backup or sharing</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Skills</h2>
+      <p>Entry: <code>/skills</code>. A skill is a reusable prompt template, invoked in chat with <code>/skill-name</code>.</p>
+      <table>
+        <thead><tr><th>Source</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Built-in</td><td>Translate, summarize, explain, polish — available immediately</td></tr>
+          <tr><td>Custom</td><td>Your own prompt template and system prompt; test output right on the page</td></tr>
+          <tr><td>On-disk directories</td><td>Load Markdown / JSON skill files from configured directories — good for sharing via a repository</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Tools</h2>
+      <p>Entry: <code>/tools</code>. Built-in tools can be toggled; disabled tools are not callable.</p>
+      <table>
+        <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>Note search / read / create / update</td><td>Read and write notes from chat, with conditional search</td></tr>
+          <tr><td>Web search</td><td>Fetch external information</td></tr>
+          <tr><td>Memory search / create</td><td>Query and write long-term memory</td></tr>
+          <tr><td>Graph search</td><td>Query entities and relations</td></tr>
+          <tr><td>Todo list</td><td>Emit a structured plan and check items off live</td></tr>
+          <tr><td>Command execution</td><td>Run commands in the project workspace (permission-mode governed)</td></tr>
+          <tr><td>File operations</td><td>List, read, write, move, delete</td></tr>
+          <tr><td>Ask question</td><td>Interactive question when a decision is needed</td></tr>
+        </tbody>
+      </table>
+
+      <h2>MCP servers</h2>
+      <p>Entry: Settings → MCP server. Connect external Model Context Protocol services to bring their tools into chat.</p>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Transport</td><td><code>stdio</code>: spawns a child process and speaks JSON-RPC 2.0 (fully supported). <code>sse</code>: configurable, not wired up yet</td></tr>
+          <tr><td>Connection config</td><td>JSON — <code>command</code> / <code>args</code> / <code>env</code> for stdio, or <code>url</code> for sse</td></tr>
+          <tr><td>Tool discovery</td><td>Calls <code>tools/list</code> and merges discovered tools into the chat toolbelt</td></tr>
+          <tr><td>Tool invocation</td><td>Calls <code>tools/call</code>; arguments and results render structurally in the message stream</td></tr>
+          <tr><td>Enable / disable</td><td>Per server, with ordering</td></tr>
+        </tbody>
+      </table>
+      <div class="note">MCP tools share the same permission modes and approval policies as built-in tools; run a new server in “ask” mode first if you are unsure what it does.</div>
+
+      <h2>Apps (embedded browser)</h2>
+      <p>Entry: <code>/apps</code>. Register frequently used pages as “apps” and open them inside the app instead of switching windows.</p>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Registration</td><td>Name plus URL (a local service such as <code>http://localhost:5174</code>, or any site)</td></tr>
+          <tr><td>Opening</td><td>Embedded view with address bar, back / forward, reload and quick links</td></tr>
+          <tr><td>Timeout hint</td><td>When a site refuses embedding via <code>X-Frame-Options</code> / CSP, a hint appears after 4 seconds suggesting the system browser</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="organize.html">← Kanban & automation</a><a href="models.html">Models & usage →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop app · Hetu</title>
+<meta name="description" content="Desktop app in detail: two channels, auto-update with mirrors, installer hook, tray and process lifecycle, worktree root and cleanup, data location, packaging and troubleshooting.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/desktop.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/desktop.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/desktop.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Desktop app · Hetu">
+<meta property="og:description" content="Desktop app in detail: two channels, auto-update with mirrors, installer hook, tray and process lifecycle, worktree root and cleanup, data location, packaging and troubleshooting.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/desktop.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/desktop.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html" aria-current="page">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Desktop app</h1>
+      <p class="lede">The desktop build is a Tauri 2 shell: a Rust process owns the window, tray and updater, starts the packaged backend as a sidecar, and renders the frontend in a WebView.</p>
+
+      <h2>Installation</h2>
+      <table>
+        <thead><tr><th>Channel</th><th>Artifact</th><th>Dependency</th></tr></thead>
+        <tbody>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>None (bundles the .NET runtime)</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Requires the .NET 10 runtime</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage needs no installation</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Auto-update</h2>
+      <ul>
+        <li>Endpoint order: GitHub primary, then three mirrors (<code>ghproxy.net</code> / <code>gh-proxy.com</code> / <code>ghfast.top</code>).</li>
+        <li>Each channel has its own manifest: <code>latest.json</code> (fat) and <code>latest-slim.json</code> (slim); they never overwrite each other.</li>
+        <li>Installers are signed; a signature mismatch aborts the install. Install mode is <code>passive</code>.</li>
+        <li>An update badge appears next to the version; opening it shows the release notes.</li>
+      </ul>
+      <div class="note">Installers embed a preinstall hook that terminates leftover backend processes (<code>taskkill /F /IM Hetu.Api.exe</code>) before overwriting files, so a locked <code>sqlite-vec\vec0.dll</code> can no longer break an upgrade.</div>
+
+      <h2>Tray and process lifecycle</h2>
+      <table>
+        <thead><tr><th>Behaviour</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Close window</td><td>Minimizes to the tray by default; the backend keeps running so background jobs continue. Disable in Settings → App</td></tr>
+          <tr><td>Quit</td><td>Tray menu “Quit Hetu” terminates the backend child process first</td></tr>
+          <tr><td>Hard kill</td><td>The backend remembers the shell PID (<code>HETU_PARENT_PID</code>); if the shell disappears it exits by itself, leaving no orphan holding the port</td></tr>
+          <tr><td>Dev reuse</td><td>In development, if <code>HETU_API_DEV_PORT</code> already has a backend, the shell reuses it</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Worktree root and cleanup</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Default / options</th></tr></thead>
+        <tbody>
+          <tr><td>Root</td><td><code>.hetu-worktrees/&lt;repo&gt;/&lt;worktree&gt;</code> next to the repository</td></tr>
+          <tr><td>Custom root</td><td>Settings → Workspace: absolute path, validated to be outside every repository</td></tr>
+          <tr><td>Cleanup criteria</td><td>Changes merged (or remote branch deleted) + clean working tree + idle past the threshold</td></tr>
+          <tr><td>Interval</td><td>1 / 6 / 12 / 24 hours, or automatic cleanup off</td></tr>
+          <tr><td>Branch deletion</td><td>Off by default (directory only); can be enabled</td></tr>
+          <tr><td>Manual run</td><td>“Clean now” in settings returns checked / removed / kept counts</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Data location</h2>
+      <p>The shell passes the data directory to the backend via <code>HETU_DATA_DIR</code>: on Windows that is <code>%LOCALAPPDATA%\Hetu</code> (<code>hetu.db</code> plus WAL, and <code>logs/</code>). Copy that directory to migrate machines.</p>
+
+      <h2>Packaging it yourself</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 1) build the backend sidecar (fat or slim)
+pwsh ./scripts/publish-backend.ps1 -Mode SelfContained      -Rid win-x64
+pwsh ./scripts/publish-backend.ps1 -Mode FrameworkDependent -Rid win-x64
+
+# 2) build the installer
+cd shell/hetu-desktop
+npm run tauri:build                                            # fat
+npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></pre></div>
+      <p>Sidecar naming must follow the Tauri convention: <code>binaries/Hetu.Api-&lt;rust-target-triple&gt;(.exe)</code>.</p>
+
+      <h2>Troubleshooting</h2>
+      <table>
+        <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td><code>Error opening file for writing</code> during install</td><td>A leftover backend holds the file: end all <code>Hetu.Api.exe</code> in Task Manager and retry. Newer installers handle this automatically</td></tr>
+          <tr><td><code>Could not fetch a valid release JSON</code></td><td>The manifest could not be fetched. Open <code>releases/latest/download/latest.json</code> (slim: <code>latest-slim.json</code>) in a browser to confirm, then upgrade to the latest build</td></tr>
+          <tr><td>Window is gone but the app still runs</td><td>Click the tray icon to restore it; the backend intentionally keeps running</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="models.html">← Models & usage</a><a href="data.html">Data & security →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

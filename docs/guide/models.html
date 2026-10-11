@@ -3,14 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>模型与用量 · Hetu 文档</title>
-<meta name="description" content="供应商与模型配置、按场景默认模型、代理服务、用量统计与压缩管道。">
+<title>模型与用量 · Hetu</title>
+<meta name="description" content="模型与用量详解：供应商协议、模型用途、按场景默认模型、代理服务（OpenAI/Anthropic 兼容、路由、影子模型）、用量指标、压缩管道与省 Token 实践。">
 <meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/models.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/models.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/models.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="模型与用量 · Hetu 文档">
-<meta property="og:description" content="供应商与模型配置、按场景默认模型、代理服务、用量统计与压缩管道。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:title" content="模型与用量 · Hetu">
+<meta property="og:description" content="模型与用量详解：供应商协议、模型用途、按场景默认模型、代理服务（OpenAI/Anthropic 兼容、路由、影子模型）、用量指标、压缩管道与省 Token 实践。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/models.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -31,11 +35,15 @@
     <nav class="site-nav" aria-label="主导航">
       <a href="../index.html">首页</a>
       <a href="../guide/index.html" aria-current="page">文档</a>
-      <a href="../guide/features.html">功能</a>
+      <a href="../guide/architecture.html">架构</a>
       <a href="../guide/getting-started.html">下载</a>
       <a href="../guide/faq.html">FAQ</a>
     </nav>
     <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/models.html" title="English version">EN</a>
+      </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
       </button>
@@ -51,73 +59,104 @@
   <aside class="docs-side">
     <h2>文档目录</h2>
     <ol>
-      <li><a href="index.html">文档首页</a></li>
+      <li><a href="index.html">文档索引</a></li>
       <li><a href="getting-started.html">快速开始</a></li>
-      <li><a href="features.html">功能总览</a></li>
+      <li><a href="notes.html">笔记</a></li>
       <li><a href="workspace.html">Agent 工作台</a></li>
-      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
       <li><a href="models.html" aria-current="page">模型与用量</a></li>
       <li><a href="desktop.html">桌面应用</a></li>
-      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
     </ol>
   </aside>
     <div class="docs-body">
       <h1>模型与用量</h1>
-      <p class="lede">Hetu 自己不提供模型，只做「协议适配 + 场景编排」：你填供应商与 Key，它负责把合适的能力分配到合适的场景，并记下每一次调用的用量。</p>
+      <p class="lede">Hetu 不内置模型，只做协议适配与场景编排：你提供供应商与 Key，它负责把能力分配到场景，并记录每次调用的用量。</p>
 
       <h2>供应商与模型</h2>
-      <ol>
-        <li>左侧「大模型」→ 新增供应商，选择协议：<strong>OpenAI 兼容</strong>（绝大多数自建/中转服务）或 <strong>Anthropic</strong>，填 Base URL 与 API Key。</li>
-        <li>在该供应商下新增模型，用途三类：
-          <ul>
-            <li><code>chat</code>：对话、Code 会话、Agent 循环</li>
-            <li><code>embedding</code>：知识库向量化、语义检索</li>
-            <li><code>completion</code>：轻量补全 / 改写类调用</li>
-          </ul>
-        </li>
-        <li>同一用途可以有多个模型，随时在输入工具带里临时换。</li>
-      </ol>
-      <div class="note">API Key 用 ASP.NET DataProtection 加密后落库（Windows 上走 DPAPI），不会以明文出现在数据库、日志或接口响应里。</div>
-      <div class="note note--warn">Anthropic 没有公开的 Embedding 接口，<code>embedding</code> 用途请选 OpenAI 兼容供应商。</div>
-
-      <h2>按场景指定默认模型</h2>
-      <p>设置 → <strong>默认模型</strong>，可以分别指定：对话、编码会话、Wiki 生成、知识图谱抽取、话题整理、笔记 AI、查询改写等。原则是：贵的模型留给需要推理的场景，索引与整理用便宜快的。</p>
-
-      <h2>代理服务：把 Hetu 的模型能力接给别的工具</h2>
-      <p>「代理服务」页把已配置的模型暴露成 <strong>OpenAI 兼容</strong>与 <strong>Anthropic 兼容</strong>的本地接口，于是编辑器、CLI、脚本都能指向 Hetu 使用同一批 Key 与同一份用量统计：</p>
-      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 以 OpenAI 兼容客户端为例，把 Base URL 指到本机
-# Base URL: http://localhost:5000/api/proxy/openai/v1
-# API Key : 在「代理服务」页面生成的本地 Key
-
-curl http://localhost:5000/api/proxy/openai/v1/models</code></pre></div>
-      <p>代理页可以配置路由（哪个模型对外可见）、影子模型（同一请求额外打给另一个模型做对比）等策略。</p>
-
-      <h2>用量与成本</h2>
-      <ul>
-        <li><strong>概览</strong>：总消息数、Token 总量、输入 / 压缩后 / 输出 / 缓存 Token、平均延迟、活跃天数、今日用量。</li>
-        <li><strong>趋势</strong>：近 7 / 30 / 90 天曲线；周×时、年×日两张热力图。</li>
-        <li><strong>分布</strong>：按模型、按来源（对话 / 编码会话 / 看板 / Wiki / 图谱 / 定时任务 / 代理…）拆分。</li>
-        <li><strong>明细</strong>：分页的请求日志，可按来源与业务引用（话题 / 会话 / 任务）过滤，含内容摘要与延迟。</li>
-      </ul>
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型与来源分布、热力图"></div>
-      <p></p>
-
-      <h2>上下文压缩管道</h2>
-      <p>长会话不可能无限塞进上下文，设置 → <strong>成本控制</strong> 里配置压缩策略：什么时候压缩、压缩到多长、用哪个模型做摘要。压缩后实际发送的 Token（<code>CompressedTokens</code>）会与原始输入一起记入用量，省了多少一目了然。</p>
-
-      <h2>省 Token 的几个实践</h2>
       <table>
-        <thead><tr><th>做法</th><th>效果</th></tr></thead>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>把 索引 / 整理 / 打标签 指到便宜的小模型</td><td>这些任务量大但不需要强推理</td></tr>
-          <tr><td>只在需要时打开「知识库」「记忆」开关</td><td>避免每次请求都注入检索结果</td></tr>
-          <tr><td>Code 会话用独立工作树 + 明确任务边界</td><td>减少来回试错轮次</td></tr>
-          <tr><td>长任务用 Autopilot，短问答用交互式</td><td>前者省确认轮次，后者省无用工具调用</td></tr>
+          <tr><td>协议</td><td>OpenAI 兼容（含 Ollama / LM Studio / vLLM 等本地服务）与 Anthropic</td></tr>
+          <tr><td>连接信息</td><td>Base URL + API Key；Key 用 DataProtection 加密落库</td></tr>
+          <tr><td>模型用途</td><td><code>chat</code>（对话与 Agent 循环）/ <code>embedding</code>（索引与检索）/ <code>completion</code>（轻量改写）</td></tr>
+          <tr><td>模型标识</td><td>请求时使用的模型 ID，需与供应商侧一致</td></tr>
         </tbody>
       </table>
-    <div class="docs-pager"><a href="knowledge.html">← 知识底座</a><a href="desktop.html">桌面应用 →</a></div>
+
+      <h2>按场景指定默认模型</h2>
+      <table>
+        <thead><tr><th>场景</th><th>典型选择</th></tr></thead>
+        <tbody>
+          <tr><td>对话 / 编码会话</td><td>推理能力最强的模型</td></tr>
+          <tr><td>Wiki 生成 / 图谱抽取</td><td>中等模型即可，重视长文本处理</td></tr>
+          <tr><td>话题整理 / 压缩摘要</td><td>便宜快速的小模型</td></tr>
+          <tr><td>笔记 AI / 查询改写</td><td>低延迟小模型</td></tr>
+          <tr><td>Embedding</td><td>维度与 <code>Embedding:Dimensions</code> 一致的向量模型</td></tr>
+        </tbody>
+      </table>
+
+      <h2>代理服务</h2>
+      <p>入口：<code>/proxy</code>。把已配置的模型暴露成本地兼容接口，供编辑器、CLI、脚本使用同一批 Key 与同一份用量统计。</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># OpenAI 兼容入口
+Base URL: http://localhost:5000/api/proxy/openai/v1
+API Key : 在「代理服务」页面生成
+
+# Anthropic 兼容入口
+Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
+      <table>
+        <thead><tr><th>能力</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>路由</td><td>控制在接口中对外可见的模型列表</td></tr>
+          <tr><td>影子模型</td><td>同一请求额外打给另一个模型，用于对比输出</td></tr>
+          <tr><td>用量归属</td><td>经代理的调用同样计入用量统计（来源标记为 <code>proxy</code>）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>用量与成本</h2>
+      <table>
+        <thead><tr><th>指标</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>概览</td><td>总消息数、输入 / 压缩后 / 输出 / 缓存 Token、平均延迟、活跃天数、今日用量</td></tr>
+          <tr><td>趋势</td><td>近 7 / 30 / 90 天曲线；周×时与年×日热力图</td></tr>
+          <tr><td>分布</td><td>按模型、按来源（对话 / 编码会话 / 看板 / Wiki / 图谱 / 定时任务 / 代理…）</td></tr>
+          <tr><td>明细</td><td>分页日志：时间、模型、各段 Token、延迟、来源、内容摘要；可按来源与业务引用过滤</td></tr>
+        </tbody>
+      </table>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型与来源分布、热力图"></div>
+      <span class="shot-hint">点图看原图</span>
+
+      <h2>压缩管道</h2>
+      <p>入口：设置 → 成本控制。长会话不可能无限塞进上下文，压缩管道负责在阈值处做摘要式压缩。</p>
+      <table>
+        <thead><tr><th>参数</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>触发阈值</td><td>上下文占用达到多大比例时触发</td></tr>
+          <tr><td>目标长度</td><td>压缩后保留多少内容</td></tr>
+          <tr><td>摘要模型</td><td>用哪个模型做摘要（可指定，未指定时回落默认对话模型）</td></tr>
+          <tr><td>统计</td><td>压缩前后的 Token 都记入用量，便于评估节省效果</td></tr>
+        </tbody>
+      </table>
+
+      <h2>省 Token 的一些做法</h2>
+      <table>
+        <thead><tr><th>做法</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>索引、整理、打标签用便宜模型</td><td>这类任务量大但不依赖强推理</td></tr>
+          <tr><td>只在需要时打开知识库 / 记忆开关</td><td>避免每次请求都注入检索结果</td></tr>
+          <tr><td>Code 会话用独立工作树并明确任务边界</td><td>减少来回试错轮次</td></tr>
+          <tr><td>长任务用 Autopilot、短问答用交互式</td><td>前者省确认轮次，后者省无用工具调用</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="extensions.html">← 扩展与集成</a><a href="desktop.html">桌面应用 →</a></div>
     </div>
   </div>
 </main>
@@ -131,8 +170,15 @@ curl http://localhost:5000/api/proxy/openai/v1/models</code></pre></div>
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
       <a href="../guide/dev.html">参与开发</a>
     </nav>
-    <span class="spacer">做自己的知识基础设施</span>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
   </div>
 </footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
 </body>
 </html>

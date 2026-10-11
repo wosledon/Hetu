@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation · Hetu</title>
+<meta name="description" content="Hetu documentation index: notes, agent workspace, code sessions, knowledge base, graph and Wiki, memories, kanban and automation, extensions and MCP, models and usage, desktop, data and security, architecture, FAQ, development.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/index.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/index.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/index.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Documentation · Hetu">
+<meta property="og:description" content="Hetu documentation index: notes, agent workspace, code sessions, knowledge base, graph and Wiki, memories, kanban and automation, extensions and MCP, models and usage, desktop, data and security, architecture, FAQ, development.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/index.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/index.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html" aria-current="page">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Documentation</h1>
+      <p class="lede">Hetu is a local-first AI knowledge and agent workspace. Each page below documents one feature area: where it lives, how it works, which settings it reads and how to debug it.</p>
+
+      <div class="note">New here? Read <strong>Getting started → Notes → Agent workspace → Code sessions</strong>. For internals, go straight to <strong>Architecture</strong>.</div>
+
+      <h2>Pages</h2>
+      <table>
+        <thead><tr><th>Page</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td><a href="getting-started.html">Getting started</a></td><td>Three ways to run, first provider and index, data directory locations</td></tr>
+          <tr><td><a href="notes.html">Notes</a></td><td>Dual-view editor, selection AI actions, notebooks and tags, version history, share links, trash, export</td></tr>
+          <tr><td><a href="workspace.html">Agent workspace</a></td><td>Sessions and topics, SSE events, input toolbelt, permission and run modes, queue and steering, distill to note</td></tr>
+          <tr><td><a href="code-sessions.html">Code sessions</a></td><td>Projects, worktrees and branches, Git sync, the seven panels, agent tools, PR flow</td></tr>
+          <tr><td><a href="knowledge.html">Knowledge base</a></td><td>Sources and chunking, vector pipeline, coverage, index management, search test, dimensions</td></tr>
+          <tr><td><a href="graph-wiki.html">Graph &amp; Wiki</a></td><td>Entity and relation extraction, types and visualization, Wiki inputs and stages</td></tr>
+          <tr><td><a href="memories.html">Memories &amp; Dream</a></td><td>Memory fields and scopes, recall triggers, memory graph, consolidation parameters</td></tr>
+          <tr><td><a href="organize.html">Kanban &amp; automation</a></td><td>Board columns, task fields, agent execution, workflow nodes, background job types, cron, inbox</td></tr>
+          <tr><td><a href="extensions.html">Extensions &amp; MCP</a></td><td>Agent presets and tool policies, skill sources, built-in tools, MCP configuration, embedded apps</td></tr>
+          <tr><td><a href="models.html">Models &amp; usage</a></td><td>Provider protocols, model purposes, per-scenario defaults, proxy endpoints, usage metrics, compression</td></tr>
+          <tr><td><a href="desktop.html">Desktop app</a></td><td>Channels, updater and mirrors, tray, sidecar lifecycle, worktree root and cleanup, packaging</td></tr>
+          <tr><td><a href="data.html">Data &amp; security</a></td><td>Data directory, backup and migration, PostgreSQL switch, vector storage, security boundaries</td></tr>
+          <tr><td><a href="architecture.html">Architecture</a></td><td>Layers, request path, data model, repository API, SQLite limits, performance practice</td></tr>
+          <tr><td><a href="faq.html">FAQ</a></td><td>Install failures, model errors, stuck indexing, worktrees, update errors, performance</td></tr>
+          <tr><td><a href="dev.html">Development</a></td><td>Repository layout, build and verify commands, gotchas, release flow</td></tr>
+        </tbody>
+      </table>
+
+      <h2>What problem it solves</h2>
+      <table>
+        <thead><tr><th>Situation</th><th>How Hetu handles it</th></tr></thead>
+        <tbody>
+          <tr><td>Notes, chat logs and code changes live in separate tools</td><td>All three write one database; retrieval, graph, memories and Wiki are built on top of that data</td></tr>
+          <tr><td>AI gives advice, you still copy-paste the work</td><td>Code sessions operate in the repository: isolated worktree, line-level diff, checkpoint rollback, commits and PRs</td></tr>
+          <tr><td>Long sessions explode context and cost</td><td>Compression pipeline plus usage accounting (input / compressed / output / cached tokens, latency, per-model and per-source split)</td></tr>
+          <tr><td>Worried about data and keys leaving the machine</td><td>No account, no telemetry; keys encrypted with DataProtection; requests only go to providers you configure</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><span></span><a href="getting-started.html">Getting started →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes · Hetu</title>
+<meta name="description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, notebooks and tags, version history, share links, trash, export and shortcuts.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/notes.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Notes · Hetu">
+<meta property="og:description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, notebooks and tags, version history, share links, trash, export and shortcuts.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/notes.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/notes.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html" aria-current="page">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Notes</h1>
+      <p class="lede">Entry point: <strong>Notes</strong> in the left navigation (route <code>/</code>). Three columns: notebook tree, note list, editor.</p>
+
+      <h2>Editor</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Modes</td><td>WYSIWYG (Milkdown: headings, lists, tables, code blocks, KaTeX math, Mermaid diagrams, images, task lists) and source mode (CodeMirror with Markdown highlighting); split view supported</td></tr>
+          <tr><td>Autosave</td><td>Saves ~3 seconds after you stop typing; the header shows draft / saved state; <span class="kbd">Ctrl</span>+<span class="kbd">S</span> saves immediately</td></tr>
+          <tr><td>Images</td><td>Paste or drop to upload into the attachments directory and insert a reference</td></tr>
+          <tr><td>Rendering</td><td>Mermaid, KaTeX, GFM tables and task lists; output is sanitized with DOMPurify</td></tr>
+        </tbody>
+      </table>
+
+      <h2>AI writing</h2>
+      <ul>
+        <li><strong>Selection actions</strong>: select text to polish, translate, condense, expand, explain or run a custom prompt; replace the selection or insert below.</li>
+        <li><strong>Note assistant</strong>: a whole-note chat panel with per-call model selection, for requests like “rewrite this section as bullets”.</li>
+        <li><strong>In-note actions</strong>: buttons in the editor toolbar — generate knowledge-base index, extract knowledge graph, generate tags, generate a flowchart (Mermaid block). Each runs as a background task and writes results back.</li>
+      </ul>
+
+      <h2>Notebooks and tags</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Notebooks</td><td>Unlimited nesting; create, rename, delete via the tree context menu; unfiled notes land in “Uncategorized”</td></tr>
+          <tr><td>Tags</td><td>Managed on the Tags page (<code>/tags</code>): colors, rename, merge; the note list can filter by tag</td></tr>
+          <tr><td>Pin / favorite</td><td>Pinned notes sort first, then by last update — ordering happens in the database so paging stays stable</td></tr>
+          <tr><td>Search</td><td>Search box above the list matches title and content</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Version history</h2>
+      <ul>
+        <li>A snapshot is written on every content change; the most recent 20 versions per note are kept (older rows are removed with a single SQL <code>DELETE</code>).</li>
+        <li>Preview any version, compare, and restore in one click — restoring first snapshots the current content as a new version.</li>
+      </ul>
+
+      <h2>Share links</h2>
+      <ul>
+        <li>Create a public read-only link per note: permanent, 24 hours or 3 days.</li>
+        <li>View counts are recorded and links can be revoked; the public route is <code>/share/:code</code> and only renders that note.</li>
+      </ul>
+
+      <h2>Trash and export</h2>
+      <ul>
+        <li><strong>Trash</strong> (<code>/trash</code>): restore or permanently delete; items are purged after 30 days by default.</li>
+        <li><strong>Export</strong>: Settings → Data &amp; backup exports all notes as a Markdown archive and can back up or restore the database file. See <a href="data.html">Data &amp; security</a>.</li>
+      </ul>
+
+      <h2>Shortcuts</h2>
+      <table>
+        <thead><tr><th>Action</th><th>Keys</th></tr></thead>
+        <tbody>
+          <tr><td>Save</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">S</span></td></tr>
+          <tr><td>New note</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">N</span></td></tr>
+          <tr><td>Bold / italic</td><td><span class="kbd">Ctrl</span>+<span class="kbd">B</span> / <span class="kbd">Ctrl</span>+<span class="kbd">I</span></td></tr>
+          <tr><td>Code block</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">K</span></td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="getting-started.html">← Getting started</a><a href="workspace.html">Agent workspace →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

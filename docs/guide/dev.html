@@ -3,14 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>参与开发 · Hetu 文档</title>
-<meta name="description" content="Hetu 架构与目录、构建与验证命令、代码约定、发版流程。">
+<title>参与开发 · Hetu</title>
+<meta name="description" content="参与开发：仓库结构、构建与验证命令（0 告警要求）、容易踩的约定清单、发版流程（版本号两处 + tag 触发 CI）、提交信息格式。">
 <meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/dev.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/dev.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/dev.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="参与开发 · Hetu 文档">
-<meta property="og:description" content="Hetu 架构与目录、构建与验证命令、代码约定、发版流程。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:title" content="参与开发 · Hetu">
+<meta property="og:description" content="参与开发：仓库结构、构建与验证命令（0 告警要求）、容易踩的约定清单、发版流程（版本号两处 + tag 触发 CI）、提交信息格式。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/dev.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -31,11 +35,15 @@
     <nav class="site-nav" aria-label="主导航">
       <a href="../index.html">首页</a>
       <a href="../guide/index.html" aria-current="page">文档</a>
-      <a href="../guide/features.html">功能</a>
+      <a href="../guide/architecture.html">架构</a>
       <a href="../guide/getting-started.html">下载</a>
       <a href="../guide/faq.html">FAQ</a>
     </nav>
     <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/dev.html" title="English version">EN</a>
+      </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
       </button>
@@ -51,58 +59,66 @@
   <aside class="docs-side">
     <h2>文档目录</h2>
     <ol>
-      <li><a href="index.html">文档首页</a></li>
+      <li><a href="index.html">文档索引</a></li>
       <li><a href="getting-started.html">快速开始</a></li>
-      <li><a href="features.html">功能总览</a></li>
+      <li><a href="notes.html">笔记</a></li>
       <li><a href="workspace.html">Agent 工作台</a></li>
-      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
       <li><a href="models.html">模型与用量</a></li>
       <li><a href="desktop.html">桌面应用</a></li>
-      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html" aria-current="page">参与开发</a></li>
     </ol>
   </aside>
     <div class="docs-body">
       <h1>参与开发</h1>
-      <p class="lede">Hetu 是一个 ASP.NET Core + React 的全栈项目，外加一个 Tauri 桌面壳。欢迎提 Issue 与 PR；动手前先读仓库根目录的 <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">AGENTS.md</a>。</p>
+      <p class="lede">ASP.NET Core + React 全栈项目，外加 Tauri 桌面壳。动手前先读仓库根目录的 <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">AGENTS.md</a>。</p>
 
-      <h2>架构与目录</h2>
-      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>Hetu/
-├── src/
-│   ├── Hetu.Api/                                 # 控制器、SSE 流、后台 Worker
-│   ├── Hetu.Core/                                # 实体、服务、仓储接口（不依赖 EF/ASP.NET 实现）
-│   ├── Hetu.Infrastructure/                       # EF Core、仓储实现、AI Provider、MCP、sqlite-vec
-│   ├── Hetu.Infrastructure.PostgresMigrations/    # PostgreSQL 迁移
-│   └── Hetu.Shared/                               # DTO / 枚举 / 常量（前后端契约）
-├── frontend/                                      # React + Vite
-├── shell/hetu-desktop/                            # Tauri 2 外壳（Rust + 安装器钩子）
-├── scripts/                                       # 启动 / 打包 / 发版 / 冒烟测试
-└── docs/                                          # 本网站与截图</code></pre></div>
-      <p>依赖方向是 <code>Api → Core ← Infrastructure</code>：Core 只放领域模型、服务与接口，具体实现（数据库、AI、进程、文件系统）放 Infrastructure。</p>
+      <h2>仓库结构</h2>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>src/
+├── Hetu.Api/                                  控制器、SSE、后台 Worker、Program.cs
+├── Hetu.Core/                                 实体、领域服务、仓储接口
+├── Hetu.Infrastructure/                       EF Core、仓储实现、AI Provider、MCP、sqlite-vec
+├── Hetu.Infrastructure.PostgresMigrations/    PostgreSQL 迁移
+└── Hetu.Shared/                               DTO / 枚举 / 常量（前后端契约）
+frontend/src/{pages,components,hooks,stores,services,types,utils,i18n}
+shell/hetu-desktop/{src,src-tauri}              Rust 外壳、Tauri 配置、安装器钩子
+scripts/                                       启动 / 打包 / 发版 / 冒烟测试
+docs/                                          本网站与截图</code></pre></div>
 
       <h2>构建与验证</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 后端（期望 0 告警 0 错误）
 dotnet build src/Hetu.Api/Hetu.Api.csproj -c Release -v q
 
-# 前端静态检查与类型检查
+# 前端类型检查与静态检查
 cd frontend &amp;&amp; npx eslint . &amp;&amp; npx tsc -b
 
 # API 冒烟（后端已启动）
-./scripts/test-api.sh</code></pre></div>
-      <div class="note"><strong>告警零容忍</strong>：不接受 <code>#pragma warning disable</code>、<code>SuppressMessage</code>、<code>eslint-disable</code>、<code>@ts-ignore</code> 这类抑制；可空性就加判空，平台 API 就加 <code>OperatingSystem.IsXxx</code> 守卫，依赖漏洞就升级包。</div>
+./scripts/test-api.sh
 
-      <h2>几条容易踩的约定</h2>
+# 桌面壳 Rust 检查
+cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
+      <div class="note"><strong>告警零容忍</strong>：不接受 <code>#pragma warning disable</code>、<code>SuppressMessage</code>、<code>eslint-disable</code>、<code>@ts-ignore</code>。可空性加判空、平台 API 加 <code>OperatingSystem.IsXxxVersionAtLeast</code> 守卫、依赖漏洞升级包。</div>
+
+      <h2>容易踩的约定</h2>
       <table>
         <thead><tr><th>主题</th><th>约定</th></tr></thead>
         <tbody>
-          <tr><td>列表接口</td><td>必须分页，且分页与排序在数据库完成（不要 <code>ToList()</code> 后再 Skip/Take）</td></tr>
-          <tr><td>SQLite 时间排序</td><td>provider 不支持在 SQL 中排序/聚合 <code>DateTimeOffset</code>，用 <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code>，或投影后在内存定序</td></tr>
-          <tr><td>前端副作用</td><td>不要在 <code>useEffect</code> 里同步 <code>setState</code>；用派生值表达「跟随 prop 变化」</td></tr>
+          <tr><td>列表接口</td><td>必须分页，且分页与排序在数据库完成（不要 <code>ToList()</code> 后再 <code>Skip/Take</code>）</td></tr>
+          <tr><td>SQLite 时间排序</td><td>用 <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code>，或投影排序键后在内存定序</td></tr>
+          <tr><td>前端副作用</td><td>不要在 <code>useEffect</code> 里同步 <code>setState</code>，改用派生值</td></tr>
           <tr><td>组件导出</td><td>组件文件只导出组件，工具函数放 <code>utils/</code>（否则 Fast Refresh 失效）</td></tr>
-          <tr><td>文案</td><td>中英文两份必须同步新增（<code>Locales/{zh,en}</code> 与 <code>i18n/locales/{zh,en}</code>）</td></tr>
-          <tr><td>异步迭代器</td><td>带取消令牌的参数必须标 <code>[EnumeratorCancellation]</code></td></tr>
-          <tr><td>长任务</td><td>交给 <code>IBackgroundTaskCoordinator</code>（前端「后台任务」可见），别用即发即忘的 <code>Task.Run</code></td></tr>
+          <tr><td>文案</td><td>中英两份必须同步新增（后端 <code>Locales/{zh,en}</code>、前端 <code>i18n/locales/{zh,en}</code>）</td></tr>
+          <tr><td>异步迭代器</td><td>带取消令牌的参数必须标 <code>[EnumeratorCancellation]</code>，否则取消不生效（CS8425）</td></tr>
+          <tr><td>后台任务</td><td>长耗时操作交给 <code>IBackgroundTaskCoordinator</code>，别用即发即忘的 <code>Task.Run</code></td></tr>
+          <tr><td>文档站</td><td>双语页面成对维护；改完本地起静态服务器逐页点一遍</td></tr>
         </tbody>
       </table>
 
@@ -110,23 +126,20 @@ cd frontend &amp;&amp; npx eslint . &amp;&amp; npx tsc -b
       <ol>
         <li>同步<strong>两处</strong>版本号：<code>shell/hetu-desktop/src-tauri/tauri.conf.json</code> 与 <code>src/Hetu.Api/Hetu.Api.csproj</code>（前端「关于」页读的是后者）。</li>
         <li>提 PR 合并到 <code>main</code>。</li>
-        <li>打 tag 触发 CI：</li>
+        <li>打 tag 触发发布：</li>
       </ol>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>pwsh ./scripts/tag-release.ps1 -Version 0.4.0</code></pre></div>
-      <p>CI 会构建 fat / slim 两个渠道的 Windows 与 Linux 安装包（带签名）、生成更新清单（<code>latest*.json</code> 主源与三个镜像），并创建 GitHub Release。任一渠道清单生成失败会让发布直接失败——避免发出「更新点不动」的版本。</p>
+      <p>CI 会构建 fat / slim 两个渠道的 Windows 与 Linux 安装包（带签名）、生成更新清单（<code>latest*.json</code> 及三个镜像变体）并创建 Release；任一渠道清单生成失败会让发布直接失败，避免发出「更新点不动」的版本。</p>
 
       <h2>提交信息</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
 
 # type : feat | fix | docs | style | refactor | perf | test | chore
-# scope: api | ui | db | ai | work | desktop | config
-
-# 例
-feat(work): Code 会话支持独立工作树与分支切换</code></pre></div>
+# scope: api | ui | db | ai | work | desktop | config</code></pre></div>
 
       <h2>当前状态</h2>
       <ul>
-        <li>还没有自动化测试工程；当前靠构建 + 静态检查 + API 冒烟 + 浏览器实测把关，欢迎补 xUnit 测试。</li>
+        <li>尚无自动化测试工程；当前把关方式是 Release 构建 0 告警 + <code>eslint</code> / <code>tsc</code> + API 冒烟 + 浏览器实测。欢迎补 xUnit 测试工程。</li>
         <li>已知限制：MCP 仅 <code>stdio</code> 完整可用；笔记全文检索基于 <code>LIKE</code>（FTS5 / <code>tsvector</code> 在计划中）。</li>
       </ul>
     <div class="docs-pager"><a href="faq.html">← 常见问题</a><span></span></div>
@@ -143,8 +156,15 @@ feat(work): Code 会话支持独立工作树与分支切换</code></pre></div>
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
       <a href="../guide/dev.html">参与开发</a>
     </nav>
-    <span class="spacer">做自己的知识基础设施</span>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
   </div>
 </footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
 </body>
 </html>

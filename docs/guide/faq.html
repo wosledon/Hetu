@@ -3,14 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>常见问题 · Hetu 文档</title>
-<meta name="description" content="Hetu 常见问题：安装、模型、索引、工作树、更新、性能与报错排查。">
+<title>常见问题 · Hetu</title>
+<meta name="description" content="常见问题：安装失败（vec0.dll 被占用）、端口与数据目录、本地模型、索引不动、语义搜索不理想、工作树、PR 工具缺失、更新清单报错、性能与体积。">
 <meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/faq.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/faq.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/faq.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="常见问题 · Hetu 文档">
-<meta property="og:description" content="Hetu 常见问题：安装、模型、索引、工作树、更新、性能与报错排查。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:title" content="常见问题 · Hetu">
+<meta property="og:description" content="常见问题：安装失败（vec0.dll 被占用）、端口与数据目录、本地模型、索引不动、语义搜索不理想、工作树、PR 工具缺失、更新清单报错、性能与体积。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/faq.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -31,11 +35,15 @@
     <nav class="site-nav" aria-label="主导航">
       <a href="../index.html">首页</a>
       <a href="../guide/index.html" aria-current="page">文档</a>
-      <a href="../guide/features.html">功能</a>
+      <a href="../guide/architecture.html">架构</a>
       <a href="../guide/getting-started.html">下载</a>
       <a href="../guide/faq.html">FAQ</a>
     </nav>
     <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/faq.html" title="English version">EN</a>
+      </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
       </button>
@@ -51,81 +59,87 @@
   <aside class="docs-side">
     <h2>文档目录</h2>
     <ol>
-      <li><a href="index.html">文档首页</a></li>
+      <li><a href="index.html">文档索引</a></li>
       <li><a href="getting-started.html">快速开始</a></li>
-      <li><a href="features.html">功能总览</a></li>
+      <li><a href="notes.html">笔记</a></li>
       <li><a href="workspace.html">Agent 工作台</a></li>
-      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
       <li><a href="models.html">模型与用量</a></li>
       <li><a href="desktop.html">桌面应用</a></li>
-      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html" aria-current="page">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
     </ol>
   </aside>
     <div class="docs-body">
       <h1>常见问题</h1>
-      <p class="lede">按主题整理的高频问题。遇到这里没写的，可以在 GitHub 提 Issue（附上日志片段与复现步骤，会快很多）。</p>
+      <p class="lede">按主题整理的高频问题；每一条都对应到具体机制或命令。遇到这里没写的，去 GitHub 提 Issue（附日志片段与复现步骤）。</p>
 
       <h2>安装与启动</h2>
-      <h3>桌面版安装报 “Error opening file for writing: …vec0.dll”</h3>
-      <p>上一次运行留下了没退干净的<strong>后端进程</strong>，它加载着 <code>sqlite-vec\vec0.dll</code>，安装器覆盖不了。处理：任务管理器结束所有 <code>Hetu.Api.exe</code>，然后点「重试」；新版本的安装包已经内置安装钩子，会在覆盖前自动清理残留进程。</p>
-
-      <h3>源码运行前端打不开 5174</h3>
+      <h3>桌面版安装报 <code>Error opening file for writing: …vec0.dll</code></h3>
+      <p>原因是上一次运行留下了没退干净的后端进程，加载着 <code>sqlite-vec\vec0.dll</code>。处理：任务管理器结束所有 <code>Hetu.Api.exe</code> 后点「重试」。新版本安装包内置安装钩子，会在覆盖文件前自动清理残留进程。</p>
+      <h3>源码运行打不开 5174</h3>
       <ul>
-        <li>确认后端已在 5000 起：<code>curl http://localhost:5000/api/health</code>。</li>
-        <li>前端首次运行要先 <code>npm install</code>；端口被占时 Vite 会自动换端口，注意看终端输出。</li>
+        <li>先确认后端在跑：<code>curl http://localhost:5000/api/health</code>。</li>
+        <li>前端首次运行要先 <code>npm install</code>；Vite 端口被占会自动换端口，看终端输出。</li>
       </ul>
+      <h3>想换端口 / 数据目录</h3>
+      <p>后端用 <code>--urls</code> 指定地址，用 <code>HETU_DATA_DIR</code> 指定数据目录；前端 Vite 端口在 <code>frontend/vite.config.ts</code> 的 <code>server.port</code>。</p>
 
-      <h2>模型与 Key</h2>
+      <h2>模型</h2>
       <h3>能只用本地模型吗</h3>
-      <p>可以——任何暴露 OpenAI 兼容接口的本地推理服务（Ollama、LM Studio、vLLM 等）都能作为供应商加进来，填本地 Base URL 即可。Embedding 也用本地模型的话，注意把维度与 <code>Embedding:Dimensions</code> 对齐。</p>
-
+      <p>可以。任何暴露 OpenAI 兼容接口的本地服务（Ollama / LM Studio / vLLM 等）都能作为供应商，填本地 Base URL 即可。Embedding 也用本地模型时，注意把维度与 <code>Embedding:Dimensions</code> 对齐。</p>
       <h3>为什么 Anthropic 不能做 Embedding</h3>
       <p>Anthropic 没有公开 Embedding 接口。把 <code>embedding</code> 用途指到 OpenAI 兼容供应商即可。</p>
-
-      <h3>Key 存在哪里，安全吗</h3>
-      <p>加密后存在本地数据库里（Windows 用 DPAPI 保护），不会明文出现在日志或接口响应；详见 <a href="data.html">数据与备份</a>。</p>
-
-      <h2>知识与索引</h2>
-      <h3>索引卡住 / 覆盖率上不去</h3>
+      <h3>模型报错 / 超时怎么排查</h3>
       <ul>
-        <li>先看「后台任务」页是否有失败记录（失败原因通常写在任务详情里）。</li>
-        <li>检查 Embedding 供应商是否可用：知识库 → 搜索测试，随便问一句看是否返回命中。</li>
-        <li>维度不匹配（换过 Embedding 模型）会写入失败，需要重新索引。</li>
+        <li>供应商配置页有连接测试；先用 <code>chat</code> 用途的模型测试。</li>
+        <li>用量页的明细里能看到失败请求的时间与来源，结合 <code>logs/</code> 里的后端日志定位。</li>
+        <li>本地推理服务要注意上下文长度与并发：长会话压缩后仍然超限时，降低单轮注入的检索条数。</li>
       </ul>
 
-      <h3>语义搜索搜不到我想要的</h3>
+      <h2>索引与检索</h2>
+      <h3>索引卡住 / 覆盖率上不去</h3>
       <ul>
-        <li>先确认内容确实已索引（索引管理里看该项分块数）。</li>
-        <li>换更具体的问法；在「搜索测试」里调 Top-K 看不同召回。</li>
-        <li>笔记类内容建议先「生成索引」再依赖检索。</li>
+        <li>看「后台任务」是否有失败记录，失败原因写在任务详情里。</li>
+        <li>确认 Embedding 供应商可用：知识库 → 搜索测试，看是否返回命中。</li>
+        <li>换过 Embedding 模型会导致维度不匹配，需要重新索引。</li>
+      </ul>
+      <h3>语义搜索结果不理想</h3>
+      <ul>
+        <li>先确认该项确实已索引（索引管理里看分块数）。</li>
+        <li>问法换得更具体；在搜索测试里调 Top-K 观察召回差异。</li>
+        <li>结构化的长笔记比零散记录更容易被切出好的块。</li>
       </ul>
 
       <h2>Code 会话与工作树</h2>
-      <h3>工作树是什么，会污染我的仓库吗</h3>
-      <p>工作树是 <code>git worktree</code> 创建的独立目录（默认在仓库父目录的 <code>.hetu-worktrees/</code> 下），有自己的分支与工作区，主仓库目录不受影响。改动合并后可让自动清理回收。</p>
-
-      <h3>会话标题旁的分支不一样了 / 想换分支</h3>
-      <p>会话开始后工作区与分支就固定了，避免中途换环境导致改动错位；需要换环境请新建会话，或在「Git」面板里操作分支。</p>
-
-      <h3>PR 面板说找不到 gh / glab</h3>
-      <p>PR 功能复用你机器上的 GitHub CLI 或 GitLab CLI。面板会按平台给出安装命令（如 <code>winget install --id GitHub.cli</code>），装完点刷新即可。</p>
+      <h3>工作树会不会影响我的仓库</h3>
+      <p>不会。工作树是 <code>git worktree</code> 创建的独立目录（默认在仓库父目录的 <code>.hetu-worktrees/</code> 下），有自己的分支和工作区；主仓库目录的当前分支与文件不受影响。</p>
+      <h3>会话中途想换分支</h3>
+      <p>会话开始后工作区与分支固定，避免改动错位；换环境请新建会话，或在「Git」面板里操作。</p>
+      <h3>工作树越来越多</h3>
+      <p>设置 → 工作区里开启自动清理并设定空闲阈值（默认只删已合并且干净的工作树），也可以点「立即清理」手动跑一次；关闭自动清理时需自己删目录或用 <code>git worktree remove</code>。</p>
+      <h3>PR 面板提示找不到 gh / glab</h3>
+      <p>PR 功能复用本机的 GitHub CLI / GitLab CLI；面板会按平台给出安装命令（例如 <code>winget install --id GitHub.cli</code>），装完点刷新。</p>
 
       <h2>更新</h2>
-      <h3>点更新报 “Could not fetch a valid release JSON from the remote”</h3>
-      <p>这是更新清单没取到（旧版本曾出现清单命名与渠道不匹配）。请升级到最新版本；若仍失败，可用浏览器直接打开更新地址确认能访问：<code>https://github.com/wosledon/Hetu/releases/latest/download/latest.json</code>（slim 渠道是 <code>latest-slim.json</code>）。</p>
+      <h3>报 <code>Could not fetch a valid release JSON from the remote</code></h3>
+      <p>更新清单没取到。请升级到最新版；仍失败时用浏览器打开 <code>https://github.com/wosledon/Hetu/releases/latest/download/latest.json</code>（slim 渠道换成 <code>latest-slim.json</code>）确认可访问，再检查网络对镜像（<code>ghproxy.net</code> 等）的连通性。</p>
 
-      <h3>托盘图标点了没反应</h3>
-      <p>窗口可能被最小化到托盘后又移到了副屏。先点托盘图标唤回窗口；实在不行任务管理器结束后端进程重启应用。</p>
-
-      <h2>性能</h2>
+      <h2>性能与体积</h2>
       <h3>数据多了会不会变慢</h3>
-      <p>列表接口分页在数据库侧完成（SQL <code>COUNT</code> + <code>OFFSET/FETCH</code>），知识库状态与向量摘要走数据库聚合，列表类只读接口还带短时响应缓存，数据量上万级也不至于把整表读进内存。</p>
-
-      <h3>能不能离线用</h3>
-      <p>应用本体完全离线可用；只有你显式使用云端模型、联网搜索或 MCP 服务时才需要网络。</p>
-    <div class="docs-pager"><a href="data.html">← 数据与备份</a><a href="dev.html">参与开发 →</a></div>
+      <p>列表与统计都在数据库侧完成（<code>COUNT</code> + <code>OFFSET/FETCH</code>、<code>GROUP BY</code> 聚合），状态类接口有短时缓存；万级笔记量下翻页与统计仍是常量级开销。</p>
+      <h3>数据库文件多大</h3>
+      <p>主要是向量：每块一个向量（默认 1536 维 float32 ≈ 6 KB）。想减小体积可以降低块数量（更少但更长的分块）或使用维度更小的 Embedding 模型（需同步改配置并重新索引）。</p>
+      <h3>能离线用吗</h3>
+      <p>应用本体完全离线可用；只有使用云端模型、联网搜索或外部 MCP 服务时才需要网络。</p>
+    <div class="docs-pager"><a href="architecture.html">← 架构与实现</a><a href="dev.html">参与开发 →</a></div>
     </div>
   </div>
 </main>
@@ -139,8 +153,15 @@
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
       <a href="../guide/dev.html">参与开发</a>
     </nav>
-    <span class="spacer">做自己的知识基础设施</span>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
   </div>
 </footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
 </body>
 </html>

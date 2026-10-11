@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>架构与实现 · Hetu</title>
+<meta name="description" content="架构与实现：分层与依赖方向、请求路径、数据模型约定、仓储方法清单、SQLite DateTimeOffset 限制与处理、性能实践、Agent 循环、质量约定。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="架构与实现 · Hetu">
+<meta property="og:description" content="架构与实现：分层与依赖方向、请求路径、数据模型约定、仓储方法清单、SQLite DateTimeOffset 限制与处理、性能实践、Agent 循环、质量约定。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/architecture.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html" aria-current="page">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>架构与实现</h1>
+      <p class="lede">这一页写给要读代码或改代码的人：分层、请求流、数据模型、分页与 SQLite 限制的处理方式。</p>
+
+      <h2>分层与依赖方向</h2>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>Hetu.Api           控制器 / SSE 流 / 后台 Worker / DI 装配
+   │  （依赖 Core 与 Infrastructure 的接口）
+Hetu.Core          实体 · 领域服务 · 仓储接口        ← 不引用 EF Core / ASP.NET 实现
+   ▲
+Hetu.Infrastructure  EF Core 实现 · AI Provider · MCP · sqlite-vec · 文件与进程
+Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div>
+      <p>依赖方向是 <code>Api → Core ← Infrastructure</code>：Core 只定义规则与接口，具体实现（数据库、模型调用、进程、文件系统）都在 Infrastructure。</p>
+
+      <h2>一次请求的路径</h2>
+      <ol>
+        <li>前端（React + TanStack Query）调用 <code>/api/*</code>，统一走 axios 实例与响应拦截器。</li>
+        <li>控制器只做参数校验与调用服务；业务逻辑在 <code>Hetu.Core/Services</code>。</li>
+        <li>服务通过 <code>IUnitOfWork</code> 暴露的仓储访问数据库（EF Core），只读查询用 <code>AsNoTracking</code> 与投影。</li>
+        <li>需要长耗时的动作（索引、抽取、Wiki、看板执行）交给 <code>IBackgroundTaskCoordinator</code>，写入 <code>TaskItem</code> 记录后由后台 Worker 执行。</li>
+        <li>对话类请求走 SSE：控制器把事件流写回前端，前端按事件类型渲染。</li>
+      </ol>
+
+      <h2>数据模型要点</h2>
+      <table>
+        <thead><tr><th>约定</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>基类</td><td>实体继承 <code>BaseEntity</code>：<code>Id</code>（Guid）、<code>CreatedAt</code>、<code>UpdatedAt</code></td></tr>
+          <tr><td>时间</td><td>统一 <code>DateTimeOffset</code> 且为 UTC；SQLite 中存为定宽文本（<code>yyyy-MM-dd HH:mm:ss.fffffff+00:00</code>）</td></tr>
+          <tr><td>软删除</td><td><code>IsDeleted</code>（+ <code>DeletedAt</code>）配合全局查询过滤器；需要包含已删数据时显式 <code>IgnoreQueryFilters()</code></td></tr>
+          <tr><td>迁移</td><td>Code First；SQLite 与 PostgreSQL 各有一套迁移（后者在 <code>Hetu.Infrastructure.PostgresMigrations</code>）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>仓储接口</h2>
+      <table>
+        <thead><tr><th>方法</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>GetByIdAsync</code> / <code>GetAllAsync</code> / <code>FindAsync</code></td><td>常规读取（只读场景内部用 <code>AsNoTracking</code>）</td></tr>
+          <tr><td><code>CountAsync</code></td><td>SQL <code>COUNT</code>，不加载实体</td></tr>
+          <tr><td><code>SelectAsync</code></td><td>只取部分列（投影），不物化完整实体</td></tr>
+          <tr><td><code>CountByAsync</code></td><td>SQL <code>GROUP BY</code> 计数，返回字典</td></tr>
+          <tr><td><code>GetPagedByDateAsync</code></td><td>按时间字段分页：非 SQLite 走 <code>ORDER BY</code> + <code>OFFSET/FETCH</code>；SQLite 先投影 <code>Id + 排序键</code> 内存定序，再按主键回表取这一页</td></tr>
+          <tr><td><code>PruneAsync</code></td><td>保留排序后前 N 条，其余用一条 <code>DELETE</code> 清理</td></tr>
+        </tbody>
+      </table>
+
+      <h2>SQLite 的 DateTimeOffset 限制（实际踩过的坑）</h2>
+      <ul>
+        <li>EF Core 的 SQLite provider <strong>不支持在 SQL 中排序或聚合 <code>DateTimeOffset</code></strong>：<code>ORDER BY</code> 抛 <code>NotSupportedException</code>，<code>MAX()</code> 无法翻译；比较表达式（<code>x.CreatedAt &gt; since</code>）同样不能翻译。</li>
+        <li>处理方式：分页用 <code>GetPagedByDateAsync</code>；分组计数用 <code>CountByAsync</code>；时间戳聚合只投影两列后在内存取最大值；需要「最近 N 天」这类判断时先投影时间戳再在内存过滤。</li>
+        <li>不要在 <code>IQueryable</code> 上直接写 <code>OrderBy(x =&gt; x.CreatedAt)</code>——运行时才会炸。PostgreSQL 侧不受此限制。</li>
+      </ul>
+
+      <h2>性能实践</h2>
+      <table>
+        <thead><tr><th>场景</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>列表接口</td><td>分页与排序下推数据库；先 <code>COUNT</code> 取总数，再取当前页</td></tr>
+          <tr><td>状态统计</td><td>数据库侧聚合（<code>GROUP BY</code> / <code>DISTINCT</code> / <code>EXISTS</code>），不把整表读进内存</td></tr>
+          <tr><td>高频轮询接口</td><td>只读状态接口加 <code>[ResponseCache]</code> 短时缓存；前端只在「有进行中任务」时轮询</td></tr>
+          <tr><td>批量写入 / 清理</td><td>用 <code>ExecuteDeleteAsync</code> 等集合操作，避免逐条加载实体</td></tr>
+          <tr><td>前端渲染</td><td>派生状态代替 <code>useEffect</code> 里同步 <code>setState</code>；不稳定数组用 <code>useMemo</code> 固定引用</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Agent 循环</h2>
+      <ol>
+        <li>请求带上权限模式、工具白名单、联网/知识库/记忆开关与推理强度。</li>
+        <li>循环开始时先取「运行中引导」（steering）：如果在流式过程中用户注入了新指令，会在这一步并入上下文。</li>
+        <li>模型返回工具调用 → 按权限模式决定直接执行还是发审批请求 → 执行结果回填。</li>
+        <li>过程事件通过 SSE 推送：正文增量、思考、工具调用与结果、检查点、通知。</li>
+        <li>队列中的下一条消息在本轮结束后自动发送；真实落库的会话由首条消息创建。</li>
+      </ol>
+
+      <h2>质量约定</h2>
+      <ul>
+        <li>后端 <code>dotnet build</code> 与前端 <code>npx eslint .</code> 都要求<strong>零告警</strong>，且不接受任何抑制注释（<code>#pragma warning disable</code> / <code>SuppressMessage</code> / <code>eslint-disable</code> / <code>@ts-ignore</code>）。</li>
+        <li>依赖漏洞告警按升级包处理（例如把带漏洞的传递依赖固定到修复版本），而不是忽略。</li>
+        <li>文档站与 README 中英双语必须同步；截图放在 <code>docs/screenshots/</code> 并保持命名稳定。</li>
+      </ul>
+    <div class="docs-pager"><a href="data.html">← 数据与安全</a><a href="faq.html">常见问题 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>看板与自动化 · Hetu</title>
+<meta name="description" content="看板与自动化详解：任务看板列与状态、任务字段与 Agent 执行、工作流节点与运行、后台任务类型清单、定时任务、收件箱。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/organize.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/organize.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/organize.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="看板与自动化 · Hetu">
+<meta property="og:description" content="看板与自动化详解：任务看板列与状态、任务字段与 Agent 执行、工作流节点与运行、后台任务类型清单、定时任务、收件箱。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/organize.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/organize.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html" aria-current="page">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>看板与自动化</h1>
+      <p class="lede">把「要 AI 做的事」变成可跟踪的工作项：任务看板、工作流、后台任务与定时任务、收件箱。</p>
+
+      <h2>任务看板</h2>
+      <p>入口：左侧导航「任务看板」（<code>/kanban</code>）；详情页 <code>/kanban/:taskId</code>。</p>
+      <table>
+        <thead><tr><th>列</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td>进行中</td><td>已被 Agent 接手、正在执行</td></tr>
+          <tr><td>审核中</td><td>Agent 完成，等待你确认结果</td></tr>
+          <tr><td>已阻塞</td><td>缺信息或执行失败，需要人工介入</td></tr>
+          <tr><td>已完成</td><td>已确认完成</td></tr>
+          <tr><td>已归档</td><td>历史任务（可按时间范围筛选）</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>任务字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>标题 / 描述</td><td>要做什么；描述越具体，Agent 执行越稳</td></tr>
+          <tr><td>指派智能体</td><td>选择某个系统提示预设（可带工具白名单与审批策略）</td></tr>
+          <tr><td>优先级 / 分类</td><td>用于看板筛选与排序</td></tr>
+          <tr><td>运行记录</td><td>每次执行的步骤列表（每一步的动作、耗时、输出摘要）</td></tr>
+          <tr><td>评论</td><td>人机协作的讨论线程，Agent 执行时会参考</td></tr>
+        </tbody>
+      </table>
+      <p>执行同样受权限模式与后台任务系统约束：一次执行会创建一条 <code>KanbanTaskExecute</code> 后台任务，失败可在任务详情看到原因。</p>
+
+      <h2>工作流</h2>
+      <p>入口：<code>/workflows</code>。把多步 Agent 任务画成流程，适合「先调研再实现再自测」这类固定套路。</p>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>节点</td><td>每个节点是一次 Agent 任务，可配置提示、智能体与依赖关系</td></tr>
+          <tr><td>启停</td><td>工作流可整体启用 / 禁用，便于保留草稿</td></tr>
+          <tr><td>运行</td><td>每次运行记录节点状态、耗时与产物，可在界面查看运行历史</td></tr>
+        </tbody>
+      </table>
+
+      <h2>后台任务</h2>
+      <p>入口：<code>/tasks/background</code>。所有长耗时操作都进这个队列并留下记录，可查状态、耗时与失败原因。</p>
+      <table>
+        <thead><tr><th>任务类型</th><th>触发来源</th></tr></thead>
+        <tbody>
+          <tr><td>生成 Embedding</td><td>笔记索引、批量补索引</td></tr>
+          <tr><td>生成知识项 Embedding</td><td>文件 / 网址索引</td></tr>
+          <tr><td>知识图谱提取</td><td>笔记的「提取图谱」</td></tr>
+          <tr><td>Wiki 生成</td><td>项目页 / Wiki 页发起</td></tr>
+          <tr><td>看板任务执行</td><td>任务看板指派 Agent</td></tr>
+          <tr><td>工作流运行</td><td>工作流执行</td></tr>
+        </tbody>
+      </table>
+      <p>任务状态：排队 / 运行中 / 已完成 / 失败；列表可按类型筛选、清理已完成、逐条删除。存在运行中任务时页面自动轮询刷新。</p>
+
+      <h2>定时任务</h2>
+      <p>入口：<code>/tasks/scheduled</code>。用 Cron 表达式安排周期性动作（例如每晚整理收件箱、定期跑 Dream、定时生成 Wiki），可查最近几次执行结果。</p>
+
+      <h2>收件箱</h2>
+      <p>入口：<code>/inbox</code>，导航栏带未读角标。用于汇总需要你关注的事（任务失败、需要审批、系统提示等），支持已读 / 未读、归档与按类别筛选。</p>
+    <div class="docs-pager"><a href="memories.html">← 记忆与 Dream</a><a href="extensions.html">扩展与集成 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

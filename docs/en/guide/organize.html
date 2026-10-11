@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kanban &amp; automation · Hetu</title>
+<meta name="description" content="Kanban and automation in detail: board columns and task fields, agent execution and run steps, workflow nodes and runs, background job types, scheduled tasks, inbox.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/organize.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/organize.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/organize.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Kanban &amp; automation · Hetu">
+<meta property="og:description" content="Kanban and automation in detail: board columns and task fields, agent execution and run steps, workflow nodes and runs, background job types, scheduled tasks, inbox.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/organize.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/organize.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html" aria-current="page">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Kanban &amp; automation</h1>
+      <p class="lede">Work items with tracking: the Kanban board, workflows, background and cron jobs, and the inbox.</p>
+
+      <h2>Kanban board</h2>
+      <p>Entry: <strong>Kanban</strong> (<code>/kanban</code>), detail view at <code>/kanban/:taskId</code>.</p>
+      <table>
+        <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>In progress</td><td>Picked up by an agent and running</td></tr>
+          <tr><td>Review</td><td>Agent finished; waiting for your confirmation</td></tr>
+          <tr><td>Blocked</td><td>Missing information or failed execution, needs a human</td></tr>
+          <tr><td>Done</td><td>Confirmed complete</td></tr>
+          <tr><td>Archived</td><td>History (filterable by time range)</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>Task field</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Title / description</td><td>What to do; the more concrete the description, the more reliable the run</td></tr>
+          <tr><td>Assigned agent</td><td>Applies a prompt preset (possibly with its own tool allowlist and approvals)</td></tr>
+          <tr><td>Priority / category</td><td>Used for board filtering and ordering</td></tr>
+          <tr><td>Run steps</td><td>Per execution: each action, duration and output summary</td></tr>
+          <tr><td>Comments</td><td>Human–agent thread; the agent reads it while executing</td></tr>
+        </tbody>
+      </table>
+      <p>Execution obeys the same permission modes and task system: a run creates a <code>KanbanTaskExecute</code> background task, and failures show their reason in the task detail.</p>
+
+      <h2>Workflows</h2>
+      <p>Entry: <code>/workflows</code>. Draw multi-step agent tasks as a flow — handy for repeatable sequences like “research → implement → self-test”.</p>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Nodes</td><td>Each node is an agent task with its own prompt, agent and dependencies</td></tr>
+          <tr><td>Enable / disable</td><td>Whole workflows can be toggled so drafts stay around</td></tr>
+          <tr><td>Runs</td><td>Every run records node status, duration and artifacts, viewable as history</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Background tasks</h2>
+      <p>Entry: <code>/tasks/background</code>. Every long-running operation is queued here with status, duration and failure reason.</p>
+      <table>
+        <thead><tr><th>Task type</th><th>Triggered by</th></tr></thead>
+        <tbody>
+          <tr><td>Generate embedding</td><td>Note indexing, batch index</td></tr>
+          <tr><td>Generate knowledge item embedding</td><td>File / URL indexing</td></tr>
+          <tr><td>Graph extract</td><td>“Extract graph” on a note</td></tr>
+          <tr><td>Wiki generate</td><td>Project page / Wiki page</td></tr>
+          <tr><td>Kanban task execute</td><td>Assigning an agent on the board</td></tr>
+          <tr><td>Workflow run</td><td>Workflow execution</td></tr>
+        </tbody>
+      </table>
+      <p>States: queued / running / completed / failed; filter by type, clear completed items, delete individually. The page polls only while something is running.</p>
+
+      <h2>Scheduled tasks</h2>
+      <p>Entry: <code>/tasks/scheduled</code>. Cron-style recurring actions (for example nightly inbox triage, periodic Dream runs, scheduled Wiki generation) with recent execution results.</p>
+
+      <h2>Inbox</h2>
+      <p>Entry: <code>/inbox</code>, with an unread badge in the navigation. Aggregates things that need attention (failed tasks, approval requests, system notices) with read / unread state, archiving and category filters.</p>
+    <div class="docs-pager"><a href="memories.html">← Memories & Dream</a><a href="extensions.html">Extensions & MCP →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

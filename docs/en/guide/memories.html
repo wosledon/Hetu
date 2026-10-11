@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memories &amp; Dream · Hetu</title>
+<meta name="description" content="Memories and Dream in detail: memory fields and scopes, recall triggers, memory graph, consolidation parameters and practical advice.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/memories.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/memories.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/memories.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Memories &amp; Dream · Hetu">
+<meta property="og:description" content="Memories and Dream in detail: memory fields and scopes, recall triggers, memory graph, consolidation parameters and practical advice.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/memories.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/memories.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html" aria-current="page">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Memories &amp; Dream</h1>
+      <p class="lede">Memories carry context across sessions: preferences, identity, working habits, stable facts. Entry: <strong>Memories</strong> (route <code>/memories</code>).</p>
+
+      <h2>Memory fields</h2>
+      <table>
+        <thead><tr><th>Field</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Content</td><td>One fact or preference; the more specific, the better the recall</td></tr>
+          <tr><td>Category</td><td>Preference / identity / work / habit / knowledge — used for filtering and counts</td></tr>
+          <tr><td>Importance</td><td>1–5 stars; affects recall ranking and how fast it decays</td></tr>
+          <tr><td>Scope</td><td>Global / session / project — determines the contexts it is injected into</td></tr>
+          <tr><td>Lifecycle</td><td>Last access time, access count and state (fresh / decaying) maintained by Dream</td></tr>
+        </tbody>
+      </table>
+
+      <h2>When memories are used</h2>
+      <ul>
+        <li>The “Memory” toggle above the input recalls by similarity within the current scope (global ∪ session ∪ project) and injects the results.</li>
+        <li>The model can also call the <code>search_memory</code> tool on its own.</li>
+        <li>Scope isolation matters: project details never leak into unrelated conversations, and session preferences do not pollute global memory.</li>
+      </ul>
+
+      <h2>Memory graph</h2>
+      <ul>
+        <li>Visualizes memories by association, making duplicates and contradictions visible.</li>
+        <li>Filter by scope (all / global / session / project); hover for content.</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/05-memories.png" alt="Memories page: memory graph, scope filters and Dream consolidation"></div>
+      <span class="shot-hint">Click for full size</span>
+
+      <h2>Dream consolidation</h2>
+      <table>
+        <thead><tr><th>Parameter</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td>Decay days</td><td>Memories not accessed within this window are marked “decaying”</td></tr>
+          <tr><td>Forget days</td><td>Low-importance memories untouched beyond this window are forgotten (deleted)</td></tr>
+          <tr><td>Interval</td><td>Automatic consolidation cadence, 24 hours by default and configurable</td></tr>
+          <tr><td>Phases</td><td>Merge duplicates → decay stale information → forget useless entries, then report counts</td></tr>
+        </tbody>
+      </table>
+      <p>The page shows the last run and how many memories are decaying, and you can trigger a consolidation manually.</p>
+
+      <h2>Practical advice</h2>
+      <ul>
+        <li>Keep stable preferences as global memories (“answer in Chinese, code comments in English”).</li>
+        <li>Project-specific conventions belong to project memories so they travel with that context.</li>
+        <li>Store one fact per memory for easier merging and forgetting; long content belongs in a note that gets indexed instead.</li>
+      </ul>
+    <div class="docs-pager"><a href="graph-wiki.html">← Graph & Wiki</a><a href="organize.html">Kanban & automation →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

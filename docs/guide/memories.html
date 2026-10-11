@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>数据与安全 · Hetu</title>
-<meta name="description" content="数据与安全详解：数据目录内容、备份与迁移、PostgreSQL 切换与迁移命令、向量存储方案、安全边界（Key 加密、外发请求、渲染过滤、命令权限）。">
+<title>记忆与 Dream · Hetu</title>
+<meta name="description" content="记忆与 Dream 详解：记忆字段与作用域、召回时机、记忆图、Dream 巩固参数与输出、实践建议。">
 <meta name="theme-color" content="#4f46e5">
-<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/data.html">
-<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/data.html">
-<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/data.html">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/memories.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/memories.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/memories.html">
 <link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="数据与安全 · Hetu">
-<meta property="og:description" content="数据与安全详解：数据目录内容、备份与迁移、PostgreSQL 切换与迁移命令、向量存储方案、安全边界（Key 加密、外发请求、渲染过滤、命令权限）。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/data.html">
+<meta property="og:title" content="记忆与 Dream · Hetu">
+<meta property="og:description" content="记忆与 Dream 详解：记忆字段与作用域、召回时机、记忆图、Dream 巩固参数与输出、实践建议。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/memories.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -42,7 +42,7 @@
     <div class="header-actions">
       <span class="lang" role="group" aria-label="Language">
         <a href="#" aria-current="true">中文</a>
-        <a href="../en/guide/data.html" title="English version">EN</a>
+        <a href="../en/guide/memories.html" title="English version">EN</a>
       </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
@@ -66,72 +66,67 @@
       <li><a href="code-sessions.html">Code 会话</a></li>
       <li><a href="knowledge.html">知识库</a></li>
       <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
-      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="memories.html" aria-current="page">记忆与 Dream</a></li>
       <li><a href="organize.html">看板与自动化</a></li>
       <li><a href="extensions.html">扩展与集成</a></li>
       <li><a href="models.html">模型与用量</a></li>
       <li><a href="desktop.html">桌面应用</a></li>
-      <li><a href="data.html" aria-current="page">数据与安全</a></li>
+      <li><a href="data.html">数据与安全</a></li>
       <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
     </ol>
   </aside>
     <div class="docs-body">
-      <h1>数据与安全</h1>
-      <p class="lede">数据主权是前提：单文件数据库、可整体搬迁、随时导出；无账号、无遥测。</p>
+      <h1>记忆与 Dream</h1>
+      <p class="lede">记忆解决「跨会话的长期上下文」：偏好、身份、工作习惯、固定事实。入口：左侧导航「记忆」（路由 <code>/memories</code>）。</p>
 
-      <h2>数据目录</h2>
+      <h2>记忆条目</h2>
       <table>
-        <thead><tr><th>运行方式</th><th>位置</th></tr></thead>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>桌面版（Windows）</td><td><code>%LOCALAPPDATA%\Hetu</code></td></tr>
-          <tr><td>源码运行</td><td><code>HETU_DATA_DIR</code> 指定；未设置时为工作目录下 <code>hetu.db</code></td></tr>
-          <tr><td>数据库文件</td><td><code>hetu.db</code>（+ <code>-wal</code> / <code>-shm</code>）</td></tr>
-          <tr><td>日志</td><td><code>logs/</code>，Serilog 按天滚动，保留 7 天</td></tr>
-          <tr><td>SQLite 向量扩展</td><td><code>sqlite-vec/vec0.dll</code>（Linux/macOS 为 <code>vec0.so</code>），连接打开时自动加载</td></tr>
+          <tr><td>内容</td><td>一句话事实或偏好，越具体召回越准</td></tr>
+          <tr><td>类别</td><td>偏好 / 身份 / 工作 / 习惯 / 知识等，用于筛选与统计</td></tr>
+          <tr><td>重要性</td><td>1–5 星，影响召回排序与衰减速度</td></tr>
+          <tr><td>作用域</td><td>全局 / 会话 / 项目：决定在什么上下文里会被注入</td></tr>
+          <tr><td>生命周期</td><td>最近访问时间、访问次数、状态（新鲜 / 衰退中）由 Dream 维护</td></tr>
         </tbody>
       </table>
 
-      <h2>备份与迁移</h2>
+      <h2>召回时机</h2>
       <ul>
-        <li>设置 → 数据与备份：导出全部笔记为 Markdown 压缩包；备份与恢复数据库文件。</li>
-        <li>跨机器迁移：退出应用后整体拷贝数据目录（含 WAL 文件）。</li>
+        <li>对话输入框的「记忆」开关：按当前作用域（全局 ∪ 当前会话 ∪ 当前项目）做相似度召回并注入。</li>
+        <li>模型可主动调用 <code>search_memory</code> 工具查询。</li>
+        <li>作用域隔离的意义：项目细节不会被带进无关的对话，会话级偏好不会污染全局。</li>
       </ul>
-      <div class="note note--warn">运行中用文件级拷贝备份，可能丢掉尚未 checkpoint 的 WAL 内容。稳妥做法：在应用内退出后拷贝，或用内置备份功能。</div>
 
-      <h2>切换到 PostgreSQL</h2>
-      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
-export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
+      <h2>记忆图</h2>
+      <ul>
+        <li>把记忆按关联度可视化，便于发现重复或矛盾的条目。</li>
+        <li>可按作用域筛选（全部 / 全局 / 会话 / 项目），悬停查看内容。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/05-memories.png" alt="记忆页：记忆图、作用域筛选与 Dream 巩固状态"></div>
+      <span class="shot-hint">点图看原图</span>
 
-dotnet ef database update \
-  --project src/Hetu.Infrastructure.PostgresMigrations \
-  --startup-project src/Hetu.Api</code></pre></div>
-      <p>PostgreSQL 需 16+ 并启用 <code>pgvector</code> 扩展。两种数据库功能一致，但数据不互通：切换后需要在新的库里重建笔记与索引。</p>
-
-      <h2>向量存储</h2>
+      <h2>Dream 巩固</h2>
       <table>
-        <thead><tr><th>数据库</th><th>方案</th><th>维度</th></tr></thead>
+        <thead><tr><th>参数</th><th>作用</th></tr></thead>
         <tbody>
-          <tr><td>SQLite</td><td><code>sqlite-vec</code> 的 <code>vec0</code> 虚拟表（与元数据表通过 rowid 对应）</td><td>由 <code>Embedding:Dimensions</code> 决定，默认 1536</td></tr>
-          <tr><td>PostgreSQL</td><td><code>pgvector</code> 列 + 索引</td><td>同上</td></tr>
+          <tr><td>衰退天数</td><td>超过该天数未被访问的记忆进入「衰退中」</td></tr>
+          <tr><td>遗忘天数</td><td>超过该天数未被访问且重要性低的记忆会被遗忘（删除）</td></tr>
+          <tr><td>运行间隔</td><td>自动巩固周期，默认每 24 小时一次，可在设置里调整</td></tr>
+          <tr><td>阶段</td><td>合并重复记忆 → 衰减过时信息 → 遗忘无用条目，最后给出统计</td></tr>
         </tbody>
       </table>
+      <p>页面显示上次运行时间与「正在衰退」条数，可手动触发一次巩固；执行结果会给出合并 / 衰减 / 遗忘 / 剩余数量。</p>
 
-      <h2>安全边界</h2>
-      <table>
-        <thead><tr><th>项</th><th>实现</th></tr></thead>
-        <tbody>
-          <tr><td>API Key</td><td>ASP.NET DataProtection 加密后落库（Windows 用 DPAPI 保护密钥），日志与接口响应不含明文</td></tr>
-          <tr><td>SSH 凭据</td><td>同样加密存储</td></tr>
-          <tr><td>外发请求</td><td>只发往你配置的模型供应商、主动启用的搜索 / MCP 服务；无遥测上报</td></tr>
-          <tr><td>Markdown 渲染</td><td>经 DOMPurify 过滤，避免笔记内容注入脚本</td></tr>
-          <tr><td>命令执行</td><td>受权限模式约束（计划 / 只读 / 询问 / 自动 / 绕过），高风险操作默认需要确认</td></tr>
-          <tr><td>分享链接</td><td>只暴露单篇笔记的渲染结果，可随时停用，并记录访问次数</td></tr>
-          <tr><td>SQL 注入</td><td>全部走 EF Core 参数化查询</td></tr>
-        </tbody>
-      </table>
-    <div class="docs-pager"><a href="desktop.html">← 桌面应用</a><a href="architecture.html">架构与实现 →</a></div>
+      <h2>实践建议</h2>
+      <ul>
+        <li>把稳定的偏好写成全局记忆（「回答用中文，代码注释用英文」）。</li>
+        <li>项目相关的约定写成项目记忆，跟着项目上下文走。</li>
+        <li>一次只记一条事实，便于后续合并与遗忘；长篇内容更适合写成笔记再索引。</li>
+      </ul>
+    <div class="docs-pager"><a href="graph-wiki.html">← 知识图谱与 Wiki</a><a href="organize.html">看板与自动化 →</a></div>
     </div>
   </div>
 </main>

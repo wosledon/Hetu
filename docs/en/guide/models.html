@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Models &amp; usage · Hetu</title>
+<meta name="description" content="Models and usage in detail: provider protocols, model purposes, per-scenario defaults, proxy endpoints with routing and shadow models, usage metrics, compression pipeline and cost practices.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/models.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/models.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/models.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Models &amp; usage · Hetu">
+<meta property="og:description" content="Models and usage in detail: provider protocols, model purposes, per-scenario defaults, proxy endpoints with routing and shadow models, usage metrics, compression pipeline and cost practices.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/models.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/models.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html" aria-current="page">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Models &amp; usage</h1>
+      <p class="lede">Hetu ships no models of its own: it adapts protocols and assigns capability to scenarios, then records what every call cost.</p>
+
+      <h2>Providers and models</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Protocols</td><td>OpenAI-compatible (including Ollama / LM Studio / vLLM) and Anthropic</td></tr>
+          <tr><td>Connection</td><td>Base URL plus API key; keys are encrypted with DataProtection</td></tr>
+          <tr><td>Purposes</td><td><code>chat</code> (conversation and agent loop) / <code>embedding</code> (indexing and retrieval) / <code>completion</code> (light rewrites)</td></tr>
+          <tr><td>Model ID</td><td>Sent as-is in requests; must match what the provider expects</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Per-scenario default models</h2>
+      <table>
+        <thead><tr><th>Scenario</th><th>Typical choice</th></tr></thead>
+        <tbody>
+          <tr><td>Chat / code sessions</td><td>Your strongest reasoning model</td></tr>
+          <tr><td>Wiki generation / graph extraction</td><td>A mid-tier model with good long-context behaviour</td></tr>
+          <tr><td>Topic organizing / compression summaries</td><td>A cheap, fast model</td></tr>
+          <tr><td>Note AI / query rewriting</td><td>Low-latency small model</td></tr>
+          <tr><td>Embedding</td><td>A vector model whose dimensions match <code>Embedding:Dimensions</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Proxy service</h2>
+      <p>Entry: <code>/proxy</code>. Exposes your configured models through local compatible endpoints so editors, CLIs and scripts reuse the same keys and the same usage accounting.</p>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># OpenAI-compatible endpoint
+Base URL: http://localhost:5000/api/proxy/openai/v1
+API key : generated on the Proxy page
+
+# Anthropic-compatible endpoint
+Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
+      <table>
+        <thead><tr><th>Feature</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Routing</td><td>Controls which models are visible through the proxy</td></tr>
+          <tr><td>Shadow model</td><td>Sends the same request to a second model for output comparison</td></tr>
+          <tr><td>Usage attribution</td><td>Proxied calls are counted too, tagged with the <code>proxy</code> source</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Usage and cost</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>Total messages, input / compressed / output / cached tokens, average latency, active days, today's usage</td></tr>
+          <tr><td>Trends</td><td>7 / 30 / 90 day curves, plus week×hour and year×day heatmaps</td></tr>
+          <tr><td>Distribution</td><td>By model and by source (chat / code / kanban / Wiki / graph / scheduled / proxy …)</td></tr>
+          <tr><td>Detail log</td><td>Paged entries with time, model, token segments, latency, source and content preview; filterable by source and business reference</td></tr>
+        </tbody>
+      </table>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/09-usage.png" alt="Usage page: token trend, distribution by model and source, heatmaps"></div>
+      <span class="shot-hint">Click for full size</span>
+
+      <h2>Compression pipeline</h2>
+      <p>Entry: Settings → Cost control. Long conversations cannot grow forever, so the pipeline summarizes at a threshold.</p>
+      <table>
+        <thead><tr><th>Parameter</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Trigger threshold</td><td>Context usage ratio at which compression starts</td></tr>
+          <tr><td>Target size</td><td>How much content to keep afterwards</td></tr>
+          <tr><td>Summary model</td><td>Which model writes the summary (falls back to the default chat model)</td></tr>
+          <tr><td>Accounting</td><td>Both pre- and post-compression tokens are recorded so savings are measurable</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Keeping cost down</h2>
+      <table>
+        <thead><tr><th>Practice</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Use cheap models for indexing, organizing and tagging</td><td>High volume, low reasoning demand</td></tr>
+          <tr><td>Only enable knowledge base / memory toggles when needed</td><td>Avoids injecting retrieval results into every request</td></tr>
+          <tr><td>Use isolated worktrees and define task boundaries in code sessions</td><td>Fewer trial-and-error turns</td></tr>
+          <tr><td>Autopilot for long tasks, interactive for quick questions</td><td>The former saves confirmation rounds, the latter avoids pointless tool calls</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="extensions.html">← Extensions & MCP</a><a href="desktop.html">Desktop app →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
