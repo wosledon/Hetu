@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent workspace · Hetu</title>
+<meta name="description" content="Agent workspace in detail: sessions and topics, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/workspace.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/workspace.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/workspace.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Agent workspace · Hetu">
+<meta property="og:description" content="Agent workspace in detail: sessions and topics, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/workspace.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/workspace.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html" aria-current="page">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Agent workspace</h1>
+      <p class="lede">Entry point: <strong>Code</strong> in the left navigation (route <code>/code</code>). Chat and coding sessions share one screen: a group / topic / session tree on the left, the message stream on the right. <code>/chat</code> and <code>/work</code> redirect here.</p>
+
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/02-code.png" alt="Agent workspace: session tree, message stream, tool calls and input toolbelt"></div>
+      <span class="shot-hint">Click for full size</span>
+
+      <h2>Sessions and topics</h2>
+      <table>
+        <thead><tr><th>Concept</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Group</td><td>Container for topics, used to partition by theme or project</td></tr>
+          <tr><td>Topic</td><td>Own model, system prompt, context window and history; any message can be forked into a new topic</td></tr>
+          <tr><td>Lazy creation</td><td>New sessions / topics only take a placeholder slot — nothing is written until the first message is sent (the title comes from its first 50 characters)</td></tr>
+          <tr><td>Message actions</td><td>Copy, edit and resend, delete; thinking traces collapse; long replies can be copied as Markdown</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Streaming events</h2>
+      <p>Replies stream over SSE and the UI renders each event type in its own block:</p>
+      <table>
+        <thead><tr><th>Event</th><th>UI</th></tr></thead>
+        <tbody>
+          <tr><td><code>delta</code></td><td>Incremental body text</td></tr>
+          <tr><td>thinking</td><td>Collapsible reasoning trace (when deep thinking is on)</td></tr>
+          <tr><td>tool call / result</td><td>Tool name, arguments, output summary, expandable</td></tr>
+          <tr><td>web / knowledge / memory hits</td><td>Hit list (title plus snippet) that links back to the source</td></tr>
+          <tr><td>todo plan</td><td>Structured plan from the <code>todo</code> tool, checked off live</td></tr>
+          <tr><td><code>steering</code></td><td>Shown when a mid-run instruction is accepted</td></tr>
+          <tr><td>checkpoint</td><td>File snapshot taken before a task</td></tr>
+          <tr><td>approval request</td><td>Risky operations ask for confirmation inline</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Input toolbelt</h2>
+      <table>
+        <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Web search</td><td>Rewrites the query, searches, and injects results with citations</td></tr>
+          <tr><td>Knowledge base</td><td>Vector recall over indexed notes, files and URLs</td></tr>
+          <tr><td>Memory</td><td>Recalls long-term memory scoped to global ∪ current session ∪ current project</td></tr>
+          <tr><td>Permission mode</td><td>plan / readonly / ask / auto / bypass (see below)</td></tr>
+          <tr><td>Model</td><td>Temporary model override for this request</td></tr>
+          <tr><td>Agent</td><td>Apply a prompt preset (may bring its own tool allowlist and approvals)</td></tr>
+          <tr><td>Reasoning effort</td><td>Low / medium / high — controls thinking and tool depth</td></tr>
+          <tr><td><code>/</code> menu</td><td>Type <code>/</code> to invoke a skill or agent</td></tr>
+          <tr><td>Attachments</td><td>Images (for vision models) and files; very long pastes collapse into a block</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Permission modes</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Allowed</th></tr></thead>
+        <tbody>
+          <tr><td><code>plan</code></td><td>Planning and discussion only — no file writes, no side-effecting commands</td></tr>
+          <tr><td><code>readonly</code></td><td>Read files and run read-only commands</td></tr>
+          <tr><td><code>ask</code> (default)</td><td>Every write or sensitive command asks for approval first</td></tr>
+          <tr><td><code>auto</code></td><td>Routine operations run directly; sensitive ones still ask</td></tr>
+          <tr><td><code>bypass</code></td><td>Everything allowed — only sensible in disposable environments</td></tr>
+        </tbody>
+      </table>
+      <p>Code sessions additionally have a <strong>run mode</strong>: <strong>interactive</strong> (confirm step by step) or <strong>Autopilot</strong> (run to completion). Approval granularity is configured per tool on the Agents page.</p>
+
+      <h2>Queue and mid-run steering</h2>
+      <ul>
+        <li><strong>Queue</strong>: messages sent while a reply is streaming wait in a queue bar — edit, delete, send immediately, or let them fire after the current turn.</li>
+        <li><strong>Steering</strong>: inject an instruction into the running turn; the agent picks it up at its next loop iteration. Useful for “stop touching that file”.</li>
+      </ul>
+
+      <h2>Context and compression</h2>
+      <ul>
+        <li>The ring indicator shows current context usage; compression can trigger near the threshold and posts a notice above the input.</li>
+        <li>Compression is driven by the pipeline configuration (when to trigger, target size, which model summarizes); both pre- and post-compression tokens are recorded in usage.</li>
+      </ul>
+
+      <h2>Distill a topic into a note</h2>
+      <p>Four styles: summary, detailed, Q&amp;A, or a custom prompt; streaming preview plus a notebook picker before saving.</p>
+
+      <h2>Shortcuts</h2>
+      <table>
+        <thead><tr><th>Action</th><th>Keys</th></tr></thead>
+        <tbody>
+          <tr><td>New session</td><td><span class="kbd">Alt</span> + <span class="kbd">N</span></td></tr>
+          <tr><td>Focus input</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">L</span></td></tr>
+          <tr><td>Recall previous input</td><td><span class="kbd">↑</span> in the input box</td></tr>
+          <tr><td>Send / newline</td><td><span class="kbd">Enter</span> / <span class="kbd">Shift</span> + <span class="kbd">Enter</span></td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="notes.html">← Notes</a><a href="code-sessions.html">Code sessions →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

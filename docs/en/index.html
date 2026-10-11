@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hetu · local-first AI knowledge &amp; agent workspace</title>
+<meta name="description" content="Hetu is a local-first AI knowledge and agent workspace: notes, chat and coding sessions on one SQLite/PostgreSQL stack, with vector search, knowledge graph, Wiki generation, long-term memory, kanban and workflows, plus MCP and multiple model providers.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Hetu · local-first AI knowledge &amp; agent workspace">
+<meta property="og:description" content="Hetu is a local-first AI knowledge and agent workspace: notes, chat and coding sessions on one SQLite/PostgreSQL stack, with vector search, knowledge graph, Wiki generation, long-term memory, kanban and workflows, plus MCP and multiple model providers.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html" aria-current="page">Home</a>
+      <a href="../guide/index.html">Docs</a>
+      <a href="../guide/architecture.html">Architecture</a>
+      <a href="../guide/getting-started.html">Download</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../index.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="tag">Latest <span data-latest-version>v0.3.3</span> · Apache-2.0 · Local-first</span>
+        <h1>A local-first AI knowledge &amp; agent workspace</h1>
+        <p class="lede">Hetu puts Markdown notes, chat and coding sessions on one data layer: SQLite + <code>sqlite-vec</code> (or PostgreSQL + <code>pgvector</code>) stores content and vectors, ASP.NET Core 10 serves the API and the agent loop, React 19 renders the UI, and a Tauri 2 shell ships installers and auto-update. Model calls only go to providers you configure.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="guide/getting-started.html">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            Get started
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/wosledon/Hetu/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+            Download
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/wosledon/Hetu">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.5 2.3 1.07 2.86.82.09-.64.35-1.07.63-1.32-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.9-1.29 2.74-1.02 2.74-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.85-2.35 4.7-4.58 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+            Source
+          </a>
+        </div>
+        <div class="hero-meta">
+          <span>ASP.NET Core 10 · EF Core 10</span>
+          <span>React 19 · TypeScript 6 · Vite 8</span>
+          <span>SQLite + sqlite-vec / PostgreSQL + pgvector</span>
+          <span>MCP (JSON-RPC 2.0)</span>
+        </div>
+      </div>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/02-code.png" width="1440" height="900" alt="Agent workspace: session tree on the left, message stream with tool calls and the input toolbelt on the right"></div>
+    </div>
+  </section>
+
+  <section class="section section--alt">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">What it is</span>
+        <h2>One process, one database, two entry points</h2>
+        <p>The Notes page is for writing and organizing; the Code page (<code>/code</code>) is for asking and doing. Both read and write the same SQLite/PostgreSQL database and share the knowledge base, graph, memories and task system. The desktop build starts the backend as a sidecar, with data in the OS user data directory.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>Notes</h3>
+          <p>Milkdown WYSIWYG plus a CodeMirror source view; select text to run AI actions (polish / translate / condense / expand / explain / custom); notebooks, tags, version history, share links, trash, Markdown export.</p>
+        </div>
+        <div class="card">
+          <h3>Agent workspace</h3>
+          <p>Sessions and topics, SSE event stream, tool calls with approvals, five permission modes, reasoning effort, send queue and mid-run steering; distill a topic into a note.</p>
+        </div>
+        <div class="card">
+          <h3>Code sessions</h3>
+          <p>Local or SSH repositories; current branch or an isolated worktree; local and remote branches with one-button Git sync; seven panels: files, changes, checkpoints, Git, PR, browser, terminal.</p>
+        </div>
+        <div class="card">
+          <h3>Retrieval and structure</h3>
+          <p>Notes, files and URLs are chunked and embedded; the knowledge graph extracts entities and relations; Wiki generation turns a repository into docs; memories persist across sessions with Dream consolidation.</p>
+        </div>
+        <div class="card">
+          <h3>Organization and automation</h3>
+          <p>Kanban board (tasks executed by agents with recorded run steps), visual workflows, background and cron-scheduled jobs, inbox notifications.</p>
+        </div>
+        <div class="card">
+          <h3>Extensions and models</h3>
+          <p>Agents (prompt presets with tool allowlists and per-tool approval), skills (built-in, custom, on-disk), built-in tool toggles, MCP servers, multiple providers with per-scenario defaults, a compatibility proxy, usage and cost tracking.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Implementation</span>
+        <h2>Technical choices and boundaries</h2>
+        <p>Everything below is a mechanism that actually runs in the codebase, not a concept slide.</p>
+      </div>
+      <table>
+        <thead><tr><th>Topic</th><th>Implementation</th></tr></thead>
+        <tbody>
+          <tr><td>Storage</td><td>SQLite by default (<code>Data Source=hetu.db</code>) with the <code>sqlite-vec</code> extension; switchable to PostgreSQL 16+ with <code>pgvector</code> via <code>DatabaseProvider</code> — same feature set</td></tr>
+          <tr><td>Paging and aggregation</td><td>List endpoints are paged and aggregated in the database (SQL <code>COUNT</code> + <code>OFFSET/FETCH</code>, <code>GROUP BY</code> for counts and summaries); knowledge-base status no longer loads whole tables</td></tr>
+          <tr><td>SQLite time ordering</td><td>The provider cannot order or aggregate <code>DateTimeOffset</code> in SQL; the repository ships <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code> that project the sort key, order in memory and fetch the page by primary key</td></tr>
+          <tr><td>Read caching</td><td>Polled read-only status endpoints carry a short <code>[ResponseCache]</code> to avoid duplicate queries</td></tr>
+          <tr><td>Agent loop</td><td>SSE event stream (<code>delta</code> / thinking / tool call and result / <code>steering</code> / checkpoints / approvals / notices); queueing and mid-run steering; long work is recorded as <code>TaskItem</code> rows</td></tr>
+          <tr><td>Code isolation</td><td><code>git worktree</code> per session, defaulting to <code>.hetu-worktrees/&lt;repo&gt;/&lt;worktree&gt;</code> next to the repository, with automatic cleanup by merge status and idle time</td></tr>
+          <tr><td>PR integration</td><td>Detects <code>gh</code> or <code>glab</code> from the <code>origin</code> remote; prints platform-specific install hints when the CLI is missing</td></tr>
+          <tr><td>Desktop</td><td>Tauri 2 shell with a backend sidecar; <code>fat</code> / <code>slim</code> installer channels; updates via GitHub with three mirror fallbacks; an installer hook kills leftover backend processes before overwriting files</td></tr>
+          <tr><td>Quality bar</td><td>Backend <code>dotnet build</code> and frontend <code>eslint</code> must be warning-free, and no suppression is accepted (<code>pragma</code> / <code>eslint-disable</code> / <code>SuppressMessage</code>)</td></tr>
+        </tbody>
+      </table>
+      <p>Deeper details (layering, request path, data model, performance work) are in <a href="guide/architecture.html">Architecture</a>.</p>
+    </div>
+  </section>
+
+  <section class="section section--alt">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Screenshots</span>
+        <h2>Real UI (click for full size)</h2>
+        <p>Every shot below is real local data. If a thumbnail is too small to read, click it.</p>
+      </div>
+      <div class="gallery">
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/01-notes.png" alt="Notes page: notebook tree, note list and Markdown editor"></div>
+          <figcaption><b>Notes</b>: notebook tree, note list and editor; the toolbar holds index generation, graph extraction, tagging and flowchart actions.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/03-knowledge-base.png" alt="Knowledge base: index coverage, vector dimensions and index management"></div>
+          <figcaption><b>Knowledge base</b>: coverage, chunk counts, vector dimensions, per-item re-indexing and a semantic search playground.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/04-graph.png" alt="Knowledge graph: entities colored by type, edges for relations"></div>
+          <figcaption><b>Knowledge graph</b>: entities and relations extracted from notes, colored by type, searchable and clickable back to the source note.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/07-wiki.png" alt="Wiki page: generated suites and their pages"></div>
+          <figcaption><b>Wiki</b>: module pages plus an overview per repository, grouped into suites with generation time and update state.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/05-memories.png" alt="Memories page: memory graph, scope filters and Dream consolidation"></div>
+          <figcaption><b>Memories</b>: long-term memory by scope (global / session / project); Dream merges, decays and forgets over time.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/06-kanban.png" alt="Kanban board with five columns and archived cards"></div>
+          <figcaption><b>Kanban</b>: in-progress / review / blocked / done / archived; tasks can be assigned to and executed by agents.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/09-usage.png" alt="Usage: token trend, distribution by model and source, heatmaps"></div>
+          <figcaption><b>Usage &amp; cost</b>: tokens (input / compressed / output / cached), latency, distribution by model and source, heatmaps.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/11-projects.png" alt="Projects page: local and SSH project cards"></div>
+          <figcaption><b>Projects</b>: local directories and SSH remotes in groups; open in Code or trigger Wiki generation.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Start</span>
+        <h2>Two ways to run it</h2>
+      </div>
+      <div class="grid grid-2">
+        <div>
+          <h3>Desktop build (no toolchain)</h3>
+          <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># Installers: Windows NSIS / MSI, Linux AppImage / deb
+# https://github.com/wosledon/Hetu/releases/latest
+#
+# fat  = bundles the .NET runtime (~100 MB+)
+# slim = smaller, requires the .NET 10 runtime</code></pre></div>
+          <p>Closing the window minimizes to the tray and the backend keeps running; use the tray menu to quit.</p>
+        </div>
+        <div>
+          <h3>From source</h3>
+          <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
+cd Hetu
+
+pwsh ./scripts/start.ps1     # Windows
+./scripts/start.sh           # Linux / macOS
+
+# frontend http://localhost:5174
+# API      http://localhost:5000/api
+# docs     http://localhost:5000/scalar/v1</code></pre></div>
+          <p>Requires .NET SDK 10.0+ and Node.js 20+.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--alt">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Documentation</span>
+        <h2>One page per feature area</h2>
+        <p>Each page covers the concrete knobs: configuration keys, panels, shortcuts and troubleshooting.</p>
+      </div>
+      <div class="docs-cards">
+        <a href="guide/getting-started.html"><strong>Getting started</strong><span>Install, run, first provider and index</span></a>
+        <a href="guide/notes.html"><strong>Notes</strong><span>Editors, AI actions, versions, sharing, export</span></a>
+        <a href="guide/workspace.html"><strong>Agent workspace</strong><span>Sessions, permission modes, queue and steering</span></a>
+        <a href="guide/code-sessions.html"><strong>Code sessions</strong><span>Worktrees, branches, seven panels, PR flow</span></a>
+        <a href="guide/knowledge.html"><strong>Knowledge base</strong><span>Chunking, vectors, index management, search</span></a>
+        <a href="guide/graph-wiki.html"><strong>Graph &amp; Wiki</strong><span>Entity extraction and generated docs</span></a>
+        <a href="guide/memories.html"><strong>Memories &amp; Dream</strong><span>Scopes, recall, consolidation, forgetting</span></a>
+        <a href="guide/organize.html"><strong>Kanban &amp; automation</strong><span>Board, workflows, background and cron jobs</span></a>
+        <a href="guide/extensions.html"><strong>Extensions &amp; MCP</strong><span>Agents, skills, tools, MCP servers, apps</span></a>
+        <a href="guide/models.html"><strong>Models &amp; usage</strong><span>Providers, per-scenario defaults, proxy, cost</span></a>
+        <a href="guide/architecture.html"><strong>Architecture</strong><span>Layers, request path, data model, performance</span></a>
+        <a href="guide/faq.html"><strong>FAQ</strong><span>Install, indexing, worktrees, updates, performance</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

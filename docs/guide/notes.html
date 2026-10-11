@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>笔记 · Hetu</title>
+<meta name="description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、笔记本与标签、历史版本、分享链接、回收站、导出与快捷键。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/notes.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/notes.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="笔记 · Hetu">
+<meta property="og:description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、笔记本与标签、历史版本、分享链接、回收站、导出与快捷键。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/notes.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/notes.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html" aria-current="page">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>笔记</h1>
+      <p class="lede">入口是左侧导航「笔记」（路由 <code>/</code>）。三栏结构：笔记本树 / 笔记列表 / 编辑器。</p>
+
+      <h2>编辑器</h2>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>编辑模式</td><td>所见即所得（Milkdown：标题、列表、表格、代码块、数学公式 KaTeX、Mermaid 图、图片、任务列表）与源码模式（CodeMirror，Markdown 高亮）切换，支持分屏</td></tr>
+          <tr><td>自动保存</td><td>停止输入约 3 秒后保存，标题栏显示草稿 / 已保存状态；<span class="kbd">Ctrl</span>+<span class="kbd">S</span> 可立即保存</td></tr>
+          <tr><td>图片</td><td>粘贴 / 拖入即上传到附件目录并插入引用</td></tr>
+          <tr><td>预览渲染</td><td>Mermaid、KaTeX、GFM 表格与任务列表；输出经 DOMPurify 过滤</td></tr>
+        </tbody>
+      </table>
+
+      <h2>AI 写作</h2>
+      <ul>
+        <li><strong>选区动作</strong>：选中文字后浮动菜单提供润色、翻译、精简、扩写、解释、自定义提示；结果可替换选区或插入到下方。</li>
+        <li><strong>笔记助手</strong>：整篇笔记级别的对话面板，可按次指定模型（不受默认模型限制），适合「把这节改写成要点」这类整篇操作。</li>
+        <li><strong>笔记内动作</strong>：编辑器顶部按钮——生成知识库索引、提取知识图谱、生成标签、生成流程图（Mermaid 代码块），都会以后台任务形式执行并在完成后回填。</li>
+      </ul>
+
+      <h2>笔记本与标签</h2>
+      <table>
+        <thead><tr><th>功能</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td>笔记本</td><td>无限层级；新建、重命名、删除、右键菜单；未归档笔记落在「未分类」</td></tr>
+          <tr><td>标签</td><td>独立页面 <code>/tags</code> 管理：配色、重命名、合并；笔记页侧栏可按标签筛选</td></tr>
+          <tr><td>置顶 / 收藏</td><td>列表置顶优先排序，其次是最近更新时间（排序在数据库完成，分页稳定）</td></tr>
+          <tr><td>搜索</td><td>笔记列表顶部搜索框；按标题与内容匹配</td></tr>
+        </tbody>
+      </table>
+
+      <h2>历史版本</h2>
+      <ul>
+        <li>每次内容变更自动生成快照，按笔记保留最近 20 个版本（超出部分在数据库侧用一条 <code>DELETE</code> 清理）。</li>
+        <li>可预览任意版本、查看差异、一键还原；还原前会把当前内容先存为一个新版本。</li>
+      </ul>
+
+      <h2>分享链接</h2>
+      <ul>
+        <li>为单篇笔记生成公开只读链接，有效期可选永久 / 24 小时 / 3 天。</li>
+        <li>记录访问次数，可随时停用；公开页路由是 <code>/share/:code</code>，只渲染那一篇笔记，不暴露其他数据。</li>
+      </ul>
+
+      <h2>回收站与导出</h2>
+      <ul>
+        <li><strong>回收站</strong>（<code>/trash</code>）：软删除笔记的恢复与彻底删除；默认保留 30 天后清理。</li>
+        <li><strong>导出</strong>：设置 → 数据与备份可把全部笔记导出为 Markdown 压缩包，也可备份 / 恢复数据库文件。详见 <a href="data.html">数据与安全</a>。</li>
+      </ul>
+
+      <h2>快捷键</h2>
+      <table>
+        <thead><tr><th>操作</th><th>快捷键</th></tr></thead>
+        <tbody>
+          <tr><td>保存</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">S</span></td></tr>
+          <tr><td>新建笔记</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">N</span></td></tr>
+          <tr><td>加粗 / 斜体</td><td><span class="kbd">Ctrl</span>+<span class="kbd">B</span> / <span class="kbd">Ctrl</span>+<span class="kbd">I</span></td></tr>
+          <tr><td>插入代码块</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">K</span></td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="getting-started.html">← 快速开始</a><a href="workspace.html">Agent 工作台 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

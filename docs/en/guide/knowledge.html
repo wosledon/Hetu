@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge base · Hetu</title>
+<meta name="description" content="Knowledge base in detail: three sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/knowledge.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Knowledge base · Hetu">
+<meta property="og:description" content="Knowledge base in detail: three sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/knowledge.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html" aria-current="page">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Knowledge base</h1>
+      <p class="lede">Notes, files and URLs are chunked and embedded so chat and semantic search can retrieve them. Entry: <strong>Knowledge base</strong> (route <code>/knowledge-base</code>).</p>
+
+      <h2>Sources</h2>
+      <table>
+        <thead><tr><th>Source</th><th>How to add</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Notes</td><td>“Generate index” in the editor toolbar, or the batch action on the knowledge base page</td><td>Chunked along Markdown structure</td></tr>
+          <tr><td>Files</td><td>Upload on the knowledge base page</td><td>File name, size and MIME are stored; text is extracted then chunked</td></tr>
+          <tr><td>URLs</td><td>Paste a URL</td><td>Page text (and title) is fetched, then chunked</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Indexing pipeline</h2>
+      <ol>
+        <li><strong>Chunk</strong>: content is split by structure; each chunk stores its index, method and text.</li>
+        <li><strong>Embed</strong>: the model assigned to the <code>embedding</code> purpose produces vectors, written to the vector store (<code>sqlite-vec</code> <code>vec0</code> virtual table on SQLite, <code>pgvector</code> column on PostgreSQL).</li>
+        <li><strong>Record metadata</strong>: model name and dimensions per chunk power the status view and validation.</li>
+        <li><strong>Task it</strong>: the whole run is a background task (<code>GenerateEmbedding</code> / <code>GenerateKnowledgeItemEmbedding</code>) with duration and failure reason visible on the Tasks page.</li>
+      </ol>
+
+      <h2>The three tabs</h2>
+      <table>
+        <thead><tr><th>Tab</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>Total items, indexed items, coverage, vector dimensions, split by type (notes / files / URLs), running task count</td></tr>
+          <tr><td>Index management</td><td>Per-item status: chunk count, model, dimensions, last indexed time, whether a task is running; re-index one item or batch-generate indexes for everything unindexed</td></tr>
+          <tr><td>Search test</td><td>Run a query against the vector index, adjust Top-K, inspect highlighted chunks — the fastest way to judge index quality</td></tr>
+        </tbody>
+      </table>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/03-knowledge-base.png" alt="Knowledge base: index coverage, vector dimensions and index management"></div>
+      <span class="shot-hint">Click for full size</span>
+
+      <h2>How retrieval is used</h2>
+      <ul>
+        <li>The “Knowledge base” toggle above the input injects recall results as context and shows the hit list.</li>
+        <li>The model can also query it through tools (note search, knowledge retrieval), constrained by permission mode and tool allowlists.</li>
+        <li>Wiki generation can layer semantic search on top of repository material.</li>
+      </ul>
+
+      <h2>Configuration and limits</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td><code>Embedding:Dimensions</code></td><td>Vector dimensions, default 1536; must match the model or SQLite writes fail</td></tr>
+          <tr><td>Changing models</td><td>Switching embedding models requires re-indexing (old vectors have the wrong dimensions)</td></tr>
+          <tr><td>Anthropic</td><td>No public embedding API — use an OpenAI-compatible provider</td></tr>
+          <tr><td>Deletion semantics</td><td>Moving a note to trash soft-deletes the knowledge item but keeps chunks and vectors, so restoring it stays indexed</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Performance notes</h2>
+      <ul>
+        <li>Status is aggregated in the database (counts per type with <code>GROUP BY</code>, <code>DISTINCT</code> indexed items, per-item chunk summaries) instead of loading all vector metadata.</li>
+        <li>The page only polls while there are unindexed items or running tasks, and the status endpoints carry a short response cache.</li>
+      </ul>
+    <div class="docs-pager"><a href="code-sessions.html">← Code sessions</a><a href="graph-wiki.html">Graph & Wiki →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

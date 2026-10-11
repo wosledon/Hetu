@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ · Hetu</title>
+<meta name="description" content="FAQ: install failures (locked vec0.dll), ports and data directory, local models, stuck indexing, poor semantic recall, worktrees, missing PR CLIs, updater manifest errors, performance and database size.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/faq.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/faq.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/faq.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="FAQ · Hetu">
+<meta property="og:description" content="FAQ: install failures (locked vec0.dll), ports and data directory, local models, stuck indexing, poor semantic recall, worktrees, missing PR CLIs, updater manifest errors, performance and database size.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/faq.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/faq.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html" aria-current="page">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>FAQ</h1>
+      <p class="lede">Common issues, each tied to a concrete mechanism or command. For anything missing, open an issue with a log excerpt and reproduction steps.</p>
+
+      <h2>Install and run</h2>
+      <h3>Installer fails with <code>Error opening file for writing: …vec0.dll</code></h3>
+      <p>A previous run left a backend process holding <code>sqlite-vec\vec0.dll</code>. End every <code>Hetu.Api.exe</code> in Task Manager and retry. Newer installers ship a preinstall hook that clears leftovers automatically.</p>
+      <h3>Port 5174 is not reachable from source</h3>
+      <ul>
+        <li>Confirm the backend is up: <code>curl http://localhost:5000/api/health</code>.</li>
+        <li>Run <code>npm install</code> in <code>frontend/</code> first; if the port is taken, Vite picks another one — check the terminal output.</li>
+      </ul>
+      <h3>Changing ports or the data directory</h3>
+      <p>The backend takes <code>--urls</code> for its address and <code>HETU_DATA_DIR</code> for storage; the Vite port is <code>server.port</code> in <code>frontend/vite.config.ts</code>.</p>
+
+      <h2>Models</h2>
+      <h3>Can I use only local models?</h3>
+      <p>Yes. Any OpenAI-compatible server (Ollama, LM Studio, vLLM …) works as a provider — point Base URL at it. If you also embed locally, keep dimensions aligned with <code>Embedding:Dimensions</code>.</p>
+      <h3>Why can't Anthropic do embeddings?</h3>
+      <p>Anthropic exposes no public embedding API, so route the <code>embedding</code> purpose to an OpenAI-compatible provider.</p>
+      <h3>Model errors or timeouts</h3>
+      <ul>
+        <li>Use the connection test on the provider page with a <code>chat</code> model first.</li>
+        <li>The usage detail log shows failed calls with time and source; pair it with the backend logs in <code>logs/</code>.</li>
+        <li>Local servers have context and concurrency limits: if a compressed session still exceeds them, reduce injected retrieval results per turn.</li>
+      </ul>
+
+      <h2>Indexing and retrieval</h2>
+      <h3>Indexing stalls or coverage stays low</h3>
+      <ul>
+        <li>Check the Tasks page for failed jobs — the reason is written into the task detail.</li>
+        <li>Verify the embedding provider with the knowledge base search test.</li>
+        <li>Switching embedding models changes dimensions, so re-indexing is required.</li>
+      </ul>
+      <h3>Semantic search returns poor results</h3>
+      <ul>
+        <li>Confirm the item is actually indexed (chunk count in index management).</li>
+        <li>Make the query more specific; adjust Top-K in the search test to see recall differences.</li>
+        <li>Structured, longer notes chunk better than scattered bullet fragments.</li>
+      </ul>
+
+      <h2>Code sessions and worktrees</h2>
+      <h3>Do worktrees touch my repository?</h3>
+      <p>No. A worktree is a separate directory created by <code>git worktree</code> (default: <code>.hetu-worktrees/</code> next to the repository) with its own branch and working tree; your main checkout's branch and files are unaffected.</p>
+      <h3>Switching branch mid-session</h3>
+      <p>Workspace and branch are fixed once a session starts, so edits cannot land in the wrong place. Start a new session, or operate branches from the Git panel.</p>
+      <h3>Worktrees pile up</h3>
+      <p>Enable automatic cleanup in Settings → Workspace and set the idle threshold (only merged, clean worktrees are removed). “Clean now” runs it manually; with cleanup off, delete directories yourself or use <code>git worktree remove</code>.</p>
+      <h3>PR panel says gh / glab is missing</h3>
+      <p>PR support reuses the local GitHub / GitLab CLI. The panel prints the platform install command (for example <code>winget install --id GitHub.cli</code>); refresh after installing.</p>
+
+      <h2>Updates</h2>
+      <h3><code>Could not fetch a valid release JSON from the remote</code></h3>
+      <p>The updater manifest could not be fetched. Upgrade to the latest build; if it persists, open <code>https://github.com/wosledon/Hetu/releases/latest/download/latest.json</code> (slim channel: <code>latest-slim.json</code>) in a browser to confirm reachability, then check connectivity to the mirrors (<code>ghproxy.net</code> and friends).</p>
+
+      <h2>Performance and size</h2>
+      <h3>Does it slow down as data grows?</h3>
+      <p>Lists and statistics run in the database (<code>COUNT</code> + <code>OFFSET/FETCH</code>, <code>GROUP BY</code> aggregates) and status endpoints are briefly cached, so paging and counters stay constant-cost even with tens of thousands of notes.</p>
+      <h3>How large is the database?</h3>
+      <p>Mostly vectors: one per chunk (default 1536-dim float32 ≈ 6 KB). Reduce chunk count or use a lower-dimension embedding model (update the setting and re-index).</p>
+      <h3>Does it work offline?</h3>
+      <p>The application runs fully offline; network access is only needed for cloud models, web search or external MCP servers.</p>
+    <div class="docs-pager"><a href="architecture.html">← Architecture</a><a href="dev.html">Development →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

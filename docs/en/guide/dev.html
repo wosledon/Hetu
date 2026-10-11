@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Development · Hetu</title>
+<meta name="description" content="Development: repository layout, build and verify commands (zero-warning policy), gotchas, release flow (bump two versions, tag to trigger CI) and commit message format.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/dev.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/dev.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/dev.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Development · Hetu">
+<meta property="og:description" content="Development: repository layout, build and verify commands (zero-warning policy), gotchas, release flow (bump two versions, tag to trigger CI) and commit message format.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/dev.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/dev.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html" aria-current="page">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Development</h1>
+      <p class="lede">An ASP.NET Core + React full-stack project with a Tauri desktop shell. Read <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">AGENTS.md</a> in the repository root before changing code.</p>
+
+      <h2>Repository layout</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>src/
+├── Hetu.Api/                                  controllers, SSE, background workers, Program.cs
+├── Hetu.Core/                                 entities, domain services, repository interfaces
+├── Hetu.Infrastructure/                       EF Core, repositories, AI providers, MCP, sqlite-vec
+├── Hetu.Infrastructure.PostgresMigrations/    PostgreSQL migrations
+└── Hetu.Shared/                               DTOs, enums, constants (frontend/backend contract)
+frontend/src/{pages,components,hooks,stores,services,types,utils,i18n}
+shell/hetu-desktop/{src,src-tauri}             Rust shell, Tauri config, installer hooks
+scripts/                                       start / publish / release / smoke tests
+docs/                                          this site and screenshots</code></pre></div>
+
+      <h2>Build and verify</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># backend (expect zero warnings and zero errors)
+dotnet build src/Hetu.Api/Hetu.Api.csproj -c Release -v q
+
+# frontend type check and lint
+cd frontend &amp;&amp; npx eslint . &amp;&amp; npx tsc -b
+
+# API smoke tests (backend running)
+./scripts/test-api.sh
+
+# Rust shell
+cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
+      <div class="note"><strong>Zero warnings.</strong> No <code>#pragma warning disable</code>, <code>SuppressMessage</code>, <code>eslint-disable</code> or <code>@ts-ignore</code>. Fix nullability with guards, platform APIs with <code>OperatingSystem.IsXxxVersionAtLeast</code>, and dependency advisories by upgrading.</div>
+
+      <h2>Gotchas worth knowing</h2>
+      <table>
+        <thead><tr><th>Area</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>List endpoints</td><td>Always paged, with paging and ordering done in the database (never <code>ToList()</code> then <code>Skip/Take</code>)</td></tr>
+          <tr><td>SQLite time ordering</td><td>Use <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code>, or project the sort key and order in memory</td></tr>
+          <tr><td>Frontend effects</td><td>Never call <code>setState</code> synchronously inside <code>useEffect</code> — express it as derived state</td></tr>
+          <tr><td>Component exports</td><td>Component files export components only; helpers go to <code>utils/</code> (otherwise Fast Refresh breaks)</td></tr>
+          <tr><td>Localization</td><td>Add both languages together (backend <code>Locales/{zh,en}</code>, frontend <code>i18n/locales/{zh,en}</code>)</td></tr>
+          <tr><td>Async iterators</td><td>Cancellation token parameters need <code>[EnumeratorCancellation]</code>, otherwise cancellation is ignored (CS8425)</td></tr>
+          <tr><td>Background work</td><td>Submit to <code>IBackgroundTaskCoordinator</code> rather than fire-and-forget <code>Task.Run</code></td></tr>
+          <tr><td>This site</td><td>Keep both language versions in sync and click through pages locally after editing</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Release flow</h2>
+      <ol>
+        <li>Bump the version in <strong>two</strong> places: <code>shell/hetu-desktop/src-tauri/tauri.conf.json</code> and <code>src/Hetu.Api/Hetu.Api.csproj</code> (the About page reads the latter).</li>
+        <li>Merge the PR into <code>main</code>.</li>
+        <li>Tag to trigger the release build:</li>
+      </ol>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>pwsh ./scripts/tag-release.ps1 -Version 0.4.0</code></pre></div>
+      <p>CI builds signed Windows and Linux installers for both the fat and slim channels, generates the updater manifests (<code>latest*.json</code> plus three mirror variants) and creates the GitHub Release. If any channel manifest cannot be generated the release fails on purpose, so a build that cannot update itself is never published.</p>
+
+      <h2>Commit messages</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+# type : feat | fix | docs | style | refactor | perf | test | chore
+# scope: api | ui | db | ai | work | desktop | config</code></pre></div>
+
+      <h2>Current status</h2>
+      <ul>
+        <li>No automated test project yet; the current gate is a warning-free Release build plus <code>eslint</code> / <code>tsc</code>, API smoke tests and real browser checks. Contributions of an xUnit test project are welcome.</li>
+        <li>Known limits: MCP is fully wired for <code>stdio</code> only; full-text note search uses <code>LIKE</code> (FTS5 / <code>tsvector</code> is planned).</li>
+      </ul>
+    <div class="docs-pager"><a href="faq.html">← FAQ</a><span></span></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

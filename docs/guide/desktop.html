@@ -3,14 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>桌面应用 · Hetu 文档</title>
-<meta name="description" content="Tauri 桌面版：双渠道安装包、自动更新、系统托盘、工作树目录与自动清理、故障排查。">
+<title>桌面应用 · Hetu</title>
+<meta name="description" content="桌面应用详解：双渠道安装包、自动更新与镜像回退、安装钩子、托盘与进程生命周期、工作树目录与自动清理、数据位置、自行打包与排障。">
 <meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/desktop.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/desktop.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/desktop.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
-<meta property="og:title" content="桌面应用 · Hetu 文档">
-<meta property="og:description" content="Tauri 桌面版：双渠道安装包、自动更新、系统托盘、工作树目录与自动清理、故障排查。">
-<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:title" content="桌面应用 · Hetu">
+<meta property="og:description" content="桌面应用详解：双渠道安装包、自动更新与镜像回退、安装钩子、托盘与进程生命周期、工作树目录与自动清理、数据位置、自行打包与排障。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/desktop.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -31,11 +35,15 @@
     <nav class="site-nav" aria-label="主导航">
       <a href="../index.html">首页</a>
       <a href="../guide/index.html" aria-current="page">文档</a>
-      <a href="../guide/features.html">功能</a>
+      <a href="../guide/architecture.html">架构</a>
       <a href="../guide/getting-started.html">下载</a>
       <a href="../guide/faq.html">FAQ</a>
     </nav>
     <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/desktop.html" title="English version">EN</a>
+      </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
       </button>
@@ -51,72 +59,95 @@
   <aside class="docs-side">
     <h2>文档目录</h2>
     <ol>
-      <li><a href="index.html">文档首页</a></li>
+      <li><a href="index.html">文档索引</a></li>
       <li><a href="getting-started.html">快速开始</a></li>
-      <li><a href="features.html">功能总览</a></li>
+      <li><a href="notes.html">笔记</a></li>
       <li><a href="workspace.html">Agent 工作台</a></li>
-      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
       <li><a href="models.html">模型与用量</a></li>
       <li><a href="desktop.html" aria-current="page">桌面应用</a></li>
-      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
     </ol>
   </aside>
     <div class="docs-body">
       <h1>桌面应用</h1>
-      <p class="lede">桌面版是 Tauri 2 外壳：Rust 进程负责窗口、托盘与更新，同时把打包好的后端（sidecar）拉起来，前端跑在 WebView 里。不想配 .NET / Node 环境就用它。</p>
+      <p class="lede">桌面版是 Tauri 2 外壳：Rust 进程负责窗口、托盘与更新，同时把打包好的后端 sidecar 拉起来，前端跑在 WebView 里。</p>
 
       <h2>安装</h2>
       <table>
         <thead><tr><th>渠道</th><th>产物</th><th>依赖</th></tr></thead>
         <tbody>
-          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>无（自带 .NET 运行时，约 100 MB+）</td></tr>
-          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>系统已安装 .NET 10 运行时</td></tr>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>无（自带 .NET 运行时）</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>系统需安装 .NET 10 运行时</td></tr>
           <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage 免安装</td></tr>
         </tbody>
       </table>
-      <p>两个渠道各自独立更新，互不覆盖：装的是 <code>slim</code> 就只会收到 <code>slim</code> 的更新清单。</p>
 
       <h2>自动更新</h2>
       <ul>
-        <li>检查顺序：GitHub 主源 → 三个加速镜像（<code>ghproxy.net</code> / <code>gh-proxy.com</code> / <code>ghfast.top</code>），国内网络下也能拉到清单。</li>
-        <li>更新包装好后按 <code>passive</code> 模式安装；清单里的安装包 URL 与签名都来自 CI 构建，签名校验失败会拒绝安装。</li>
-        <li>导航栏版本号旁的角标提示有更新，点开可以看到本次更新内容（按 Markdown 渲染）。</li>
+        <li>清单来源顺序：GitHub 主源 → 三个加速镜像（<code>ghproxy.net</code> / <code>gh-proxy.com</code> / <code>ghfast.top</code>）。</li>
+        <li>两个渠道各自独立的清单：<code>latest.json</code>（fat）与 <code>latest-slim.json</code>（slim），互不覆盖。</li>
+        <li>安装包带签名，校验失败会拒绝安装；安装模式为 <code>passive</code>（进度可见、少交互）。</li>
+        <li>导航栏版本号旁出现更新角标，点开可看本次更新内容。</li>
       </ul>
+      <div class="note">安装包内置安装钩子：在覆盖文件前先结束可能残留的后端进程（<code>taskkill /F /IM Hetu.Api.exe</code>），避免 <code>sqlite-vec\vec0.dll</code> 被占用导致安装失败。</div>
 
-      <h2>托盘与退出</h2>
-      <ul>
-        <li>点击窗口关闭按钮默认<strong>最小化到托盘</strong>，后端继续运行——后台索引、Wiki 生成这类任务不会被打断。</li>
-        <li>托盘菜单「退出 Hetu」才是真正退出，会一并结束后端子进程。</li>
-        <li>不想要这个行为：设置 → 应用设置 → 关闭「关闭时最小化到托盘」。</li>
-      </ul>
-      <div class="note">后端会记住外壳的进程号（<code>HETU_PARENT_PID</code>）：万一外壳被任务管理器强杀，后端检测到父进程消失会自行退出，不会留下占端口的孤儿进程。</div>
+      <h2>托盘与进程生命周期</h2>
+      <table>
+        <thead><tr><th>行为</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>关闭窗口</td><td>默认最小化到托盘，后端继续运行（后台任务不中断）；可在设置 → 应用设置关闭该行为</td></tr>
+          <tr><td>退出</td><td>托盘菜单「退出 Hetu」：结束后端子进程后退出</td></tr>
+          <tr><td>异常退出</td><td>后端记住外壳进程号（<code>HETU_PARENT_PID</code>）；检测到父进程消失会自行退出，不留孤儿进程占用端口</td></tr>
+          <tr><td>开发复用</td><td>开发期若 <code>HETU_API_DEV_PORT</code> 指定的端口已有后端，外壳复用它而不重复启动</td></tr>
+        </tbody>
+      </table>
 
       <h2>工作树目录与自动清理</h2>
-      <ul>
-        <li>默认把所有工作树收在<strong>仓库父目录</strong>下的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code>，父目录只多这一个文件夹。</li>
-        <li>可在 设置 → 工作区 改成别的根目录（必须是绝对路径，且不能落在仓库内部）。</li>
-        <li><strong>自动清理</strong>：工作树里的改动都已合并、没有未提交内容、且空闲超过阈值时，后台按配置的间隔清理；可以配置间隔、空闲时长，以及是否连分支一起删。</li>
-      </ul>
+      <table>
+        <thead><tr><th>项</th><th>默认 / 可选项</th></tr></thead>
+        <tbody>
+          <tr><td>根目录</td><td>仓库父目录下的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code></td></tr>
+          <tr><td>自定义</td><td>设置 → 工作区：绝对路径，且不能位于仓库内部（会在保存时校验）</td></tr>
+          <tr><td>清理条件</td><td>改动已合并（或远端分支已删除）+ 工作区干净 + 空闲超过阈值</td></tr>
+          <tr><td>清理间隔</td><td>1 / 6 / 12 / 24 小时，或关闭自动清理</td></tr>
+          <tr><td>是否删分支</td><td>默认只删工作树目录，分支保留；可改为连分支一起删</td></tr>
+          <tr><td>手动执行</td><td>设置页有「立即清理」按钮，返回检查 / 删除 / 保留的统计</td></tr>
+        </tbody>
+      </table>
 
-      <h2>数据放在哪</h2>
-      <p>外壳通过 <code>HETU_DATA_DIR</code> 把数据目录交给后端：Windows 上是 <code>%LOCALAPPDATA%\Hetu</code>，数据库文件 <code>hetu.db</code>（外加 WAL），日志在 <code>logs/</code>。迁移机器时把整个目录拷走即可。</p>
+      <h2>数据位置</h2>
+      <p>外壳通过 <code>HETU_DATA_DIR</code> 告诉后端数据目录：Windows 上是 <code>%LOCALAPPDATA%\Hetu</code>（<code>hetu.db</code> + WAL、<code>logs/</code>）；迁移机器时整体拷贝该目录即可。</p>
 
       <h2>自己打包</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 1) 先出后端 sidecar（fat / slim 二选一）
 pwsh ./scripts/publish-backend.ps1 -Mode SelfContained      -Rid win-x64
 pwsh ./scripts/publish-backend.ps1 -Mode FrameworkDependent -Rid win-x64
 
-# 2) 再出安装包（fat 用默认配置，slim 指定 conf）
+# 2) 再出安装包
 cd shell/hetu-desktop
-npm run tauri:build
-npm run tauri:build -- --config src-tauri/tauri.slim.conf.json</code></pre></div>
+npm run tauri:build                                            # fat
+npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></pre></div>
       <p>sidecar 命名必须符合 Tauri 约定：<code>binaries/Hetu.Api-&lt;rust-target-triple&gt;(.exe)</code>。</p>
 
-      <h2>更新之后的权限提升</h2>
-      <p>更新是替换式安装：安装包在覆盖文件前会先结束残留的后端进程（安装钩子），所以即使上一次异常退出过也能顺利升级。</p>
-    <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="data.html">数据与备份 →</a></div>
+      <h2>排障</h2>
+      <table>
+        <thead><tr><th>现象</th><th>处理</th></tr></thead>
+        <tbody>
+          <tr><td>安装报 <code>Error opening file for writing</code></td><td>有残留后端在占用文件：任务管理器结束所有 <code>Hetu.Api.exe</code> 后点重试；新版本安装包会自动处理</td></tr>
+          <tr><td>更新报 <code>Could not fetch a valid release JSON</code></td><td>清单没取到。用浏览器打开 <code>releases/latest/download/latest.json</code>（slim 是 <code>latest-slim.json</code>）确认可访问，再升级到最新版</td></tr>
+          <tr><td>窗口不见了</td><td>点托盘图标唤回；仍在后台运行（后端未退出）</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="data.html">数据与安全 →</a></div>
     </div>
   </div>
 </main>
@@ -130,8 +161,15 @@ npm run tauri:build -- --config src-tauri/tauri.slim.conf.json</code></pre></div
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
       <a href="../guide/dev.html">参与开发</a>
     </nav>
-    <span class="spacer">做自己的知识基础设施</span>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
   </div>
 </footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
 </body>
 </html>

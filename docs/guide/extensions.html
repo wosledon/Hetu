@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>扩展与集成 · Hetu</title>
+<meta name="description" content="扩展与集成详解：智能体（提示预设、工具白名单、逐工具审批、导入导出）、技能（内置/自定义/磁盘目录）、内置工具清单、MCP 配置与调用、内嵌应用。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/extensions.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/extensions.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/extensions.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="扩展与集成 · Hetu">
+<meta property="og:description" content="扩展与集成详解：智能体（提示预设、工具白名单、逐工具审批、导入导出）、技能（内置/自定义/磁盘目录）、内置工具清单、MCP 配置与调用、内嵌应用。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/extensions.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/extensions.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html" aria-current="page">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>扩展与集成</h1>
+      <p class="lede">四项功能决定 Agent 能做什么、用什么身份做、能调用哪些外部工具。</p>
+
+      <h2>智能体（提示预设）</h2>
+      <p>入口：<code>/agents</code>。一个智能体 = 系统提示 + 模型偏好 + 工具白名单 + 逐工具审批策略。</p>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>分类与搜索</td><td>按用途分组（编程、写作、分析…），支持搜索</td></tr>
+          <tr><td>工具白名单</td><td>只允许指定工具，降低越权操作风险</td></tr>
+          <tr><td>审批策略</td><td>每个工具单独设置：静默 / 自动 / 询问</td></tr>
+          <tr><td>导入导出</td><td>JSON 形式导入导出全部智能体，便于备份与分享</td></tr>
+        </tbody>
+      </table>
+
+      <h2>技能</h2>
+      <p>入口：<code>/skills</code>。技能 = 一段可复用的提示模板，对话里用 <code>/技能名</code> 调用。</p>
+      <table>
+        <thead><tr><th>来源</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>内置技能</td><td>翻译、总结、解释、润色等开箱可用</td></tr>
+          <tr><td>自定义技能</td><td>自己写提示模板与系统提示，可在页面直接试跑预览输出</td></tr>
+          <tr><td>磁盘技能目录</td><td>从配置的目录加载 Markdown / JSON 技能文件，适合团队共享或用 Git 管理</td></tr>
+        </tbody>
+      </table>
+
+      <h2>工具</h2>
+      <p>入口：<code>/tools</code>。内置工具可按需开关，关闭后模型无法调用。</p>
+      <table>
+        <thead><tr><th>工具</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>笔记检索 / 读取 / 创建 / 更新</td><td>在对话里读写笔记，支持按条件搜索</td></tr>
+          <tr><td>联网搜索</td><td>需要外部信息时检索网页</td></tr>
+          <tr><td>记忆检索 / 创建</td><td>查询与写入长期记忆</td></tr>
+          <tr><td>图谱检索</td><td>按实体与关系查询知识图谱</td></tr>
+          <tr><td>待办清单</td><td>输出结构化计划并实时勾选</td></tr>
+          <tr><td>命令执行</td><td>在项目工作区里执行命令（受权限模式约束）</td></tr>
+          <tr><td>文件操作</td><td>列目录、读、写、移动、删除</td></tr>
+          <tr><td>提问</td><td>需要用户决策时发起交互式提问</td></tr>
+        </tbody>
+      </table>
+
+      <h2>MCP 服务器</h2>
+      <p>入口：设置 → MCP Server。支持把外部 Model Context Protocol 服务的工具接进来。</p>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>传输</td><td><code>stdio</code>：启动子进程并用 JSON-RPC 2.0 通信（完整支持）；<code>sse</code>：可配置，未接线</td></tr>
+          <tr><td>连接配置</td><td>JSON：<code>command</code> / <code>args</code> / <code>env</code>（stdio）或 <code>url</code>（sse）</td></tr>
+          <tr><td>工具发现</td><td>调用 <code>tools/list</code> 拉取工具清单，自动并入对话工具面</td></tr>
+          <tr><td>工具调用</td><td>调用 <code>tools/call</code>，参数与结果在消息流里结构化展示</td></tr>
+          <tr><td>启停</td><td>逐服务器启用 / 禁用，可排序</td></tr>
+        </tbody>
+      </table>
+      <div class="note">MCP 工具与内置工具共用同一套权限模式与审批策略；不确定行为的服务建议先用「询问」模式跑一遍。</div>
+
+      <h2>应用（内嵌浏览器）</h2>
+      <p>入口：<code>/apps</code>。把常用网页登记为「应用」，用应用内浏览器打开，避免来回切窗口。</p>
+      <table>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>登记</td><td>名称 + URL（本地服务如 <code>http://localhost:5174</code> 或外站）</td></tr>
+          <tr><td>打开</td><td>应用内嵌视图，带地址栏、前进后退、刷新与常用链接</td></tr>
+          <tr><td>超时提示</td><td>目标站点用 <code>X-Frame-Options</code> / CSP 拒绝内嵌时，4 秒后提示改用系统浏览器打开</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="organize.html">← 看板与自动化</a><a href="models.html">模型与用量 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

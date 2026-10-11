@@ -4,12 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hetu · 本地优先的 AI 知识与 Agent 工作台</title>
-<meta name="description" content="Hetu（河图）是本地优先的 AI 知识与 Agent 工作台：Markdown 笔记、对话与编码会话共用一套底座，配向量检索、知识图谱、Wiki、长期记忆、任务看板与工作流。">
+<meta name="description" content="Hetu（河图）是本地优先的 AI 知识与 Agent 工作台：笔记、对话与编码会话共用一套 SQLite/PostgreSQL 底座，内置向量检索、知识图谱、Wiki 生成、长期记忆、任务看板与工作流，支持 MCP 与多模型供应商。">
 <meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Hetu · 本地优先的 AI 知识与 Agent 工作台">
-<meta property="og:description" content="Hetu（河图）是本地优先的 AI 知识与 Agent 工作台：Markdown 笔记、对话与编码会话共用一套底座，配向量检索、知识图谱、Wiki、长期记忆、任务看板与工作流。">
+<meta property="og:description" content="Hetu（河图）是本地优先的 AI 知识与 Agent 工作台：笔记、对话与编码会话共用一套 SQLite/PostgreSQL 底座，内置向量检索、知识图谱、Wiki 生成、长期记忆、任务看板与工作流，支持 MCP 与多模型供应商。">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -31,11 +35,15 @@
     <nav class="site-nav" aria-label="主导航">
       <a href="index.html" aria-current="page">首页</a>
       <a href="guide/index.html">文档</a>
-      <a href="guide/features.html">功能</a>
+      <a href="guide/architecture.html">架构</a>
       <a href="guide/getting-started.html">下载</a>
       <a href="guide/faq.html">FAQ</a>
     </nav>
     <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="en/index.html" title="English version">EN</a>
+      </span>
       <button class="icon-btn" data-theme-toggle aria-label="切换主题">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
       </button>
@@ -50,68 +58,65 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <span class="tag">v0.3.3 · 本地优先 · Apache-2.0</span>
-        <h1>笔记、对话与编码会话，<br>汇成一处的知识工作台</h1>
-        <p class="lede">Hetu（河图）把 Markdown 笔记、AI 对话和真正能动手的 Code 会话放在同一套底座上：向量检索、知识图谱、Wiki、长期记忆、任务与工作流把它们连成一张活的网络。所有数据与模型调用都在你自己机器上。</p>
+        <span class="tag">当前版本 <span data-latest-version>v0.3.3</span> · Apache-2.0 · 本地优先</span>
+        <h1>本地优先的 AI 知识与 Agent 工作台</h1>
+        <p class="lede">Hetu（河图）把 Markdown 笔记、对话与编码会话放在同一套数据底座上：SQLite + <code>sqlite-vec</code>（或 PostgreSQL + <code>pgvector</code>）存内容与向量，ASP.NET Core 10 提供 API 与 Agent 循环，React 19 前端负责界面，Tauri 2 桌面壳负责安装包与自动更新。模型调用只发往你自己配置的供应商。</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+          <a class="btn btn-primary" href="guide/getting-started.html">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            快速开始
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/wosledon/Hetu/releases/latest">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
             下载桌面版
           </a>
-          <a class="btn btn-ghost" href="guide/getting-started.html">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
-            看快速开始
-          </a>
           <a class="btn btn-ghost" href="https://github.com/wosledon/Hetu">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.5 2.3 1.07 2.86.82.09-.64.35-1.07.63-1.32-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.9-1.29 2.74-1.02 2.74-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.85-2.35 4.7-4.58 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
-            GitHub
+            源码
           </a>
         </div>
         <div class="hero-meta">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>SQLite + sqlite-vec 开箱可用</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>可切 PostgreSQL + pgvector</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>OpenAI 兼容 / Anthropic</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>MCP · 技能 · 智能体</span>
+          <span>ASP.NET Core 10 · EF Core 10</span>
+          <span>React 19 · TypeScript 6 · Vite 8</span>
+          <span>SQLite + sqlite-vec / PostgreSQL + pgvector</span>
+          <span>MCP（JSON-RPC 2.0）</span>
         </div>
       </div>
-      <div class="frame">
-        <div class="frame-bar"><i></i><i></i><i></i></div>
-        <img src="screenshots/02-code.png" width="1440" height="900" alt="Hetu Agent 工作台：左侧会话与话题树，右侧消息流与工具调用">
-      </div>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/02-code.png" width="1440" height="900" alt="Agent 工作台：左侧会话与话题树，右侧消息流、工具调用与输入工具带"></div>
     </div>
   </section>
 
   <section class="section section--alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">两个引擎，一层底座</span>
-        <h2>写、问、做，最后都回到同一份知识</h2>
-        <p>不是拼起来的一堆工具：笔记随时可被检索、索引、抽取图谱；对话与 Code 会话的产物（文件、检查点、记忆、Wiki）也直接落回同一个库。</p>
+        <span class="eyebrow">它是什么</span>
+        <h2>一个进程、一份数据库、两个入口</h2>
+        <p>笔记页负责写与整理，Code 页（<code>/code</code>）负责问与做；两者读写同一份 SQLite/PostgreSQL 数据，共用知识库、图谱、记忆与任务系统。桌面版会把后端作为 sidecar 一起拉起，数据落在系统用户数据目录。</p>
       </div>
       <div class="grid grid-3">
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h9l5 5v11H5z"/><path d="M14 4v5h5"/></svg>笔记</h3>
-          <p>所见即所得 Markdown + 源码视图，选中即 AI 润色/翻译/扩写；笔记本、标签、历史版本、分享链接、回收站、导出备份。</p>
+          <h3>笔记</h3>
+          <p>Milkdown 所见即所得 + CodeMirror 源码视图；选中文字调 AI（润色/翻译/精简/扩写/解释/自定义）；笔记本、标签、历史版本、分享链接、回收站、Markdown 导出。</p>
         </div>
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H4z"/><path d="M9 20h6"/></svg>Agent 工作台</h3>
-          <p>会话与话题、SSE 流式、深度思考、技能/智能体/MCP 工具带、五档权限模式；回复中还能排队与运行中引导。</p>
+          <h3>Agent 工作台</h3>
+          <p>会话与话题、SSE 流式事件、工具调用与审批、五档权限模式、推理强度、发送队列与运行中引导；话题可蒸馏成笔记。</p>
         </div>
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 8-4 4 4 4m6-8 4 4-4 4"/></svg>Code 会话</h3>
-          <p>本地或 SSH 仓库、独立工作树、本地+远程分支、Git 同步，文件/更改/检查点/Git/PR/浏览器/终端七个面板。</p>
+          <h3>Code 会话</h3>
+          <p>本地或 SSH 仓库；当前分支或独立工作树；本地+远程分支与单键 Git 同步；文件 / 更改 / 检查点 / Git / PR / 浏览器 / 终端 七个面板。</p>
         </div>
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v4m0 10v4M3 12h4m10 0h4"/></svg>知识底座</h3>
-          <p>笔记、文件、网址统一分块向量化；知识图谱抽取实体与关系；Wiki 生成；长期记忆配 Dream 巩固与遗忘。</p>
+          <h3>检索与知识结构</h3>
+          <p>笔记、文件、网址统一分块向量化；知识图谱抽取实体与关系；按项目生成 Wiki；长期记忆配 Dream 巩固。</p>
         </div>
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg>组织与自动化</h3>
-          <p>任务看板交给 Agent 执行、可视化工作流编排、后台与 Cron 定时任务、收件箱统一通知。</p>
+          <h3>组织与自动化</h3>
+          <p>任务看板（可指派 Agent 执行并记录步骤）、可视化工作流、后台任务与 Cron 定时任务、收件箱通知。</p>
         </div>
         <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z"/></svg>本地优先</h3>
-          <p>无账号、无遥测，API Key 加密存储；桌面版自带托盘、双渠道安装包与镜像回退的自动更新。</p>
+          <h3>扩展与模型</h3>
+          <p>智能体（提示预设 + 工具白名单 + 审批策略）、技能（内置/自定义/磁盘目录）、内置工具开关、MCP 服务器、多供应商与按场景默认模型、代理接口、用量与成本。</p>
         </div>
       </div>
     </div>
@@ -120,69 +125,68 @@
   <section class="section">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">界面一览</span>
-        <h2>真实界面，不是概念稿</h2>
-        <p>下面是当前版本的实际界面（本地数据实拍）。</p>
+        <span class="eyebrow">关键实现</span>
+        <h2>技术选择与边界</h2>
+        <p>以下都是代码里实际生效的机制，不是概念描述。</p>
+      </div>
+      <table>
+        <thead><tr><th>主题</th><th>实现</th></tr></thead>
+        <tbody>
+          <tr><td>存储</td><td>SQLite（默认，<code>Data Source=hetu.db</code>）+ <code>sqlite-vec</code> 向量扩展；可切 PostgreSQL 16+ + <code>pgvector</code>，同一套功能，<code>DatabaseProvider</code> 配置切换</td></tr>
+          <tr><td>分页与聚合</td><td>列表接口一律数据库侧完成（SQL <code>COUNT</code> + <code>OFFSET/FETCH</code>、<code>GROUP BY</code> 计数与摘要）；知识库状态、向量摘要不再整表加载</td></tr>
+          <tr><td>SQLite 时间排序</td><td>provider 不支持在 SQL 中对 <code>DateTimeOffset</code> 排序/聚合，仓储内置 <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code> 规避（投影排序键后内存定序、按主键回表）</td></tr>
+          <tr><td>只读接口缓存</td><td>被页面轮询的状态类接口加 <code>[ResponseCache]</code> 短时缓存，减少重复查询</td></tr>
+          <tr><td>Agent 循环</td><td>SSE 事件流（<code>delta</code> / <code>thinking</code> / 工具调用与结果 / <code>steering</code> / 检查点 / 审批 / 通知）；运行中可排队或引导；后台任务统一进 <code>TaskItem</code> 记录</td></tr>
+          <tr><td>代码隔离</td><td><code>git worktree</code> 独立工作区，默认在仓库父目录 <code>.hetu-worktrees/&lt;仓库&gt;/&lt;工作树&gt;</code>，可按「已合并 + 空闲」自动清理</td></tr>
+          <tr><td>PR 集成</td><td>按 <code>origin</code> 远端自动选择 <code>gh</code> 或 <code>glab</code>；未安装时给出对应平台安装命令</td></tr>
+          <tr><td>桌面</td><td>Tauri 2 外壳 + sidecar 后端；<code>fat</code> / <code>slim</code> 双渠道安装包；更新走 GitHub + 三个加速镜像；安装钩子在覆盖文件前清理残留后端进程</td></tr>
+          <tr><td>工程约束</td><td>后端 <code>dotnet build</code> 与前端 <code>eslint</code> 均要求 0 告警，且不允许任何抑制注释（<code>pragma</code> / <code>eslint-disable</code> / <code>SuppressMessage</code>）</td></tr>
+        </tbody>
+      </table>
+      <p>更多实现细节（分层、请求流、数据模型、性能实践）见 <a href="guide/architecture.html">架构与实现</a>。</p>
+    </div>
+  </section>
+
+  <section class="section section--alt">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">界面</span>
+        <h2>实际界面（点击可看原图）</h2>
+        <p>下面每张都是本地数据的真实截图，缩略图看不清时点一下看原尺寸。</p>
       </div>
       <div class="gallery">
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/01-notes.png" alt="笔记页：笔记本树、笔记列表与 Markdown 编辑器"></div>
-          <figcaption><b>笔记</b>：笔记本 + 笔记列表 + 编辑器，顶部是 AI 动作（生成索引、提取图谱、添加标签、流程图）。</figcaption>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/01-notes.png" alt="笔记页：笔记本树、笔记列表与 Markdown 编辑器"></div>
+          <figcaption><b>笔记</b>：笔记本树 + 列表 + 编辑器；顶部是生成索引、提取图谱、添加标签、生成流程图等动作。</figcaption>
         </figure>
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/05-memories.png" alt="记忆页：记忆图、作用域筛选与 Dream 巩固"></div>
-          <figcaption><b>记忆</b>：记忆图可视化关联，作用域（全局 / 会话 / 项目）筛选，Dream 定期巩固与遗忘。</figcaption>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/03-knowledge-base.png" alt="知识库页：索引覆盖率、向量维度与索引管理"></div>
+          <figcaption><b>知识库</b>：索引覆盖率、分块数、向量维度，以及逐项重新索引与语义搜索测试入口。</figcaption>
         </figure>
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/04-graph.png" alt="知识图谱页：实体与关系的力导向布局"></div>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/04-graph.png" alt="知识图谱页：实体按类型着色，边表示关系"></div>
           <figcaption><b>知识图谱</b>：从笔记抽取的实体与关系，按类型着色，可搜索、缩放、跳回笔记。</figcaption>
         </figure>
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/03-knowledge-base.png" alt="知识库页：索引状态概览、覆盖率与向量维度"></div>
-          <figcaption><b>知识库</b>：笔记 / 文件 / 网址统一索引，看覆盖率与分块数，还能直接做语义搜索测试。</figcaption>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/07-wiki.png" alt="Wiki 页：按套件分组的生成结果与章节"></div>
+          <figcaption><b>Wiki</b>：按项目生成模块页 + 总览，按套件分组并记录生成时间与更新状态。</figcaption>
         </figure>
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/07-wiki.png" alt="Wiki 页：按套件分组的生成结果"></div>
-          <figcaption><b>Wiki 生成</b>：按项目生成模块页 + 总览，按套件分组，标注生成时间与更新状态。</figcaption>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/05-memories.png" alt="记忆页：记忆图、作用域筛选与 Dream 巩固"></div>
+          <figcaption><b>记忆</b>：长期记忆按作用域（全局/会话/项目）管理，Dream 定期合并、衰减、遗忘。</figcaption>
         </figure>
         <figure>
-          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型分布与热力图"></div>
-          <figcaption><b>用量与成本</b>：Token / 缓存 / 压缩前后、延迟、模型与来源分布、周×时与年×日热力图。</figcaption>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/06-kanban.png" alt="任务看板：五列看板与归档卡片"></div>
+          <figcaption><b>任务看板</b>：进行中 / 审核中 / 已阻塞 / 已完成 / 已归档；任务可指派智能体执行。</figcaption>
         </figure>
-      </div>
-    </div>
-  </section>
-
-  <section class="section section--alt">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">两个命令跑起来</span>
-        <h2>源码运行 / 桌面安装</h2>
-        <p>需要 .NET 10 SDK 与 Node.js 20+；不想装环境就直接下桌面版（<code>fat</code> 自带运行时，<code>slim</code> 需系统 .NET 10）。</p>
-      </div>
-      <div class="grid grid-2">
-        <div>
-          <h3>一键启动（源码）</h3>
-          <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
-cd Hetu
-
-# Windows
-pwsh ./scripts/start.ps1
-
-# Linux / macOS
-./scripts/start.sh</code></pre></div>
-          <p>默认前端 <code>http://localhost:5174</code>，后端 <code>http://localhost:5000</code>，接口文档 <code>/scalar/v1</code>。</p>
-        </div>
-        <div>
-          <h3>桌面版</h3>
-          <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 下载安装包（Windows NSIS/MSI、Linux AppImage/deb）
-# https://github.com/wosledon/Hetu/releases/latest
-
-# 或者自己打包
-pwsh ./scripts/publish-backend.ps1 -Mode SelfContained -Rid win-x64
-cd shell/hetu-desktop &amp;&amp; npm run tauri:build</code></pre></div>
-          <p>桌面版带系统托盘、双渠道更新与镜像回退，数据落在系统用户数据目录。</p>
-        </div>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型与来源分布、热力图"></div>
+          <figcaption><b>用量与成本</b>：Token / 输入 / 压缩后 / 输出 / 缓存、平均延迟、模型与来源分布、热力图。</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/11-projects.png" alt="项目页：本地与 SSH 项目卡片"></div>
+          <figcaption><b>项目</b>：本地目录与 SSH 远程仓库，分组管理，可直接发起 Wiki 生成或在 Code 中打开。</figcaption>
+        </figure>
       </div>
     </div>
   </section>
@@ -190,17 +194,32 @@ cd shell/hetu-desktop &amp;&amp; npm run tauri:build</code></pre></div>
   <section class="section">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">文档</span>
-        <h2>想深入哪一块？</h2>
-        <p>文档按使用路径组织，从安装到发版都有。</p>
+        <span class="eyebrow">起步</span>
+        <h2>两种跑法</h2>
       </div>
-      <div class="docs-cards">
-        <a href="guide/getting-started.html"><strong>快速开始</strong><span>源码运行、桌面安装、第一次配置模型与索引</span></a>
-        <a href="guide/features.html"><strong>功能总览</strong><span>笔记 / 工作台 / 知识底座 / 组织自动化逐项说明</span></a>
-        <a href="guide/workspace.html"><strong>Agent 工作台</strong><span>权限模式、工作树与分支、七个工作面板、PR、队列与引导</span></a>
-        <a href="guide/knowledge.html"><strong>知识底座</strong><span>分块与向量、图谱抽取、Wiki 生成、记忆与 Dream</span></a>
-        <a href="guide/models.html"><strong>模型与用量</strong><span>供应商、按场景默认模型、代理服务、用量与压缩</span></a>
-        <a href="guide/data.html"><strong>数据与备份</strong><span>数据目录、数据库切换、向量存储、隐私与安全</span></a>
+      <div class="grid grid-2">
+        <div>
+          <h3>桌面版（无需环境）</h3>
+          <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 下载安装包：Windows NSIS / MSI，Linux AppImage / deb
+# https://github.com/wosledon/Hetu/releases/latest
+#
+# fat  = 自带 .NET 运行时（约 100 MB+）
+# slim = 体积小，需系统安装 .NET 10 运行时</code></pre></div>
+          <p>关闭窗口默认最小化到托盘，后端继续跑；托盘菜单「退出 Hetu」才真正退出。</p>
+        </div>
+        <div>
+          <h3>源码运行</h3>
+          <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
+cd Hetu
+
+pwsh ./scripts/start.ps1     # Windows
+./scripts/start.sh           # Linux / macOS
+
+# 前端 http://localhost:5174
+# 后端 http://localhost:5000/api
+# 接口文档 http://localhost:5000/scalar/v1</code></pre></div>
+          <p>需要 .NET SDK 10.0+ 与 Node.js 20+。</p>
+        </div>
       </div>
     </div>
   </section>
@@ -208,22 +227,23 @@ cd shell/hetu-desktop &amp;&amp; npm run tauri:build</code></pre></div>
   <section class="section section--alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">工程取向</span>
-        <h2>几条不打折的原则</h2>
+        <span class="eyebrow">文档</span>
+        <h2>按功能分页的说明文档</h2>
+        <p>每一块能力都有独立页面，包含配置项、快捷键、面板说明与排错。</p>
       </div>
-      <div class="grid grid-3">
-        <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z"/></svg>你的数据不出本机</h3>
-          <p>没有账号体系与遥测；模型调用只发往你自己配置的供应商，API Key 用 DataProtection 加密落库。</p>
-        </div>
-        <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4l2-5 4 10 2-5h4"/></svg>Agent 动手前先问过你</h3>
-          <p>从只读、计划到自动执行五档权限；高风险命令走审批，改动进检查点，随时回滚。</p>
-        </div>
-        <div class="card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>零告警的代码库</h3>
-          <p>后端 <code>dotnet build</code> 与前端 <code>eslint</code> 都不允许留告警，也不接受任何抑制注释——只能修根因。</p>
-        </div>
+      <div class="docs-cards">
+        <a href="guide/getting-started.html"><strong>快速开始</strong><span>安装、启动、首个模型与索引配置</span></a>
+        <a href="guide/notes.html"><strong>笔记</strong><span>编辑器、AI 动作、版本、分享、导出</span></a>
+        <a href="guide/workspace.html"><strong>Agent 工作台</strong><span>会话/话题、权限模式、队列与引导</span></a>
+        <a href="guide/code-sessions.html"><strong>Code 会话</strong><span>工作树、分支、七个面板、PR</span></a>
+        <a href="guide/knowledge.html"><strong>知识库</strong><span>分块、向量、索引管理、语义搜索</span></a>
+        <a href="guide/graph-wiki.html"><strong>知识图谱与 Wiki</strong><span>实体关系抽取、项目文档生成</span></a>
+        <a href="guide/memories.html"><strong>记忆与 Dream</strong><span>作用域、召回、巩固与遗忘</span></a>
+        <a href="guide/organize.html"><strong>看板与自动化</strong><span>任务看板、工作流、后台与定时任务</span></a>
+        <a href="guide/extensions.html"><strong>扩展与集成</strong><span>智能体、技能、工具、MCP、应用</span></a>
+        <a href="guide/models.html"><strong>模型与用量</strong><span>供应商、场景默认、代理、成本</span></a>
+        <a href="guide/architecture.html"><strong>架构与实现</strong><span>分层、请求流、数据模型、性能实践</span></a>
+        <a href="guide/faq.html"><strong>常见问题</strong><span>安装、索引、工作树、更新、排错</span></a>
       </div>
     </div>
   </section>
@@ -238,8 +258,15 @@ cd shell/hetu-desktop &amp;&amp; npm run tauri:build</code></pre></div>
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
       <a href="guide/dev.html">参与开发</a>
     </nav>
-    <span class="spacer">做自己的知识基础设施</span>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
   </div>
 </footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
 </body>
 </html>

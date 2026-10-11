@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data &amp; security · Hetu</title>
+<meta name="description" content="Data and security in detail: data directory contents, backup and migration, PostgreSQL switch with commands, vector storage options, security boundaries.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/data.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/data.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/data.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Data &amp; security · Hetu">
+<meta property="og:description" content="Data and security in detail: data directory contents, backup and migration, PostgreSQL switch with commands, vector storage options, security boundaries.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/data.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../../index.html">Home</a>
+      <a href="../../guide/index.html" aria-current="page">Docs</a>
+      <a href="../../guide/architecture.html">Architecture</a>
+      <a href="../../guide/getting-started.html">Download</a>
+      <a href="../../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/data.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html" aria-current="page">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Data &amp; security</h1>
+      <p class="lede">Data ownership is a precondition, not a feature: a single-file database you can move or export, with no account and no telemetry.</p>
+
+      <h2>Data directory</h2>
+      <table>
+        <thead><tr><th>How you run it</th><th>Location</th></tr></thead>
+        <tbody>
+          <tr><td>Desktop (Windows)</td><td><code>%LOCALAPPDATA%\Hetu</code></td></tr>
+          <tr><td>From source</td><td><code>HETU_DATA_DIR</code>, otherwise <code>hetu.db</code> in the working directory</td></tr>
+          <tr><td>Database</td><td><code>hetu.db</code> (plus <code>-wal</code> / <code>-shm</code>)</td></tr>
+          <tr><td>Logs</td><td><code>logs/</code>, Serilog daily rolling, 7 days retained</td></tr>
+          <tr><td>Vector extension</td><td><code>sqlite-vec/vec0.dll</code> (<code>vec0.so</code> elsewhere), loaded when the connection opens</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Backup and migration</h2>
+      <ul>
+        <li>Settings → Data &amp; backup: export all notes as a Markdown archive, back up or restore the database file.</li>
+        <li>To move machines, quit the app and copy the whole data directory (including the WAL file).</li>
+      </ul>
+      <div class="note note--warn">Copying the database file while the app runs can lose uncommitted WAL content. Prefer quitting first, or use the built-in backup.</div>
+
+      <h2>Switching to PostgreSQL</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
+
+dotnet ef database update \
+  --project src/Hetu.Infrastructure.PostgresMigrations \
+  --startup-project src/Hetu.Api</code></pre></div>
+      <p>PostgreSQL 16+ with the <code>pgvector</code> extension is required. Both databases support the same features, but data does not transfer: rebuild notes and indexes in the new database.</p>
+
+      <h2>Vector storage</h2>
+      <table>
+        <thead><tr><th>Database</th><th>Approach</th><th>Dimensions</th></tr></thead>
+        <tbody>
+          <tr><td>SQLite</td><td><code>sqlite-vec</code> <code>vec0</code> virtual table keyed by rowid, alongside metadata tables</td><td>From <code>Embedding:Dimensions</code>, default 1536</td></tr>
+          <tr><td>PostgreSQL</td><td><code>pgvector</code> column with an index</td><td>Same setting</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Security boundaries</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Implementation</th></tr></thead>
+        <tbody>
+          <tr><td>API keys</td><td>Encrypted with ASP.NET DataProtection (DPAPI-backed on Windows); never written to logs or API responses in plaintext</td></tr>
+          <tr><td>SSH credentials</td><td>Encrypted the same way</td></tr>
+          <tr><td>Outbound requests</td><td>Only to providers you configure and to search / MCP services you explicitly enable; no telemetry</td></tr>
+          <tr><td>Markdown rendering</td><td>Sanitized with DOMPurify so note content cannot inject scripts</td></tr>
+          <tr><td>Command execution</td><td>Governed by permission modes (plan / readonly / ask / auto / bypass); risky operations require confirmation by default</td></tr>
+          <tr><td>Share links</td><td>Expose a single rendered note, can be revoked, and record view counts</td></tr>
+          <tr><td>SQL injection</td><td>All access goes through EF Core parameterized queries</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="desktop.html">← Desktop app</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../../guide/dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
