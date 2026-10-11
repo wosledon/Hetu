@@ -178,7 +178,20 @@
         </tbody>
       </table>
 
-      <h2>What problem it solves</h2>
+            <h2>Internals</h2>
+      <p>For readers who change code or behaviour: the concrete mechanism, configuration and defaults, guards and degradation, and the debugging path of each module.</p>
+      <table>
+        <thead><tr><th>Module</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td><a href="compression.html">Compression pipeline</a></td><td>Two entry points, three modes, the ten nodes with order and defaults, the four gates on the LLM summary, the not-shorter guard, config merge semantics, and the difference from session auto compaction</td></tr>
+          <tr><td><a href="agent-loop.html">Agent loop</a></td><td>The six steps of a run, iteration and tool limits, where steering is injected, history compression boundaries, MCP tool loading and degradation, event outlets and caller duties</td></tr>
+          <tr><td><a href="permissions.html">Permission modes &amp; approvals</a></td><td>What each mode does, the three-layer decision order, rule fields and match scoring, the effect of autopilot, differences across entry points, and the approval round trip</td></tr>
+          <tr><td><a href="context.html">Context &amp; auto compaction</a></td><td>Usage parts and window resolution, the 0.8 trigger, keeping recent messages, summary retries and the 60k cap, and the difference from the compression pipeline</td></tr>
+          <tr><td><a href="sse.html">SSE event protocol</a></td><td>Three frame shapes, the full event list with fields, workflow events, stream differences, and the process for adding an event</td></tr>
+        </tbody>
+      </table>
+
+<h2>What problem it solves</h2>
       <table>
         <thead><tr><th>Situation</th><th>How Hetu handles it</th></tr></thead>
         <tbody>

@@ -177,7 +177,20 @@
         </tbody>
       </table>
 
-      <h2>它解决什么问题</h2>
+            <h2>深入实现</h2>
+      <p>写给要读代码或改行为的人：每个模块的关键机制、配置项与默认值、守卫与降级、以及排查方式。</p>
+      <table>
+        <thead><tr><th>模块</th><th>覆盖内容</th></tr></thead>
+        <tbody>
+          <tr><td><a href="compression.html">压缩管道</a></td><td>两个入口、三种模式、十个节点的顺序与默认状态、LLM 摘要四道门槛、未变短保留原文、配置合并与升级语义、与会话级自动压缩的区别</td></tr>
+          <tr><td><a href="agent-loop.html">Agent 循环</a></td><td>一次运行的六步顺序、迭代与工具上限、运行中引导的注入点、历史压缩边界、MCP 工具装载与降级、事件出口与调用方职责</td></tr>
+          <tr><td><a href="permissions.html">权限与审批</a></td><td>五档模式的具体行为、三层判定顺序、规则字段与匹配评分、autopilot 的影响、三条入口的差异、审批往返链路</td></tr>
+          <tr><td><a href="context.html">上下文与自动压缩</a></td><td>占用三段算法与窗口解析、0.8 触发比例、保留最近 6 条、摘要重试与 60k 截断、写回语义、与压缩管道的分工</td></tr>
+          <tr><td><a href="sse.html">SSE 事件协议</a></td><td>三种帧形态、完整事件清单与字段、工作流事件、两条流的差异、新增事件的适配流程</td></tr>
+        </tbody>
+      </table>
+
+<h2>它解决什么问题</h2>
       <table>
         <thead><tr><th>现状</th><th>Hetu 的处理方式</th></tr></thead>
         <tbody>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSE 事件协议 · Hetu</title>
+<meta name="description" content="SSE 事件协议详解：三种帧形态（结构化/纯文本/错误帧）、完整事件清单与关键字段、工作流独立事件、对话页与编码会话的处理差异、新增事件的适配流程与实现注意。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/sse.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/sse.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="SSE 事件协议 · Hetu">
+<meta property="og:description" content="SSE 事件协议详解：三种帧形态（结构化/纯文本/错误帧）、完整事件清单与关键字段、工作流独立事件、对话页与编码会话的处理差异、新增事件的适配流程与实现注意。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/sse.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html" aria-current="page">SSE 事件协议</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>SSE 事件协议</h1>
+      <p class="lede">对话页与编码会话都靠同一条 SSE 流把「模型在做什么」实时推给前端。协议本身不含业务语义：后端只负责把结构化事件按帧写出，前端按 <code>type</code> 分派。</p>
+
+      <h2>帧的三种形态</h2>
+      <table>
+        <thead><tr><th>形态</th><th>识别方式</th><th>前端处理</th></tr></thead>
+        <tbody>
+          <tr><td>结构化事件</td><td>合法 JSON，且含 <code>type</code></td><td>映射成强类型对象后分派</td></tr>
+          <tr><td>纯文本片段</td><td>不是 JSON</td><td>作为 <code>plainText</code> 直接追加到正文（不丢内容）</td></tr>
+          <tr><td>错误帧</td><td>以 <code>[ERROR]</code> 前缀开头</td><td>渲染为错误状态</td></tr>
+        </tbody>
+      </table>
+      <div class="note">未知 <code>type</code> 不会被丢弃，而是归到 <code>unknown</code> 并保留原始 JSON——这样后端先上新事件、前端后适配也不会丢帧。</div>
+
+      <h2>事件清单</h2>
+      <table>
+        <thead><tr><th>事件</th><th>关键字段</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>content</code></td><td><code>text</code></td><td>正文增量</td></tr>
+          <tr><td><code>thinking</code></td><td><code>text</code></td><td>可折叠的思考轨迹</td></tr>
+          <tr><td><code>tool_call</code></td><td><code>id / name / arguments / hidden</code></td><td>开始调用工具</td></tr>
+          <tr><td><code>tool_result</code></td><td><code>id / name / content / isError / collapsed / hidden</code></td><td>工具输出（可折叠、可隐藏）</td></tr>
+          <tr><td><code>approval_request</code></td><td><code>id / name / arguments</code></td><td>工具待批准（交互卡片）</td></tr>
+          <tr><td><code>question</code></td><td><code>toolCallId / data</code></td><td>向用户追问信息</td></tr>
+          <tr><td><code>todo</code> / <code>plan</code></td><td><code>data</code> / <code>toolCallId / data</code></td><td>计划与待办清单</td></tr>
+          <tr><td><code>usage</code></td><td><code>promptTokens / completionTokens / cachedTokens / totalTokens / latencyMs</code></td><td>用量徽标</td></tr>
+          <tr><td><code>file_change</code></td><td><code>path / action</code></td><td>本会话文件改动</td></tr>
+          <tr><td><code>checkpoint</code></td><td><code>id / label / fileCount</code></td><td>检查点记录</td></tr>
+          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code></td><td>子代理进度（编码会话会额外落库以便回放）</td></tr>
+          <tr><td><code>search_results</code> / <code>knowledge_results</code> / <code>memory_results</code></td><td><code>results[]</code></td><td>联网 / 知识库 / 记忆命中列表</td></tr>
+          <tr><td><code>notice</code></td><td><code>kind / text</code></td><td>系统提示（如上下文已压缩、工作树创建失败）</td></tr>
+          <tr><td><code>steering</code></td><td><code>text</code></td><td>运行中引导被接受</td></tr>
+          <tr><td><code>debug</code></td><td><code>text</code></td><td>调试输出</td></tr>
+          <tr><td><code>done</code></td><td>—</td><td>本轮流结束（由调用方补齐）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>工作流的独立事件</h2>
+      <p>工作流运行走自己的事件名（同一套 SSE 传输，但语义不同）：<code>run_started</code> / <code>node_started</code> / <code>node_completed</code> / <code>node_failed</code> / <code>human_approval_required</code> / <code>agent_tool_call</code> / <code>run_completed</code> / <code>run_failed</code>。</p>
+
+      <h2>两条流的差异</h2>
+      <table>
+        <thead><tr><th>维度</th><th>对话页</th><th>编码会话</th></tr></thead>
+        <tbody>
+          <tr><td>错误帧</td><td>直接渲染</td><td>重新拼回 <code>[ERROR]</code> 前缀后交给统一解析器</td></tr>
+          <tr><td><code>subagent</code></td><td>不特别处理</td><td>额外落库，用于历史回放</td></tr>
+          <tr><td>检索类结果</td><td>渲染命中列表</td><td>当前未在时间线展示（解析器里是 no-op）</td></tr>
+          <tr><td><code>done</code></td><td>由调用方补齐</td><td>循环结束后显式补一帧</td></tr>
+        </tbody>
+      </table>
+
+      <h2>实现注意</h2>
+      <ul>
+        <li>字段名大小写必须稳定：前端映射依赖后端原样输出的 JSON 键。</li>
+        <li><code>approval_request</code> 与 <code>question</code> 都有 id，但语义不同（前者批工具，后者问人），不能混用。</li>
+        <li><code>usage</code> 缺少字段时前端按 0 兜底；编码会话的 <code>latencyMs</code> 由前端自行计算/补零。</li>
+        <li><code>plainText</code> 兜底是刻意设计：即使后端只写裸文本（例如某些代理/中间层），正文也不会丢。</li>
+        <li>新增事件类型的做法：后端加 <code>type</code> 与字段 → 前端解析器加映射 → 各自 reducer 决定渲染，未适配期间事件不会丢。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
