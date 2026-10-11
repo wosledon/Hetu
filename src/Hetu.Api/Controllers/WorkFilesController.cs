@@ -170,7 +170,7 @@ public class WorkFilesController : ControllerBase
             }
 
             var b64 = await WorkRemoteFs.RunReadOnlyAsync(runner, $"base64 < {quoted}", cancellationToken);
-            if (b64.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.readFileFailed", FirstLine(b64.StdErr)));
+            if (b64.ExitCode != 0) return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.readFileFailed", FirstLine(b64.StdErr) ?? _localizer.T("work.remoteCommandFailed")));
             var content2 = Encoding.UTF8.GetString(Convert.FromBase64String(b64.StdOut.Replace("\n", "").Replace("\r", "")));
             return ApiResponse<WorkFileContentDto>.Ok(new WorkFileContentDto
             {
@@ -337,7 +337,7 @@ public class WorkFilesController : ControllerBase
             var writeResult = await runner.RunAsync(
                 $"mkdir -p {dirQuoted} && base64 -d > {quoted}", stdin: b64, cancellationToken);
             if (writeResult.ExitCode != 0)
-                return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.writeFileFailed", FirstLine(writeResult.StdErr)));
+                return ApiResponse<WorkFileContentDto>.Fail(_localizer.T("work.writeFileFailed", FirstLine(writeResult.StdErr) ?? _localizer.T("work.remoteCommandFailed")));
 
             var sizeCmd = await runner.RunAsync($"wc -c < {quoted}", cancellationToken);
             var size = long.TryParse(sizeCmd.StdOut.Trim(), out var sz2) ? sz2 : content.Length;

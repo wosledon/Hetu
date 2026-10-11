@@ -74,7 +74,7 @@ public class ChatContextInjector
         {
             try
             {
-                var kbResult = await _semanticSearchService.SearchAsync(content, 5, ct);
+                var kbResult = await _semanticSearchService.SearchAsync(content ?? string.Empty, 5, ct);
                 if (kbResult.Success && kbResult.Data?.Items?.Count > 0)
                 {
                     var items = kbResult.Data.Items;
@@ -93,7 +93,7 @@ public class ChatContextInjector
         {
             try
             {
-                var memories = await _memoryService.RetrieveForContextAsync(content, 5, topicId, projectId, ct);
+                var memories = await _memoryService.RetrieveForContextAsync(content ?? string.Empty, 5, topicId, projectId, ct);
                 if (memories.Count > 0)
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });

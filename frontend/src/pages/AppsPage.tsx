@@ -321,16 +321,18 @@ export default function AppsPage() {
 function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }) {
   const { t } = useTranslation('settings')
   const [frameKey, setFrameKey] = useState(0)
-  const [timedOut, setTimedOut] = useState(false)
+  // 超时按「当前 frame + url」记录，切换后自动失效（派生值，避免 effect 里同步 setState 重置）
+  const [timedOutKey, setTimedOutKey] = useState<string | null>(null)
   const url = normalizeUrl(app.url)
+  const currentKey = `${frameKey}|${url}`
+  const timedOut = timedOutKey === currentKey
 
   // iframe 被 X-Frame-Options / CSP 拒绝时不会抛错，只会停留空白；
   // 4 秒仍无加载完成即提示用户改用其他打开方式。
   useEffect(() => {
-    setTimedOut(false)
-    const timer = window.setTimeout(() => setTimedOut(true), 4000)
+    const timer = window.setTimeout(() => setTimedOutKey(currentKey), 4000)
     return () => window.clearTimeout(timer)
-  }, [frameKey, url])
+  }, [currentKey])
 
   return (
     <AppLayout showSidebar={false} mainContent={

@@ -237,11 +237,11 @@ export default function WorkSessionArea({
     },
   })
 
-  /** 侧栏/头部的「新建会话」：有草稿入口就只占位，不再立刻落库 */
-  const startNewSession = () => {
+  /** 侧栏/头部的「新建会话」：有草稿入口就只占位（等第一条消息再落库），否则直接创建 */
+  const startNewSession = useCallback(() => {
     if (onStartDraft) { onStartDraft(); return }
-    startNewSession()
-  }
+    if (project) createSession.mutate({ projectId: project.id, title: '' })
+  }, [onStartDraft, project, createSession])
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['workMessages', session?.id],
@@ -496,10 +496,8 @@ export default function WorkSessionArea({
   // 快捷键：Ctrl/Cmd+L 聚焦输入框，Alt+N 新建会话
   const newSessionRef = useRef<() => void>(() => {})
   useEffect(() => {
-    newSessionRef.current = () => {
-      startNewSession()
-    }
-  }, [project, createSession])
+    newSessionRef.current = startNewSession
+  }, [startNewSession])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === 'n') {

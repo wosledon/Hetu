@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, ExternalLink, GitPullRequest, GitMerge, Loader2, RefreshCw, Terminal } from 'lucide-react'
@@ -17,6 +17,15 @@ function stateClass(state: string, isDraft: boolean): string {
   }
 }
 
+/** 创建 PR 表单草稿：key 记录草稿基于的初值来源，切换会话/默认分支时自动回到初值 */
+interface PrForm {
+  key: string
+  title: string
+  body: string
+  baseBranch: string
+  draft: boolean
+}
+
 /**
  * 工作面板的 PR / MR 页签：按仓库远端自动选 gh（GitHub）或 glab（GitLab）。
  * - CLI 未安装：给出当前系统的安装命令 + 官方地址，复制即用
@@ -26,11 +35,8 @@ function stateClass(state: string, isDraft: boolean): string {
 export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { projectId?: string; sessionId?: string; sessionTitle?: string }) {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [baseBranch, setBaseBranch] = useState('')
-  const [draft, setDraft] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [form, setForm] = useState<PrForm | null>(null)
 
   const { data: status, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['workPr', projectId, sessionId],
@@ -38,12 +44,13 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
     enabled: !!projectId && !!sessionId,
   })
 
-  // 展开表单时用会话标题 + 默认目标分支预填
-  useEffect(() => {
-    if (title || !status) return
-    setTitle(sessionTitle ?? '')
-    setBaseBranch(status.baseBranch ?? '')
-  }, [status, sessionTitle, title])
+  // 表单初值（会话标题 + 默认目标分支）用派生值给出，避免在 effect 里同步 setState 预填
+  const seedKey = `${sessionId ?? ''}|${status?.baseBranch ?? ''}|${sessionTitle ?? ''}`
+  const current: PrForm = form?.key === seedKey
+    ? form
+    : { key: seedKey, title: sessionTitle ?? '', body: '', baseBranch: status?.baseBranch ?? '', draft: false }
+  const { title, body, baseBranch, draft } = current
+  const patch = (next: Partial<Omit<PrForm, 'key'>>) => setForm({ ...current, ...next })
 
   const create = useMutation({
     mutationFn: () => workGitService.createPr(projectId!, { title: title.trim(), body, baseBranch: baseBranch.trim() || undefined, draft }, sessionId),
@@ -170,13 +177,13 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
               <div className="text-[12px] font-medium text-gray-700 dark:text-gray-200">{t('pr.createTitle')}</div>
               <input
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => patch({ title: e.target.value })}
                 placeholder={t('pr.titlePlaceholder')}
                 className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
               />
               <textarea
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => patch({ body: e.target.value })}
                 rows={4}
                 placeholder={t('pr.bodyPlaceholder')}
                 className="w-full resize-y rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
@@ -185,13 +192,13 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
                 <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('pr.basePlaceholder')}</label>
                 <input
                   value={baseBranch}
-                  onChange={(e) => setBaseBranch(e.target.value)}
+                  onChange={(e) => patch({ baseBranch: e.target.value })}
                   placeholder={status.baseBranch ?? 'main'}
                   className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
                 />
               </div>
               <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />{t('pr.draft')}
+                <input type="checkbox" checked={draft} onChange={(e) => patch({ draft: e.target.checked })} />{t('pr.draft')}
               </label>
               {!status.branchPushed && (
                 <p className="rounded-lg border border-amber-200 bg-amber-50/60 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-300">

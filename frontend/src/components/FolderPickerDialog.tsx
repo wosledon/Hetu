@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Folder, FolderOpen, HardDrive, Home, Loader2, CornerLeftUp, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -20,17 +20,17 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
   const { t } = useTranslation()
   const dialogTitle = title ?? t('ui:folderPicker.title')
   const [path, setPath] = useState(initialPath ?? '')
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['systemFsDirs', path],
     queryFn: () => systemService.listDirs(path || undefined),
   })
 
-  // 初始定位：传入路径不存在时回退到驱动器列表
-  useEffect(() => { setSelected(null) }, [path, data?.current])
+  // 选中项只在当前目录列表里有效：切目录或列表刷新后自动失效（派生值，无需在 effect 里同步重置）
+  const selected = selectedPath && data?.dirs.some((d) => d.path === selectedPath) ? selectedPath : null
 
-  const open = (p: string) => { setPath(p); setSelected(null) }
+  const open = (p: string) => { setPath(p); setSelectedPath(null) }
 
   const segments = data?.current
     ? data.current.replace(/\//g, '\\').split('\\').filter(Boolean)
@@ -119,7 +119,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
               {data?.dirs.map((d) => (
                 <button
                   key={d.path}
-                  onClick={() => setSelected(d.path)}
+                  onClick={() => setSelectedPath(d.path)}
                   onDoubleClick={() => open(d.path)}
                   className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                     selected === d.path
