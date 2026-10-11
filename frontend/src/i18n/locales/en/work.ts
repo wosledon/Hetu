@@ -293,7 +293,6 @@ export default {
     selectedContext: 'Selection {{label}}',
     closeNotice: 'Dismiss the notice',
     inputPlaceholder: 'Describe the dev task; use / for templates or skills, @ to reference notes, files or agents (↑ for input history)',
-    inputHint: 'Enter to send · Shift+Enter for a new line · ↑ history · Ctrl+L focus',
     localBadge: 'Local',
     defaultAgent: 'Default Agent',
     webSearch: 'Web search',

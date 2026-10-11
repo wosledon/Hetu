@@ -230,6 +230,8 @@ public static class HetuServiceCollectionExtensions
     {
         services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddScoped<AgentLoopService>();
+        // 运行中引导：所有端共享同一份内存队列（单例）
+        services.AddSingleton<Hetu.Core.Services.AgentSteeringHub>();
         services.AddScoped<IWorkProjectService, WorkProjectService>();
         services.AddScoped<IWorkSessionService, WorkSessionService>();
         services.AddScoped<WorkWorktreeService>();

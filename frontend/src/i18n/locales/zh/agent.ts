@@ -1,4 +1,14 @@
 export default {
+  queue: {
+    title: '队列 {{count}} 条待发送',
+    hint: '回复结束后自动发送',
+    steer: '引导',
+    steerHint: '立即注入正在执行的回复（Agent 下一步就会考虑）',
+    steerSent: '已注入引导',
+    steerUnavailable: '当前没有正在执行的回复，已保留在队列',
+    steerFailed: '引导失败：{{error}}',
+    remove: '移出队列',
+  },
   input: {
     placeholder: '输入消息，Enter 发送...',
     mentionTitle: '输入 @ 引用',

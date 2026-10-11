@@ -39,7 +39,6 @@ export default {
     inputFallback: 'Type a message...',
     attachedImages: '{{count}} images attached, type a message...',
     inputPlaceholder: 'Type a message, Enter to send, / for skills, @ to mention notes...',
-    inputHint: 'Shift + Enter for a new line · Paste files supported',
     imageUnsupported: '{{name}} (the current model does not support image input; it will be ignored when sending)',
     noMatchingSlash: 'No matching skills or agents',
     noMatchingMention: 'No matching mentions',

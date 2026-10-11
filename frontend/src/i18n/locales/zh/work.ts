@@ -293,7 +293,6 @@ export default {
     selectedContext: '选中 {{label}}',
     closeNotice: '关闭提示',
     inputPlaceholder: '描述你要完成的开发任务，/ 用模板或技能，@ 引用笔记、文件或智能体（↑ 回溯历史输入）',
-    inputHint: 'Enter 发送 · Shift+Enter 换行 · ↑ 历史 · Ctrl+L 聚焦',
     localBadge: '本地',
     defaultAgent: '默认 Agent',
     webSearch: '网络搜索',

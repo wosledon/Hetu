@@ -39,7 +39,6 @@ export default {
     inputFallback: '输入内容...',
     attachedImages: '已附加 {{count}} 张图片，输入消息...',
     inputPlaceholder: '输入消息，Enter 发送，/ 选技能，@ 引用笔记...',
-    inputHint: 'Shift + Enter 换行 · 支持粘贴文件',
     imageUnsupported: '{{name}}（当前模型不支持图片输入，发送时会忽略）',
     noMatchingSlash: '没有匹配的技能或智能体',
     noMatchingMention: '没有匹配的引用',

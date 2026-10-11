@@ -24,6 +24,8 @@ import AgentReasoningSelect from './agent/AgentReasoningSelect'
 import AgentModelPicker from './agent/AgentModelPicker'
 import AgentPicker from './agent/AgentPicker'
 import { fromChatTimeline } from '../utils/agentTimeline'
+import { loadInputHistory, pushInputHistory } from '../utils/inputHistory'
+import AgentQueueBar, { type PendingMessage } from './agent/AgentQueueBar'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import { type InputCommandItem } from './InputCommandMenu'
@@ -126,6 +128,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const [input, setInput] = useState('')
   /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
   const [pastedBlock, setPastedBlock] = useState('')
+  // 发送队列（回复进行中排队的消息）与引导中的那一条
+  const [queue, setQueue] = useState<PendingMessage[]>([])
+  const queueRef = useRef<PendingMessage[]>([])
+  const [steeringId, setSteeringId] = useState<string | null>(null)
+  const [queueNotice, setQueueNotice] = useState<string | null>(null)
+  /** ↑↓ 回溯历史输入（与 Code 会话共用同一份本地历史） */
+  const [inputHistory, setInputHistory] = useState<string[]>(() => loadInputHistory())
   const topicId = topic?.id
   // 会话级配置：从缓存恢复（组件以 key=topic.id 重挂载，切会话自动换缓存）
   const cachedSettings = useMemo(() => loadTopicSettings(topicId), [topicId])
@@ -528,13 +537,28 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       await compactContext()
       return
     }
-    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0 && !pastedBlock) || isStreaming) return
+    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0 && !pastedBlock)) return
 
     const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
     const typed = (slashPrefix + input.trim()).trim()
     // 折叠的长文本块排在正文前，并带上标记：会话里折叠成块展示，自己写的那句话照常显示
     const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', typed].filter(Boolean).join('\n\n')
     const mentions = selectedMentions.map(m => ({ type: m.type, id: m.id }))
+    setInputHistory(pushInputHistory(content))
+
+    // 回复进行中：不打断当前回复，消息进入发送队列（本轮结束后自动发出）；也可在队列条上点「引导」立即注入
+    if (isStreaming) {
+      enqueue(content)
+      setInput('')
+      setPastedBlock('')
+      setSelectedSlashItem(null)
+      setSelectedMentions([])
+      setAttachedFiles([])
+      setInputMenu(null)
+      setQueueNotice(null)
+      return
+    }
+
     setInput('')
     setPastedBlock('')
     setSelectedSlashItem(null)
@@ -603,7 +627,63 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
+      flushQueue(topic.id)
     })
+  }
+
+  /** 发送队列：回复进行中发送的消息排到队尾（回复结束后自动逐条发出） */
+  const updateQueue = (next: (prev: PendingMessage[]) => PendingMessage[]) => {
+    const list = next(queueRef.current)
+    queueRef.current = list
+    setQueue(list)
+  }
+
+  const enqueue = (content: string) => {
+    const text = content.trim()
+    if (!text) return
+    updateQueue((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, content: text }])
+  }
+
+  /** 出队一条并发出（用同一套流式参数；队列内容是已组装好的正文，不再重复带引用/技能） */
+  const flushQueue = (id: string) => {
+    const [queued, ...rest] = queueRef.current
+    if (!queued) return
+    updateQueue(() => rest)
+    startStreaming(id, { content: queued.content, webSearch, knowledgeBase, memory })
+    void consumeChatStream(id, (signal) =>
+      chatMessageService.stream(id, {
+        content: queued.content,
+        modelId: activeModelId || undefined,
+        deepThinking,
+        reasoningEffort: deepThinking ? reasoningEffort : undefined,
+        webSearch, knowledgeBase, memory,
+        enableTools: toolCalling,
+        permissionMode,
+        contextWindow,
+      }, signal),
+    ).finally(() => {
+      queryClient.invalidateQueries({ queryKey: ['chatMessages', id] })
+      flushQueue(id)
+    })
+  }
+
+  /** 引导：立即把队列里这条注入正在执行的回复 */
+  const steerQueued = async (item: PendingMessage) => {
+    if (!topicId) return
+    setSteeringId(item.id)
+    try {
+      const result = await chatMessageService.steer(topicId, item.content)
+      if (result.injected) {
+        updateQueue((prev) => prev.filter((x) => x.id !== item.id))
+        setQueueNotice(t('agent:queue.steerSent'))
+      } else {
+        setQueueNotice(t('agent:queue.steerUnavailable'))
+      }
+    } catch (error) {
+      setQueueNotice(t('agent:queue.steerFailed', { error: (error as Error).message }))
+    } finally {
+      setSteeringId(null)
+    }
   }
 
   const handleStop = useCallback(() => {
@@ -1138,7 +1218,23 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有
             工具交互抽屉（ask_question / todo / plan）挂在 aboveInput 上，宽度与输入框保持一致 */}
         <AgentInputBox
-          aboveInput={<ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />}
+          aboveInput={
+            <>
+              {/* 发送队列：回复进行中排队的消息，可「引导」立即注入 */}
+              <AgentQueueBar
+                items={queue}
+                steeringId={steeringId}
+                onSteer={(item) => void steerQueued(item)}
+                onRemove={(item) => updateQueue((prev) => prev.filter((x) => x.id !== item.id))}
+              />
+              {queueNotice && (
+                <p className="mb-2 rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-[11px] text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/20 dark:text-sky-300">
+                  {queueNotice}
+                </p>
+              )}
+              <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
+            </>
+          }
           value={input}
           onChange={(v) => setInput(v)}
           onMenuChange={setInputMenu}
@@ -1227,7 +1323,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           canSubmit={!!input.trim() || !!pastedBlock || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
-          hint={t('messageArea.inputHint')}
+          history={inputHistory}
           trailing={
             <AgentContextUsage
               usage={contextUsage}

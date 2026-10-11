@@ -273,6 +273,7 @@
   "toolExec.loadNotFound": "未找到指定工具或分组，请核对系统提示里列出的名字",
   "workSession.worktreeCreated": "已创建独立工作树 {0}（检出分支 {1}），本轮所有操作都在工作树里进行",
   "workSession.checkoutRemoteUnsupported": "SSH 项目请在远端自行切换分支",
+  "agent.steerEmpty": "引导内容不能为空",
   "worktree.rootNotAbsolute": "工作树目录必须是绝对路径",
   "worktree.rootCreateFailed": "无法创建工作树目录 {0}：{1}",
   "worktree.rootInsideRepo": "工作树目录不能放在仓库「{0}」里面，请选仓库外的目录",

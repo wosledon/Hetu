@@ -1,4 +1,14 @@
 export default {
+  queue: {
+    title: '{{count}} queued',
+    hint: 'sent automatically once the reply finishes',
+    steer: 'Steer',
+    steerHint: 'Inject into the running reply right away (the agent considers it next step)',
+    steerSent: 'Steering sent',
+    steerUnavailable: 'No reply is running, kept in the queue',
+    steerFailed: 'Steering failed: {{error}}',
+    remove: 'Remove from queue',
+  },
   input: {
     placeholder: 'Type a message, Enter to send...',
     mentionTitle: 'Type @ to reference',

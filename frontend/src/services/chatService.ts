@@ -135,6 +135,9 @@ export const chatMessageService = {
   /** 上下文占用（系统提示 / 历史 / 摘要），供输入框右侧会话信息面板 */
   contextUsage: (topicId: string, contextWindow?: number) =>
     get<IContextUsage>(`/chat-messages/topic/${topicId}/context-usage`, { contextWindow }),
+  /** 运行中引导：把这条消息注入正在执行的回复（injected=false 表示当前没有在跑的回复） */
+  steer: (topicId: string, content: string) =>
+    post<{ injected: boolean }>(`/chat-messages/topic/${topicId}/steer`, { content }),
   /** 手动压缩上下文：调用当前大模型把较早历史压成摘要 */
   compact: (topicId: string, data: ICompactContextRequest) =>
     post<ICompactContextResult>(`/chat-messages/topic/${topicId}/compact`, data),

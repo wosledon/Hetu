@@ -9,6 +9,7 @@ using Hetu.Core.Profiles;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Utilities;
+using Hetu.Shared.Agent;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Hetu.Shared.Context;
@@ -38,6 +39,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<ChatMessagesController> _logger;
     private readonly ILocalizer _localizer;
+    private readonly AgentSteeringHub _steering;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -55,7 +57,8 @@ public class ChatMessagesController : ControllerBase
         ILlmUsageRecorder llmUsageRecorder,
         ContextCompactionService contextCompaction,
         ILogger<ChatMessagesController> logger,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        AgentSteeringHub steering)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -72,6 +75,7 @@ public class ChatMessagesController : ControllerBase
         _llmUsageRecorder = llmUsageRecorder;
         _contextCompaction = contextCompaction;
         _logger = logger;
+        _steering = steering;
         _localizer = localizer;
     }
 
@@ -148,12 +152,30 @@ public class ChatMessagesController : ControllerBase
         return ApiResponse.Fail(_localizer.T("chat.planNotFound"));
     }
 
+    [HttpPost("topic/{topicId:guid}/steer")]
+    public async Task<ApiResponse<SteerResultDto>> Steer(Guid topicId, [FromBody] SteerMessageRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Content)) return ApiResponse<SteerResultDto>.Fail(_localizer.T("agent.steerEmpty"));
+        var key = $"chat:{topicId}";
+        if (!_steering.IsActive(key)) return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = false });
+
+        // 先落库（对话历史里能看到这条引导），再交给正在运行的循环注入
+        var created = await _chatMessageService.CreateUserMessageAsync(topicId, request.Content.Trim(), ct);
+        if (!created.Success) return ApiResponse<SteerResultDto>.Fail(created.Error ?? _localizer.T("chat.messageCreateFailed"));
+
+        var injected = _steering.Enqueue(key, request.Content);
+        return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = injected });
+    }
+
     [HttpPost("topic/{topicId:guid}/stream")]
     public async Task Stream(Guid topicId, [FromBody] SendMessageRequest request, CancellationToken ct = default)
     {
         Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, ct);
+        // 运行中引导：本轮执行期间允许用户插话，由 Agent 循环在迭代边界注入
+        var steeringKey = $"chat:{topicId}";
+        using var steeringRegistration = _steering.Register(steeringKey);
 
         Log.Debug("[Stream] content={Content}, enableTools={EnableTools}",
             request.Content?.Length > 50 ? request.Content[..50] + "..." : request.Content, request.EnableTools);
@@ -233,6 +255,7 @@ public class ChatMessagesController : ControllerBase
             ToolApprovals = approvalOverrides,
             SessionId = topicId.ToString(),
             Sink = sink,
+            DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = useToolCalling,
             // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
             CoreToolNames = BuiltinProfiles.KnowledgeCoreTools,
@@ -318,6 +341,9 @@ public class ChatMessagesController : ControllerBase
         public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
 
         public Task OnErrorAsync(string message) => _writer.WriteErrorAsync(_localizer.T("chat.requestFailed", message));
+
+        /// <summary>运行中引导已注入：通知前端标记该条已生效</summary>
+        public Task OnSteeringAsync(string text) => _writer.WriteJsonAsync(new { type = "steering", text });
 
         /// <summary>tool_call / tool_result / approval_request / question / todo / plan 一律直通写帧</summary>
         public Task OnEventAsync(object payload) => _writer.WriteJsonAsync(payload);
