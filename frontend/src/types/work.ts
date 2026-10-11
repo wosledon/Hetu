@@ -283,7 +283,19 @@ export interface IWorkGitFileStatus {
 export interface IWorkGitStatus {
   isRepo: boolean;
   branch: string;
+  /** 上游引用（如 origin/main）；空表示还没有上游 */
+  upstream?: string;
+  /** 待推送提交数 */
+  ahead: number;
+  /** 待拉取提交数 */
+  behind: number;
   files: IWorkGitFileStatus[];
+}
+
+/** pull / push 的执行结果 */
+export interface IWorkGitCommandResult {
+  success: boolean;
+  output: string;
 }
 
 export interface IWorkGitFileContent {

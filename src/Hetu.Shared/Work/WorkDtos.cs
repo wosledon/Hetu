@@ -440,7 +440,20 @@ public class WorkGitStatusDto
 {
     public bool IsRepo { get; set; }
     public string Branch { get; set; } = string.Empty;
+    /// <summary>上游引用（如 origin/main）；为 null 表示当前分支还没有上游</summary>
+    public string? Upstream { get; set; }
+    /// <summary>相对上游待推送的提交数</summary>
+    public int Ahead { get; set; }
+    /// <summary>相对上游待拉取的提交数</summary>
+    public int Behind { get; set; }
     public List<WorkGitFileStatusDto> Files { get; set; } = new();
+}
+
+/// <summary>git 网络类操作（pull / push）的执行结果</summary>
+public class WorkGitCommandResultDto
+{
+    public bool Success { get; set; }
+    public string Output { get; set; } = string.Empty;
 }
 
 public class WorkGitFileContentDto

@@ -338,6 +338,18 @@ export default {
       explainChanges: '解释上面的改动',
     },
   },
+  gitSync: {
+    title: 'Git 同步：拉取 / 推送',
+    ahead: '待推送 {{count}} 个提交',
+    behind: '待拉取 {{count}} 个提交',
+    uncommitted: '未提交变更 {{count}} 个文件',
+    noUpstream: '未设置上游',
+    pull: '拉取',
+    push: '推送',
+    publish: '发布分支',
+    pullHint: '拉取仅允许快进（--ff-only）；有冲突时请在终端处理',
+    dismiss: '点击清除输出',
+  },
   workspace: {
     title: '工作区',
     currentBranch: '当前分支',

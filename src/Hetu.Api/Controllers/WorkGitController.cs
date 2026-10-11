@@ -47,6 +47,26 @@ public class WorkGitController : ControllerBase
         }
     }
 
+    /// <summary>拉取当前分支（只允许快进）</summary>
+    [HttpPost("pull")]
+    public async Task<ApiResponse<WorkGitCommandResultDto>> Pull(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
+    {
+        var result = await _gitService.PullAsync(id, session, cancellationToken);
+        return result.Success
+            ? ApiResponse<WorkGitCommandResultDto>.Ok(result)
+            : ApiResponse<WorkGitCommandResultDto>.Fail(result.Output);
+    }
+
+    /// <summary>推送当前分支（没有上游时按当前分支设置上游）</summary>
+    [HttpPost("push")]
+    public async Task<ApiResponse<WorkGitCommandResultDto>> Push(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
+    {
+        var result = await _gitService.PushAsync(id, session, cancellationToken);
+        return result.Success
+            ? ApiResponse<WorkGitCommandResultDto>.Ok(result)
+            : ApiResponse<WorkGitCommandResultDto>.Fail(result.Output);
+    }
+
     /// <summary>提交选中的文件（git add 指定路径 + commit）</summary>
     [HttpPost("commit")]
     public async Task<ApiResponse<WorkGitCommitResultDto>> Commit(Guid id, [FromBody] WorkGitCommitRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)

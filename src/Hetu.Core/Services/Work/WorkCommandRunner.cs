@@ -20,7 +20,8 @@ public interface IWorkCommandRunner
     bool IsRemote { get; }
     string RootPath { get; }
     Task<WorkCommandResult> RunAsync(string command, CancellationToken ct = default);
-    Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default);
+    /// <summary><paramref name="timeout"/> 为空时用默认超时（本地 60s / SSH 默认）；网络类命令（pull/push）需显式放宽</summary>
+    Task<WorkCommandResult> RunAsync(string command, string? stdin = null, CancellationToken ct = default, TimeSpan? timeout = null);
 }
 
 /// <summary>本地执行器：直接起 shell 进程，工作目录为项目根目录</summary>
@@ -35,7 +36,7 @@ public class LocalCommandRunner : IWorkCommandRunner
 
     public Task<WorkCommandResult> RunAsync(string command, CancellationToken ct = default) => RunAsync(command, null, ct);
 
-    public async Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default)
+    public async Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default, TimeSpan? timeout = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -58,7 +59,7 @@ public class LocalCommandRunner : IWorkCommandRunner
         using var process = Process.Start(psi);
         if (process == null) return new WorkCommandResult(-1, string.Empty, "无法启动进程");
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(60));
+        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(60));
         try
         {
             if (stdin != null)
@@ -148,7 +149,7 @@ public class SshCommandRunner : IWorkCommandRunner
 
     public Task<WorkCommandResult> RunAsync(string command, CancellationToken ct = default) => RunAsync(command, null, ct);
 
-    public async Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default)
+    public async Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default, TimeSpan? timeout = null)
     {
         var remote = BuildRemoteCommand(command);
         var psi = new ProcessStartInfo
@@ -188,7 +189,7 @@ public class SshCommandRunner : IWorkCommandRunner
             return new WorkCommandResult(-1, string.Empty, "无法启动 ssh");
         }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(SshCommandTimeoutSeconds));
+        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(SshCommandTimeoutSeconds));
         try
         {
             if (stdin != null)

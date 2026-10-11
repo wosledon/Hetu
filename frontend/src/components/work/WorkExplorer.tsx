@@ -132,7 +132,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
   })
 
   const { data: gitStatus, refetch: refetchGit, isFetching: isGitLoading } = useQuery({
-    queryKey: ['workGitStatus', projectId],
+    queryKey: ['workGitStatus', projectId, sessionId],
     queryFn: () => workGitService.status(projectId!, sessionId),
     enabled: !!projectId && activeFeature === 'git',
     refetchInterval: !!projectId && activeFeature === 'git' ? 5000 : false,
