@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>上下文与自动压缩 · Hetu</title>
+<meta name="description" content="上下文占用与自动压缩详解：占用三段（历史/摘要/系统提示）的算法与窗口解析、自动压缩触发比例 0.8、保留最近 6 条、摘要最多 3 次重试、60k 字符截断、写回 ContextSummary 与 ThroughMessageId 的语义、与压缩管道的分工对照、失败降级与观测。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/context.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/context.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="上下文与自动压缩 · Hetu">
+<meta property="og:description" content="上下文占用与自动压缩详解：占用三段（历史/摘要/系统提示）的算法与窗口解析、自动压缩触发比例 0.8、保留最近 6 条、摘要最多 3 次重试、60k 字符截断、写回 ContextSummary 与 ThroughMessageId 的语义、与压缩管道的分工对照、失败降级与观测。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/context.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html" aria-current="page">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>上下文与自动压缩</h1>
+      <p class="lede">这一层负责回答两个问题：<strong>现在用了多少上下文</strong>，以及<strong>什么时候必须把历史压掉</strong>。它与「压缩管道」分工明确：管道压的是单段文本，这里压的是整个会话的消息序列，并把摘要持久化到会话上。</p>
+
+      <h2>占用是怎么算出来的</h2>
+      <table>
+        <thead><tr><th>组成</th><th>算法</th></tr></thead>
+        <tbody>
+          <tr><td>历史（history）</td><td>只统计「尚未被摘要覆盖」的消息：<code>ContextSummaryThroughMessageId</code> 之前的消息直接排除</td></tr>
+          <tr><td>摘要（summary）</td><td>会话上保存的摘要文本长度折算成 token</td></tr>
+          <tr><td>系统提示（system）</td><td><strong>反推值</strong>：用最近一次真实上报的 <code>PromptTokens</code> 减去历史与摘要估算得到，拿不到时回退经验值（对话 1500 / 编码会话 3500）</td></tr>
+          <tr><td>窗口（window）</td><td>优先请求参数 <code>contextWindow</code>，其次模型的 <code>ContextWindow</code>，都没有则默认 <code>128000</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note">空会话时占用为 0，但面板仍固定返回 <code>system / history / summary</code> 三段，避免前端出现「少一段」的跳动。</div>
+
+      <h2>自动压缩的触发条件</h2>
+      <table>
+        <thead><tr><th>常量</th><th>默认</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>AutoCompactRatio</code></td><td>0.8</td><td>占用 ≥ 窗口的 80% 才自动压缩；未触发时直接返回 null，调用方忽略</td></tr>
+          <tr><td><code>DefaultKeepRecent</code></td><td>6</td><td>保留最近 6 条消息不参与摘要</td></tr>
+          <tr><td><code>MaxTranscriptChars</code></td><td>60000</td><td>交给摘要模型的历史最多截取到末尾 6 万字符，避免摘要提示本身超长</td></tr>
+          <tr><td><code>MaxSummaryAttempts</code></td><td>3</td><td>摘要最多尝试 3 次：空返回或内容过短就立刻重试（不是固定等待）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>压缩时到底改了什么</h2>
+      <ol>
+        <li>从「上次摘要覆盖到的消息」之后开始取历史，保留最近 <code>KeepRecent</code> 条，其余交给摘要模型。</li>
+        <li>生成摘要后，把摘要写回会话的 <code>ContextSummary</code>，并把 <code>ContextSummaryThroughMessageId</code> 更新为「最后一条被纳入摘要的消息 ID」。</li>
+        <li><strong>原始消息不动</strong>：压缩只影响之后送给模型的内容，历史消息仍可完整回看、导出。</li>
+        <li>压缩完成会发一条 <code>notice(kind=compacted)</code> 事件，前端在输入框上方显示提示条。</li>
+      </ol>
+
+      <h2>与压缩管道的分工</h2>
+      <table>
+        <thead><tr><th>维度</th><th>压缩管道</th><th>上下文自动压缩（本页）</th></tr></thead>
+        <tbody>
+          <tr><td>作用对象</td><td>单段文本（历史片段 / 工具输出）</td><td>整个会话的消息序列</td></tr>
+          <tr><td>触发</td><td>调用方显式调用（每轮前、单轮任务前）</td><td>占用 ≥ 80% 窗口时自动触发</td></tr>
+          <tr><td>落点</td><td>只替换当次送入模型的文本</td><td>摘要持久化到 <code>ContextSummary</code> + <code>ThroughMessageId</code></td></tr>
+          <tr><td>失败影响</td><td>降级为原文，无副作用</td><td>失败只是不注入摘要，主流程继续</td></tr>
+        </tbody>
+      </table>
+
+      <h2>失败与降级</h2>
+      <ul>
+        <li>话题 / 会话不存在：返回 <code>notFound</code>。</li>
+        <li>没有可压缩的历史（<code>toSummarize.Count == 0</code>）：返回 <code>context.noCompressibleHistory</code>。</li>
+        <li>摘要模型不可用：返回 null，不写摘要。</li>
+        <li>摘要调用抛异常：只记 warning 并返回 null——自动压缩失败不阻断对话。</li>
+        <li>自动压缩失败时前端无提示条，用户可继续对话，占用会继续增长；需要手动压缩时可在上下文面板触发。</li>
+      </ul>
+
+      <h2>观测</h2>
+      <ul>
+        <li>日志前缀 <code>[Context]</code>：包含「压缩第 x/y 次未返回内容」「摘要过短」「压缩完成：N 条消息 → M 字符摘要（约 before → after tokens）」。</li>
+        <li>前端：对话页的上下文占用面板、编码会话右下角的占用环形图与压缩提示条。</li>
+        <li>用量侧：首轮输入字符与压缩后字符会被记录，便于评估压缩收益。</li>
+      </ul>
+
+      <h2>使用建议</h2>
+      <ul>
+        <li>长会话出现「模型忘记早期内容」时，先看占用是否已到 80%——到阈值会自动压缩，这是设计行为而不是 bug。</li>
+        <li>想让摘要更贴近当前任务：把 <code>KeepRecent</code> 调大（保留更多原文），代价是占用上升更快。</li>
+        <li>摘要质量差：换摘要模型（设置里可指定），或把 <code>MaxTranscriptChars</code> 调小让摘要更聚焦。</li>
+        <li>需要完整历史时（审计 / 复盘）：消息本身从未被删改，直接看会话历史或导出即可。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+

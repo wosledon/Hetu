@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSE event protocol · Hetu</title>
+<meta name="description" content="The SSE event protocol in detail: three frame shapes, the full event list with key fields, workflow events, differences between chat and code sessions, and how to add an event without losing frames.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/sse.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/sse.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="SSE event protocol · Hetu">
+<meta property="og:description" content="The SSE event protocol in detail: three frame shapes, the full event list with key fields, workflow events, differences between chat and code sessions, and how to add an event without losing frames.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/sse.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/sse.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html" aria-current="page">SSE event protocol</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>SSE event protocol</h1>
+      <p class="lede">Chat and code sessions both stream "what the model is doing" over the same SSE channel. The protocol carries no business semantics: the backend writes structured frames, the frontend dispatches on <code>type</code>.</p>
+
+      <h2>Three frame shapes</h2>
+      <table>
+        <thead><tr><th>Shape</th><th>Detection</th><th>Frontend handling</th></tr></thead>
+        <tbody>
+          <tr><td>Structured event</td><td>Valid JSON with a <code>type</code></td><td>Mapped to a typed object and dispatched</td></tr>
+          <tr><td>Plain text chunk</td><td>Not JSON</td><td>Appended as <code>plainText</code> to the body — content is never dropped</td></tr>
+          <tr><td>Error frame</td><td>Starts with <code>[ERROR]</code></td><td>Rendered as an error state</td></tr>
+        </tbody>
+      </table>
+      <div class="note">Unknown <code>type</code> values are kept as <code>unknown</code> with the raw JSON, so shipping a backend event before its frontend mapping never loses frames.</div>
+
+      <h2>Event list</h2>
+      <table>
+        <thead><tr><th>Event</th><th>Key fields</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>content</code></td><td><code>text</code></td><td>Body delta</td></tr>
+          <tr><td><code>thinking</code></td><td><code>text</code></td><td>Collapsible reasoning trace</td></tr>
+          <tr><td><code>tool_call</code></td><td><code>id / name / arguments / hidden</code></td><td>A tool call starts</td></tr>
+          <tr><td><code>tool_result</code></td><td><code>id / name / content / isError / collapsed / hidden</code></td><td>Tool output (collapsible, hideable)</td></tr>
+          <tr><td><code>approval_request</code></td><td><code>id / name / arguments</code></td><td>Tool awaiting approval (interactive card)</td></tr>
+          <tr><td><code>question</code></td><td><code>toolCallId / data</code></td><td>Asking the user for information</td></tr>
+          <tr><td><code>todo</code> / <code>plan</code></td><td><code>data</code> / <code>toolCallId / data</code></td><td>Plan and todo list</td></tr>
+          <tr><td><code>usage</code></td><td><code>promptTokens / completionTokens / cachedTokens / totalTokens / latencyMs</code></td><td>Usage badge</td></tr>
+          <tr><td><code>file_change</code></td><td><code>path / action</code></td><td>Files changed in this session</td></tr>
+          <tr><td><code>checkpoint</code></td><td><code>id / label / fileCount</code></td><td>Checkpoint recorded</td></tr>
+          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code></td><td>Sub-agent progress (code sessions persist it for replay)</td></tr>
+          <tr><td><code>search_results</code> / <code>knowledge_results</code> / <code>memory_results</code></td><td><code>results[]</code></td><td>Web / knowledge / memory hit lists</td></tr>
+          <tr><td><code>notice</code></td><td><code>kind / text</code></td><td>System notices (context compacted, worktree creation failed …)</td></tr>
+          <tr><td><code>steering</code></td><td><code>text</code></td><td>A steer was accepted</td></tr>
+          <tr><td><code>debug</code></td><td><code>text</code></td><td>Debug output</td></tr>
+          <tr><td><code>done</code></td><td>—</td><td>Turn finished (appended by the caller)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Workflow events are separate</h2>
+      <p>Workflow runs use their own names over the same transport: <code>run_started</code> / <code>node_started</code> / <code>node_completed</code> / <code>node_failed</code> / <code>human_approval_required</code> / <code>agent_tool_call</code> / <code>run_completed</code> / <code>run_failed</code>.</p>
+
+      <h2>Differences between the two streams</h2>
+      <table>
+        <thead><tr><th>Aspect</th><th>Chat</th><th>Code session</th></tr></thead>
+        <tbody>
+          <tr><td>Error frames</td><td>Rendered directly</td><td><code>[ERROR]</code> prefix is re-applied before the shared parser</td></tr>
+          <tr><td><code>subagent</code></td><td>Not special-cased</td><td>Also persisted for replay</td></tr>
+          <tr><td>Retrieval results</td><td>Rendered as hit lists</td><td>Not shown on the timeline today (no-op in the dispatcher)</td></tr>
+          <tr><td><code>done</code></td><td>Appended by the caller</td><td>Explicitly appended after the loop</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Implementation notes</h2>
+      <ul>
+        <li>Field names and casing must stay stable: the frontend maps the exact JSON keys the backend writes.</li>
+        <li><code>approval_request</code> and <code>question</code> both carry ids but mean different things (approve a tool vs. ask a person) — never interchange them.</li>
+        <li>Missing <code>usage</code> fields fall back to 0; in code sessions <code>latencyMs</code> is computed client-side.</li>
+        <li>The <code>plainText</code> fallback is deliberate: even if only bare text arrives (proxies, intermediaries), the body is preserved.</li>
+        <li>Adding an event: backend adds the <code>type</code> and fields, the parser adds a mapping, each reducer decides rendering — unmapped events are never lost.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+

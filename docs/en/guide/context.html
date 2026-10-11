@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context &amp; auto compaction · Hetu</title>
+<meta name="description" content="Context usage and auto compaction in detail: the three usage parts and window resolution, the 0.8 trigger ratio, keeping the newest 6 messages, three summary attempts, the 60k transcript cap, what ContextSummary and ThroughMessageId mean, how it differs from the compression pipeline, and its failure paths.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/context.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/context.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Context &amp; auto compaction · Hetu">
+<meta property="og:description" content="Context usage and auto compaction in detail: the three usage parts and window resolution, the 0.8 trigger ratio, keeping the newest 6 messages, three summary attempts, the 60k transcript cap, what ContextSummary and ThroughMessageId mean, how it differs from the compression pipeline, and its failure paths.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/context.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/context.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html" aria-current="page">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Context &amp; auto compaction</h1>
+      <p class="lede">This layer answers two questions: <strong>how much context is in use</strong>, and <strong>when history must be compacted</strong>. Its division of labour with the compression pipeline is explicit: the pipeline compresses a single text, while this compresses the message sequence of a session and persists the summary on the session.</p>
+
+      <h2>How usage is computed</h2>
+      <table>
+        <thead><tr><th>Part</th><th>Method</th></tr></thead>
+        <tbody>
+          <tr><td>History</td><td>Counts only messages <em>not yet covered by a summary</em>: everything up to <code>ContextSummaryThroughMessageId</code> is excluded</td></tr>
+          <tr><td>Summary</td><td>The stored summary text converted to tokens</td></tr>
+          <tr><td>System prompt</td><td>A <strong>derived value</strong>: the last reported <code>PromptTokens</code> minus history and summary; when unavailable it falls back to an empirical value (1500 chat / 3500 code sessions)</td></tr>
+          <tr><td>Window</td><td>The request's <code>contextWindow</code> first, then the model's <code>ContextWindow</code>, otherwise <code>128000</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note">An empty session reports 0 usage but still returns all three parts (<code>system / history / summary</code>), so the UI never jumps between "two parts" and "three parts".</div>
+
+      <h2>When auto compaction triggers</h2>
+      <table>
+        <thead><tr><th>Constant</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>AutoCompactRatio</code></td><td>0.8</td><td>Compaction only triggers at ≥ 80% of the window; otherwise null is returned and the caller ignores it</td></tr>
+          <tr><td><code>DefaultKeepRecent</code></td><td>6</td><td>The newest 6 messages are never summarized</td></tr>
+          <tr><td><code>MaxTranscriptChars</code></td><td>60000</td><td>At most the last 60k characters of history are sent to the summarizer, so the summary prompt cannot blow up</td></tr>
+          <tr><td><code>MaxSummaryAttempts</code></td><td>3</td><td>Up to three attempts: an empty or too-short summary retries immediately (no fixed delay)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>What compaction actually changes</h2>
+      <ol>
+        <li>History starts after the last summarized message, keeps the newest <code>KeepRecent</code> entries, and hands the rest to the summary model.</li>
+        <li>The summary is written back to <code>ContextSummary</code>, and <code>ContextSummaryThroughMessageId</code> advances to the last included message id.</li>
+        <li><strong>Original messages are untouched</strong>: compaction only changes what is sent to the model next; history stays complete for review and export.</li>
+        <li>A <code>notice(kind=compacted)</code> event is emitted and the UI shows a notice above the input.</li>
+      </ol>
+
+      <h2>Division of labour with the compression pipeline</h2>
+      <table>
+        <thead><tr><th>Aspect</th><th>Compression pipeline</th><th>Auto compaction (this page)</th></tr></thead>
+        <tbody>
+          <tr><td>Applies to</td><td>One text (a history slice, a tool output)</td><td>The whole message sequence of a session</td></tr>
+          <tr><td>Triggered by</td><td>Explicit calls (before an iteration, before one-shot tasks)</td><td>Automatically at ≥ 80% window usage</td></tr>
+          <tr><td>Persistence</td><td>Replaces only the text sent this turn</td><td>Summary persisted in <code>ContextSummary</code> + <code>ThroughMessageId</code></td></tr>
+          <tr><td>On failure</td><td>Falls back to the original text, no side effects</td><td>Simply does not inject a summary; the flow continues</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Failure and degradation</h2>
+      <ul>
+        <li>Missing topic / session: returns <code>notFound</code>.</li>
+        <li>Nothing compactable (<code>toSummarize.Count == 0</code>): returns <code>context.noCompressibleHistory</code>.</li>
+        <li>Summary model unavailable: returns null and writes no summary.</li>
+        <li>The summary call throws: a warning is logged and null is returned — auto compaction never blocks the conversation.</li>
+        <li>When it fails the UI shows no notice; usage keeps growing and compaction can be triggered manually from the context panel.</li>
+      </ul>
+
+      <h2>Observability</h2>
+      <ul>
+        <li>Log prefix <code>[Context]</code>: "attempt x/y returned nothing", "summary too short", "compaction done: N messages → M characters (about before → after tokens)".</li>
+        <li>UI: the context panel in chat, the usage ring and compaction notice in code sessions.</li>
+        <li>Usage: first-iteration input characters and post-compression characters are recorded so the savings are measurable.</li>
+      </ul>
+
+      <h2>Practical advice</h2>
+      <ul>
+        <li>If a long session "forgets" earlier content, check usage first: at 80% compaction is by design, not a bug.</li>
+        <li>To keep more original wording, raise <code>KeepRecent</code>; the cost is faster context growth.</li>
+        <li>Poor summaries: point the setting at a better summary model, or lower <code>MaxTranscriptChars</code> so the summary stays focused.</li>
+        <li>Need the full record (audit, post-mortem)? Messages are never modified — read or export the session history.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
