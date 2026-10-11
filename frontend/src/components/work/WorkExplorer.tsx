@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
+import { GitPullRequest, Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -18,10 +18,13 @@ import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange, IWorkCheckpoint
 import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
+import WorkPrPanel from './WorkPrPanel'
 
 interface WorkExplorerProps {
   projectId?: string
   sessionId?: string
+  /** 当前会话标题（PR 创建表单预填用） */
+  sessionTitle?: string
   /** 当前打开的文件路径变化（供对话区显示引用 chip） */
   onActiveFileChange?: (path: string | null) => void
   /** 打开指定文件请求（来自对话区点击路径） */
@@ -39,7 +42,7 @@ interface TreeNode extends IWorkFileEntry {
   loaded?: boolean
 }
 
-type FeatureKind = 'guide' | 'files' | 'changes' | 'checkpoints' | 'browser' | 'git' | 'terminal'
+type FeatureKind = 'guide' | 'files' | 'changes' | 'checkpoints' | 'browser' | 'git' | 'pr' | 'terminal'
 
 interface FeatureTab { key: FeatureKind; label: string }
 
@@ -50,6 +53,7 @@ const FEATURE_LABEL_KEYS: Record<FeatureKind, string> = {
   checkpoints: 'explorer.tabs.checkpoints',
   browser: 'explorer.tabs.browser',
   git: 'explorer.tabs.git',
+  pr: 'explorer.tabs.pr',
   terminal: 'explorer.tabs.terminal',
 }
 
@@ -70,7 +74,7 @@ interface OpenTab {
   checkpoint?: IWorkCheckpointDiff
 }
 
-export default function WorkExplorer({ projectId, sessionId, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, sessionTitle, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -528,6 +532,7 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
     { key: 'changes', label: t('explorer.tabs.changes'), desc: t('explorer.nav.changesDesc'), Icon: GitCompare },
     { key: 'checkpoints', label: t('explorer.tabs.checkpoints'), desc: t('explorer.nav.checkpointsDesc'), Icon: History },
     { key: 'git', label: t('explorer.tabs.git'), desc: t('explorer.nav.gitDesc'), Icon: GitBranch },
+    { key: 'pr', label: t('explorer.tabs.pr'), desc: t('explorer.nav.prDesc'), Icon: GitPullRequest },
     { key: 'browser', label: t('explorer.tabs.browser'), desc: t('explorer.nav.browserDesc'), Icon: Globe },
     { key: 'terminal', label: t('explorer.tabs.terminal'), desc: t('explorer.nav.terminalDesc'), Icon: TerminalSquare },
   ]
@@ -830,6 +835,8 @@ export default function WorkExplorer({ projectId, sessionId, onActiveFileChange,
               </div>
             ))}
           </div>
+        ) : activeFeature === 'pr' ? (
+          <WorkPrPanel projectId={projectId} sessionId={sessionId} sessionTitle={sessionTitle} />
         ) : activeFeature === 'git' ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">

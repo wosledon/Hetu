@@ -23,6 +23,9 @@ import type {
   IWorkGitStatus,
   IWorkGitFileContent,
   IWorkGitCommandResult,
+  IWorkPrStatus,
+  ICreateWorkPrRequest,
+  IWorkPrCommandResult,
   IWorkBranchList,
   IWorkOpenApp,
   IWorkCopilotAssets,
@@ -223,6 +226,12 @@ export const workGitService = {
     post<IWorkGitCommandResult>(`/work-projects/${projectId}/git/pull${sessionId ? `?session=${sessionId}` : ''}`),
   push: (projectId: string, sessionId?: string) =>
     post<IWorkGitCommandResult>(`/work-projects/${projectId}/git/push${sessionId ? `?session=${sessionId}` : ''}`),
+  /** PR / MR 状态：按远端自动选 gh 或 glab */
+  prStatus: (projectId: string, sessionId?: string) =>
+    get<IWorkPrStatus>(`/work-projects/${projectId}/git/pr`, { session: sessionId || undefined }),
+  /** 创建 PR / MR */
+  createPr: (projectId: string, data: ICreateWorkPrRequest, sessionId?: string) =>
+    post<IWorkPrCommandResult>(`/work-projects/${projectId}/git/pr${sessionId ? `?session=${sessionId}` : ''}`, data),
 };
 
 export const workFileService = {

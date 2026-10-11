@@ -301,6 +301,50 @@ export interface IWorkGitCommandResult {
   output: string;
 }
 
+/** PR / MR 概要（gh / glab 查询结果） */
+export interface IWorkPrInfo {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  isDraft: boolean;
+  baseBranch?: string;
+  headBranch?: string;
+}
+
+/** PR / MR 状态：按远端自动选 gh（GitHub）或 glab（GitLab） */
+export interface IWorkPrStatus {
+  isRepo: boolean;
+  remoteUrl?: string;
+  /** github | gitlab；空表示不认识的远端 */
+  host?: string;
+  /** gh | glab */
+  tool?: string;
+  toolInstalled: boolean;
+  /** 未安装时当前系统的安装命令 */
+  installHint?: string;
+  installUrl?: string;
+  branch?: string;
+  baseBranch?: string;
+  pr?: IWorkPrInfo | null;
+  /** 补充信息：no-remote / unsupported-host / 未登录或无 PR 时的原始输出 */
+  message?: string;
+}
+
+/** 创建 PR / MR */
+export interface ICreateWorkPrRequest {
+  title: string;
+  body?: string;
+  baseBranch?: string;
+  draft?: boolean;
+}
+
+export interface IWorkPrCommandResult {
+  success: boolean;
+  output: string;
+  status?: IWorkPrStatus | null;
+}
+
 export interface IWorkGitFileContent {
   path: string;
   status: string;

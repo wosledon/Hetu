@@ -39,6 +39,7 @@ import AgentContextUsage from '../agent/AgentContextUsage'
 import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
 import AgentQueueBar, { type PendingMessage } from '../agent/AgentQueueBar'
 import WorkSessionWorkspaceBadge from './WorkSessionWorkspaceBadge'
+import WorkSessionPrBadge from './WorkSessionPrBadge'
 import WorkGitSyncControl from './WorkGitSyncControl'
 import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
@@ -1189,6 +1190,8 @@ export default function WorkSessionArea({
         <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || t('sidebar.newSession')}</h2>
         {/* 会话开始后工作区/分支已固定：只在标题旁展示，输入框里不再放切换按钮 */}
         {sessionStarted && <WorkSessionWorkspaceBadge session={session} className="hidden md:inline-flex" />}
+        {/* 当前分支已有 PR / MR：标题旁显示编号与状态 */}
+        <WorkSessionPrBadge session={session} className="hidden md:inline-flex" />
         <span className="hidden shrink-0 text-[11px] text-gray-400 sm:inline">
           {project ? `${project.name} · ` : ''}{t('session.messageCount', { count: messages.length })}
           {session.turnCount > 0 && ` · ${t('session.turnCount', { count: session.turnCount })}`}

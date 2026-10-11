@@ -67,6 +67,21 @@ public class WorkGitController : ControllerBase
             : ApiResponse<WorkGitCommandResultDto>.Fail(result.Output);
     }
 
+    /// <summary>PR / MR 状态：按远端自动选 gh 或 glab，未安装时回传安装引导</summary>
+    [HttpGet("pr")]
+    public async Task<ApiResponse<WorkPrStatusDto>> GetPr(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
+        => ApiResponse<WorkPrStatusDto>.Ok(await _gitService.GetPrStatusAsync(id, session, cancellationToken));
+
+    /// <summary>创建 PR / MR</summary>
+    [HttpPost("pr")]
+    public async Task<ApiResponse<WorkPrCommandResultDto>> CreatePr(Guid id, [FromBody] CreateWorkPrRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)
+    {
+        var result = await _gitService.CreatePrAsync(id, request ?? new CreateWorkPrRequest(), session, cancellationToken);
+        return result.Success
+            ? ApiResponse<WorkPrCommandResultDto>.Ok(result)
+            : ApiResponse<WorkPrCommandResultDto>.Fail(result.Output);
+    }
+
     /// <summary>提交选中的文件（git add 指定路径 + commit）</summary>
     [HttpPost("commit")]
     public async Task<ApiResponse<WorkGitCommitResultDto>> Commit(Guid id, [FromBody] WorkGitCommitRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)
