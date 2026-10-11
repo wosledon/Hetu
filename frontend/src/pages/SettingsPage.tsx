@@ -11,6 +11,7 @@ import DatabaseSettings from '../components/DatabaseSettings'
 import McpServerManager from '../components/McpServerManager'
 import CompressionSettings from '../components/CompressionSettings'
 import DreamSettings from '../components/DreamSettings'
+import WorktreeCleanupSettings from '../components/WorktreeCleanupSettings'
 import Select from '../components/Select'
 import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
@@ -287,7 +288,14 @@ export default function SettingsPage() {
                   {activeSection === 'cost' && <CompressionSettings />}
                   {activeSection === 'memory' && <DreamSettings />}
 
-                  {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
+                  {activeSection === 'trash' && (
+                    <section className="space-y-8">
+                      <TrashSection onNavigate={navigate} />
+                      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                        <WorktreeCleanupSettings />
+                      </div>
+                    </section>
+                  )}
 
                   {activeSection === 'mcp' && <McpServerManager />}
 

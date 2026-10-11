@@ -13,11 +13,17 @@ public class WorkProjectService : IWorkProjectService
     private readonly IUnitOfWork _unitOfWork;
     private readonly Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? _dataProtection;
     private readonly ILocalizer _localizer;
+    private readonly WorkWorktreeService _worktrees;
 
-    public WorkProjectService(IUnitOfWork unitOfWork, ILocalizer localizer, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
+    public WorkProjectService(
+        IUnitOfWork unitOfWork,
+        ILocalizer localizer,
+        WorkWorktreeService worktrees,
+        Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
+        _worktrees = worktrees;
         _dataProtection = dataProtection;
     }
 
@@ -168,6 +174,11 @@ public class WorkProjectService : IWorkProjectService
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
         if (project == null) return ApiResponse.Fail(_localizer.T("project.notFound"));
+
+        // 项目下的会话工作树一并清掉（失败不影响删项目本身）
+        var sessions = await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken);
+        foreach (var session in sessions.Where(s => !string.IsNullOrWhiteSpace(s.WorktreePath)))
+            await _worktrees.RemoveAsync(project.RootPath, session.WorktreePath!, cancellationToken);
 
         await _unitOfWork.WorkProjects.DeleteAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

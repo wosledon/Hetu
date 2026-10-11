@@ -176,6 +176,7 @@ public static class HetuServiceCollectionExtensions
 
         services.AddSingleton<IWorkCodeIndexRefreshQueue, WorkCodeIndexRefreshQueue>();
         services.AddHostedService<WorkCodeIndexRefreshWorker>();
+        services.AddHostedService<WorktreeCleanupWorker>();
 
         services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
         services.AddScoped<IScheduledTaskExecutor, SkillScheduledTaskExecutor>();
@@ -233,6 +234,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IWorkSessionService, WorkSessionService>();
         services.AddScoped<WorkWorktreeService>();
         services.AddScoped<WorktreeNameSuggester>();
+        services.AddScoped<WorktreeCleanupService>();
         services.AddScoped<IWorkApprovalRuleService, WorkApprovalRuleService>();
         services.AddScoped<IWorkCheckpointService, WorkCheckpointService>();
         services.AddScoped<IWorkCodeIndexService, WorkCodeIndexService>();

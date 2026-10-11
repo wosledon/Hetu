@@ -109,67 +109,6 @@ public class WorkGitService
     /// 在项目里挂一个独立工作树（仅本地项目）。分支已存在于本地时直接检出该分支，
     /// 需要新建（<paramref name="createBranch"/>）时按 <paramref name="baseBranch"/> 派生。
     /// </summary>
-    public async Task<(bool Ok, string? Error)> CreateWorktreeAsync(
-        Guid projectId, string worktreePath, string branch, bool createBranch, string? baseBranch,
-        CancellationToken cancellationToken = default)
-    {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null) return (false, "project-unavailable");
-        if (runner.IsRemote) return (false, "remote-unsupported");
-
-        Directory.CreateDirectory(Path.GetDirectoryName(worktreePath)!);
-        var quotedPath = worktreePath.Replace('\\', '/');
-        var arguments = createBranch
-            ? $"worktree add -b {branch} \"{quotedPath}\" {baseBranch ?? "HEAD"}"
-            : $"worktree add \"{quotedPath}\" {branch}";
-
-        var (code, output) = await RunGitAsync(runner, arguments, cancellationToken: cancellationToken);
-        if (code == 0) return (true, null);
-        // 分支已被主工作区检出等场景：把 git 的原始信息回给前端展示
-        var firstLine = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
-        return (false, string.IsNullOrWhiteSpace(firstLine) ? "git-worktree-failed" : firstLine);
-    }
-
-    /// <summary>删除工作树（先 remove --force，失败再 prune；目录残留不影响主仓库）</summary>
-    public async Task RemoveWorktreeAsync(Guid projectId, string worktreePath, CancellationToken cancellationToken = default)
-    {
-        var runner = await ResolveRunnerAsync(projectId, cancellationToken);
-        if (runner == null || runner.IsRemote) return;
-        var quotedPath = worktreePath.Replace('\\', '/');
-        await RunGitAsync(runner, $"worktree remove --force \"{quotedPath}\"", cancellationToken: cancellationToken);
-        await RunGitAsync(runner, "worktree prune", cancellationToken: cancellationToken);
-        try
-        {
-            if (Directory.Exists(worktreePath) && !Directory.EnumerateFileSystemEntries(worktreePath).Any())
-                Directory.Delete(worktreePath);
-        }
-        catch (IOException)
-        {
-            // 目录删不掉就算了：prune 之后 git 已不再引用它
-        }
-    }
-
-    /// <summary>工作树内切换分支（分支不存在时按 HEAD 新建，便于「以工作树并行开发」）</summary>
-    public async Task<(bool Ok, string? Error)> SwitchBranchAsync(string directory, string branch, bool createIfMissing, CancellationToken cancellationToken = default)
-    {
-        if (!Directory.Exists(directory)) return (false, "worktree-missing");
-        var runner = new LocalCommandRunner(directory);
-        if (createIfMissing)
-        {
-            var (existsCode, _) = await RunGitAsync(runner, $"rev-parse --verify --quiet refs/heads/{branch}", cancellationToken: cancellationToken);
-            if (existsCode != 0)
-            {
-                var (createCode, createOut) = await RunGitAsync(runner, $"checkout -b {branch}", cancellationToken: cancellationToken);
-                return createCode == 0
-                    ? (true, null)
-                    : (false, createOut.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim());
-            }
-        }
-        var (code, output) = await RunGitAsync(runner, $"checkout {branch}", cancellationToken: cancellationToken);
-        return code == 0
-            ? (true, null)
-            : (false, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim());
-    }
 
     public async Task<WorkGitStatusDto> GetStatusAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
