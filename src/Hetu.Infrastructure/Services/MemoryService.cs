@@ -370,9 +370,9 @@ public class MemoryService : IMemoryService
         if (session == null) return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("workSession.notFound"));
 
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
-        var managedProjectId = project?.ManagedProjectId;
-        if (managedProjectId == null)
+        if (project?.ManagedProjectId == null)
             return ApiResponse<List<MemoryDto>>.Ok([]); // 未关联受管项目：无可归属的项目记忆
+        var managedProjectId = project.ManagedProjectId.Value;
 
         var history = await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == workSessionId, cancellationToken);
         var messages = history.OrderBy(m => m.CreatedAt).ToList();

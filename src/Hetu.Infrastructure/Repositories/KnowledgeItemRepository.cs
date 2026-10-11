@@ -112,21 +112,95 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ChunkEmbeddingMetadata>> GetAllChunkEmbeddingMetadataAsync(CancellationToken cancellationToken = default)
-    {
-        // 只回传「仍然存在且未删除」的知识项的分块向量：
-        // 笔记移入回收站只软删 KnowledgeItem（分块与向量保留，便于恢复后仍是已索引），
-        // 不在这里过滤的话，状态统计会把已删项算进「已索引」，出现 未索引 = -2、覆盖率 200% 这类结果。
-        return await Context.NoteChunkEmbeddings
+    public async Task<Dictionary<KnowledgeItemType, int>> CountByTypeAsync(CancellationToken cancellationToken = default)
+        => await Context.KnowledgeItems
             .AsNoTracking()
+            .GroupBy(k => k.Type)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Type, x => x.Count, cancellationToken);
+
+    public async Task<int> CountIndexedItemsAsync(CancellationToken cancellationToken = default)
+        => await Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            // 只统计「仍然存在且未删除」的知识项：笔记移入回收站只软删 KnowledgeItem
+            // （分块与向量保留，便于恢复后仍是已索引），不过滤会出现 未索引 = -2、覆盖率 200% 这类结果
             .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted)
-            .Select(e => new ChunkEmbeddingMetadata
+            .Select(e => e.Chunk.KnowledgeItemId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(CancellationToken cancellationToken = default)
+    {
+        var source = Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            // 只统计「仍然存在且未删除」的知识项，与 CountIndexedItemsAsync 口径一致
+            .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted);
+
+        if (!Context.Database.IsSqlite())
+        {
+            // 聚合在数据库完成：每个知识项一行（分块数 / 模型 / 维度 / 最近更新时间），不再逐块加载
+            return await source
+                .GroupBy(e => e.Chunk.KnowledgeItemId)
+                .Select(g => new ChunkEmbeddingSummary
+                {
+                    KnowledgeItemId = g.Key,
+                    ChunkCount = g.Count(),
+                    Model = g.Max(e => e.Model),
+                    Dimensions = g.Max(e => e.Dimensions),
+                    UpdatedAt = g.Max(e => e.UpdatedAt),
+                })
+                .ToListAsync(cancellationToken);
+        }
+
+        // SQLite 的 EF provider 不支持聚合 DateTimeOffset：
+        // 计数/模型/维度仍在 SQL 聚合，最近更新时间只投影两列（不加载向量）后在内存取最大值。
+        var aggregates = await source
+            .GroupBy(e => e.Chunk.KnowledgeItemId)
+            .Select(g => new
             {
-                ChunkId = e.ChunkId,
-                KnowledgeItemId = e.Chunk.KnowledgeItemId,
-                Model = e.Model,
-                Dimensions = e.Dimensions,
-                UpdatedAt = e.UpdatedAt,
+                KnowledgeItemId = g.Key,
+                ChunkCount = g.Count(),
+                Model = g.Max(e => e.Model),
+                Dimensions = g.Max(e => e.Dimensions),
+            })
+            .ToListAsync(cancellationToken);
+
+        var timestamps = await source
+            .Select(e => new { e.Chunk.KnowledgeItemId, e.UpdatedAt })
+            .ToListAsync(cancellationToken);
+
+        var latestByItem = timestamps
+            .GroupBy(t => t.KnowledgeItemId)
+            .ToDictionary(g => g.Key, g => g.Max(t => t.UpdatedAt));
+
+        return aggregates
+            .Select(a => new ChunkEmbeddingSummary
+            {
+                KnowledgeItemId = a.KnowledgeItemId,
+                ChunkCount = a.ChunkCount,
+                Model = a.Model,
+                Dimensions = a.Dimensions,
+                UpdatedAt = latestByItem.GetValueOrDefault(a.KnowledgeItemId),
+            })
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<UnindexedKnowledgeItem>> GetUnindexedAsync(KnowledgeItemType? type = null, CancellationToken cancellationToken = default)
+    {
+        var query = Context.KnowledgeItems
+            .AsNoTracking()
+            .Where(k => !Context.NoteChunkEmbeddings.Any(e => e.Chunk.KnowledgeItemId == k.Id));
+
+        if (type.HasValue)
+            query = query.Where(k => k.Type == type.Value);
+
+        return await query
+            .Select(k => new UnindexedKnowledgeItem
+            {
+                Id = k.Id,
+                Type = k.Type,
+                NoteId = k.NoteId,
+                Title = k.Title,
             })
             .ToListAsync(cancellationToken);
     }

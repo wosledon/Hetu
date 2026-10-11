@@ -73,7 +73,7 @@ public class InboxService
         var content = request.Content?.Trim();
 
         var now = DateTimeOffset.UtcNow;
-        InboxNotification notification;
+        InboxNotification? notification;
 
         if (!string.IsNullOrEmpty(categoryKey))
         {
@@ -118,7 +118,7 @@ public class InboxService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return MapToDto(notification);
+        return MapToDto(notification!);
     }
 
     /// <summary>标记已读/未读</summary>

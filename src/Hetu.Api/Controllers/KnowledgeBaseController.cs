@@ -31,46 +31,38 @@ public class KnowledgeBaseController : ControllerBase
     }
 
     /// <summary>笔记类知识项按笔记聚合索引，其余按知识项自身索引</summary>
-    private static (BackgroundTaskType Type, Guid EntityId) ResolveTarget(KnowledgeItem item)
-        => item.Type == KnowledgeItemType.Note && item.NoteId.HasValue
-            ? (BackgroundTaskType.GenerateEmbedding, item.NoteId.Value)
-            : (BackgroundTaskType.GenerateKnowledgeItemEmbedding, item.Id);
+    private static (BackgroundTaskType Type, Guid EntityId) ResolveTarget(KnowledgeItemType type, Guid id, Guid? noteId)
+        => type == KnowledgeItemType.Note && noteId.HasValue
+            ? (BackgroundTaskType.GenerateEmbedding, noteId.Value)
+            : (BackgroundTaskType.GenerateKnowledgeItemEmbedding, id);
 
     /// <summary>
     /// 获取知识库状态概览
     /// </summary>
     [HttpGet("status")]
+    [ResponseCache(Duration = 5)]
     public async Task<ApiResponse<KnowledgeBaseStatusDto>> GetStatus(CancellationToken cancellationToken)
     {
-        var allItems = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
-
-        // 已索引项必须同时「存在」：分块向量可能属于已删除的旧知识项，
-        // 直接拿 distinct 数量会大于总数（曾出现 未索引 = -2、覆盖率 200%）
-        var existingIds = allItems.Select(k => k.Id).ToHashSet();
-        var indexedCount = chunkEmbeddings
-            .Select(ce => ce.KnowledgeItemId)
-            .Where(existingIds.Contains)
-            .Distinct()
-            .Count();
-
+        // 全部走数据库聚合/计数：不再把所有知识项、所有分块向量、所有任务读进内存
+        var counts = await _unitOfWork.KnowledgeItems.CountByTypeAsync(cancellationToken);
+        var totalItems = counts.Values.Sum();
+        var indexedCount = await _unitOfWork.KnowledgeItems.CountIndexedItemsAsync(cancellationToken);
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
 
-        // 查询正在运行/排队的 Embedding 相关任务
-        var allTasks = await _unitOfWork.TaskItems.GetAllAsync(cancellationToken);
-        var runningTaskCount = allTasks.Count(t =>
+        // 正在运行/排队的 Embedding 任务（SQL COUNT）
+        var runningTaskCount = await _unitOfWork.TaskItems.CountAsync(t =>
             (t.Status == 0 || t.Status == 1) &&
             (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
-             t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)));
+             t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)), cancellationToken);
 
         var status = new KnowledgeBaseStatusDto
         {
-            TotalItems = allItems.Count,
+            TotalItems = totalItems,
             IndexedItems = indexedCount,
-            UnindexedItems = Math.Max(0, allItems.Count - indexedCount),
-            NoteCount = allItems.Count(k => k.Type == KnowledgeItemType.Note),
-            FileCount = allItems.Count(k => k.Type == KnowledgeItemType.File),
-            UrlCount = allItems.Count(k => k.Type == KnowledgeItemType.Url),
+            UnindexedItems = Math.Max(0, totalItems - indexedCount),
+            NoteCount = counts.GetValueOrDefault(KnowledgeItemType.Note),
+            FileCount = counts.GetValueOrDefault(KnowledgeItemType.File),
+            UrlCount = counts.GetValueOrDefault(KnowledgeItemType.Url),
             HasEmbeddingProvider = provider != null,
             Dimensions = provider?.Dimensions ?? 0,
             RunningTaskCount = runningTaskCount,
@@ -83,6 +75,7 @@ public class KnowledgeBaseController : ControllerBase
     /// 获取知识项的 Embedding 状态列表（支持按类型筛选）
     /// </summary>
     [HttpGet("embeddings")]
+    [ResponseCache(Duration = 5)]
     public async Task<ApiResponse<List<KnowledgeItemEmbeddingStatusDto>>> GetEmbeddingStatuses(
         [FromQuery] string? type,
         CancellationToken cancellationToken)
@@ -97,25 +90,22 @@ public class KnowledgeBaseController : ControllerBase
             items = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
         }
 
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
+        // 分块向量按知识项聚合（每个知识项一行），不再加载全部分块明细
+        var summaries = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingSummariesAsync(cancellationToken);
+        var chunkMap = summaries.ToDictionary(s => s.KnowledgeItemId);
 
-        // 按知识项分组 chunk embeddings
-        var chunkMap = chunkEmbeddings
-            .GroupBy(ce => ce.KnowledgeItemId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        // 查询所有正在运行/排队的任务
-        var allTasks = await _unitOfWork.TaskItems.GetAllAsync(cancellationToken);
-        var runningEntityIds = allTasks
-            .Where(t => (t.Status == 0 || t.Status == 1) &&
-                        (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
-                         t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)))
-            .Select(t => t.EntityId)
-            .ToHashSet();
+        // 查询所有正在运行/排队的任务的实体 ID（只取 EntityId 一列）
+        var runningEntityIds = (await _unitOfWork.TaskItems.SelectAsync(
+            t => (t.Status == 0 || t.Status == 1) &&
+                 (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
+                  t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)),
+            t => t.EntityId,
+            cancellationToken)).ToHashSet();
 
         var result = items.Select(k =>
         {
             var entityId = k.Type == KnowledgeItemType.Note && k.NoteId.HasValue ? k.NoteId.Value : k.Id;
+            chunkMap.TryGetValue(k.Id, out var summary);
             return new KnowledgeItemEmbeddingStatusDto
             {
                 Id = k.Id,
@@ -126,11 +116,11 @@ public class KnowledgeBaseController : ControllerBase
                 FileSize = k.FileSize,
                 NoteId = k.NoteId,
                 UpdatedAt = k.UpdatedAt,
-                HasEmbedding = chunkMap.ContainsKey(k.Id),
-                EmbeddingModel = chunkMap.TryGetValue(k.Id, out var chunks) && chunks.Count > 0 ? chunks[0].Model : null,
-                EmbeddingDimensions = chunkMap.TryGetValue(k.Id, out var c2) && c2.Count > 0 ? c2[0].Dimensions : 0,
-                EmbeddingUpdatedAt = chunkMap.TryGetValue(k.Id, out var c3) && c3.Count > 0 ? c3.Max(c => c.UpdatedAt) : null,
-                ChunkCount = chunkMap.TryGetValue(k.Id, out var cc) ? cc.Count : 0,
+                HasEmbedding = summary != null,
+                EmbeddingModel = summary?.Model,
+                EmbeddingDimensions = summary?.Dimensions ?? 0,
+                EmbeddingUpdatedAt = summary?.UpdatedAt,
+                ChunkCount = summary?.ChunkCount ?? 0,
                 HasRunningTask = runningEntityIds.Contains(entityId),
             };
         }).ToList();
@@ -148,7 +138,7 @@ public class KnowledgeBaseController : ControllerBase
         if (item == null)
             return ApiResponse.Fail(_localizer.T("knowledge.itemNotFound"));
 
-        var (taskType, entityId) = ResolveTarget(item);
+        var (taskType, entityId) = ResolveTarget(item.Type, item.Id, item.NoteId);
         var result = await _taskCoordinator.EnqueueAsync(
             new BackgroundTaskRequest(taskType, entityId, item.Title),
             cancellationToken);
@@ -165,20 +155,13 @@ public class KnowledgeBaseController : ControllerBase
     [HttpPost("embeddings/batch")]
     public async Task<ApiResponse<BatchEmbeddingResultDto>> BatchGenerateEmbeddings(CancellationToken cancellationToken)
     {
-        var allItems = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
-        var chunkEmbeddings = await _unitOfWork.KnowledgeItems.GetAllChunkEmbeddingMetadataAsync(cancellationToken);
-
-        var indexedItemIds = chunkEmbeddings
-            .Select(ce => ce.KnowledgeItemId)
-            .Distinct()
-            .ToHashSet();
-
+        // 未索引项在数据库侧判定（EXISTS 子查询 + 只取入队所需字段），不再把全部知识项与向量元数据读进内存。
         // 去重与并发保护由 IBackgroundTaskCoordinator 统一处理（只针对仍然存在的知识项，
         // 已删项留下的分块向量不会让它以为「已索引」）
-        var unindexedItems = allItems.Where(k => !indexedItemIds.Contains(k.Id)).ToList();
+        var unindexedItems = await _unitOfWork.KnowledgeItems.GetUnindexedAsync(cancellationToken: cancellationToken);
         var requests = unindexedItems.Select(item =>
         {
-            var (taskType, entityId) = ResolveTarget(item);
+            var (taskType, entityId) = ResolveTarget(item.Type, item.Id, item.NoteId);
             return new BackgroundTaskRequest(taskType, entityId, item.Title);
         }).ToList();
 

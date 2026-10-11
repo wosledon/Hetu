@@ -6,6 +6,14 @@ public interface INoteRepository : IRepository<Note>
 {
     Task<Note?> GetByIdWithTagsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, bool filterNoNotebook = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 分页取笔记（数据库 OFFSET/FETCH + SQL COUNT），避免把全部笔记读进内存。
+    /// 排序固定为「置顶优先，其次最近更新」，保证分页稳定。
+    /// </summary>
+    Task<(IReadOnlyList<Note> Items, int Total)> GetPagedAsync(
+        Guid? notebookId, Guid? tagId, bool includeDeleted, bool filterNoNotebook,
+        int skip, int take, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetByNotebookAsync(Guid notebookId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task UnassignNotebookAsync(Guid notebookId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetByTagAsync(Guid tagId, bool includeDeleted = false, CancellationToken cancellationToken = default);

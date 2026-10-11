@@ -24,6 +24,11 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, bool filterNoNotebook = false, CancellationToken cancellationToken = default)
+        => (await GetPagedAsync(notebookId, tagId, includeDeleted, filterNoNotebook, 0, int.MaxValue, cancellationToken)).Items;
+
+    public async Task<(IReadOnlyList<Note> Items, int Total)> GetPagedAsync(
+        Guid? notebookId, Guid? tagId, bool includeDeleted, bool filterNoNotebook,
+        int skip, int take, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();
         if (includeDeleted) query = query.IgnoreQueryFilters();
@@ -38,16 +43,54 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
         if (tagId.HasValue)
             query = query.Where(n => n.NoteTags.Any(nt => nt.TagId == tagId.Value));
 
-        var notes = await query
-            .Include(n => n.NoteTags)
-            .ThenInclude(nt => nt.Tag)
-            .ToListAsync(cancellationToken);
+        // 计数走 SQL COUNT：分页只需要总量，不再把全部笔记读进内存
+        var total = await query.CountAsync(cancellationToken);
+        if (take <= 0) return (Array.Empty<Note>(), total);
 
-        return notes
+        if (Context.Database.IsSqlite())
+        {
+            // SQLite 的 EF provider 不支持在 SQL 中排序 DateTimeOffset：
+            // 取全量时直接加载后内存排序；分页时只投影排序键（三列，不含正文/标签）定序，再按 Id 回表取分页数据。
+            if (skip <= 0 && take >= total)
+            {
+                var all = await IncludeTags(query).ToListAsync(cancellationToken);
+                return (SortLocally(all), total);
+            }
+
+            var keys = await query
+                .Select(n => new { n.Id, n.IsPinned, n.UpdatedAt })
+                .ToListAsync(cancellationToken);
+
+            var pageIds = keys
+                .OrderByDescending(k => k.IsPinned)
+                .ThenByDescending(k => k.UpdatedAt)
+                .Skip(skip)
+                .Take(take)
+                .Select(k => k.Id)
+                .ToList();
+
+            var page = await IncludeTags(query).Where(n => pageIds.Contains(n.Id)).ToListAsync(cancellationToken);
+            // 回表走 IN 查询，结果顺序不保证，按分页顺序重排
+            var byId = page.ToDictionary(n => n.Id);
+            return (pageIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList(), total);
+        }
+
+        // PostgreSQL 等 provider：排序与 OFFSET/FETCH 全部在 SQL 完成
+        var items = await IncludeTags(query)
             .OrderByDescending(n => n.IsPinned)
             .ThenByDescending(n => n.UpdatedAt)
-            .ToList();
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return (items, total);
     }
+
+    private static IQueryable<Note> IncludeTags(IQueryable<Note> query)
+        => query.Include(n => n.NoteTags).ThenInclude(nt => nt.Tag);
+
+    private static List<Note> SortLocally(IEnumerable<Note> notes)
+        => notes.OrderByDescending(n => n.IsPinned).ThenByDescending(n => n.UpdatedAt).ToList();
 
     public async Task<IReadOnlyList<Note>> GetByNotebookAsync(Guid notebookId, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {

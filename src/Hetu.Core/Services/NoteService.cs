@@ -26,27 +26,22 @@ public class NoteService : INoteService
 
     public async Task<ApiResponse<PagedResult<NoteDto>>> GetListAsync(GetNotesRequest request, CancellationToken cancellationToken = default)
     {
-        var notes = await _unitOfWork.Notes.GetListAsync(
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Max(1, request.PageSize);
+
+        // 分页下推到数据库（SQL COUNT + OFFSET/FETCH）：数据量大时不再把全部笔记读进内存
+        var (notes, total) = await _unitOfWork.Notes.GetPagedAsync(
             request.NotebookId,
             request.TagId,
             request.IncludeDeleted,
             request.FilterNoNotebook,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
             cancellationToken);
-
-        var ordered = notes.ToList();
-
-        var total = ordered.Count;
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Max(1, request.PageSize);
-        var items = ordered
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(Map)
-            .ToList();
 
         return ApiResponse<PagedResult<NoteDto>>.Ok(new PagedResult<NoteDto>
         {
-            Items = items,
+            Items = notes.Select(Map).ToList(),
             TotalCount = total,
             Page = page,
             PageSize = pageSize
@@ -246,18 +241,11 @@ public class NoteService : INoteService
         };
 
         await _unitOfWork.NoteVersions.AddAsync(version, cancellationToken);
+        // 先落库：PruneAsync 走 SQL DELETE，看不到尚未提交的新版本
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var versions = (await _unitOfWork.NoteVersions.FindAsync(v => v.NoteId == note.Id, cancellationToken))
-            .OrderByDescending(v => v.CreatedAt)
-            .ToList();
-
-        if (versions.Count > 20)
-        {
-            foreach (var old in versions.Skip(20))
-            {
-                await _unitOfWork.NoteVersions.DeleteAsync(old, cancellationToken);
-            }
-        }
+        // 保留最近 20 个版本：数据库侧一次清理，不再把全部历史版本读进内存
+        await _unitOfWork.NoteVersions.PruneAsync(v => v.NoteId == note.Id, v => v.CreatedAt, 20, cancellationToken);
     }
 
     private static NoteDto Map(Note note) => new()

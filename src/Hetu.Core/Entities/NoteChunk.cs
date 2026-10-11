@@ -49,14 +49,21 @@ public class NoteChunkEmbedding
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// ChunkEmbedding 的轻量元数据（不含向量字节），用于状态统计场景
-/// </summary>
-public class ChunkEmbeddingMetadata
+/// <summary>某个知识项的分块向量聚合摘要（状态列表用：每个知识项一行，不再逐块加载）</summary>
+public class ChunkEmbeddingSummary
 {
-    public Guid ChunkId { get; set; }
     public Guid KnowledgeItemId { get; set; }
-    public string Model { get; set; } = string.Empty;
+    public int ChunkCount { get; set; }
+    public string? Model { get; set; }
     public int Dimensions { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+}
+
+/// <summary>尚未建立分块向量的知识项（批量入队用：只取必要字段）</summary>
+public class UnindexedKnowledgeItem
+{
+    public Guid Id { get; set; }
+    public KnowledgeItemType Type { get; set; }
+    public Guid? NoteId { get; set; }
+    public string Title { get; set; } = string.Empty;
 }

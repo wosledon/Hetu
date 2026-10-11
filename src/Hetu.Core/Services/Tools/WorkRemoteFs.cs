@@ -184,9 +184,14 @@ public static class WorkRemoteFs
     public static async Task<ToolExecutionResult> MoveFileAsync(
         IWorkCommandRunner runner, string root, string from, string to, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
+            return ToolExecutionResult.Error("移动文件失败: 源路径和目标路径都不能为空");
+
         var source = Quote(root, from);
         var target = Quote(root, to);
-        var toDir = (to ?? "").Replace('\\', '/').Contains('/') ? Quote(root, to[..to.Replace('\\', '/').LastIndexOf('/')]) : Quote(root, "");
+        // 目标目录 = to 中最后一个 '/' 之前的部分（无分隔符时落到根目录）
+        var lastSlash = to.Replace('\\', '/').LastIndexOf('/');
+        var toDir = lastSlash > 0 ? Quote(root, to[..lastSlash]) : Quote(root, "");
 
         var exists = await RunReadOnlyAsync(runner, $"test -e {source} && echo FILE || echo NONE", ct);
         if (exists.StdOut.Contains("NONE")) return ToolExecutionResult.Error($"源文件不存在: {Display(from)}");
