@@ -91,7 +91,51 @@
         </tbody>
       </table>
 
-      <h2>自动更新</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 232" role="img" aria-label="发版与更新流水线">
+  <defs>
+    <marker id="a-rel-desktop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="30" y="56">版本号（两处）</text>
+  <text class="sub" x="30" y="76">tauri.conf.json</text>
+  <text class="sub" x="30" y="92">Hetu.Api.csproj</text>
+
+  <rect class="box" x="196" y="30" width="140" height="70" rx="9"/>
+  <text class="label" x="210" y="56">PR 合并</text>
+  <text class="sub" x="210" y="76">main</text>
+
+  <rect class="box-accent" x="366" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="380" y="56">打 tag</text>
+  <text class="sub" x="380" y="76">scripts/tag-release.ps1</text>
+  <text class="sub" x="380" y="92">触发 Release Build</text>
+
+  <rect class="box-dark" x="546" y="30" width="318" height="70" rx="9"/>
+  <text class="label-light" x="560" y="56">CI 构建</text>
+  <text class="sub" x="560" y="76">fat / slim × Windows / Linux</text>
+  <text class="sub" x="560" y="92">签名 + 更新清单（缺渠道即失败）</text>
+
+  <rect class="box" x="546" y="132" width="318" height="76" rx="9"/>
+  <text class="label" x="560" y="158">GitHub Release</text>
+  <text class="sub" x="560" y="178">安装包 + .sig</text>
+  <text class="sub" x="560" y="196">latest*.json（主源 + 3 镜像）</text>
+
+  <rect class="box" x="16" y="132" width="490" height="76" rx="9"/>
+  <text class="label" x="30" y="158">客户端更新</text>
+  <text class="sub" x="30" y="178">主源 → 3 个镜像回退</text>
+  <text class="sub" x="30" y="196">NSIS 安装钩子清理残留后端</text>
+
+  <path class="flow" d="M166 65 H190" marker-end="url(#a-rel-desktop)"/>
+  <path class="flow" d="M336 65 H360" marker-end="url(#a-rel-desktop)"/>
+  <path class="flow" d="M516 65 H540" marker-end="url(#a-rel-desktop)"/>
+  <path class="flow" d="M705 100 V126" marker-end="url(#a-rel-desktop)"/>
+  <path class="flow-dashed" d="M546 170 H512" marker-end="url(#a-rel-desktop)"/>
+</svg><figcaption>发版到更新：CI 产出双渠道安装包与更新清单，客户端按「GitHub → 三个镜像」顺序取清单并校验签名。</figcaption>
+</figure>
+<h2>自动更新</h2>
       <ul>
         <li>清单来源顺序：GitHub 主源 → 三个加速镜像（<code>ghproxy.net</code> / <code>gh-proxy.com</code> / <code>ghfast.top</code>）。</li>
         <li>两个渠道各自独立的清单：<code>latest.json</code>（fat）与 <code>latest-slim.json</code>（slim），互不覆盖。</li>
@@ -111,7 +155,27 @@
         </tbody>
       </table>
 
-      <h2>工作树目录与自动清理</h2>
+            <h2>安装目录与数据目录</h2>
+      <table>
+        <thead><tr><th>路径（Windows 示例）</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;安装目录&gt;\Hetu (Slim).exe</code></td><td>外壳可执行文件（fat 渠道为 <code>Hetu.exe</code>）</td></tr>
+          <tr><td><code>&lt;安装目录&gt;\Hetu.Api.exe</code></td><td>后端 sidecar（安装钩子会确保它没有在运行）</td></tr>
+          <tr><td><code>&lt;安装目录&gt;\wwwroot\</code></td><td>前端静态资源（由后端提供）</td></tr>
+          <tr><td><code>&lt;安装目录&gt;\sqlite-vec\vec0.dll</code></td><td>SQLite 向量扩展（被残留后端占用时会导致安装失败）</td></tr>
+          <tr><td><code>%LOCALAPPDATA%\Hetu\hetu.db</code></td><td>数据库（+ <code>-wal</code> / <code>-shm</code>）</td></tr>
+          <tr><td><code>%LOCALAPPDATA%\Hetu\logs\</code></td><td>日志</td></tr>
+        </tbody>
+      </table>
+
+      <h2>安装钩子</h2>
+      <p><code>src-tauri/nsis-hooks.nsh</code> 在复制文件前执行（<code>NSIS_HOOK_PREINSTALL</code>）：</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>!macro NSIS_HOOK_PREINSTALL
+  DetailPrint "Stopping leftover Hetu backend..."
+  nsExec::Exec '"$SYSDIR\taskkill.exe" /F /IM Hetu.Api.exe /T'
+  Pop $0
+  Sleep 500
+!macroend</code></pre></div><h2>工作树目录与自动清理</h2>
       <table>
         <thead><tr><th>项</th><th>默认 / 可选项</th></tr></thead>
         <tbody>
@@ -173,3 +237,5 @@ npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></p
 </div>
 </body>
 </html>
+
+

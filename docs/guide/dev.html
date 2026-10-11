@@ -122,7 +122,51 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
         </tbody>
       </table>
 
-      <h2>发版流程</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 232" role="img" aria-label="发版与更新流水线">
+  <defs>
+    <marker id="a-rel-dev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="30" y="56">版本号（两处）</text>
+  <text class="sub" x="30" y="76">tauri.conf.json</text>
+  <text class="sub" x="30" y="92">Hetu.Api.csproj</text>
+
+  <rect class="box" x="196" y="30" width="140" height="70" rx="9"/>
+  <text class="label" x="210" y="56">PR 合并</text>
+  <text class="sub" x="210" y="76">main</text>
+
+  <rect class="box-accent" x="366" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="380" y="56">打 tag</text>
+  <text class="sub" x="380" y="76">scripts/tag-release.ps1</text>
+  <text class="sub" x="380" y="92">触发 Release Build</text>
+
+  <rect class="box-dark" x="546" y="30" width="318" height="70" rx="9"/>
+  <text class="label-light" x="560" y="56">CI 构建</text>
+  <text class="sub" x="560" y="76">fat / slim × Windows / Linux</text>
+  <text class="sub" x="560" y="92">签名 + 更新清单（缺渠道即失败）</text>
+
+  <rect class="box" x="546" y="132" width="318" height="76" rx="9"/>
+  <text class="label" x="560" y="158">GitHub Release</text>
+  <text class="sub" x="560" y="178">安装包 + .sig</text>
+  <text class="sub" x="560" y="196">latest*.json（主源 + 3 镜像）</text>
+
+  <rect class="box" x="16" y="132" width="490" height="76" rx="9"/>
+  <text class="label" x="30" y="158">客户端更新</text>
+  <text class="sub" x="30" y="178">主源 → 3 个镜像回退</text>
+  <text class="sub" x="30" y="196">NSIS 安装钩子清理残留后端</text>
+
+  <path class="flow" d="M166 65 H190" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M336 65 H360" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M516 65 H540" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M705 100 V126" marker-end="url(#a-rel-dev)"/>
+  <path class="flow-dashed" d="M546 170 H512" marker-end="url(#a-rel-dev)"/>
+</svg><figcaption>版本号要改两处，推 tag 后由 CI 完成构建、签名、清单生成与发布。</figcaption>
+</figure>
+<h2>发版流程</h2>
       <ol>
         <li>同步<strong>两处</strong>版本号：<code>shell/hetu-desktop/src-tauri/tauri.conf.json</code> 与 <code>src/Hetu.Api/Hetu.Api.csproj</code>（前端「关于」页读的是后者）。</li>
         <li>提 PR 合并到 <code>main</code>。</li>
@@ -168,3 +212,4 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
 </div>
 </body>
 </html>
+

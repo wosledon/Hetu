@@ -100,7 +100,21 @@
       </ul>
       <div class="note note--warn">Copying the database file while the app runs can lose uncommitted WAL content. Prefer quitting first, or use the built-in backup.</div>
 
-      <h2>Switching to PostgreSQL</h2>
+            <h2>Environment variables and config keys</h2>
+      <table>
+        <thead><tr><th>Name</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>HETU_DATA_DIR</code></td><td>Data directory (database and logs); injected by the desktop shell</td></tr>
+          <tr><td><code>HETU_PARENT_PID</code></td><td>Shell process id; the backend exits when its parent disappears</td></tr>
+          <tr><td><code>HETU_API_DEV_PORT</code></td><td>In dev mode, reuse an existing backend on this port</td></tr>
+          <tr><td><code>DatabaseProvider</code> (appsettings)</td><td><code>Sqlite</code> (default) / <code>Postgresql</code></td></tr>
+          <tr><td><code>ConnectionStrings:DefaultConnection</code></td><td>Connection string; SQLite defaults to <code>Data Source=hetu.db</code></td></tr>
+          <tr><td><code>Embedding:Dimensions</code></td><td>Vector dimensions (default 1536) — must match the embedding model</td></tr>
+          <tr><td><code>WorktreeConfig</code> (stored setting)</td><td>Worktree root directory</td></tr>
+          <tr><td><code>WorktreeCleanupConfig</code></td><td>Cleanup interval, idle threshold, delete branch</td></tr>
+          <tr><td><code>CloseToTray</code></td><td>Whether closing the window minimizes to the tray</td></tr>
+        </tbody>
+      </table><h2>Switching to PostgreSQL</h2>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
 export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
 
@@ -157,3 +171,4 @@ dotnet ef database update \
 </div>
 </body>
 </html>
+

@@ -122,7 +122,51 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
         </tbody>
       </table>
 
-      <h2>Release flow</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 232" role="img" aria-label="Release and update pipeline">
+  <defs>
+    <marker id="a-rel-dev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="30" y="56">Version (two files)</text>
+  <text class="sub" x="30" y="76">tauri.conf.json</text>
+  <text class="sub" x="30" y="92">Hetu.Api.csproj</text>
+
+  <rect class="box" x="196" y="30" width="140" height="70" rx="9"/>
+  <text class="label" x="210" y="56">PR merged</text>
+  <text class="sub" x="210" y="76">main</text>
+
+  <rect class="box-accent" x="366" y="30" width="150" height="70" rx="9"/>
+  <text class="label" x="380" y="56">Tag</text>
+  <text class="sub" x="380" y="76">scripts/tag-release.ps1</text>
+  <text class="sub" x="380" y="92">triggers Release Build</text>
+
+  <rect class="box-dark" x="546" y="30" width="318" height="70" rx="9"/>
+  <text class="label-light" x="560" y="56">CI build</text>
+  <text class="sub" x="560" y="76">fat / slim × Windows / Linux</text>
+  <text class="sub" x="560" y="92">signing + manifests (fails if a channel is missing)</text>
+
+  <rect class="box" x="546" y="132" width="318" height="76" rx="9"/>
+  <text class="label" x="560" y="158">GitHub Release</text>
+  <text class="sub" x="560" y="178">installers + .sig</text>
+  <text class="sub" x="560" y="196">latest*.json (primary + 3 mirrors)</text>
+
+  <rect class="box" x="16" y="132" width="490" height="76" rx="9"/>
+  <text class="label" x="30" y="158">Client update</text>
+  <text class="sub" x="30" y="178">primary → three mirror fallbacks</text>
+  <text class="sub" x="30" y="196">NSIS preinstall hook clears leftover backends</text>
+
+  <path class="flow" d="M166 65 H190" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M336 65 H360" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M516 65 H540" marker-end="url(#a-rel-dev)"/>
+  <path class="flow" d="M705 100 V126" marker-end="url(#a-rel-dev)"/>
+  <path class="flow-dashed" d="M546 170 H512" marker-end="url(#a-rel-dev)"/>
+</svg><figcaption>Bump the version in two files, push a tag, and CI handles building, signing, manifests and publishing.</figcaption>
+</figure>
+<h2>Release flow</h2>
       <ol>
         <li>Bump the version in <strong>two</strong> places: <code>shell/hetu-desktop/src-tauri/tauri.conf.json</code> and <code>src/Hetu.Api/Hetu.Api.csproj</code> (the About page reads the latter).</li>
         <li>Merge the PR into <code>main</code>.</li>
@@ -168,3 +212,4 @@ cd shell/hetu-desktop/src-tauri &amp;&amp; cargo check</code></pre></div>
 </div>
 </body>
 </html>
+

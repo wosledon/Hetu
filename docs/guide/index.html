@@ -83,7 +83,74 @@
 
       <div class="note">第一次使用按 <strong>快速开始 → 笔记 → Agent 工作台 → Code 会话</strong> 读；关心实现细节直接看 <strong>架构与实现</strong>。</div>
 
-      <h2>功能文档</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 392" role="img" aria-label="Hetu 系统总览">
+  <defs>
+    <marker id="a-overview-docs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-overview-docs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="16" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="42">桌面外壳（Tauri 2）</text>
+  <text class="sub" x="32" y="60">窗口 · 托盘 · 自动更新 · sidecar 管理</text>
+
+  <rect class="box" x="16" y="92" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="118">浏览器（开发模式）</text>
+  <text class="sub" x="32" y="136">http://localhost:5174</text>
+
+  <rect class="box-accent" x="316" y="16" width="252" height="134" rx="10"/>
+  <text class="label" x="332" y="42">React 19 前端</text>
+  <text class="sub" x="332" y="62">页面 / 组件 / Zustand / TanStack Query</text>
+  <text class="sub" x="332" y="80">SSE 事件流渲染 · 消息队列 · 工具面板</text>
+  <text class="sub" x="332" y="98">i18n（zh / en） · 深浅色主题</text>
+
+  <rect class="box-accent" x="316" y="168" width="252" height="86" rx="10"/>
+  <text class="label" x="332" y="194">ASP.NET Core API</text>
+  <text class="sub" x="332" y="214">REST（ApiResponse<T> / PagedResult<T>） + SSE</text>
+  <text class="sub" x="332" y="232">/scalar/v1 接口文档 · /api/health 健康检查</text>
+
+  <rect class="box" x="316" y="272" width="252" height="80" rx="10"/>
+  <text class="label" x="332" y="298">领域服务（Hetu.Core）</text>
+  <text class="sub" x="332" y="318">笔记 / 对话 / 工作台 / 知识库 / 图谱 / Wiki / 记忆</text>
+  <text class="sub" x="332" y="336">仓储接口 · 后台任务协调器 · Agent 循环</text>
+
+  <rect class="box-dark" x="616" y="16" width="248" height="58" rx="10"/>
+  <text class="label-light" x="632" y="42">模型供应商</text>
+  <text class="sub" x="632" y="60">OpenAI 兼容 · Anthropic（Key 加密存储）</text>
+
+  <rect class="box" x="616" y="92" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="118">MCP 服务</text>
+  <text class="sub" x="632" y="136">stdio · JSON-RPC 2.0 · tools/list + tools/call</text>
+
+  <rect class="box" x="616" y="168" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="194">Git 与 CLI</text>
+  <text class="sub" x="632" y="212">工作树 · gh / glab · 真实 PTY</text>
+
+  <rect class="box" x="616" y="244" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="270">外部检索</text>
+  <text class="sub" x="632" y="288">联网搜索（可开关）</text>
+
+  <rect class="box-dark" x="616" y="316" width="248" height="56" rx="10"/>
+  <text class="label-light" x="632" y="340">SQLite + sqlite-vec（默认）</text>
+  <text class="sub" x="632" y="358">PostgreSQL + pgvector</text>
+
+
+  <path class="flow" d="M142 74 V86" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-muted" d="M268 45 H310" marker-end="url(#am-overview-docs)"/>
+  <path class="flow-muted" d="M268 121 H310" marker-end="url(#am-overview-docs)"/>
+  <path class="flow" d="M442 150 V162" marker-end="url(#a-overview-docs)"/>
+  <path class="flow" d="M442 254 V266" marker-end="url(#a-overview-docs)"/>
+  <path class="flow" d="M568 300 H740 V312" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 200 H600" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 118 H600" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 60 H600" marker-end="url(#a-overview-docs)"/>
+</svg><figcaption>一次请求会经过外壳或浏览器 → React 前端 → ASP.NET Core API → 领域服务 → 仓储 → 本地数据库；模型、MCP、Git 与搜索是外部依赖。</figcaption>
+</figure>
+<h2>功能文档</h2>
       <table>
         <thead><tr><th>页面</th><th>覆盖内容</th></tr></thead>
         <tbody>
@@ -141,3 +208,4 @@
 </div>
 </body>
 </html>
+

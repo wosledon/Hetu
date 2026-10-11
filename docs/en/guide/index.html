@@ -83,7 +83,74 @@
 
       <div class="note">New here? Read <strong>Getting started → Notes → Agent workspace → Code sessions</strong>. For internals, go straight to <strong>Architecture</strong>.</div>
 
-      <h2>Pages</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 392" role="img" aria-label="Hetu system overview">
+  <defs>
+    <marker id="a-overview-docs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-overview-docs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="16" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="42">Desktop shell (Tauri 2)</text>
+  <text class="sub" x="32" y="60">window · tray · updater · sidecar</text>
+
+  <rect class="box" x="16" y="92" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="118">Browser (dev mode)</text>
+  <text class="sub" x="32" y="136">http://localhost:5174</text>
+
+  <rect class="box-accent" x="316" y="16" width="252" height="134" rx="10"/>
+  <text class="label" x="332" y="42">React 19 frontend</text>
+  <text class="sub" x="332" y="62">pages / components / Zustand / TanStack Query</text>
+  <text class="sub" x="332" y="80">SSE rendering · send queue · panels</text>
+  <text class="sub" x="332" y="98">i18n (zh / en) · light and dark themes</text>
+
+  <rect class="box-accent" x="316" y="168" width="252" height="86" rx="10"/>
+  <text class="label" x="332" y="194">ASP.NET Core API</text>
+  <text class="sub" x="332" y="214">REST (ApiResponse<T> / PagedResult<T>) + SSE</text>
+  <text class="sub" x="332" y="232">/scalar/v1 reference · /api/health probe</text>
+
+  <rect class="box" x="316" y="272" width="252" height="80" rx="10"/>
+  <text class="label" x="332" y="298">Domain services (Hetu.Core)</text>
+  <text class="sub" x="332" y="318">notes / chat / workspace / knowledge / graph / Wiki / memories</text>
+  <text class="sub" x="332" y="336">repository interfaces · task coordinator · agent loop</text>
+
+  <rect class="box-dark" x="616" y="16" width="248" height="58" rx="10"/>
+  <text class="label-light" x="632" y="42">Model providers</text>
+  <text class="sub" x="632" y="60">OpenAI-compatible · Anthropic (keys encrypted)</text>
+
+  <rect class="box" x="616" y="92" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="118">MCP servers</text>
+  <text class="sub" x="632" y="136">stdio · JSON-RPC 2.0 · tools/list + tools/call</text>
+
+  <rect class="box" x="616" y="168" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="194">Git and CLIs</text>
+  <text class="sub" x="632" y="212">worktrees · gh / glab · real PTY</text>
+
+  <rect class="box" x="616" y="244" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="270">External search</text>
+  <text class="sub" x="632" y="288">web search (toggle)</text>
+
+  <rect class="box-dark" x="616" y="316" width="248" height="56" rx="10"/>
+  <text class="label-light" x="632" y="340">SQLite + sqlite-vec (default)</text>
+  <text class="sub" x="632" y="358">PostgreSQL + pgvector</text>
+
+
+  <path class="flow" d="M142 74 V86" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-muted" d="M268 45 H310" marker-end="url(#am-overview-docs)"/>
+  <path class="flow-muted" d="M268 121 H310" marker-end="url(#am-overview-docs)"/>
+  <path class="flow" d="M442 150 V162" marker-end="url(#a-overview-docs)"/>
+  <path class="flow" d="M442 254 V266" marker-end="url(#a-overview-docs)"/>
+  <path class="flow" d="M568 300 H740 V312" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 200 H600" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 118 H600" marker-end="url(#a-overview-docs)"/>
+  <path class="flow-dashed" d="M568 60 H600" marker-end="url(#a-overview-docs)"/>
+</svg><figcaption>A request travels through the shell or browser → React frontend → ASP.NET Core API → domain services → repositories → the local database; models, MCP, Git and search are external dependencies.</figcaption>
+</figure>
+<h2>Pages</h2>
       <table>
         <thead><tr><th>Page</th><th>Covers</th></tr></thead>
         <tbody>
@@ -141,3 +208,4 @@
 </div>
 </body>
 </html>
+

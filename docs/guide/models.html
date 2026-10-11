@@ -121,7 +121,27 @@ Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
         </tbody>
       </table>
 
-      <h2>用量与成本</h2>
+            <h2>代理调用示例</h2>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 列出对外可见的模型
+curl http://localhost:5000/api/proxy/openai/v1/models \
+  -H "Authorization: Bearer &lt;本机代理 Key&gt;"
+
+# 走代理发起一次对话
+curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
+  -H "Authorization: Bearer &lt;本机代理 Key&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}'</code></pre></div>
+      <p>经代理的调用会带上来源标记 <code>proxy</code> 进入用量统计；模型可见性与影子模型在「代理服务」页配置。</p>
+
+      <h2>供应商与模型字段</h2>
+      <table>
+        <thead><tr><th>层级</th><th>字段</th></tr></thead>
+        <tbody>
+          <tr><td>供应商</td><td>名称、协议（OpenAI 兼容 / Anthropic）、Base URL、API Key（加密存储）、是否启用</td></tr>
+          <tr><td>模型</td><td><code>ModelId</code>（请求时原样发送）、显示名、用途（<code>chat</code> / <code>embedding</code> / <code>completion</code>）、是否该用途默认、上下文长度等元信息</td></tr>
+          <tr><td>压缩管道</td><td>触发阈值、目标长度、摘要模型；压缩前后 Token 都记入用量</td></tr>
+        </tbody>
+      </table><h2>用量与成本</h2>
       <table>
         <thead><tr><th>指标</th><th>说明</th></tr></thead>
         <tbody>
@@ -182,3 +202,4 @@ Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
 </div>
 </body>
 </html>
+

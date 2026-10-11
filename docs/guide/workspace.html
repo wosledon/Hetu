@@ -140,7 +140,66 @@
       </table>
       <p>Code 会话另有<strong>运行模式</strong>：<strong>交互式</strong>（逐步确认）与 <strong>Autopilot</strong>（托管执行到任务完成）。审批粒度可在「智能体」页按工具逐个配置。</p>
 
-      <h2>队列与运行中引导</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 320" role="img" aria-label="Agent 循环">
+  <defs>
+    <marker id="a-loop-ws" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-loop-ws" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="24" width="180" height="56" rx="10"/>
+  <text class="label" x="30" y="48">请求</text>
+  <text class="sub" x="30" y="66">权限模式 · 工具白名单 · 开关</text>
+
+  <rect class="box" x="232" y="24" width="180" height="56" rx="10"/>
+  <text class="label" x="246" y="48">取运行中引导</text>
+  <text class="sub" x="246" y="66">流式中注入的指令并入上下文</text>
+
+  <rect class="box-dark" x="448" y="24" width="180" height="56" rx="10"/>
+  <text class="label-light" x="462" y="48">模型调用</text>
+  <text class="sub" x="462" y="66">chat 用途模型（可临时覆盖）</text>
+
+  <rect class="box" x="664" y="24" width="200" height="56" rx="10"/>
+  <text class="label" x="678" y="48">工具调用</text>
+  <text class="sub" x="678" y="66">内置工具 / 技能 / MCP / Work 工具</text>
+
+  <rect class="box" x="664" y="132" width="200" height="56" rx="10"/>
+  <text class="label" x="678" y="156">权限判定</text>
+  <text class="sub" x="678" y="174">plan / readonly / ask / auto / bypass</text>
+
+  <rect class="box" x="448" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="462" y="156">执行并回填</text>
+  <text class="sub" x="462" y="174">结果写入上下文，必要时落检查点</text>
+
+  <rect class="box" x="232" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="246" y="156">SSE 事件</text>
+  <text class="sub" x="246" y="174">delta / thinking / tool_* / checkpoint</text>
+
+  <rect class="box" x="16" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="30" y="156">界面渲染</text>
+  <text class="sub" x="30" y="174">按事件类型分区展示</text>
+
+  <rect class="box-accent" x="232" y="232" width="396" height="56" rx="10"/>
+  <text class="label" x="246" y="256">发送队列</text>
+  <text class="sub" x="246" y="274">本轮结束后自动发出；也可手动立即发送</text>
+
+  <path class="flow" d="M196 52 H226" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M412 52 H442" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M628 52 H658" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M764 80 V126" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M664 160 H634" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M448 160 H418" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M232 160 H202" marker-end="url(#a-loop-ws)"/>
+  <path class="flow-dashed" d="M322 132 V96 H322 V86" marker-end="url(#a-loop-ws)"/>
+  <path class="flow-muted" d="M106 188 V232 H226" marker-end="url(#am-loop-ws)"/>
+  <path class="flow-muted" d="M430 232 V188" marker-end="url(#am-loop-ws)"/>
+</svg><figcaption>Agent 循环：每次迭代先并入运行中引导，再调模型、判权限、执行工具，过程通过 SSE 推给界面；队列消息在本轮结束后进入下一轮。</figcaption>
+</figure>
+<h2>队列与运行中引导</h2>
       <ul>
         <li><strong>队列</strong>：回复流式输出期间发送的消息进入队列条，可编辑、删除、立即发送，或在本轮结束后自动发出。</li>
         <li><strong>引导（steering）</strong>：把一条指令立刻插进当前这一轮——Agent 会在下一次迭代时结合它调整后续动作，适合中途纠偏（「先别改那个文件」）。</li>
@@ -152,7 +211,19 @@
         <li>压缩由「成本控制」里的管道配置驱动（何时压缩、压到多长、用哪个模型摘要），压缩前后的 Token 都会记入用量。</li>
       </ul>
 
-      <h2>把话题变成笔记</h2>
+            <h2>一次请求带什么</h2>
+      <table>
+        <thead><tr><th>字段</th><th>取值 / 作用</th></tr></thead>
+        <tbody>
+          <tr><td>权限模式</td><td><code>plan</code> / <code>readonly</code> / <code>ask</code> / <code>auto</code> / <code>bypass</code>，决定工具是否需要审批</td></tr>
+          <tr><td>运行模式</td><td><code>interactive</code> / <code>autopilot</code>（Code 会话）</td></tr>
+          <tr><td>开关</td><td><code>webSearch</code> / <code>knowledgeBase</code> / <code>memory</code> / <code>deepThinking</code></td></tr>
+          <tr><td>推理强度</td><td>低 / 中 / 高</td></tr>
+          <tr><td>模型与智能体</td><td>本次请求临时覆盖模型；智能体带来系统提示、工具白名单与审批策略</td></tr>
+          <tr><td>附件</td><td>图片（多模态输入）与文件；超长文本折叠为块后随消息发送</td></tr>
+        </tbody>
+      </table>
+      <p>这些开关按会话缓存在 <code>localStorage</code>（按会话 ID 隔离），下次打开同一会话沿用上次设置。</p><h2>把话题变成笔记</h2>
       <p>「整理成笔记」支持四种风格：摘要、详细、问答、自定义提示；带流式预览，可指定目标笔记本后保存为正式笔记。</p>
 
       <h2>快捷键</h2>
@@ -191,3 +262,5 @@
 </div>
 </body>
 </html>
+
+

@@ -81,7 +81,45 @@
       <h1>知识库</h1>
       <p class="lede">把笔记、文件、网址统一分块并生成向量，供对话检索与语义搜索使用。入口：左侧导航「知识库」（路由 <code>/knowledge-base</code>）。</p>
 
-      <h2>三种来源</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 300" role="img" aria-label="知识库索引与检索管线">
+  <defs>
+    <marker id="a-pipe-kb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="24" width="168" height="46" rx="9"/><text class="label" x="30" y="52">笔记</text>
+  <rect class="box" x="16" y="82" width="168" height="46" rx="9"/><text class="label" x="30" y="110">文件（上传）</text>
+  <rect class="box" x="16" y="140" width="168" height="46" rx="9"/><text class="label" x="30" y="168">网址（抓取正文）</text>
+
+  <rect class="box-accent" x="232" y="66" width="168" height="78" rx="9"/>
+  <text class="label" x="246" y="94">分块</text>
+  <text class="sub" x="246" y="114">按结构切分，记录序号与方式</text>
+
+  <rect class="box-dark" x="448" y="66" width="168" height="78" rx="9"/>
+  <text class="label-light" x="462" y="94">向量化</text>
+  <text class="sub" x="462" y="114">embedding 用途模型</text>
+
+  <rect class="box" x="664" y="24" width="200" height="120" rx="9"/>
+  <text class="label" x="678" y="52">向量与元数据</text>
+  <text class="sub" x="678" y="72">SQLite：vec0 虚拟表</text>
+  <text class="sub" x="678" y="90">PostgreSQL：pgvector 列</text>
+  <text class="sub" x="678" y="108">维度 = Embedding:Dimensions</text>
+
+  <rect class="box-accent" x="232" y="212" width="632" height="64" rx="9"/>
+  <text class="label" x="246" y="238">检索出口</text>
+  <text class="sub" x="246" y="258">对话工具带 · 搜索测试 · Wiki 生成 · 模型主动调用的检索工具</text>
+
+  <path class="flow" d="M184 47 H208 V96 H226" marker-end="url(#a-pipe-kb)"/>
+  <path class="flow" d="M184 105 H226" marker-end="url(#a-pipe-kb)"/>
+  <path class="flow" d="M184 163 H208 V116 H226" marker-end="url(#a-pipe-kb)"/>
+  <path class="flow" d="M400 105 H442" marker-end="url(#a-pipe-kb)"/>
+  <path class="flow" d="M616 105 H658" marker-end="url(#a-pipe-kb)"/>
+  <path class="flow-dashed" d="M764 144 V206" marker-end="url(#a-pipe-kb)"/>
+</svg><figcaption>索引管线与检索出口：分块 → 向量化 → 写向量表与元数据；对话、搜索测试、Wiki 与模型工具都从同一份向量里召回。</figcaption>
+</figure>
+<h2>三种来源</h2>
       <table>
         <thead><tr><th>来源</th><th>添加方式</th><th>说明</th></tr></thead>
         <tbody>
@@ -111,7 +149,16 @@
       <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/03-knowledge-base.png" alt="知识库页：索引覆盖率、向量维度与索引管理"></div>
       <span class="shot-hint">点图看原图</span>
 
-      <h2>检索如何被使用</h2>
+            <h3>索引相关字段</h3>
+      <table>
+        <thead><tr><th>表</th><th>字段</th></tr></thead>
+        <tbody>
+          <tr><td><code>KnowledgeItems</code></td><td><code>Type</code>（Note / File / Url）、<code>Title</code>、<code>Content</code>、<code>SourceUrl</code>、<code>FileName</code>、<code>FileSize</code>、<code>MimeType</code>、<code>NoteId</code>、<code>IsDeleted</code></td></tr>
+          <tr><td><code>NoteChunks</code></td><td><code>KnowledgeItemId</code>、<code>ChunkIndex</code>、<code>ChunkMethod</code>、<code>Content</code>、<code>Summary</code></td></tr>
+          <tr><td><code>NoteChunkEmbeddings</code></td><td><code>ChunkId</code>、<code>Model</code>、<code>Dimensions</code>、<code>UpdatedAt</code>、<code>Embedding</code>（SQLite 侧向量在 <code>vec_chunk_embeddings</code>）</td></tr>
+        </tbody>
+      </table>
+      <p>状态接口返回 <code>totalItems</code> / <code>indexedItems</code> / <code>unindexedItems</code> / <code>noteCount</code> / <code>fileCount</code> / <code>urlCount</code> / <code>hasEmbeddingProvider</code> / <code>dimensions</code> / <code>runningTaskCount</code>；索引列表每项含 <code>chunkCount</code>、<code>embeddingModel</code>、<code>embeddingDimensions</code>、<code>embeddingUpdatedAt</code>、<code>hasRunningTask</code>。</p><h2>检索如何被使用</h2>
       <ul>
         <li>对话输入框的「知识库」开关：召回结果作为上下文注入，并在界面给出命中列表。</li>
         <li>模型也可通过工具主动检索（笔记搜索、知识库检索），由权限模式与工具白名单约束。</li>
@@ -160,3 +207,5 @@
 </div>
 </body>
 </html>
+
+
