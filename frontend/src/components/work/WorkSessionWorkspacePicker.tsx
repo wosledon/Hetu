@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, GitBranch, Loader2, TreePine } from 'lucide-react'
+import { Check, ChevronDown, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
 import { workGitService, workSessionService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
 
@@ -90,7 +90,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
             }
             className={triggerClass(useWorktree, useWorktree)}
           >
-            {busy ? <Loader2 size={11} className="shrink-0 animate-spin" /> : useWorktree ? <TreePine size={11} className="shrink-0" /> : <GitBranch size={11} className="shrink-0" />}
+            {busy ? <Loader2 size={11} className="shrink-0 animate-spin" /> : useWorktree ? <FolderGit2 size={11} className="shrink-0" /> : <GitBranch size={11} className="shrink-0" />}
             <span className="truncate">
               {created ? t('workspace.worktreeMode') : useWorktree ? t('workspace.newWorktree') : t('workspace.currentBranch')}
             </span>
@@ -118,7 +118,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 className={itemClass(useWorktree)}
               >
                 <span className="w-3 shrink-0 pt-0.5">{useWorktree && <Check size={12} className="text-emerald-500" />}</span>
-                <TreePine size={12} className="mt-0.5 shrink-0 text-emerald-500/80" />
+                <FolderGit2 size={12} className="mt-0.5 shrink-0 text-emerald-500/80" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{t('workspace.modeNewWorktree')}</span>
                   <span className={`block text-[11px] leading-4 ${unsupportedHint ? 'text-amber-600 dark:text-amber-300' : 'text-gray-400'}`}>
@@ -144,6 +144,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
             }
             className={triggerClass(false)}
           >
+            <GitBranch size={11} className="shrink-0 opacity-80" />
             <span className="truncate">{created ? session.branch : useWorktree ? baseBranch ?? '—' : currentBranch ?? '—'}</span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
           </button>
