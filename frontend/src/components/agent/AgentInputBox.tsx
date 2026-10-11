@@ -316,7 +316,7 @@ export default function AgentInputBox({
                   disabled={busy || !canSubmit}
                   title={t('input.send')}
                   aria-label={t('input.send')}
-                  className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+                  className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Send size={14} />
                 </button>
@@ -325,13 +325,14 @@ export default function AgentInputBox({
           </div>
         </div>
 
-        {/* 聊天框下方：左侧 Agent 模式/审批模式，中间提示文字（无提示时占位撑开），右侧会话信息（上下文占用） */}
+        {/* 聊天框下方：左侧 Agent 模式/审批模式，中间提示文字，右侧会话信息（分支/同步/上下文占用） */}
         {(hint || trailing || footerLeading) && (
-          <div className="mt-1.5 flex items-center gap-2">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             {footerLeading && <div className="flex shrink-0 items-center gap-1">{footerLeading}</div>}
-            {/* 无提示文字时也占位撑开（用 flex-1 的空 span），否则右侧控件会被挤到左边 */}
-            <span className={`min-w-0 flex-1 truncate text-[10px] text-gray-400 ${hint ? '' : 'hidden sm:block'}`}>{hint ?? ''}</span>
-            {trailing && <div className="flex shrink-0 items-center gap-1">{trailing}</div>}
+            {hint && <span className="min-w-0 flex-1 truncate text-[10px] text-gray-400">{hint}</span>}
+            {/* ml-auto 保证右侧控件始终贴右：不能依赖中间的占位元素（窄屏/无提示时它会消失）；
+                过窄时允许这一组自己横向滚动，避免撑破卡片 */}
+            {trailing && <div className="ml-auto flex min-w-0 shrink items-center gap-1 overflow-x-auto">{trailing}</div>}
           </div>
         )}
       </div>
