@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Background &amp; scheduled tasks — Internals · Hetu</title>
+<meta name="description" content="Background task model and unique index, enqueue dedupe, single consumer with a 2-minute sweep, the five task branches; scheduled task fields and endpoints, interval and cron scheduling, the four executors, validation and observability.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/background-tasks.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/background-tasks.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Background &amp; scheduled tasks — Internals · Hetu">
+<meta property="og:description" content="Background task model and unique index, enqueue dedupe, single consumer with a 2-minute sweep, the five task branches; scheduled task fields and endpoints, interval and cron scheduling, the four executors, validation and observability.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/background-tasks.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/background-tasks.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html">Memory write & recall</a></li>
+      <li><a href="dream.html">Dream consolidation</a></li>
+      <li><a href="kanban.html">Task board & automation</a></li>
+      <li><a href="workflows.html">Workflow engine</a></li>
+      <li><a href="background-tasks.html" aria-current="page">Background & scheduled tasks</a></li>
+      <li><a href="inbox.html">Inbox & notifications</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Background &amp; scheduled tasks</h1>
+      <p class="lede">Both schedulers follow one rule: <strong>persist first, then queue</strong>. Background tasks handle one-off heavy work (embeddings, graph, Wiki, board execution); scheduled tasks handle recurring work (skills, AI tasks, graph rebuild, vector rebuild). The former de-duplicates with a database unique index plus an in-memory semaphore; the latter decides timing from <code>NextRunAt</code> and cron expressions.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 258" role="img" aria-label="Scheduling paths for background and scheduled tasks">
+  <defs>
+    <marker id="a-bg-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="176" height="70" rx="9"/>
+  <text class="label" x="30" y="56">Enqueue coordinator</text>
+  <text class="sub" x="30" y="76">semaphore-serialised + batch dedupe</text>
+  <text class="sub" x="30" y="92">persist, then queue in memory</text>
+
+  <rect class="box-accent" x="216" y="30" width="176" height="70" rx="9"/>
+  <text class="label" x="230" y="56">Single consumer</text>
+  <text class="sub" x="230" y="76">claim marks it Running</text>
+  <text class="sub" x="230" y="92">5 task branches</text>
+
+  <rect class="box-dark" x="416" y="30" width="180" height="70" rx="9"/>
+  <text class="label-light" x="430" y="56">Sweep &amp; recovery</text>
+  <text class="sub" x="430" y="76">scans every 2 minutes</text>
+  <text class="sub" x="430" y="92">only stale beyond 5 minutes</text>
+
+  <rect class="box" x="620" y="30" width="244" height="70" rx="9"/>
+  <text class="label" x="634" y="56">Scheduled tasks</text>
+  <text class="sub" x="634" y="76">interval or 5-field cron</text>
+  <text class="sub" x="634" y="92">due when NextRunAt &lt;= now</text>
+
+  <rect class="box-accent" x="16" y="140" width="848" height="46" rx="9"/>
+  <text class="label" x="30" y="168">Task types: GenerateEmbedding · GenerateKnowledgeItemEmbedding · GraphExtract · KanbanTaskExecute · WikiGenerate</text>
+
+  <rect class="box" x="16" y="200" width="412" height="44" rx="9"/>
+  <text class="label" x="30" y="222">Shutdown requeues; explicit cancel marks failure</text>
+
+  <rect class="box" x="452" y="200" width="412" height="44" rx="9"/>
+  <text class="label" x="466" y="222">Executors: Skill · AiTask · GraphRebuild · EmbeddingRegenerate</text>
+
+  <path class="flow" d="M192 65 H210" marker-end="url(#a-bg-en)"/>
+  <path class="flow" d="M392 65 H410" marker-end="url(#a-bg-en)"/>
+  <path class="flow" d="M596 65 H614" marker-end="url(#a-bg-en)"/>
+  <path class="flow-dashed" d="M304 104 V134" marker-end="url(#a-bg-en)"/>
+  <path class="flow-dashed" d="M740 104 V134 H420 V194" marker-end="url(#a-bg-en)"/>
+  <path class="flow-dashed" d="M222 190 V194" marker-end="url(#a-bg-en)"/>
+  <path class="flow-dashed" d="M658 190 V194" marker-end="url(#a-bg-en)"/>
+</svg><figcaption>Both paths share the same pattern: persist the intent, run it, then write the outcome back to the same row.</figcaption>
+      </figure>
+
+      <h2>Background task model</h2>
+      <table>
+        <thead><tr><th>Field / constraint</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>TaskItem</code></td><td><code>TaskType</code> · <code>EntityId</code> · <code>EntityTitle</code> · <code>Status</code> · <code>ErrorMessage</code> · <code>Metadata</code> · <code>StartedAt</code> · <code>CompletedAt</code> · <code>IsDeleted</code></td></tr>
+          <tr><td>Status</td><td><code>0</code> queued · <code>1</code> running · <code>2</code> completed · <code>3</code> failed</td></tr>
+          <tr><td>Unique index</td><td><code>IX_TaskItems_ActiveUniqueness</code> filtered to "queued or running and not deleted", so one <code>(TaskType, EntityId)</code> can only have one active task</td></tr>
+          <tr><td>Indexes</td><td><code>TaskType</code> · <code>Status</code> · <code>IsDeleted</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Enqueue and dedupe</h2>
+      <ol>
+        <li>A <code>SemaphoreSlim(1, 1)</code> serialises "check, insert, enqueue" so concurrent enqueues cannot duplicate.</li>
+        <li>Batch enqueues dedupe <code>(TaskType, EntityId)</code> pairs inside the batch first.</li>
+        <li>Targets that already have an active record (queued or running) are skipped.</li>
+        <li>The record is saved with <code>SaveChangesAsync</code> before <code>QueueAsync</code> puts it in the in-memory queue.</li>
+        <li>The consumer claims the record, marking it running, and writes that back to the database (<code>ClaimAsync</code>).</li>
+      </ol>
+      <div class="note">The queue itself is in memory and the database is the source of truth: after a restart, startup recovery plus the periodic sweep pick up what the queue lost instead of persisting the queue.</div>
+
+      <h2>Consumption, sweep and recovery</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Consumer</td><td>One background service loops over the queue; there is no multi-threaded consumption</td></tr>
+          <tr><td>Startup recovery</td><td>Recovers leftover tasks (queued or stuck records) before entering the consumption loop</td></tr>
+          <tr><td>Sweep interval</td><td><code>SweepInterval = 2 minutes</code></td></tr>
+          <tr><td>Staleness</td><td>Only records untouched for more than <code>StaleThreshold = 5 minutes</code> are recovered, so long-running work is not mistaken for a hang</td></tr>
+          <tr><td>Shutdown</td><td>An in-flight task is reset to queued with a cleared start time and the message "service stopped, task requeued"</td></tr>
+          <tr><td>Explicit cancel</td><td>Marked failed with "task cancelled"</td></tr>
+          <tr><td>Execution error</td><td>Marked failed with the exception message</td></tr>
+          <tr><td>Wrap-up</td><td>The <code>finally</code> block writes completion and update timestamps regardless of outcome</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Task types</h2>
+      <table>
+        <thead><tr><th>Type</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>GenerateEmbedding</code></td><td>Note vectorisation (see <a href="chunking.html">Chunking &amp; vector index</a>)</td></tr>
+          <tr><td><code>GenerateKnowledgeItemEmbedding</code></td><td>Vectorisation for file and URL knowledge items</td></tr>
+          <tr><td><code>GraphExtract</code></td><td>Graph extraction for a single note (see <a href="graph-extraction.html">Knowledge graph extraction</a>)</td></tr>
+          <tr><td><code>KanbanTaskExecute</code></td><td>Automated board task execution (see <a href="kanban.html">Task board &amp; automation</a>)</td></tr>
+          <tr><td><code>WikiGenerate</code></td><td>Whole-set Wiki generation, with the model id carried in the task <code>Metadata</code> (see <a href="wiki-generation.html">Wiki generation</a>)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Scheduled task model and endpoints</h2>
+      <table>
+        <thead><tr><th>Field / endpoint</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>ScheduledTask</code></td><td><code>Name</code> · <code>Description</code> · <code>TaskKind</code> · <code>TargetId</code> / <code>TargetName</code> · <code>Parameters</code> · <code>ScheduleType</code> · <code>IntervalMinutes</code> · <code>CronExpression</code> · <code>IsEnabled</code> · <code>NextRunAt</code> · <code>LastRunAt</code> · <code>LastStatus</code> · <code>LastError</code> · <code>MaxRetries</code> · <code>RetryCount</code> · <code>TopicId</code></td></tr>
+          <tr><td><code>TaskKind</code></td><td><code>Skill</code> · <code>AiTask</code> · <code>GraphRebuild</code> · <code>EmbeddingRegenerate</code></td></tr>
+          <tr><td><code>ScheduleType</code></td><td><code>Interval</code> (minutes) or <code>Cron</code> (<strong>5 fields</strong>: minute hour day month weekday)</td></tr>
+          <tr><td>Execution record</td><td><code>ScheduledTaskExecution</code>: <code>Status</code> (<code>Running</code> / <code>Success</code> / <code>Failed</code>) · <code>ErrorMessage</code> · <code>Result</code> · <code>RetryAttempt</code> · <code>IsManual</code> · start/end times</td></tr>
+          <tr><td>Endpoints</td><td><code>GET /api/scheduled-tasks</code> · <code>GET /api/scheduled-tasks/{id}</code> · <code>GET /api/scheduled-tasks/target-options</code> · <code>POST</code> · <code>PUT</code> · <code>DELETE</code> · <code>POST {id}/toggle</code> · <code>POST {id}/run</code> · <code>GET {id}/executions</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Next run time</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>How it is computed</th></tr></thead>
+        <tbody>
+          <tr><td><code>Interval</code></td><td>Base is <code>LastRunAt ?? now</code>; next = base + <code>IntervalMinutes</code>. If that is already in the past it rolls to "now + interval", so a long backlog of windows is not replayed</td></tr>
+          <tr><td><code>Cron</code></td><td><code>Cronos</code> parses the 5-field expression and computes the next occurrence</td></tr>
+          <tr><td>Due check</td><td>Tasks where <code>IsEnabled && NextRunAt &lt;= now</code></td></tr>
+          <tr><td>Run now</td><td><code>POST {id}/run</code> sets <code>NextRunAt</code> to now for the runner to pick up and returns a placeholder execution record (status queued, <code>IsManual = true</code>)</td></tr>
+          <tr><td>Update semantics</td><td>Saving the configuration resets <code>RetryCount = 0</code> and recomputes <code>NextRunAt</code></td></tr>
+          <tr><td>Delete semantics</td><td>Soft delete: <code>IsDeleted = true</code> · <code>IsEnabled = false</code> · <code>NextRunAt = null</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Executors</h2>
+      <table>
+        <thead><tr><th>Kind</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><code>Skill</code></td><td>Runs a database skill or a local skill: when <code>TargetId</code> starts with <code>local:</code> it resolves to a local skill (see <a href="extensions.html">Extensions &amp; tools</a>)</td></tr>
+          <tr><td><code>AiTask</code></td><td>Parses <code>systemPrompt</code> / <code>prompt</code> from the <code>Parameters</code> JSON, or uses the raw text as the prompt; usage source <code>scheduled</code></td></tr>
+          <tr><td><code>GraphRebuild</code></td><td>Walks every note and rebuilds the graph</td></tr>
+          <tr><td><code>EmbeddingRegenerate</code></td><td>Walks every note and rebuilds embeddings with <code>force: true</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Validation, failure and observability</h2>
+      <ul>
+        <li>Create/update validation rejects unsupported <code>TaskKind</code>; <code>Cron</code> mode requires an expression; <code>Interval</code> mode requires a positive interval; <code>Skill</code> requires <code>TargetId</code>; <code>AiTask</code> requires <code>Parameters</code>.</li>
+        <li><code>MaxRetries</code> is clamped to 0 or more; a failure while computing the next run is logged as a warning and returns nothing (no schedule for that pass).</li>
+        <li>Database side: <code>Name</code> / <code>TaskKind</code> / <code>ScheduleType</code> are required and <code>CronExpression</code> / <code>LastStatus</code> / <code>LastError</code> have length limits; queries filter soft deletes.</li>
+        <li>Observability: status, error, next run and last status are on the list; history comes from <code>/executions</code> (duration and manual flag included).</li>
+        <li>Logs come from the background services themselves (sweep, recovery, failures); there is no unified scheduled-task log prefix.</li>
+      </ul>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li>"One active task per target" is deliberate: clicking vector rebuild twice will not enqueue ten jobs, it reuses the existing one.</li>
+        <li>Long tasks that stay silent for over 5 minutes look stale to the sweep; keep status moving, otherwise a restart can re-deliver them.</li>
+        <li><code>Interval</code> never replays missed windows: after a day of sleep, scheduling restarts from now.</li>
+        <li>"Rebuild graph" and "rebuild vectors" are full-scale operations — confirm the embedding model and dimensions have not changed first (see <a href="chunking.html">Chunking &amp; vector index</a>).</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

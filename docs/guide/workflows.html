@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作流引擎 — 深入实现 · Hetu</title>
+<meta name="description" content="工作流的定义模型与 JSON 落库、九个端点、图校验规则、十种节点执行器的配置结构与行为、运行上限与状态机、人审回传、SSE 事件与看板联动。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/workflows.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/workflows.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="工作流引擎 — 深入实现 · Hetu">
+<meta property="og:description" content="工作流的定义模型与 JSON 落库、九个端点、图校验规则、十种节点执行器的配置结构与行为、运行上限与状态机、人审回传、SSE 事件与看板联动。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/workflows.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html">记忆的写入与召回</a></li>
+      <li><a href="dream.html">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html">任务看板与自动化</a></li>
+      <li><a href="workflows.html" aria-current="page">工作流引擎</a></li>
+      <li><a href="background-tasks.html">后台与定时任务</a></li>
+      <li><a href="inbox.html">收件箱与通知</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>工作流引擎</h1>
+      <p class="lede">工作流是「把多个 Agent 调用、工具调用和人工确认串成一张图」：定义以节点 + 边的 JSON 落库，运行前先做图校验，运行时逐个节点执行并留下节点级记录。一个关键事实：<strong>它是顺序执行的，不是并行的</strong>——共享同一个作用域 DbContext，靠这个换来实现简单与事务一致性。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 250" role="img" aria-label="工作流定义、校验与运行">
+  <defs>
+    <marker id="a-wf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="34" width="168" height="70" rx="9"/>
+  <text class="label" x="30" y="60">定义</text>
+  <text class="sub" x="30" y="80">Nodes / Edges（JSON）</text>
+  <text class="sub" x="30" y="96">Version 每次更新自增</text>
+
+  <rect class="box-accent" x="208" y="34" width="160" height="70" rx="9"/>
+  <text class="label" x="222" y="60">图校验</text>
+  <text class="sub" x="222" y="80">须有 Start / End</text>
+  <text class="sub" x="222" y="96">边端点存在 · Agent 需 AgentId</text>
+
+  <rect class="box-dark" x="392" y="34" width="168" height="70" rx="9"/>
+  <text class="label-light" x="406" y="60">运行</text>
+  <text class="sub" x="406" y="80">写 GraphSnapshot</text>
+  <text class="sub" x="406" y="96">总迭代 100 · 单节点 20</text>
+
+  <rect class="box" x="584" y="34" width="280" height="70" rx="9"/>
+  <text class="label" x="598" y="60">节点执行记录</text>
+  <text class="sub" x="598" y="80">WorkflowRunNode：Pending / Running</text>
+  <text class="sub" x="598" y="96">Succeeded / Failed / Skipped</text>
+
+  <rect class="box" x="584" y="140" width="280" height="88" rx="9"/>
+  <text class="label" x="598" y="166">出口</text>
+  <text class="sub" x="598" y="186">SSE：9 类事件</text>
+  <text class="sub" x="598" y="204">人审：/approve 回传 approved / rejected</text>
+
+  <rect class="box-accent" x="16" y="140" width="544" height="88" rx="9"/>
+  <text class="label" x="30" y="166">节点执行器（10 种）</text>
+  <text class="sub" x="30" y="186">start · agent · condition · loop · parallel / merge</text>
+  <text class="sub" x="30" y="204">tool · human · subworkflow · end</text>
+
+  <path class="flow" d="M184 69 H202" marker-end="url(#a-wf)"/>
+  <path class="flow" d="M368 69 H386" marker-end="url(#a-wf)"/>
+  <path class="flow" d="M560 69 H578" marker-end="url(#a-wf)"/>
+  <path class="flow" d="M724 104 V134" marker-end="url(#a-wf)"/>
+  <path class="flow-dashed" d="M578 160 H566" marker-end="url(#a-wf)"/>
+</svg><figcaption>定义 → 校验 → 运行 → 节点记录，四处都有落库；运行以快照固化当时的图，避免中途改定义影响已开始的运行。</figcaption>
+      </figure>
+
+      <h2>定义模型</h2>
+      <table>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Name</code> · <code>Description</code> · <code>SortOrder</code> · <code>IsEnabled</code></td><td>元数据与列表排序</td></tr>
+          <tr><td><code>Nodes</code> · <code>Edges</code></td><td>以 JSON 字符串存储；节点类型常量：<code>start</code> / <code>agent</code> / <code>condition</code> / <code>loop</code> / <code>parallel</code> / <code>merge</code> / <code>tool</code> / <code>human</code> / <code>subworkflow</code> / <code>end</code></td></tr>
+          <tr><td><code>InputSchema</code> · <code>Variables</code></td><td>输入契约与变量声明</td></tr>
+          <tr><td><code>Version</code></td><td>新建为 1，每次更新自增</td></tr>
+          <tr><td>节点 <code>Config</code></td><td>各节点类型的 JSON 配置，见下方执行器表</td></tr>
+        </tbody>
+      </table>
+
+      <h2>端点</h2>
+      <table>
+        <thead><tr><th>端点</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/workflows</code> · <code>GET /api/workflows/{id}</code></td><td>列表 / 详情</td></tr>
+          <tr><td><code>POST /api/workflows</code> · <code>PUT /api/workflows/{id}</code> · <code>DELETE /api/workflows/{id}</code></td><td>增删改（保存时把节点与边序列化为 JSON，更新自增版本）</td></tr>
+          <tr><td><code>POST /api/workflows/{id}/duplicate</code></td><td>复制定义，名称追加「副本」后缀</td></tr>
+          <tr><td><code>GET /api/workflows/{id}/validate</code></td><td>只做图校验，不运行</td></tr>
+          <tr><td><code>POST /api/workflows/{id}/run</code></td><td>一次性运行，返回运行结果</td></tr>
+          <tr><td><code>POST /api/workflows/{id}/run/stream</code></td><td>SSE 流式运行</td></tr>
+          <tr><td><code>POST /api/workflows/{id}/run/topic/{topicId}/stream</code></td><td>SSE 运行并把过程写入指定话题</td></tr>
+          <tr><td><code>GET /api/workflows/{id}/runs</code> · <code>GET /api/workflows/runs/{runId}</code></td><td>运行历史 / 单次运行详情（含节点记录）</td></tr>
+          <tr><td><code>POST /api/workflows/runs/{runId}/approve</code></td><td>人审节点回传：<code>{ nodeId?, approve }</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>图校验规则</h2>
+      <ul>
+        <li>至少一个 <code>start</code> 节点、至少一个 <code>end</code> 节点。</li>
+        <li>每条边的两端节点必须存在。</li>
+        <li>除 <code>start</code> 外不得存在孤立节点（必须可达）。</li>
+        <li><code>agent</code> 节点必须有 <code>AgentId</code>（指向项目智能体预设）。</li>
+      </ul>
+      <p>运行前会再次校验，所以「保存成功但运行报校验失败」通常意味着定义被外部改动或边被删。</p>
+
+      <h2>节点执行器</h2>
+      <table>
+        <thead><tr><th>节点</th><th>配置与行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>start</code></td><td>把原始输入存为 <code>start.input</code>；若输入是 JSON 对象，还会把每个字段拆成独立变量</td></tr>
+          <tr><td><code>agent</code></td><td>配置 <code>instruction</code> / <code>modelId</code> / <code>toolNames</code> / <code>mcpServerIds</code> / <code>toolApprovals</code> / <code>maxIterations</code> / <code>maxToolCallsPerTurn</code>；上游输出注入为输入，无上游则回退运行输入；<code>SessionId = workflow-{runId}-{nodeId}</code>；经 Agent 循环执行，额外写回 <code>thinking</code> 与 <code>toolCalls</code>；用量来源 <code>workflow</code></td></tr>
+          <tr><td><code>condition</code></td><td><code>{ branches: [{ handle, expression }], defaultHandle }</code>；首个匹配分支的 <code>handle</code> 决定后续走向</td></tr>
+          <tr><td><code>loop</code></td><td><code>{ maxIterations, exitCondition }</code>；首次进入走 <code>body</code>，满足退出条件或达到上限走 <code>exit</code></td></tr>
+          <tr><td><code>tool</code></td><td><code>{ toolName, argumentsTemplate }</code>；直接调用内置或 MCP 工具，<strong>不经过 LLM</strong></td></tr>
+          <tr><td><code>human</code></td><td><code>{ prompt, timeoutSeconds }</code>；通过返回 <code>approved</code>、拒绝返回 <code>rejected</code> 作为分支句柄</td></tr>
+          <tr><td><code>subworkflow</code></td><td><code>{ subWorkflowId, inputTemplate }</code>；递归深度上限 <strong>5</strong></td></tr>
+          <tr><td><code>parallel</code> / <code>merge</code></td><td>普通节点出现多条出边时自动 fan-out，分支结果汇总后在下游公共节点合并</td></tr>
+          <tr><td><code>end</code></td><td>有 <code>outputTemplate</code> 则渲染模板，否则取首个非空上游输出，再无则回退运行输入</td></tr>
+        </tbody>
+      </table>
+      <div class="note">「并行」在这里是<strong>结构上并行、执行上顺序</strong>：分支会被逐个执行再合并，以共享同一个作用域 DbContext。理解这点能解释两件事：分支里的 Agent 调用是串行的；任何一个分支失败会终止整次运行。</div>
+
+      <h2>运行与上限</h2>
+      <table>
+        <thead><tr><th>项</th><th>值 / 行为</th></tr></thead>
+        <tbody>
+          <tr><td>运行记录</td><td><code>WorkflowRun</code>：<code>Status</code>（<code>Pending</code> / <code>Running</code> / <code>Succeeded</code> / <code>Failed</code> / <code>Cancelled</code>）· <code>Input</code> · <code>Output</code> · <code>GraphSnapshot</code> · <code>ChatTopicId</code> · <code>Error</code> · <code>TotalIterations</code></td></tr>
+          <tr><td>节点记录</td><td><code>WorkflowRunNode</code>：<code>NodeId</code> · <code>NodeType</code> · <code>Status</code> · <code>Input</code> · <code>Output</code> · <code>Error</code> · <code>Iterations</code></td></tr>
+          <tr><td>总迭代上限</td><td><code>MaxTotalIterations = 100</code>，超出抛错并终止</td></tr>
+          <tr><td>单节点访问上限</td><td><code>MaxNodeVisits = 20</code>，超出抛错并终止（防循环失控）</td></tr>
+          <tr><td>取消</td><td><code>OperationCanceledException</code> → 运行置 <code>Cancelled</code></td></tr>
+          <tr><td>其它异常</td><td>运行置 <code>Failed</code>，<code>Error</code> 写入异常消息</td></tr>
+        </tbody>
+      </table>
+
+      <h2>人审与工具审批</h2>
+      <ul>
+        <li>人审节点会把「等待审批」通过 SSE 事件推到前端，前端显示待审批；回传走 <code>/approve</code>。</li>
+        <li><code>toolApprovals</code>（节点级）优先；未显式配置时用运行级的全局模式补足。</li>
+        <li>工具审批与权限模式的关系见 <a href="permissions.html">权限与审批</a>；Agent 节点内部的循环与工具上限见 <a href="agent-loop.html">Agent 循环</a>。</li>
+      </ul>
+
+      <h2>SSE 事件</h2>
+      <table>
+        <thead><tr><th>事件</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>run_started</code> · <code>run_completed</code> · <code>run_failed</code></td><td>运行生命周期</td></tr>
+          <tr><td><code>node_started</code> · <code>node_completed</code> · <code>node_failed</code></td><td>节点级进度与错误</td></tr>
+          <tr><td><code>human_approval_required</code></td><td>人审节点等待回传</td></tr>
+          <tr><td><code>agent_tool_call</code></td><td>Agent 节点的工具调用过程（前端可按问答 / 计划 / 审批三类回传）</td></tr>
+          <tr><td><code>run_result</code></td><td>最终结果载荷</td></tr>
+        </tbody>
+      </table>
+      <p>更完整的事件协议（三种帧形态、未知事件的处理）见 <a href="sse.html">SSE 事件协议</a>。Agent 节点内部仍会写出 <code>[ERROR]</code> 兜底帧。</p>
+
+      <h2>与任务看板的关系</h2>
+      <ul>
+        <li>看板任务的运行记录支持 <code>Kind = Agent | Workflow</code>，触发来源 <code>Trigger = Todo | Comment | Manual</code>。</li>
+        <li>也就是说：卡片可以挂工作流，进入待办后由执行器运行，过程与结果落在运行记录与评论里（见 <a href="kanban.html">任务看板与自动化</a>）。</li>
+        <li>工作流内部的 Agent 节点不复用看板的运行记录，而是写自己的节点记录。</li>
+      </ul>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>循环一定配 <code>maxIterations</code>：单节点 20 次访问上限是最后一道闸，但它会直接让运行失败。</li>
+        <li>Agent 节点的 session id 里带运行与节点 id，所以每次运行都是干净会话；想跨节点共享上下文，靠变量传递而不是靠会话历史。</li>
+        <li><code>tool</code> 节点不经 LLM：适合固定动作（跑命令、取数据），比让模型决定更省更稳。</li>
+        <li>运行前把 <code>/validate</code> 接进编辑流程，能挡掉「缺 End 节点」「Agent 没选智能体」这类最常见保存即失败。</li>
+        <li>定义改动不影响已开始的运行：排查看结果不一致时先看该次运行的 <code>GraphSnapshot</code>。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox &amp; notifications — Internals · Hetu</title>
+<meta name="description" content="Notification model with level and category constants, aggregation and merge semantics by CategoryKey, endpoint list, state and deletion rules, frontend queries and click behaviour.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/inbox.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/inbox.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Inbox &amp; notifications — Internals · Hetu">
+<meta property="og:description" content="Notification model with level and category constants, aggregation and merge semantics by CategoryKey, endpoint list, state and deletion rules, frontend queries and click behaviour.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/inbox.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/inbox.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html">Memory write & recall</a></li>
+      <li><a href="dream.html">Dream consolidation</a></li>
+      <li><a href="kanban.html">Task board & automation</a></li>
+      <li><a href="workflows.html">Workflow engine</a></li>
+      <li><a href="background-tasks.html">Background & scheduled tasks</a></li>
+      <li><a href="inbox.html" aria-current="page">Inbox & notifications</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Inbox &amp; notifications</h1>
+      <p class="lede">The inbox is not a log but <strong>reminders aggregated by source</strong>: when the same <code>CategoryKey</code> fires again nothing new is inserted — the existing record is refreshed, marked unread again and its occurrence counter incremented. That is why a notification you just read can flip back to unread: it is by design.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 236" role="img" aria-label="Notification write and aggregation">
+  <defs>
+    <marker id="a-ib-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="180" height="66" rx="9"/>
+  <text class="label" x="30" y="56">Sources</text>
+  <text class="sub" x="30" y="76">system · scheduled · workflow · kanban</text>
+
+  <rect class="box-accent" x="220" y="30" width="188" height="66" rx="9"/>
+  <text class="label" x="234" y="56">Aggregate by CategoryKey</text>
+  <text class="sub" x="234" y="76">same key, unarchived → merge</text>
+
+  <rect class="box-dark" x="432" y="30" width="188" height="66" rx="9"/>
+  <text class="label-light" x="446" y="56">Merge action</text>
+  <text class="sub" x="446" y="76">refresh · mark unread · count +1</text>
+
+  <rect class="box" x="644" y="30" width="220" height="66" rx="9"/>
+  <text class="label" x="658" y="56">Reads</text>
+  <text class="sub" x="658" y="76">list · per-category counts · unread total</text>
+
+  <rect class="box-accent" x="16" y="128" width="848" height="88" rx="9"/>
+  <text class="label" x="30" y="154">Actions</text>
+  <text class="sub" x="30" y="174">single read / archive · batch read / unread / archive / unarchive / delete · soft-delete one</text>
+  <text class="sub" x="30" y="192">Clicking a notification marks it read, then follows its link (an empty link only marks read)</text>
+
+  <path class="flow" d="M196 63 H214" marker-end="url(#a-ib-en)"/>
+  <path class="flow" d="M408 63 H426" marker-end="url(#a-ib-en)"/>
+  <path class="flow" d="M620 63 H638" marker-end="url(#a-ib-en)"/>
+  <path class="flow-dashed" d="M300 100 V122" marker-end="url(#a-ib-en)"/>
+  <path class="flow-dashed" d="M754 100 V122" marker-end="url(#a-ib-en)"/>
+</svg><figcaption>The aggregation key is the category key: repeated events from one source keep a single record with a counter, so the inbox is not flooded by one noisy producer.</figcaption>
+      </figure>
+
+      <h2>Model and fields</h2>
+      <table>
+        <thead><tr><th>Field / constant</th><th>Values</th></tr></thead>
+        <tbody>
+          <tr><td><code>InboxNotification</code></td><td><code>Category</code> · <code>CategoryKey</code> · <code>Level</code> · <code>Title</code> · <code>Content</code> · <code>IsRead</code> · <code>IsArchived</code> · <code>OccurrenceCount</code> · <code>Link</code> · <code>IsDeleted</code></td></tr>
+          <tr><td><code>Level</code></td><td><code>info</code> · <code>success</code> · <code>warning</code> · <code>error</code></td></tr>
+          <tr><td><code>Category</code></td><td><code>system</code> · <code>scheduledTask</code> · <code>workflow</code> · <code>kanbanTask</code></td></tr>
+          <tr><td>Batch actions</td><td><code>read</code> · <code>unread</code> · <code>archive</code> · <code>unarchive</code> · <code>delete</code></td></tr>
+          <tr><td>Database constraints</td><td><code>Category</code> required; length limits on <code>CategoryKey</code> / <code>Level</code> / <code>Title</code> / <code>Content</code> / <code>Link</code>; indexes on <code>CategoryKey</code> / <code>IsArchived</code> / <code>UpdatedAt</code>; soft deletes filtered out</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Aggregation rules</h2>
+      <ol>
+        <li>On write, if <code>CategoryKey</code> is non-empty and an <strong>unarchived</strong> record with the same key exists, the write merges into it.</li>
+        <li>Merging refreshes <code>Category</code> / <code>Level</code> / <code>Title</code> / <code>Content</code> / <code>Link</code>, sets <code>IsRead = false</code> and <code>IsArchived = false</code>, and increments <code>OccurrenceCount</code>.</li>
+        <li>With no matching unarchived record a new one is created with <code>OccurrenceCount = 1</code>.</li>
+        <li>Archiving moves a record out of the aggregation scope, so the same source firing later creates a new entry.</li>
+      </ol>
+
+      <h2>Endpoints</h2>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/inbox?archived=&amp;category=&amp;page=&amp;pageSize=</code></td><td>Paged list filtered by archive state and category</td></tr>
+          <tr><td><code>GET /api/inbox/categories?archived=</code></td><td>Per-category totals and unread counts</td></tr>
+          <tr><td><code>GET /api/inbox/unread-count</code></td><td>Total unread count (for the badge)</td></tr>
+          <tr><td><code>POST /api/inbox</code></td><td>Write a notification (through the aggregation logic)</td></tr>
+          <tr><td><code>POST /api/inbox/{id}/read</code></td><td>Mark one read (or set an explicit target state via <code>InboxStateRequest.Value</code>)</td></tr>
+          <tr><td><code>POST /api/inbox/{id}/archive</code></td><td>Archive one record</td></tr>
+          <tr><td><code>POST /api/inbox/batch</code></td><td>Batch: <code>{ ids, action }</code></td></tr>
+          <tr><td><code>DELETE /api/inbox/{id}</code></td><td>Soft-delete one record</td></tr>
+        </tbody>
+      </table>
+
+      <h2>State transitions and deletion</h2>
+      <ul>
+        <li>Single-record read and archive each change exactly one field; they are independent.</li>
+        <li>Batch <code>delete</code> sets both <code>IsDeleted</code> and <code>IsArchived</code>, so the record is neither visible nor part of aggregation.</li>
+        <li>Soft-deleted records stay in the database and are simply filtered out by queries.</li>
+      </ul>
+
+      <h2>Frontend behaviour</h2>
+      <ul>
+        <li>Data comes from three React Query keys — list, category counts and unread count — and the page refreshes by query invalidation; there is <strong>no</strong> dedicated SSE stream or polling timer.</li>
+        <li>Clicking a notification marks it read first and then navigates using <code>link</code>.</li>
+        <li>Category labels are mapped locally (scheduled task / workflow / system); <code>kanbanTask</code> is reserved in the data layer and constants.</li>
+      </ul>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li><code>CategoryKey</code> is the only aggregation input: give it a meaningful, stable value (for example task id plus event type), otherwise everything is either duplicated or unrelated events collapse together.</li>
+        <li>Merging resets the read flag on purpose — happening again means reminding again. If you really want silence, archive it.</li>
+        <li>The inbox is not an audit log: records get merged, archived and deleted. For history use run records (<a href="kanban.html">board</a>), execution history (<a href="background-tasks.html">scheduled tasks</a>) and checkpoints.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
