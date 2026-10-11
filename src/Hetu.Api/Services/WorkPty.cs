@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
@@ -239,13 +240,13 @@ public class ScriptPtyProcess : IPtyProcess
         await _process.StandardInput.FlushAsync(ct);
     }
 
-    public async IAsyncEnumerable<string> ReadAllAsync(CancellationToken ct)
+    public async IAsyncEnumerable<string> ReadAllAsync([EnumeratorCancellation] CancellationToken ct)
     {
         await foreach (var chunk in PumpAsync(_process.StandardOutput.BaseStream, ct)) yield return chunk;
         await foreach (var chunk in PumpAsync(_process.StandardError.BaseStream, ct)) yield return chunk;
     }
 
-    private static async IAsyncEnumerable<string> PumpAsync(Stream stream, CancellationToken ct)
+    private static async IAsyncEnumerable<string> PumpAsync(Stream stream, [EnumeratorCancellation] CancellationToken ct)
     {
         var buffer = new byte[4096];
         var decoder = Encoding.UTF8.GetDecoder();

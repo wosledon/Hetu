@@ -109,7 +109,7 @@ public class WikiService : IWikiService
             .GroupBy(d => d.SetId)
             .OrderByDescending(g => g.Max(d => d.CreatedAt))
             .SelectMany(g => g.OrderBy(d => d.SortOrder))
-            .Select(d => Map(d, projectNames.GetValueOrDefault(d.ProjectId)))
+            .Select(d => Map(d, projectNames.GetValueOrDefault(d.ProjectId) ?? string.Empty))
             .ToList());
     }
 
@@ -169,7 +169,7 @@ public class WikiService : IWikiService
         return ApiResponse<List<WikiGenerationJobDto>>.Ok(query
             .OrderByDescending(j => j.CreatedAt)
             .Take(20)
-            .Select(j => MapJob(j, projectNames.GetValueOrDefault(j.ProjectId)))
+            .Select(j => MapJob(j, projectNames.GetValueOrDefault(j.ProjectId) ?? string.Empty))
             .ToList());
     }
 
@@ -338,7 +338,11 @@ public class WikiService : IWikiService
             }
         }).ToList();
 
-        var modulePages = (await Task.WhenAll(pageTasks)).Where(p => p != null).ToList()!;
+        var modulePages = new List<WikiDocument>();
+        foreach (var page in await Task.WhenAll(pageTasks))
+        {
+            if (page != null) modulePages.Add(page);
+        }
         if (modulePages.Count == 0)
             throw new InvalidOperationException(_localizer.T("wiki.allPagesFailed"));
 

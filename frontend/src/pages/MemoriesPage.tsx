@@ -779,7 +779,11 @@ export default function MemoriesPage() {
     },
   })
 
-  const allMemories = searchQuery.trim() ? (searchResults ?? []) : (pagedData?.items ?? [])
+  // 搜索态用搜索结果、否则用分页结果：用 useMemo 稳定引用，避免下方多个 useMemo 每次渲染重算
+  const allMemories = useMemo(
+    () => (searchQuery.trim() ? (searchResults ?? []) : (pagedData?.items ?? [])),
+    [searchQuery, searchResults, pagedData],
+  )
 
   // 作用域过滤（搜索结果同样按作用域 pill 过滤）
   const scopeCounts = useMemo(() => {

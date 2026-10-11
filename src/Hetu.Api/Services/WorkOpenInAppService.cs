@@ -53,6 +53,7 @@ public class WorkOpenInAppService
     /// <summary>应用图标 PNG（首次提取后缓存到临时目录）</summary>
     public byte[]? GetIcon(string app)
     {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return null;
         if (!AllApps.Contains(app)) return null;
         var iconExe = ResolveIconSource(app);
         if (iconExe == null) return null;

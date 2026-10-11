@@ -133,7 +133,7 @@ export default function SettingsPage() {
       const items = JSON.parse(snapshot.pinnedNavItems)
       if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
     } catch { /* keep current value if parse fails */ }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setSecondaryMenuStyle, setPinnedNavItems])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)

@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Send, Square, X } from 'lucide-react'
-import InputCommandMenu, { extractMentionQuery, extractSlashQuery, type InputCommandItem } from '../InputCommandMenu'
+import InputCommandMenu, { type InputCommandItem } from '../InputCommandMenu'
+import { extractMentionQuery, extractSlashQuery } from '../../utils/inputQuery'
 import { countTextLines, isLongText } from '../../utils/longText'
 
 /** 输入框上方的上下文 chip（引用文件 / 提示词模板 / 技能 / 选中代码 等） */

@@ -23,30 +23,35 @@ public class TaskItemsController : ControllerBase
     {
         // 过滤条件下推到数据库，避免全表加载
         var typeFilter = string.IsNullOrEmpty(type) ? null : type.ToLowerInvariant();
-        var items = await _unitOfWork.TaskItems.FindAsync(
-            t => (typeFilter == null || t.TaskType.ToLower() == typeFilter) && (status == null || t.Status == status), ct);
+        // 排序 + 取前 200 条在数据库完成（SQLite 下由仓储投影排序键定序），不再把整张任务表读进内存
+        var items = await _unitOfWork.TaskItems.GetPagedByDateAsync(
+            t => (typeFilter == null || t.TaskType.ToLower() == typeFilter) && (status == null || t.Status == status),
+            t => t.CreatedAt,
+            descending: true,
+            skip: 0,
+            take: 200,
+            ct);
 
-        var dtos = items
-            .OrderByDescending(t => t.CreatedAt)
-            .Take(200)
-            .Select(MapToDto)
-            .ToList();
+        var dtos = items.Select(MapToDto).ToList();
         return ApiResponse<List<TaskItemDto>>.Ok(dtos);
     }
 
     [HttpGet("stats")]
     public async Task<ApiResponse<TaskStatsDto>> GetStats(CancellationToken ct)
     {
-        var items = await _unitOfWork.TaskItems.GetAllAsync(ct);
-        var now = DateTimeOffset.UtcNow;
+        // 各状态计数走 SQL COUNT：任务表会随后台任务持续增长，不再整表加载
+        var tasks = _unitOfWork.TaskItems;
+        var since = DateTimeOffset.UtcNow.AddHours(-24);
+        // SQLite 不支持在 SQL 中比较 DateTimeOffset：失败任务很少，只取失败任务的时间戳在内存计数
+        var failedAt = await tasks.SelectAsync(t => t.Status == 3, t => t.CreatedAt, ct);
         var stats = new TaskStatsDto
         {
-            Total = items.Count,
-            Queued = items.Count(t => t.Status == 0),
-            Running = items.Count(t => t.Status == 1),
-            Completed = items.Count(t => t.Status == 2),
-            Failed = items.Count(t => t.Status == 3),
-            RecentFailed = items.Count(t => t.Status == 3 && t.CreatedAt > now.AddHours(-24)),
+            Total = await tasks.CountAsync(cancellationToken: ct),
+            Queued = await tasks.CountAsync(t => t.Status == 0, ct),
+            Running = await tasks.CountAsync(t => t.Status == 1, ct),
+            Completed = await tasks.CountAsync(t => t.Status == 2, ct),
+            Failed = failedAt.Count,
+            RecentFailed = failedAt.Count(at => at > since),
         };
         return ApiResponse<TaskStatsDto>.Ok(stats);
     }

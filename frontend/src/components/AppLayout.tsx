@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect } from 'react'
+import { type ReactNode, useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
@@ -82,16 +82,27 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const [railCompact, setRailCompact] = useState(false)
 
   const isVertical = navStyle === 'vertical'
+  // 非垂直导航固定平铺：用派生值代替「在 effect 里同步 setState 复位」
+  const railCompactActive = isVertical && railCompact
 
-  const pinnedItems = allConfigurableItems.filter((item) => pinnedNavItems.includes(item.path))
-  const unpinnedItems = allConfigurableItems.filter((item) => !pinnedNavItems.includes(item.path))
-  const lastMoreItemData = lastMoreItem && !pinnedNavItems.includes(lastMoreItem)
-    ? allConfigurableItems.find((i) => i.path === lastMoreItem)
-    : null
+  const pinnedItems = useMemo(
+    () => allConfigurableItems.filter((item) => pinnedNavItems.includes(item.path)),
+    [pinnedNavItems],
+  )
+  const unpinnedItems = useMemo(
+    () => allConfigurableItems.filter((item) => !pinnedNavItems.includes(item.path)),
+    [pinnedNavItems],
+  )
+  const lastMoreItemData = useMemo(
+    () => (lastMoreItem && !pinnedNavItems.includes(lastMoreItem)
+      ? allConfigurableItems.find((i) => i.path === lastMoreItem)
+      : null),
+    [lastMoreItem, pinnedNavItems],
+  )
 
   // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"
   useEffect(() => {
-    if (!isVertical) { setRailCompact(false); return }
+    if (!isVertical) return
     const el = railRef.current
     if (!el) return
     // 实测内容高度（临时隐藏 flex-1 占位，offsetTop 差自然包含 gap 与 margin）
@@ -108,8 +119,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     const check = () => {
       const content = measure()
       if (content > el.clientHeight + 1) { setRailCompact(true); return }
-      if (!railCompact) return
-      // 收起态：估算展开全部可配置项后的增量，放得下则恢复平铺
+      // 收起态或刚切回垂直导航：估算展开全部可配置项后的增量，放得下则恢复平铺
       const itemEl = el.querySelector<HTMLElement>('[data-rail-item]')
       const itemWithGap = (itemEl?.offsetHeight ?? 52) + 2
       const lm = lastMoreItemData ? 1 : 0
@@ -123,7 +133,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     const observer = new ResizeObserver(check)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isVertical, railCompact, pinnedNavItems, lastMoreItem])
+  }, [isVertical, pinnedItems, unpinnedItems, lastMoreItemData])
 
   const renderNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
     const Icon = item.icon
@@ -215,7 +225,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     document.body
   )
 
-  const railExpanded = !railCompact
+  const railExpanded = !railCompactActive
 
   const verticalRail = (
     <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-0.5 overflow-y-auto py-3">

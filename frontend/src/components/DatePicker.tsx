@@ -42,15 +42,13 @@ export default function DatePicker({
   const weekdays = t('ui:datePicker.weekdays', { returnObjects: true }) as unknown as string[]
   const [open, setOpen] = useState(false)
   const selected = parseISO(value)
-  const [view, setView] = useState(() => selected ?? new Date())
+  // 面板显示月份：优先本轮展开里的翻页，其次选中日期所在月（派生值，避免在 effect 里同步 setState 触发级联渲染）
+  const [navMonth, setNavMonth] = useState<Date | null>(null)
+  const view = navMonth ?? selected ?? new Date()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const close = useCallback(() => setOpen(false), [])
-
-  useEffect(() => {
-    if (open && selected) setView(new Date(selected.getFullYear(), selected.getMonth(), 1))
-  }, [open, selected])
+  const close = useCallback(() => { setOpen(false); setNavMonth(null) }, [])
 
   useEffect(() => {
     if (!open) return
@@ -108,7 +106,7 @@ export default function DatePicker({
         ref={triggerRef}
         type="button"
         disabled={disabled}
-        onClick={() => { if (disabled) return; setOpen((v) => !v) }}
+        onClick={() => { if (disabled) return; if (open) close(); else setOpen(true) }}
         className={triggerClassName ?? TRIGGER_CLASS}
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
@@ -129,7 +127,7 @@ export default function DatePicker({
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => setView(new Date(year, month - 1, 1))}
+              onClick={() => setNavMonth(new Date(year, month - 1, 1))}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
               aria-label={t('ui:datePicker.prevMonth')}
             >
@@ -138,7 +136,7 @@ export default function DatePicker({
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{t('ui:datePicker.yearMonth', { year, month: month + 1 })}</span>
             <button
               type="button"
-              onClick={() => setView(new Date(year, month + 1, 1))}
+              onClick={() => setNavMonth(new Date(year, month + 1, 1))}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
               aria-label={t('ui:datePicker.nextMonth')}
             >
@@ -172,7 +170,7 @@ export default function DatePicker({
           <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/[0.06]">
             <button
               type="button"
-              onClick={() => { const now = new Date(); onChange(toISO(now)); setView(new Date(now.getFullYear(), now.getMonth(), 1)) }}
+              onClick={() => { const now = new Date(); onChange(toISO(now)); setNavMonth(new Date(now.getFullYear(), now.getMonth(), 1)) }}
               className="rounded-lg px-2 py-1 text-[12px] text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
             >
               {t('ui:datePicker.today')}

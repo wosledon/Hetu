@@ -40,7 +40,22 @@ public class UsageService
 
     public async Task<UsageStatsDto> GetStatsAsync(CancellationToken ct = default)
     {
-        var logs = await _unitOfWork.LlmUsageLogs.GetAllAsync(ct);
+        // 只投影统计需要的列（不加载实体与内容摘要），聚合/分组逻辑保持不变
+        var logs = await _unitOfWork.LlmUsageLogs.SelectAsync(
+            _ => true,
+            l => new
+            {
+                l.CreatedAt,
+                l.TokensUsed,
+                l.CachedTokens,
+                l.InputTokens,
+                l.CompressedTokens,
+                l.OutputTokens,
+                l.LatencyMs,
+                l.ModelId,
+                l.Source,
+            },
+            ct);
         var models = await _unitOfWork.AiModels.GetAllAsync(ct);
         var modelNames = models.ToDictionary(m => m.Id, m => string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName);
 
@@ -137,20 +152,21 @@ public class UsageService
         Guid? refId = null,
         CancellationToken ct = default)
     {
-        var logs = await _unitOfWork.LlmUsageLogs.GetAllAsync(ct);
+        var sourceFilter = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
+        var refFilter = refId;
         var models = await _unitOfWork.AiModels.GetAllAsync(ct);
         var modelNames = models.ToDictionary(m => m.Id, m => string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName);
 
-        var query = logs.AsEnumerable();
-        if (!string.IsNullOrWhiteSpace(source))
-            query = query.Where(l => string.Equals(l.Source, source, StringComparison.OrdinalIgnoreCase));
-        if (refId.HasValue)
-            query = query.Where(l => l.RefId == refId.Value);
+        // 过滤与分页下推到数据库：用量日志会随每次 LLM 调用增长，不再整表加载
+        var logs = await _unitOfWork.LlmUsageLogs.GetPagedByDateAsync(
+            l => (sourceFilter == null || l.Source == sourceFilter) && (refFilter == null || l.RefId == refFilter),
+            l => l.CreatedAt,
+            descending: true,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            ct);
 
-        return query
-            .OrderByDescending(l => l.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+        return logs
             .Select(l => new UsageLogDto
             {
                 MessageId = l.Id,

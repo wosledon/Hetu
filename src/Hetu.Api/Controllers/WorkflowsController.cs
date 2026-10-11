@@ -128,7 +128,7 @@ public class WorkflowsController : ControllerBase
             {
                 await _chatMessageService.SaveAssistantMessageAsync(
                     topicId,
-                    _localizer.T("workflows.executionFailed", result.Error),
+                    _localizer.T("workflows.executionFailed", result.Error ?? string.Empty),
                     modelId: null,
                     cancellationToken: cancellationToken);
             }

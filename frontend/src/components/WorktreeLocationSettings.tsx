@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderGit2, Loader2, RotateCcw, Save } from 'lucide-react'
@@ -11,8 +11,8 @@ import { settingService } from '../services/settingService'
 export default function WorktreeLocationSettings() {
   const { t } = useTranslation('settings')
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState('')
-  const [dirty, setDirty] = useState(false)
+  // 表单草稿记录「基于哪个服务端值编辑」：服务端值变化时自动对齐（派生值，替代 effect 里同步 setState）
+  const [edit, setEdit] = useState<{ base: string; value: string } | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   const { data: config, isLoading } = useQuery({
@@ -20,15 +20,14 @@ export default function WorktreeLocationSettings() {
     queryFn: () => settingService.getWorktreeConfig(),
   })
 
-  useEffect(() => {
-    if (!config || dirty) return
-    setDraft(config.rootDirectory ?? '')
-  }, [config, dirty])
+  const savedRoot = config?.rootDirectory ?? ''
+  const draft = edit && edit.base === savedRoot ? edit.value : savedRoot
+  const dirty = draft !== savedRoot
 
   const saveMutation = useMutation({
     mutationFn: (rootDirectory: string) => settingService.setWorktreeConfig({ rootDirectory: rootDirectory.trim() || undefined }),
-    onSuccess: () => {
-      setDirty(false)
+    onSuccess: (_data, saved) => {
+      setEdit({ base: saved.trim(), value: saved.trim() })
       setMessage(null)
       queryClient.invalidateQueries({ queryKey: ['worktreeConfig'] })
     },
@@ -65,16 +64,12 @@ export default function WorktreeLocationSettings() {
           <input
             value={draft}
             placeholder={t('worktreeLocation.placeholder')}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              setDirty(true)
-            }}
+            onChange={(e) => setEdit({ base: savedRoot, value: e.target.value })}
             className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12px] outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
           />
           <button
             onClick={() => {
-              setDraft('')
-              setDirty(false)
+              setEdit(null)
               save('')
             }}
             disabled={saveMutation.isPending}

@@ -248,7 +248,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
     if (!projectId) return []
     const entries = await workFileService.list(projectId, path || undefined, sessionId)
     return entries
-  }, [projectId])
+  }, [projectId, sessionId])
 
   const rootQuery = useQuery({
     queryKey: ['workDirEntries', projectId, ''],
@@ -1171,18 +1171,18 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
 /** 带导航工具条的内嵌浏览器：历史前进后退、刷新、外站新窗打开、常用链接 */
 function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: string) => void }) {
   const { t } = useTranslation('work')
-  const [input, setInput] = useState(url)
+  // 地址栏内容：用户输入时用本地值，否则跟随外部 url（派生值，避免 effect 里同步同步 props）
+  const [typed, setTyped] = useState<string | null>(null)
+  const input = typed ?? url
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [frameKey, setFrameKey] = useState(0)
   const [loaded, setLoaded] = useState(false)
 
-  useEffect(() => { setInput(url) }, [url])
-
   const navigate = (target: string, push = true) => {
     const normalized = /^https?:\/\//i.test(target) ? target : `https://${target}`
     onUrlChange(normalized)
-    setInput(normalized)
+    setTyped(null)
     setLoaded(false)
     setFrameKey((k) => k + 1)
     if (push) {
@@ -1197,7 +1197,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
     const target = history[historyIndex - 1]
     setHistoryIndex(historyIndex - 1)
     onUrlChange(target)
-    setInput(target)
+    setTyped(null)
     setLoaded(false)
     setFrameKey((k) => k + 1)
   }
@@ -1207,7 +1207,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
     const target = history[historyIndex + 1]
     setHistoryIndex(historyIndex + 1)
     onUrlChange(target)
-    setInput(target)
+    setTyped(null)
     setLoaded(false)
     setFrameKey((k) => k + 1)
   }
@@ -1227,7 +1227,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
         <div className="mb-3 flex gap-1">
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
             placeholder={t('explorer.browser.urlPlaceholder')}
             className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
@@ -1277,7 +1277,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
         </button>
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => setTyped(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
           className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] outline-none focus:border-blue-400 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
         />

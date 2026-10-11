@@ -80,6 +80,57 @@ public class EfRepository<T> : IRepository<T> where T : BaseEntity
             .ExecuteDeleteAsync(cancellationToken);
     }
 
+    public virtual async Task<Dictionary<TKey, int>> CountByAsync<TKey>(
+        Expression<Func<T, bool>>? predicate,
+        Expression<Func<T, TKey>> keySelector,
+        CancellationToken cancellationToken = default) where TKey : notnull
+    {
+        var query = DbSet.AsNoTracking();
+        if (predicate != null) query = query.Where(predicate);
+        return await query
+            .GroupBy(keySelector)
+            .Select(g => new { Key = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+    }
+
+    public virtual async Task<List<T>> GetPagedByDateAsync(
+        Expression<Func<T, bool>>? predicate,
+        Expression<Func<T, DateTimeOffset>> orderBy,
+        bool descending,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        if (take <= 0) return [];
+
+        var query = DbSet.AsNoTracking();
+        if (predicate != null) query = query.Where(predicate);
+
+        if (!Context.Database.IsSqlite())
+        {
+            var ordered = descending ? query.OrderByDescending(orderBy) : query.OrderBy(orderBy);
+            return await ordered.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        }
+
+        // SQLite 的 EF provider 不支持在 SQL 中排序 DateTimeOffset：
+        // 只投影 Id + 排序键定序（不加载实体），再按主键取这一页
+        var keyName = orderBy.Body is MemberExpression member
+            ? member.Member.Name
+            : throw new ArgumentException("排序键必须是实体属性", nameof(orderBy));
+
+        var keys = await query
+            .Select(e => new { e.Id, Key = EF.Property<DateTimeOffset>(e, keyName) })
+            .ToListAsync(cancellationToken);
+
+        var orderedKeys = descending ? keys.OrderByDescending(k => k.Key) : keys.OrderBy(k => k.Key);
+        var pageIds = orderedKeys.Skip(skip).Take(take).Select(k => k.Id).ToList();
+        if (pageIds.Count == 0) return [];
+
+        var page = await DbSet.AsNoTracking().Where(e => pageIds.Contains(e.Id)).ToListAsync(cancellationToken);
+        var byId = page.ToDictionary(e => e.Id);
+        return pageIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+    }
+
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await DbSet.AddAsync(entity, cancellationToken);

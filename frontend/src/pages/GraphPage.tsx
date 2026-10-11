@@ -925,7 +925,7 @@ export default function GraphPage() {
     } finally {
       setIsLoadingNote(false)
     }
-  }, [])
+  }, [t])
 
   const mainContent = (
     <div className="flex flex-1 flex-col bg-gray-50 dark:bg-gray-950">

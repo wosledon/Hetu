@@ -33,8 +33,10 @@ public class WorkProjectService : IWorkProjectService
     public async Task<ApiResponse<List<WorkProjectDto>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var projects = await _unitOfWork.WorkProjects.GetAllAsync(cancellationToken);
-        var sessions = await _unitOfWork.WorkSessions.GetAllAsync(cancellationToken);
-        var countByProject = sessions.GroupBy(s => s.ProjectId).ToDictionary(g => g.Key, g => g.Count());
+        var projectIds = projects.Select(p => p.Id).ToList();
+        // 会话数走 SQL 分组计数：不再把整张会话表读进内存
+        var countByProject = await _unitOfWork.WorkSessions.CountByAsync(
+            s => projectIds.Contains(s.ProjectId), s => s.ProjectId, cancellationToken);
         var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
         return ApiResponse<List<WorkProjectDto>>.Ok(projects
             .OrderBy(p => p.SortOrder)
@@ -47,7 +49,7 @@ public class WorkProjectService : IWorkProjectService
     {
         var project = await _unitOfWork.WorkProjects.GetByIdAsync(id, cancellationToken);
         if (project == null) return ApiResponse<WorkProjectDto>.Fail(_localizer.T("project.notFound"));
-        var count = (await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == id, cancellationToken)).Count;
+        var count = await _unitOfWork.WorkSessions.CountAsync(s => s.ProjectId == id, cancellationToken);
         var chunks = await _unitOfWork.WorkCodeChunks.FindAsync(c => c.ProjectId == id, cancellationToken);
         var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
         return ApiResponse<WorkProjectDto>.Ok(Map(project, count, BuildIndexStatus(chunks), managedById.GetValueOrDefault(project.ManagedProjectId ?? Guid.Empty), groupNames));
@@ -333,16 +335,21 @@ public class WorkSessionService : IWorkSessionService
     public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
     {
         var sessions = await _unitOfWork.WorkSessions.FindAsync(s => s.ProjectId == projectId, cancellationToken);
-        var messages = await _unitOfWork.WorkMessages.GetAllAsync(cancellationToken);
-        var countBySession = messages.GroupBy(m => m.SessionId).ToDictionary(g => g.Key, g => g.Count());
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+
+        // 每个会话的消息数走 SQL 分组计数：不再把整张 WorkMessages 表读进内存
+        var countBySession = await _unitOfWork.WorkMessages.CountByAsync(
+            m => sessionIds.Contains(m.SessionId), m => m.SessionId, cancellationToken);
 
         var keyword = query?.Trim();
         if (!string.IsNullOrEmpty(keyword))
         {
-            var matchedSessionIds = messages
-                .Where(m => m.Type == "text" && m.Content.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                .Select(m => m.SessionId)
-                .ToHashSet();
+            // 关键字匹配也下推到数据库（只扫描本项目的会话消息，lower() 保证大小写不敏感）
+            var needle = keyword.ToLowerInvariant();
+            var matchedSessionIds = (await _unitOfWork.WorkMessages.SelectAsync(
+                m => m.Type == "text" && sessionIds.Contains(m.SessionId) && m.Content.ToLower().Contains(needle),
+                m => m.SessionId,
+                cancellationToken)).ToHashSet();
 
             sessions = sessions
                 .Where(s => s.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) || matchedSessionIds.Contains(s.Id))
@@ -359,7 +366,7 @@ public class WorkSessionService : IWorkSessionService
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(id, cancellationToken);
         if (session == null) return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.notFound"));
-        var count = (await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == id, cancellationToken)).Count;
+        var count = await _unitOfWork.WorkMessages.CountAsync(m => m.SessionId == id, cancellationToken);
         return ApiResponse<WorkSessionDto>.Ok(Map(session, count));
     }
 
