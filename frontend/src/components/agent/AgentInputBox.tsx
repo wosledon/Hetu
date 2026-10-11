@@ -331,8 +331,8 @@ export default function AgentInputBox({
             {footerLeading && <div className="flex shrink-0 items-center gap-1">{footerLeading}</div>}
             {hint && <span className="min-w-0 flex-1 truncate text-[10px] text-gray-400">{hint}</span>}
             {/* ml-auto 保证右侧控件始终贴右：不能依赖中间的占位元素（窄屏/无提示时它会消失）；
-                过窄时允许这一组自己横向滚动，避免撑破卡片 */}
-            {trailing && <div className="ml-auto flex min-w-0 shrink items-center gap-1 overflow-x-auto">{trailing}</div>}
+                位置不够时允许整组收缩并换行（配合调用方的 flex-wrap），不裁切、不撑破卡片 */}
+            {trailing && <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">{trailing}</div>}
           </div>
         )}
       </div>

@@ -1494,7 +1494,7 @@ export default function WorkSessionArea({
             </>
           ) : undefined}
           trailing={
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
               {!sessionStarted && <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />}
               <WorkGitSyncControl session={session} />
               <AgentContextUsage
