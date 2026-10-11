@@ -81,7 +81,74 @@
       <h1>Architecture</h1>
       <p class="lede">For people reading or changing the code: layers, request path, data model, and how the SQLite limitations are handled.</p>
 
-      <h2>Layers and dependency direction</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 392" role="img" aria-label="Hetu system overview">
+  <defs>
+    <marker id="a-overview-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-overview-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="16" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="42">Desktop shell (Tauri 2)</text>
+  <text class="sub" x="32" y="60">window · tray · updater · sidecar</text>
+
+  <rect class="box" x="16" y="92" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="118">Browser (dev mode)</text>
+  <text class="sub" x="32" y="136">http://localhost:5174</text>
+
+  <rect class="box-accent" x="316" y="16" width="252" height="134" rx="10"/>
+  <text class="label" x="332" y="42">React 19 frontend</text>
+  <text class="sub" x="332" y="62">pages / components / Zustand / TanStack Query</text>
+  <text class="sub" x="332" y="80">SSE rendering · send queue · panels</text>
+  <text class="sub" x="332" y="98">i18n (zh / en) · light and dark themes</text>
+
+  <rect class="box-accent" x="316" y="168" width="252" height="86" rx="10"/>
+  <text class="label" x="332" y="194">ASP.NET Core API</text>
+  <text class="sub" x="332" y="214">REST (ApiResponse<T> / PagedResult<T>) + SSE</text>
+  <text class="sub" x="332" y="232">/scalar/v1 reference · /api/health probe</text>
+
+  <rect class="box" x="316" y="272" width="252" height="80" rx="10"/>
+  <text class="label" x="332" y="298">Domain services (Hetu.Core)</text>
+  <text class="sub" x="332" y="318">notes / chat / workspace / knowledge / graph / Wiki / memories</text>
+  <text class="sub" x="332" y="336">repository interfaces · task coordinator · agent loop</text>
+
+  <rect class="box-dark" x="616" y="16" width="248" height="58" rx="10"/>
+  <text class="label-light" x="632" y="42">Model providers</text>
+  <text class="sub" x="632" y="60">OpenAI-compatible · Anthropic (keys encrypted)</text>
+
+  <rect class="box" x="616" y="92" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="118">MCP servers</text>
+  <text class="sub" x="632" y="136">stdio · JSON-RPC 2.0 · tools/list + tools/call</text>
+
+  <rect class="box" x="616" y="168" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="194">Git and CLIs</text>
+  <text class="sub" x="632" y="212">worktrees · gh / glab · real PTY</text>
+
+  <rect class="box" x="616" y="244" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="270">External search</text>
+  <text class="sub" x="632" y="288">web search (toggle)</text>
+
+  <rect class="box-dark" x="616" y="316" width="248" height="56" rx="10"/>
+  <text class="label-light" x="632" y="340">SQLite + sqlite-vec (default)</text>
+  <text class="sub" x="632" y="358">PostgreSQL + pgvector</text>
+
+
+  <path class="flow" d="M142 74 V86" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-muted" d="M268 45 H310" marker-end="url(#am-overview-arch)"/>
+  <path class="flow-muted" d="M268 121 H310" marker-end="url(#am-overview-arch)"/>
+  <path class="flow" d="M442 150 V162" marker-end="url(#a-overview-arch)"/>
+  <path class="flow" d="M442 254 V266" marker-end="url(#a-overview-arch)"/>
+  <path class="flow" d="M568 300 H740 V312" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 200 H600" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 118 H600" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 60 H600" marker-end="url(#a-overview-arch)"/>
+</svg><figcaption>Overall shape: one backend process and one database; the frontend only talks to the API over HTTP/SSE, while models and MCP are outbound dependencies.</figcaption>
+</figure>
+<h2>Layers and dependency direction</h2>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>Hetu.Api             controllers, SSE streams, background workers, DI wiring
    |  (depends on Core and Infrastructure interfaces)
 Hetu.Core            entities, domain services, repository interfaces   &lt;- no EF Core / ASP.NET impl
@@ -90,7 +157,60 @@ Hetu.Infrastructure  EF Core implementations, AI providers, MCP, sqlite-vec, fil
 Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</code></pre></div>
       <p>The dependency direction is <code>Api → Core ← Infrastructure</code>: Core defines the rules and interfaces, Infrastructure holds the concrete implementations (database, model calls, processes, filesystem).</p>
 
-      <h2>Path of a request</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 300" role="img" aria-label="Layers and request path">
+  <defs>
+    <marker id="a-layers-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-layers-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="24" width="200" height="76" rx="10"/>
+  <text class="label" x="32" y="52">Hetu.Api</text>
+  <text class="sub" x="32" y="72">controllers · SSE · workers</text>
+
+  <rect class="box-accent" x="16" y="120" width="200" height="76" rx="10"/>
+  <text class="label" x="32" y="148">Hetu.Core</text>
+  <text class="sub" x="32" y="168">entities · services · repository interfaces</text>
+
+  <rect class="box" x="16" y="216" width="200" height="70" rx="10"/>
+  <text class="label" x="32" y="244">Hetu.Infrastructure</text>
+  <text class="sub" x="32" y="264">EF Core · AI providers · MCP · sqlite-vec</text>
+
+  <rect class="box" x="660" y="120" width="204" height="76" rx="10"/>
+  <text class="label" x="676" y="148">Hetu.Shared</text>
+  <text class="sub" x="676" y="168">DTOs / enums / constants (contract)</text>
+
+  <path class="flow" d="M116 104 V116" marker-end="url(#a-layers-arch)"/>
+  <path class="flow-muted" d="M116 200 V212" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-dashed" d="M656 158 H220" marker-end="url(#a-layers-arch)"/>
+
+  <circle class="step" cx="300" cy="62" r="12"/><text class="step-text" x="296" y="66">1</text>
+  <rect class="box" x="322" y="42" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="67">Controller: validate, then delegate</text>
+
+  <circle class="step" cx="300" cy="126" r="12"/><text class="step-text" x="296" y="130">2</text>
+  <rect class="box" x="322" y="106" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="131">Service: business rules and orchestration</text>
+
+  <circle class="step" cx="300" cy="190" r="12"/><text class="step-text" x="296" y="194">3</text>
+  <rect class="box" x="322" y="170" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="195">Repository: SQL (paging, aggregation, projection)</text>
+
+  <circle class="step" cx="300" cy="248" r="12"/><text class="step-text" x="296" y="252">4</text>
+  <rect class="box" x="322" y="228" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="253">Long work: handed to the task coordinator</text>
+
+  <path class="flow-muted" d="M622 68 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 132 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 196 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 254 H640" marker-end="url(#am-layers-arch)"/>
+</svg><figcaption>Layers and where a typical request lands: controllers validate and delegate, business rules live in services, SQL in repositories, and long work goes to the task coordinator.</figcaption>
+</figure>
+<h2>Path of a request</h2>
       <ol>
         <li>The frontend (React + TanStack Query) calls <code>/api/*</code> through a shared axios instance with response interceptors.</li>
         <li>Controllers validate input and delegate; business logic lives in <code>Hetu.Core/Services</code>.</li>
@@ -110,7 +230,21 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
         </tbody>
       </table>
 
-      <h2>Repository surface</h2>
+            <h3>Tables by domain</h3>
+      <table>
+        <thead><tr><th>Domain</th><th>Tables</th><th>Key columns / notes</th></tr></thead>
+        <tbody>
+          <tr><td>Notes</td><td><code>Notes</code> · <code>Notebooks</code> · <code>Tags</code> · <code>NoteTags</code> · <code>NoteVersions</code> · <code>ShareLinks</code></td><td>Notes carry <code>Title/Content/NotebookId/IsPinned/IsFavorite/IsDeleted/DeletedAt</code>; versions link by <code>NoteId</code> and keep the newest 20 by <code>CreatedAt</code>; share links store <code>ShareCode/ExpiresAt/ViewCount</code></td></tr>
+          <tr><td>Knowledge</td><td><code>KnowledgeItems</code> · <code>NoteChunks</code> · <code>NoteChunkEmbeddings</code> · <code>vec_chunk_embeddings</code></td><td>Items: <code>Type/Title/Content/SourceUrl/FileName/NoteId/IsDeleted</code>; chunks: <code>ChunkIndex/ChunkMethod/Content</code>; embeddings metadata: <code>Model/Dimensions/UpdatedAt</code>, vectors in the <code>vec0</code> virtual table keyed by rowid</td></tr>
+          <tr><td>Graph / Wiki</td><td><code>GraphEntities</code> · <code>GraphRelations</code> · <code>WikiDocuments</code> · <code>WikiGenerationJobs</code></td><td>Entities: <code>Name/Type/Description</code>; relations: <code>SourceId/TargetId/RelationType</code>; Wiki documents: <code>SetId/ProjectId/SortOrder/Title/Content</code>, jobs keep stage and progress</td></tr>
+          <tr><td>Memories</td><td><code>Memories</code> · <code>MemoryEmbeddings</code> · <code>vec_memory_embeddings</code></td><td>Memories: <code>Content/Category/Importance/Scope/AccessCount/LastAccessedAt</code>; Dream uses the last two to decide decay and forgetting</td></tr>
+          <tr><td>Workspace</td><td><code>WorkProjects</code> · <code>WorkSessions</code> · <code>WorkMessages</code> · <code>WorkCodeChunks</code> · <code>WorkCheckpoints</code></td><td>Sessions: <code>ProjectId/Title/Branch/WorktreePath/PermissionMode</code>; messages: <code>SessionId/Type/Content</code> (tool output stored separately from prose); code chunk vectors are independent of note vectors</td></tr>
+          <tr><td>Chat</td><td><code>ChatGroups</code> · <code>ChatTopics</code> · <code>ChatMessages</code></td><td>Topics: <code>GroupId/ModelId/SystemPrompt</code>; messages read in ascending <code>CreatedAt</code></td></tr>
+          <tr><td>Tasks and automation</td><td><code>TaskItems</code> · <code>KanbanTasks</code> · <code>KanbanTaskRuns</code> · <code>KanbanTaskRunSteps</code> · <code>Workflows</code> · <code>WorkflowRuns</code> · <code>ScheduledTasks</code></td><td>Background tasks: <code>TaskType/EntityId/Status/StartedAt/CompletedAt/ErrorMessage</code>; runs and steps are separate rows so each execution can be replayed</td></tr>
+          <tr><td>Models and usage</td><td><code>AiProviders</code> · <code>AiModels</code> · <code>LlmUsageLogs</code> · <code>AppSettings</code></td><td>Models: <code>ProviderId/ModelId/Purpose/IsDefault</code>; usage: <code>Source/RefId/ModelId/InputTokens/CompressedTokens/OutputTokens/CachedTokens/LatencyMs</code>; settings are key-value</td></tr>
+          <tr><td>Other</td><td><code>InboxNotifications</code> · <code>ManagedProjects</code> · <code>McpServers</code> · <code>Skills</code> · <code>PromptPresets</code></td><td>MCP servers: <code>Type(stdio/sse)/ConnectionConfig(JSON)/IsEnabled</code>; inbox merges repeated events by category key with an occurrence count</td></tr>
+        </tbody>
+      </table><h2>Repository surface</h2>
       <table>
         <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
         <tbody>
@@ -123,7 +257,21 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
         </tbody>
       </table>
 
-      <h2>The SQLite DateTimeOffset limitation</h2>
+            <h3>Where the code lives</h3>
+      <table>
+        <thead><tr><th>Concern</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td>App wiring / middleware</td><td><code>src/Hetu.Api/Program.cs</code> (DI, response caching, health probe, Scalar)</td></tr>
+          <tr><td>SSE entry points</td><td><code>src/Hetu.Api/Controllers/WorkStreamController.cs</code> · <code>ChatMessagesController.cs</code></td></tr>
+          <tr><td>Agent loop</td><td><code>src/Hetu.Core/Services/AgentLoopService.cs</code> (steering, checkpoints, approvals)</td></tr>
+          <tr><td>Repositories</td><td><code>src/Hetu.Infrastructure/Repositories/</code> (<code>EfRepository</code> provides paging / aggregation / prune primitives)</td></tr>
+          <tr><td>DbContext and migrations</td><td><code>src/Hetu.Infrastructure/Data/</code> and <code>src/Hetu.Infrastructure.PostgresMigrations/</code></td></tr>
+          <tr><td>Git / worktrees / PR</td><td><code>src/Hetu.Api/Services/WorkGitService.cs</code> · <code>src/Hetu.Core/Services/Work/WorkWorktreeService.cs</code></td></tr>
+          <tr><td>Compression pipeline</td><td><code>src/Hetu.Core/Services/CompressionPipelineService.cs</code></td></tr>
+          <tr><td>Desktop shell</td><td><code>shell/hetu-desktop/src/backend.rs</code> (sidecar lifecycle) · <code>src-tauri/nsis-hooks.nsh</code> (install hook)</td></tr>
+          <tr><td>Frontend routing and services</td><td><code>frontend/src/App.tsx</code> · <code>frontend/src/services/</code> · <code>frontend/src/stores/</code></td></tr>
+        </tbody>
+      </table><h2>The SQLite DateTimeOffset limitation</h2>
       <ul>
         <li>EF Core's SQLite provider <strong>cannot order or aggregate <code>DateTimeOffset</code> in SQL</strong>: <code>ORDER BY</code> throws <code>NotSupportedException</code>, <code>MAX()</code> fails to translate, and comparisons such as <code>x.CreatedAt &gt; since</code> do not translate either.</li>
         <li>Workarounds already in the repository: paging via <code>GetPagedByDateAsync</code>, grouped counts via <code>CountByAsync</code>, timestamp aggregates by projecting two columns and taking the maximum in memory, and “recent N days” checks by projecting timestamps and filtering in memory.</li>
@@ -183,3 +331,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
 </div>
 </body>
 </html>
+
+
+
+

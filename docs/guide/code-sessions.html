@@ -101,14 +101,95 @@
       </table>
       <div class="note">工作树根目录可在 <strong>设置 → 工作区</strong> 修改（绝对路径，不能位于仓库内部）。已完成的工作树按「改动已合并 + 工作区干净 + 空闲超过阈值」自动清理，可配置间隔（1 / 6 / 12 / 24 小时）、空闲时长与是否连分支一起删。</div>
 
-      <h2>分支与 Git 同步</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 296" role="img" aria-label="Code 会话生命周期">
+  <defs>
+    <marker id="a-flow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-flow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="40" width="150" height="66" rx="9"/>
+  <text class="label" x="30" y="66">项目</text>
+  <text class="sub" x="30" y="86">本地 / SSH</text>
+
+  <rect class="box-accent" x="196" y="12" width="176" height="56" rx="9"/>
+  <text class="label" x="210" y="36">工作区：当前分支</text>
+  <text class="sub" x="210" y="54">直接在项目目录工作</text>
+
+  <rect class="box-accent" x="196" y="84" width="176" height="56" rx="9"/>
+  <text class="label" x="210" y="108">工作区：新工作树</text>
+  <text class="sub" x="210" y="126">.hetu-worktrees/<仓库>/<工作树></text>
+
+  <rect class="box-dark" x="404" y="40" width="180" height="66" rx="9"/>
+  <text class="label-light" x="418" y="66">Agent</text>
+  <text class="sub" x="418" y="86">读 / 写 / 命令 / 检索</text>
+
+  <rect class="box" x="616" y="12" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="36">更改面板</text>
+  <text class="sub" x="630" y="54">逐行 Diff 与回滚</text>
+
+  <rect class="box" x="616" y="84" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="108">检查点</text>
+  <text class="sub" x="630" y="126">任务前快照，可整体还原</text>
+
+  <rect class="box" x="616" y="156" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="180">Git 面板</text>
+  <text class="sub" x="630" y="198">暂存（含部分）并提交</text>
+
+  <rect class="box" x="616" y="228" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="252">PR 面板</text>
+  <text class="sub" x="630" y="270">gh / glab：查看与创建</text>
+
+  <rect class="box-accent" x="16" y="140" width="150" height="66" rx="9"/>
+  <text class="label" x="30" y="166">自动清理</text>
+  <text class="sub" x="30" y="186">已合并 + 干净 + 空闲超阈值</text>
+
+  <path class="flow" d="M166 73 H174 V40 H190" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M166 73 H174 V112 H190" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M372 40 H384 V73 H398" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M372 112 H384 V73 H398" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M584 60 H600 V40 H610" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M584 84 H600 V112 H610" marker-end="url(#a-flow-code)"/>
+  <path class="flow-muted" d="M740 140 V150" marker-end="url(#am-flow-code)"/>
+  <path class="flow-muted" d="M740 212 V222" marker-end="url(#am-flow-code)"/>
+  <path class="flow-dashed" d="M740 284 V292 H91 V212" marker-end="url(#a-flow-code)"/>
+</svg><figcaption>从选工作区到合并清理：Agent 的每次改动都能在「更改」里逐行看、在「检查点」整体回滚，提交与 PR 走 Git / PR 面板。</figcaption>
+</figure>
+<h2>分支与 Git 同步</h2>
       <ul>
         <li>分支选择器同时列出<strong>本地与远程分支</strong>；选远程引用会创建对应的本地跟踪分支。</li>
         <li>会话开始后工作区与分支固定（避免中途换环境导致改动错位），标题旁常驻工作区 / 分支徽标。</li>
         <li>标题旁一个同步按钮，按状态自动决定拉取、推送或刷新，结果显示在提示气泡里。</li>
       </ul>
 
-      <h2>七个工作面板</h2>
+            <h2>目录布局</h2>
+      <table>
+        <thead><tr><th>路径</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;仓库&gt;/</code></td><td>主工作区，会话不会直接改这里（选「当前分支」模式时才会）</td></tr>
+          <tr><td><code>&lt;仓库父目录&gt;/.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;/</code></td><td>会话的独立工作树（可在设置里改根目录）</td></tr>
+          <tr><td><code>&lt;数据目录&gt;/hetu.db</code></td><td>SQLite 数据库（会话、消息、检查点元数据、代码块向量）</td></tr>
+          <tr><td><code>&lt;数据目录&gt;/logs/</code></td><td>后端日志（Serilog 按天滚动）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>底层命令</h2>
+      <table>
+        <thead><tr><th>动作</th><th>实现要点</th></tr></thead>
+        <tbody>
+          <tr><td>状态与同步</td><td><code>git status --porcelain=v2 --branch</code> 解析分支、ahead / behind 与逐文件状态（避免依赖本地化输出）</td></tr>
+          <tr><td>分支列表</td><td>本地 <code>for-each-ref</code> + 远程 <code>rev-parse --symbolic --remotes</code>（过滤 <code>origin/HEAD</code>）</td></tr>
+          <tr><td>创建 / 切换</td><td><code>git worktree add</code>、<code>git checkout</code>；选远程引用时自动建本地跟踪分支</td></tr>
+          <tr><td>提交</td><td><code>git add</code>（支持部分暂存）+ <code>git commit</code>，作者信息取仓库配置</td></tr>
+          <tr><td>拉取 / 推送</td><td><code>git pull --ff-only</code> / <code>git push</code>，结果与冲突信息回到界面</td></tr>
+          <tr><td>PR / MR</td><td>GitHub 走 <code>gh pr view|list|create</code>（创建用 <code>--body-file -</code> 传正文），GitLab 走 <code>glab mr view|list|create</code></td></tr>
+          <tr><td>终端</td><td>Windows 用 ConPTY、Unix 用 <code>script</code> 包装成 PTY，交互式程序正常工作</td></tr>
+        </tbody>
+      </table><h2>七个工作面板</h2>
       <table>
         <thead><tr><th>面板</th><th>能力</th></tr></thead>
         <tbody>
@@ -168,3 +249,5 @@
 </div>
 </body>
 </html>
+
+

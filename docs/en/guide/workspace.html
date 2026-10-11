@@ -140,7 +140,66 @@
       </table>
       <p>Code sessions additionally have a <strong>run mode</strong>: <strong>interactive</strong> (confirm step by step) or <strong>Autopilot</strong> (run to completion). Approval granularity is configured per tool on the Agents page.</p>
 
-      <h2>Queue and mid-run steering</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 320" role="img" aria-label="Agent loop">
+  <defs>
+    <marker id="a-loop-ws" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-loop-ws" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="24" width="180" height="56" rx="10"/>
+  <text class="label" x="30" y="48">Request</text>
+  <text class="sub" x="30" y="66">permission mode · tool allowlist · toggles</text>
+
+  <rect class="box" x="232" y="24" width="180" height="56" rx="10"/>
+  <text class="label" x="246" y="48">Drain steering</text>
+  <text class="sub" x="246" y="66">instructions injected mid-stream</text>
+
+  <rect class="box-dark" x="448" y="24" width="180" height="56" rx="10"/>
+  <text class="label-light" x="462" y="48">Model call</text>
+  <text class="sub" x="462" y="66">chat-purpose model (overridable)</text>
+
+  <rect class="box" x="664" y="24" width="200" height="56" rx="10"/>
+  <text class="label" x="678" y="48">Tool calls</text>
+  <text class="sub" x="678" y="66">built-in / skills / MCP / work tools</text>
+
+  <rect class="box" x="664" y="132" width="200" height="56" rx="10"/>
+  <text class="label" x="678" y="156">Permission check</text>
+  <text class="sub" x="678" y="174">plan / readonly / ask / auto / bypass</text>
+
+  <rect class="box" x="448" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="462" y="156">Execute and feed back</text>
+  <text class="sub" x="462" y="174">results enter context, checkpoints recorded</text>
+
+  <rect class="box" x="232" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="246" y="156">SSE events</text>
+  <text class="sub" x="246" y="174">delta / thinking / tool_* / checkpoint</text>
+
+  <rect class="box" x="16" y="132" width="180" height="56" rx="10"/>
+  <text class="label" x="30" y="156">UI rendering</text>
+  <text class="sub" x="30" y="174">one block per event type</text>
+
+  <rect class="box-accent" x="232" y="232" width="396" height="56" rx="10"/>
+  <text class="label" x="246" y="256">Send queue</text>
+  <text class="sub" x="246" y="274">fires after the turn, or send immediately</text>
+
+  <path class="flow" d="M196 52 H226" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M412 52 H442" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M628 52 H658" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M764 80 V126" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M664 160 H634" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M448 160 H418" marker-end="url(#a-loop-ws)"/>
+  <path class="flow" d="M232 160 H202" marker-end="url(#a-loop-ws)"/>
+  <path class="flow-dashed" d="M322 132 V96 H322 V86" marker-end="url(#a-loop-ws)"/>
+  <path class="flow-muted" d="M106 188 V232 H226" marker-end="url(#am-loop-ws)"/>
+  <path class="flow-muted" d="M430 232 V188" marker-end="url(#am-loop-ws)"/>
+</svg><figcaption>The agent loop: each iteration drains steering first, then calls the model, checks permissions, runs tools and streams progress over SSE; queued messages start the next turn.</figcaption>
+</figure>
+<h2>Queue and mid-run steering</h2>
       <ul>
         <li><strong>Queue</strong>: messages sent while a reply is streaming wait in a queue bar — edit, delete, send immediately, or let them fire after the current turn.</li>
         <li><strong>Steering</strong>: inject an instruction into the running turn; the agent picks it up at its next loop iteration. Useful for “stop touching that file”.</li>
@@ -152,7 +211,19 @@
         <li>Compression is driven by the pipeline configuration (when to trigger, target size, which model summarizes); both pre- and post-compression tokens are recorded in usage.</li>
       </ul>
 
-      <h2>Distill a topic into a note</h2>
+            <h2>What a request carries</h2>
+      <table>
+        <thead><tr><th>Field</th><th>Values / effect</th></tr></thead>
+        <tbody>
+          <tr><td>Permission mode</td><td><code>plan</code> / <code>readonly</code> / <code>ask</code> / <code>auto</code> / <code>bypass</code> — decides whether tools need approval</td></tr>
+          <tr><td>Run mode</td><td><code>interactive</code> / <code>autopilot</code> (code sessions)</td></tr>
+          <tr><td>Toggles</td><td><code>webSearch</code> / <code>knowledgeBase</code> / <code>memory</code> / <code>deepThinking</code></td></tr>
+          <tr><td>Reasoning effort</td><td>low / medium / high</td></tr>
+          <tr><td>Model and agent</td><td>Per-request model override; an agent contributes its system prompt, tool allowlist and approvals</td></tr>
+          <tr><td>Attachments</td><td>Images (multimodal) and files; very long text collapses into a block before sending</td></tr>
+        </tbody>
+      </table>
+      <p>These toggles are cached per session in <code>localStorage</code>, so reopening a session restores the last state.</p><h2>Distill a topic into a note</h2>
       <p>Four styles: summary, detailed, Q&amp;A, or a custom prompt; streaming preview plus a notebook picker before saving.</p>
 
       <h2>Shortcuts</h2>
@@ -191,3 +262,5 @@
 </div>
 </body>
 </html>
+
+

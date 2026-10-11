@@ -101,14 +101,95 @@
       </table>
       <div class="note">The worktree root is configurable in <strong>Settings → Workspace</strong> (absolute path, must not be inside a repository). Finished worktrees are cleaned up when their changes are merged, the working tree is clean and they have been idle past the threshold — configurable interval (1 / 6 / 12 / 24 h), idle time, and whether the branch is deleted too.</div>
 
-      <h2>Branches and Git sync</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 296" role="img" aria-label="Code session lifecycle">
+  <defs>
+    <marker id="a-flow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-flow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="40" width="150" height="66" rx="9"/>
+  <text class="label" x="30" y="66">Project</text>
+  <text class="sub" x="30" y="86">local / SSH</text>
+
+  <rect class="box-accent" x="196" y="12" width="176" height="56" rx="9"/>
+  <text class="label" x="210" y="36">Workspace: current branch</text>
+  <text class="sub" x="210" y="54">work directly in the project directory</text>
+
+  <rect class="box-accent" x="196" y="84" width="176" height="56" rx="9"/>
+  <text class="label" x="210" y="108">Workspace: new worktree</text>
+  <text class="sub" x="210" y="126">.hetu-worktrees/<repo>/<worktree></text>
+
+  <rect class="box-dark" x="404" y="40" width="180" height="66" rx="9"/>
+  <text class="label-light" x="418" y="66">Agent</text>
+  <text class="sub" x="418" y="86">read / write / commands / search</text>
+
+  <rect class="box" x="616" y="12" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="36">Changes panel</text>
+  <text class="sub" x="630" y="54">line diffs and rollback</text>
+
+  <rect class="box" x="616" y="84" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="108">Checkpoints</text>
+  <text class="sub" x="630" y="126">pre-task snapshots, restorable</text>
+
+  <rect class="box" x="616" y="156" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="180">Git panel</text>
+  <text class="sub" x="630" y="198">stage (including partial) and commit</text>
+
+  <rect class="box" x="616" y="228" width="248" height="56" rx="9"/>
+  <text class="label" x="630" y="252">PR panel</text>
+  <text class="sub" x="630" y="270">gh / glab: view and create</text>
+
+  <rect class="box-accent" x="16" y="140" width="150" height="66" rx="9"/>
+  <text class="label" x="30" y="166">Automatic cleanup</text>
+  <text class="sub" x="30" y="186">merged + clean + idle past threshold</text>
+
+  <path class="flow" d="M166 73 H174 V40 H190" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M166 73 H174 V112 H190" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M372 40 H384 V73 H398" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M372 112 H384 V73 H398" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M584 60 H600 V40 H610" marker-end="url(#a-flow-code)"/>
+  <path class="flow" d="M584 84 H600 V112 H610" marker-end="url(#a-flow-code)"/>
+  <path class="flow-muted" d="M740 140 V150" marker-end="url(#am-flow-code)"/>
+  <path class="flow-muted" d="M740 212 V222" marker-end="url(#am-flow-code)"/>
+  <path class="flow-dashed" d="M740 284 V292 H91 V212" marker-end="url(#a-flow-code)"/>
+</svg><figcaption>From choosing a workspace to post-merge cleanup: every agent edit is reviewable line by line, revertible from a checkpoint, and committable through the Git / PR panels.</figcaption>
+</figure>
+<h2>Branches and Git sync</h2>
       <ul>
         <li>The branch picker lists <strong>local and remote</strong> branches; picking a remote ref creates a local tracking branch.</li>
         <li>Once a session starts, its workspace and branch are fixed (so edits never land in the wrong place); the badge next to the title always shows them.</li>
         <li>A single sync button next to the title pulls, pushes or refreshes based on state, and reports the result in a tooltip.</li>
       </ul>
 
-      <h2>The seven panels</h2>
+            <h2>Directory layout</h2>
+      <table>
+        <thead><tr><th>Path</th><th>Content</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;repo&gt;/</code></td><td>Main checkout; sessions never edit it directly unless you pick “current branch” mode</td></tr>
+          <tr><td><code>&lt;repo parent&gt;/.hetu-worktrees/&lt;repo&gt;/&lt;worktree&gt;/</code></td><td>The session's isolated worktree (root configurable)</td></tr>
+          <tr><td><code>&lt;data dir&gt;/hetu.db</code></td><td>SQLite database (sessions, messages, checkpoint metadata, code chunk vectors)</td></tr>
+          <tr><td><code>&lt;data dir&gt;/logs/</code></td><td>Backend logs (Serilog daily rolling)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Commands underneath</h2>
+      <table>
+        <thead><tr><th>Action</th><th>Implementation notes</th></tr></thead>
+        <tbody>
+          <tr><td>Status and sync</td><td><code>git status --porcelain=v2 --branch</code> parses branch, ahead / behind and per-file state (never localized output)</td></tr>
+          <tr><td>Branch list</td><td>Local via <code>for-each-ref</code>, remote via <code>rev-parse --symbolic --remotes</code> (filtering <code>origin/HEAD</code>)</td></tr>
+          <tr><td>Create / checkout</td><td><code>git worktree add</code>, <code>git checkout</code>; picking a remote ref creates a local tracking branch</td></tr>
+          <tr><td>Commit</td><td><code>git add</code> (partial staging supported) plus <code>git commit</code>; author comes from repo config</td></tr>
+          <tr><td>Pull / push</td><td><code>git pull --ff-only</code> / <code>git push</code>, with results and conflicts surfaced in the UI</td></tr>
+          <tr><td>PR / MR</td><td>GitHub via <code>gh pr view|list|create</code> (body sent through <code>--body-file -</code>), GitLab via <code>glab mr view|list|create</code></td></tr>
+          <tr><td>Terminal</td><td>ConPTY on Windows, <code>script</code> on Unix, so interactive programs work</td></tr>
+        </tbody>
+      </table><h2>The seven panels</h2>
       <table>
         <thead><tr><th>Panel</th><th>Capabilities</th></tr></thead>
         <tbody>
@@ -168,3 +249,5 @@
 </div>
 </body>
 </html>
+
+

@@ -100,7 +100,21 @@
       </ul>
       <div class="note note--warn">运行中用文件级拷贝备份，可能丢掉尚未 checkpoint 的 WAL 内容。稳妥做法：在应用内退出后拷贝，或用内置备份功能。</div>
 
-      <h2>切换到 PostgreSQL</h2>
+            <h2>环境变量与配置键</h2>
+      <table>
+        <thead><tr><th>名称</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>HETU_DATA_DIR</code></td><td>数据目录（数据库与日志）；桌面版由外壳注入</td></tr>
+          <tr><td><code>HETU_PARENT_PID</code></td><td>外壳进程号；后端据此检测父进程消失并自行退出</td></tr>
+          <tr><td><code>HETU_API_DEV_PORT</code></td><td>开发模式下复用已存在的后端端口</td></tr>
+          <tr><td><code>DatabaseProvider</code>（appsettings）</td><td><code>Sqlite</code>（默认）/ <code>Postgresql</code></td></tr>
+          <tr><td><code>ConnectionStrings:DefaultConnection</code></td><td>连接字符串；SQLite 默认 <code>Data Source=hetu.db</code></td></tr>
+          <tr><td><code>Embedding:Dimensions</code></td><td>向量维度（默认 1536），必须与 Embedding 模型一致</td></tr>
+          <tr><td><code>WorktreeConfig</code>（数据库设置项）</td><td>工作树根目录</td></tr>
+          <tr><td><code>WorktreeCleanupConfig</code></td><td>自动清理：间隔、空闲阈值、是否删除分支</td></tr>
+          <tr><td><code>CloseToTray</code></td><td>关闭窗口是否最小化到托盘</td></tr>
+        </tbody>
+      </table><h2>切换到 PostgreSQL</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
 export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
 
@@ -157,3 +171,4 @@ dotnet ef database update \
 </div>
 </body>
 </html>
+

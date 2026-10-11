@@ -121,7 +121,27 @@ Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
         </tbody>
       </table>
 
-      <h2>Usage and cost</h2>
+            <h2>Calling the proxy</h2>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># list the models exposed by the proxy
+curl http://localhost:5000/api/proxy/openai/v1/models \
+  -H "Authorization: Bearer &lt;local proxy key&gt;"
+
+# run a completion through it
+curl http://localhost:5000/api/proxy/openai/v1/chat/completions \
+  -H "Authorization: Bearer &lt;local proxy key&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}'</code></pre></div>
+      <p>Proxied calls are recorded in usage with the <code>proxy</code> source; model visibility and the shadow model are configured on the Proxy page.</p>
+
+      <h2>Provider and model fields</h2>
+      <table>
+        <thead><tr><th>Level</th><th>Fields</th></tr></thead>
+        <tbody>
+          <tr><td>Provider</td><td>Name, protocol (OpenAI-compatible / Anthropic), Base URL, API key (encrypted), enabled flag</td></tr>
+          <tr><td>Model</td><td><code>ModelId</code> (sent verbatim), display name, purpose (<code>chat</code> / <code>embedding</code> / <code>completion</code>), default flag per purpose, context metadata</td></tr>
+          <tr><td>Compression</td><td>Trigger threshold, target size, summary model; both pre- and post-compression tokens land in usage</td></tr>
+        </tbody>
+      </table><h2>Usage and cost</h2>
       <table>
         <thead><tr><th>Metric</th><th>Details</th></tr></thead>
         <tbody>
@@ -182,3 +202,4 @@ Base URL: http://localhost:5000/api/proxy/anthropic</code></pre></div>
 </div>
 </body>
 </html>
+

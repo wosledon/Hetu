@@ -134,7 +134,34 @@
       </table>
       <div class="note">MCP 工具与内置工具共用同一套权限模式与审批策略；不确定行为的服务建议先用「询问」模式跑一遍。</div>
 
-      <h2>应用（内嵌浏览器）</h2>
+            <h2>配置示例</h2>
+      <h3>MCP 服务器（stdio）</h3>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "E:\\repos"],
+  "env": { "NODE_ENV": "production" }
+}</code></pre></div>
+
+      <h3>技能文件（磁盘目录）</h3>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>---
+name: code-review
+description: 按固定清单审查改动
+---
+请按以下顺序审查选中的代码：
+1. 正确性与边界条件
+2. 资源释放与并发
+3. 命名与可读性
+4. 与该模块既有风格的一致性</code></pre></div>
+      <p>技能目录在设置里配置后可被扫描加载；同名技能以磁盘版本为准。</p>
+
+      <h3>智能体（导入导出 JSON）</h3>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
+  "name": "代码审查员",
+  "category": "coding",
+  "systemPrompt": "只指出真实缺陷，附最小复现与修复建议。",
+  "allowedTools": ["read_file", "search_code", "run_command"],
+  "toolPolicies": { "run_command": "ask", "update_note": "silent" }
+}</code></pre></div><h2>应用（内嵌浏览器）</h2>
       <p>入口：<code>/apps</code>。把常用网页登记为「应用」，用应用内浏览器打开，避免来回切窗口。</p>
       <table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
@@ -170,3 +197,4 @@
 </div>
 </body>
 </html>
+

@@ -81,7 +81,74 @@
       <h1>架构与实现</h1>
       <p class="lede">这一页写给要读代码或改代码的人：分层、请求流、数据模型、分页与 SQLite 限制的处理方式。</p>
 
-      <h2>分层与依赖方向</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 392" role="img" aria-label="Hetu 系统总览">
+  <defs>
+    <marker id="a-overview-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-overview-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="16" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="42">桌面外壳（Tauri 2）</text>
+  <text class="sub" x="32" y="60">窗口 · 托盘 · 自动更新 · sidecar 管理</text>
+
+  <rect class="box" x="16" y="92" width="252" height="58" rx="10"/>
+  <text class="label" x="32" y="118">浏览器（开发模式）</text>
+  <text class="sub" x="32" y="136">http://localhost:5174</text>
+
+  <rect class="box-accent" x="316" y="16" width="252" height="134" rx="10"/>
+  <text class="label" x="332" y="42">React 19 前端</text>
+  <text class="sub" x="332" y="62">页面 / 组件 / Zustand / TanStack Query</text>
+  <text class="sub" x="332" y="80">SSE 事件流渲染 · 消息队列 · 工具面板</text>
+  <text class="sub" x="332" y="98">i18n（zh / en） · 深浅色主题</text>
+
+  <rect class="box-accent" x="316" y="168" width="252" height="86" rx="10"/>
+  <text class="label" x="332" y="194">ASP.NET Core API</text>
+  <text class="sub" x="332" y="214">REST（ApiResponse<T> / PagedResult<T>） + SSE</text>
+  <text class="sub" x="332" y="232">/scalar/v1 接口文档 · /api/health 健康检查</text>
+
+  <rect class="box" x="316" y="272" width="252" height="80" rx="10"/>
+  <text class="label" x="332" y="298">领域服务（Hetu.Core）</text>
+  <text class="sub" x="332" y="318">笔记 / 对话 / 工作台 / 知识库 / 图谱 / Wiki / 记忆</text>
+  <text class="sub" x="332" y="336">仓储接口 · 后台任务协调器 · Agent 循环</text>
+
+  <rect class="box-dark" x="616" y="16" width="248" height="58" rx="10"/>
+  <text class="label-light" x="632" y="42">模型供应商</text>
+  <text class="sub" x="632" y="60">OpenAI 兼容 · Anthropic（Key 加密存储）</text>
+
+  <rect class="box" x="616" y="92" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="118">MCP 服务</text>
+  <text class="sub" x="632" y="136">stdio · JSON-RPC 2.0 · tools/list + tools/call</text>
+
+  <rect class="box" x="616" y="168" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="194">Git 与 CLI</text>
+  <text class="sub" x="632" y="212">工作树 · gh / glab · 真实 PTY</text>
+
+  <rect class="box" x="616" y="244" width="248" height="58" rx="10"/>
+  <text class="label" x="632" y="270">外部检索</text>
+  <text class="sub" x="632" y="288">联网搜索（可开关）</text>
+
+  <rect class="box-dark" x="616" y="316" width="248" height="56" rx="10"/>
+  <text class="label-light" x="632" y="340">SQLite + sqlite-vec（默认）</text>
+  <text class="sub" x="632" y="358">PostgreSQL + pgvector</text>
+
+
+  <path class="flow" d="M142 74 V86" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-muted" d="M268 45 H310" marker-end="url(#am-overview-arch)"/>
+  <path class="flow-muted" d="M268 121 H310" marker-end="url(#am-overview-arch)"/>
+  <path class="flow" d="M442 150 V162" marker-end="url(#a-overview-arch)"/>
+  <path class="flow" d="M442 254 V266" marker-end="url(#a-overview-arch)"/>
+  <path class="flow" d="M568 300 H740 V312" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 200 H600" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 118 H600" marker-end="url(#a-overview-arch)"/>
+  <path class="flow-dashed" d="M568 60 H600" marker-end="url(#a-overview-arch)"/>
+</svg><figcaption>整体形状：单后端进程 + 单数据库；前端只与后端 API/SSE 通信，模型与 MCP 都是出站依赖。</figcaption>
+</figure>
+<h2>分层与依赖方向</h2>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>Hetu.Api           控制器 / SSE 流 / 后台 Worker / DI 装配
    │  （依赖 Core 与 Infrastructure 的接口）
 Hetu.Core          实体 · 领域服务 · 仓储接口        ← 不引用 EF Core / ASP.NET 实现
@@ -90,7 +157,60 @@ Hetu.Infrastructure  EF Core 实现 · AI Provider · MCP · sqlite-vec · 文�
 Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div>
       <p>依赖方向是 <code>Api → Core ← Infrastructure</code>：Core 只定义规则与接口，具体实现（数据库、模型调用、进程、文件系统）都在 Infrastructure。</p>
 
-      <h2>一次请求的路径</h2>
+      <figure class="diagram">
+<svg viewBox="0 0 880 300" role="img" aria-label="分层与请求路径">
+  <defs>
+    <marker id="a-layers-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+    <marker id="am-layers-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-muted" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box-accent" x="16" y="24" width="200" height="76" rx="10"/>
+  <text class="label" x="32" y="52">Hetu.Api</text>
+  <text class="sub" x="32" y="72">控制器 · SSE · 后台 Worker</text>
+
+  <rect class="box-accent" x="16" y="120" width="200" height="76" rx="10"/>
+  <text class="label" x="32" y="148">Hetu.Core</text>
+  <text class="sub" x="32" y="168">实体 · 领域服务 · 仓储接口</text>
+
+  <rect class="box" x="16" y="216" width="200" height="70" rx="10"/>
+  <text class="label" x="32" y="244">Hetu.Infrastructure</text>
+  <text class="sub" x="32" y="264">EF Core · AI Provider · MCP · sqlite-vec</text>
+
+  <rect class="box" x="660" y="120" width="204" height="76" rx="10"/>
+  <text class="label" x="676" y="148">Hetu.Shared</text>
+  <text class="sub" x="676" y="168">DTO / 枚举 / 常量（前后端契约）</text>
+
+  <path class="flow" d="M116 104 V116" marker-end="url(#a-layers-arch)"/>
+  <path class="flow-muted" d="M116 200 V212" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-dashed" d="M656 158 H220" marker-end="url(#a-layers-arch)"/>
+
+  <circle class="step" cx="300" cy="62" r="12"/><text class="step-text" x="296" y="66">1</text>
+  <rect class="box" x="322" y="42" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="67">控制器：校验参数 → 调用服务</text>
+
+  <circle class="step" cx="300" cy="126" r="12"/><text class="step-text" x="296" y="130">2</text>
+  <rect class="box" x="322" y="106" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="131">服务：业务规则 / 编排</text>
+
+  <circle class="step" cx="300" cy="190" r="12"/><text class="step-text" x="296" y="194">3</text>
+  <rect class="box" x="322" y="170" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="195">仓储：SQL 查询（分页、聚合、投影）</text>
+
+  <circle class="step" cx="300" cy="248" r="12"/><text class="step-text" x="296" y="252">4</text>
+  <rect class="box" x="322" y="228" width="300" height="40" rx="8"/>
+  <text class="label" x="336" y="253">长任务：交给后台任务协调器</text>
+
+  <path class="flow-muted" d="M622 68 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 132 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 196 H640" marker-end="url(#am-layers-arch)"/>
+  <path class="flow-muted" d="M622 254 H640" marker-end="url(#am-layers-arch)"/>
+</svg><figcaption>分层与一次典型请求的落点：控制器只做校验与转发，业务规则在服务层，SQL 在仓储层，长耗时操作交给后台任务。</figcaption>
+</figure>
+<h2>一次请求的路径</h2>
       <ol>
         <li>前端（React + TanStack Query）调用 <code>/api/*</code>，统一走 axios 实例与响应拦截器。</li>
         <li>控制器只做参数校验与调用服务；业务逻辑在 <code>Hetu.Core/Services</code>。</li>
@@ -110,7 +230,21 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
         </tbody>
       </table>
 
-      <h2>仓储接口</h2>
+            <h3>数据表一览（按域）</h3>
+      <table>
+        <thead><tr><th>域</th><th>表</th><th>关键列 / 说明</th></tr></thead>
+        <tbody>
+          <tr><td>笔记</td><td><code>Notes</code> · <code>Notebooks</code> · <code>Tags</code> · <code>NoteTags</code> · <code>NoteVersions</code> · <code>ShareLinks</code></td><td>笔记含 <code>Title/Content/NotebookId/IsPinned/IsFavorite/IsDeleted/DeletedAt</code>；版本表按 <code>NoteId</code> 关联并靠 <code>CreatedAt</code> 排序保留 20 条；分享表存 <code>ShareCode/ExpiresAt/ViewCount</code></td></tr>
+          <tr><td>知识底座</td><td><code>KnowledgeItems</code> · <code>NoteChunks</code> · <code>NoteChunkEmbeddings</code> · <code>vec_chunk_embeddings</code></td><td>知识项含 <code>Type/Title/Content/SourceUrl/FileName/NoteId/IsDeleted</code>；分块含 <code>ChunkIndex/ChunkMethod/Content</code>；向量元数据含 <code>Model/Dimensions/UpdatedAt</code>，向量本体在 <code>vec0</code> 虚拟表（按 rowid 对应）</td></tr>
+          <tr><td>图谱 / Wiki</td><td><code>GraphEntities</code> · <code>GraphRelations</code> · <code>WikiDocuments</code> · <code>WikiGenerationJobs</code></td><td>实体含 <code>Name/Type/Description</code>；关系含 <code>SourceId/TargetId/RelationType</code>；Wiki 文档含 <code>SetId/ProjectId/SortOrder/Title/Content</code>，任务含阶段与进度</td></tr>
+          <tr><td>记忆</td><td><code>Memories</code> · <code>MemoryEmbeddings</code> · <code>vec_memory_embeddings</code></td><td>记忆含 <code>Content/Category/Importance/Scope/AccessCount/LastAccessedAt</code>，Dream 依据后两个字段判定衰退与遗忘</td></tr>
+          <tr><td>工作台</td><td><code>WorkProjects</code> · <code>WorkSessions</code> · <code>WorkMessages</code> · <code>WorkCodeChunks</code> · <code>WorkCheckpoints</code></td><td>会话含 <code>ProjectId/Title/Branch/WorktreePath/PermissionMode</code>；消息含 <code>SessionId/Type/Content</code>（工具结果与正文分开存）；代码块向量独立于笔记向量</td></tr>
+          <tr><td>对话</td><td><code>ChatGroups</code> · <code>ChatTopics</code> · <code>ChatMessages</code></td><td>话题含 <code>GroupId/ModelId/SystemPrompt</code>；消息按 <code>CreatedAt</code> 升序读取</td></tr>
+          <tr><td>任务与自动化</td><td><code>TaskItems</code> · <code>KanbanTasks</code> · <code>KanbanTaskRuns</code> · <code>KanbanTaskRunSteps</code> · <code>Workflows</code> · <code>WorkflowRuns</code> · <code>ScheduledTasks</code></td><td>后台任务含 <code>TaskType/EntityId/Status/StartedAt/CompletedAt/ErrorMessage</code>；看板运行与步骤分开记录，便于回看每次执行</td></tr>
+          <tr><td>模型与用量</td><td><code>AiProviders</code> · <code>AiModels</code> · <code>LlmUsageLogs</code> · <code>AppSettings</code></td><td>模型含 <code>ProviderId/ModelId/Purpose/IsDefault</code>；用量含 <code>Source/RefId/ModelId/InputTokens/CompressedTokens/OutputTokens/CachedTokens/LatencyMs</code>；应用设置为键值表</td></tr>
+          <tr><td>其它</td><td><code>InboxNotifications</code> · <code>ManagedProjects</code> · <code>McpServers</code> · <code>Skills</code> · <code>PromptPresets</code></td><td>MCP 服务器含 <code>Type(stdio/sse)/ConnectionConfig(JSON)/IsEnabled</code>；收件箱含分类键与出现次数（相同事件合并计数）</td></tr>
+        </tbody>
+      </table><h2>仓储接口</h2>
       <table>
         <thead><tr><th>方法</th><th>用途</th></tr></thead>
         <tbody>
@@ -123,7 +257,21 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
         </tbody>
       </table>
 
-      <h2>SQLite 的 DateTimeOffset 限制（实际踩过的坑）</h2>
+            <h3>关键文件落点</h3>
+      <table>
+        <thead><tr><th>关注点</th><th>文件</th></tr></thead>
+        <tbody>
+          <tr><td>应用装配 / 中间件</td><td><code>src/Hetu.Api/Program.cs</code>（DI、响应缓存、健康检查、Scalar）</td></tr>
+          <tr><td>SSE 流式入口</td><td><code>src/Hetu.Api/Controllers/WorkStreamController.cs</code> · <code>ChatMessagesController.cs</code></td></tr>
+          <tr><td>Agent 循环</td><td><code>src/Hetu.Core/Services/AgentLoopService.cs</code>（含运行中引导、检查点、审批）</td></tr>
+          <tr><td>仓储实现</td><td><code>src/Hetu.Infrastructure/Repositories/</code>（<code>EfRepository</code> 提供分页 / 聚合 / 清理原语）</td></tr>
+          <tr><td>数据库上下文与迁移</td><td><code>src/Hetu.Infrastructure/Data/</code> 与 <code>src/Hetu.Infrastructure.PostgresMigrations/</code></td></tr>
+          <tr><td>Git / 工作树 / PR</td><td><code>src/Hetu.Api/Services/WorkGitService.cs</code> · <code>src/Hetu.Core/Services/Work/WorkWorktreeService.cs</code></td></tr>
+          <tr><td>压缩管道</td><td><code>src/Hetu.Core/Services/CompressionPipelineService.cs</code></td></tr>
+          <tr><td>桌面外壳</td><td><code>shell/hetu-desktop/src/backend.rs</code>（sidecar 生命周期）· <code>src-tauri/nsis-hooks.nsh</code>（安装钩子）</td></tr>
+          <tr><td>前端路由与服务</td><td><code>frontend/src/App.tsx</code> · <code>frontend/src/services/</code> · <code>frontend/src/stores/</code></td></tr>
+        </tbody>
+      </table><h2>SQLite 的 DateTimeOffset 限制（实际踩过的坑）</h2>
       <ul>
         <li>EF Core 的 SQLite provider <strong>不支持在 SQL 中排序或聚合 <code>DateTimeOffset</code></strong>：<code>ORDER BY</code> 抛 <code>NotSupportedException</code>，<code>MAX()</code> 无法翻译；比较表达式（<code>x.CreatedAt &gt; since</code>）同样不能翻译。</li>
         <li>处理方式：分页用 <code>GetPagedByDateAsync</code>；分组计数用 <code>CountByAsync</code>；时间戳聚合只投影两列后在内存取最大值；需要「最近 N 天」这类判断时先投影时间戳再在内存过滤。</li>
@@ -183,3 +331,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
 </div>
 </body>
 </html>
+
+
+
+

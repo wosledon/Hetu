@@ -134,7 +134,34 @@
       </table>
       <div class="note">MCP tools share the same permission modes and approval policies as built-in tools; run a new server in “ask” mode first if you are unsure what it does.</div>
 
-      <h2>Apps (embedded browser)</h2>
+            <h2>Configuration examples</h2>
+      <h3>MCP server (stdio)</h3>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "E:\\repos"],
+  "env": { "NODE_ENV": "production" }
+}</code></pre></div>
+
+      <h3>Skill file (on-disk directory)</h3>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>---
+name: code-review
+description: Review changes against a fixed checklist
+---
+Review the selected code in this order:
+1. Correctness and edge cases
+2. Resource cleanup and concurrency
+3. Naming and readability
+4. Consistency with the surrounding module</code></pre></div>
+      <p>Configure the skill directories in settings; a file with the same name as a database skill wins.</p>
+
+      <h3>Agent (import / export JSON)</h3>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
+  "name": "Code reviewer",
+  "category": "coding",
+  "systemPrompt": "Report only real defects, each with a minimal reproduction and a fix.",
+  "allowedTools": ["read_file", "search_code", "run_command"],
+  "toolPolicies": { "run_command": "ask", "update_note": "silent" }
+}</code></pre></div><h2>Apps (embedded browser)</h2>
       <p>Entry: <code>/apps</code>. Register frequently used pages as “apps” and open them inside the app instead of switching windows.</p>
       <table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
@@ -170,3 +197,4 @@
 </div>
 </body>
 </html>
+
