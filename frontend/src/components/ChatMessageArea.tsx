@@ -1040,7 +1040,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
-      <div className={emptyChat ? 'hidden' : 'flex flex-1 flex-col overflow-y-auto px-6 py-6'}>
+      <div className={emptyChat ? 'hidden' : 'flex-1 overflow-y-auto px-6 py-6'}>
         <div className="mx-auto max-w-3xl space-y-5">
           {messages.map((message) => (
             <ChatMessageItem
