@@ -60,6 +60,8 @@ interface WorkSessionAreaProps {
   session?: IWorkSession
   onSessionUpdated?: (session: IWorkSession) => void
   onSessionCreated?: (session: IWorkSession) => void
+  /** 新建会话（草稿）：只在本地占位，第一条消息才真正落库 */
+  onStartDraft?: () => void
   /** 右侧探索器当前打开的文件（作为可引用上下文） */
   activeFilePath?: string | null
   onClearActiveFile?: () => void
@@ -178,6 +180,7 @@ export default function WorkSessionArea({
   session,
   onSessionUpdated,
   onSessionCreated,
+  onStartDraft,
   activeFilePath,
   onClearActiveFile,
   pendingContext,
@@ -220,6 +223,9 @@ export default function WorkSessionArea({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
   const seqRef = useRef(0)
+  /** 草稿会话尚未落库：第一条消息创建出来的会话先放这里，等本轮（含队列）结束再通知父级切换 */
+  const draftCreatedRef = useRef<IWorkSession | null>(null)
+  /** 草稿会话：还没落库（id 为空），第一条消息才创建 */
 
   const createSession = useMutation({
     mutationFn: workSessionService.create,
@@ -230,10 +236,16 @@ export default function WorkSessionArea({
     },
   })
 
+  /** 侧栏/头部的「新建会话」：有草稿入口就只占位，不再立刻落库 */
+  const startNewSession = () => {
+    if (onStartDraft) { onStartDraft(); return }
+    startNewSession()
+  }
+
   const { data: messages = [] } = useQuery({
     queryKey: ['workMessages', session?.id],
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
-    enabled: !!session,
+    enabled: !!session?.id,
   })
 
   // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
@@ -373,7 +385,7 @@ export default function WorkSessionArea({
   const { data: rootEntries = [] } = useQuery({
     queryKey: ['workRootFiles', session?.projectId],
     queryFn: () => workFileService.list(session!.projectId, '', session!.id),
-    enabled: !!session,
+    enabled: !!session?.id,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -484,7 +496,7 @@ export default function WorkSessionArea({
   const newSessionRef = useRef<() => void>(() => {})
   useEffect(() => {
     newSessionRef.current = () => {
-      if (project) createSession.mutate({ projectId: project.id, title: '' })
+      startNewSession()
     }
   }, [project, createSession])
   useEffect(() => {
@@ -567,7 +579,7 @@ export default function WorkSessionArea({
 
   /** 拉取上下文占用（打开会话信息面板、发送完成、压缩后） */
   const refreshContextUsage = () => {
-    if (!session) return
+    if (!session?.id) return
     // 未手动选择窗口时按当前模型的上限展示占用率
     workSessionService
       .contextUsage(session.id, contextWindow ?? currentModel?.contextWindow)
@@ -668,7 +680,7 @@ export default function WorkSessionArea({
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {project && (
               <button
-                onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+                onClick={startNewSession}
                 disabled={createSession.isPending}
                 className="inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
               >
@@ -863,12 +875,43 @@ export default function WorkSessionArea({
     mode: WorkPermissionMode,
     persistUserMessage = true,
     images: { data: string; mimeType: string; fileName?: string }[] = [],
+    target?: IWorkSession,
   ) => {
-    if (!session) return
+    let active = target ?? draftCreatedRef.current ?? session
+    if (!active) return
+
+    // 草稿会话：第一条消息才真正创建（避免点一下就在侧栏留下空会话）
+    if (!active.id) {
+      const title = content.replace(/\s+/g, ' ').trim().slice(0, 50)
+      try {
+        const created = await workSessionService.create({
+          projectId: active.projectId,
+          title: title || t('sidebar.newSession'),
+          modelId: selectedModelId || active.modelId || undefined,
+          permissionMode: mode,
+          agentMode,
+          useWorktree: !!active.useWorktree,
+          baseBranch: active.baseBranch ?? undefined,
+        })
+        draftCreatedRef.current = created
+        active = created
+        queryClient.invalidateQueries({ queryKey: ['workSessions', created.projectId] })
+        queryClient.invalidateQueries({ queryKey: ['workProjects'] })
+        // 主工作区模式下选了别的分支：创建后执行检出（选分支即检出）
+        if (!created.useWorktree && created.baseBranch) {
+          void workSessionService.update(created.id, { title: created.title, baseBranch: created.baseBranch }).catch(() => undefined)
+        }
+      } catch (error) {
+        setContextNotice(t('session.createSessionFailed') + '：' + (error as Error).message)
+        return
+      }
+    }
+
+    const activeId = active.id
     setIsStreaming(true)
     if (persistUserMessage) setPendingUser(content)
     resetStreamState()
-    useInteractionStore.getState().clear(session.id)
+    useInteractionStore.getState().clear(activeId)
 
     const controller = new AbortController()
     streamRef.current = controller
@@ -925,7 +968,7 @@ export default function WorkSessionArea({
     }
      try {
       const response = await workSessionService.stream(
-        session.id,
+        activeId,
         {
           content,
           modelId: selectedModelId || undefined,
@@ -961,17 +1004,24 @@ export default function WorkSessionArea({
       setIsStreaming(false)
       // 等消息列表回读（后端已落库）后再清空本轮输出，避免完成后正文瞬间消失
       void Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ['workMessages', session.id] }),
-        queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['workMessages', activeId] }),
+        queryClient.invalidateQueries({ queryKey: ['workSessions', active.projectId] }),
         queryClient.invalidateQueries({ queryKey: ['workProjects'] }),
-        queryClient.invalidateQueries({ queryKey: ['workFileChanges', session.id] }),
-        queryClient.invalidateQueries({ queryKey: ['workCheckpoints', session.id] }),
+        queryClient.invalidateQueries({ queryKey: ['workFileChanges', activeId] }),
+        queryClient.invalidateQueries({ queryKey: ['workCheckpoints', activeId] }),
       ]).then(() => {
         if (streamRef.current) return // 期间已开始新一轮流，状态交给新一轮管理
         setStreamItems((prev) => (prev.length > 0 ? [] : prev))
         setLiveUsage((prev) => (prev === null ? prev : null))
       })
-      workSessionService.getById(session.id).then((s) => onSessionUpdated?.(s)).catch(() => {})
+      workSessionService.getById(activeId).then((s) => {
+        onSessionUpdated?.(s)
+        // 草稿会话已落库：等队列清空后再通知父级切换选中，避免组件因 key 变化重挂载打断本轮
+        if (queueRef.current.length === 0 && draftCreatedRef.current) {
+          draftCreatedRef.current = null
+          onSessionCreated?.(s)
+        }
+      }).catch(() => {})
 
       // 队列里的下一条：本轮结束后自动发出（队列为空时什么都不做）
       const [queued, ...rest] = queueRef.current
@@ -998,10 +1048,11 @@ export default function WorkSessionArea({
 
   /** 引导：立即把队列里这条注入正在执行的回复 */
   const steerQueued = async (item: PendingMessage) => {
-    if (!session) return
+    const targetId = draftCreatedRef.current?.id ?? session?.id
+    if (!targetId) return
     setSteeringId(item.id)
     try {
-      const result = await workSessionService.steer(session.id, item.content)
+      const result = await workSessionService.steer(targetId, item.content)
       if (result.injected) {
         updateQueue((prev) => prev.filter((x) => x.id !== item.id))
         setContextNotice(t('agent:queue.steerSent'))
@@ -1150,7 +1201,7 @@ export default function WorkSessionArea({
           {project && (
             <div className="flex items-center gap-0.5">
               <button
-                onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+                onClick={startNewSession}
                 disabled={createSession.isPending}
                 title={t('session.newSessionShortcut')}
                 aria-label={t('session.newSession')}

@@ -135,7 +135,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const [queueNotice, setQueueNotice] = useState<string | null>(null)
   /** ↑↓ 回溯历史输入（与 Code 会话共用同一份本地历史） */
   const [inputHistory, setInputHistory] = useState<string[]>(() => loadInputHistory())
-  const topicId = topic?.id
+  const propTopicId = topic?.id
+  // 草稿话题：第一条消息创建出来的话题 id（先本地生效，等本轮结束再通知父级切换）
+  const [draftTopicId, setDraftTopicId] = useState<string | undefined>(undefined)
+  const draftTopicRef = useRef<IChatTopic | null>(null)
+  const topicId = propTopicId || draftTopicId
   // 会话级配置：从缓存恢复（组件以 key=topic.id 重挂载，切会话自动换缓存）
   const cachedSettings = useMemo(() => loadTopicSettings(topicId), [topicId])
   const {
@@ -205,7 +209,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chatMessages', topic?.id],
     queryFn: () => (topic ? chatMessageService.getByTopic(topic.id) : Promise.resolve([])),
-    enabled: !!topic,
+    // 草稿话题还没落库（id 为空）：不查消息
+    enabled: !!topic?.id,
   })
 
   const notebooks = useNotebooks()
@@ -564,7 +569,23 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     setSelectedSlashItem(null)
     setSelectedMentions([])
     setInputMenu(null)
-    startStreaming(topic.id, { content, webSearch, knowledgeBase, memory })
+
+    // 草稿话题：第一条消息才真正创建（避免点一下就在侧栏留下空话题）
+    let activeId = topic.id
+    if (!activeId) {
+      try {
+        const created = await chatTopicService.create({ groupId: topic.groupId, title: content.replace(/\s+/g, ' ').trim().slice(0, 50) })
+        draftTopicRef.current = created
+        setDraftTopicId(created.id)
+        activeId = created.id
+        queryClient.invalidateQueries({ queryKey: ['chatTopics', created.groupId] })
+        queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+      } catch (error) {
+        setQueueNotice(t('chat:errors.streamFailed') + '：' + (error as Error).message)
+        return
+      }
+    }
+    startStreaming(activeId, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
     // 当前模型不支持视觉时忽略图片附件（对应 chip 已划掉提示）
@@ -580,9 +601,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
     // 如果选中了工作流，走工作流流式执行
     if (runningWorkflow) {
-      await workflowRun.run(content, topic.id, permissionMode)
-      stopStreaming(topic.id)
-      queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
+      await workflowRun.run(content, activeId, permissionMode)
+      stopStreaming(activeId)
+      queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
       return
     }
 
@@ -607,8 +628,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     }
 
     // 发起流并在后台消费；切换话题不中断（按 topicId 写入全局 store）
-    void consumeChatStream(topic.id, (signal) =>
-      chatMessageService.stream(topic.id, {
+    void consumeChatStream(activeId, (signal) =>
+      chatMessageService.stream(activeId, {
         content,
         modelId: activeModelId || undefined,
         deepThinking,
@@ -626,9 +647,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         contextWindow,
       }, signal),
     ).finally(() => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages', topic.id] })
-      flushQueue(topic.id)
+      queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
+      notifyDraftTopic()
+      flushQueue(activeId)
     })
+  }
+
+  /** 草稿话题已落库：等队列清空后再通知父级切换选中，避免组件因 key 变化重挂载打断本轮 */
+  const notifyDraftTopic = () => {
+    const created = draftTopicRef.current
+    if (!created || queueRef.current.length > 0) return
+    draftTopicRef.current = null
+    onTopicUpdated?.(created)
   }
 
   /** 发送队列：回复进行中发送的消息排到队尾（回复结束后自动逐条发出） */
@@ -663,6 +693,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       }, signal),
     ).finally(() => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', id] })
+      notifyDraftTopic()
       flushQueue(id)
     })
   }

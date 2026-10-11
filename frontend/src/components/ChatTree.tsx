@@ -63,6 +63,8 @@ interface ChatTreeProps {
   search?: string
   /** 主对话已由外层置顶渲染时隐藏卡片 */
   hideMainChat?: boolean
+  /** 新建话题：只放草稿占位（第一条消息才落库） */
+  onStartDraftTopic?: (group: IChatGroup) => void
 }
 
 interface TopicMenuState { x: number; y: number; topic: IChatTopic }
@@ -75,6 +77,7 @@ function GroupNode({
   onSelectGroup,
   onSelectTopic,
   onOpenTopicMenu,
+  onStartDraftTopic,
 }: {
   group: IChatGroup
   search: string
@@ -83,6 +86,8 @@ function GroupNode({
   onSelectGroup: (group: IChatGroup) => void
   onSelectTopic: (topic: IChatTopic) => void
   onOpenTopicMenu: (e: React.MouseEvent, topic: IChatTopic) => void
+  /** 新建话题：只放草稿占位（第一条消息才落库） */
+  onStartDraftTopic?: (group: IChatGroup) => void
 }) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('chat')
@@ -136,7 +141,7 @@ function GroupNode({
           {group.name}
         </span>
         <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(true); createTopic.mutate({ groupId: group.id, title: '' }) }}
+          onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
           title={t('tree.newTopic')}
           className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
         >
@@ -181,7 +186,7 @@ export interface ChatTreeHandle {
 
 const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain,
-  onDeleteTopic, embedded, search = '', hideMainChat,
+  onDeleteTopic, embedded, search = '', hideMainChat, onStartDraftTopic,
 }, ref) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('chat')
@@ -279,6 +284,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
             onSelectGroup={onSelectGroup}
             onSelectTopic={onSelectTopic}
             onOpenTopicMenu={(e, topic) => setTopicMenu({ x: e.clientX, y: e.clientY, topic })}
+            onStartDraftTopic={onStartDraftTopic}
           />
         ))}
         {filteredGroups.length === 0 && (

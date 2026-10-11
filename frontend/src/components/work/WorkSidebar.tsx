@@ -394,6 +394,8 @@ interface WorkSidebarProps {
   selectedSessionId?: string
   onSelectProject: (project: IWorkProject) => void
   onSelectSession: (session: IWorkSession) => void
+  /** 新建会话：只放草稿占位（第一条消息才落库）；不传时退回「立刻创建」 */
+  onStartDraftSession?: (project: IWorkProject) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
   /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
@@ -405,6 +407,8 @@ interface WorkSidebarProps {
   selectedSessionId?: string
   onSelectProject: (project: IWorkProject) => void
   onSelectSession: (session: IWorkSession) => void
+  /** 新建会话：只放草稿占位（第一条消息才落库）；不传时退回「立刻创建」 */
+  onStartDraftSession?: (project: IWorkProject) => void
   onProjectDeleted?: (projectId: string) => void
   onSessionDeleted?: (sessionId: string) => void
   /** 嵌在合并侧栏里：单栏树形展示、不占固定宽度、不画右边框 */
@@ -439,6 +443,7 @@ function SessionList({
   selectedSessionId,
   onSelectProject,
   onSelectSession,
+  onStartDraftSession,
   onSessionDeleted,
 }: {
   project: IWorkProject
@@ -447,6 +452,8 @@ function SessionList({
   selectedSessionId?: string
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
+  /** 新建会话：只放草稿占位（第一条消息才落库） */
+  onStartDraftSession?: (project: IWorkProject) => void
   onSessionDeleted?: (sessionId: string) => void
 }) {
   const { t } = useTranslation('work')
@@ -574,7 +581,7 @@ function SessionList({
           <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
           <span className="text-[11px] text-gray-400">{t('sidebar.noSessions')}</span>
           <button
-            onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+            onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}
             className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
           >
             {t('sidebar.newSession')}
@@ -583,7 +590,7 @@ function SessionList({
       ) : (
         sessions.length > 0 && (
           <button
-            onClick={() => createSession.mutate({ projectId: project.id, title: '' })}
+            onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}
             className="flex items-center gap-1 py-0.5 text-[11px] text-gray-400 transition-colors hover:text-blue-500"
             style={pad}
           >
@@ -607,6 +614,7 @@ function ProjectNode({
   onSelectSession,
   onDeleteProject,
   onRenameProject,
+  onStartDraftSession,
   onSessionDeleted,
 }: {
   project: IWorkProject
@@ -620,6 +628,8 @@ function ProjectNode({
   onSelectSession: (s: IWorkSession) => void
   onDeleteProject: (id: string) => void
   onRenameProject: (p: IWorkProject) => void
+  /** 新建会话：只放草稿占位（第一条消息才落库） */
+  onStartDraftSession?: (project: IWorkProject) => void
   onSessionDeleted?: (sessionId: string) => void
 }) {
   const { t } = useTranslation('work')
@@ -709,6 +719,7 @@ function ProjectNode({
           selectedSessionId={selectedSessionId}
           onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
+          onStartDraftSession={onStartDraftSession}
           onSessionDeleted={onSessionDeleted}
         />
       )}
@@ -722,7 +733,7 @@ export interface WorkSidebarHandle {
 }
 
 const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function WorkSidebar({
-  selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onProjectDeleted, onSessionDeleted,
+  selectedProjectId, selectedSessionId, onSelectProject, onSelectSession, onStartDraftSession, onProjectDeleted, onSessionDeleted,
   embedded, search = '',
 }, ref) {
   const { t } = useTranslation('work')
@@ -828,6 +839,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
               onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
               onSelectProject={onSelectProject}
               onSelectSession={onSelectSession}
+              onStartDraftSession={onStartDraftSession}
               onDeleteProject={(id) => {
                 const project = projects.find((p) => p.id === id)
                 confirm({
@@ -878,6 +890,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
                 selectedSessionId={selectedSessionId}
                 onSelectProject={onSelectProject}
                 onSelectSession={onSelectSession}
+                onStartDraftSession={onStartDraftSession}
                 onSessionDeleted={onSessionDeleted}
               />
             ) : (

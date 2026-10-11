@@ -9,11 +9,13 @@ import type { IWorkSession } from '../../types/work'
  * Code 会话的工作区选择：前一个下拉选「当前分支 / 新工作树」，后一个下拉选工作树的基分支。
  * 工作树不在切换时创建：会话首次发消息时后端按用户输入命名并创建（目录名 = 分支名）。
  * 放在输入框右下角、上下文占用左边。
+ * 草稿会话（id 为空）还没落库：改动只存本地，随第一条消息一起创建。
  */
 export default function WorkSessionWorkspacePicker({ session, onChanged }: { session: IWorkSession; onChanged?: (session: IWorkSession) => void }) {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const [menu, setMenu] = useState<'mode' | 'branch' | null>(null)
+  const isDraft = !session.id
 
   const { data: branchInfo } = useQuery({
     queryKey: ['work-branches', session.projectId],
@@ -22,20 +24,24 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
   })
 
   const apply = useMutation({
-    mutationFn: (payload: { useWorktree?: boolean; baseBranch?: string }) =>
-      workSessionService.update(session.id, {
+    mutationFn: async (payload: { useWorktree?: boolean; baseBranch?: string }): Promise<IWorkSession> => {
+      // 草稿会话：不落库，直接合并到内存里的会话对象
+      if (isDraft) return { ...session, ...payload }
+      return workSessionService.update(session.id, {
         title: session.title,
         modelId: session.modelId,
         permissionMode: session.permissionMode,
         agentMode: session.agentMode,
         ...payload,
-      }),
+      })
+    },
     onSuccess: (res) => {
       setMenu(null)
       // 会话对象由 WorkPage 持有（本地 state），必须回传，否则标签还是旧工作区
       onChanged?.(res)
       // work-branches 决定「当前分支」显示：主工作区切换分支后必须重取
       for (const key of [['work-branches', session.projectId], ['workSessions', session.projectId], ['workDirEntries', session.projectId], ['workGitStatus', session.projectId], ['workFileChanges', session.id]]) {
+        if (isDraft && (key[0] === 'workFileChanges')) continue
         void queryClient.invalidateQueries({ queryKey: key })
       }
     },
