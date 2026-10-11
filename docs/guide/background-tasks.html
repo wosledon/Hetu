@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>后台与定时任务 — 深入实现 · Hetu</title>
+<meta name="description" content="后台任务的模型与唯一索引、入队去重、单消费者与 2 分钟巡检恢复、五类任务分支；定时任务的字段与端点、Interval 与 cron 排期、四个执行器、校验与观测。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/background-tasks.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/background-tasks.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="后台与定时任务 — 深入实现 · Hetu">
+<meta property="og:description" content="后台任务的模型与唯一索引、入队去重、单消费者与 2 分钟巡检恢复、五类任务分支；定时任务的字段与端点、Interval 与 cron 排期、四个执行器、校验与观测。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/background-tasks.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html">记忆的写入与召回</a></li>
+      <li><a href="dream.html">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html">任务看板与自动化</a></li>
+      <li><a href="workflows.html">工作流引擎</a></li>
+      <li><a href="background-tasks.html" aria-current="page">后台与定时任务</a></li>
+      <li><a href="inbox.html">收件箱与通知</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>后台与定时任务</h1>
+      <p class="lede">两套调度共用一个原则：<strong>先落库，再排队</strong>。后台任务负责「一次性重活」（embedding、图谱、Wiki、看板执行），定时任务负责「周期性重活」（技能、AI 任务、图谱重建、向量重建）。前者用数据库唯一索引 + 内存信号量防重，后者用 <code>NextRunAt</code> 与 cron 表达式决定何时该跑。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 258" role="img" aria-label="后台任务与定时任务的调度路径">
+  <defs>
+    <marker id="a-bg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="30" width="176" height="70" rx="9"/>
+  <text class="label" x="30" y="56">入队协调器</text>
+  <text class="sub" x="30" y="76">信号量串行化 + 批内去重</text>
+  <text class="sub" x="30" y="92">先落库，再入内存队列</text>
+
+  <rect class="box-accent" x="216" y="30" width="176" height="70" rx="9"/>
+  <text class="label" x="230" y="56">单消费者处理</text>
+  <text class="sub" x="230" y="76">领取时置 Running</text>
+  <text class="sub" x="230" y="92">5 类任务分支</text>
+
+  <rect class="box-dark" x="416" y="30" width="180" height="70" rx="9"/>
+  <text class="label-light" x="430" y="56">巡检与恢复</text>
+  <text class="sub" x="430" y="76">每 2 分钟扫描一次</text>
+  <text class="sub" x="430" y="92">超过 5 分钟未更新才恢复</text>
+
+  <rect class="box" x="620" y="30" width="244" height="70" rx="9"/>
+  <text class="label" x="634" y="56">定时任务</text>
+  <text class="sub" x="634" y="76">Interval 或 5 段 cron</text>
+  <text class="sub" x="634" y="92">到期由 NextRunAt &lt;= now 判定</text>
+
+  <rect class="box-accent" x="16" y="140" width="848" height="46" rx="9"/>
+  <text class="label" x="30" y="168">后台任务类型：GenerateEmbedding · GenerateKnowledgeItemEmbedding · GraphExtract · KanbanTaskExecute · WikiGenerate</text>
+
+  <rect class="box" x="16" y="200" width="412" height="44" rx="9"/>
+  <text class="label" x="30" y="222">停止时重新排队，普通取消记失败</text>
+
+  <rect class="box" x="452" y="200" width="412" height="44" rx="9"/>
+  <text class="label" x="466" y="222">执行器：Skill · AiTask · GraphRebuild · EmbeddingRegenerate</text>
+
+  <path class="flow" d="M192 65 H210" marker-end="url(#a-bg)"/>
+  <path class="flow" d="M392 65 H410" marker-end="url(#a-bg)"/>
+  <path class="flow" d="M596 65 H614" marker-end="url(#a-bg)"/>
+  <path class="flow-dashed" d="M304 104 V134" marker-end="url(#a-bg)"/>
+  <path class="flow-dashed" d="M740 104 V134 H420 V194" marker-end="url(#a-bg)"/>
+  <path class="flow-dashed" d="M222 190 V194" marker-end="url(#a-bg)"/>
+  <path class="flow-dashed" d="M658 190 V194" marker-end="url(#a-bg)"/>
+</svg><figcaption>两条链路共享同一套「落库 + 恢复 + 状态回写」思路：先持久化意图，再执行，最后把结果写回同一行记录。</figcaption>
+      </figure>
+
+      <h2>后台任务模型</h2>
+      <table>
+        <thead><tr><th>字段 / 约束</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>TaskItem</code></td><td><code>TaskType</code> · <code>EntityId</code> · <code>EntityTitle</code> · <code>Status</code> · <code>ErrorMessage</code> · <code>Metadata</code> · <code>StartedAt</code> · <code>CompletedAt</code> · <code>IsDeleted</code></td></tr>
+          <tr><td>状态</td><td><code>0</code> 排队 · <code>1</code> 运行中 · <code>2</code> 已完成 · <code>3</code> 失败</td></tr>
+          <tr><td>唯一索引</td><td><code>IX_TaskItems_ActiveUniqueness</code>：过滤条件为「排队或运行中且未删除」，因此同一 <code>(TaskType, EntityId)</code> 同时只能有一条活跃任务</td></tr>
+          <tr><td>索引</td><td><code>TaskType</code> · <code>Status</code> · <code>IsDeleted</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>入队与去重</h2>
+      <ol>
+        <li>用 <code>SemaphoreSlim(1, 1)</code> 把「查重 + 建记录 + 入队」串行化，避免并发入队产生重复。</li>
+        <li>批量入队时先在批内按 <code>(TaskType, EntityId)</code> 去重。</li>
+        <li>数据库中已有活跃记录（排队或运行中）的目标直接跳过。</li>
+        <li>先 <code>SaveChangesAsync</code> 落库，再 <code>QueueAsync</code> 入内存队列。</li>
+        <li>消费端领取时把记录置为「运行中」并回写数据库（<code>ClaimAsync</code>）。</li>
+      </ol>
+      <div class="note">队列本身在内存里，数据库才是真实状态：进程重启后靠启动恢复 + 巡检把遗漏的任务捡回来，而不是靠队列持久化。</div>
+
+      <h2>消费、巡检与恢复</h2>
+      <table>
+        <thead><tr><th>项</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>消费者</td><td>单个后台服务循环消费队列（无多线程并发消费）</td></tr>
+          <tr><td>启动恢复</td><td>启动时先恢复遗留任务（排队 / 卡住的记录）再进入消费循环</td></tr>
+          <tr><td>巡检频率</td><td><code>SweepInterval = 2 分钟</code></td></tr>
+          <tr><td>过期判定</td><td>只有超过 <code>StaleThreshold = 5 分钟</code>未更新的记录才会被恢复——避免把正在跑的长任务误判</td></tr>
+          <tr><td>服务停止</td><td>正在执行的任务重置为排队态、清空开始时间、错误信息「服务停止，任务已重新排队」</td></tr>
+          <tr><td>普通取消</td><td>状态置失败，错误信息「任务被取消」</td></tr>
+          <tr><td>执行异常</td><td>状态置失败，错误信息为异常消息</td></tr>
+          <tr><td>收尾</td><td><code>finally</code> 中无论成败都写回完成时间与更新时间</td></tr>
+        </tbody>
+      </table>
+
+      <h2>任务类型</h2>
+      <table>
+        <thead><tr><th>类型</th><th>做什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>GenerateEmbedding</code></td><td>笔记向量化（见 <a href="chunking.html">分块与向量索引</a>）</td></tr>
+          <tr><td><code>GenerateKnowledgeItemEmbedding</code></td><td>文件 / 网址类知识项的向量化</td></tr>
+          <tr><td><code>GraphExtract</code></td><td>单篇笔记的图谱抽取（见 <a href="graph-extraction.html">知识图谱抽取</a>）</td></tr>
+          <tr><td><code>KanbanTaskExecute</code></td><td>看板任务的自动化执行（见 <a href="kanban.html">任务看板与自动化</a>）</td></tr>
+          <tr><td><code>WikiGenerate</code></td><td>Wiki 整套生成，模型 id 通过任务 <code>Metadata</code> 传递（见 <a href="wiki-generation.html">Wiki 生成</a>）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>定时任务模型与端点</h2>
+      <table>
+        <thead><tr><th>字段 / 端点</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>ScheduledTask</code></td><td><code>Name</code> · <code>Description</code> · <code>TaskKind</code> · <code>TargetId</code> / <code>TargetName</code> · <code>Parameters</code> · <code>ScheduleType</code> · <code>IntervalMinutes</code> · <code>CronExpression</code> · <code>IsEnabled</code> · <code>NextRunAt</code> · <code>LastRunAt</code> · <code>LastStatus</code> · <code>LastError</code> · <code>MaxRetries</code> · <code>RetryCount</code> · <code>TopicId</code></td></tr>
+          <tr><td><code>TaskKind</code></td><td><code>Skill</code> · <code>AiTask</code> · <code>GraphRebuild</code> · <code>EmbeddingRegenerate</code></td></tr>
+          <tr><td><code>ScheduleType</code></td><td><code>Interval</code>（分钟间隔）或 <code>Cron</code>（<strong>5 段</strong>：分 时 日 月 周）</td></tr>
+          <tr><td>执行记录</td><td><code>ScheduledTaskExecution</code>：<code>Status</code>（<code>Running</code> / <code>Success</code> / <code>Failed</code>）· <code>ErrorMessage</code> · <code>Result</code> · <code>RetryAttempt</code> · <code>IsManual</code> · 起止时间</td></tr>
+          <tr><td>端点</td><td><code>GET /api/scheduled-tasks</code> · <code>GET /api/scheduled-tasks/{id}</code> · <code>GET /api/scheduled-tasks/target-options</code> · <code>POST</code> · <code>PUT</code> · <code>DELETE</code> · <code>POST {id}/toggle</code> · <code>POST {id}/run</code> · <code>GET {id}/executions</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>下次运行时间</h2>
+      <table>
+        <thead><tr><th>模式</th><th>计算方式</th></tr></thead>
+        <tbody>
+          <tr><td><code>Interval</code></td><td>基准取 <code>LastRunAt ?? 当前时间</code>，下次 = 基准 + <code>IntervalMinutes</code>；若结果已过期则滚到「当前时间 + 间隔」，避免补跑一长串历史窗口</td></tr>
+          <tr><td><code>Cron</code></td><td>用 <code>Cronos</code> 解析 5 段表达式计算下一次时间</td></tr>
+          <tr><td>到期判定</td><td>取 <code>IsEnabled && NextRunAt &lt;= now</code> 的任务</td></tr>
+          <tr><td>立即运行</td><td><code>POST {id}/run</code> 把 <code>NextRunAt</code> 置为当前时间交给 Runner 拾取，并返回一条占位执行记录（状态「排队」、<code>IsManual = true</code>）</td></tr>
+          <tr><td>更新语义</td><td>保存配置会重置 <code>RetryCount = 0</code> 并重算 <code>NextRunAt</code></td></tr>
+          <tr><td>删除语义</td><td>软删：<code>IsDeleted = true</code> · <code>IsEnabled = false</code> · <code>NextRunAt = null</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>执行器</h2>
+      <table>
+        <thead><tr><th>类型</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>Skill</code></td><td>执行数据库技能或本地技能：<code>TargetId</code> 以 <code>local:</code> 开头时走本地技能（见 <a href="extensions.html">扩展与工具</a>）</td></tr>
+          <tr><td><code>AiTask</code></td><td>解析 <code>Parameters</code> JSON 的 <code>systemPrompt</code> / <code>prompt</code>；不是 JSON 时把全文当提示词；用量来源 <code>scheduled</code></td></tr>
+          <tr><td><code>GraphRebuild</code></td><td>遍历全部笔记重建图谱</td></tr>
+          <tr><td><code>EmbeddingRegenerate</code></td><td>遍历全部笔记重建向量，强制重算（<code>force: true</code>）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>校验、失败与观测</h2>
+      <ul>
+        <li>创建 / 更新校验：不支持的 <code>TaskKind</code> 拒绝；<code>Cron</code> 模式必须给表达式；<code>Interval</code> 模式间隔必须 &gt; 0；<code>Skill</code> 必须有 <code>TargetId</code>；<code>AiTask</code> 必须有 <code>Parameters</code>。</li>
+        <li><code>MaxRetries</code> 被钳到不小于 0；下次时间计算异常时记警告并返回空（本次不排期）。</li>
+        <li>数据库侧：<code>Name</code> / <code>TaskKind</code> / <code>ScheduleType</code> 必填，<code>CronExpression</code> / <code>LastStatus</code> / <code>LastError</code> 有长度限制；查询过滤软删。</li>
+        <li>观测：任务状态、错误信息、下次运行时间、最近状态都在列表里；执行历史看 <code>/executions</code>（含耗时与是否手动）。</li>
+        <li>日志主要来自后台服务自身（巡检、恢复、失败），没有统一的定时任务日志前缀。</li>
+      </ul>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>「同一目标只允许一条活跃任务」是刻意的：重复点「重建向量」不会排队十次，只会复用已有任务。</li>
+        <li>长任务超过 5 分钟不更新会被巡检认为可能卡死；长期运行的任务要保证期间有状态更新，否则进程重启场景下可能被重复投递。</li>
+        <li><code>Interval</code> 不补跑历史窗口：机器休眠一天再开机，只会从「现在」重新开始排期。</li>
+        <li>定时任务里的「重建图谱 / 重建向量」是全量操作，跑之前先确认 embedding 维度与模型没换（见 <a href="chunking.html">分块与向量索引</a>）。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
