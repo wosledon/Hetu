@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>知识底座 · Hetu 文档</title>
+<meta name="description" content="知识库分块与向量索引、知识图谱抽取、Wiki 生成、记忆与 Dream 巩固。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="知识底座 · Hetu 文档">
+<meta property="og:description" content="知识库分块与向量索引、知识图谱抽取、Wiki 生成、记忆与 Dream 巩固。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html" aria-current="page">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>知识底座</h1>
+      <p class="lede">笔记、对话、代码仓库里的资料最终都要能被找到、被引用、被复用。Hetu 用四层能力做这件事：知识库（向量索引）、知识图谱（实体关系）、Wiki（成篇文档）、记忆（长期偏好与事实）。</p>
+
+      <h2>知识库：把资料变成可检索的块</h2>
+      <ul>
+        <li><strong>三种来源</strong>：笔记、上传文件（文档 / 文本等）、网址（网页正文抓取）。</li>
+        <li><strong>分块与向量</strong>：内容按结构分块后调用 Embedding 模型生成向量，SQLite 用 <code>sqlite-vec</code>，PostgreSQL 用 <code>pgvector</code>。</li>
+        <li><strong>三个页签</strong>：概览（覆盖率、维度、索引项数）、索引管理（逐项状态、分块数、重新索引、批量补索引）、搜索测试（可调 Top-K，命中片段高亮）。</li>
+        <li><strong>轮询只在有事发生时</strong>：存在未索引项或运行中任务时页面才自动刷新。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/03-knowledge-base.png" alt="知识库页：索引覆盖率、向量维度与索引管理"></div>
+      <p></p>
+      <div class="note">向量维度必须与 Embedding 模型一致（配置项 <code>Embedding:Dimensions</code>，默认 1536）。维度不匹配时 SQLite 会直接写入失败。</div>
+
+      <h2>知识图谱：把资料变成关系</h2>
+      <ul>
+        <li>从任意笔记一键<strong>抽取实体与关系</strong>，抽取结果做去重合并；后台任务里能看到每次抽取的耗时。</li>
+        <li>实体类型：概念、人物、组织、技术、项目、自定义；关系类型：属于、相关、依赖、包含、对比、自定义。</li>
+        <li>力导向布局，支持缩放 / 平移 / 搜索 / 重置；点实体可看关联笔记并跳回编辑器。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/04-graph.png" alt="知识图谱页：实体按类型着色，边表示关系"></div>
+      <p></p>
+
+      <h2>Wiki：把项目资料变成成篇文档</h2>
+      <ul>
+        <li>在「项目」或「Wiki」页对某个仓库发起生成：AI 依据项目资料（README、目录结构、代码片段，可叠加语义检索）生成<strong>模块页</strong> + <strong>项目总览</strong>。</li>
+        <li>结果按<strong>套件</strong>分组（一次生成 = 一套），标注生成时间、页数与「有更新」提示。</li>
+        <li>生成过程是后台任务，可在「后台任务」页看阶段、进度、耗时与失败原因。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/07-wiki.png" alt="Wiki 页：按套件分组的生成结果与章节"></div>
+      <p></p>
+
+      <h2>记忆与 Dream：跨会话的长期上下文</h2>
+      <ul>
+        <li>记忆条目含内容、类别（偏好 / 身份 / 工作 / 习惯 / 知识…）与重要性（星级），支持搜索与作用域筛选。</li>
+        <li><strong>作用域</strong>：全局 / 会话 / 项目——对话时按当前上下文注入，不会把项目细节带到无关话题里。</li>
+        <li><strong>记忆图</strong>：可视化记忆之间的关联。</li>
+        <li><strong>Dream 巩固</strong>：按「衰退天数 / 遗忘天数」定期合并重复、衰减过时、遗忘无用记忆，可在页面上手动跑一次。</li>
+        <li>对话里通过输入框的「记忆」开关触发召回，也可以让模型用 <code>search_memory</code> 工具主动查。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/05-memories.png" alt="记忆页：记忆图、作用域筛选与 Dream 巩固状态"></div>
+      <p></p>
+
+      <h2>怎么用起来最顺</h2>
+      <table>
+        <thead><tr><th>场景</th><th>建议动作</th></tr></thead>
+        <tbody>
+          <tr><td>刚导入一批资料</td><td>知识库 → 索引管理 → 批量生成索引，等任务跑完再看覆盖率</td></tr>
+          <tr><td>想确认检索质量</td><td>知识库 → 搜索测试，换几个问法看命中片段</td></tr>
+          <tr><td>一篇笔记写长了</td><td>笔记顶部「提取图谱」+「添加标签」，之后能在图谱里按概念找回来</td></tr>
+          <tr><td>接手一个陌生仓库</td><td>项目 → 生成 Wiki，再在 Code 会话里追问细节</td></tr>
+          <tr><td>希望 AI 记住你的偏好</td><td>在对话里明确说一次，或手动到「记忆」页新增一条全局记忆</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="workspace.html">← Agent 工作台</a><a href="models.html">模型与用量 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>

@@ -4,6 +4,8 @@
 
 [简体中文](./README.zh-CN.md) | English
 
+🌐 官网与文档（GitHub Pages）：<https://wosledon.github.io/Hetu/>
+
 Hetu is a **local-first** knowledge and agent workspace: Markdown notes, chat and coding sessions share one store, and a vector index, knowledge graph, long-term memory plus tasks/workflows tie everything into a living network. All data and model calls stay on your machine — no account, no uploads.
 
 - **Two engines**: `Notes` (write) and the `Agent workspace` (ask & do) sit on the same knowledge base, so any note can be searched, indexed or turned into graph entities on demand.

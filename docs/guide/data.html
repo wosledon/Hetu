@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据与备份 · Hetu 文档</title>
+<meta name="description" content="数据目录、SQLite 与 PostgreSQL 切换、向量存储、导出与备份、隐私与安全。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="数据与备份 · Hetu 文档">
+<meta property="og:description" content="数据目录、SQLite 与 PostgreSQL 切换、向量存储、导出与备份、隐私与安全。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html" aria-current="page">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>数据与备份</h1>
+      <p class="lede">Hetu 把「数据主权」当作前提：默认单文件数据库、可整体搬迁、随时导出，不需要任何云端账号。</p>
+
+      <h2>数据目录</h2>
+      <table>
+        <thead><tr><th>运行方式</th><th>位置</th></tr></thead>
+        <tbody>
+          <tr><td>桌面版（Windows）</td><td><code>%LOCALAPPDATA%\Hetu</code></td></tr>
+          <tr><td>源码运行</td><td>由 <code>HETU_DATA_DIR</code> 指定；不设时用工作目录下的 <code>hetu.db</code></td></tr>
+          <tr><td>数据库文件</td><td><code>hetu.db</code>（+ <code>-wal</code> / <code>-shm</code>）</td></tr>
+          <tr><td>日志</td><td><code>logs/</code>（Serilog，按天滚动）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>导出与备份</h2>
+      <ul>
+        <li>设置 → <strong>数据与备份</strong>：把全部笔记导出为 Markdown 压缩包；备份 / 恢复 SQLite 数据库文件。</li>
+        <li>跨机器迁移：关闭应用后整体拷贝数据目录（含 <code>hetu.db</code> 与其 WAL 文件），在新机器打开即可。</li>
+      </ul>
+      <div class="note note--warn">数据库运行时用文件级拷贝做备份，可能丢掉尚未 checkpoint 的 WAL 内容。稳妥做法是在应用内退出后拷贝，或用内置的备份功能。</div>
+
+      <h2>切换到 PostgreSQL</h2>
+      <p>需要 PostgreSQL 16+ 并安装 <code>pgvector</code> 扩展：</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>export DatabaseProvider=Postgresql
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
+
+# 应用迁移（表结构变化时需要）
+dotnet ef database update \
+  --project src/Hetu.Infrastructure.PostgresMigrations \
+  --startup-project src/Hetu.Api</code></pre></div>
+      <p>向量维度由 <code>Embedding:Dimensions</code> 决定，必须与所选 Embedding 模型一致。SQLite 与 PostgreSQL 的功能集一致，切换后原有笔记与索引需在新的库里重建。</p>
+
+      <h2>向量存储</h2>
+      <table>
+        <thead><tr><th>数据库</th><th>向量方案</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>SQLite</td><td><code>sqlite-vec</code>（<code>vec0.dll</code> / <code>vec0.so</code>）</td><td>随应用分发，连接打开时自动加载，无需额外安装</td></tr>
+          <tr><td>PostgreSQL</td><td><code>pgvector</code></td><td>需先启用扩展；维度与配置一致</td></tr>
+        </tbody>
+      </table>
+
+      <h2>隐私与安全</h2>
+      <ul>
+        <li><strong>本地优先</strong>：没有账号体系、没有遥测上报；除你配置的模型供应商与主动开启的联网搜索 / MCP 服务外，应用不主动外发数据。</li>
+        <li><strong>Key 加密</strong>：API Key 使用 ASP.NET DataProtection 加密存储（Windows 走 DPAPI），日志与接口响应都不含明文。</li>
+        <li><strong>渲染安全</strong>：Markdown 渲染经 DOMPurify 过滤，避免笔记内容注入脚本。</li>
+        <li><strong>命令执行有闸门</strong>：工具执行受权限模式约束（见 <a href="workspace.html">Agent 工作台</a>），高风险动作默认需要确认。</li>
+        <li><strong>分享链接</strong>：生成的公开链接只暴露那一篇笔记的渲染结果，可随时停用，并带访问计数。</li>
+      </ul>
+    <div class="docs-pager"><a href="desktop.html">← 桌面应用</a><a href="faq.html">常见问题 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>
