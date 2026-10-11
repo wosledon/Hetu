@@ -256,8 +256,6 @@ export default {
   session: {
     emptyTitle: 'Code 会话',
     emptyHint: '在左侧「项目」中选择项目或会话开始；编码 Agent 可以读写项目文件、执行开发命令、运行构建诊断，并按权限模式请求确认。',
-    startTitle: '{{name}}：开始一个新任务',
-    startHint: '描述你要完成的开发任务，或从下面的示例开始；Agent 会读写项目文件、执行命令并运行诊断。',
     newSessionInProject: '在 {{name}} 新建会话',
     collapsePanel: '收起工作面板',
     openPanel: '打开工作面板',

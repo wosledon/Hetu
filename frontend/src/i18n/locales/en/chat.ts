@@ -31,8 +31,6 @@ export default {
     searchPlaceholder: 'Search messages in this conversation...',
     noMatchingMessages: 'No matching messages',
     roleMe: 'Me',
-    emptyTitle: 'Start a conversation',
-    emptyDescription: 'Type a message below to start, or pick an existing conversation on the left',
     deepThinking: 'Deep thinking',
     thinkingNow: 'Thinking...',
     compacted: 'Compacted {{count}} earlier messages into a summary ({{before}} → {{after}} tokens)',
