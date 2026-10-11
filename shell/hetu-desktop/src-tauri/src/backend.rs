@@ -3,6 +3,8 @@
 //! 设计要点：
 //! - 动态选取空闲端口（portpicker），通过 `--urls http://127.0.0.1:{port}` 注入后端。
 //! - 通过 `HETU_DATA_DIR` 环境变量把 SQLite/日志切到 Tauri 提供的用户数据目录。
+//! - 通过 `HETU_PARENT_PID` 让后端在外壳消失时自行退出（外壳被强杀也不留孤儿进程，
+//!   否则残留后端会锁住 sqlite-vec\vec0.dll 导致下次安装失败）。
 //! - 开发模式直接 `dotnet run --project ...`；发布模式使用 Tauri sidecar (`Hetu.Api`)。
 //! - 启动后轮询 `/api/health` 判断就绪；窗口关闭时 kill 子进程，避免遗留。
 
@@ -186,6 +188,7 @@ fn build_command(
             tracing::info!(target: "hetu::backend", "using bundled sidecar");
             cmd.args(["--urls", urls])
                 .env("HETU_DATA_DIR", data_dir.to_string_lossy().to_string())
+                .env("HETU_PARENT_PID", std::process::id().to_string())
                 .env("ASPNETCORE_ENVIRONMENT", "Production")
                 .env("DOTNET_NOLOGO", "1")
                 .spawn()
@@ -209,6 +212,7 @@ fn build_command(
                     urls,
                 ])
                 .env("HETU_DATA_DIR", data_dir.to_string_lossy().to_string())
+                .env("HETU_PARENT_PID", std::process::id().to_string())
                 .env("ASPNETCORE_ENVIRONMENT", "Development")
                 .env("DOTNET_NOLOGO", "1")
                 .spawn()
