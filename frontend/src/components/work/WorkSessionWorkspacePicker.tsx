@@ -67,7 +67,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
     }`
 
   const itemClass = (active: boolean) =>
-    `flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06] ${
+    `flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06] ${
       active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300'
     }`
 
@@ -92,28 +92,24 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           >
             {busy ? <Loader2 size={11} className="shrink-0 animate-spin" /> : useWorktree ? <TreePine size={11} className="shrink-0" /> : <GitBranch size={11} className="shrink-0" />}
             <span className="truncate">
-              {created && session.branch
-                ? t('workspace.worktree', { branch: session.branch })
-                : useWorktree
-                  ? t('workspace.newWorktree')
-                  : currentBranch
-                    ? `${t('workspace.currentBranch')} · ${currentBranch}`
-                    : t('workspace.currentBranch')}
+              {created ? t('workspace.worktreeMode') : useWorktree ? t('workspace.newWorktree') : t('workspace.currentBranch')}
             </span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
           </button>
 
           {menu === 'mode' && (
-            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-64 rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
               <button
                 onClick={() => apply.mutate({ useWorktree: false })}
                 disabled={busy || !useWorktree}
                 className={itemClass(!useWorktree)}
               >
-                <span className="w-3 shrink-0">{!useWorktree && <Check size={12} className="text-emerald-500" />}</span>
-                <GitBranch size={12} className="shrink-0 text-gray-400" />
-                <span className="min-w-0 flex-1 truncate">{t('workspace.modeCurrentBranch')}</span>
-                {currentBranch && <span className="shrink-0 text-[11px] text-gray-400">{currentBranch}</span>}
+                <span className="w-3 shrink-0 pt-0.5">{!useWorktree && <Check size={12} className="text-emerald-500" />}</span>
+                <GitBranch size={12} className="mt-0.5 shrink-0 text-gray-400" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{t('workspace.modeCurrentBranch')}</span>
+                  <span className="block text-[11px] leading-4 text-gray-400">{t('workspace.modeCurrentBranchHint')}</span>
+                </span>
               </button>
               <button
                 onClick={() => apply.mutate({ useWorktree: true })}
@@ -121,13 +117,15 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 title={unsupportedHint ?? undefined}
                 className={itemClass(useWorktree)}
               >
-                <span className="w-3 shrink-0">{useWorktree && <Check size={12} className="text-emerald-500" />}</span>
-                <TreePine size={12} className="shrink-0 text-emerald-500/80" />
-                <span className="min-w-0 flex-1 truncate">{t('workspace.modeNewWorktree')}</span>
+                <span className="w-3 shrink-0 pt-0.5">{useWorktree && <Check size={12} className="text-emerald-500" />}</span>
+                <TreePine size={12} className="mt-0.5 shrink-0 text-emerald-500/80" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{t('workspace.modeNewWorktree')}</span>
+                  <span className={`block text-[11px] leading-4 ${unsupportedHint ? 'text-amber-600 dark:text-amber-300' : 'text-gray-400'}`}>
+                    {created ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' }) : unsupportedHint ?? t('workspace.modeNewWorktreeHint')}
+                  </span>
+                </span>
               </button>
-              <p className={`px-2 py-1 text-[11px] ${unsupportedHint ? 'text-amber-600 dark:text-amber-300' : 'text-gray-400'}`}>
-                {created ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' }) : unsupportedHint ?? t('workspace.newWorktreeHint')}
-              </p>
             </div>
           )}
         </div>
