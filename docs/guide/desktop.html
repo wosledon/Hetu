@@ -75,11 +75,13 @@
       <li><a href="architecture.html">架构与实现</a></li>
       <li><a href="faq.html">常见问题</a></li>
       <li><a href="dev.html">参与开发</a></li>
-    </ol>
-    <h2>深入实现</h2>
+    </ol>    <h2>深入实现</h2>
     <ol>
       <li><a href="compression.html">压缩管道</a></li>
-    </ol>  </aside>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+    </ol>
+  </aside>
     <div class="docs-body">
       <h1>桌面应用</h1>
       <p class="lede">桌面版是 Tauri 2 外壳：Rust 进程负责窗口、托盘与更新，同时把打包好的后端 sidecar 拉起来，前端跑在 WebView 里。</p>
@@ -240,6 +242,7 @@ npm run tauri:build -- --config src-tauri/tauri.slim.conf.json  # slim</code></p
 </div>
 </body>
 </html>
+
 
 
 
