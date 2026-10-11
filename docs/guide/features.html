@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>功能总览 · Hetu 文档</title>
+<meta name="description" content="笔记、Agent 工作台、Code 会话、知识库、知识图谱、Wiki、记忆、看板、工作流、任务、收件箱、应用的完整功能说明。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="功能总览 · Hetu 文档">
+<meta property="og:description" content="笔记、Agent 工作台、Code 会话、知识库、知识图谱、Wiki、记忆、看板、工作流、任务、收件箱、应用的完整功能说明。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html" aria-current="page">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>功能总览</h1>
+      <p class="lede">Hetu 的界面由「笔记」和「Agent 工作台」两个主入口，加上一组知识底座与自动化页面组成。下面是每块能力与对应路由的索引。</p>
+
+      <h2>页面地图</h2>
+      <table>
+        <thead><tr><th>路由</th><th>页面</th><th>能做什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code></td><td>笔记</td><td>笔记本树、笔记列表、Markdown 编辑器、历史版本、分享</td></tr>
+          <tr><td><code>/code</code></td><td>Agent 工作台</td><td>对话与 Code 会话（<code>/chat</code>、<code>/work</code> 也跳到这里）</td></tr>
+          <tr><td><code>/projects</code></td><td>项目</td><td>本地 / SSH 仓库与分组，生成 Wiki</td></tr>
+          <tr><td><code>/kanban</code></td><td>任务看板</td><td>五列看板，任务可指派 Agent 执行</td></tr>
+          <tr><td><code>/wiki</code></td><td>Wiki</td><td>按套件浏览生成的文档</td></tr>
+          <tr><td><code>/knowledge-base</code></td><td>知识库</td><td>概览、索引管理、语义搜索测试</td></tr>
+          <tr><td><code>/graph</code></td><td>知识图谱</td><td>实体与关系可视化、抽取、跳回笔记</td></tr>
+          <tr><td><code>/memories</code></td><td>记忆</td><td>长期记忆、记忆图、Dream 巩固与遗忘</td></tr>
+          <tr><td><code>/tasks/*</code></td><td>后台 / 定时任务</td><td>任务状态与耗时、Cron 定时任务</td></tr>
+          <tr><td><code>/workflows</code></td><td>工作流</td><td>可视化编排 Agent 多步骤流程</td></tr>
+          <tr><td><code>/agents</code> <code>/skills</code> <code>/tools</code></td><td>智能体 / 技能 / 工具</td><td>提示预设与工具白名单、技能库、内置工具开关</td></tr>
+          <tr><td><code>/models</code> <code>/proxy</code> <code>/usage</code></td><td>大模型 / 代理 / 用量</td><td>供应商与模型、兼容接口、Token 与成本</td></tr>
+          <tr><td><code>/inbox</code> <code>/apps</code> <code>/tags</code> <code>/trash</code></td><td>收件箱 / 应用 / 标签 / 回收站</td><td>通知中心、内嵌网页应用、标签管理、软删除笔记</td></tr>
+          <tr><td><code>/settings</code></td><td>设置</td><td>应用、导航、默认模型、供应商、成本、记忆、MCP、数据备份、工作区、关于</td></tr>
+        </tbody>
+      </table>
+
+      <h2>笔记</h2>
+      <ul>
+        <li><strong>双视图编辑</strong>：Milkdown 所见即所得 + CodeMirror 源码视图，编辑 / 预览 / 分屏。</li>
+        <li><strong>AI 写作</strong>：选中文字即可润色、翻译、精简、扩写、解释或自定义提示；整篇笔记的 AI 助手面板可按次换模型。</li>
+        <li><strong>笔记内 AI 动作</strong>：生成知识库索引、提取图谱、自动打标签、生成流程图（Mermaid）。</li>
+        <li><strong>组织</strong>：无限层级笔记本、带颜色的标签（可重命名/合并）、置顶与收藏。</li>
+        <li><strong>安全网</strong>：3 秒自动保存、历史版本快照（预览 / 对比 / 一键还原）、回收站、Markdown 导出与数据库备份。</li>
+        <li><strong>分享</strong>：为单篇笔记生成永久 / 24 小时 / 3 天链接，带访问计数，公开只读页 <code>/share/:code</code>。</li>
+      </ul>
+
+      <h2>Agent 工作台</h2>
+      <p>对话与编码会话共用一套交互：会话树、消息流、输入工具带。细节见 <a href="workspace.html">Agent 工作台</a>。</p>
+      <ul>
+        <li><strong>流式与过程可见</strong>：正文增量、思考轨迹、工具调用与结果、联网搜索结果、知识库与记忆命中、检查点、审批请求。</li>
+        <li><strong>能打断也能排队</strong>：回复进行中继续输入会进队列（可编辑/删除/立即发送），或点「引导」把新指令插进当前这一轮。</li>
+        <li><strong>权限五档</strong>：计划 / 只读 / 询问 / 自动 / 绕过；Code 会话另有交互式与 Autopilot 运行模式。</li>
+        <li><strong>整理成笔记</strong>：把话题蒸馏为摘要 / 详细 / 问答 / 自定义格式的笔记，带流式预览。</li>
+      </ul>
+
+      <h2>知识底座</h2>
+      <ul>
+        <li><strong>知识库</strong>：笔记、文件、网址统一分块向量化，看覆盖率、分块数、维度，可重新索引。</li>
+        <li><strong>知识图谱</strong>：AI 从笔记抽取实体与关系并去重，力导向可视化，点实体看关联笔记。</li>
+        <li><strong>Wiki 生成</strong>：按项目生成模块页 + 总览，按套件分组，保留生成时间与更新状态。</li>
+        <li><strong>记忆与 Dream</strong>：长期记忆配类别与重要性，按衰退/遗忘天数定期巩固、衰减、遗忘。</li>
+      </ul>
+
+      <h2>组织与自动化</h2>
+      <ul>
+        <li><strong>任务看板</strong>：进行中 / 审核中 / 已阻塞 / 已完成 / 已归档；任务可指派智能体执行，记录步骤、评论与产物。</li>
+        <li><strong>工作流</strong>：把多步 Agent 任务画成流程，支持启停与运行记录。</li>
+        <li><strong>后台与定时任务</strong>：索引、图谱、Wiki 等长任务的进度、耗时、失败原因；支持 Cron 计划任务。</li>
+        <li><strong>收件箱</strong>：统一通知中心，导航栏带未读角标。</li>
+        <li><strong>应用</strong>：把常用网页（本地服务或外站）登记进来，用内置浏览器直接打开。</li>
+      </ul>
+
+      <h2>扩展与模型</h2>
+      <ul>
+        <li><strong>智能体</strong>：系统提示预设，带工具白名单与逐工具审批策略，可 JSON 导入导出。</li>
+        <li><strong>技能</strong>：内置技能 + 自定义技能，也能从磁盘目录加载 Markdown / JSON 技能文件；对话里用 <code>/技能名</code> 调用。</li>
+        <li><strong>工具</strong>：笔记读写与搜索、联网搜索、记忆与图谱检索、待办、命令执行、文件操作等，可逐项开关。</li>
+        <li><strong>MCP</strong>：管理 Model Context Protocol 服务器（<code>stdio</code> 完整支持，<code>sse</code> 可配置），自动发现并调用工具。</li>
+        <li><strong>模型与用量</strong>：多供应商多模型、按场景默认、兼容代理接口、Token 与成本统计。</li>
+      </ul>
+    <div class="docs-pager"><a href="getting-started.html">← 快速开始</a><a href="workspace.html">Agent 工作台 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>

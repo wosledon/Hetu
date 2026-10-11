@@ -236,6 +236,10 @@ dotnet ef migrations add <Name> --project src/Hetu.Infrastructure.PostgresMigrat
 ## 文档
 
 - `README.md`（English）与 `README.zh-CN.md`（简体中文）**必须同步更新**；界面截图放 `docs/screenshots/` 并保持一致命名。
+- **官网与文档站**（GitHub Pages，源为 `main` 的 `/docs` 目录）：`docs/index.html` 是首页，`docs/guide/*.html` 是文档页，
+  样式与脚本在 `docs/assets/`（无外部依赖、无构建步骤），`docs/.nojekyll` 关闭 Jekyll 处理。
+  改动文档站时：页面之间用相对链接、截图引用 `../screenshots/xxx.png`，改完在本地起静态服务器（`python -m http.server --directory docs`）
+  逐页点一遍，确认无外链失效、无横向滚动条、移动端导航可展开。
 - 公共 API 加 XML 文档注释；复杂业务逻辑写清楚「为什么」；TODO 用 `// TODO(名字): 描述`。
 - 接口文档由 Scalar 生成（`/scalar/v1`），新增端点尽量给出示例请求/响应。
 

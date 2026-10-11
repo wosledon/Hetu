@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>模型与用量 · Hetu 文档</title>
+<meta name="description" content="供应商与模型配置、按场景默认模型、代理服务、用量统计与压缩管道。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="模型与用量 · Hetu 文档">
+<meta property="og:description" content="供应商与模型配置、按场景默认模型、代理服务、用量统计与压缩管道。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html" aria-current="page">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>模型与用量</h1>
+      <p class="lede">Hetu 自己不提供模型，只做「协议适配 + 场景编排」：你填供应商与 Key，它负责把合适的能力分配到合适的场景，并记下每一次调用的用量。</p>
+
+      <h2>供应商与模型</h2>
+      <ol>
+        <li>左侧「大模型」→ 新增供应商，选择协议：<strong>OpenAI 兼容</strong>（绝大多数自建/中转服务）或 <strong>Anthropic</strong>，填 Base URL 与 API Key。</li>
+        <li>在该供应商下新增模型，用途三类：
+          <ul>
+            <li><code>chat</code>：对话、Code 会话、Agent 循环</li>
+            <li><code>embedding</code>：知识库向量化、语义检索</li>
+            <li><code>completion</code>：轻量补全 / 改写类调用</li>
+          </ul>
+        </li>
+        <li>同一用途可以有多个模型，随时在输入工具带里临时换。</li>
+      </ol>
+      <div class="note">API Key 用 ASP.NET DataProtection 加密后落库（Windows 上走 DPAPI），不会以明文出现在数据库、日志或接口响应里。</div>
+      <div class="note note--warn">Anthropic 没有公开的 Embedding 接口，<code>embedding</code> 用途请选 OpenAI 兼容供应商。</div>
+
+      <h2>按场景指定默认模型</h2>
+      <p>设置 → <strong>默认模型</strong>，可以分别指定：对话、编码会话、Wiki 生成、知识图谱抽取、话题整理、笔记 AI、查询改写等。原则是：贵的模型留给需要推理的场景，索引与整理用便宜快的。</p>
+
+      <h2>代理服务：把 Hetu 的模型能力接给别的工具</h2>
+      <p>「代理服务」页把已配置的模型暴露成 <strong>OpenAI 兼容</strong>与 <strong>Anthropic 兼容</strong>的本地接口，于是编辑器、CLI、脚本都能指向 Hetu 使用同一批 Key 与同一份用量统计：</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 以 OpenAI 兼容客户端为例，把 Base URL 指到本机
+# Base URL: http://localhost:5000/api/proxy/openai/v1
+# API Key : 在「代理服务」页面生成的本地 Key
+
+curl http://localhost:5000/api/proxy/openai/v1/models</code></pre></div>
+      <p>代理页可以配置路由（哪个模型对外可见）、影子模型（同一请求额外打给另一个模型做对比）等策略。</p>
+
+      <h2>用量与成本</h2>
+      <ul>
+        <li><strong>概览</strong>：总消息数、Token 总量、输入 / 压缩后 / 输出 / 缓存 Token、平均延迟、活跃天数、今日用量。</li>
+        <li><strong>趋势</strong>：近 7 / 30 / 90 天曲线；周×时、年×日两张热力图。</li>
+        <li><strong>分布</strong>：按模型、按来源（对话 / 编码会话 / 看板 / Wiki / 图谱 / 定时任务 / 代理…）拆分。</li>
+        <li><strong>明细</strong>：分页的请求日志，可按来源与业务引用（话题 / 会话 / 任务）过滤，含内容摘要与延迟。</li>
+      </ul>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型与来源分布、热力图"></div>
+      <p></p>
+
+      <h2>上下文压缩管道</h2>
+      <p>长会话不可能无限塞进上下文，设置 → <strong>成本控制</strong> 里配置压缩策略：什么时候压缩、压缩到多长、用哪个模型做摘要。压缩后实际发送的 Token（<code>CompressedTokens</code>）会与原始输入一起记入用量，省了多少一目了然。</p>
+
+      <h2>省 Token 的几个实践</h2>
+      <table>
+        <thead><tr><th>做法</th><th>效果</th></tr></thead>
+        <tbody>
+          <tr><td>把 索引 / 整理 / 打标签 指到便宜的小模型</td><td>这些任务量大但不需要强推理</td></tr>
+          <tr><td>只在需要时打开「知识库」「记忆」开关</td><td>避免每次请求都注入检索结果</td></tr>
+          <tr><td>Code 会话用独立工作树 + 明确任务边界</td><td>减少来回试错轮次</td></tr>
+          <tr><td>长任务用 Autopilot，短问答用交互式</td><td>前者省确认轮次，后者省无用工具调用</td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="knowledge.html">← 知识底座</a><a href="desktop.html">桌面应用 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>

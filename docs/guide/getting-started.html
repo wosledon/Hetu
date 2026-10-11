@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>快速开始 · Hetu 文档</title>
+<meta name="description" content="安装 Hetu：源码运行或下载桌面版，第一次配置模型与知识库索引。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="快速开始 · Hetu 文档">
+<meta property="og:description" content="安装 Hetu：源码运行或下载桌面版，第一次配置模型与知识库索引。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html" aria-current="page">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>快速开始</h1>
+      <p class="lede">三种起步方式：下载桌面版（最省事）、源码跑起来（要改代码）、Docker？暂时没有——本项目就是「本地优先」，直接跑在本机最合适。</p>
+
+      <h2>方式一：桌面版（推荐先用这个）</h2>
+      <p>到 <a href="https://github.com/wosledon/Hetu/releases/latest">Releases</a> 下载对应安装包：</p>
+      <table>
+        <thead><tr><th>渠道</th><th>文件</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code></td><td>自带 .NET 运行时，装完即用（体积大些）</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code></td><td>体积小，需要机器上已安装 .NET 10 运行时</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage 直接 <code>chmod +x</code> 后运行</td></tr>
+        </tbody>
+      </table>
+      <div class="note">桌面版关闭窗口默认最小化到托盘（后端继续跑，后台任务不断），要真正退出请用托盘菜单「退出 Hetu」。该行为可在 <strong>设置 → 应用设置</strong> 关闭。</div>
+
+      <h2>方式二：源码运行</h2>
+      <p>需要 .NET SDK 10.0+ 与 Node.js 20+。</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
+cd Hetu
+
+# 一键启动前后端（Windows / Linux / macOS 都有脚本）
+pwsh ./scripts/start.ps1        # Windows
+./scripts/start.sh              # Linux / macOS
+
+# 或者分别启动
+dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
+cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code></pre></div>
+      <p>打开 <code>http://localhost:5174</code> 即可。后端接口文档在 <code>http://localhost:5000/scalar/v1</code>，健康检查 <code>/api/health</code>。</p>
+
+      <h2>方式三：桌面开发模式</h2>
+      <p>要改桌面外壳（Rust）或联调 sidecar 时使用，会并行起 dotnet + vite + tauri：</p>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>pwsh ./scripts/desktop-dev.ps1</code></pre></div>
+
+      <h2>第一次配置</h2>
+      <ol>
+        <li><strong>加供应商</strong>：左侧「大模型」→ 新增供应商（OpenAI 兼容 / Anthropic），填 Base URL 与 API Key。</li>
+        <li><strong>加模型</strong>：在供应商下新增模型，用途选 <code>chat</code>；要做语义检索再添一个 <code>embedding</code> 模型。</li>
+        <li><strong>设默认</strong>：设置 → 默认模型，按场景指定（对话、编码、Wiki、图谱、整理、笔记 AI）。</li>
+        <li><strong>喂知识</strong>：写一篇笔记，或到「知识库」添加网址 / 上传文件，然后点「生成索引」。</li>
+        <li><strong>试一下</strong>：工作台里问一句需要引用你笔记的问题，输入框上方打开「知识库」开关。</li>
+      </ol>
+
+      <h2>接下来</h2>
+      <ul>
+        <li>想让它替你改代码：<a href="workspace.html">Agent 工作台</a>（工作树、权限模式、PR）。</li>
+        <li>想把资料变成可检索的知识：<a href="knowledge.html">知识底座</a>（索引、图谱、Wiki、记忆）。</li>
+        <li>想知道花了多少 Token：<a href="models.html">模型与用量</a>。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档首页</a><a href="features.html">功能总览 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>

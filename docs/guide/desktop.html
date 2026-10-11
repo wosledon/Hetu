@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>桌面应用 · Hetu 文档</title>
+<meta name="description" content="Tauri 桌面版：双渠道安装包、自动更新、系统托盘、工作树目录与自动清理、故障排查。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="桌面应用 · Hetu 文档">
+<meta property="og:description" content="Tauri 桌面版：双渠道安装包、自动更新、系统托盘、工作树目录与自动清理、故障排查。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html" aria-current="page">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>桌面应用</h1>
+      <p class="lede">桌面版是 Tauri 2 外壳：Rust 进程负责窗口、托盘与更新，同时把打包好的后端（sidecar）拉起来，前端跑在 WebView 里。不想配 .NET / Node 环境就用它。</p>
+
+      <h2>安装</h2>
+      <table>
+        <thead><tr><th>渠道</th><th>产物</th><th>依赖</th></tr></thead>
+        <tbody>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>无（自带 .NET 运行时，约 100 MB+）</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>系统已安装 .NET 10 运行时</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage 免安装</td></tr>
+        </tbody>
+      </table>
+      <p>两个渠道各自独立更新，互不覆盖：装的是 <code>slim</code> 就只会收到 <code>slim</code> 的更新清单。</p>
+
+      <h2>自动更新</h2>
+      <ul>
+        <li>检查顺序：GitHub 主源 → 三个加速镜像（<code>ghproxy.net</code> / <code>gh-proxy.com</code> / <code>ghfast.top</code>），国内网络下也能拉到清单。</li>
+        <li>更新包装好后按 <code>passive</code> 模式安装；清单里的安装包 URL 与签名都来自 CI 构建，签名校验失败会拒绝安装。</li>
+        <li>导航栏版本号旁的角标提示有更新，点开可以看到本次更新内容（按 Markdown 渲染）。</li>
+      </ul>
+
+      <h2>托盘与退出</h2>
+      <ul>
+        <li>点击窗口关闭按钮默认<strong>最小化到托盘</strong>，后端继续运行——后台索引、Wiki 生成这类任务不会被打断。</li>
+        <li>托盘菜单「退出 Hetu」才是真正退出，会一并结束后端子进程。</li>
+        <li>不想要这个行为：设置 → 应用设置 → 关闭「关闭时最小化到托盘」。</li>
+      </ul>
+      <div class="note">后端会记住外壳的进程号（<code>HETU_PARENT_PID</code>）：万一外壳被任务管理器强杀，后端检测到父进程消失会自行退出，不会留下占端口的孤儿进程。</div>
+
+      <h2>工作树目录与自动清理</h2>
+      <ul>
+        <li>默认把所有工作树收在<strong>仓库父目录</strong>下的 <code>.hetu-worktrees/&lt;仓库名&gt;/&lt;工作树名&gt;</code>，父目录只多这一个文件夹。</li>
+        <li>可在 设置 → 工作区 改成别的根目录（必须是绝对路径，且不能落在仓库内部）。</li>
+        <li><strong>自动清理</strong>：工作树里的改动都已合并、没有未提交内容、且空闲超过阈值时，后台按配置的间隔清理；可以配置间隔、空闲时长，以及是否连分支一起删。</li>
+      </ul>
+
+      <h2>数据放在哪</h2>
+      <p>外壳通过 <code>HETU_DATA_DIR</code> 把数据目录交给后端：Windows 上是 <code>%LOCALAPPDATA%\Hetu</code>，数据库文件 <code>hetu.db</code>（外加 WAL），日志在 <code>logs/</code>。迁移机器时把整个目录拷走即可。</p>
+
+      <h2>自己打包</h2>
+      <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code># 1) 先出后端 sidecar（fat / slim 二选一）
+pwsh ./scripts/publish-backend.ps1 -Mode SelfContained      -Rid win-x64
+pwsh ./scripts/publish-backend.ps1 -Mode FrameworkDependent -Rid win-x64
+
+# 2) 再出安装包（fat 用默认配置，slim 指定 conf）
+cd shell/hetu-desktop
+npm run tauri:build
+npm run tauri:build -- --config src-tauri/tauri.slim.conf.json</code></pre></div>
+      <p>sidecar 命名必须符合 Tauri 约定：<code>binaries/Hetu.Api-&lt;rust-target-triple&gt;(.exe)</code>。</p>
+
+      <h2>更新之后的权限提升</h2>
+      <p>更新是替换式安装：安装包在覆盖文件前会先结束残留的后端进程（安装钩子），所以即使上一次异常退出过也能顺利升级。</p>
+    <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="data.html">数据与备份 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>

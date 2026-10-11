@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 工作台 · Hetu 文档</title>
+<meta name="description" content="对话与 Code 会话：会话与话题、五档权限模式、工作树与分支、工作面板、PR、队列与运行中引导、技能与 MCP。">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Agent 工作台 · Hetu 文档">
+<meta property="og:description" content="对话与 Code 会话：会话与话题、五档权限模式、工作树与分支、工作面板、PR、队列与运行中引导、技能与 MCP。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/../">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/features.html">功能</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档首页</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="features.html">功能总览</a></li>
+      <li><a href="workspace.html" aria-current="page">Agent 工作台</a></li>
+      <li><a href="knowledge.html">知识底座</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与备份</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Agent 工作台</h1>
+      <p class="lede">入口是左侧导航的「Code」（路由 <code>/code</code>）。对话和编码会话在同一个界面：左边是分组 / 话题 / 会话树，右边是消息流与工作面板。</p>
+
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img src="../screenshots/02-code.png" alt="Agent 工作台：会话树、消息流、工具调用与输入工具带"></div>
+      <p></p>
+
+      <h2>会话与话题</h2>
+      <ul>
+        <li><strong>话题</strong>：属于某个会话组，各自独立的模型、系统提示、上下文与历史；可以分叉一个话题做分支探索。</li>
+        <li><strong>懒创建</strong>：只占位不落库——没真正开始对话就不会产生新会话记录。</li>
+        <li><strong>消息操作</strong>：复制、编辑后重发、删除；长回复可折叠思考过程。</li>
+        <li><strong>上下文占用</strong>：右下角环形指示当前占用，压缩发生时在输入框上方给出提示。</li>
+      </ul>
+
+      <h2>输入工具带</h2>
+      <table>
+        <thead><tr><th>控件</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td>联网搜索</td><td>检索网络并把结果作为上下文注入（带来源列表）</td></tr>
+          <tr><td>知识库</td><td>从已索引的笔记 / 文件 / 网址中做向量召回</td></tr>
+          <tr><td>记忆</td><td>召回长期记忆（可限定全局 / 当前会话 / 当前项目）</td></tr>
+          <tr><td>权限模式</td><td>计划 / 只读 / 询问 / 自动 / 绕过</td></tr>
+          <tr><td>模型 / 智能体 / 推理强度</td><td>本次请求用哪个模型、套哪个系统提示、思考多深</td></tr>
+          <tr><td><code>/</code> 技能菜单</td><td>在输入框里直接唤起技能或智能体</td></tr>
+          <tr><td>附件</td><td>图片（视觉模型多模态）与文件；超长粘贴自动折叠成块</td></tr>
+        </tbody>
+      </table>
+
+      <h2>权限模式与运行模式</h2>
+      <table>
+        <thead><tr><th>模式</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>plan</code> 计划</td><td>只做规划与讨论，不动文件</td></tr>
+          <tr><td><code>readonly</code> 只读</td><td>可以读文件、跑只读命令，不写不改</td></tr>
+          <tr><td><code>ask</code> 询问（默认）</td><td>每个有副作用的操作都先请求批准</td></tr>
+          <tr><td><code>auto</code> 自动</td><td>常规操作直接执行，敏感操作仍会询问</td></tr>
+          <tr><td><code>bypass</code> 绕过</td><td>全部放行（仅建议在隔离环境/一次性任务里使用）</td></tr>
+        </tbody>
+      </table>
+      <p>Code 会话另有运行模式：<strong>交互式</strong>（逐步确认）与 <strong>Autopilot</strong>（托管执行到完成）。审批规则可在「智能体」里按工具逐个配置。</p>
+
+      <h2>队列与运行中引导</h2>
+      <p>回复还在流式输出时，你可以继续打字：</p>
+      <ul>
+        <li><strong>排队</strong>：新消息进入队列条，可编辑、删除，或等本轮结束后自动发出。</li>
+        <li><strong>引导（steer）</strong>：点「引导」把这条指令立刻插进当前这一轮，Agent 会在下一次迭代时结合它调整动作——适合「方向不对，先别改那个文件」这类场景。</li>
+      </ul>
+
+      <h2>Code 会话：在工作区里动手</h2>
+      <h3>项目与工作区</h3>
+      <ul>
+        <li>项目支持<strong>本地目录</strong>与 <strong>SSH 远程仓库</strong>，可分组管理。</li>
+        <li>每个会话二选一：在<strong>当前分支</strong>上工作（选分支即检出），或创建<strong>独立工作树</strong>（默认放在仓库父目录的 <code>.hetu-worktrees/&lt;仓库&gt;/&lt;工作树名&gt;</code>，可在设置里改根目录）。</li>
+        <li>工作树在<strong>首条消息</strong>时按你的描述命名创建，主工作区不受影响；会话标题旁常驻工作区与分支徽标。</li>
+        <li>分支选择器包含<strong>本地与远程分支</strong>（选远程会建本地跟踪分支）；标题旁一个同步按钮按状态自动决定拉取 / 推送 / 刷新。</li>
+      </ul>
+
+      <h3>七个工作面板</h3>
+      <table>
+        <thead><tr><th>面板</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>文件</td><td>浏览项目目录，搜索文件名与内容，内置编辑器可直接保存</td></tr>
+          <tr><td>更改</td><td>本会话产生的文件改动，逐行 Diff 与回滚</td></tr>
+          <tr><td>检查点</td><td>任务开始前的文件快照，可整体还原工作区</td></tr>
+          <tr><td>Git</td><td>分支与工作区状态、逐文件 Diff、暂存并提交</td></tr>
+          <tr><td>PR</td><td>按远端自动选用 <code>gh</code> / <code>glab</code>：当前分支 PR、开放 PR 列表、一键创建（含草稿）；未安装时给出对应平台安装命令</td></tr>
+          <tr><td>浏览器</td><td>内嵌预览本地服务与网页</td></tr>
+          <tr><td>终端</td><td>真实 PTY（vim / htop 等交互程序可用）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>技能、智能体与 MCP 工具</h2>
+      <ul>
+        <li>在输入框敲 <code>/</code> 唤起技能菜单；技能可以是内置的（翻译、总结、解释、润色），也可以是你自己写的提示模板，或磁盘上的 Markdown / JSON 技能文件。</li>
+        <li>「智能体」页面管理系统提示预设：分类、搜索、工具白名单、逐工具审批策略，支持 JSON 导入导出。</li>
+        <li>MCP 服务器（设置 → MCP Server）连上后，其 <code>tools/list</code> 发现的工具会自动进入工具面，可直接被对话调用。</li>
+      </ul>
+
+      <h2>常用操作</h2>
+      <table>
+        <thead><tr><th>操作</th><th>方式</th></tr></thead>
+        <tbody>
+          <tr><td>新建会话</td><td><span class="kbd">Alt</span> + <span class="kbd">N</span></td></tr>
+          <tr><td>聚焦输入框</td><td><span class="kbd">Ctrl</span> / <span class="kbd">⌘</span> + <span class="kbd">L</span></td></tr>
+          <tr><td>回溯历史输入</td><td>输入框内按 <span class="kbd">↑</span></td></tr>
+          <tr><td>发送 / 换行</td><td><span class="kbd">Enter</span> / <span class="kbd">Shift</span> + <span class="kbd">Enter</span></td></tr>
+        </tbody>
+      </table>
+    <div class="docs-pager"><a href="features.html">← 功能总览</a><a href="knowledge.html">知识底座 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">做自己的知识基础设施</span>
+  </div>
+</footer>
+</body>
+</html>
