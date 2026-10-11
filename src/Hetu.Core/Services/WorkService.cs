@@ -423,11 +423,11 @@ public class WorkSessionService : IWorkSessionService
 
         // 名字冲突（目录或分支已存在）时加序号后缀，避免动到已有分支
         var branch = name;
-        var worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, branch);
+        var worktreePath = await _worktrees.ResolvePathAsync(project.RootPath, branch, cancellationToken);
         for (var suffix = 2; suffix <= 20 && (Directory.Exists(worktreePath) || await _worktrees.BranchExistsAsync(project.RootPath, branch, cancellationToken)); suffix++)
         {
             branch = $"{name}-{suffix}";
-            worktreePath = WorkWorktreeService.ResolvePath(project.RootPath, branch);
+            worktreePath = await _worktrees.ResolvePathAsync(project.RootPath, branch, cancellationToken);
         }
 
         var created = await _worktrees.CreateAsync(project.RootPath, worktreePath, branch, baseBranch, cancellationToken);

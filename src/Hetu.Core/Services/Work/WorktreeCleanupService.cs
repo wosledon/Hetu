@@ -13,7 +13,8 @@ public record WorktreeCleanupResult(int Removed, int Checked, int Kept);
 /// 工作树自动清理：
 /// 1) 已合并/已完成——工作树干净（无未提交、无未跟踪文件）且它的提交都已经在集成分支里
 ///    （或曾推送过、远端分支已被删除，即常见 squash 合并后删分支），空闲一段时间后连同工作树一起清掉；
-/// 2) 孤立工作树——<c>&lt;仓库&gt;.hetu-worktrees</c> 下不再被任何会话引用的目录（这类是纯垃圾，始终清理）。
+/// 2) 孤立工作树——工作树根目录（默认仓库父目录下的 <c>.hetu-worktrees</c>，旧版为 <c>&lt;仓库名&gt;.hetu-worktrees</c>）
+/// 下不再被任何会话引用的目录（这类是纯垃圾，始终清理）。
 /// 会话记录同步复位为「当前分支」，下次发消息不会再建工作树。分支默认保留，可配置删除。
 /// </summary>
 public class WorktreeCleanupService
@@ -173,7 +174,7 @@ public class WorktreeCleanupService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 无主残留目录：没有任何会话引用，直接删
-        var root = WorkWorktreeService.ResolveRoot(project.RootPath);
+        var root = await _worktrees.ResolveRootAsync(project.RootPath, cancellationToken);
         if (Directory.Exists(root))
         {
             var owned = sessions
@@ -192,6 +193,63 @@ public class WorktreeCleanupService
         }
 
         if (removed > 0) await _worktrees.PruneAsync(project.RootPath, cancellationToken);
+        removed += await CleanupLegacyRootAsync(project, sessions, force, cancellationToken);
+        DeleteIfEmpty(await _worktrees.ResolveRootAsync(project.RootPath, cancellationToken));
         return new WorktreeCleanupResult(removed, candidates.Count, kept);
+    }
+
+    /// <summary>清空后的仓库子目录（以及整个根目录）删掉，别留空壳</summary>
+    private static void DeleteIfEmpty(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path) || Directory.EnumerateFileSystemEntries(path).Any()) return;
+            Directory.Delete(path);
+            var parent = Path.GetDirectoryName(path);
+            if (parent != null && Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any())
+                Directory.Delete(parent);
+        }
+        catch (IOException)
+        {
+            // 删不掉就留着，下次再试
+        }
+    }
+
+    /// <summary>
+    /// 旧版默认位置（仓库同级 <c>&lt;仓库名&gt;.hetu-worktrees</c>）：清掉里面无人引用的目录，
+    /// 清空后连这个目录一起删，避免继续占着仓库父目录。
+    /// </summary>
+    private async Task<int> CleanupLegacyRootAsync(
+        WorkProject project, IReadOnlyList<WorkSession> sessions, bool force, CancellationToken cancellationToken)
+    {
+        var legacyRoot = WorkWorktreeService.LegacyRoot(project.RootPath);
+        if (!Directory.Exists(legacyRoot)) return 0;
+
+        var owned = sessions
+            .Where(s => !string.IsNullOrWhiteSpace(s.WorktreePath))
+            .Select(s => Path.GetFullPath(s.WorktreePath!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var removed = 0;
+        foreach (var directory in Directory.GetDirectories(legacyRoot))
+        {
+            var full = Path.GetFullPath(directory);
+            if (owned.Contains(full)) continue;
+            if (!force && Directory.GetLastWriteTimeUtc(full) > DateTime.UtcNow - FreshWindow) continue;
+            await _worktrees.RemoveAsync(project.RootPath, full, cancellationToken);
+            _logger.LogInformation("[worktree] 清理旧位置的工作树 {Path}（项目 {Project}）", full, project.Name);
+            removed++;
+        }
+
+        try
+        {
+            if (Directory.Exists(legacyRoot) && !Directory.EnumerateFileSystemEntries(legacyRoot).Any())
+                Directory.Delete(legacyRoot);
+        }
+        catch (IOException)
+        {
+            // 删不掉就留着，下次再试
+        }
+        return removed;
     }
 }

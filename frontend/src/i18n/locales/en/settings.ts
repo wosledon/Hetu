@@ -12,6 +12,8 @@ export default {
   sections: {
     app: 'App settings',
     appDesc: 'Name, theme, graph',
+    workspace: 'Workspace',
+    workspaceDesc: 'Worktree directory and cleanup',
     navigation: 'Navigation',
     navigationDesc: 'Top bar entries',
     models: 'Default models',
@@ -126,6 +128,18 @@ export default {
     title: 'Trash',
     subtitle: 'View and manage deleted notes; restore them or delete them permanently',
     open: 'Open trash',
+  },
+  worktreeLocation: {
+    title: 'Worktree directory',
+    subtitle: 'Code sessions keep their isolated worktrees together in .hetu-worktrees next to the repos (one subfolder per repo), so the parent folder only grows by that single folder instead of one .hetu-worktrees per repo. You can point it somewhere else and Hetu keeps managing the subfolders.',
+    rootLabel: 'Worktree root directory',
+    placeholder: 'Empty = <repo parent>/.hetu-worktrees',
+    hint: 'Must be an absolute path and must not live inside a repository; the directory is created if missing. Changes only affect worktrees created afterwards; existing ones stay where they are until cleaned up.',
+    reset: 'Default',
+    resetTitle: 'Reset to <repo parent>/.hetu-worktrees',
+    save: 'Save',
+    exampleRoot: 'Example root: {{path}}',
+    examplePath: 'Example worktree: {{path}}',
   },
   worktreeCleanup: {
     title: 'Code worktree auto-cleanup',
