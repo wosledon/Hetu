@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>记忆的写入与召回 — 深入实现 · Hetu</title>
+<meta name="description" content="记忆模型与作用域、三条写入路径（手动 / 对话 / 工作会话）、召回打分公式的五个分量、topK 与访问副作用、存储介质与常量。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/memory-recall.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/memory-recall.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="记忆的写入与召回 — 深入实现 · Hetu">
+<meta property="og:description" content="记忆模型与作用域、三条写入路径（手动 / 对话 / 工作会话）、召回打分公式的五个分量、topK 与访问副作用、存储介质与常量。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/memory-recall.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html" aria-current="page">记忆的写入与召回</a></li>
+      <li><a href="dream.html">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html">任务看板与自动化</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>记忆的写入与召回</h1>
+      <p class="lede">记忆不是「聊天记录摘要」，而是一张独立的表：有作用域、有重要度、有访问计数，召回时用<strong>相似度 + 重要度 + 时间衰减 + 访问频率 + 作用域加成</strong>五个分量打分。理解这个公式，就理解了为什么有些记忆反复出现、有些从不再出现。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 240" role="img" aria-label="记忆的写入与召回">
+  <defs>
+    <marker id="a-mem2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="26" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="50">手动新增</text>
+  <text class="sub" x="30" y="68">source = manual</text>
+
+  <rect class="box" x="16" y="92" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="116">对话提取</text>
+  <text class="sub" x="30" y="134">source = conversation</text>
+
+  <rect class="box" x="16" y="158" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="182">工作会话提取</text>
+  <text class="sub" x="30" y="200">source = work</text>
+
+  <rect class="box-accent" x="228" y="92" width="160" height="52" rx="9"/>
+  <text class="label" x="242" y="116">向量化</text>
+  <text class="sub" x="242" y="134">vec_memory_embeddings</text>
+
+  <rect class="box-dark" x="424" y="76" width="184" height="84" rx="9"/>
+  <text class="label-light" x="438" y="102">召回打分</text>
+  <text class="sub" x="438" y="122">0.4 相似度 + 0.3 重要度</text>
+  <text class="sub" x="438" y="140">0.2 时间衰减 + 0.1 访问频率</text>
+
+  <rect class="box" x="644" y="26" width="220" height="86" rx="9"/>
+  <text class="label" x="658" y="52">作用域过滤</text>
+  <text class="sub" x="658" y="72">Global 恒命中</text>
+  <text class="sub" x="658" y="90">Session 同 TopicId · Project 同 ProjectId</text>
+
+  <rect class="box" x="644" y="128" width="220" height="86" rx="9"/>
+  <text class="label" x="658" y="154">注入上下文</text>
+  <text class="sub" x="658" y="174">默认取前 5 条</text>
+  <text class="sub" x="658" y="192">命中即更新访问时间与次数</text>
+
+  <path class="flow" d="M192 54 H210 V112 H222" marker-end="url(#a-mem2)"/>
+  <path class="flow" d="M192 118 H222" marker-end="url(#a-mem2)"/>
+  <path class="flow" d="M192 182 H210 V124 H222" marker-end="url(#a-mem2)"/>
+  <path class="flow" d="M388 118 H418" marker-end="url(#a-mem2)"/>
+  <path class="flow" d="M608 118 H626 V70 H638" marker-end="url(#a-mem2)"/>
+  <path class="flow" d="M642 148 H626 V170 H638" marker-end="url(#a-mem2)"/>
+</svg><figcaption>三条写入路径共用一套向量与打分：写入决定「有什么」，打分与作用域决定「这次给模型看什么」。</figcaption>
+      </figure>
+
+      <h2>记忆模型</h2>
+      <table>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Scope</code></td><td><code>Global</code> / <code>Session</code> / <code>Project</code>，默认 <code>Global</code></td></tr>
+          <tr><td><code>ProjectId</code> / <code>TopicId</code></td><td>作用域载体：<code>Project</code> 必须带 <code>ProjectId</code>，<code>Session</code> 必须已有 <code>TopicId</code></td></tr>
+          <tr><td><code>Source</code></td><td><code>manual</code>（手填）/ <code>conversation</code>（对话提取）/ <code>work</code>（工作会话提取）</td></tr>
+          <tr><td><code>Category</code></td><td>分类标签，随内容一起给模型看</td></tr>
+          <tr><td><code>Importance</code></td><td>默认 <code>0.5</code>，创建与更新都会 <code>Clamp(0, 1)</code></td></tr>
+          <tr><td><code>AccessCount</code> / <code>LastAccessedAt</code></td><td>召回副作用：命中即 <code>+1</code> 并刷新时间，两者参与打分</td></tr>
+          <tr><td><code>Score</code></td><td>只在检索结果里返回，不落库</td></tr>
+        </tbody>
+      </table>
+
+      <h2>三条写入路径</h2>
+      <table>
+        <thead><tr><th>路径</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/memories</code></td><td>手动新增；<strong>不允许</strong>手动建 <code>Session</code> 作用域（会话记忆由提取产生），<code>Project</code> 作用域必须给 <code>ProjectId</code></td></tr>
+          <tr><td><code>POST /api/memories/extract/{topicId}</code></td><td>从对话提取（<code>conversation</code>）；自动入口按「用户消息数 / 时间 / 密度」三个信号判断是否值得提取</td></tr>
+          <tr><td><code>POST /api/memories/extract-work/{sessionId}</code></td><td>从工作会话提取（<code>work</code>）；每累计 <strong>10 条</strong>用户消息触发一次，且<strong>仅当会话关联受管项目</strong>时才提取</td></tr>
+        </tbody>
+      </table>
+      <div class="note">「每 10 条用户消息」与「仅受管项目」这两条约束是有意的：工作会话噪音大、token 贵，宁可不提取也不要写一堆无意义记忆进来。</div>
+
+      <h2>召回与打分</h2>
+      <table>
+        <thead><tr><th>分量</th><th>权重 / 公式</th></tr></thead>
+        <tbody>
+          <tr><td>相似度</td><td><code>0.4 × similarity</code>（向量检索）</td></tr>
+          <tr><td>重要度</td><td><code>0.3 × importance</code></td></tr>
+          <tr><td>时间衰减</td><td><code>0.2 × exp(-0.05 × 距上次访问天数)</code></td></tr>
+          <tr><td>访问频率</td><td><code>0.1 × log(1 + AccessCount) / log(51)</code>，50 次封顶</td></tr>
+          <tr><td>作用域加成</td><td>按作用域额外加权，<code>Global</code> 恒命中，<code>Session</code> 只匹配同 <code>TopicId</code>，<code>Project</code> 只匹配同 <code>ProjectId</code></td></tr>
+        </tbody>
+      </table>
+      <p>结果按总分降序取前 K 条：注入上下文时默认 <code>topK = 5</code>，检索页默认 <code>topK = 10</code>。被命中的记忆会立刻写回 <code>LastAccessedAt</code> 与 <code>AccessCount</code>——这意味着<strong>用过的记忆下次更容易被用到</strong>，是一个正反馈回路，排查「某条无关记忆总出现」时要看它的访问计数。</p>
+      <p>工作会话注入时用的是「全局 ∪ 当前项目」两段并集（带入项目的 <code>ManagedProjectId</code>），这样项目规则类记忆只在对应项目内生效。</p>
+
+      <h2>存储与检索介质</h2>
+      <ul>
+        <li>SQLite 走 <code>sqlite-vec</code> 虚表 <code>vec_memory_embeddings</code>；PostgreSQL 走 <code>MemoryEmbeddings</code> 的 <code>vector</code> 列。</li>
+        <li>目前<strong>没有</strong>记忆的全文（FTS）检索路径：召回完全是向量 + 打分。</li>
+        <li>编辑记忆会重算 embedding；删除是软删并同时移除 embedding 与 vec 行。</li>
+        <li>没有记忆的版本历史表：编辑即覆盖。</li>
+      </ul>
+
+      <h2>观测与常量</h2>
+      <table>
+        <thead><tr><th>常量</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>打分权重</td><td><code>Alpha = 0.4</code> · <code>Beta = 0.3</code> · <code>Gamma = 0.2</code> · <code>Delta = 0.1</code></td></tr>
+          <tr><td>衰减系数</td><td><code>DecayLambda = 0.05</code></td></tr>
+          <tr><td>工作会话自动提取间隔</td><td><code>AutoExtractInterval = 10</code> 条用户消息</td></tr>
+          <tr><td>对话自动提取时间信号</td><td><code>TimeTriggerMinutes = 30</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>作用域选错是记忆问题的主因：项目专属的约定不要写成 <code>Global</code>，否则会污染其他项目的对话。</li>
+        <li>重要度是唯一可以人工干预的长期杠杆：把噪音记忆降到 <code>0.1</code> 附近，它自然会被衰减掉。</li>
+        <li>embedding 模型换了要重新索引记忆，否则相似度分量失真；这一点与笔记索引同源。</li>
+        <li>记忆的自动提取与 Dream 巩固是两件事：前者写、后者合；整理质量看 <a href="dream.html">Dream 记忆巩固</a>。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory write & recall — Internals · Hetu</title>
+<meta name="description" content="Memory model and scopes, the three write paths, the five scoring components, topK and access side effects, storage backends and constants.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/memory-recall.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/memory-recall.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Memory write & recall — Internals · Hetu">
+<meta property="og:description" content="Memory model and scopes, the three write paths, the five scoring components, topK and access side effects, storage backends and constants.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/memory-recall.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/memory-recall.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html" aria-current="page">Memory write & recall</a></li>
+      <li><a href="dream.html">Dream consolidation</a></li>
+      <li><a href="kanban.html">Task board & automation</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Memory write &amp; recall</h1>
+      <p class="lede">Memory is not "a summary of the chat log" but its own table: with a scope, an importance value and an access counter. Recall scores each candidate with <strong>similarity + importance + recency decay + access frequency + a scope bonus</strong>. That formula explains why some memories keep resurfacing and others never return.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 240" role="img" aria-label="Memory write and recall">
+  <defs>
+    <marker id="a-mem-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="26" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="50">Manual create</text>
+  <text class="sub" x="30" y="68">source = manual</text>
+
+  <rect class="box" x="16" y="92" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="116">Conversation extract</text>
+  <text class="sub" x="30" y="134">source = conversation</text>
+
+  <rect class="box" x="16" y="158" width="176" height="52" rx="9"/>
+  <text class="label" x="30" y="182">Work session extract</text>
+  <text class="sub" x="30" y="200">source = work</text>
+
+  <rect class="box-accent" x="228" y="92" width="160" height="52" rx="9"/>
+  <text class="label" x="242" y="116">Embedding</text>
+  <text class="sub" x="242" y="134">vec_memory_embeddings</text>
+
+  <rect class="box-dark" x="424" y="76" width="184" height="84" rx="9"/>
+  <text class="label-light" x="438" y="102">Scoring</text>
+  <text class="sub" x="438" y="122">0.4 similarity + 0.3 importance</text>
+  <text class="sub" x="438" y="140">0.2 recency + 0.1 access freq</text>
+
+  <rect class="box" x="644" y="26" width="220" height="86" rx="9"/>
+  <text class="label" x="658" y="52">Scope filter</text>
+  <text class="sub" x="658" y="72">Global always matches</text>
+  <text class="sub" x="658" y="90">Session by TopicId · Project by ProjectId</text>
+
+  <rect class="box" x="644" y="128" width="220" height="86" rx="9"/>
+  <text class="label" x="658" y="154">Injected into context</text>
+  <text class="sub" x="658" y="174">top 5 by default</text>
+  <text class="sub" x="658" y="192">hits update time and count</text>
+
+  <path class="flow" d="M192 54 H210 V112 H222" marker-end="url(#a-mem-en)"/>
+  <path class="flow" d="M192 118 H222" marker-end="url(#a-mem-en)"/>
+  <path class="flow" d="M192 182 H210 V124 H222" marker-end="url(#a-mem-en)"/>
+  <path class="flow" d="M388 118 H418" marker-end="url(#a-mem-en)"/>
+  <path class="flow" d="M608 118 H626 V70 H638" marker-end="url(#a-mem-en)"/>
+  <path class="flow" d="M642 148 H626 V170 H638" marker-end="url(#a-mem-en)"/>
+</svg><figcaption>All three write paths share one vector store and one scoring function: writes decide what exists, scoring and scope decide what the model sees this turn.</figcaption>
+      </figure>
+
+      <h2>Memory model</h2>
+      <table>
+        <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>Scope</code></td><td><code>Global</code> / <code>Session</code> / <code>Project</code>, defaulting to <code>Global</code></td></tr>
+          <tr><td><code>ProjectId</code> / <code>TopicId</code></td><td>Scope carriers: <code>Project</code> requires <code>ProjectId</code>, <code>Session</code> requires an existing <code>TopicId</code></td></tr>
+          <tr><td><code>Source</code></td><td><code>manual</code> / <code>conversation</code> / <code>work</code></td></tr>
+          <tr><td><code>Category</code></td><td>Free-form label passed to the model with the content</td></tr>
+          <tr><td><code>Importance</code></td><td>Default <code>0.5</code>, clamped to <code>0…1</code> on create and update</td></tr>
+          <tr><td><code>AccessCount</code> / <code>LastAccessedAt</code></td><td>Recall side effects: a hit increments the counter and refreshes the timestamp; both feed scoring</td></tr>
+          <tr><td><code>Score</code></td><td>Returned only in search results, never persisted</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Three write paths</h2>
+      <table>
+        <thead><tr><th>Path</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/memories</code></td><td>Manual create; <code>Session</code> scope is <strong>not allowed here</strong> (session memories come from extraction) and <code>Project</code> scope must carry <code>ProjectId</code></td></tr>
+          <tr><td><code>POST /api/memories/extract/{topicId}</code></td><td>Conversation extraction (<code>conversation</code>); the automatic entry point weighs user message count, elapsed time and density</td></tr>
+          <tr><td><code>POST /api/memories/extract-work/{sessionId}</code></td><td>Work session extraction (<code>work</code>); fires every <strong>10</strong> user messages and only when the session belongs to a managed project</td></tr>
+        </tbody>
+      </table>
+      <div class="note">Both constraints are deliberate: work sessions are noisy and expensive, so skipping extraction beats writing a pile of meaningless memories.</div>
+
+      <h2>Recall and scoring</h2>
+      <table>
+        <thead><tr><th>Component</th><th>Weight / formula</th></tr></thead>
+        <tbody>
+          <tr><td>Similarity</td><td><code>0.4 × similarity</code> from the vector search</td></tr>
+          <tr><td>Importance</td><td><code>0.3 × importance</code></td></tr>
+          <tr><td>Recency</td><td><code>0.2 × exp(-0.05 × days since last access)</code></td></tr>
+          <tr><td>Access frequency</td><td><code>0.1 × log(1 + AccessCount) / log(51)</code>, capped at 50 hits</td></tr>
+          <tr><td>Scope bonus</td><td>Extra weight per scope; <code>Global</code> always matches, <code>Session</code> matches the same <code>TopicId</code>, <code>Project</code> the same <code>ProjectId</code></td></tr>
+        </tbody>
+      </table>
+      <p>Results are sorted by total score and truncated: <code>topK = 5</code> when injecting context, <code>topK = 10</code> on the search page. Every hit immediately writes back <code>LastAccessedAt</code> and <code>AccessCount</code>, so <strong>a memory that was used is more likely to be used again</strong>. That positive feedback loop is the first thing to check when an irrelevant memory keeps showing up.</p>
+      <p>Work sessions inject the union of global and current-project memories (passing the project's <code>ManagedProjectId</code>), which keeps project-specific rules inside their project.</p>
+
+      <h2>Storage backends</h2>
+      <ul>
+        <li>SQLite uses the <code>sqlite-vec</code> table <code>vec_memory_embeddings</code>; PostgreSQL uses the <code>vector</code> column on <code>MemoryEmbeddings</code>.</li>
+        <li>There is currently <strong>no</strong> full-text path for memories: recall is vector search plus scoring.</li>
+        <li>Editing a memory re-computes its embedding; deleting soft-deletes the row and removes the embedding and its vector row.</li>
+        <li>There is no version history for memories: edits overwrite.</li>
+      </ul>
+
+      <h2>Constants and observability</h2>
+      <table>
+        <thead><tr><th>Constant</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Score weights</td><td><code>Alpha = 0.4</code> · <code>Beta = 0.3</code> · <code>Gamma = 0.2</code> · <code>Delta = 0.1</code></td></tr>
+          <tr><td>Decay lambda</td><td><code>DecayLambda = 0.05</code></td></tr>
+          <tr><td>Work auto-extract interval</td><td><code>AutoExtractInterval = 10</code> user messages</td></tr>
+          <tr><td>Conversation time signal</td><td><code>TimeTriggerMinutes = 30</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li>Wrong scope is the most common memory problem: a project-specific convention stored as <code>Global</code> pollutes unrelated conversations.</li>
+        <li>Importance is the only long-term manual lever: drop noisy memories towards <code>0.1</code> and decay will take care of them.</li>
+        <li>Switching embedding models requires re-indexing memories, otherwise the similarity term is skewed — same rule as note indexing.</li>
+        <li>Automatic extraction and Dream consolidation are separate: the former writes, the latter merges; see <a href="dream.html">Dream consolidation</a> for the merge rules.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dream 记忆巩固 — 深入实现 · Hetu</title>
+<meta name="description" content="Dream 的触发与执行条件、配置默认值与约束、贪心聚类与代表选择、合并统计、衰减与遗忘阈值、返回统计与日志。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/dream.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/dream.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Dream 记忆巩固 — 深入实现 · Hetu">
+<meta property="og:description" content="Dream 的触发与执行条件、配置默认值与约束、贪心聚类与代表选择、合并统计、衰减与遗忘阈值、返回统计与日志。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/dream.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html">记忆的写入与召回</a></li>
+      <li><a href="dream.html" aria-current="page">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html">任务看板与自动化</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Dream 记忆巩固</h1>
+      <p class="lede">Dream 是记忆的<strong>垃圾回收 + 归档</strong>：把近似重复的记忆按向量聚类合并（相似度 ≥ 阈值），把长期没被用到的记忆降权，把既旧又没用的记忆忘掉。它是唯一会<strong>删除</strong>记忆的自动化流程，所以参数默认值都偏保守。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 224" role="img" aria-label="Dream 巩固流程">
+  <defs>
+    <marker id="a-dream" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="76" width="160" height="66" rx="9"/>
+  <text class="label" x="30" y="102">触发</text>
+  <text class="sub" x="30" y="122">手动 / 每 30 分钟检查</text>
+
+  <rect class="box-accent" x="200" y="76" width="168" height="66" rx="9"/>
+  <text class="label" x="214" y="102">贪心聚类</text>
+  <text class="sub" x="214" y="122">按向量相似度 ≥ 0.85</text>
+
+  <rect class="box-dark" x="392" y="76" width="168" height="66" rx="9"/>
+  <text class="label-light" x="406" y="102">选代表（keeper）</text>
+  <text class="sub" x="406" y="122">重要度 → 更公共 → 更早</text>
+
+  <rect class="box" x="584" y="26" width="280" height="62" rx="9"/>
+  <text class="label" x="598" y="52">合并</text>
+  <text class="sub" x="598" y="72">重要度 +0.05 · 访问数累加 · 时间取最新</text>
+
+  <rect class="box" x="584" y="112" width="280" height="62" rx="9"/>
+  <text class="label" x="598" y="138">衰减 / 遗忘</text>
+  <text class="sub" x="598" y="158">超 30 天未用 → ×0.8；超 180 天且低于 0.15 → 遗忘</text>
+
+  <rect class="box-accent" x="16" y="156" width="544" height="52" rx="9"/>
+  <text class="label" x="30" y="180">写回 LastRunAt 与统计：Merged / Decayed / Forgotten / Remaining / 耗时</text>
+
+  <path class="flow" d="M176 109 H194" marker-end="url(#a-dream)"/>
+  <path class="flow" d="M368 109 H386" marker-end="url(#a-dream)"/>
+  <path class="flow" d="M560 109 H578 V57 H578" marker-end="url(#a-dream)"/>
+  <path class="flow" d="M560 109 H578 V143" marker-end="url(#a-dream)"/>
+  <path class="flow-dashed" d="M300 142 V150" marker-end="url(#a-dream)"/>
+</svg><figcaption>顺序固定：先聚类合并、再衰减、最后遗忘；每一步都写回统计，便于判断「这次动了什么」。</figcaption>
+      </figure>
+
+      <h2>触发方式</h2>
+      <table>
+        <thead><tr><th>方式</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>手动</td><td><code>POST /api/memories/dream</code>，立即执行并返回统计</td></tr>
+          <tr><td>后台</td><td><code>DreamMemoryService</code> 作为常驻后台服务：启动即检查一次，之后每 <strong>30 分钟</strong>轮询一次</td></tr>
+          <tr><td>执行条件</td><td><code>Enabled = true</code> 且距上次运行已超过 <code>IntervalHours</code>（默认 24 小时）</td></tr>
+        </tbody>
+      </table>
+
+      <h2>配置与默认值</h2>
+      <table>
+        <thead><tr><th>配置项</th><th>默认</th><th>约束</th></tr></thead>
+        <tbody>
+          <tr><td><code>Enabled</code></td><td><code>true</code></td><td>关闭后后台不再执行，手动仍可用</td></tr>
+          <tr><td><code>IntervalHours</code></td><td><code>24</code></td><td>1–720</td></tr>
+          <tr><td><code>MergeThreshold</code></td><td><code>0.85</code></td><td>0.5–0.99</td></tr>
+          <tr><td><code>DecayDays</code></td><td><code>30</code></td><td>1–3650</td></tr>
+          <tr><td><code>ForgetDays</code></td><td><code>180</code></td><td>必须 ≥ <code>DecayDays</code></td></tr>
+          <tr><td><code>ForgetBelowImportance</code></td><td><code>0.15</code></td><td>0.01–1</td></tr>
+          <tr><td><code>LastRunAt</code></td><td>—</td><td>由执行流程写回；<strong>保存配置不会覆盖它</strong>（否则每次改配置都会重置周期）</td></tr>
+        </tbody>
+      </table>
+      <p>配置键是 <code>DreamConfig</code>。</p>
+
+      <h2>聚类与合并</h2>
+      <ol>
+        <li>取出全部未删除记忆，按 embedding 相似度做<strong>贪心聚类</strong>，阈值即 <code>MergeThreshold</code>。</li>
+        <li>每个簇选一个代表（keeper），选择顺序：<code>Importance</code> 更高 → 作用域更公共（<code>Global</code> &lt; <code>Project</code> &lt; <code>Session</code>）→ <code>CreatedAt</code> 更早。</li>
+        <li>保留代表并更新：<code>Importance += 0.05</code>（上限 1）、<code>AccessCount</code> 累加被吸收记忆的次数、<code>LastAccessedAt</code> 取簇内最新。</li>
+        <li>被吸收的记忆被移除（含向量行）。</li>
+      </ol>
+      <div class="note">合并偏好「更公共、更早」的那条：项目级或会话级的重复表述会被吸进全局记忆，这也是为什么合并后要检查一下原文表述是否还准确。</div>
+
+      <h2>衰减与遗忘</h2>
+      <table>
+        <thead><tr><th>阶段</th><th>条件</th><th>动作</th></tr></thead>
+        <tbody>
+          <tr><td>衰减</td><td>距上次访问 &gt; <code>DecayDays</code> 且 <code>Importance &gt; 0.05</code></td><td><code>Importance ×= 0.8</code>，下限 0.05</td></tr>
+          <tr><td>遗忘</td><td>距上次访问 &gt; <code>ForgetDays</code> 且 <code>Importance &lt; ForgetBelowImportance</code></td><td>软删并移除 embedding</td></tr>
+        </tbody>
+      </table>
+
+      <h2>结果与观测</h2>
+      <ul>
+        <li>返回统计 <code>DreamResultDto</code>：<code>Merged</code> / <code>Decayed</code> / <code>Forgotten</code> / <code>Remaining</code> / <code>DurationMs</code> / <code>RanAt</code>。</li>
+        <li>日志：启动 <code>记忆 Dream 巩固服务已启动</code>；自动执行 <code>[Dream] 自动巩固完成：…</code>；手动完成 <code>[Dream] 记忆巩固完成：…</code>；失败 <code>Dream 自动巩固失败</code> / <code>Dream 记忆巩固失败</code>。</li>
+        <li>失败不会拖死后台服务：异常在服务层被捕获并记录，仅本次不生效。</li>
+      </ul>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>Dream 是<strong>不可逆</strong>的：没有记忆版本历史，合并与遗忘都直接落库。调低阈值前先确认能接受合并后果。</li>
+        <li>「记忆莫名变少」通常不是 bug：查 <code>ForgetDays</code> 与 <code>ForgetBelowImportance</code>，以及这些记忆的 <code>LastAccessedAt</code>（长期不召回就会被衰减到阈值以下）。</li>
+        <li>想保留某条记忆，把 <code>Importance</code> 提到 <code>0.2</code> 以上并偶尔让它被召回，两个信号都能挡住遗忘。</li>
+        <li>换 embedding 模型后聚类阈值语义会变，建议先手动跑一次看 <code>Merged</code> 数量再让后台自动执行。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

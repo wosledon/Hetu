@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dream consolidation — Internals · Hetu</title>
+<meta name="description" content="Dream triggers and preconditions, defaults and constraints, greedy clustering and keeper selection, merge bookkeeping, decay and forgetting, results and logs.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/dream.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/dream.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Dream consolidation — Internals · Hetu">
+<meta property="og:description" content="Dream triggers and preconditions, defaults and constraints, greedy clustering and keeper selection, merge bookkeeping, decay and forgetting, results and logs.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/dream.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/dream.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html">Memory write & recall</a></li>
+      <li><a href="dream.html" aria-current="page">Dream consolidation</a></li>
+      <li><a href="kanban.html">Task board & automation</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Dream consolidation</h1>
+      <p class="lede">Dream is garbage collection for memories: near-duplicates are clustered by vector similarity and merged, memories that have not been used for a long time lose weight, and memories that are both old and unimportant are forgotten. It is the only automated flow that <strong>deletes</strong> memories, which is why the defaults stay conservative.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 224" role="img" aria-label="Dream consolidation flow">
+  <defs>
+    <marker id="a-dream-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="76" width="160" height="66" rx="9"/>
+  <text class="label" x="30" y="102">Trigger</text>
+  <text class="sub" x="30" y="122">manual / 30-minute check</text>
+
+  <rect class="box-accent" x="200" y="76" width="168" height="66" rx="9"/>
+  <text class="label" x="214" y="102">Greedy clustering</text>
+  <text class="sub" x="214" y="122">similarity ≥ 0.85</text>
+
+  <rect class="box-dark" x="392" y="76" width="168" height="66" rx="9"/>
+  <text class="label-light" x="406" y="102">Pick the keeper</text>
+  <text class="sub" x="406" y="122">importance → more public → earlier</text>
+
+  <rect class="box" x="584" y="26" width="280" height="62" rx="9"/>
+  <text class="label" x="598" y="52">Merge</text>
+  <text class="sub" x="598" y="72">importance +0.05 · access sum · newest time</text>
+
+  <rect class="box" x="584" y="112" width="280" height="62" rx="9"/>
+  <text class="label" x="598" y="138">Decay / forget</text>
+  <text class="sub" x="598" y="158">unused &gt;30d → ×0.8; &gt;180d and &lt;0.15 → forgotten</text>
+
+  <rect class="box-accent" x="16" y="156" width="544" height="52" rx="9"/>
+  <text class="label" x="30" y="180">Writes back LastRunAt and stats: Merged / Decayed / Forgotten / Remaining / duration</text>
+
+  <path class="flow" d="M176 109 H194" marker-end="url(#a-dream-en)"/>
+  <path class="flow" d="M368 109 H386" marker-end="url(#a-dream-en)"/>
+  <path class="flow" d="M560 109 H578 V57" marker-end="url(#a-dream-en)"/>
+  <path class="flow" d="M560 109 H578 V143" marker-end="url(#a-dream-en)"/>
+  <path class="flow-dashed" d="M300 142 V150" marker-end="url(#a-dream-en)"/>
+</svg><figcaption>The order is fixed: merge, then decay, then forget. Every step reports its counters so you can tell what changed.</figcaption>
+      </figure>
+
+      <h2>Triggers</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Manual</td><td><code>POST /api/memories/dream</code> runs immediately and returns the stats</td></tr>
+          <tr><td>Background</td><td><code>DreamMemoryService</code> checks once on startup and then polls every <strong>30 minutes</strong></td></tr>
+          <tr><td>Precondition</td><td><code>Enabled = true</code> and more than <code>IntervalHours</code> (default 24 h) since the last run</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Configuration and defaults</h2>
+      <table>
+        <thead><tr><th>Setting</th><th>Default</th><th>Constraint</th></tr></thead>
+        <tbody>
+          <tr><td><code>Enabled</code></td><td><code>true</code></td><td>Disabling stops the background run; manual execution still works</td></tr>
+          <tr><td><code>IntervalHours</code></td><td><code>24</code></td><td>1–720</td></tr>
+          <tr><td><code>MergeThreshold</code></td><td><code>0.85</code></td><td>0.5–0.99</td></tr>
+          <tr><td><code>DecayDays</code></td><td><code>30</code></td><td>1–3650</td></tr>
+          <tr><td><code>ForgetDays</code></td><td><code>180</code></td><td>Must be ≥ <code>DecayDays</code></td></tr>
+          <tr><td><code>ForgetBelowImportance</code></td><td><code>0.15</code></td><td>0.01–1</td></tr>
+          <tr><td><code>LastRunAt</code></td><td>—</td><td>Written by the run; <strong>saving settings never overwrites it</strong>, otherwise every edit would reset the cadence</td></tr>
+        </tbody>
+      </table>
+      <p>The settings key is <code>DreamConfig</code>.</p>
+
+      <h2>Clustering and merging</h2>
+      <ol>
+        <li>Load every non-deleted memory and cluster <strong>greedily</strong> by embedding similarity, using <code>MergeThreshold</code> as the cutoff.</li>
+        <li>Pick one keeper per cluster: higher <code>Importance</code> → more public scope (<code>Global</code> &lt; <code>Project</code> &lt; <code>Session</code>) → earlier <code>CreatedAt</code>.</li>
+        <li>Update the keeper: <code>Importance += 0.05</code> capped at 1, <code>AccessCount</code> adds the absorbed counts, <code>LastAccessedAt</code> takes the newest in the cluster.</li>
+        <li>Absorbed memories are removed along with their vectors.</li>
+      </ol>
+      <div class="note">The merge prefers the more public and older wording: project- or session-scoped duplicates get absorbed into a global memory — worth a glance afterwards to confirm the surviving text is still accurate.</div>
+
+      <h2>Decay and forgetting</h2>
+      <table>
+        <thead><tr><th>Stage</th><th>Condition</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Decay</td><td>Not accessed for &gt; <code>DecayDays</code> and <code>Importance &gt; 0.05</code></td><td><code>Importance ×= 0.8</code>, floor 0.05</td></tr>
+          <tr><td>Forget</td><td>Not accessed for &gt; <code>ForgetDays</code> and <code>Importance &lt; ForgetBelowImportance</code></td><td>Soft-delete and remove the embedding</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Results and observability</h2>
+      <ul>
+        <li>Stats returned as <code>DreamResultDto</code>: <code>Merged</code> / <code>Decayed</code> / <code>Forgotten</code> / <code>Remaining</code> / <code>DurationMs</code> / <code>RanAt</code>.</li>
+        <li>Logs: startup <code>记忆 Dream 巩固服务已启动</code>; automatic runs <code>[Dream] 自动巩固完成：…</code>; manual runs <code>[Dream] 记忆巩固完成：…</code>; failures <code>Dream 自动巩固失败</code> / <code>Dream 记忆巩固失败</code>.</li>
+        <li>Failures never kill the background service: exceptions are caught and logged, and only that run is skipped.</li>
+      </ul>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li>Dream is <strong>irreversible</strong>: there is no memory version history, so merges and forgetting hit the database directly. Understand the consequences before lowering thresholds.</li>
+        <li>"Memories disappeared" is usually not a bug: check <code>ForgetDays</code>, <code>ForgetBelowImportance</code> and those memories' <code>LastAccessedAt</code> — never-recalled memories decay below the cutoff.</li>
+        <li>To keep a memory, raise <code>Importance</code> above <code>0.2</code> and let it be recalled occasionally; both signals block forgetting.</li>
+        <li>Switching embedding models changes what a similarity threshold means; run one manual pass and read <code>Merged</code> before re-enabling the schedule.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

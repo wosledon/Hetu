@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task board &amp; automation — Internals · Hetu</title>
+<meta name="description" content="The transition whitelist and timestamp rules, card model and automation predicate, endpoints, trigger points and execution gate, comment loops, detail enrichment and display fallback, conditional 3-second polling.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/kanban.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/architecture.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/kanban.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Task board &amp; automation — Internals · Hetu">
+<meta property="og:description" content="The transition whitelist and timestamp rules, card model and automation predicate, endpoints, trigger points and execution gate, comment loops, detail enrichment and display fallback, conditional 3-second polling.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/kanban.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="index.html" aria-current="page">Docs</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Download</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">EN</a>
+        <a href="../../guide/kanban.html" title="中文版本">中文</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>On this site</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
+      <li><a href="memories.html">Memories & Dream</a></li>
+      <li><a href="organize.html">Kanban & automation</a></li>
+      <li><a href="extensions.html">Extensions & MCP</a></li>
+      <li><a href="models.html">Models & usage</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data & security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Development</a></li>
+    </ol>
+    <h2>Internals</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permission modes & approvals</a></li>
+      <li><a href="context.html">Context & auto compaction</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking & vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html">Memory write & recall</a></li>
+      <li><a href="dream.html">Dream consolidation</a></li>
+      <li><a href="kanban.html" aria-current="page">Task board & automation</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Task board &amp; automation</h1>
+      <p class="lede">The board turns "things we intend to do" into "things that get executed": a card carries a project, an agent or a workflow, and the executor picks it up once it reaches the todo column. Status transitions, run records and comment loops all go through one service path. The frontend has <strong>no</strong> dedicated SSE stream; it relies on conditional polling.</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 260" role="img" aria-label="Task board transitions and frontend refresh">
+  <defs>
+    <marker id="a-kb-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="30" y="58">Backlog</text>
+  <text class="sub" x="30" y="78">→ Todo / Archived</text>
+
+  <rect class="box-accent" x="192" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="206" y="58">Todo</text>
+  <text class="sub" x="206" y="78">the only trigger state</text>
+
+  <rect class="box-dark" x="368" y="34" width="160" height="60" rx="9"/>
+  <text class="label-light" x="382" y="58">InProgress</text>
+  <text class="sub" x="382" y="78">executor running</text>
+
+  <rect class="box" x="554" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="568" y="58">InReview</text>
+  <text class="sub" x="568" y="78">comment can re-run</text>
+
+  <rect class="box" x="730" y="34" width="134" height="60" rx="9"/>
+  <text class="label" x="744" y="58">Done</text>
+  <text class="sub" x="744" y="78">sets CompletedAt</text>
+
+  <rect class="box" x="192" y="126" width="336" height="52" rx="9"/>
+  <text class="label" x="206" y="150">Transitions pass a whitelist first</text>
+  <text class="sub" x="206" y="170">invalid moves are rejected</text>
+
+  <rect class="box" x="554" y="126" width="310" height="52" rx="9"/>
+  <text class="label" x="568" y="150">Blocked</text>
+  <text class="sub" x="568" y="170">sets BlockedReason on entry, clears on exit</text>
+
+  <rect class="box-accent" x="16" y="190" width="848" height="62" rx="9"/>
+  <text class="label" x="30" y="212">Frontend polling</text>
+  <text class="sub" x="30" y="230">3-second refresh while a run is Running / WaitingAnswer, or an automated task sits in Todo / InProgress</text>
+  <text class="sub" x="30" y="246">Polling stops when neither condition holds</text>
+
+  <path class="flow" d="M166 64 H186" marker-end="url(#a-kb-en)"/>
+  <path class="flow" d="M342 64 H362" marker-end="url(#a-kb-en)"/>
+  <path class="flow" d="M528 64 H548" marker-end="url(#a-kb-en)"/>
+  <path class="flow" d="M704 64 H724" marker-end="url(#a-kb-en)"/>
+  <path class="flow-dashed" d="M629 94 V120" marker-end="url(#a-kb-en)"/>
+  <path class="flow-dashed" d="M360 120 V100" marker-end="url(#a-kb-en)"/>
+  <path class="flow-dashed" d="M440 178 V190" marker-end="url(#a-kb-en)"/>
+</svg><figcaption>The state machine is whitelist-based: only allowed transitions pass. Todo is the single automation trigger; Done and Archived only stamp timestamps.</figcaption>
+      </figure>
+
+      <h2>State machine</h2>
+      <table>
+        <thead><tr><th>Status</th><th>Allowed transitions</th></tr></thead>
+        <tbody>
+          <tr><td><code>Backlog</code></td><td><code>Todo</code> · <code>Archived</code></td></tr>
+          <tr><td><code>Todo</code></td><td><code>InProgress</code> · <code>Backlog</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>InProgress</code></td><td><code>InReview</code> · <code>Todo</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>InReview</code></td><td><code>Done</code> · <code>InProgress</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>Blocked</code></td><td><code>Todo</code> · <code>InProgress</code></td></tr>
+          <tr><td><code>Done</code></td><td><code>Archived</code> · <code>InReview</code></td></tr>
+          <tr><td><code>Archived</code></td><td>(terminal)</td></tr>
+        </tbody>
+      </table>
+      <p>The transition table is a hard-coded whitelist and invalid jumps are rejected. Timestamps follow one rule set: entering <code>Done</code> sets <code>CompletedAt</code> and leaving clears it; entering <code>Archived</code> sets <code>ArchivedAt</code> and leaving clears it; entering <code>Blocked</code> keeps or sets <code>BlockedReason</code> and leaving clears it. Priority values are <code>Low</code> / <code>Medium</code> / <code>High</code> / <code>Urgent</code>.</p>
+
+      <h2>Card model</h2>
+      <table>
+        <thead><tr><th>Group</th><th>Fields</th></tr></thead>
+        <tbody>
+          <tr><td>Core</td><td><code>Id</code> · <code>Title</code> · <code>Description</code> · <code>Status</code> · <code>Priority</code> · <code>Assignee</code> · <code>Tags</code> · <code>DueDate</code> · <code>SortOrder</code> · <code>BlockedReason</code> · <code>CompletedAt</code> · <code>ArchivedAt</code></td></tr>
+          <tr><td>Configuration</td><td><code>ProjectId</code> / <code>ProjectName</code> · <code>AgentId</code> / <code>AgentName</code> · <code>AgentPrompt</code> / <code>AgentPromptName</code> · <code>WorkflowId</code> / <code>WorkflowName</code></td></tr>
+          <tr><td>Runs &amp; collaboration</td><td><code>HasAutomation</code> · <code>LastRunStatus</code> · <code>LastRunId</code> · <code>CommentCount</code></td></tr>
+          <tr><td>Comments</td><td><code>KanbanTaskCommentDto</code>: <code>AuthorType</code> · <code>AuthorName</code> · <code>Content</code> · <code>RunId</code> · <code>CreatedAt</code></td></tr>
+          <tr><td>Runs</td><td><code>KanbanTaskRunDto</code>: <code>Kind</code> · <code>Trigger</code> · <code>Status</code> · <code>Input</code> · <code>Output</code> · <code>Error</code> · <code>WorkflowRunId</code> · <code>StartedAt</code> · <code>CompletedAt</code></td></tr>
+          <tr><td>Detail aggregate</td><td><code>KanbanTaskDetailDto</code> = task + comments + runs + steps</td></tr>
+        </tbody>
+      </table>
+      <p><code>HasAutomation</code> is true when a project agent, a workflow or a custom prompt is configured. <code>AgentPrompt</code> / <code>AgentPromptName</code> are only stored when <strong>no project agent is selected</strong> (<code>AgentId</code> empty) — that is the real difference between the "pick an agent from the project's <code>.github</code>" path and the "write your own prompt" path.</p>
+
+      <h2>Endpoints</h2>
+      <table>
+        <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/kanban-tasks</code></td><td>Board data: seven columns plus stats; the <code>Archived</code> column only returns tasks archived in the last <strong>7 days</strong></td></tr>
+          <tr><td><code>POST /api/kanban-tasks</code> · <code>PUT /api/kanban-tasks/{id}</code></td><td>Create / update; a save landing in <code>Todo</code> attempts to trigger automation</td></tr>
+          <tr><td><code>PUT /api/kanban-tasks/{id}/move</code></td><td>Drag between columns: validates the whitelist, maintains timestamps and triggers automation when entering <code>Todo</code></td></tr>
+          <tr><td><code>GET /api/kanban-tasks/{id}/detail</code></td><td>Detail aggregate (task + comments + runs + steps)</td></tr>
+          <tr><td><code>POST /api/kanban-tasks/{id}/comments</code></td><td>Comment; in <code>InReview</code> / <code>Blocked</code> with comment-triggered automation enabled it pulls the task back to <code>InProgress</code> and re-runs with trigger <code>Comment</code></td></tr>
+          <tr><td><code>POST /api/kanban-tasks/{id}/rerun</code></td><td>Re-run; only allowed from <code>Todo</code></td></tr>
+          <tr><td><code>GET /api/kanban-tasks/{id}</code> · <code>DELETE /api/kanban-tasks/{id}</code></td><td>Fetch or delete a single card</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Automation and status progression</h2>
+      <ol>
+        <li>Triggers live in three places: after create, after update when the status changed, and when moving into <code>Todo</code>; comment loops and manual re-runs add two more.</li>
+        <li>Execution has exactly one gate: the task <strong>must be in <code>Todo</code></strong> and have automation configured; otherwise only the status changes.</li>
+        <li>A run record is written before execution (<code>Trigger</code> records the source: create / move / comment / rerun) and the run produces steps and comments.</li>
+        <li>Status progression happens in the service layer; failures land in the run's <code>Error</code> and in <code>LastRunStatus</code> on the task.</li>
+      </ol>
+      <div class="note">The precise answer to "does the board update status by itself" is: <strong>the backend writes status at the trigger points</strong> (column moves, comment loops, executor write-back) and the frontend pulls the change for display. Dragging a card to <code>InProgress</code> only changes status; it does not start execution on its own.</div>
+
+      <h2>Detail enrichment and frontend refresh</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Name enrichment</td><td>List and detail both fill <code>ProjectName</code> (managed project), <code>AgentName</code> (project agent), <code>WorkflowName</code>, <code>LastRunStatus</code> and <code>CommentCount</code>; the list uses batched dictionary lookups to avoid N+1</td></tr>
+          <tr><td>Display fallback</td><td>Project row: <code>projectId ? projectName ?? projectId</code>; agent row: shows <code>agentName ?? agentPromptName ?? agentId</code> when either <code>agentId</code> or <code>agentPromptName</code> exists, otherwise "not set"; workflow row works the same way</td></tr>
+          <tr><td>Detail ordering</td><td>Steps by <code>Sequence</code> then creation time; runs newest first; comments oldest first</td></tr>
+          <tr><td>Polling condition</td><td>Both board and detail refetch every <strong>3000ms</strong> while a run is <code>Running</code> / <code>WaitingAnswer</code>, or an automated task sits in <code>Todo</code> / <code>InProgress</code>; otherwise polling stops</td></tr>
+          <tr><td>Refresh channel</td><td>React Query polling with invalidation; there is <strong>no</strong> task-board specific SSE event</td></tr>
+        </tbody>
+      </table>
+      <p>Problems of the form "project and agent are configured but the detail page shows nothing" usually come from the display fallback: when the agent is picked from the project's <code>.github</code>, the persisted fields are <code>AgentPrompt</code> / <code>AgentPromptName</code> rather than <code>AgentId</code>, so checking only <code>AgentId</code> renders empty. The current implementation shows both sources (selecting a project loads that project's <code>.github</code> agents and writes the prompt fields back).</p>
+
+      <h2>Stats and archive window</h2>
+      <ul>
+        <li>Stats: <code>Total</code> / <code>Active</code> / <code>Done</code> / <code>Archived</code> / <code>Overdue</code> / <code>DueSoon</code>.</li>
+        <li>The archived column keeps a 7-day window so the board cannot grow without bound; long-term history lives in run records and comments.</li>
+      </ul>
+
+      <h2>Practice notes</h2>
+      <ul>
+        <li>Automation only triggers from <code>Todo</code>: put the card in the todo column instead of dragging it straight to in-progress.</li>
+        <li>Comments are a loop, not a note: commenting in review or blocked carries context back into a re-run, which feeds feedback to the agent.</li>
+        <li>Polling is conditional by design: a page that stops refreshing while nothing is running is behaving correctly.</li>
+        <li>Project agent and custom prompt are mutually exclusive: selecting an agent means a hand-written prompt is not stored.</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="dev.html">Development</a>
+    </nav>
+    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

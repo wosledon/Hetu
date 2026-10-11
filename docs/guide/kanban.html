@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>任务看板与自动化 — 深入实现 · Hetu</title>
+<meta name="description" content="状态机白名单与时间戳规则、卡片模型与自动化判定、端点清单、触发点与执行门槛、评论回流、详情回填与展示回退、3 秒条件轮询。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/kanban.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/architecture.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/kanban.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="任务看板与自动化 — 深入实现 · Hetu">
+<meta property="og:description" content="状态机白名单与时间戳规则、卡片模型与自动化判定、端点清单、触发点与执行门槛、评论回流、详情回填与展示回退、3 秒条件轮询。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/kanban.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/architecture.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.3</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html">记忆的写入与召回</a></li>
+      <li><a href="dream.html">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html" aria-current="page">任务看板与自动化</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>任务看板与自动化</h1>
+      <p class="lede">看板把「想做的事」变成「会被执行的事」：卡片带项目、智能体或工作流配置，进入待办后由执行器接手；状态推进、运行记录与评论回流都走同一条服务链路。前端<strong>没有</strong>专用 SSE，靠条件轮询把运行中的变化拉回来。</p>
+
+      <figure class="diagram">
+<svg viewBox="0 0 880 260" role="img" aria-label="任务看板的状态推进与前端刷新">
+  <defs>
+    <marker id="a-kb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow" d="M0 0 10 5 0 10z"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="30" y="58">Backlog</text>
+  <text class="sub" x="30" y="78">→ Todo / Archived</text>
+
+  <rect class="box-accent" x="192" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="206" y="58">Todo</text>
+  <text class="sub" x="206" y="78">唯一会触发执行的状态</text>
+
+  <rect class="box-dark" x="368" y="34" width="160" height="60" rx="9"/>
+  <text class="label-light" x="382" y="58">InProgress</text>
+  <text class="sub" x="382" y="78">执行器运行中</text>
+
+  <rect class="box" x="554" y="34" width="150" height="60" rx="9"/>
+  <text class="label" x="568" y="58">InReview</text>
+  <text class="sub" x="568" y="78">评论回流重跑</text>
+
+  <rect class="box" x="730" y="34" width="134" height="60" rx="9"/>
+  <text class="label" x="744" y="58">Done</text>
+  <text class="sub" x="744" y="78">写 CompletedAt</text>
+
+  <rect class="box" x="192" y="126" width="336" height="52" rx="9"/>
+  <text class="label" x="206" y="150">状态流转必须先过白名单校验</text>
+  <text class="sub" x="206" y="170">非法迁移直接拒绝</text>
+
+  <rect class="box" x="554" y="126" width="310" height="52" rx="9"/>
+  <text class="label" x="568" y="150">Blocked</text>
+  <text class="sub" x="568" y="170">进入写 BlockedReason，离开清空</text>
+
+  <rect class="box-accent" x="16" y="196" width="848" height="48" rx="9"/>
+  <text class="label" x="30" y="220">前端刷新：当存在 Running / WaitingAnswer 或「有自动化且在 Todo / InProgress」时，每 3 秒轮询列表与详情；条件不成立则停止轮询</text>
+
+  <path class="flow" d="M166 64 H186" marker-end="url(#a-kb)"/>
+  <path class="flow" d="M342 64 H362" marker-end="url(#a-kb)"/>
+  <path class="flow" d="M528 64 H548" marker-end="url(#a-kb)"/>
+  <path class="flow" d="M704 64 H724" marker-end="url(#a-kb)"/>
+  <path class="flow-dashed" d="M629 94 V120" marker-end="url(#a-kb)"/>
+  <path class="flow-dashed" d="M360 120 V100" marker-end="url(#a-kb)"/>
+  <path class="flow-dashed" d="M440 178 V190" marker-end="url(#a-kb)"/>
+</svg><figcaption>状态机是白名单式的：只有合法迁移会被接受；Todo 是唯一的自动化触发点，Done / Archived 只是写时间戳。</figcaption>
+      </figure>
+
+      <h2>状态机</h2>
+      <table>
+        <thead><tr><th>状态</th><th>允许迁移到</th></tr></thead>
+        <tbody>
+          <tr><td><code>Backlog</code></td><td><code>Todo</code> · <code>Archived</code></td></tr>
+          <tr><td><code>Todo</code></td><td><code>InProgress</code> · <code>Backlog</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>InProgress</code></td><td><code>InReview</code> · <code>Todo</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>InReview</code></td><td><code>Done</code> · <code>InProgress</code> · <code>Blocked</code></td></tr>
+          <tr><td><code>Blocked</code></td><td><code>Todo</code> · <code>InProgress</code></td></tr>
+          <tr><td><code>Done</code></td><td><code>Archived</code> · <code>InReview</code></td></tr>
+          <tr><td><code>Archived</code></td><td>（终态）</td></tr>
+        </tbody>
+      </table>
+      <p>迁移表是硬编码白名单，非法跳转直接拒绝。时间戳由统一逻辑维护：进入 <code>Done</code> 写 <code>CompletedAt</code>、离开则清空；进入 <code>Archived</code> 写 <code>ArchivedAt</code>、离开则清空；进入 <code>Blocked</code> 保留或写入 <code>BlockedReason</code>，离开时清空。优先级枚举是 <code>Low</code> / <code>Medium</code> / <code>High</code> / <code>Urgent</code>。</p>
+
+      <h2>卡片数据模型</h2>
+      <table>
+        <thead><tr><th>分组</th><th>字段</th></tr></thead>
+        <tbody>
+          <tr><td>基本</td><td><code>Id</code> · <code>Title</code> · <code>Description</code> · <code>Status</code> · <code>Priority</code> · <code>Assignee</code> · <code>Tags</code> · <code>DueDate</code> · <code>SortOrder</code> · <code>BlockedReason</code> · <code>CompletedAt</code> · <code>ArchivedAt</code></td></tr>
+          <tr><td>配置</td><td><code>ProjectId</code> / <code>ProjectName</code> · <code>AgentId</code> / <code>AgentName</code> · <code>AgentPrompt</code> / <code>AgentPromptName</code> · <code>WorkflowId</code> / <code>WorkflowName</code></td></tr>
+          <tr><td>运行与协作</td><td><code>HasAutomation</code> · <code>LastRunStatus</code> · <code>LastRunId</code> · <code>CommentCount</code></td></tr>
+          <tr><td>评论</td><td><code>KanbanTaskCommentDto</code>：<code>AuthorType</code> · <code>AuthorName</code> · <code>Content</code> · <code>RunId</code> · <code>CreatedAt</code></td></tr>
+          <tr><td>运行记录</td><td><code>KanbanTaskRunDto</code>：<code>Kind</code> · <code>Trigger</code> · <code>Status</code> · <code>Input</code> · <code>Output</code> · <code>Error</code> · <code>WorkflowRunId</code> · <code>StartedAt</code> · <code>CompletedAt</code></td></tr>
+          <tr><td>详情聚合</td><td><code>KanbanTaskDetailDto</code> = 任务 + 评论 + 运行记录 + 步骤（<code>Steps</code>）</td></tr>
+        </tbody>
+      </table>
+      <p><code>HasAutomation</code> 的判定是「配了项目智能体 或 工作流 或 自定义提示词」三者之一。<code>AgentPrompt</code> / <code>AgentPromptName</code> 只在<strong>没有选项目智能体（<code>AgentId</code> 为空）</strong>时保存——这就是「从项目 .github 里选智能体」与「手填提示词」两条路径的落库差异。</p>
+
+      <h2>端点</h2>
+      <table>
+        <thead><tr><th>端点</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/kanban-tasks</code></td><td>看板数据：七列 + 统计（<code>Archived</code> 列只回最近 <strong>7 天</strong>归档的任务）</td></tr>
+          <tr><td><code>POST /api/kanban-tasks</code> · <code>PUT /api/kanban-tasks/{id}</code></td><td>新建 / 更新；保存后若状态是 <code>Todo</code> 会尝试触发自动化</td></tr>
+          <tr><td><code>PUT /api/kanban-tasks/{id}/move</code></td><td>拖拽换列：先校验迁移白名单，再维护时间戳，进入 <code>Todo</code> 时触发自动化</td></tr>
+          <tr><td><code>GET /api/kanban-tasks/{id}/detail</code></td><td>详情聚合（任务 + 评论 + 运行 + 步骤）</td></tr>
+          <tr><td><code>POST /api/kanban-tasks/{id}/comments</code></td><td>评论；在 <code>InReview</code> / <code>Blocked</code> 且开启「评论触发自动化」时把任务拉回 <code>InProgress</code> 并重跑（触发原因是 <code>Comment</code>）</td></tr>
+          <tr><td><code>POST /api/kanban-tasks/{id}/rerun</code></td><td>仅 <code>Todo</code> 状态允许重跑</td></tr>
+          <tr><td><code>GET /api/kanban-tasks/{id}</code> · <code>DELETE /api/kanban-tasks/{id}</code></td><td>单卡查询 / 删除</td></tr>
+        </tbody>
+      </table>
+
+      <h2>自动化与状态推进</h2>
+      <ol>
+        <li>触发点在三处：新建后、更新后（状态变更）、换列到 <code>Todo</code>；另有评论回流与手动重跑。</li>
+        <li>真正执行只有一个门槛：<strong>状态必须是 <code>Todo</code></strong> 且有自动化配置；否则只改状态不执行。</li>
+        <li>执行前写入一条运行记录（<code>Trigger</code> 标明来源：创建 / 移动 / 评论 / 重跑），执行过程产生步骤与评论。</li>
+        <li>状态推进由服务层完成；运行失败写入运行记录的 <code>Error</code> 与任务上的 <code>LastRunStatus</code>。</li>
+      </ol>
+      <div class="note">「看板会自动更新状态吗」的准确回答是：<strong>状态推进由后端在触发点写入</strong>（换列、评论回流、执行器回写），前端负责把变化拉回来显示。手动把卡片拖到 <code>InProgress</code> 只是改状态，不会自行开始执行。</div>
+
+      <h2>详情回填与前端刷新</h2>
+      <table>
+        <thead><tr><th>项</th><th>规则</th></tr></thead>
+        <tbody>
+          <tr><td>名称回填</td><td>列表与详情都会补 <code>ProjectName</code>（受管项目）、<code>AgentName</code>（项目智能体）、<code>WorkflowName</code>、<code>LastRunStatus</code>、<code>CommentCount</code>；列表用批量字典查询避免 N+1</td></tr>
+          <tr><td>展示回退</td><td>项目行：<code>projectId ? projectName ?? projectId</code>；智能体行：<code>agentId || agentPromptName</code> 任一存在即展示 <code>agentName ?? agentPromptName ?? agentId</code>，都没有才显示「未指定」；工作流行同理</td></tr>
+          <tr><td>详情排序</td><td>步骤按 <code>Sequence</code> 再按创建时间；运行记录按创建时间倒序；评论按创建时间正序</td></tr>
+          <tr><td>轮询条件</td><td>看板与详情都在「存在 <code>Running</code> / <code>WaitingAnswer</code> 的运行，或任务有自动化且状态是 <code>Todo</code> / <code>InProgress</code>」时每 <strong>3000ms</strong> 轮询一次；条件不成立即停止</td></tr>
+          <tr><td>刷新通道</td><td>React Query 轮询 + 失效重取；<strong>没有</strong>任务看板专用 SSE 事件</td></tr>
+        </tbody>
+      </table>
+      <p>「配置了项目和智能体但详情不展示」这类问题通常出在展示回退上：卡片是从项目 <code>.github</code> 里选的智能体时，落库的是 <code>AgentPrompt</code> / <code>AgentPromptName</code> 而非 <code>AgentId</code>，只看 <code>AgentId</code> 就会显示为空。当前实现已把两种来源都纳入展示（选择项目后自动加载该项目 <code>.github</code> 智能体列表并写回提示词字段）。</p>
+
+      <h2>统计与归档</h2>
+      <ul>
+        <li>统计字段：<code>Total</code> / <code>Active</code> / <code>Done</code> / <code>Archived</code> / <code>Overdue</code> / <code>DueSoon</code>。</li>
+        <li>归档列只保留 7 天窗口内的任务，避免看板无限膨胀；完整历史要靠运行记录与评论。</li>
+      </ul>
+
+      <h2>实作要点</h2>
+      <ul>
+        <li>自动化只在 <code>Todo</code> 触发：想让卡片跑起来，就把它放进待办列，而不是拖到进行中。</li>
+        <li>评论是「回路」而不是备注：在评审 / 阻塞列评论会带着上下文重跑，等于把反馈写回 agent。</li>
+        <li>轮询有条件、不是常开：页面长时间不动是设计如此（没有运行中任务时不该持续请求）。</li>
+        <li>项目智能体与自定义提示词二选一：选了智能体，手填的提示词不会保存。</li>
+      </ul>
+    <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
