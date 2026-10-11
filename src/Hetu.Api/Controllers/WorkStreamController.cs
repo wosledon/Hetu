@@ -9,6 +9,7 @@ using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Work;
 using Hetu.Core.Utilities;
+using Hetu.Shared.Agent;
 using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
@@ -41,6 +42,7 @@ public class WorkStreamController : ControllerBase
     private readonly IMemoryService _memoryService;
     private readonly ILogger<WorkStreamController> _logger;
     private readonly ILocalizer _localizer;
+    private readonly AgentSteeringHub _steering;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -59,7 +61,8 @@ public class WorkStreamController : ControllerBase
         ContextCompactionService contextCompaction,
         IMemoryService memoryService,
         ILogger<WorkStreamController> logger,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        AgentSteeringHub steering)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -78,6 +81,7 @@ public class WorkStreamController : ControllerBase
         _memoryService = memoryService;
         _logger = logger;
         _localizer = localizer;
+        _steering = steering;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -86,12 +90,30 @@ public class WorkStreamController : ControllerBase
     /// <summary>每个会话保留的检查点数量</summary>
     private const int MaxCheckpointsPerSession = 30;
 
+    [HttpPost("{sessionId:guid}/steer")]
+    public async Task<ApiResponse<SteerResultDto>> Steer(Guid sessionId, [FromBody] SteerMessageRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Content)) return ApiResponse<SteerResultDto>.Fail(_localizer.T("agent.steerEmpty"));
+        var key = $"work:{sessionId}";
+        if (!_steering.IsActive(key)) return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = false });
+
+        // 先落库（会话历史里能看到这条引导），再交给正在运行的循环注入
+        var added = await _sessionService.AddMessageAsync(sessionId, "user", request.Content.Trim(), "text", null, null, null, ct);
+        if (!added.Success) return ApiResponse<SteerResultDto>.Fail(added.Error ?? _localizer.T("work.workMessageCreateFailed"));
+
+        var injected = _steering.Enqueue(key, request.Content);
+        return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = injected });
+    }
+
     [HttpPost("{sessionId:guid}/stream")]
     public async Task Stream(Guid sessionId, [FromBody] SendWorkMessageRequest request, CancellationToken ct = default)
     {
         Response.StartSseStream();
 
         var writer = new SseStreamWriter(Response, ct);
+        // 运行中引导：本轮执行期间允许用户插话，由 Agent 循环在迭代边界注入
+        var steeringKey = $"work:{sessionId}";
+        using var steeringRegistration = _steering.Register(steeringKey);
 
         var sessionResult = await _sessionService.GetByIdAsync(sessionId, ct);
         if (!sessionResult.Success || sessionResult.Data == null)
@@ -363,6 +385,7 @@ public class WorkStreamController : ControllerBase
             SessionId = sessionId.ToString(),
             Sink = sink,
             Hooks = hooks,
+            DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = request.EnableTools,
             // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
             CoreToolNames = BuiltinProfiles.WorkCoreTools,
@@ -528,6 +551,9 @@ public class WorkStreamController : ControllerBase
         public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
 
         public Task OnErrorAsync(string message) => _writer.WriteErrorAsync(_owner._localizer.T("chat.requestFailed", message));
+
+        /// <summary>运行中引导已注入：通知前端标记该条已生效</summary>
+        public Task OnSteeringAsync(string text) => _writer.WriteJsonAsync(new { type = "steering", text });
 
         /// <summary>tool_call / tool_result / approval_request / question / todo / plan / subagent 一律直通写帧</summary>
         public async Task OnEventAsync(object payload)

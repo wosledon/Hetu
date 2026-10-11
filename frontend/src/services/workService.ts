@@ -64,6 +64,9 @@ export const workSessionService = {
   update: (id: string, data: IUpdateWorkSessionRequest) => put<IWorkSession>(`/work-sessions/${id}`, data),
   delete: (id: string) => del<void>(`/work-sessions/${id}`),
   getMessages: (id: string) => get<IWorkMessage[]>(`/work-sessions/${id}/messages`),
+  /** 运行中引导：把这条消息注入正在执行的回复（injected=false 表示当前没有在跑的回复） */
+  steer: (id: string, content: string) =>
+    post<{ injected: boolean }>(`/work-sessions/${id}/steer`, { content }),
   /** 编辑消息正文（与对话页一致的复制/编辑/删除） */
   updateMessage: (messageId: string, content: string) =>
     put<IWorkMessage>(`/work-sessions/messages/${messageId}`, { content }),

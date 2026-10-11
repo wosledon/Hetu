@@ -100,6 +100,12 @@ public class AgentLoopRequest
     /// 为空表示全部工具都直接声明（保持原行为）。
     /// </summary>
     public IReadOnlyList<string>? CoreToolNames { get; set; }
+
+    /// <summary>
+    /// 运行中引导的取件回调：每次迭代开始前调用一次，返回的文本作为「运行中引导」追加进上下文。
+    /// 由各端的 <see cref="AgentSteeringHub"/> 提供，没有引导时返回空集合。
+    /// </summary>
+    public Func<IReadOnlyList<string>>? DrainSteering { get; set; }
 }
 
 /// <summary>
@@ -123,6 +129,8 @@ public interface IAgentLoopSink
     Task OnEventAsync(object payload) => Task.CompletedTask;
     /// <summary>累计用量变化（仅当 Provider 上报了用量时触发）</summary>
     Task OnUsageAsync(LlmUsage usage) => Task.CompletedTask;
+    /// <summary>运行中引导被注入当前循环（端上提示用户已生效）</summary>
+    Task OnSteeringAsync(string text) => Task.CompletedTask;
 }
 
 /// <summary>
@@ -147,6 +155,9 @@ public interface IAgentLoopHooks
 public class AgentLoopService
 {
     private const int DefaultMaxIterations = 15;
+
+    /// <summary>运行中引导的注入前缀：让模型知道这是执行期间的新指示，需立即结合调整</summary>
+    private const string SteeringPrefix = "【运行中引导，请立即结合它调整当前工作】\n";
 
     private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ToolRegistry _toolRegistry;
@@ -291,6 +302,16 @@ public class AgentLoopService
                 result.Iterations = iter + 1;
                 RefreshDeclaredTools();
                 await sink.OnDebugAsync($"Agent 迭代 {iter + 1}，工具数={options.Tools?.Count ?? 0}");
+
+                // 运行中引导：用户在上一轮执行期间插话，这里注入并提示端上
+                if (request.DrainSteering != null)
+                {
+                    foreach (var guidance in request.DrainSteering())
+                    {
+                        chatMessages.Add(new LlmChatMessage { Role = "user", Content = $"{SteeringPrefix}{guidance}" });
+                        await sink.OnSteeringAsync(guidance);
+                    }
+                }
 
                 // 每轮前压缩历史：算法节点对任意长度生效，LLM 摘要由管道内部按阈值决定
                 if (request.CompressHistory)

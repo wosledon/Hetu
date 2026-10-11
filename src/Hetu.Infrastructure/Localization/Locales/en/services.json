@@ -273,6 +273,7 @@
   "toolExec.loadNotFound": "No matching tool or group. Check the names listed in the system prompt.",
   "workSession.worktreeCreated": "Created isolated worktree {0} (on branch {1}); this turn runs inside the worktree",
   "workSession.checkoutRemoteUnsupported": "For SSH projects, switch branches on the remote yourself.",
+  "agent.steerEmpty": "Steering content cannot be empty.",
   "worktree.rootNotAbsolute": "The worktree directory must be an absolute path.",
   "worktree.rootCreateFailed": "Cannot create the worktree directory {0}: {1}",
   "worktree.rootInsideRepo": "The worktree directory cannot live inside the repository \"{0}\"; pick a directory outside it.",

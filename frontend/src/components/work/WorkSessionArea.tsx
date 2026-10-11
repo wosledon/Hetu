@@ -37,6 +37,7 @@ import AgentPermissionSelect from '../agent/AgentPermissionSelect'
 import AgentModeSelect from '../agent/AgentModeSelect'
 import AgentContextUsage from '../agent/AgentContextUsage'
 import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
+import AgentQueueBar, { type PendingMessage } from '../agent/AgentQueueBar'
 import WorkSessionWorkspaceBadge from './WorkSessionWorkspaceBadge'
 import WorkGitSyncControl from './WorkGitSyncControl'
 import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
@@ -44,6 +45,7 @@ import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
@@ -196,6 +198,10 @@ export default function WorkSessionArea({
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
   const [pendingUser, setPendingUser] = useState<string | null>(null)
+  // 发送队列（回复进行中排队的消息）与引导中的那一条
+  const [queue, setQueue] = useState<PendingMessage[]>([])
+  const queueRef = useRef<PendingMessage[]>([])
+  const [steeringId, setSteeringId] = useState<string | null>(null)
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [openFeedback, setOpenFeedback] = useState('')
@@ -498,7 +504,7 @@ export default function WorkSessionArea({
   }, [])
 
   // 输入历史（↑/↓ 回溯）
-  const [inputHistory, setInputHistory] = useState<string[]>([])
+  const [inputHistory, setInputHistory] = useState<string[]>(() => loadInputHistory())
 
 
   // 长会话：旧回合默认折叠
@@ -692,14 +698,27 @@ export default function WorkSessionArea({
     // /compress 命令：调用当前模型压缩上下文，不发消息
     if (content === '/compress') {
       setInput('')
-      setInputHistory((prev) => [...prev.slice(-49), content])
+      setInputHistory(pushInputHistory(content))
       await compactContext()
+      return
+    }
+    // 回复进行中：不打断当前回复，消息进入发送队列（本轮结束后自动发出）；也可在队列条上点「引导」立即注入
+    if (isStreaming) {
+      enqueue(buildContent(content))
+      setInput('')
+      setInputHistory(pushInputHistory(content))
+      setInjectedContexts([])
+      setMentionedFiles([])
+      setSelectedMentions([])
+      setSelectedPrompt(null)
+      setSelectedSkillName(null)
+      setAttachedFiles([])
       return
     }
     // 选中工作流时：本轮交给工作流执行（与对话页同一套运行逻辑）
     if (workflowRun.workflow) {
       setInput('')
-      setInputHistory((prev) => [...prev.slice(-49), content])
+      setInputHistory(pushInputHistory(content))
       setSelectedMentions([])
       setMentionedFiles([])
       setInjectedContexts([])
@@ -708,7 +727,7 @@ export default function WorkSessionArea({
     }
     setInput('')
 
-    setInputHistory((prev) => [...prev.slice(-49), content])
+    setInputHistory(pushInputHistory(content))
     setInjectedContexts([])
     setMentionedFiles([])
     setSelectedMentions([])
@@ -820,7 +839,7 @@ export default function WorkSessionArea({
   /** 预设提示词直达发送（诊断 / 起步 chips / 后续建议共用） */
   const sendPreset = (text: string) => {
     if (!session || isStreaming) return
-    setInputHistory((prev) => [...prev.slice(-49), text])
+    setInputHistory(pushInputHistory(text))
     void runStream(buildContent(text), permissionMode)
   }
 
@@ -953,6 +972,46 @@ export default function WorkSessionArea({
         setLiveUsage((prev) => (prev === null ? prev : null))
       })
       workSessionService.getById(session.id).then((s) => onSessionUpdated?.(s)).catch(() => {})
+
+      // 队列里的下一条：本轮结束后自动发出（队列为空时什么都不做）
+      const [queued, ...rest] = queueRef.current
+      if (queued) {
+        updateQueue(() => rest)
+        void runStream(queued.content, permissionMode)
+      }
+    }
+  }
+
+  /** 发送队列：回复进行中发送的消息排到队尾，回复结束后自动逐条发出 */
+  const updateQueue = (next: (prev: PendingMessage[]) => PendingMessage[]) => {
+    const list = next(queueRef.current)
+    queueRef.current = list
+    setQueue(list)
+  }
+
+  /** 把当前输入排进队列（内容已含模板/引用/长文本块） */
+  const enqueue = (content: string) => {
+    const text = content.trim()
+    if (!text) return
+    updateQueue((prev) => [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, content: text }])
+  }
+
+  /** 引导：立即把队列里这条注入正在执行的回复 */
+  const steerQueued = async (item: PendingMessage) => {
+    if (!session) return
+    setSteeringId(item.id)
+    try {
+      const result = await workSessionService.steer(session.id, item.content)
+      if (result.injected) {
+        updateQueue((prev) => prev.filter((x) => x.id !== item.id))
+        setContextNotice(t('agent:queue.steerSent'))
+      } else {
+        setContextNotice(t('agent:queue.steerUnavailable'))
+      }
+    } catch (error) {
+      setContextNotice(t('agent:queue.steerFailed', { error: (error as Error).message }))
+    } finally {
+      setSteeringId(null)
     }
   }
     const submitApproval = (id: string, approve: boolean) => {
@@ -1360,6 +1419,13 @@ export default function WorkSessionArea({
           ]}
           aboveInput={session ? (
             <>
+              {/* 发送队列：回复进行中排队的消息，可「引导」立即注入 */}
+              <AgentQueueBar
+                items={queue}
+                steeringId={steeringId}
+                onSteer={(item) => void steerQueued(item)}
+                onRemove={(item) => updateQueue((prev) => prev.filter((x) => x.id !== item.id))}
+              />
               {/* 空会话：起步引导与输入框一起居中 */}
               {emptyConversation && emptyStart}
               {/* 上下文提示：自动压缩 / /compress 结果 */}
@@ -1404,7 +1470,6 @@ export default function WorkSessionArea({
           block={pastedBlock}
           onBlockChange={setPastedBlock}
           history={inputHistory}
-          hint={t('session.inputHint')}
           toolbar={
             <>
               {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型的粘贴会带感叹号划掉） */}
