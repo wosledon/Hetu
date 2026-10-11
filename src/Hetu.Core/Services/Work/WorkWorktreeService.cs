@@ -18,6 +18,15 @@ public class WorkWorktreeService
         return Path.Combine(parent, $"{repo}.hetu-worktrees", name);
     }
 
+    /// <summary>工作树根目录（<c>&lt;父目录&gt;/&lt;仓库名&gt;.hetu-worktrees</c>）</summary>
+    public static string ResolveRoot(string projectRoot)
+    {
+        var full = Path.GetFullPath(projectRoot);
+        var parent = Path.GetDirectoryName(full) ?? full;
+        var repo = Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return Path.Combine(parent, $"{repo}.hetu-worktrees");
+    }
+
     private static async Task<(int ExitCode, string Output)> RunGitAsync(string directory, string arguments, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(directory)) return (1, "directory-missing");
@@ -87,6 +96,66 @@ public class WorkWorktreeService
         return code == 0 ? null : FirstLine(output);
     }
 
+    /// <summary>工作目录是否干净（含未跟踪文件）</summary>
+    public async Task<bool> IsCleanAsync(string directory, CancellationToken cancellationToken = default)
+    {
+        var (code, output) = await RunGitAsync(directory, "status --porcelain", cancellationToken);
+        return code == 0 && string.IsNullOrWhiteSpace(output);
+    }
+
+    /// <summary>分支是否已全部并入 <paramref name="target"/>（无独有提交）</summary>
+    public async Task<bool> IsContainedInAsync(string directory, string branch, string target, CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(branch, target, StringComparison.OrdinalIgnoreCase)) return true;
+        var (code, output) = await RunGitAsync(directory, $"rev-list --count {target}..{branch}", cancellationToken);
+        return code == 0 && int.TryParse(output.Trim(), out var count) && count == 0;
+    }
+
+    /// <summary>
+    /// 分支曾推送过、但远端已没有它（常见于 PR 合并后删除分支）：算「已完成」。
+    /// 没有上游配置、或远端不可达（离线/无网）时返回 false，避免误判。
+    /// </summary>
+    public async Task<bool> WasPushTargetDeletedAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
+    {
+        var (remoteCode, remote) = await RunGitAsync(projectRoot, $"config --get branch.{branch}.remote", cancellationToken);
+        if (remoteCode != 0 || string.IsNullOrWhiteSpace(remote)) return false;
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(20));
+        try
+        {
+            var (code, output) = await RunGitAsync(
+                projectRoot, $"ls-remote --heads {remote.Trim()} refs/heads/{branch}", cts.Token);
+            return code == 0 && string.IsNullOrWhiteSpace(output);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>删除本地分支（工作树移除后调用；失败忽略，例如分支仍被别处检出）</summary>
+    public async Task DeleteBranchAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
+        => await RunGitAsync(projectRoot, $"branch -D {branch}", cancellationToken);
+
+    /// <summary>
+    /// 判断「已完成」时的参照分支：优先 origin/HEAD（远端默认分支），其次 origin/main、origin/master，
+    /// 都没有时退回当前分支（纯本地仓库）。
+    /// </summary>
+    public async Task<string> ResolveIntegrationRefAsync(string projectRoot, CancellationToken cancellationToken = default)
+    {
+        var (headCode, head) = await RunGitAsync(projectRoot, "symbolic-ref --short refs/remotes/origin/HEAD", cancellationToken);
+        if (headCode == 0 && !string.IsNullOrWhiteSpace(head)) return head.Trim();
+
+        foreach (var candidate in new[] { "origin/main", "origin/master" })
+        {
+            var (code, _) = await RunGitAsync(projectRoot, $"rev-parse --verify --quiet {candidate}", cancellationToken);
+            if (code == 0) return candidate;
+        }
+
+        return await GetCurrentBranchAsync(projectRoot, cancellationToken) ?? "HEAD";
+    }
+
     private static void TryDeleteDirectory(string path)
     {
         try
@@ -105,7 +174,7 @@ public class WorkWorktreeService
         if (!Directory.Exists(projectRoot)) return;
         var path = worktreePath.Replace('\\', '/');
         await RunGitAsync(projectRoot, $"worktree remove --force \"{path}\"", cancellationToken);
-        await RunGitAsync(projectRoot, "worktree prune", cancellationToken);
+        await PruneAsync(projectRoot, cancellationToken);
         try
         {
             if (Directory.Exists(worktreePath) && !Directory.EnumerateFileSystemEntries(worktreePath).Any())
@@ -116,6 +185,10 @@ public class WorkWorktreeService
             // 忽略：prune 后 git 已不再引用该目录
         }
     }
+
+    /// <summary>清理工作树元数据：目录被手工删除后 git 仍记着它，prune 丢掉这些记录</summary>
+    public Task PruneAsync(string projectRoot, CancellationToken cancellationToken = default)
+        => RunGitAsync(projectRoot, "worktree prune", cancellationToken);
 
     private static string? FirstLine(string output)
         => output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
