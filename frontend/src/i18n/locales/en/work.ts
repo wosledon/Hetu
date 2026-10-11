@@ -256,6 +256,8 @@ export default {
   session: {
     emptyTitle: 'Code session',
     emptyHint: 'Pick a project or session under "Projects" on the left to start; the coding Agent can read and write project files, run dev commands and build diagnostics, and asks for confirmation according to the permission mode.',
+    startTitle: '{{name}}: start a new task',
+    startHint: 'Describe the task, or start from an example below; the Agent will read and write files, run commands and diagnostics.',
     newSessionInProject: 'New session in {{name}}',
     collapsePanel: 'Collapse the work panel',
     openPanel: 'Open the work panel',
