@@ -169,11 +169,11 @@ p { margin: 0 0 1em; }
 .card ul { margin: .5em 0 0; padding-left: 1.1em; color: var(--muted); font-size: .93rem; }
 .card li { margin-bottom: .25em; }
 
-.gallery { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+.gallery { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); }
 .gallery figure { margin: 0; }
 .gallery figcaption { margin-top: 10px; font-size: .88rem; color: var(--muted); }
 .gallery figcaption b { color: var(--text-soft); font-weight: 600; }
-.docs-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.docs-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
 .docs-cards a { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; color: var(--text); }
 .docs-cards a:hover { border-color: var(--accent-border); text-decoration: none; background: var(--accent-soft); }
 .docs-cards strong { display: block; margin-bottom: 4px; }
@@ -213,7 +213,7 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 .docs-body th, .docs-body td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .docs-body th { color: var(--text); font-weight: 600; background: var(--surface-2); }
 /* 只作用于行内 code（不在 <pre> 里）；代码块的颜色由 .code 容器决定 */
-.docs-body :not(pre) > code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .86em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+.docs-body :not(pre) > code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .86em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
 /* 代码块里的 code 必须是浅字（否则浅色主题下深字叠深底＝看不见） */
 .docs-body .code code { background: none; border: 0; padding: 0; color: var(--code-text); }
 .note { border: 1px solid var(--accent-border); background: var(--accent-soft); border-radius: var(--radius-sm); padding: 14px 18px; margin: 0 0 1.2em; font-size: .94rem; color: var(--text-soft); }
