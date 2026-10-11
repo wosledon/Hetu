@@ -244,6 +244,10 @@ public class WorkGitService
         var target = await ResolveIntegrationRefAsync(runner, cancellationToken);
         status.BaseBranch = string.IsNullOrWhiteSpace(target) ? status.Branch : target;
 
+        // 分支是否已推送到远端（没推送时远端还没有这个分支，也就谈不上 PR）
+        var (upstreamCode, upstreamOut) = await RunGitAsync(runner, $"config --get branch.{status.Branch}.remote", cancellationToken: cancellationToken);
+        status.BranchPushed = upstreamCode == 0 && !string.IsNullOrWhiteSpace(upstreamOut);
+
         var viewArgs = isGitLab
             ? "mr view --output json"
             : "pr view --json number,title,url,state,isDraft,baseRefName,headRefName";
@@ -251,9 +255,18 @@ public class WorkGitService
         if (viewCode != 0)
         {
             status.Message = FirstLine(viewOutput);
-            return status;
         }
-        status.Pr = ParsePr(status.Host!, viewOutput);
+        else
+        {
+            status.Pr = ParsePr(status.Host!, viewOutput);
+        }
+
+        // 开放中的 PR / MR：让「当前 PR」有对照，查不到也不影响主流程
+        var listArgs = isGitLab
+            ? "mr list --opened --output json"
+            : "pr list --state open --limit 10 --json number,title,url,state,isDraft,baseRefName,headRefName";
+        var (listCode, listOutput) = await RunToolAsync(runner, $"{status.Tool} {listArgs}", cancellationToken: cancellationToken);
+        if (listCode == 0) status.OpenPrs = ParsePrList(status.Host!, listOutput);
         return status;
     }
 
@@ -306,43 +319,70 @@ public class WorkGitService
         return $"sudo apt install {tool}";
     }
 
+    /// <summary>解析 gh / glab 的 JSON 数组输出（开放中的 PR 列表）</summary>
+    private static List<WorkPrInfoDto> ParsePrList(string host, string json)
+    {
+        var list = new List<WorkPrInfoDto>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                var pr = ParsePrElement(host, item);
+                if (pr != null && pr.Number > 0) list.Add(pr);
+            }
+        }
+        catch (JsonException)
+        {
+            // 列表解析失败就当没有，不影响主流程
+        }
+        return list;
+    }
+
     /// <summary>解析 gh / glab 的 JSON 输出</summary>
     private static WorkPrInfoDto? ParsePr(string host, string json)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            string? text(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-            bool flag(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
-            if (host == "gitlab")
-            {
-                return new WorkPrInfoDto
-                {
-                    Number = root.TryGetProperty("iid", out var iid) && iid.ValueKind == JsonValueKind.Number ? iid.GetInt32() : 0,
-                    Title = text("title") ?? string.Empty,
-                    Url = text("web_url") ?? string.Empty,
-                    State = text("state") ?? string.Empty,
-                    IsDraft = flag("draft") || flag("work_in_progress"),
-                    BaseBranch = text("target_branch"),
-                    HeadBranch = text("source_branch"),
-                };
-            }
-            return new WorkPrInfoDto
-            {
-                Number = root.TryGetProperty("number", out var number) && number.ValueKind == JsonValueKind.Number ? number.GetInt32() : 0,
-                Title = text("title") ?? string.Empty,
-                Url = text("url") ?? string.Empty,
-                State = text("state") ?? string.Empty,
-                IsDraft = flag("isDraft"),
-                BaseBranch = text("baseRefName"),
-                HeadBranch = text("headRefName"),
-            };
+            return ParsePrElement(host, doc.RootElement);
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    private static WorkPrInfoDto? ParsePrElement(string host, JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        string? text(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        bool flag(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+        int number(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetInt32() : 0;
+        if (host == "gitlab")
+        {
+            return new WorkPrInfoDto
+            {
+                Number = number("iid"),
+                Title = text("title") ?? string.Empty,
+                Url = text("web_url") ?? string.Empty,
+                State = text("state") ?? string.Empty,
+                IsDraft = flag("draft") || flag("work_in_progress"),
+                BaseBranch = text("target_branch"),
+                HeadBranch = text("source_branch"),
+            };
+        }
+        return new WorkPrInfoDto
+        {
+            Number = number("number"),
+            Title = text("title") ?? string.Empty,
+            Url = text("url") ?? string.Empty,
+            State = text("state") ?? string.Empty,
+            IsDraft = flag("isDraft"),
+            BaseBranch = text("baseRefName"),
+            HeadBranch = text("headRefName"),
+        };
     }
 
     /// <summary>为本机 shell（PowerShell / bash）转义参数</summary>

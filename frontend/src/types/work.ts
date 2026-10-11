@@ -326,7 +326,11 @@ export interface IWorkPrStatus {
   installUrl?: string;
   branch?: string;
   baseBranch?: string;
+  /** 当前分支是否已推送到远端 */
+  branchPushed: boolean;
   pr?: IWorkPrInfo | null;
+  /** 仓库开放中的 PR / MR */
+  openPrs?: IWorkPrInfo[];
   /** 补充信息：no-remote / unsupported-host / 未登录或无 PR 时的原始输出 */
   message?: string;
 }

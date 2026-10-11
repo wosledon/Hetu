@@ -243,7 +243,7 @@ export default function WorkSessionArea({
     startNewSession()
   }
 
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['workMessages', session?.id],
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
     enabled: !!session?.id,
@@ -1155,7 +1155,7 @@ export default function WorkSessionArea({
   // 会话已开始（发过消息或已建好工作树）：工作区/分支固定，输入框里不再展示切换按钮
   const sessionStarted = messages.length > 0 || !!session.worktreePath || isStreaming
   // 空会话：起步引导与输入框一起居中展示
-  const emptyConversation = messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0
+  const emptyConversation = !messagesLoading && messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0
   // 空会话：只保留起步示例，与输入框一起居中（图标/标题/描述不展示）
   const emptyStart = (
     <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
