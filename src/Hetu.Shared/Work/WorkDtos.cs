@@ -179,14 +179,16 @@ public class UpdateWorkSessionRequest
     public string? BaseBranch { get; set; }
 }
 
-/// <summary>项目可用的 git 分支与当前分支（工作树选择器用）</summary>
+/// <summary>项目可用的 git 分支与当前分支（工作树/分支选择器用）</summary>
 public class WorkBranchListDto
 {
     public bool IsRepo { get; set; }
-    /// <summary>项目目录当前分支</summary>
+    /// <summary>项目目录当前分支（工作树会话里为工作树的分支）</summary>
     public string? Current { get; set; }
     /// <summary>本地分支名列表（按名称排序）</summary>
     public List<string> Branches { get; set; } = [];
+    /// <summary>远程分支引用列表（如 origin/main，按名称排序；去掉 origin/HEAD 这类符号引用）</summary>
+    public List<string> RemoteBranches { get; set; } = [];
     /// <summary>不支持工作树的原因（SSH 项目 / 非 git 仓库等），为 null 表示可用</summary>
     public string? WorktreeUnsupportedReason { get; set; }
 }

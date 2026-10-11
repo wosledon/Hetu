@@ -220,7 +220,10 @@ export interface IUpdateWorkSessionRequest {
 export interface IWorkBranchList {
   isRepo: boolean;
   current?: string;
+  /** 本地分支 */
   branches: string[];
+  /** 远程分支引用（如 origin/main） */
+  remoteBranches?: string[];
   /** 非空表示该项目不支持工作树（remote = SSH 项目，project-unavailable = 项目不可用） */
   worktreeUnsupportedReason?: string;
 }
