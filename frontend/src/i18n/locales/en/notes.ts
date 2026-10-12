@@ -3,7 +3,7 @@ export default {
     untitled: 'Untitled note',
     untitledShort: 'Untitled',
     noContent: 'No content',
-    uncategorized: 'Uncategorized',
+    uncategorized: 'Default notebook',
     newNote: 'New note',
     updated: 'Updated {{time}}',
   },
@@ -13,9 +13,8 @@ export default {
     newChild: 'New sub-notebook',
     namePlaceholder: 'Notebook name',
     newChildNamePlaceholder: 'Sub-notebook name',
-    default: 'Default notebook',
     deleteFailed: 'Failed to delete notebook',
-    deleteConfirm: 'Delete notebook "{{name}}"? Its notes will become uncategorized.',
+    deleteConfirm: 'Delete notebook "{{name}}"? Its notes will move to the default notebook.',
   },
   sidebar: {
     notesCount: '{{n}} notes',
@@ -41,7 +40,6 @@ export default {
   },
   tree: {
     searchPlaceholder: 'Search...',
-    empty: 'Empty',
     moveTo: 'Move to',
     deleteConfirm: 'Delete this note?',
   },

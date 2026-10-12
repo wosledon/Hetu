@@ -3,7 +3,7 @@ export default {
     untitled: '未命名笔记',
     untitledShort: '无标题',
     noContent: '无内容',
-    uncategorized: '未分类',
+    uncategorized: '默认笔记本',
     newNote: '新建笔记',
     updated: '更新于 {{time}}',
   },
@@ -13,9 +13,8 @@ export default {
     newChild: '新建子笔记本',
     namePlaceholder: '新笔记本名称',
     newChildNamePlaceholder: '新子笔记本名称',
-    default: '默认笔记本',
     deleteFailed: '删除笔记本失败',
-    deleteConfirm: '确定删除笔记本「{{name}}」吗？其中的笔记将变为未分类。',
+    deleteConfirm: '确定删除笔记本「{{name}}」吗？其中的笔记将变为默认笔记本。',
   },
   sidebar: {
     notesCount: '{{n}} 篇笔记',
@@ -41,7 +40,6 @@ export default {
   },
   tree: {
     searchPlaceholder: '搜索...',
-    empty: '空',
     moveTo: '移动到',
     deleteConfirm: '确定删除这条笔记吗？',
   },
