@@ -108,7 +108,7 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('run.inputParams')}</label>
             <textarea
-              className="h-20 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03]"
+              className="h-20 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 glass px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03]"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t('run.inputPlaceholder')}

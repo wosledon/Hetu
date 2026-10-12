@@ -179,14 +179,14 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
                 value={title}
                 onChange={(e) => patch({ title: e.target.value })}
                 placeholder={t('pr.titlePlaceholder')}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
               />
               <textarea
                 value={body}
                 onChange={(e) => patch({ body: e.target.value })}
                 rows={4}
                 placeholder={t('pr.bodyPlaceholder')}
-                className="w-full resize-y rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                className="w-full resize-y rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
               />
               <div className="space-y-2">
                 <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('pr.basePlaceholder')}</label>
@@ -194,7 +194,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
                   value={baseBranch}
                   onChange={(e) => patch({ baseBranch: e.target.value })}
                   placeholder={status.baseBranch ?? 'main'}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
                 />
               </div>
               <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">

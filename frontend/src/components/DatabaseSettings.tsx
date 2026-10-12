@@ -6,7 +6,7 @@ import Select from './Select';
 
 type Provider = 'Sqlite' | 'Postgresql';
 
-const inputClass = 'w-full max-w-md rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm font-mono outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20';
+const inputClass = 'w-full max-w-md rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm font-mono outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20';
 
 export default function DatabaseSettings() {
   const { t } = useTranslation('settings');

@@ -965,7 +965,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               <button
                 type="button"
                 onClick={() => setShowNotebookPicker(!showNotebookPicker)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-200 bg-white glass px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800"
               >
                 <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : t('shared.defaultNotebook')}</span>
                 <ChevronDown size={12} className="text-gray-400 shrink-0" />

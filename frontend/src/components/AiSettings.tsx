@@ -7,7 +7,7 @@ import { aiProviderService, aiModelService, aiModelCatalogService } from '../ser
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
 
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
+const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -821,7 +821,7 @@ function ModelForm({
                   className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
                     isChat
                       ? 'border-blue-500 bg-blue-50/60 text-blue-700 shadow-sm dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-300'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
+                      : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <Bot size={16} />
@@ -833,7 +833,7 @@ function ModelForm({
                   className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
                     isEmbedding
                       ? 'border-violet-500 bg-violet-50/60 text-violet-700 shadow-sm dark:border-violet-400/60 dark:bg-violet-950/30 dark:text-violet-300'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
+                      : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <Zap size={16} />

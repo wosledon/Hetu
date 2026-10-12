@@ -628,7 +628,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             if (e.key === 'Escape') setLinkDraft(null)
           }}
           placeholder={t('editor.linkPlaceholder')}
-          className="h-7 w-44 rounded-lg border border-gray-200 bg-gray-50 px-2 text-[12px] outline-none dark:border-gray-600 dark:bg-gray-700"
+          className="h-7 w-44 rounded-lg border border-gray-200 bg-gray-50 glass px-2 text-[12px] outline-none dark:border-gray-600 dark:bg-gray-700"
         />
       )}
     </>
@@ -745,7 +745,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           <button
             onClick={() => generateEmbedding.mutate()}
             disabled={generateEmbedding.isPending || isIndexing}
-            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
+            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white glass px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
             title={currentEmbedding?.hasEmbedding ? t('editor.rebuildIndex') : t('editor.generateIndex')}
           >
             {isIndexing ? (
@@ -768,7 +768,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           <button
             onClick={() => extractGraph.mutate()}
             disabled={extractGraph.isPending}
-            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+            className="flex items-center gap-1 rounded-md border border-gray-200 bg-white glass px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
             title={t('editor.extractHint')}
           >
             {extractGraph.isPending ? (

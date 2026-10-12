@@ -928,7 +928,7 @@ function ScheduledTaskEditor({
               type="button"
               onClick={() => set('isEnabled', !form.isEnabled)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-                form.isEnabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'
+                form.isEnabled ? 'bg-sky-500' : 'bg-gray-300 glass dark:bg-gray-600'
               }`}
             >
               <span className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ${form.isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />

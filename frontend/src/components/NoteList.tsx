@@ -228,7 +228,7 @@ export default function NoteList({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('list.searchPlaceholder')}
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-2 pl-8 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:shadow-sm focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700/50 dark:bg-gray-800/50 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
+            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 glass py-2 pl-8 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white/70 focus:shadow-sm focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700/50 dark:bg-gray-800/50 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
           />
         </div>
       </div>

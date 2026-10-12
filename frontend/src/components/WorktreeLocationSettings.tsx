@@ -65,7 +65,7 @@ export default function WorktreeLocationSettings() {
             value={draft}
             placeholder={t('worktreeLocation.placeholder')}
             onChange={(e) => setEdit({ base: savedRoot, value: e.target.value })}
-            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12px] outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white glass px-3 py-2 font-mono text-[12px] outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
           />
           <button
             onClick={() => {

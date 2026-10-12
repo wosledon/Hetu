@@ -13,7 +13,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
     <button
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-        checked ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+        checked ? 'bg-emerald-500' : 'bg-gray-300 glass dark:bg-gray-600'
       }`}
     >
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -86,7 +86,7 @@ export default function DreamSettings() {
         const v = parseInt(e.target.value || '0', 10) || 0
         onChange(Math.min(max, Math.max(min, v)))
       }}
-      className="w-28 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+      className="w-28 rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
     />
   )
 

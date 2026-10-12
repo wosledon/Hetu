@@ -16,7 +16,7 @@ const defaultConfig = JSON.stringify(
   2
 )
 
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
+const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 export default function McpServerManager() {
   const queryClient = useQueryClient()
@@ -192,7 +192,7 @@ export default function McpServerManager() {
               placeholder={t('mcp.configPlaceholder')}
               value={form.connectionConfig}
               onChange={(e) => setForm({ ...form, connectionConfig: e.target.value })}
-              className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 font-mono text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+              className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-3 font-mono text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
             />
             {editingId && (
               <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">

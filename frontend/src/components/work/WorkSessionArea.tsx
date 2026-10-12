@@ -1806,7 +1806,7 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-28 w-full rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        className="min-h-28 w-full rounded-md border border-gray-200 bg-white glass p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
       />
       <div className="flex justify-end gap-2">
         <button onClick={onCancel} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">

@@ -145,7 +145,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={onClose} className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+            <button onClick={onClose} className="rounded-lg border border-gray-200 bg-white glass px-4 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
               {t('common:cancel')}
             </button>
             <button
