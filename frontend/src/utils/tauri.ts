@@ -42,24 +42,30 @@ export async function openAppWebview(url: string, title: string): Promise<'webvi
   return 'external'
 }
 
+/** 壳命令等待上限：IPC 无响应时不能让点击变成"没反应" */
+const SHELL_OPEN_TIMEOUT_MS = 1500
+
 /**
  * 用系统默认浏览器打开外链。
  * - 桌面壳：webview 会拦掉 window.open / <a target="_blank">，必须走壳侧命令
  * - 浏览器：直接新标签页
- * 壳命令不可用时（老版本壳、ACL 缺失）退回应用内窗口，至少不会点了没反应。
+ * 壳命令不可用或超时（老版本壳、IPC 降级）时退回应用内窗口，至少点得开。
  */
 export function openExternal(url: string): void {
-  if (isTauri()) {
-    void (async () => {
-      try {
-        await tauriInvoke('open_external', { url })
-      } catch {
-        // 老版本壳没有该命令：退回应用内嵌窗口（这条命令更早就有）
-        const opened = await openAppWebview(url, url)
-        if (opened === 'external') window.open(url, '_blank', 'noopener')
-      }
-    })()
+  if (!isTauri()) {
+    window.open(url, '_blank', 'noopener')
     return
   }
-  window.open(url, '_blank', 'noopener')
+  void (async () => {
+    const opened = await Promise.race([
+      tauriInvoke('open_external', { url }).then(() => true),
+      new Promise<boolean>((resolve) => {
+        window.setTimeout(() => resolve(false), SHELL_OPEN_TIMEOUT_MS)
+      }),
+    ]).catch(() => false)
+    if (opened) return
+    // 壳命令没响应：退回应用内窗口（open_app_webview 这条命令更早就有）
+    const fallback = await openAppWebview(url, url)
+    if (fallback === 'external') window.open(url, '_blank', 'noopener')
+  })()
 }

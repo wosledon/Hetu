@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { openRepo } from '../utils/repo'
+import { openRepo, REPO_URL } from '../utils/repo'
+import { isTauri } from '../utils/tauri'
 
 /** GitHub 标记（lucide 已移除品牌图标，这里内联官方轮廓） */
 export function GithubMark({ size = 15 }: { size?: number }) {
@@ -10,32 +11,46 @@ export function GithubMark({ size = 15 }: { size?: number }) {
   )
 }
 
-/** GitHub 仓库入口：垂直胶囊排在「设置」上方，顶部横栏排在「设置」左侧 */
+/** GitHub 仓库入口：垂直胶囊排在「设置」上方，顶部横栏排在「设置」左侧。
+ *  用真实链接（`<a target="_blank">`）而不是 window.open：内嵌浏览器/扩展常拦脚本弹窗，
+ *  锚点最稳；桌面壳的 webview 会拦掉新窗口，所以壳内拦截点击交给系统 opener。 */
 export default function GithubEntry({ variant }: { variant: 'top' | 'rail' }) {
   const { t } = useTranslation()
   const title = t('nav:github')
 
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isTauri()) return
+    e.preventDefault()
+    openRepo()
+  }
+
   if (variant === 'rail') {
     return (
-      <button
-        onClick={openRepo}
+      <a
+        href={REPO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handleClick}
         title={title}
         data-rail-item=""
         className="flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
       >
         <GithubMark size={18} />
         <span className="max-w-full truncate">{t('nav:githubShort')}</span>
-      </button>
+      </a>
     )
   }
 
   return (
-    <button
-      onClick={openRepo}
+    <a
+      href={REPO_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleClick}
       title={title}
       className="rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100/60 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
     >
       <GithubMark size={17} />
-    </button>
+    </a>
   )
 }
