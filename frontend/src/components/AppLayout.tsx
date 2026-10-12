@@ -61,7 +61,7 @@ const verticalNavItemClass = (isActive: boolean) =>
 
 /** 垂直导航的分组底槽：与顶部横栏装胶囊的容器同一套背景与圆角 */
 const railTrackClass =
-  'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]'
+  'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track'
 
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
 function NavUnreadBadge() {
@@ -206,7 +206,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         onClick={() => setMoreOpen(false)}
       />
       <div
-        className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
+        className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white glass p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
         style={{
           top: moreMenuPos.top,
           left: moreMenuPos.left,
@@ -293,7 +293,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   )
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900 dark:bg-[#0c0f1a] dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
+    <div className={`flex h-screen w-full overflow-hidden text-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
       {isVertical ? verticalRail : (
       <nav className="glass-nav grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-6">
         <div className="flex items-center justify-start">
@@ -305,7 +305,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -337,7 +337,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
             {secondaryNavItems.map(renderNavButton)}
           </SlidingPill>
         </div>

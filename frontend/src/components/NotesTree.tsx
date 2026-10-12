@@ -55,7 +55,7 @@ function AddMenu({ menu, onAddNotebook, onAddNote, onClose }: {
     <>
       <div className="fixed inset-0 z-[9998]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div
-        className="fixed z-[9999] min-w-[140px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        className="fixed z-[9999] min-w-[140px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
         style={{ left: Math.min(menu.x, window.innerWidth - 160), top: Math.min(menu.y, window.innerHeight - 120) }}
       >
         <button
@@ -349,7 +349,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   }
 
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50">
+    <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50 glass">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('notebook.label')}</h2>
@@ -460,7 +460,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         <>
           <div className="fixed inset-0 z-[9998]" onClick={closeLeafMenu} onContextMenu={(e) => { e.preventDefault(); closeLeafMenu() }} />
           <div
-            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
             style={{ left: Math.min(leafMenu.x, window.innerWidth - 170), top: Math.min(leafMenu.y, window.innerHeight - 180) }}
           >
             <button

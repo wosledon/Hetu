@@ -61,7 +61,7 @@ export default function NodeConfigPanel({
 
   if (!node) {
     return (
-      <div className="flex w-72 items-center justify-center border-l border-gray-200 bg-white p-4 text-center text-sm text-gray-400 dark:border-white/[0.08] dark:bg-gray-900/50">
+      <div className="flex w-72 items-center justify-center border-l border-gray-200 bg-white glass p-4 text-center text-sm text-gray-400 dark:border-white/[0.08] dark:bg-gray-900/50">
         {t('config.selectNodeHint')}
       </div>
     )
@@ -86,7 +86,7 @@ export default function NodeConfigPanel({
   const agentRefInvalid = !!node.agentId && !agents.some((a) => a.id === node.agentId)
 
   return (
-    <div className="flex w-80 flex-col border-l border-gray-200 bg-white dark:border-white/[0.08] dark:bg-gray-900/50">
+    <div className="flex w-80 flex-col border-l border-gray-200 bg-white glass dark:border-white/[0.08] dark:bg-gray-900/50">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-white/[0.08]">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('config.title')}</h3>
         <div className="flex items-center gap-1">

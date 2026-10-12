@@ -222,7 +222,7 @@ export default function Select({
           <div
             ref={listRef}
             style={dropdownStyle}
-            className="z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
+            className="z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg shadow-black/5 glass dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
           >
             {searchable && (
               <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-white/[0.06]">

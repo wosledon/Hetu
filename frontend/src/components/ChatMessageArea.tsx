@@ -883,8 +883,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const emptyChat = !messagesLoading && messages.length === 0 && !isStreaming
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+    <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 glass min-w-0">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-2 truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
             <span className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
@@ -1101,7 +1101,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                       <span>{t('messageArea.deepThinking')}</span>
                     </button>
                     {showThinking && (
-                      <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
+                      <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-transparent px-2.5 py-2 dark:border-gray-800 dark:bg-transparent">
                         <ThemedMarkdown source={streamingThinking} />
                         <div ref={thinkingEndRef} />
                       </div>
@@ -1110,7 +1110,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Search size={11} />
                       {t('shared.sources')}
@@ -1161,7 +1161,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Memory results - show when memory was used */}
                 {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Atom size={11} />
                       {t('shared.memorySources')}
@@ -1217,7 +1217,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div ref={messagesEndRef} />
       </div>
 
-      <div className={`border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900 ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
+      <div className={`border-t border-gray-100 bg-transparent px-6 py-4 dark:border-gray-800 dark:bg-transparent ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
         {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
         {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (

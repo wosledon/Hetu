@@ -61,6 +61,9 @@ export interface IAppSettingsSnapshot {
   assistantName: string;
   assistantPersona: string;
   theme: 'light' | 'dark' | 'system';
+  themeAccent?: string;
+  background?: string;
+  glassEffect?: string;
   graphAutoExtract: string;
   autoEmbedding: string;
   defaultChatModelId?: string;

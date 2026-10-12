@@ -76,7 +76,7 @@ export default function InlineWorkflowPanel({
   }, [workflow.edges, stateMap])
 
   return (
-    <div className="rounded-xl border border-blue-200 bg-white dark:border-blue-800 dark:bg-gray-900 overflow-hidden">
+    <div className="rounded-xl border border-blue-200 bg-white glass dark:border-blue-800 dark:bg-gray-900 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
         <CircleCheckBig size={14} className="text-blue-500" />

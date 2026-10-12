@@ -159,7 +159,7 @@ export default function WorkflowsPage() {
       showSidebar={false}
       mainContent={
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
+          <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
@@ -193,7 +193,7 @@ export default function WorkflowsPage() {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="group flex flex-col rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-md dark:border-white/[0.08] dark:bg-gray-800 dark:hover:border-blue-500/40"
+                    className="group flex flex-col rounded-xl border border-gray-200 bg-white glass p-4 transition-all hover:border-blue-300 hover:shadow-md dark:border-white/[0.08] dark:bg-gray-800 dark:hover:border-blue-500/40"
                   >
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">

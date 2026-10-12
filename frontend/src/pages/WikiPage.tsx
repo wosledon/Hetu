@@ -311,9 +311,9 @@ export default function WikiPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex h-full min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
+      <div className="flex h-full min-w-0 flex-1 bg-transparent">
         {/* 项目列表 */}
-        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -364,7 +364,7 @@ export default function WikiPage() {
         </aside>
 
         {/* Wiki 套件与页面 */}
-        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
@@ -438,7 +438,7 @@ export default function WikiPage() {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
               <BookText size={20} />
             </div>
@@ -478,7 +478,7 @@ export default function WikiPage() {
                 {modelPickerOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setModelPickerOpen(false)} />
-                    <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -575,7 +575,7 @@ export default function WikiPage() {
 
           {/* 内容区：有选中文档就渲染，与是否按项目过滤无关 */}
           {selectedDoc ? (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white glass dark:bg-gray-900">
               <article className="mx-auto max-w-4xl px-8 py-6">
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">

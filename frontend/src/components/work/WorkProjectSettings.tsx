@@ -121,7 +121,7 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-[560px] flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900"
+        className="flex max-h-[85vh] w-[560px] flex-col overflow-hidden rounded-xl bg-white glass shadow-xl dark:bg-gray-900"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('projectSettings.title', { name: project.name })}</h3>

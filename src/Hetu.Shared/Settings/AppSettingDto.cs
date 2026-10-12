@@ -20,6 +20,12 @@ public class AppSettingsSnapshotDto
     /// <summary>助手人设/性格描述，拼入 system prompt 用于身份认知</summary>
     public string AssistantPersona { get; set; } = string.Empty;
     public string Theme { get; set; } = "system";
+    /// <summary>主题配色（全软件强调色）：blue / violet / cyan / emerald / amber / rose</summary>
+    public string ThemeAccent { get; set; } = "blue";
+    /// <summary>画布背景：solid / dawn / dusk / grid / dots / aurora</summary>
+    public string Background { get; set; } = "solid";
+    /// <summary>毛玻璃（亚克力）材质开关：true 开启、false 关闭</summary>
+    public string GlassEffect { get; set; } = "true";
     /// <summary>界面语言：zh 或 en</summary>
     public string Language { get; set; } = "zh";
     public string GraphAutoExtract { get; set; } = "false";

@@ -242,7 +242,7 @@ export default function KanbanTaskDetailPage() {
   return (
     <AppLayout showSidebar={false} mainContent={
       /* 注意：mainContent 位于行向 flex 容器内，根节点必须 flex-1 + min-w-0 才能撑满宽度 */
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
         <div className="flex-1 overflow-y-auto">
           <div className="w-full px-6 py-6 lg:px-10">
             {/* 顶部导航 */}
@@ -260,7 +260,7 @@ export default function KanbanTaskDetailPage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
               {/* 主区：标题、时间线、评论 */}
               <div className="min-w-0 space-y-6">
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{task.title}</h1>
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_META[task.status].cls}`}>
@@ -494,7 +494,7 @@ export default function KanbanTaskDetailPage() {
 
               {/* 侧栏：属性与流转（宽屏下固定在右侧，不随时间线滚走） */}
               <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 glass">
                   <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('detail.properties')}</h3>
                   <dl className="space-y-2.5 text-[13px]">
                     <div className="flex items-center gap-2">

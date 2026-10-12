@@ -328,7 +328,7 @@ export default function KanbanPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex h-full min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
+        <div className="flex h-full min-w-0 flex-col bg-transparent">
           {/* Header */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
             <div className="flex items-center gap-3">
@@ -501,7 +501,7 @@ export default function KanbanPage() {
           {/* Create/Edit modal */}
           {showForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
@@ -672,7 +672,7 @@ export default function KanbanPage() {
           {/* 阻塞原因 modal */}
           {blockingTask && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+              <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
@@ -741,7 +741,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
+      className={`group cursor-pointer rounded-xl border bg-white glass p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
         isDragging ? 'opacity-40' : ''
       } ${dropAbove ? 'border-indigo-400' : 'border-gray-100 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >

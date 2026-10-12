@@ -199,7 +199,7 @@ export default function NoteList({
   const offsetY = startIndex * ITEM_HEIGHT
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/60 dark:border-gray-800/50 dark:bg-gray-900/40">
+    <div className="flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/60 glass dark:border-gray-800/50 dark:bg-gray-900/40">
       <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -350,7 +350,7 @@ export default function NoteList({
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-100 bg-white glass py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
           style={{
             left: Math.min(menu.x, window.innerWidth - 188),
             top: Math.min(menu.y, window.innerHeight - 260),

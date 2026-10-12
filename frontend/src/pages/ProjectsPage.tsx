@@ -209,7 +209,7 @@ export default function ProjectsPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex h-full min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
+      <div className="flex h-full min-w-0 flex-1 bg-transparent">
         <ProjectsSidebar
           groups={groups}
           projects={projects}
@@ -224,7 +224,7 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>
@@ -323,7 +323,7 @@ export default function ProjectsPage() {
                             e.currentTarget.classList.remove('ring-1', 'ring-blue-300')
                             handleCardDrop(section, project.id, e.dataTransfer.getData('application/x-project-id'))
                           }}
-                          className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                          className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
                         >
                           <div className="flex items-start gap-3">
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
@@ -470,7 +470,7 @@ export default function ProjectsPage() {
                               {menuFor === project.id && (
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
                                     <button
                                       onClick={() => moveToGroup(project, null)}

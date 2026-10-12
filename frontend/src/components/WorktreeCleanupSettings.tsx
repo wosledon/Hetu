@@ -101,7 +101,7 @@ export default function WorktreeCleanupSettings() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('worktreeCleanup.subtitle')}</p>
       </div>
 
-      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white glass p-4 dark:border-gray-700 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('worktreeCleanup.autoTitle')}</div>
           <div className="mt-0.5 text-xs text-gray-500">

@@ -1007,7 +1007,7 @@ export default function MemoriesPage() {
             {/* 悬停信息在星星旁就地弹出；点击不再弹卡，编辑/删除请切到「索引」视图 */}
           </div>
         ) : (
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* 页头 */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -1181,7 +1181,7 @@ export default function MemoriesPage() {
                   return (
                   <div
                     key={memory.id}
-                    className={`group rounded-2xl border bg-white p-4 transition-all duration-200 hover:shadow-md dark:bg-gray-900 ${
+                    className={`group rounded-2xl border bg-white glass p-4 transition-all duration-200 hover:shadow-md dark:bg-gray-900 ${
                       state.key === 'dying'
                         ? 'border-red-200/80 hover:border-red-300 dark:border-red-500/25 dark:hover:border-red-500/40'
                         : state.key === 'fading'
@@ -1331,7 +1331,7 @@ export default function MemoriesPage() {
       {/* 新建记忆对话框 */}
       {isCreating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setIsCreating(false)}>
-          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <Atom size={18} className="text-teal-500" />

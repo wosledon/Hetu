@@ -51,7 +51,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="flex h-[520px] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+      <div className="flex h-[520px] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">

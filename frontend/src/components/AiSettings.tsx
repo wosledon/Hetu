@@ -230,7 +230,7 @@ export default function AiSettings() {
 
       {/* Provider Cards */}
       {providers.map((provider) => (
-        <div key={provider.id} className="rounded-xl border border-gray-200/80 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <div key={provider.id} className="rounded-xl border border-gray-200/80 bg-white glass shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
           {/* Provider Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
             <div className="flex items-center gap-3">
@@ -479,7 +479,7 @@ function ProviderForm({
             className={`${inputClass} pl-9`}
           />
           {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
-            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white glass p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
               {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">{t('ai.searchingProviders')}</p>}
               {!catalogLoading &&
                 catalogResults.map((p) => (
@@ -723,7 +723,7 @@ function ModelForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1129,7 +1129,7 @@ function FetchModelsForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">

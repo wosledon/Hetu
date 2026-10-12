@@ -165,7 +165,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   return (
     <div className="flex h-full flex-1 flex-col">
       {/* 工具栏 */}
-      <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+      <div className="flex items-center gap-2 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
         <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
           <ChevronLeft size={16} /> {t('common:back')}
         </button>
@@ -183,7 +183,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           {showMeta && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMeta(false)} />
-              <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
+              <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
                 <div>
                   <label className="mb-1 block text-[11px] text-gray-400">{t('common:name')}</label>
                   <input
@@ -305,7 +305,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
 export default function WorkflowEditor(props: WorkflowEditorProps) {
   return (
     <ReactFlowProvider>
-      <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-[#0c0f1a]">
+      <div className="flex h-screen w-full flex-col bg-transparent">
         <LayoutedEditor {...props} />
       </div>
     </ReactFlowProvider>

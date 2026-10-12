@@ -247,7 +247,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   }
 
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-900 ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
+    <div className={`flex flex-col bg-white dark:bg-gray-900 glass ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
       <div className="flex-1 overflow-y-auto p-2">
         {mainChat && !hideMainChat && (
           <>
@@ -296,7 +296,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
         <>
           <div className="fixed inset-0 z-[9998]" onClick={closeTopicMenu} onContextMenu={(e) => { e.preventDefault(); closeTopicMenu() }} />
           <div
-            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
             style={{ left: Math.min(topicMenu.x, window.innerWidth - 170), top: Math.min(topicMenu.y, window.innerHeight - 140) }}
           >
             {renamingId === topicMenu.topic.id ? (

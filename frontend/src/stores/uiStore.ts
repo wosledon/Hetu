@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AccentKey, BackgroundKey } from '../utils/appearance';
 
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
@@ -10,6 +11,12 @@ interface UIState {
   assistantName: string;
   assistantPersona: string;
   theme: Theme;
+  /** 主题配色（全软件强调色） */
+  accent: AccentKey;
+  /** 画布背景 */
+  background: BackgroundKey;
+  /** 毛玻璃（亚克力）材质开关 */
+  glass: boolean;
   sidebarCollapsed: boolean;
   secondaryMenuStyle: SecondaryMenuStyle;
   navStyle: NavStyle;
@@ -22,6 +29,9 @@ interface UIState {
   setAssistantName: (name: string) => void;
   setAssistantPersona: (persona: string) => void;
   setTheme: (theme: Theme) => void;
+  setAccent: (accent: AccentKey) => void;
+  setBackground: (background: BackgroundKey) => void;
+  setGlass: (glass: boolean) => void;
   toggleSidebar: () => void;
   setSecondaryMenuStyle: (style: SecondaryMenuStyle) => void;
   setNavStyle: (style: NavStyle) => void;
@@ -39,6 +49,9 @@ export const useUIStore = create<UIState>()(
       assistantName: 'AI 助手',
       assistantPersona: '',
       theme: 'light',
+      accent: 'blue',
+      background: 'solid',
+      glass: true,
       sidebarCollapsed: false,
       secondaryMenuStyle: 'flat',
       navStyle: 'top',
@@ -51,6 +64,9 @@ export const useUIStore = create<UIState>()(
       setAssistantName: (name) => set({ assistantName: name }),
       setAssistantPersona: (persona) => set({ assistantPersona: persona }),
       setTheme: (theme) => set({ theme }),
+      setAccent: (accent) => set({ accent }),
+      setBackground: (background) => set({ background }),
+      setGlass: (glass) => set({ glass }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSecondaryMenuStyle: (style) => set({ secondaryMenuStyle: style }),
       setNavStyle: (style) => set({ navStyle: style }),
@@ -89,10 +105,12 @@ export const useUIStore = create<UIState>()(
         assistantName: state.assistantName,
         assistantPersona: state.assistantPersona,
         theme: state.theme,
-        sidebarCollapsed: state.sidebarCollapsed,
-        secondaryMenuStyle: state.secondaryMenuStyle,
+        accent: state.accent,
+        background: state.background,
+        sidebarCollapsed: state.sidebarCollapsed,        secondaryMenuStyle: state.secondaryMenuStyle,
         navStyle: state.navStyle,
         pinnedNavItems: state.pinnedNavItems,
+        glass: state.glass,
       }),
     }
   )

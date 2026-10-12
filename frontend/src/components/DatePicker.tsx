@@ -122,7 +122,7 @@ export default function DatePicker({
         <div
           ref={panelRef}
           style={panelStyle}
-          className="z-[9999] w-[260px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
+          className="z-[9999] w-[260px] rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
         >
           <div className="mb-2 flex items-center justify-between">
             <button

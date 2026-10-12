@@ -145,7 +145,7 @@ export default function InboxPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-4xl px-8 py-8">
             {/* Header */}
             <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -179,7 +179,7 @@ export default function InboxPage() {
 
             {/* 归档切换 + 分类筛选 */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <SlidingPill value={archived ? 'archived' : 'inbox'} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              <SlidingPill value={archived ? 'archived' : 'inbox'} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                 <button
                   onClick={() => { setArchived(false); setSelected([]) }}
                   data-pill-key="inbox"
@@ -252,7 +252,7 @@ export default function InboxPage() {
             ) : (
               <div className="space-y-2.5">
                 {/* 工具栏：全选 + 批量操作 */}
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white glass px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
                   <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <input
                       type="checkbox"

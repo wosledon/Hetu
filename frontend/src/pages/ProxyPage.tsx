@@ -266,7 +266,7 @@ export default function ProxyPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* 页头 */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -289,7 +289,7 @@ export default function ProxyPage() {
             {/* 选项卡 */}
             <SlidingPill
               value={tab}
-              className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]"
+              className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track"
             >
               {([
                 { key: 'shadow' as const, labelKey: 'proxy.tabShadow', icon: Zap },
@@ -316,7 +316,7 @@ export default function ProxyPage() {
 
             <div className="space-y-4">
               {/* 接入地址 */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
                 <div className="mb-3 flex items-center gap-2">
                   <Globe size={14} className="text-blue-500" />
                   <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('proxy.endpointTitle')}</h2>
@@ -336,7 +336,7 @@ export default function ProxyPage() {
               </div>
 
               {/* 配置卡 */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
                 <ProxyCard key={tab} mode={tab} modelOptions={modelOptions} />
               </div>
             </div>

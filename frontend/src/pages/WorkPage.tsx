@@ -352,7 +352,7 @@ export default function WorkPage() {
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
           {/* 左栏一级菜单：主对话（置顶） / 会话（会话组） / 项目（项目与会话） */}
-          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
             {/* 一级：主对话 */}
             <div className="shrink-0 p-2">
               <MainChatEntry
