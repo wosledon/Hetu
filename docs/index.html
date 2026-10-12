@@ -26,7 +26,7 @@
 <header class="site-header">
   <div class="wrap">
     <a class="brand" href="index.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 12 3l8 3.5v7L12 21l-8-6.5z"/><path d="M12 3v18M4 10h16"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5v8.5"/><path d="M11 8.5v8.5"/><path d="M5 12.5h13"/><path d="M15.5 5.5v9.5q0 1.5 1.5 1.5h1.5"/></svg>
       <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
     </a>
     <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
@@ -49,7 +49,7 @@
       </button>
       <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
-        下载 <span data-latest-version>v0.3.6</span>
+        下载 <span data-latest-version>v0.3.7</span>
       </a>
     </div>
   </div>
@@ -57,8 +57,7 @@
 <main id="main">
   <section class="hero">
     <div class="wrap hero-copy">
-      <div>
-        <span class="tag">当前版本 <span data-latest-version>v0.3.6</span> · Apache-2.0 · 本地优先</span>
+        <span class="tag">当前版本 <span data-latest-version>v0.3.7</span> · Apache-2.0 · 本地优先</span>
         <h1>本地优先的 AI 知识与 Agent 工作台</h1>
         <p class="lede">Hetu（河图）把 Markdown 笔记、对话与编码会话放在同一套数据底座上：SQLite + <code>sqlite-vec</code>（或 PostgreSQL + <code>pgvector</code>）存内容与向量，ASP.NET Core 10 提供 API 与 Agent 循环，React 19 前端负责界面，Tauri 2 桌面壳负责安装包与自动更新。模型调用只发往你自己配置的供应商。</p>
         <div class="hero-cta">
@@ -76,18 +75,12 @@
           </a>
         </div>
         <div class="hero-meta">
-          <span>ASP.NET Core 10 · EF Core 10</span>
-          <span>React 19 · TypeScript 6 · Vite 8</span>
-          <span>SQLite + sqlite-vec / PostgreSQL + pgvector</span>
-          <span>MCP（JSON-RPC 2.0）</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></svg>ASP.NET Core 10 · EF Core 10</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/></svg>React 19 · TypeScript 6 · Vite 8</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>SQLite + sqlite-vec / PostgreSQL + pgvector</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7V4M15 7V4M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v4"/></svg>MCP（JSON-RPC 2.0）</span>
         </div>
       </div>
-    </div>
-  <div class="wrap hero-shot">
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/02-code.png" width="1440" height="900" alt="Agent 工作台：左侧会话与话题树，右侧消息流、工具调用与输入工具带"></div>
-      <span class="shot-hint">点图看原图</span>
-    </div>
-    </div>
   </section>
 
   <section class="section section--alt">
@@ -99,27 +92,27 @@
       </div>
       <div class="grid grid-3">
         <div class="card">
-          <h3>笔记</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H12v18H6.5A1.5 1.5 0 0 1 5 19.5z"/><path d="M12 3h5.5A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5H12"/><path d="M8.5 8.5h3M8.5 12h3"/></svg></span>笔记</h3>
           <p>Milkdown 所见即所得 + CodeMirror 源码视图；选中文字调 AI（润色/翻译/精简/扩写/解释/自定义）；笔记本、标签、历史版本、分享链接、回收站、Markdown 导出。</p>
         </div>
         <div class="card">
-          <h3>Agent 工作台</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z"/><path d="M8.5 9.5h7"/></svg></span>Agent 工作台</h3>
           <p>会话与话题、SSE 流式事件、工具调用与审批、五档权限模式、推理强度、发送队列与运行中引导；话题可蒸馏成笔记。</p>
         </div>
         <div class="card">
-          <h3>Code 会话</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/></svg></span>Code 会话</h3>
           <p>本地或 SSH 仓库；当前分支或独立工作树；本地+远程分支与单键 Git 同步；文件 / 更改 / 检查点 / Git / PR / 浏览器 / 终端 七个面板。</p>
         </div>
         <div class="card">
-          <h3>检索与知识结构</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="2.6"/><circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M10.6 8.2 7.4 14.8M13.4 8.2l3.2 6.6M8.6 17h6.8"/></svg></span>检索与知识结构</h3>
           <p>笔记、文件、网址统一分块向量化；知识图谱抽取实体与关系；按项目生成 Wiki；长期记忆配 Dream 巩固。</p>
         </div>
         <div class="card">
-          <h3>组织与自动化</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v12h-4z"/></svg></span>组织与自动化</h3>
           <p>任务看板（可指派 Agent 执行并记录步骤）、可视化工作流、后台任务与 Cron 定时任务、收件箱通知。</p>
         </div>
         <div class="card">
-          <h3>扩展与模型</h3>
+          <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><path d="M16.5 13v7M13 16.5h7"/></svg></span>扩展与模型</h3>
           <p>智能体（提示预设 + 工具白名单 + 审批策略）、技能（内置/自定义/磁盘目录）、内置工具开关、MCP 服务器、多供应商与按场景默认模型、代理接口、用量与成本。</p>
         </div>
       </div>
@@ -129,34 +122,9 @@
   <section class="section">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">关键实现</span>
-        <h2>技术选择与边界</h2>
-        <p>以下都是代码里实际生效的机制，不是概念描述。</p>
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>主题</th><th>实现</th></tr></thead>
-        <tbody>
-          <tr><td>存储</td><td>SQLite（默认，<code>Data Source=hetu.db</code>）+ <code>sqlite-vec</code> 向量扩展；可切 PostgreSQL 16+ + <code>pgvector</code>，同一套功能，<code>DatabaseProvider</code> 配置切换</td></tr>
-          <tr><td>分页与聚合</td><td>列表接口一律数据库侧完成（SQL <code>COUNT</code> + <code>OFFSET/FETCH</code>、<code>GROUP BY</code> 计数与摘要）；知识库状态、向量摘要不再整表加载</td></tr>
-          <tr><td>SQLite 时间排序</td><td>provider 不支持在 SQL 中对 <code>DateTimeOffset</code> 排序/聚合，仓储内置 <code>GetPagedByDateAsync</code> / <code>CountByAsync</code> / <code>PruneAsync</code> 规避（投影排序键后内存定序、按主键回表）</td></tr>
-          <tr><td>只读接口缓存</td><td>被页面轮询的状态类接口加 <code>[ResponseCache]</code> 短时缓存，减少重复查询</td></tr>
-          <tr><td>Agent 循环</td><td>SSE 事件流（<code>delta</code> / <code>thinking</code> / 工具调用与结果 / <code>steering</code> / 检查点 / 审批 / 通知）；运行中可排队或引导；后台任务统一进 <code>TaskItem</code> 记录</td></tr>
-          <tr><td>代码隔离</td><td><code>git worktree</code> 独立工作区，默认在仓库父目录 <code>.hetu-worktrees/&lt;仓库&gt;/&lt;工作树&gt;</code>，可按「已合并 + 空闲」自动清理</td></tr>
-          <tr><td>PR 集成</td><td>按 <code>origin</code> 远端自动选择 <code>gh</code> 或 <code>glab</code>；未安装时给出对应平台安装命令</td></tr>
-          <tr><td>桌面</td><td>Tauri 2 外壳 + sidecar 后端；<code>fat</code> / <code>slim</code> 双渠道安装包；更新走 GitHub + 三个加速镜像；安装钩子在覆盖文件前清理残留后端进程</td></tr>
-          <tr><td>工程约束</td><td>后端 <code>dotnet build</code> 与前端 <code>eslint</code> 均要求 0 告警，且不允许任何抑制注释（<code>pragma</code> / <code>eslint-disable</code> / <code>SuppressMessage</code>）</td></tr>
-        </tbody>
-      </table></div>
-      <p>更多实现细节（分层、请求流、数据模型、性能实践）见 <a href="guide/architecture.html">架构与实现</a>。</p>
-    </div>
-  </section>
-
-  <section class="section section--alt">
-    <div class="wrap">
-      <div class="section-head">
         <span class="eyebrow">界面</span>
-        <h2>实际界面（点击可看原图）</h2>
-        <p>下面每张都是本地数据的真实截图，缩略图看不清时点一下看原尺寸。</p>
+        <h2>可换配色与材质，也看得见的本地优先</h2>
+        <p>6 种主题配色、6 种画布背景、可开关的亚克力材质；下面是本地数据的真实截图，缩略图看不清时点一下看原尺寸。</p>
       </div>
       <div class="gallery">
         <figure>
@@ -184,6 +152,10 @@
           <figcaption><b>任务看板</b>：进行中 / 审核中 / 已阻塞 / 已完成 / 已归档；任务可指派智能体执行。</figcaption>
         </figure>
         <figure>
+          <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/12-appearance.png" alt="主题与外观设置：明暗主题与主题配色"></div>
+          <figcaption><b>主题与外观</b>：明暗主题、6 种强调色、6 种画布背景与亚克力材质开关（Beta）。</figcaption>
+        </figure>
+        <figure>
           <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="screenshots/09-usage.png" alt="用量统计页：Token 趋势、模型与来源分布、热力图"></div>
           <figcaption><b>用量与成本</b>：Token / 输入 / 压缩后 / 输出 / 缓存、平均延迟、模型与来源分布、热力图。</figcaption>
         </figure>
@@ -195,7 +167,7 @@
     </div>
   </section>
 
-  <section class="section">
+  <section class="section section--alt">
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">起步</span>
@@ -228,7 +200,7 @@ pwsh ./scripts/start.ps1     # Windows
     </div>
   </section>
 
-  <section class="section section--alt">
+  <section class="section">
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">文档</span>
@@ -246,6 +218,7 @@ pwsh ./scripts/start.ps1     # Windows
         <a href="guide/organize.html"><strong>看板与自动化</strong><span>任务看板、工作流、后台与定时任务</span></a>
         <a href="guide/extensions.html"><strong>扩展与集成</strong><span>智能体、技能、工具、MCP、应用</span></a>
         <a href="guide/models.html"><strong>模型与用量</strong><span>供应商、场景默认、代理、成本</span></a>
+        <a href="guide/theme.html"><strong>主题与外观 <em class="pill-beta">Beta</em></strong><span>配色、画布背景、亚克力材质、导航样式</span></a>
         <a href="guide/architecture.html"><strong>架构与实现</strong><span>分层、请求流、数据模型、性能实践</span></a>
         <a href="guide/faq.html"><strong>常见问题</strong><span>安装、索引、工作树、更新、排错</span></a>
       </div>

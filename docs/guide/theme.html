@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>主题与外观 · Hetu</title>
+<meta name="description" content="主题与外观设置详解：明暗主题、6 种主题配色、6 种画布背景、亚克力材质开关，以及导航菜单与设置侧栏的样式选项。">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/theme.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/theme.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/theme.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="主题与外观 · Hetu">
+<meta property="og:description" content="主题与外观设置详解：明暗主题、6 种主题配色、6 种画布背景、亚克力材质开关，以及导航菜单与设置侧栏的样式选项。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/theme.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/12-appearance.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5v8.5"/><path d="M11 8.5v8.5"/><path d="M5 12.5h13"/><path d="M15.5 5.5v9.5q0 1.5 1.5 1.5h1.5"/></svg>
+      <span>Hetu<small>河图 · 本地优先 AI 知识工作台</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="../index.html">首页</a>
+      <a href="../guide/index.html" aria-current="page">文档</a>
+      <a href="../guide/architecture.html">架构</a>
+      <a href="../guide/getting-started.html">下载</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="#" aria-current="true">中文</a>
+        <a href="../en/guide/theme.html" title="English version">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        下载 <span data-latest-version>v0.3.7</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>文档目录</h2>
+    <ol>
+      <li><a href="index.html">文档索引</a></li>
+      <li><a href="getting-started.html">快速开始</a></li>
+      <li><a href="notes.html">笔记</a></li>
+      <li><a href="workspace.html">Agent 工作台</a></li>
+      <li><a href="code-sessions.html">Code 会话</a></li>
+      <li><a href="knowledge.html">知识库</a></li>
+      <li><a href="graph-wiki.html">知识图谱与 Wiki</a></li>
+      <li><a href="memories.html">记忆与 Dream</a></li>
+      <li><a href="organize.html">看板与自动化</a></li>
+      <li><a href="extensions.html">扩展与集成</a></li>
+      <li><a href="models.html">模型与用量</a></li>
+      <li><a href="theme.html" aria-current="page">主题与外观</a></li>
+      <li><a href="desktop.html">桌面应用</a></li>
+      <li><a href="data.html">数据与安全</a></li>
+      <li><a href="architecture.html">架构与实现</a></li>
+      <li><a href="faq.html">常见问题</a></li>
+      <li><a href="dev.html">参与开发</a></li>
+    </ol>
+    <h2>深入实现</h2>
+    <ol>
+      <li><a href="compression.html">压缩管道</a></li>
+      <li><a href="agent-loop.html">Agent 循环</a></li>
+      <li><a href="permissions.html">权限与审批</a></li>
+      <li><a href="context.html">上下文与自动压缩</a></li>
+      <li><a href="sse.html">SSE 事件协议</a></li>
+      <li><a href="chunking.html">分块与向量索引</a></li>
+      <li><a href="retrieval.html">语义检索</a></li>
+      <li><a href="graph-extraction.html">知识图谱抽取</a></li>
+      <li><a href="wiki-generation.html">Wiki 生成</a></li>
+      <li><a href="memory-recall.html">记忆的写入与召回</a></li>
+      <li><a href="dream.html">Dream 记忆巩固</a></li>
+      <li><a href="kanban.html">任务看板与自动化</a></li>
+      <li><a href="workflows.html">工作流引擎</a></li>
+      <li><a href="background-tasks.html">后台与定时任务</a></li>
+      <li><a href="inbox.html">收件箱与通知</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>主题与外观</h1>
+      <p class="lede">设置 → 主题与外观（Beta）管两件事：软件的「配色与材质」，以及「导航菜单」的排布样式。全部选项即时生效，并随账号数据一起持久化——换机器、重开应用都在。</p>
+
+      <h2>明暗主题</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>选项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>跟随系统</td><td>读取操作系统的明暗偏好，系统切换时界面自动跟随</td></tr>
+          <tr><td>浅色</td><td>固定浅色</td></tr>
+          <tr><td>暗色</td><td>固定暗色</td></tr>
+        </tbody>
+      </table></div>
+
+      <h2>主题配色</h2>
+      <p>6 种强调色：经典蓝、紫、青、翠绿、琥珀、玫红。实现上是把 Tailwind 主题里的 <code>--color-blue-*</code> / <code>--color-indigo-*</code> 整套色板按色相平移 + 彩度缩放，因此按钮、选中态、链接、焦点环会一次性换色，不需要逐处改类名。</p>
+      <figure class="shot-figure">
+        <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/12-appearance.png" width="1440" height="900" alt="主题与外观设置：明暗主题卡片与主题配色色板"></div>
+        <figcaption>主题与外观：明暗主题与主题配色。</figcaption>
+      </figure>
+
+      <h2>画布背景</h2>
+      <p>6 种画布：纯白、黎明、暮色、网格、圆点、极光。背景画在 body 上，页面主内容区保持透明，于是卡片与面板之间会透出画布颜色——这也是亚克力材质能看到底的原因。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>画布</th><th>浅色</th><th>暗色</th></tr></thead>
+        <tbody>
+          <tr><td>纯白</td><td>近白底色</td><td>近黑底色</td></tr>
+          <tr><td>黎明 / 暮色</td><td>粉→蓝→青 / 暖橙→紫→蓝渐变</td><td>同色系深色渐变</td></tr>
+          <tr><td>网格 / 圆点</td><td>26px / 22px 浅色纹理</td><td>同规格深色纹理</td></tr>
+          <tr><td>极光</td><td>三团柔光（紫 / 青 / 蓝）</td><td>同色系高饱和柔光</td></tr>
+        </tbody>
+      </table></div>
+
+      <h2>亚克力材质</h2>
+      <p>一个开关，管全软件的「毛玻璃」：卡片、面板、胶囊轨道、导航栏与导轨、输入框、开关、筛选芯片都会变成半透明材质——底色 + 背景模糊提色 + 细噪点 + 顶部高光，画布颜色从材质里透出来。</p>
+      <ul>
+        <li>材质画在 <code>::before</code> 上：<code>backdrop-filter</code> 放在宿主身上会把宿主变成浮层定位的包含块，下拉与浮层会错位</li>
+        <li>表单控件（<code>input</code> / <code>textarea</code>）不渲染伪元素，材质直接落在宿主上，并关掉原生白底</li>
+        <li>导航栏与左导轨用更实的材质，浅色画布下才不会「消失」；胶囊轨道更透，让画布颜色透上来</li>
+        <li>关掉开关后所有表面回到纯白卡片 / 灰轨道，没有任何模糊开销</li>
+      </ul>
+      <figure class="shot-figure">
+        <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../screenshots/13-appearance-material.png" width="1440" height="900" alt="画布背景选择与亚克力材质开关，面板上可见画布透出"></div>
+        <figcaption>画布背景与亚克力开关：面板上能直接看到画布透出的颜色。</figcaption>
+      </figure>
+
+      <h2>导航菜单</h2>
+      <p>同一页里还管导航的排布，改完立刻生效：</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>选项</th><th>取值</th></tr></thead>
+        <tbody>
+          <tr><td>主导航样式</td><td>顶部横栏（默认）/ 垂直胶囊（导航移到窗口最左侧，纵向排列）</td></tr>
+          <tr><td>二级菜单样式</td><td>平铺（父子菜单两栏并排）/ 树形（合并为一棵树，展开父级显示子项）</td></tr>
+          <tr><td>固定到导航的功能</td><td>未选中的功能从「更多」菜单快速跳转；笔记、对话、Code、工作流、搜索始终固定显示</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">外观设置目前标注 Beta：选项与默认值还可能随版本调整，但数据都会持久化，不会因为升级丢失。</div>
+
+      <h2>设置存在哪</h2>
+      <ul>
+        <li>主题、配色、画布、亚克力开关、导航样式都写进后端设置表，与「应用设置」里的名称、语言同一套机制</li>
+        <li>前端启动时会预热这些设置：刷新或新安装后第一次进入界面就是保存过的外观，不会先闪一下默认皮肤</li>
+        <li>接口：<code>GET /api/settings</code> 读取，<code>PUT /api/settings</code> 写入（键 <code>Theme</code> / <code>ThemeAccent</code> / <code>Background</code> / <code>GlassEffect</code> / <code>NavStyle</code> / <code>SecondaryMenuStyle</code>）</li>
+      </ul>
+    <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="desktop.html">桌面应用 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="页脚导航">
+      <a href="../guide/index.html">文档</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+      <a href="../guide/dev.html">参与开发</a>
+    </nav>
+    <span class="spacer">笔记 · 对话 · 编码会话，一套本地底座</span>
+    <span class="visit-counter" data-visit-counter title="匿名统计，不使用 Cookie，仅统计浏览人数与浏览量。"><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">访问人数</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">浏览量</span> <b data-visit-views>–</b></span></span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>

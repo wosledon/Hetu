@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme &amp; appearance · Hetu</title>
+<meta name="description" content="Theme &amp; appearance settings: light/dark theme, six accent palettes, six canvas backgrounds, the acrylic material switch, and navigation layout options.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/theme.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/theme.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/theme.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="Theme &amp; appearance · Hetu">
+<meta property="og:description" content="Theme &amp; appearance settings: light/dark theme, six accent palettes, six canvas backgrounds, the acrylic material switch, and navigation layout options.">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/theme.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/12-appearance.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script defer src="../../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5v8.5"/><path d="M11 8.5v8.5"/><path d="M5 12.5h13"/><path d="M15.5 5.5v9.5q0 1.5 1.5 1.5h1.5"/></svg>
+      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../index.html">Home</a>
+      <a href="../guide/index.html" aria-current="page">Docs</a>
+      <a href="../guide/architecture.html">Architecture</a>
+      <a href="../guide/getting-started.html">Download</a>
+      <a href="../guide/faq.html">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <span class="lang" role="group" aria-label="Language">
+        <a href="../../guide/theme.html" title="中文版本">中文</a>
+        <a href="#" aria-current="true">EN</a>
+      </span>
+      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+        Download <span data-latest-version>v0.3.7</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+    <h2>Docs index</h2>
+    <ol>
+      <li><a href="index.html">Docs index</a></li>
+      <li><a href="getting-started.html">Getting started</a></li>
+      <li><a href="notes.html">Notes</a></li>
+      <li><a href="workspace.html">Agent workspace</a></li>
+      <li><a href="code-sessions.html">Code sessions</a></li>
+      <li><a href="knowledge.html">Knowledge base</a></li>
+      <li><a href="graph-wiki.html">Graph &amp; Wiki</a></li>
+      <li><a href="memories.html">Memory &amp; Dream</a></li>
+      <li><a href="organize.html">Board &amp; automation</a></li>
+      <li><a href="extensions.html">Extensions</a></li>
+      <li><a href="models.html">Models &amp; usage</a></li>
+      <li><a href="theme.html" aria-current="page">Theme &amp; appearance</a></li>
+      <li><a href="desktop.html">Desktop app</a></li>
+      <li><a href="data.html">Data &amp; security</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="faq.html">FAQ</a></li>
+      <li><a href="dev.html">Contributing</a></li>
+    </ol>
+    <h2>Deep dives</h2>
+    <ol>
+      <li><a href="compression.html">Compression pipeline</a></li>
+      <li><a href="agent-loop.html">Agent loop</a></li>
+      <li><a href="permissions.html">Permissions &amp; approval</a></li>
+      <li><a href="context.html">Context &amp; auto-compression</a></li>
+      <li><a href="sse.html">SSE event protocol</a></li>
+      <li><a href="chunking.html">Chunking &amp; vector index</a></li>
+      <li><a href="retrieval.html">Semantic retrieval</a></li>
+      <li><a href="graph-extraction.html">Graph extraction</a></li>
+      <li><a href="wiki-generation.html">Wiki generation</a></li>
+      <li><a href="memory-recall.html">Memory write &amp; recall</a></li>
+      <li><a href="dream.html">Dream consolidation</a></li>
+      <li><a href="kanban.html">Board &amp; automation</a></li>
+      <li><a href="workflows.html">Workflow engine</a></li>
+      <li><a href="background-tasks.html">Background &amp; scheduled tasks</a></li>
+      <li><a href="inbox.html">Inbox &amp; notifications</a></li>
+    </ol>
+  </aside>
+    <div class="docs-body">
+      <h1>Theme &amp; appearance</h1>
+      <p class="lede">Settings → Theme &amp; appearance (Beta) covers two things: how the app is coloured and textured, and how the navigation is laid out. Every option applies instantly and persists with your data — it survives restarts and new machines.</p>
+
+      <h2>Light / dark</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Option</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Follow system</td><td>Reads the OS preference and follows it live</td></tr>
+          <tr><td>Light</td><td>Always light</td></tr>
+          <tr><td>Dark</td><td>Always dark</td></tr>
+        </tbody>
+      </table></div>
+
+      <h2>Accent palette</h2>
+      <p>Six accents: classic blue, violet, cyan, emerald, amber, rose. Implementation-wise the whole Tailwind <code>--color-blue-*</code> / <code>--color-indigo-*</code> ramp is hue-shifted and chroma-scaled, so buttons, selection states, links and focus rings recolour at once — no per-component class changes.</p>
+      <figure class="shot-figure">
+        <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/12-appearance.png" width="1440" height="900" alt="Theme &amp; appearance settings: theme cards and accent palette"></div>
+        <figcaption>Theme &amp; appearance: light/dark theme and accent palette.</figcaption>
+      </figure>
+
+      <h2>Canvas background</h2>
+      <p>Six canvases: solid, dawn, dusk, grid, dots, aurora. The background is painted on <code>body</code> while page content areas stay transparent, so the canvas colour shows through the gaps between cards and panels — which is exactly what makes the acrylic material readable.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Canvas</th><th>Light</th><th>Dark</th></tr></thead>
+        <tbody>
+          <tr><td>Solid</td><td>Near-white base</td><td>Near-black base</td></tr>
+          <tr><td>Dawn / dusk</td><td>Pink→blue→cyan / warm orange→violet→blue gradient</td><td>Same families, dark</td></tr>
+          <tr><td>Grid / dots</td><td>26px / 22px light texture</td><td>Same grid, dark</td></tr>
+          <tr><td>Aurora</td><td>Three soft light blobs (violet / cyan / blue)</td><td>Same hues, saturated</td></tr>
+        </tbody>
+      </table></div>
+
+      <h2>Acrylic material</h2>
+      <p>One switch for the whole app: cards, panels, pill tracks, nav bar and rail, inputs, toggles and filter chips all become a translucent material — tinted base + backdrop blur with saturation boost + fine noise + a top sheen, so the canvas colour bleeds through.</p>
+      <ul>
+        <li>The material lives on <code>::before</code>: putting <code>backdrop-filter</code> on the host would turn it into the containing block for floating layers and misplace dropdowns</li>
+        <li>Form controls (<code>input</code> / <code>textarea</code>) do not render pseudo-elements, so the material is painted on the host and the native white background is disabled</li>
+        <li>The nav bar and left rail use a denser material so they don't vanish on light canvases; pill tracks stay more transparent so the canvas shows through</li>
+        <li>Switching it off returns every surface to plain white cards / grey tracks with no blur cost</li>
+      </ul>
+      <figure class="shot-figure">
+        <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/13-appearance-material.png" width="1440" height="900" alt="Canvas background picker and acrylic switch with the canvas bleeding through panels"></div>
+        <figcaption>Canvas backgrounds and the acrylic switch: the canvas colour shows through the panels.</figcaption>
+      </figure>
+
+      <h2>Navigation menu</h2>
+      <p>The same page also controls how navigation is laid out, applied immediately:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Option</th><th>Values</th></tr></thead>
+        <tbody>
+          <tr><td>Primary nav style</td><td>Top bar (default) / vertical capsule (nav moves to the far left, stacked vertically)</td></tr>
+          <tr><td>Secondary menu style</td><td>Flat (parent and child menus side by side) / tree (merged into one tree, expand a parent to see children)</td></tr>
+          <tr><td>Pinned entries</td><td>Unpinned features stay reachable from the “More” menu; notes, chat, Code, workflows and search are always pinned</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">Appearance is currently labelled Beta: options and defaults may still change between releases, but everything you pick is persisted and survives upgrades.</div>
+
+      <h2>Where settings live</h2>
+      <ul>
+        <li>Theme, accent, canvas, acrylic switch and nav styles are stored in the backend settings table — the same mechanism as name and language under App settings</li>
+        <li>The frontend prewarms these settings on startup, so a refresh or a fresh install shows your saved appearance immediately instead of flashing the default skin</li>
+        <li>API: <code>GET /api/settings</code> to read, <code>PUT /api/settings</code> to write (keys <code>Theme</code> / <code>ThemeAccent</code> / <code>Background</code> / <code>GlassEffect</code> / <code>NavStyle</code> / <code>SecondaryMenuStyle</code>)</li>
+      </ul>
+    <div class="docs-pager"><a href="models.html">← Models &amp; usage</a><a href="desktop.html">Desktop app →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <nav aria-label="Footer navigation">
+      <a href="../guide/index.html">Docs</a>
+      <a href="https://github.com/wosledon/Hetu">GitHub</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Changelog</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+      <a href="../guide/dev.html">Contributing</a>
+    </nav>
+    <span class="spacer">Notes · chat · code sessions, one local foundation</span>
+    <span class="visit-counter" data-visit-counter title="Anonymous counters only, no cookies: visitors and page views."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Views</span> <b data-visit-views>–</b></span></span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+</body>
+</html>
