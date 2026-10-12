@@ -113,7 +113,7 @@ function DirBrowser({
   )
 }
 
-const inputCls = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40'
+const inputCls = 'w-full rounded-xl border border-gray-200 bg-white glass px-3.5 py-2 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40'
 
 export default function ProjectFormDialog({
   project, groups, projects, onSubmit, onCreateGroup, onClose, pending,
@@ -262,7 +262,7 @@ export default function ProjectFormDialog({
                   title={t('form.newGroup')}
                   aria-label={t('form.newGroup')}
                   aria-expanded={groupCreateOpen}
-                  className="shrink-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  className="shrink-0 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   +
                 </button>
@@ -334,7 +334,7 @@ export default function ProjectFormDialog({
                 />
                 <button
                   onClick={() => setLocalBrowsing((v) => !v)}
-                  className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <FolderOpen size={13} />
                   {t('form.browse')}
@@ -439,7 +439,7 @@ export default function ProjectFormDialog({
                   <button
                     onClick={() => setRemoteBrowsing((v) => !v)}
                     disabled={!host.trim()}
-                    className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                   >
                     <FolderOpen size={13} />
                     {t('form.browse')}

@@ -1136,7 +1136,7 @@ export default function AgentsPage() {
                   placeholder={t('dir.agentPathPlaceholder')}
                   className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
                 />
-                <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
                   {t('common:add')}
                 </button>
               </div>

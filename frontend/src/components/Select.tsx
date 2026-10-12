@@ -24,7 +24,7 @@ export interface SelectProps {
 }
 
 const TRIGGER_CLASS =
-  'flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50'
+  'flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50'
 
 export default function Select({
   value,

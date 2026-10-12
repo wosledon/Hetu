@@ -280,7 +280,7 @@ export default function SkillsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('skillsPage.searchSkills')}
-              className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-amber-950/40"
+              className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-amber-950/40"
             />
           </div>
           {tab === 'local' ? (

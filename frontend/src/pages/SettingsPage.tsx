@@ -248,7 +248,7 @@ export default function SettingsPage() {
                         className={`group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-200 ${
                           isActive
                             ? ''
-                            : 'hover:bg-gray-100/60 dark:hover:bg-white/[0.04]'
+                            : 'hover:bg-blue-50/60 dark:hover:bg-white/[0.04]'
                         }`}
                       >
                         <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
@@ -276,7 +276,7 @@ export default function SettingsPage() {
               </aside>
 
               {/* Content Area */}
-              <div className="min-w-0 flex-1 animate-fade-in">
+              <div className="min-w-0 flex-1 animate-fade-in pt-8">
                 <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none glass">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
@@ -480,7 +480,7 @@ function AppSettingsSection({
                 className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-semibold transition-colors ${
@@ -524,7 +524,7 @@ function AppSettingsSection({
           <button
             onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
             }`}
           >
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -582,7 +582,7 @@ function AppearanceSettingsSection({
                 className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
@@ -625,7 +625,7 @@ function AppearanceSettingsSection({
                 className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
                 <span
@@ -751,7 +751,7 @@ function NavigationSettingsSection({
                 className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -793,7 +793,7 @@ function NavigationSettingsSection({
                 className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -861,7 +861,7 @@ function NavigationSettingsSection({
                   )
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-                  isPinned ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                  isPinned ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
                 }`}
               >
                 <span
@@ -979,7 +979,7 @@ function DefaultModelsSection({
           <button
             onClick={() => onSettingChange('GraphAutoExtract', snapshot?.graphAutoExtract === 'true' ? 'false' : 'true')}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+              snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
             }`}
           >
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -1012,7 +1012,7 @@ function DefaultModelsSection({
           <button
             onClick={() => onSettingChange('AutoEmbedding', snapshot?.autoEmbedding === 'true' ? 'false' : 'true')}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+              snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
             }`}
           >
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${

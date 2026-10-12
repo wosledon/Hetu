@@ -140,7 +140,7 @@ export default memo(function ChatMessageItem({
               <textarea
                 value={editingContent}
                 onChange={(e) => onEditContentChange(e.target.value)}
-                className="w-full min-h-28 rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="w-full min-h-28 rounded-md border border-gray-200 bg-white glass p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               />
               <div className="flex justify-end gap-2">
                 <button
