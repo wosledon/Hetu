@@ -7,7 +7,7 @@ import {
 import AppLayout from '../components/AppLayout'
 import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
-import { isTauri, openAppWebview } from '../utils/tauri'
+import { isTauri, openAppWebview, openExternal } from '../utils/tauri'
 
 /** 从 URL 取展示用主机名 */
 function hostOf(url: string): string {
@@ -135,7 +135,7 @@ export default function AppsPage() {
       await openAppWebview(url, app.name)
       return
     }
-    window.open(url, '_blank', 'noopener')
+    openExternal(url)
   }
 
   /* ───────── 打开应用：全屏内嵌浏览器 ───────── */
@@ -351,7 +351,7 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
           <button onClick={() => void openAppWebview(url, app.name)} title={t('apps.openInAppWindow')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
             <AppWindow size={14} />
           </button>
-          <button onClick={() => window.open(url, '_blank', 'noopener')} title={t('apps.openInBrowser')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => openExternal(url)} title={t('apps.openInBrowser')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
             <ExternalLink size={14} />
           </button>
           <div className="mx-1 flex min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
