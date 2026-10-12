@@ -14,7 +14,9 @@ public interface IWorkCodeIndexService
     Task<ApiResponse<WorkCodeIndexResultDto>> IndexProjectAsync(Guid projectId, bool force = false, CancellationToken cancellationToken = default);
 
     /// <summary>语义检索项目代码</summary>
-    Task<ApiResponse<List<WorkCodeSearchHitDto>>> SearchAsync(Guid projectId, string query, int limit = 8, CancellationToken cancellationToken = default);
+    /// <param name="maxSnippetChars">单条命中返回的代码片段上限；写文档等需要更多上下文的场景可调大</param>
+    Task<ApiResponse<List<WorkCodeSearchHitDto>>> SearchAsync(
+        Guid projectId, string query, int limit = 8, int maxSnippetChars = 600, CancellationToken cancellationToken = default);
 
     /// <summary>查询索引状态</summary>
     Task<ApiResponse<WorkCodeIndexStatusDto>> GetStatusAsync(Guid projectId, CancellationToken cancellationToken = default);

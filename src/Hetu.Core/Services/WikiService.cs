@@ -8,6 +8,8 @@ using Hetu.Core.Streaming;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
 using Hetu.Shared.Projects;
+using Hetu.Shared.Work;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Hetu.Core.Services;
@@ -19,9 +21,13 @@ namespace Hetu.Core.Services;
 /// </summary>
 public class WikiService : IWikiService
 {
-    private const int MaxModulePages = 10;
+    private const int MaxModulePages = 16;
     private const int MaxPageConcurrency = 4;
-    private const int SemanticHitsPerPage = 10;
+    private const int SemanticHitsPerPage = 24;
+    /// <summary>Wiki 单条代码片段上限：比 Agent 检索的 600 字宽得多，写文档需要完整语句与类型定义</summary>
+    private const int PageSnippetChars = 2000;
+    /// <summary>兜底大纲按顶层模块拆页的上限</summary>
+    private const int MaxFallbackModules = 6;
     /// <summary>单页生成失败后的重试次数</summary>
     private const int PageRetryCount = 1;
     /// <summary>重试前的退避等待</summary>
@@ -47,6 +53,7 @@ public class WikiService : IWikiService
     private readonly ILogger<WikiService> _logger;
     private readonly CompressionPipelineService _compression;
     private readonly ILocalizer _localizer;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public WikiService(
         IUnitOfWork unitOfWork,
@@ -57,7 +64,8 @@ public class WikiService : IWikiService
         ILlmUsageRecorder usageRecorder,
         ILogger<WikiService> logger,
         CompressionPipelineService compression,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        IServiceScopeFactory scopeFactory)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
@@ -68,6 +76,14 @@ public class WikiService : IWikiService
         _logger = logger;
         _compression = compression;
         _localizer = localizer;
+        _scopeFactory = scopeFactory;
+    }
+
+    /// <summary>单页生成按作用域解析的服务：并行生成时每页一份，避免共用同一个 DbContext</summary>
+    private sealed class PageServices(IWorkCodeIndexService codeIndex, CompressionPipelineService compression)
+    {
+        public IWorkCodeIndexService CodeIndex { get; } = codeIndex;
+        public CompressionPipelineService Compression { get; } = compression;
     }
 
     /// <summary>
@@ -298,14 +314,22 @@ public class WikiService : IWikiService
         var setId = Guid.NewGuid();
         var donePages = 0;
         var failedPages = new List<string>();
+        // 进度写库串行：多个页面任务共用同一个 DbContext，并发 Update 会抛「second operation」
+        using var progressGate = new SemaphoreSlim(1, 1);
         using var throttle = new SemaphoreSlim(MaxPageConcurrency);
         var pageTasks = plans.Select(async plan =>
         {
             await throttle.WaitAsync(cancellationToken);
+            // 每页一个独立作用域：并行生成时各自持有 DbContext，
+            // 否则代码索引检索与压缩配置读取会撞「同一 DbContext 并发操作」
+            await using var pageScope = _scopeFactory.CreateAsyncScope();
+            var services = new PageServices(
+                pageScope.ServiceProvider.GetRequiredService<IWorkCodeIndexService>(),
+                pageScope.ServiceProvider.GetRequiredService<CompressionPipelineService>());
             try
             {
                 // 失败重试 + 截断续写，尽量把该拿到的页面拿到
-                var content = await GeneratePageWithRetryAsync(provider, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, cancellationToken);
+                var content = await GeneratePageWithRetryAsync(provider, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, services, cancellationToken);
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     lock (failedPages) failedPages.Add(plan.Title);
@@ -333,8 +357,15 @@ public class WikiService : IWikiService
                 job.Progress = 15 + (int)(done * 70.0 / Math.Max(1, plans.Count));
                 job.Stage = _localizer.T("wiki.stageGeneratingPages", done, plans.Count);
                 job.UpdatedAt = DateTimeOffset.UtcNow;
-                try { await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken); }
+                // 进度写库同样要串行：多个页面任务共用同一个 DbContext
+                await progressGate.WaitAsync(cancellationToken);
+                try
+                {
+                    await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
                 catch (Exception ex) when (ex is not OperationCanceledException) { /* 进度写库失败不影响生成 */ }
+                finally { progressGate.Release(); }
             }
         }).ToList();
 
@@ -387,13 +418,14 @@ public class WikiService : IWikiService
         IEnumerable<string> siblingTitles,
         Guid? workProjectId,
         bool useSemantic,
+        PageServices services,
         CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt <= PageRetryCount; attempt++)
         {
             try
             {
-                var page = await BuildPageAsync(provider, project, material, plan, siblingTitles, workProjectId, useSemantic, cancellationToken);
+                var page = await BuildPageAsync(provider, project, material, plan, siblingTitles, workProjectId, useSemantic, services, cancellationToken);
                 if (string.IsNullOrWhiteSpace(page.Content))
                 {
                     // 推理模型常把额度花在思考上导致正文为空：记下来便于定位，并重试
@@ -537,7 +569,7 @@ public class WikiService : IWikiService
                     workProjectId, useSemantic, cancellationToken)
                 : await BuildPageAsync(provider, project, material,
                     new WikiPagePlan { Index = doc.SortOrder, Title = doc.Title, Brief = doc.Brief ?? string.Empty },
-                    siblings, workProjectId, useSemantic, cancellationToken);
+                    siblings, workProjectId, useSemantic, new PageServices(_codeIndexService, _compression), cancellationToken);
         }
         catch (Exception ex)
         {
@@ -612,64 +644,239 @@ public class WikiService : IWikiService
     private async Task<List<WikiPagePlan>> PlanModulePagesAsync(
         ILLMProvider provider, ManagedProject project, WikiSourceMaterial material, CancellationToken cancellationToken)
     {
-        const string JsonSpec = "{\"chapters\":[{\"title\":\"章节标题（10字以内）\",\"pages\":[{\"title\":\"页面标题（12字以内）\",\"brief\":\"该页应涵盖的内容要点（60字以内）\"}]}]}";
+        const string JsonSpec = """
+            {"chapters":[{"title":"章节标题（10字以内）","pages":[{"title":"页面标题（14字以内）","brief":"该页必须讲清的内容要点（120字以内）","covers":"该页覆盖的目录/文件/模块名"}]}]}
+            """;
+        var modules = material.TopLevelModules.Count > 0
+            ? $"\n项目主要目录（源码文件数排序）：{string.Join("、", material.TopLevelModules)}"
+            : string.Empty;
         var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
         var prompt = $"""
             项目名称：{project.Name}
-            项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}
+            项目描述：{(string.IsNullOrWhiteSpace(project.Description) ? "（未填写）" : project.Description)}{modules}
 
             【项目资料】
             {baseContext}
 
             请为该项目规划一套 Wiki 文档的章节与页面（DeepWiki 风格，父子级结构：章节为父级、页面为子级；总览页单独生成，不在此列）。
-            按项目的真实结构划分 2-4 个章节，每章 1-3 个页面，总页面数 4-{MaxModulePages} 个。
-            每个页面聚焦一个模块 / 领域 / 关注点（如架构设计、数据流、核心模块、API 参考、快速开始与配置等，按项目实际取舍）。
-            只输出 JSON，不要输出其他内容，格式如下：
+            规划要求：
+            1. 按项目的真实结构划分 3-6 个章节，总页面数 8-{MaxModulePages} 个；
+            2. 一页只讲一个模块 / 一个领域 / 一个关注点，不要把多个不相关的模块塞进同一页；
+            3. 页面标题要具体（写清模块名，如「命令执行与工作树」），不要用「核心模块详解」「系统设计」这类大而空的标题；
+            4. covers 写该页覆盖的真实目录 / 文件 / 模块名，用于按页检索代码，务必来自上面的资料；
+            5. 只输出 JSON，不要输出其他内容，格式如下：
             {JsonSpec}
             """;
         List<WikiPagePlan> plans = [];
         try
         {
             var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
-            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 3072, cancellationToken);
+            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken);
             await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
-            var response = planResult.Content;
-            var outline = LlmJsonExtractor.Deserialize<WikiOutline>(response);
-            if (outline != null)
+            plans = ParseOutline(planResult.Content);
+
+            // 解析失败时带原始回复重试一次：让模型只输出 JSON，别放弃规划（否则只能退回通用大纲）
+            if (plans.Count == 0)
             {
-                var index = 0;
-                foreach (var chapter in outline.Chapters.Where(c => !string.IsNullOrWhiteSpace(c.Title)))
-                {
-                    var chapterTitle = chapter.Title.Trim();
-                    foreach (var page in chapter.Pages.Where(p => !string.IsNullOrWhiteSpace(p.Title)))
-                    {
-                        if (plans.Count >= MaxModulePages) break;
-                        plans.Add(new WikiPagePlan
-                        {
-                            Index = index++,
-                            Chapter = chapterTitle,
-                            Title = page.Title.Trim(),
-                            Brief = (page.Brief ?? string.Empty).Trim(),
-                        });
-                    }
-                }
+                _logger.LogWarning(
+                    "Wiki 大纲解析失败，带原始回复重试一次 projectId={ProjectId} raw={Raw}",
+                    project.Id, TruncateForLog(planResult.Content));
+                var repairPrompt = $"""
+                    上一次回复无法解析为 JSON。下面是你上次的回复，请严格按给定格式重新输出，只输出 JSON，不要任何解释文字。
+                    格式：{JsonSpec}
+
+                    【上次的回复】
+                    {TruncateForLog(planResult.Content)}
+                    """;
+                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken);
+                await RecordWikiUsageAsync(repairPrompt, LlmTokenEstimator.Estimate(repairPrompt), null, project.Id, retry, cancellationToken);
+                plans = ParseOutline(retry.Content);
+                if (plans.Count == 0)
+                    _logger.LogWarning("Wiki 大纲重试后仍无法解析 projectId={ProjectId} raw={Raw}", project.Id, TruncateForLog(retry.Content));
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // 规划失败走默认分页，不阻塞整体生成
+            // 规划失败走兜底大纲，不阻塞整体生成
+            _logger.LogWarning(ex, "Wiki 大纲规划失败，改用兜底大纲 projectId={ProjectId}", project.Id);
         }
 
         if (plans.Count == 0)
-            plans =
-            [
-                new WikiPagePlan { Index = 0, Chapter = "项目概览", Title = "项目概述与技术栈", Brief = "项目定位、核心特性、技术栈组成" },
-                new WikiPagePlan { Index = 1, Chapter = "项目概览", Title = "目录结构", Brief = "顶层目录职责与关键文件说明" },
-                new WikiPagePlan { Index = 2, Chapter = "核心实现", Title = "核心模块详解", Brief = "主要模块职责、关键类型与调用关系" },
-                new WikiPagePlan { Index = 3, Chapter = "使用指南", Title = "快速开始与配置", Brief = "环境要求、构建运行步骤、配置项" },
-            ];
+        {
+            plans = BuildFallbackPlans(project, material);
+            _logger.LogWarning("Wiki 使用兜底大纲 projectId={ProjectId} pages={Count}", project.Id, plans.Count);
+        }
         return plans;
     }
+
+    /// <summary>解析大纲 JSON；解析不出页面时返回空列表</summary>
+    private static List<WikiPagePlan> ParseOutline(string? response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return [];
+
+        // 常规形态：{"chapters":[{title,pages:[...]}]}
+        if (LlmJsonExtractor.Deserialize<WikiOutline>(response) is { } outline)
+        {
+            var pages = CollectPages(outline);
+            if (pages.Count > 0) return pages;
+        }
+
+        // 模型常把最外层对象省略，直接返回章节数组
+        if (LlmJsonExtractor.Deserialize<List<WikiOutlineChapter>>(response) is { Count: > 0 } chapters)
+        {
+            var fromArray = chapters
+                .Where(c => !string.IsNullOrWhiteSpace(c.Title))
+                .SelectMany(c => c.Pages.Where(p => !string.IsNullOrWhiteSpace(p.Title))
+                    .Select(p => (Chapter: c.Title.Trim(), Page: p)))
+                .ToList();
+            if (fromArray.Count > 0) return ToPlans(fromArray);
+        }
+
+        // 最后手段：响应被截断或夹杂解释文字时，把完整的页面对象捞出来
+        return SalvagePages(response);
+    }
+
+    private static List<WikiPagePlan> CollectPages(WikiOutline outline) => ToPlans(
+        outline.Chapters
+            .Where(c => !string.IsNullOrWhiteSpace(c.Title))
+            .SelectMany(c => c.Pages.Where(p => !string.IsNullOrWhiteSpace(p.Title))
+                .Select(p => (Chapter: c.Title.Trim(), Page: p)))
+            .ToList());
+
+    private static List<WikiPagePlan> ToPlans(List<(string Chapter, WikiOutlinePage Page)> source)
+    {
+        var plans = new List<WikiPagePlan>();
+        foreach (var (chapter, page) in source)
+        {
+            if (plans.Count >= MaxModulePages) break;
+            plans.Add(new WikiPagePlan
+            {
+                Index = plans.Count,
+                Chapter = chapter,
+                Title = page.Title.Trim(),
+                Brief = (page.Brief ?? string.Empty).Trim(),
+                Covers = (page.Covers ?? string.Empty).Trim(),
+            });
+        }
+        return plans;
+    }
+
+    /// <summary>章标题标记：title 后面紧跟 pages 的就是章节对象</summary>
+    private static readonly Regex ChapterMarker = new(
+        @"""title""\s*:\s*""(?<title>(?:[^""\\]|\\.)*)""\s*,\s*""pages""\s*:\s*\[",
+        RegexOptions.Compiled);
+
+    /// <summary>叶子对象（页面）：不含嵌套花括号的 {…}</summary>
+    private static readonly Regex LeafObject = new(@"\{[^{}]*\}", RegexOptions.Compiled);
+
+    /// <summary>
+    /// 从无法整体解析的响应里抢救页面：按章节标记切段，再逐段提取完整页面对象。
+    /// 规划失败只能退回通用大纲，是「文档写得像前言」的直接原因，值得尽力挽救。
+    /// </summary>
+    private static List<WikiPagePlan> SalvagePages(string response)
+    {
+        var plans = new List<WikiPagePlan>();
+        var marks = ChapterMarker.Matches(response).ToList();
+        // 没有章节结构时整段当作一个无标题章节处理
+        var segments = new List<(string Chapter, int Start, int End)>();
+        if (marks.Count == 0)
+        {
+            segments.Add((string.Empty, 0, response.Length));
+        }
+        else
+        {
+            for (var i = 0; i < marks.Count; i++)
+            {
+                segments.Add((
+                    Regex.Unescape(marks[i].Groups["title"].Value).Trim(),
+                    marks[i].Index + marks[i].Length,
+                    i + 1 < marks.Count ? marks[i + 1].Index : response.Length));
+            }
+        }
+
+        foreach (var (chapter, start, end) in segments)
+        {
+            if (plans.Count >= MaxModulePages) break;
+            foreach (Match leaf in LeafObject.Matches(response[start..end]))
+            {
+                var block = leaf.Value;
+                if (block.Contains("\"pages\"", StringComparison.Ordinal)) continue;
+                var title = ReadJsonString(block, "title");
+                if (string.IsNullOrWhiteSpace(title)) continue;
+                if (plans.Count >= MaxModulePages) break;
+                plans.Add(new WikiPagePlan
+                {
+                    Index = plans.Count,
+                    Chapter = chapter,
+                    Title = title,
+                    Brief = ReadJsonString(block, "brief") ?? string.Empty,
+                    Covers = ReadJsonString(block, "covers") ?? string.Empty,
+                });
+            }
+        }
+        return plans;
+    }
+
+    /// <summary>从 JSON 片段里读一个字符串字段</summary>
+    private static string? ReadJsonString(string block, string key)
+    {
+        var m = Regex.Match(block, $@"""{key}""\s*:\s*""(?<v>(?:[^""\\]|\\.)*)""");
+        return m.Success ? Regex.Unescape(m.Groups["v"].Value) : null;
+    }
+
+    /// <summary>
+    /// 兜底大纲：按项目真实顶层模块逐块拆页，再加总览性页面。
+    /// 比固定的「项目概述 / 目录结构 / 核心模块详解」贴合项目，也不会把整个项目挤成一页前言。
+    /// </summary>
+    private static List<WikiPagePlan> BuildFallbackPlans(ManagedProject project, WikiSourceMaterial material)
+    {
+        var plans = new List<WikiPagePlan>();
+        var modules = material.TopLevelModules
+            .Where(m => !string.Equals(m, "(根目录)", StringComparison.OrdinalIgnoreCase))
+            .Take(MaxFallbackModules)
+            .ToList();
+
+        plans.Add(new WikiPagePlan
+        {
+            Index = plans.Count,
+            Chapter = "项目概览",
+            Title = "项目概述与技术栈",
+            Brief = "项目定位、核心特性、技术栈组成",
+            Covers = "README、构建与依赖配置",
+        });
+        plans.Add(new WikiPagePlan
+        {
+            Index = plans.Count,
+            Chapter = "项目概览",
+            Title = "目录结构与模块划分",
+            Brief = "顶层目录职责、模块边界与关键文件",
+            Covers = string.Join("、", modules.DefaultIfEmpty("根目录")),
+        });
+        plans.Add(new WikiPagePlan
+        {
+            Index = plans.Count,
+            Chapter = "项目概览",
+            Title = "快速开始与配置",
+            Brief = "环境要求、构建运行步骤、配置项",
+            Covers = "README、构建脚本、配置文件",
+        });
+        foreach (var module in modules)
+        {
+            if (plans.Count >= MaxModulePages) break;
+            plans.Add(new WikiPagePlan
+            {
+                Index = plans.Count,
+                Chapter = "模块详解",
+                Title = $"{module} 模块",
+                Brief = $"{module} 目录的职责、关键类型与调用关系",
+                Covers = module,
+            });
+        }
+        return plans;
+    }
+
+    /// <summary>日志 / 回传用的截断，避免把整篇回复塞进提示词</summary>
+    private static string TruncateForLog(string text) => text.Length > 4000 ? text[..4000] + "\n…（已截断）" : text;
 
     /// <summary>生成单个主题页：基础资料 +（语义检索的相关代码 或 源码采样）</summary>
     private async Task<WikiDocument> BuildPageAsync(
@@ -680,13 +887,15 @@ public class WikiService : IWikiService
         IEnumerable<string> siblingTitles,
         Guid? workProjectId,
         bool useSemantic,
+        PageServices services,
         CancellationToken cancellationToken)
     {
-        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, $"{plan.Title} {plan.Brief}", cancellationToken);
-        var codeContext = await _compression.CompressAlgorithmicAsync(rawCodeContext, cancellationToken);
-        var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
+        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, plan, services, cancellationToken);
+        var codeContext = await services.Compression.CompressAlgorithmicAsync(rawCodeContext, cancellationToken);
+        var baseContext = await services.Compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
         var siblings = string.Join("、", siblingTitles.Where(t => t != plan.Title));
-        var siblingLine = siblings.Length > 0 ? $"\n同套其他页面：{siblings}（可在正文中按名称相互引用）" : string.Empty;
+        var siblingLine = siblings.Length > 0 ? $"\n同套其他页面：{siblings}（这些内容由对应页面负责，本页不要重复展开）" : string.Empty;
+        var coversLine = string.IsNullOrWhiteSpace(plan.Covers) ? string.Empty : $"\n本页范围：{plan.Covers}（只写这个范围内的内容）";
 
         var prompt = $"""
             项目名称：{project.Name}
@@ -698,15 +907,16 @@ public class WikiService : IWikiService
             {codeContext}
             【本页任务】
             页面标题：{plan.Title}
-            内容要点：{plan.Brief}{siblingLine}
+            内容要点：{plan.Brief}{coversLine}{siblingLine}
 
-            请撰写本页内容（Markdown，中文）。要求：
-            1. 只依据提供的资料撰写，不得编造资料中不存在的信息；资料缺失的部分简要说明即可；
-            2. 用二级标题（##）组织小节，不要输出一级标题，不要输出页面导航章节；
-            3. 内容涉及结构、流程或模块关系时，使用 ```mermaid 代码块绘制相应图表，仅限 mermaid 支持的图类型（graph / flowchart / sequenceDiagram / classDiagram / stateDiagram / erDiagram / pie / gantt）；目录结构、文件树用 ```text 代码块表示，不要用 mermaid；
-            4. 代码、类型、路径用行内代码标注；
-            5. 语言简洁专业，避免空话；
-            6. 直接输出 Markdown 正文，不要用代码块包裹整篇内容。
+            请撰写本页内容（Markdown，中文）。这是给本项目用的技术文档，不是项目前言，要求：
+            1. 只依据上面提供的资料撰写，不得编造资料中不存在的信息；资料缺失的部分简要说明即可；
+            2. 动笔前先在内心列一遍本页可引用的事实（真实文件路径、类型 / 函数名、接口或命令、配置键与取值、目录名），正文里每个小节都要落到这些具体事物上；
+            3. 用二级标题（##）组织 3-6 个小节，不要输出一级标题，不要输出页面导航章节；
+            4. 涉及结构、流程或模块关系时，用 ```mermaid 代码块绘制相应图表，仅限 mermaid 支持的图类型（graph / flowchart / sequenceDiagram / classDiagram / stateDiagram / erDiagram / pie / gantt）；目录结构、文件树用 ```text 代码块表示，不要用 mermaid；
+            5. 代码、类型、路径、配置键一律用行内代码标注；能引用真实代码片段的地方直接贴片段（注明 文件:行）；
+            6. 禁止空话：不要写「本项目是一个…的强大框架」「具有良好的扩展性」这类放之四海皆准的介绍，不要重复项目简介，不要把本页写成摘要或前言；
+            7. 语言简洁专业，直接输出 Markdown 正文，不要用代码块包裹整篇内容。
             """;
 
         var inputTokens = EstimateBeforeCompression(prompt,
@@ -728,7 +938,9 @@ public class WikiService : IWikiService
     {
         // 章节 → 页面 的导航结构，供总览页列出真实目录
         var nav = BuildNavText(modulePages);
-        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, "总体架构 核心组件 数据流", cancellationToken);
+        var overviewPlan = new WikiPagePlan { Title = "总体架构", Brief = "总体架构 核心组件 数据流", Covers = "README、构建与依赖配置、顶层目录" };
+        var overviewServices = new PageServices(_codeIndexService, _compression);
+        var rawCodeContext = await BuildCodeContextAsync(workProjectId, useSemantic, material, overviewPlan, overviewServices, cancellationToken);
         var codeContext = await _compression.CompressAlgorithmicAsync(rawCodeContext, cancellationToken);
         var baseContext = await _compression.CompressAlgorithmicAsync(material.BaseContext, cancellationToken);
 
@@ -783,19 +995,42 @@ public class WikiService : IWikiService
     /// <summary>
     /// 页面级代码上下文：有语义索引时按本页要点检索相关代码块；否则用源码采样兜底。
     /// </summary>
+    /// <summary>
+    /// 页面级代码上下文：有语义索引时按本页要点多路检索相关代码块；否则用源码采样兜底。
+    /// 多路检索（标题 / 要点 / 覆盖范围）合并去重，比单路查询拿到的项目细节多得多。
+    /// </summary>
     private async Task<string> BuildCodeContextAsync(
-        Guid? workProjectId, bool useSemantic, WikiSourceMaterial material, string query, CancellationToken cancellationToken)
+        Guid? workProjectId, bool useSemantic, WikiSourceMaterial material, WikiPagePlan plan, PageServices services, CancellationToken cancellationToken)
     {
         if (useSemantic && workProjectId is Guid wpId)
         {
             try
             {
-                var hits = await _codeIndexService.SearchAsync(wpId, query, SemanticHitsPerPage, cancellationToken);
-                if (hits is { Success: true, Data.Count: > 0 })
+                var queries = new[] { plan.Title, plan.Brief, $"{plan.Title} {plan.Covers}" }
+                    .Where(q => !string.IsNullOrWhiteSpace(q))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var merged = new Dictionary<string, WorkCodeSearchHitDto>(StringComparer.Ordinal);
+                foreach (var query in queries)
+                {
+                    var hits = await services.CodeIndex.SearchAsync(wpId, query, SemanticHitsPerPage, PageSnippetChars, cancellationToken);
+                    if (hits is not { Success: true, Data.Count: > 0 }) continue;
+                    foreach (var hit in hits.Data)
+                    {
+                        var key = $"{hit.Path}:{hit.StartLine}";
+                        // 同一块代码多路命中时保留相关度最高的一次
+                        if (!merged.TryGetValue(key, out var existing) || hit.Score > existing.Score)
+                            merged[key] = hit;
+                    }
+                }
+
+                var picked = merged.Values.OrderByDescending(h => h.Score).Take(SemanticHitsPerPage).ToList();
+                if (picked.Count > 0)
                 {
                     var sb = new StringBuilder();
                     sb.AppendLine("## 与本页相关的代码（语义检索结果，按相关度排序）");
-                    foreach (var hit in hits.Data)
+                    foreach (var hit in picked)
                         sb.AppendLine($"### {hit.Path}:{hit.StartLine}\n````\n{hit.Snippet}\n````");
                     return sb.ToString().Trim() + "\n";
                 }
@@ -893,6 +1128,8 @@ public class WikiService : IWikiService
         public string? Chapter { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Brief { get; set; } = string.Empty;
+        /// <summary>本页覆盖的目录 / 文件 / 模块：既用于代码检索，也用于界定页面范围</summary>
+        public string Covers { get; set; } = string.Empty;
     }
 
     /// <summary>大纲规划结果（LLM JSON 输出）</summary>
@@ -911,6 +1148,7 @@ public class WikiService : IWikiService
     {
         public string Title { get; set; } = string.Empty;
         public string? Brief { get; set; }
+        public string? Covers { get; set; }
     }
 
     #endregion

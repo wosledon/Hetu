@@ -309,6 +309,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
         Guid projectId,
         string query,
         int limit = 8,
+        int maxSnippetChars = 600,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -345,7 +346,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
 
             // 多项目共用一张向量表时，候选可能全部属于其他项目，此时继续回退到本项目分块检索
             if (ordered.Count > 0)
-                return ApiResponse<List<WorkCodeSearchHitDto>>.Ok(BuildHits(ordered, queryVector));
+                return ApiResponse<List<WorkCodeSearchHitDto>>.Ok(BuildHits(ordered, queryVector, maxSnippetChars));
         }
 
         if (candidateIds is { Count: 0 } && await _vectorStore.CountAsync(projectId, cancellationToken) > 0)
@@ -378,7 +379,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
             {
                 Path = x.Chunk.FilePath,
                 StartLine = x.Chunk.StartLine,
-                Snippet = x.Chunk.Content.Length > 600 ? x.Chunk.Content[..600] + "…" : x.Chunk.Content,
+                Snippet = TrimSnippet(x.Chunk.Content, maxSnippetChars),
                 Score = Math.Round(x.Score, 4)
             })
             .ToList();
@@ -387,7 +388,7 @@ public class WorkCodeIndexService : IWorkCodeIndexService
     }
 
     /// <summary>按候选分块真正计算余弦相似度并组装命中结果（数据库侧只提供候选，分数口径与内存回退保持一致）</summary>
-    private static List<WorkCodeSearchHitDto> BuildHits(IReadOnlyList<WorkCodeChunk> chunks, float[] queryVector)
+    private static List<WorkCodeSearchHitDto> BuildHits(IReadOnlyList<WorkCodeChunk> chunks, float[] queryVector, int maxSnippetChars)
         => chunks
             .Select(c => new { Chunk = c, Score = CosineSimilarity(queryVector, BytesToFloatArray(c.Embedding)) })
             .OrderByDescending(x => x.Score)
@@ -395,10 +396,18 @@ public class WorkCodeIndexService : IWorkCodeIndexService
             {
                 Path = x.Chunk.FilePath,
                 StartLine = x.Chunk.StartLine,
-                Snippet = x.Chunk.Content.Length > 600 ? x.Chunk.Content[..600] + "…" : x.Chunk.Content,
+                Snippet = TrimSnippet(x.Chunk.Content, maxSnippetChars),
                 Score = Math.Round(x.Score, 4)
             })
             .ToList();
+
+    /// <summary>按行边界裁剪片段，避免把代码切在语句中间</summary>
+    private static string TrimSnippet(string content, int maxChars)
+    {
+        if (string.IsNullOrEmpty(content) || content.Length <= maxChars) return content;
+        var cut = content.LastIndexOf('\n', maxChars - 1);
+        return content[..(cut > 0 ? cut : maxChars)] + "\n…";
+    }
 
     /// <summary>枚举项目内可索引的文本文件（跳过忽略目录、二进制与超大文件）</summary>
     private static IEnumerable<string> EnumerateFiles(string root)

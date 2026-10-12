@@ -97,7 +97,7 @@
   </aside>
     <div class="docs-body">
       <h1>Wiki 生成</h1>
-      <p class="lede">Wiki 生成是长任务：<strong>采集资料 → 压缩 → 规划目录 → 并发生成每一页 → 生成总览页 → 整套落库</strong>。它的难点不在单页文案，而在「一次生成 4–10 页、每页可能被续写补全、部分页失败不能拖垮整套」这条工程链上。</p>
+      <p class="lede">Wiki 生成是长任务：<strong>采集资料 → 压缩 → 规划目录 → 并发生成每一页 → 生成总览页 → 整套落库</strong>。它的难点不在单页文案，而在「一次生成 8–16 页、每页可能被续写补全、部分页失败不能拖垮整套」这条工程链上。</p>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 250" role="img" aria-label="Wiki 生成阶段">
@@ -110,7 +110,7 @@
   <rect class="box-accent" x="16" y="34" width="176" height="70" rx="9"/>
   <text class="label" x="30" y="60">采集资料</text>
   <text class="sub" x="30" y="80">项目目录 · 代码上下文</text>
-  <text class="sub" x="30" y="96">语义命中 10 条 / 页</text>
+  <text class="sub" x="30" y="96">语义命中 24 条 / 页</text>
 
   <rect class="box" x="216" y="34" width="150" height="70" rx="9"/>
   <text class="label" x="230" y="60">压缩</text>
@@ -119,8 +119,8 @@
 
   <rect class="box-dark" x="390" y="34" width="164" height="70" rx="9"/>
   <text class="label-light" x="404" y="60">规划</text>
-  <text class="sub" x="404" y="80">2–4 章 / 每章 1–3 页</text>
-  <text class="sub" x="404" y="96">总 4–10 页 · maxTokens 3072</text>
+  <text class="sub" x="404" y="80">3–6 章 / 总 8–16 页</text>
+  <text class="sub" x="404" y="96">maxTokens 6144</text>
 
   <rect class="box" x="578" y="34" width="286" height="70" rx="9"/>
   <text class="label" x="592" y="60">并发生成主题页</text>
@@ -162,7 +162,7 @@
       <h2>资料采集与压缩</h2>
       <ul>
         <li>采集器负责把「受管项目」变成资料：本地目录或远端工作项目、基础资料与代码上下文。</li>
-        <li>代码语义索引可用时按语义命中取片段，<strong>每页约 10 条</strong>（<code>SemanticHitsPerPage = 10</code>）；索引不可用时回退源码采样。</li>
+        <li>代码语义索引可用时按语义命中取片段，<strong>每页最多 24 条</strong>（<code>SemanticHitsPerPage = 24</code>，片段上限 2000 字）；按本页标题 / 要点 / 覆盖范围<strong>多路检索后合并去重</strong>，比单路查询拿到的项目细节多得多。索引不可用时回退源码采样。</li>
         <li>送进模型前对 <code>BaseContext</code> 与 <code>rawCodeContext</code> 各跑一次压缩管道（同样受 <code>Enabled</code> / <code>Mode</code> / 节点配置影响）。</li>
         <li>采集失败会直接返回错误且<strong>不入后台队列</strong>：本地目录不存在、远端连接失败、工作项目未找到、目录为空各有独立文案。</li>
       </ul>
@@ -171,13 +171,14 @@
       <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>取值</th></tr></thead>
         <tbody>
-          <tr><td>返回结构</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
-          <tr><td>规模约束</td><td>2–4 章，每章 1–3 页，总 4–10 页（上限常量 <code>MaxModulePages = 10</code>）</td></tr>
-          <tr><td>规划 token 上限</td><td><code>3072</code></td></tr>
-          <tr><td>规划失败</td><td>异常被捕获后回退默认四页：项目概述与技术栈 / 目录结构 / 核心模块详解 / 快速开始与配置，不阻塞整套生成</td></tr>
+          <tr><td>返回结构</td><td><code>{ chapters: [{ title, pages: [{ title, brief, covers }] }] }</code>，<code>covers</code> 记录该页覆盖的目录 / 文件 / 模块</td></tr>
+          <tr><td>规模约束</td><td>3–6 章，总 8–16 页（上限常量 <code>MaxModulePages = 16</code>）；一页只讲一个模块 / 关注点，禁止把不相关的模块塞进同一页</td></tr>
+          <tr><td>规划 token 上限</td><td><code>6144</code></td></tr>
+          <tr><td>解析容错</td><td>依次尝试标准对象、裸章节数组，最后用正则从响应里抢救完整页面对象（章节标记切段）；三层都失败才走兜底</td></tr>
+          <tr><td>规划失败</td><td>先带原始回复让模型重输出一次 JSON；仍失败则回退<strong>按项目真实顶层模块拆页</strong>的兜底大纲（模块名来自采集到的源码目录），不再用放之四海皆准的固定四页</td></tr>
         </tbody>
       </table></div>
-      <p><code>Brief</code> 会落库，成为该页的写作要点；单页重生成时直接复用它，因此重生成不会偏离原规划。</p>
+      <p><code>Brief</code> 会落库，成为该页的写作要点；单页重生成时直接复用它，因此重生成不会偏离原规划。<code>Covers</code> 同时用于该页的代码检索query 与提示词里的页面范围界定。</p>
 
       <h2>生成阶段</h2>
       <div class="table-wrap"><table>
@@ -189,8 +190,9 @@
           <tr><td>续写上限</td><td><code>MaxContinueRounds = 4</code>，续写提示会带上已生成的全部内容</td></tr>
           <tr><td>续写容错</td><td>续写结果里出现「已有内容」/「未提供」/「无法判断」等元话术时直接丢弃这一段</td></tr>
           <tr><td>单页重试</td><td><code>PageRetryCount = 1</code>，退避 <code>800ms</code></td></tr>
-          <tr><td>正文要求</td><td>Markdown、中文、只能依据资料不得编造、结构/流程/模块关系必须配 Mermaid 图、目录树用 <code>text</code> 代码块、路径与类型用行内代码</td></tr>
-          <tr><td>页间协作</td><td>提示词会列出同套其他页面，允许相互引用</td></tr>
+          <tr><td>作用域隔离</td><td>每页生成一个独立 DI 作用域拿代码索引与压缩服务，进度写库用信号量串行——并发生成不再撞「同一 DbContext 并发操作」</td></tr>
+          <tr><td>正文要求</td><td>Markdown、中文、只能依据资料不得编造、结构/流程/模块关系必须配 Mermaid 图、目录树用 <code>text</code> 代码块、路径与类型用行内代码；<strong>动笔前先列本页可引用的事实（真实路径 / 类型 / 接口 / 配置键），每个小节都要落到具体事物上</strong>；明确禁止「本项目是一个…的强大框架」这类空话，禁止把本页写成前言或摘要</td></tr>
+          <tr><td>页间协作</td><td>提示词会列出同套其他页面，并说明那些内容由对应页面负责、本页不要重复展开</td></tr>
         </tbody>
       </table></div>
       <p>总览页单独生成：要求含项目简介、核心特性、技术栈、<code>## 总体架构</code>（必须带 Mermaid <code>graph</code> / <code>flowchart</code>）与末节 <code>## 文档导航</code>（按章节层级原样列出）。总览页失败时回退为纯文本总览（项目简介 + 文档导航）。</p>

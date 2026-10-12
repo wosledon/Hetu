@@ -89,7 +89,7 @@ public class WorkProjectsController : ControllerBase
     /// <summary>在代码向量索引上做语义检索</summary>
     [HttpGet("{id:guid}/code-index/search")]
     public async Task<ApiResponse<List<WorkCodeSearchHitDto>>> SearchCodeIndex(Guid id, [FromQuery] string query, [FromQuery] int limit, CancellationToken cancellationToken)
-        => await _codeIndexService.SearchAsync(id, query ?? "", limit <= 0 ? 8 : limit, cancellationToken);
+        => await _codeIndexService.SearchAsync(id, query ?? "", limit <= 0 ? 8 : limit, cancellationToken: cancellationToken);
 
     /// <summary>项目级工具审批规则（allow 直接放行 / deny 直接拒绝）</summary>
     [HttpGet("{id:guid}/approval-rules")]
