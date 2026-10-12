@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2 } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -21,10 +21,11 @@ import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
+type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
   { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
+  { key: 'appearance', labelKey: 'sections.appearance', descKey: 'sections.appearanceDesc', icon: Palette },
   { key: 'navigation', labelKey: 'sections.navigation', descKey: 'sections.navigationDesc', icon: Menu },
   { key: 'models', labelKey: 'sections.models', descKey: 'sections.modelsDesc', icon: Cpu },
   { key: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
@@ -38,23 +39,23 @@ const settingsSections = [
 ] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings }[]
 
 const themeOptions = [
-  { key: 'system' as Theme, labelKey: 'app.themeSystem', descKey: 'app.themeSystemDesc', icon: Monitor },
-  { key: 'light' as Theme, labelKey: 'app.themeLight', descKey: 'app.themeLightDesc', icon: Sun },
-  { key: 'dark' as Theme, labelKey: 'app.themeDark', descKey: 'app.themeDarkDesc', icon: Moon },
+  { key: 'system' as Theme, labelKey: 'appearance.themeSystem', descKey: 'appearance.themeSystemDesc', icon: Monitor },
+  { key: 'light' as Theme, labelKey: 'appearance.themeLight', descKey: 'appearance.themeLightDesc', icon: Sun },
+  { key: 'dark' as Theme, labelKey: 'appearance.themeDark', descKey: 'appearance.themeDarkDesc', icon: Moon },
 ]
 
 type SecondaryMenuStyle = 'flat' | 'collapsed'
 
 const menuStyleOptions = [
-  { key: 'flat' as SecondaryMenuStyle, labelKey: 'app.menuStyleFlat', descKey: 'app.menuStyleFlatDesc', icon: Columns2 },
-  { key: 'collapsed' as SecondaryMenuStyle, labelKey: 'app.menuStyleTree', descKey: 'app.menuStyleTreeDesc', icon: PanelLeft },
+  { key: 'flat' as SecondaryMenuStyle, labelKey: 'navigation.menuStyleFlat', descKey: 'navigation.menuStyleFlatDesc', icon: Columns2 },
+  { key: 'collapsed' as SecondaryMenuStyle, labelKey: 'navigation.menuStyleTree', descKey: 'navigation.menuStyleTreeDesc', icon: PanelLeft },
 ]
 
 type NavStyle = 'top' | 'vertical'
 
 const navStyleOptions = [
-  { key: 'top' as NavStyle, labelKey: 'app.navStyleTop', descKey: 'app.navStyleTopDesc', icon: PanelTop },
-  { key: 'vertical' as NavStyle, labelKey: 'app.navStyleVertical', descKey: 'app.navStyleVerticalDesc', icon: GalleryVerticalEnd },
+  { key: 'top' as NavStyle, labelKey: 'navigation.navStyleTop', descKey: 'navigation.navStyleTopDesc', icon: PanelTop },
+  { key: 'vertical' as NavStyle, labelKey: 'navigation.navStyleVertical', descKey: 'navigation.navStyleVerticalDesc', icon: GalleryVerticalEnd },
 ]
 
 /** 语言选项：名称用各自语言书写（中/English），与主题卡片同一套视觉 */
@@ -246,9 +247,6 @@ export default function SettingsPage() {
                     appName={appName}
                     assistantName={assistantName}
                     assistantPersona={assistantPersona}
-                    theme={theme}
-                    secondaryMenuStyle={secondaryMenuStyle}
-                    navStyle={navStyle}
                     snapshot={snapshot}
                     onAppNameChange={handleAppNameChange}
                     onAppNameSave={handleAppNameSave}
@@ -256,17 +254,22 @@ export default function SettingsPage() {
                     onAssistantNameSave={handleAssistantNameSave}
                     onAssistantPersonaChange={handleAssistantPersonaChange}
                     onAssistantPersonaSave={handleAssistantPersonaSave}
-                    onThemeChange={handleThemeChange}
                     onLanguageChange={handleLanguageChange}
-                    onMenuStyleChange={handleMenuStyleChange}
-                    onNavStyleChange={handleNavStyleChange}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
-                    onNavigate={navigate}
+                  />}
+
+                  {activeSection === 'appearance' && <AppearanceSettingsSection
+                    theme={theme}
+                    onThemeChange={handleThemeChange}
                   />}
 
                   {activeSection === 'navigation' && <NavigationSettingsSection
                     pinnedNavItems={pinnedNavItems}
                     setPinnedNavItems={handlePinnedNavItemsChange}
+                    navStyle={navStyle}
+                    secondaryMenuStyle={secondaryMenuStyle}
+                    onNavStyleChange={handleNavStyleChange}
+                    onMenuStyleChange={handleMenuStyleChange}
                     onNavigate={navigate}
                   />}
 
@@ -274,6 +277,7 @@ export default function SettingsPage() {
                     snapshot={snapshot}
                     models={allModels}
                     onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+                    onNavigate={navigate}
                   />}
 
                   {activeSection === 'database' && (
@@ -322,9 +326,6 @@ function AppSettingsSection({
   appName,
   assistantName,
   assistantPersona,
-  theme,
-  secondaryMenuStyle,
-  navStyle,
   snapshot,
   onAppNameChange,
   onAppNameSave,
@@ -332,19 +333,12 @@ function AppSettingsSection({
   onAssistantNameSave,
   onAssistantPersonaChange,
   onAssistantPersonaSave,
-  onThemeChange,
-  onMenuStyleChange,
-  onNavStyleChange,
   onLanguageChange,
   onSettingChange,
-  onNavigate,
 }: {
   appName: string
   assistantName: string
   assistantPersona: string
-  theme: Theme
-  secondaryMenuStyle: SecondaryMenuStyle
-  navStyle: NavStyle
   snapshot: IAppSettingsSnapshot | undefined
   onAppNameChange: (v: string) => void
   onAppNameSave: () => void
@@ -352,12 +346,8 @@ function AppSettingsSection({
   onAssistantNameSave: () => void
   onAssistantPersonaChange: (v: string) => void
   onAssistantPersonaSave: () => void
-  onThemeChange: (v: Theme) => void
-  onMenuStyleChange: (v: SecondaryMenuStyle) => void
-  onNavStyleChange: (v: NavStyle) => void
   onLanguageChange: (v: 'zh' | 'en') => void
   onSettingChange: (key: string, value: string) => void
-  onNavigate: (path: string) => void
 }) {
   const { t } = useTranslation('settings')
   const language: 'zh' | 'en' = snapshot?.language === 'en' ? 'en' : 'zh'
@@ -435,47 +425,6 @@ function AppSettingsSection({
         </div>
       </div>
 
-      {/* Theme Selector */}
-      <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.theme')}</label>
-        <div className="grid grid-cols-3 gap-3">
-          {themeOptions.map((opt) => {
-            const Icon = opt.icon
-            const isActive = theme === opt.key
-            return (
-              <button
-                key={opt.key}
-                onClick={() => onThemeChange(opt.key)}
-                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
-                  isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
-                }`}
-              >
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
-                }`}>
-                  <Icon size={18} />
-                </div>
-                <div className="text-center">
-                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {t(opt.labelKey)}
-                  </div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
-                </div>
-                {isActive && (
-                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                    {t('app.current')}
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Language Selector */}
       <div className="space-y-3">
         <div>
@@ -520,31 +469,77 @@ function AppSettingsSection({
         <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('common:languageHint')}</p>
       </div>
 
-      {/* Secondary Menu Style Selector */}
+      {/* Close To Tray */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.trayTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.traySubtitle')}</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.closeToTray')}</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {t('app.closeToTrayHint')}
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.closeToTray !== 'false' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Appearance Settings Section ─── */
+
+function AppearanceSettingsSection({
+  theme,
+  onThemeChange,
+}: {
+  theme: Theme
+  onThemeChange: (v: Theme) => void
+}) {
+  const { t } = useTranslation('settings')
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('appearance.title')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('appearance.subtitle')}</p>
+      </div>
+
+      {/* Theme Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.menuStyle')}</label>
-        <div className="grid grid-cols-2 gap-3">
-          {menuStyleOptions.map((opt) => {
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('appearance.theme')}</label>
+        <div className="grid grid-cols-3 gap-3">
+          {themeOptions.map((opt) => {
             const Icon = opt.icon
-            const isActive = secondaryMenuStyle === opt.key
+            const isActive = theme === opt.key
             return (
               <button
                 key={opt.key}
-                onClick={() => onMenuStyleChange(opt.key)}
-                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                onClick={() => onThemeChange(opt.key)}
+                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
                   isActive
                     ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
                   isActive
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
                 }`}>
                   <Icon size={18} />
                 </div>
-                <div className="min-w-0 text-left">
+                <div className="text-center">
                   <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
                     {t(opt.labelKey)}
                   </div>
@@ -559,12 +554,43 @@ function AppSettingsSection({
             )
           })}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.menuStyleHint')}</p>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Navigation Settings Section ─── */
+
+function NavigationSettingsSection({
+  pinnedNavItems,
+  setPinnedNavItems,
+  navStyle,
+  secondaryMenuStyle,
+  onNavStyleChange,
+  onMenuStyleChange,
+  onNavigate,
+}: {
+  pinnedNavItems: string[]
+  setPinnedNavItems: (items: string[]) => void
+  navStyle: NavStyle
+  secondaryMenuStyle: SecondaryMenuStyle
+  onNavStyleChange: (v: NavStyle) => void
+  onMenuStyleChange: (v: SecondaryMenuStyle) => void
+  onNavigate: (path: string) => void
+}) {
+  const { t } = useTranslation('settings')
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('navigation.title')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t('navigation.subtitle')}
+        </p>
       </div>
 
       {/* Nav Style Selector */}
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.navStyle')}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.navStyle')}</label>
         <div className="grid grid-cols-2 gap-3">
           {navStyleOptions.map((opt) => {
             const Icon = opt.icon
@@ -601,138 +627,49 @@ function AppSettingsSection({
             )
           })}
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.navStyleHint')}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('navigation.navStyleHint')}</p>
       </div>
 
-      {/* Knowledge Graph */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.graphTitle')}</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.graphSubtitle')}</p>
+      {/* Secondary Menu Style Selector */}
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.menuStyle')}</label>
+        <div className="grid grid-cols-2 gap-3">
+          {menuStyleOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = secondaryMenuStyle === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onMenuStyleChange(opt.key)}
+                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {t(opt.labelKey)}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
+                </div>
+                {isActive && (
+                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                    {t('app.current')}
+                  </div>
+                )}
+              </button>
+            )
+          })}
         </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.graphAutoExtract')}</label>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {t('app.graphAutoExtractHint')}
-            </p>
-          </div>
-          <button
-            onClick={() => onSettingChange('GraphAutoExtract', snapshot?.graphAutoExtract === 'true' ? 'false' : 'true')}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-              snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0.5'
-            }`} style={{ marginTop: '2px' }} />
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-          {t('app.graphManualPrefix')}{' '}
-          <button onClick={() => onNavigate('/graph')} className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400">
-            {t('app.graphManualLink')}
-          </button>
-          {' '}{t('app.graphManualSuffix')}
-        </p>
-      </div>
-
-      {/* Auto Embedding */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.embeddingTitle')}</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.embeddingSubtitle')}</p>
-        </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.autoEmbedding')}</label>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {t('app.autoEmbeddingHint')}
-            </p>
-          </div>
-          <button
-            onClick={() => onSettingChange('AutoEmbedding', snapshot?.autoEmbedding === 'true' ? 'false' : 'true')}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-              snapshot?.autoEmbedding === 'true' ? 'translate-x-5' : 'translate-x-0.5'
-            }`} style={{ marginTop: '2px' }} />
-          </button>
-        </div>
-      </div>
-
-      {/* Context Window Size */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.contextTitle')}</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.contextSubtitle')}</p>
-        </div>
-        <div className="max-w-xs">
-          <input
-            type="number"
-            value={snapshot?.contextWindowSize?.toString() ?? ''}
-            onChange={(e) => onSettingChange('ContextWindowSize', e.target.value || '')}
-            placeholder={t('app.contextPlaceholder')}
-            min={1}
-            max={100}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
-          />
-          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-            {t('app.contextHint')}
-          </p>
-        </div>
-      </div>
-
-      {/* Close To Tray */}
-      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.trayTitle')}</h3>
-          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.traySubtitle')}</p>
-        </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.closeToTray')}</label>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {t('app.closeToTrayHint')}
-            </p>
-          </div>
-          <button
-            onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-              snapshot?.closeToTray !== 'false' ? 'translate-x-5' : 'translate-x-0.5'
-            }`} style={{ marginTop: '2px' }} />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ─── Navigation Settings Section ─── */
-
-function NavigationSettingsSection({
-  pinnedNavItems,
-  setPinnedNavItems,
-  onNavigate,
-}: {
-  pinnedNavItems: string[]
-  setPinnedNavItems: (items: string[]) => void
-  onNavigate: (path: string) => void
-}) {
-  const { t } = useTranslation('settings')
-  return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('navigation.title')}</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {t('navigation.subtitle')}
-        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('navigation.menuStyleHint')}</p>
       </div>
 
       {/* Quick Jump */}
@@ -799,10 +736,12 @@ function DefaultModelsSection({
   snapshot,
   models,
   onSettingChange,
+  onNavigate,
 }: {
   snapshot: IAppSettingsSnapshot | undefined
   models: { id: string; modelId: string; displayName: string; purpose: string; isVisible: boolean }[]
   onSettingChange: (key: string, value: string) => void
+  onNavigate: (path: string) => void
 }) {
   const { t } = useTranslation('settings')
   const chatModels = models.filter((m) => m.purpose === 'chat' && m.isVisible)
@@ -873,6 +812,87 @@ function DefaultModelsSection({
           models={embeddingModels}
           onChange={(v) => onSettingChange('DefaultEmbeddingModelId', v)}
         />
+      </div>
+
+      {/* 知识图谱自动抽取：与图谱模型同区 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('models.graphTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.graphSubtitle')}</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('models.graphAutoExtract')}</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {t('models.graphAutoExtractHint')}
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('GraphAutoExtract', snapshot?.graphAutoExtract === 'true' ? 'false' : 'true')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+          {t('models.graphManualPrefix')}{' '}
+          <button onClick={() => onNavigate('/graph')} className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400">
+            {t('models.graphManualLink')}
+          </button>
+          {' '}{t('models.graphManualSuffix')}
+        </p>
+      </div>
+
+      {/* 自动生成 Embedding：与嵌入模型同区，保存笔记时即时建索引 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('models.embeddingTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.embeddingSubtitle')}</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('models.autoEmbedding')}</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {t('models.autoEmbeddingHint')}
+            </p>
+          </div>
+          <button
+            onClick={() => onSettingChange('AutoEmbedding', snapshot?.autoEmbedding === 'true' ? 'false' : 'true')}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              snapshot?.autoEmbedding === 'true' ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+      </div>
+
+      {/* 上下文窗口：与默认对话模型同区 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('models.contextTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.contextSubtitle')}</p>
+        </div>
+        <div className="max-w-xs">
+          <input
+            type="number"
+            value={snapshot?.contextWindowSize?.toString() ?? ''}
+            onChange={(e) => onSettingChange('ContextWindowSize', e.target.value || '')}
+            placeholder={t('models.contextPlaceholder')}
+            min={1}
+            max={100}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+          />
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+            {t('models.contextHint')}
+          </p>
+        </div>
       </div>
     </div>
   )
