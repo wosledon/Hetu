@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none"
+     role="img" aria-label="Hetu" shape-rendering="geometricPrecision">
+  <title>Hetu — Ht 连写字标（常驻动画）</title>
+  <!--
+    与 ht-monogram-animated.svg 同一套笔画，但改成「绘一次后常驻」：
+    应用内品牌位（顶栏 / 侧栏 / 关于页）不需要循环重绘，只在挂载时逐笔显现，
+    之后保持可见，仅星芒轻轻呼吸。加载场景请用 ht-monogram-animated.svg（循环版）。
+    用 pathLength="100" 归一化虚线单位，无需手算笔画长度。
+  -->
+  <defs>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse"
+                    x1="110" y1="130" x2="400" y2="380">
+      <stop offset="0" stop-color="#7C5CFF"/>
+      <stop offset="0.55" stop-color="#4F7CFF"/>
+      <stop offset="1" stop-color="#0FB5D6"/>
+    </linearGradient>
+
+    <style>
+      .s{
+        fill:none; stroke:url(#ink); stroke-width:30;
+        stroke-linecap:round; stroke-linejoin:round;
+        stroke-dasharray:100; stroke-dashoffset:100; opacity:0;
+        animation:draw 1.5s cubic-bezier(.22,.61,.36,1) forwards;
+      }
+      .p1{animation-delay:0s}    .p2{animation-delay:.13s}
+      .p3{animation-delay:.26s}  .p4{animation-delay:.39s}
+
+      .spark{ transform-box:fill-box; transform-origin:center;
+        opacity:0; animation:pop .55s cubic-bezier(.34,1.56,.64,1) .95s forwards,
+                            twinkle 4.5s ease-in-out 2.4s infinite; }
+
+      @keyframes draw{
+        0%{stroke-dashoffset:100;opacity:0}
+        12%{opacity:1}
+        100%{stroke-dashoffset:0;opacity:1}}
+
+      @keyframes pop{
+        0%{opacity:0;transform:scale(0) rotate(-24deg)}
+        60%{opacity:1;transform:scale(1.25) rotate(7deg)}
+        100%{opacity:1;transform:scale(1) rotate(0)}}
+
+      @keyframes twinkle{
+        0%,100%{opacity:1;transform:scale(1)}
+        50%{opacity:.5;transform:scale(.88)}}
+
+      @media (prefers-reduced-motion: reduce){
+        .s{animation:none;stroke-dashoffset:0;opacity:1}
+        .spark{animation:none;opacity:1}
+      }
+    </style>
+  </defs>
+
+  <g>
+    <path class="s p1" pathLength="100" d="M111 185 V 379"/>
+    <path class="s p2" pathLength="100" d="M253 185 V 379"/>
+    <path class="s p3" pathLength="100" d="M111 279 H 401"/>
+    <path class="s p4" pathLength="100" d="M321 133 V 347 Q 321 379 353 379 H 377"/>
+  </g>
+
+  <path class="spark" fill="#22D3EE"
+        d="M388 155 Q 390.6 165.4 401 168 Q 390.6 170.6 388 181 Q 385.4 170.6 375 168 Q 385.4 165.4 388 155 Z"/>
+</svg>

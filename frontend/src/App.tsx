@@ -36,7 +36,10 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 function RouteFallback() {
   const { t } = useTranslation()
   return (
-    <div className="flex h-screen w-full items-center justify-center text-xs text-gray-400">{t('common:loading')}</div>
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 text-xs text-gray-400">
+      <img src="/ht-monogram-animated.svg" alt="" width={72} height={72} className="select-none" />
+      {t('common:loading')}
+    </div>
   )
 }
 

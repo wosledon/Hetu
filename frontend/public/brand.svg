@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none"
+     role="img" aria-label="Hetu" shape-rendering="geometricPrecision">
+  <title>Hetu — Ht 连写字标</title>
+  <!--
+    「Ht」连写：H 左右两竖 + 一条贯通横画（同时充当 H 的横与 t 的横），
+    t 的竖笔自上方落下、末端向右弯钩。四笔即成 Ht。
+    渐变用 userSpaceOnUse：竖画/横画包围盒有一边为 0，objectBoundingBox 会不渲染。
+  -->
+  <defs>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse"
+                    x1="110" y1="130" x2="400" y2="380">
+      <stop offset="0" stop-color="#7C5CFF"/>
+      <stop offset="0.55" stop-color="#4F7CFF"/>
+      <stop offset="1" stop-color="#0FB5D6"/>
+    </linearGradient>
+  </defs>
+
+  <g stroke="url(#ink)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M111 185 V 379"/>
+    <path d="M253 185 V 379"/>
+    <path d="M111 279 H 401"/>
+    <path d="M321 133 V 347 Q 321 379 353 379 H 377"/>
+  </g>
+
+  <!-- 星芒：与动画版同一位置，静态图标保留这一点亮 -->
+  <path fill="#22D3EE"
+        d="M388 155 Q 390.6 165.4 401 168 Q 390.6 170.6 388 181 Q 385.4 170.6 375 168 Q 385.4 165.4 388 155 Z"/>
+</svg>

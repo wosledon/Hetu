@@ -47,9 +47,9 @@ export default function AboutSection({ appName }: { appName: string }) {
     <section className="space-y-8">
       {/* 产品标识 */}
       <div className="flex flex-wrap items-center gap-6">
-        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50/80 shadow-sm dark:border-white/20 dark:bg-white">
+        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50/80 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
           <img
-            src="/brand.png"
+            src="/brand-animated.svg"
             alt=""
             width={92}
             height={92}
