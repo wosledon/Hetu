@@ -1225,7 +1225,7 @@ export default function WorkSessionArea({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
+    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
       {/* 头部：标题与统计在左，打开方式与用量在右 */}
       <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <span
@@ -1873,7 +1873,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
           <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
         </div>
         {editing && actions ? (
-          <div className="w-full min-w-[280px] rounded-2xl rounded-tr-sm border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900">
+          <div className="w-full min-w-[280px] rounded-2xl rounded-tr-sm border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900 glass">
             <MessageEditor
               value={actions.editingContent}
               disabled={actions.actionsDisabled}

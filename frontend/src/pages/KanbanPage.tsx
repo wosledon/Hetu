@@ -328,7 +328,7 @@ export default function KanbanPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex h-full min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
+        <div className="flex h-full min-w-0 flex-col bg-transparent">
           {/* Header */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
             <div className="flex items-center gap-3">
@@ -501,7 +501,7 @@ export default function KanbanPage() {
           {/* Create/Edit modal */}
           {showForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
@@ -672,7 +672,7 @@ export default function KanbanPage() {
           {/* 阻塞原因 modal */}
           {blockingTask && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+              <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">

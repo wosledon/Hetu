@@ -80,7 +80,7 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -194,7 +194,7 @@ function BackgroundTasksView({
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <SlidingPill value={typeFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          <SlidingPill value={typeFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
             <button
               onClick={() => setTypeFilter('')}
               data-pill-key=""
@@ -437,7 +437,7 @@ function ScheduledTaskRow({
   const statusInfo = task.lastStatus ? LAST_STATUS_MAP[task.lastStatus] : null
 
   return (
-    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
+    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass">
       <div className="flex items-center gap-3">
         {/* Enable indicator */}
         <button
@@ -696,7 +696,7 @@ function ScheduledTaskEditor({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900 glass">
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
@@ -986,7 +986,7 @@ function ScheduledTaskHistoryModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900">
+      <div className="relative z-10 max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900 glass">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <div className="flex items-center gap-2">
@@ -1081,7 +1081,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
   }
 
   return (
-    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
+    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass">
       <div className="flex items-center gap-3">
         {/* Status Icon */}
         <div className={`rounded-xl p-1.5 ${status.bg}`}>

@@ -138,7 +138,7 @@ export default function TagsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* 页头：标题 + 内联统计 */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -162,7 +162,7 @@ export default function TagsPage() {
 
             {/* 控制行：筛选 + 搜索 + 新建 */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
-              <SlidingPill value={filter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              <SlidingPill value={filter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                 {filters.map((f) => (
                   <button
                     key={f.key}
@@ -262,7 +262,7 @@ export default function TagsPage() {
       {/* 合并对话框 */}
       {mergeSource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setMergeSource(null); setMergeTargetId('') }}>
-          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <GitMerge size={18} className="text-blue-500" />
@@ -466,7 +466,7 @@ function TagEditDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
             {mode === 'create' ? <Plus size={18} className="text-blue-500" /> : <Pencil size={18} className="text-blue-500" />}

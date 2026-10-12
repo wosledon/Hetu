@@ -204,7 +204,7 @@ export default function SkillsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+    <div className="flex-1 overflow-y-auto bg-transparent">
       <div className="mx-auto max-w-6xl px-8 py-8">
         {/* 页头 */}
         <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -229,7 +229,7 @@ export default function SkillsPage() {
         </div>
 
         {/* 选项卡 */}
-        <SlidingPill value={tab} className="mb-4 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+        <SlidingPill value={tab} className="mb-4 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
           {([
             { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Zap },
             { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
@@ -348,7 +348,7 @@ export default function SkillsPage() {
       {/* Create/Edit modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
@@ -398,7 +398,7 @@ export default function SkillsPage() {
 
       {/* Directory config modal */}
       {showDirConfig && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">

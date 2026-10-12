@@ -305,7 +305,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
 export default function WorkflowEditor(props: WorkflowEditorProps) {
   return (
     <ReactFlowProvider>
-      <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-[#0c0f1a]">
+      <div className="flex h-screen w-full flex-col bg-transparent">
         <LayoutedEditor {...props} />
       </div>
     </ReactFlowProvider>

@@ -234,7 +234,7 @@ export default function KnowledgeBasePage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -257,7 +257,7 @@ export default function KnowledgeBasePage() {
             </div>
 
             {/* Tabs */}
-            <SlidingPill value={activeTab} className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            <SlidingPill value={activeTab} className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -282,7 +282,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-4">
                 {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 glass">
                   <div className="flex flex-wrap items-center gap-8">
                     {/* 进度环 */}
                     <div className="relative h-24 w-24 shrink-0">
@@ -378,7 +378,7 @@ export default function KnowledgeBasePage() {
               <div className="space-y-4">
                 {/* Type Filter + Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                  <SlidingPill value={manageFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                  <SlidingPill value={manageFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                     {typeFilters.map((f) => {
                       const Icon = f.icon
                       return (
@@ -583,7 +583,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'search' && (
               <div className="space-y-6">
                 {/* Search Input */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 glass">
                   <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
@@ -717,7 +717,7 @@ function ChunkDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="flex h-[80vh] w-[640px] flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="flex h-[80vh] w-[640px] flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

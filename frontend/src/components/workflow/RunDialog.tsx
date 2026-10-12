@@ -96,7 +96,7 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 dark:border-white/[0.08]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('run.title', { name: workflow.name })}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">

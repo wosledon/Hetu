@@ -289,7 +289,7 @@ const bySource = stats?.bySource ?? []
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-6xl px-8 py-8">
             {/* Header */}
             <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -314,7 +314,7 @@ const bySource = stats?.bySource ?? []
             ) : (
               <div className="space-y-6">
                 {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
-                <div className="rounded-2xl border border-gray-200 bg-white px-1 py-4 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white px-1 py-4 dark:border-gray-800 dark:bg-gray-900 glass">
                   <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
                     {cards.map((c: typeof cards[number] & { subValue?: string }) => {
                       const Icon = c.icon
@@ -334,13 +334,13 @@ const bySource = stats?.bySource ?? []
                 </div>
 
                 {/* 活跃热力：第二行整行 */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                       <Calendar size={15} className="text-emerald-500" />
                       {t('usage.activity')}
                     </h3>
-                    <SlidingPill value={heatTab} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                    <SlidingPill value={heatTab} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                       <button
                         onClick={() => setHeatTab('week')}
                         data-pill-key="week"
@@ -374,7 +374,7 @@ const bySource = stats?.bySource ?? []
 
                 {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
                 <div className="flex items-center justify-end gap-2">
-                  <SlidingPill value={dateRange} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                  <SlidingPill value={dateRange} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                     {([
                       { key: '7d' as const, labelKey: 'usage.days7' },
                       { key: '30d' as const, labelKey: 'usage.days30' },
@@ -394,7 +394,7 @@ const bySource = stats?.bySource ?? []
                       </button>
                     ))}
                   </SlidingPill>
-                  <SlidingPill value={metric} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                  <SlidingPill value={metric} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                     {(['tokens', 'messages', 'logs'] as Metric[]).map((m) => (
                       <button
                         key={m}
@@ -418,7 +418,7 @@ const bySource = stats?.bySource ?? []
                   <>
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                       {/* 趋势 */}
-                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 lg:col-span-2 glass">
                         <div className="mb-2 flex items-center justify-between">
                           <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                             <CalendarClock size={15} className="text-blue-500" />
@@ -429,7 +429,7 @@ const bySource = stats?.bySource ?? []
                       </div>
 
                       {/* 模型分布 */}
-                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
                         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Cpu size={15} className="text-violet-500" />
                           {t('usage.modelDistribution')}
@@ -442,7 +442,7 @@ const bySource = stats?.bySource ?? []
                       </div>
 
                       {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
-                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 lg:col-span-3">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 lg:col-span-3 glass">
                         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Layers size={15} className="text-sky-500" />
                           {t('usage.callSources')}
@@ -513,7 +513,7 @@ function UsageLogs() {
     'flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]'
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         {t('usage.logs')}

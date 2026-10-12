@@ -27,7 +27,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {state && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleCancel}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800 glass" onClick={e => e.stopPropagation()}>
             <div className="mb-4 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
                 <AlertTriangle size={20} className="text-red-500" />

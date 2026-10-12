@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-glass="on">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/brand.svg" />
@@ -10,14 +10,18 @@
       (function () {
         try {
           var stored = JSON.parse(localStorage.getItem('hetu-ui') || 'null');
-          var t = stored && stored.state && stored.state.theme;
+          var state = stored && stored.state;
+          var t = state && state.theme;
           var dark = t === 'dark' ||
             ((!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) document.documentElement.classList.add('dark');
+          // 毛玻璃开关同样首帧落地，避免挂载前卡片闪烁
+          document.documentElement.setAttribute('data-glass', state && state.glass === false ? 'off' : 'on');
         } catch (e) {
           if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
           }
+          document.documentElement.setAttribute('data-glass', 'on');
         }
       })();
     </script>

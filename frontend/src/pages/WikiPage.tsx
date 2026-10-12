@@ -311,7 +311,7 @@ export default function WikiPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex h-full min-w-0 flex-1 bg-gray-50 dark:bg-gray-950">
+      <div className="flex h-full min-w-0 flex-1 bg-transparent">
         {/* 项目列表 */}
         <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">

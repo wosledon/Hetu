@@ -151,7 +151,7 @@ export default function AppsPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+      <div className="flex-1 overflow-y-auto bg-transparent">
         <div className="mx-auto max-w-6xl px-8 py-8">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300">
@@ -197,7 +197,7 @@ export default function AppsPage() {
               {apps.map((app) => (
                 <div
                   key={app.id}
-                  className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                  className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
                 >
                   <button onClick={() => void handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
                     <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
@@ -248,7 +248,7 @@ export default function AppsPage() {
         {/* 添加 / 编辑弹窗 */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
@@ -337,7 +337,7 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
   return (
     <AppLayout showSidebar={false} mainContent={
       /* 注意：mainContent 位于行向 flex 容器内，根节点必须 flex-1 + min-w-0 才能撑满宽度 */
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50 dark:bg-gray-950">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
         {/* 工具条 */}
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white px-3 dark:border-gray-800 dark:bg-gray-900">
           <button onClick={onClose} title={t('apps.backToList')} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">

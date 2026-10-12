@@ -723,7 +723,7 @@ function ModelForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1129,7 +1129,7 @@ function FetchModelsForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
       <div
-        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f]"
+        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">

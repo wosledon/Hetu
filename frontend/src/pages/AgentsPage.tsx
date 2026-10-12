@@ -531,7 +531,7 @@ export default function AgentsPage() {
     return (
       <div
         key={p.id}
-        className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+        className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
       >
         <div className="mb-2 flex items-start justify-between">
           <div className="flex min-w-0 items-start gap-2.5">
@@ -647,7 +647,7 @@ export default function AgentsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+    <div className="flex-1 overflow-y-auto bg-transparent">
       <div className="mx-auto max-w-6xl px-8 py-8">
         {/* 页头 */}
         <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -861,7 +861,7 @@ export default function AgentsPage() {
       {/* Create/Edit modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/30"><Bot size={16} className="text-rose-600 dark:text-rose-400" /></div>
@@ -1107,7 +1107,7 @@ export default function AgentsPage() {
       {/* Directory config modal */}
       {showDirConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">

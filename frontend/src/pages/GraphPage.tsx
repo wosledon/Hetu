@@ -928,7 +928,7 @@ export default function GraphPage() {
   }, [t])
 
   const mainContent = (
-    <div className="flex flex-1 flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="flex flex-1 flex-col bg-transparent">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
           <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomIn')}><ZoomIn size={15} /></button>
@@ -983,7 +983,7 @@ export default function GraphPage() {
 
       {showExtractDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30"><Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" /></div>
@@ -1037,7 +1037,7 @@ export default function GraphPage() {
 
       {previewNoteId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }}>
-          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800" onClick={e => e.stopPropagation()}>
+          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass" onClick={e => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">

@@ -136,7 +136,7 @@ export default function ToolsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-transparent">
           <div className="mx-auto max-w-5xl px-8 py-8">
         <div className="mb-5 flex items-start gap-3">
           <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 shadow-sm shadow-slate-500/20">

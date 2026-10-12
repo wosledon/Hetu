@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS, backgroundPreviewStyle, type AccentKey, type BackgroundKey } from '../utils/appearance'
+import { useIsDark } from '../hooks/useIsDark'
 import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
@@ -95,6 +97,9 @@ export default function SettingsPage() {
   const setAssistantName = useUIStore((state) => state.setAssistantName)
   const setAssistantPersona = useUIStore((state) => state.setAssistantPersona)
   const setTheme = useUIStore((state) => state.setTheme)
+  const setAccent = useUIStore((state) => state.setAccent)
+  const setBackground = useUIStore((state) => state.setBackground)
+  const setGlass = useUIStore((state) => state.setGlass)
   const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
   const setNavStyle = useUIStore((state) => state.setNavStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
@@ -127,6 +132,11 @@ export default function SettingsPage() {
     setAssistantName(snapshot.assistantName)
     setAssistantPersona(snapshot.assistantPersona)
     setTheme(snapshot.theme as Theme)
+    const accent = snapshot.themeAccent
+    if (accent && ACCENT_PRESETS.some((p) => p.key === accent)) setAccent(accent as AccentKey)
+    const background = snapshot.background
+    if (background && BACKGROUND_PRESETS.some((p) => p.key === background)) setBackground(background as BackgroundKey)
+    setGlass(snapshot.glassEffect !== 'false')
     if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
       setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
     if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical')
@@ -135,7 +145,7 @@ export default function SettingsPage() {
       const items = JSON.parse(snapshot.pinnedNavItems)
       if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
     } catch { /* keep current value if parse fails */ }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -164,6 +174,24 @@ export default function SettingsPage() {
   const handleThemeChange = (value: Theme) => {
     setTheme(value)
     setSetting.mutate({ key: 'Theme', value })
+  }
+
+  // 主题配色：立即换全软件强调色（CSS 变量覆盖），同时落库
+  const handleAccentChange = (value: AccentKey) => {
+    setAccent(value)
+    setSetting.mutate({ key: 'ThemeAccent', value })
+  }
+
+  // 画布背景：立即更换，同时落库
+  const handleBackgroundChange = (value: BackgroundKey) => {
+    setBackground(value)
+    setSetting.mutate({ key: 'Background', value })
+  }
+
+  // 毛玻璃（亚克力）材质：立即开关，同时落库
+  const handleGlassChange = (value: boolean) => {
+    setGlass(value)
+    setSetting.mutate({ key: 'GlassEffect', value: value ? 'true' : 'false' })
   }
 
   // 语言：界面立即切换，同时落库（前端请求头 Accept-Language 与后台任务都读它）
@@ -249,7 +277,7 @@ export default function SettingsPage() {
 
               {/* Content Area */}
               <div className="min-w-0 flex-1 animate-fade-in">
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+                <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none glass">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
                     assistantName={assistantName}
@@ -267,7 +295,11 @@ export default function SettingsPage() {
 
                   {activeSection === 'appearance' && <AppearanceSettingsSection
                     theme={theme}
+                    snapshot={snapshot}
                     onThemeChange={handleThemeChange}
+                    onAccentChange={handleAccentChange}
+                    onBackgroundChange={handleBackgroundChange}
+                    onGlassChange={handleGlassChange}
                   />}
 
                   {activeSection === 'navigation' && <NavigationSettingsSection
@@ -509,12 +541,26 @@ function AppSettingsSection({
 
 function AppearanceSettingsSection({
   theme,
+  snapshot,
   onThemeChange,
+  onAccentChange,
+  onBackgroundChange,
+  onGlassChange,
 }: {
   theme: Theme
+  snapshot: IAppSettingsSnapshot | undefined
   onThemeChange: (v: Theme) => void
+  onAccentChange: (v: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose') => void
+  onBackgroundChange: (v: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora') => void
+  onGlassChange: (v: boolean) => void
 }) {
   const { t } = useTranslation('settings')
+  const isDark = useIsDark()
+  const glass = useUIStore((state) => state.glass)
+  const accent: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose' =
+    (snapshot?.themeAccent as 'blue') ?? 'blue'
+  const background: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora' =
+    (snapshot?.background as 'solid') ?? 'solid'
   return (
     <div className="space-y-8">
       <div>
@@ -560,6 +606,102 @@ function AppearanceSettingsSection({
               </button>
             )
           })}
+        </div>
+      </div>
+
+      {/* 主题配色 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.accentTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.accentSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+          {ACCENT_PRESETS.map((preset) => {
+            const isActive = accent === preset.key
+            return (
+              <button
+                key={preset.key}
+                onClick={() => onAccentChange(preset.key)}
+                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-gray-300 hover:bg-gray-50 dark:border-white/[0.08] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <span
+                  className="h-8 w-8 rounded-full shadow-sm ring-1 ring-black/[0.06] dark:ring-white/10"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${preset.swatch[0]}, ${preset.swatch[1]})` }}
+                />
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(`appearance.accent.${preset.key}`)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 软件背景 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.backgroundTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.backgroundSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+          {BACKGROUND_PRESETS.map((preset) => {
+            const isActive = background === preset.key
+            return (
+              <button
+                key={preset.key}
+                onClick={() => onBackgroundChange(preset.key)}
+                className={`group flex flex-col items-center gap-2 rounded-xl border-2 p-1.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 shadow-sm shadow-blue-500/10 dark:border-blue-400/60'
+                    : 'border-gray-200/80 hover:border-gray-300 dark:border-white/[0.08] dark:hover:border-white/10'
+                }`}
+              >
+                <span
+                  className="h-14 w-full rounded-lg ring-1 ring-black/[0.06] dark:ring-white/10"
+                  style={backgroundPreviewStyle(preset.key, isDark)}
+                />
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(`appearance.background.${preset.key}`)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.backgroundHint')}</p>
+      </div>
+
+      {/* 毛玻璃（亚克力）材质 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.glassTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.glassSubtitle')}</p>
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('appearance.glassLabel')}</label>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('appearance.glassHint')}</p>
+          </div>
+          <button
+            onClick={() => onGlassChange(!glass)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              glass ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              glass ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ marginTop: '2px' }} />
+          </button>
+        </div>
+      </div>
+
+      {/* 圆角与密度等外观能力预留位 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center dark:border-white/[0.1]">
+          <p className="text-xs text-gray-400 dark:text-gray-500">{t('appearance.moreSoon')}</p>
         </div>
       </div>
     </div>

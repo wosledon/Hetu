@@ -637,7 +637,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-4 dark:border-gray-800/50 dark:bg-gray-900/80">
-        <SlidingPill value={viewMode} className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+        <SlidingPill value={viewMode} className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {[
             { key: 'preview', label: t('common:preview'), icon: Eye },
             { key: 'edit', label: t('common:edit'), icon: Edit3 },
