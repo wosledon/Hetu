@@ -275,29 +275,7 @@ export default function Sidebar() {
           </h2>
         </div>
         <div className="notebook-tree flex-1 space-y-0.5 overflow-y-auto">
-          {/* 未分类 - 始终在最前 */}
-          <div
-            onClick={() => {
-              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
-              navigate('/')
-            }}
-            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all ${
-              isDefaultSelected
-                ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
-                : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-            }`}
-          >
-            <span className="w-4 shrink-0" />
-            {isDefaultSelected
-              ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
-              : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{t('note.uncategorized')}</span>
-          </div>
-          {/* 其他笔记本 */}
-          {notebooks.map((notebook) => (
-            <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
-          ))}
-          {/* 列表最后一行：与笔记本同级的新建笔记本 */}
+          {/* 新建笔记本放在列表第一行：列表再长也不用滚到底就能加 */}
           {isAddingRoot ? (
             <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
               <Folder size={14} className="text-blue-500" />
@@ -326,6 +304,28 @@ export default function Sidebar() {
               {t('notebook.new')}
             </button>
           )}
+          {/* 未分类 - 始终排在新建行之后 */}
+          <div
+            onClick={() => {
+              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
+              navigate('/')
+            }}
+            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all ${
+              isDefaultSelected
+                ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
+                : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <span className="w-4 shrink-0" />
+            {isDefaultSelected
+              ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
+              : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
+            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{t('note.uncategorized')}</span>
+          </div>
+          {/* 其他笔记本 */}
+          {notebooks.map((notebook) => (
+            <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
+          ))}
         </div>
       </div>
 
