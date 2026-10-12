@@ -1060,7 +1060,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           ))}
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
         {/* 与流式回复同在 space-y-5 容器内：否则流式期间回复会贴着用户气泡（完成后进入容器才恢复间距） */}
-        {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt - 2000) && (
+        {/* 落库判据必须同时满足「时间不早于流开始 + 内容与待发消息一致」：只用时间窗口会把上一轮
+            相同内容的消息算进来，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到 */}
+        {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt && m.content.trim() === pendingUserMessage.trim()) && (
           <div className="flex flex-row-reverse gap-3">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
               <User size={13} />

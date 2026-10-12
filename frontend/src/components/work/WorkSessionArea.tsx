@@ -176,6 +176,16 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
 
 const PLAN_EXECUTE_PROMPT = '按上面的计划开始执行。'
 
+/** 当前时刻（ms）。抽成模块级函数：组件内直接调 Date.now() 会被 react-hooks/purity 拦。 */
+const nowMs = () => Date.now()
+
+/**
+ * 输入草稿的跨重挂载缓存：按会话 key 存/取。
+ * 草稿会话首条消息落库后，父组件的 key 从 projectId 变为 session.id，组件会整体重挂载，
+ * 本地 input 随之清空——用户正在输入的内容就丢了。重挂载时从这里恢复。
+ */
+const inputDraftCache = new Map<string, { input: string; pastedBlock: string }>()
+
 export default function WorkSessionArea({
   project,
   session,
@@ -194,14 +204,18 @@ export default function WorkSessionArea({
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirmRef = useRef(useConfirm())
-  const [input, setInput] = useState('')
+  // 会话身份：草稿期没有 id，用 projectId 兜底——与父组件 key 同源，草稿缓存按它存取
+  const sessionKey = session?.id || session?.projectId || ''
+  const [input, setInput] = useState(() => inputDraftCache.get(sessionKey)?.input ?? '')
   /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
-  const [pastedBlock, setPastedBlock] = useState('')
+  const [pastedBlock, setPastedBlock] = useState(() => inputDraftCache.get(sessionKey)?.pastedBlock ?? '')
   const [isStreaming, setIsStreaming] = useState(false)
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
   const [pendingUser, setPendingUser] = useState<string | null>(null)
+  /** 本次用户消息的发送时刻（ms）：判断乐观气泡是否已被持久化，按内容+时间双条件，避免重发相同内容时误判 */
+  const [pendingUserSentAt, setPendingUserSentAt] = useState(0)
   // 发送队列（回复进行中排队的消息）与引导中的那一条
   const [queue, setQueue] = useState<PendingMessage[]>([])
   const queueRef = useRef<PendingMessage[]>([])
@@ -514,12 +528,22 @@ export default function WorkSessionArea({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // 输入草稿随写随存：组件可能因草稿落库（key 变化）而重挂载，重挂载时从缓存恢复
+  useEffect(() => {
+    if (!sessionKey) return
+    if (input === '' && pastedBlock === '') inputDraftCache.delete(sessionKey)
+    else inputDraftCache.set(sessionKey, { input, pastedBlock })
+  }, [sessionKey, input, pastedBlock])
+
   // 输入历史（↑/↓ 回溯）
   const [inputHistory, setInputHistory] = useState<string[]>(() => loadInputHistory())
 
 
-  // 长会话：旧回合默认折叠
+  // 长会话：旧回合默认折叠——但仅限「打开会话时」的初始态。
+  // 本会话内一旦发过消息（含连续重发）就展示全部，避免回复到达后旧消息被突然折起来；
+  // 用户也可点「展开更早」手动展开（showOlder）。
   const [showOlder, setShowOlder] = useState(false)
+  const [sentThisVisit, setSentThisVisit] = useState(false)
 
   // 未手动切换过模型时，跟随会话上保存的模型
   const selectedModelId =
@@ -643,21 +667,28 @@ export default function WorkSessionArea({
     }
     return -1
   }, [orderedMessages])
-  const visibleMessages = showOlder || lastUserIndex <= 0 ? orderedMessages : orderedMessages.slice(lastUserIndex)
-  const olderCount = showOlder || lastUserIndex <= 0 ? 0 : lastUserIndex
+  const visibleMessages =
+    showOlder || sentThisVisit || lastUserIndex <= 0
+      ? orderedMessages
+      : orderedMessages.slice(lastUserIndex)
+  const olderCount = showOlder || sentThisVisit || lastUserIndex <= 0 ? 0 : lastUserIndex
   // 历史消息同样折叠：两段输出之间的思考/工具调用合并为一组（与流式渲染、任务详情页一致）
   const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
   const renderProcessEntry = (item: ToolCallEntry) =>
     item.kind === 'thought'
       ? <AgentThoughtBlock text={item.text ?? ''} />
       : <ChatToolCallRow name={item.name} args={item.args} result={item.result} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} />
- // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
-  const lastUserMessage = useMemo(
-    () => [...messages].reverse().find((m) => m.role === 'user'),
-    [messages],
-  )
+  // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
+  // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
+  // 相同内容的消息算成已落库，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到
   const showPendingUser =
-    pendingUser !== null && lastUserMessage?.content !== pendingUser
+    pendingUser !== null &&
+    !messages.some(
+      (m) =>
+        m.role === 'user' &&
+        new Date(m.createdAt).getTime() >= pendingUserSentAt &&
+        m.content.trim() === pendingUser.trim(),
+    )
 
   const resetStreamState = () => {
     setStreamItems([])
@@ -894,6 +925,14 @@ export default function WorkSessionArea({
         })
         draftCreatedRef.current = created
         active = created
+        // 草稿落库后父组件 key 会从 projectId 变为 session.id（组件重挂载）：
+        // 把输入草稿迁移到新 key，避免正在输入的内容被清空
+        const draftKey = session?.id || session?.projectId || ''
+        const draft = inputDraftCache.get(draftKey)
+        if (draft) {
+          inputDraftCache.set(created.id, draft)
+          inputDraftCache.delete(draftKey)
+        }
         queryClient.invalidateQueries({ queryKey: ['workSessions', created.projectId] })
         queryClient.invalidateQueries({ queryKey: ['workProjects'] })
         // 主工作区模式下选了别的分支：创建后执行检出（选分支即检出）
@@ -908,7 +947,13 @@ export default function WorkSessionArea({
 
     const activeId = active.id
     setIsStreaming(true)
-    if (persistUserMessage) setPendingUser(content)
+    // 本会话内发过消息：旧回合不再自动折叠（见 visibleMessages 处注释）
+    setSentThisVisit(true)
+    if (persistUserMessage)
+    {
+      setPendingUser(content)
+      setPendingUserSentAt(nowMs())
+    }
     resetStreamState()
     useInteractionStore.getState().clear(activeId)
 

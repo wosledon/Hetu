@@ -58,6 +58,10 @@ public class OpenAiLlmProvider : ILLMProvider
 
         // Accumulate tool calls across stream chunks
         var toolCallAccumulators = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+
+        // 思考→正文兜底切换的标记：一旦判定模型把答复写进了 reasoning_content，
+        // 后续 reasoning 帧全部按正文转发（详见下方 Content / thinking 处的注释）
+        var reasoningTurnedToAnswer = false;
         OpenAiUsage? lastUsage = null;
 
         while (!cancellationToken.IsCancellationRequested)
@@ -96,9 +100,22 @@ public class OpenAiLlmProvider : ILLMProvider
             // Content / thinking — emit each independently. Some providers (e.g. stepfun)
             // return reasoning and content in the SAME chunk, so they must not be mutually
             // exclusive (an else-if here would drop the content whenever reasoning is present).
+            //
+            // 思考转正文的兜底：部分推理模型/中转在思考结束后不守约定，把正式答复继续写进
+            // reasoning_content（整轮 content 为空，正文全混在思考里）。检测到正文章节特征
+            // （Markdown 标题/有序列表等）时从该点起切换为正文，单向不可逆——符合"先思考后作答"。
             if (!string.IsNullOrEmpty(reasoning))
             {
-                yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
+                if (!reasoningTurnedToAnswer && !string.IsNullOrEmpty(content))
+                {
+                    // 本帧同时带正文：说明模型遵守约定，不做兜底切换
+                    reasoningTurnedToAnswer = true;
+                }
+                if (!reasoningTurnedToAnswer && LooksLikeAnswerStart(reasoning))
+                {
+                    reasoningTurnedToAnswer = true;
+                }
+                yield return $"{{\"type\":\"{(reasoningTurnedToAnswer ? "content" : "thinking")}\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
             }
             if (!string.IsNullOrEmpty(content))
             {
@@ -172,9 +189,35 @@ public class OpenAiLlmProvider : ILLMProvider
         }
     }
 
-    /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>
-    private static LlmUsage ToUsage(OpenAiUsage u) => new()
+    /// <summary>
+    /// 判断一段 reasoning delta 是否已经是正文章节的开头（思考→正文兜底切换用）。
+    /// 部分推理模型/中转在思考结束后不守约定，把正式答复继续写进 reasoning_content，
+    /// 整轮 content 为空、正文全混在思考里。命中这些特征即从该点起按正文转发。
+    /// </summary>
+    private static bool LooksLikeAnswerStart(string text)
     {
+        var t = text.TrimStart();
+        return t.StartsWith("## ", StringComparison.Ordinal)
+            || t.StartsWith("### ", StringComparison.Ordinal)
+            || t.StartsWith("#### ", StringComparison.Ordinal)
+            || t.StartsWith("# ", StringComparison.Ordinal)
+            || t.StartsWith("**", StringComparison.Ordinal)
+            || t.StartsWith("1. ", StringComparison.Ordinal)
+            || t.StartsWith("- ", StringComparison.Ordinal)
+            || t.StartsWith("> ", StringComparison.Ordinal)
+            || t.StartsWith("```", StringComparison.Ordinal)
+            || t.StartsWith("|", StringComparison.Ordinal)
+            || t.StartsWith("好的，", StringComparison.Ordinal)
+            || t.StartsWith("好，", StringComparison.Ordinal)
+            || t.StartsWith("以下是", StringComparison.Ordinal)
+            || t.StartsWith("下面", StringComparison.Ordinal)
+            || t.StartsWith("Now ", StringComparison.Ordinal)
+            || t.StartsWith("Let me ", StringComparison.Ordinal)
+            || t.StartsWith("Here ", StringComparison.Ordinal);
+    }
+
+    /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>
+    private static LlmUsage ToUsage(OpenAiUsage u) => new()    {
         PromptTokens = u.PromptTokens ?? 0,
         CompletionTokens = u.CompletionTokens ?? 0,
         TotalTokens = u.TotalTokens ?? (u.PromptTokens ?? 0) + (u.CompletionTokens ?? 0),
@@ -255,6 +298,13 @@ public class OpenAiLlmProvider : ILLMProvider
             ["messages"] = requestMessages,
             ["stream"] = stream
         };
+
+        // 流式时声明要 usage：官方 OpenAI 仅在带该参数的末帧返回 usage（含 prompt_tokens_details.cached_tokens），
+        // 兼容中转通常忽略该参数或自行附带 usage 帧
+        if (stream)
+        {
+            body["stream_options"] = new Dictionary<string, object> { ["include_usage"] = true };
+        }
 
         if (options.Temperature.HasValue) body["temperature"] = options.Temperature.Value;
         if (options.MaxTokens.HasValue) body["max_tokens"] = options.MaxTokens.Value;

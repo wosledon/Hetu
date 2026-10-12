@@ -550,6 +550,7 @@ function UsageLogs() {
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.input')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.compressed')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.ratioHint')}>{t('usage.compressionRatio')}</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.cacheHitHint')}>{t('usage.cached')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.output')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.total')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.latency')}</th>
@@ -603,6 +604,24 @@ function UsageLogs() {
                             </span>
                           )}
                         </td>
+                        {(() => {
+                          const cached = log.cachedTokens
+                          const hitBase = log.compressedTokens ?? log.inputTokens ?? 0
+                          const hit = cached != null && hitBase > 0 ? Math.min(cached / hitBase, 1) : null
+                          if (hit == null) return <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-300 dark:text-gray-600">—</td>
+                          const tone = hit >= 0.5
+                            ? 'bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400'
+                            : hit > 0
+                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                              : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+                          return (
+                            <td className="whitespace-nowrap px-3 py-2 text-right" title={t('usage.tooltipCached', { value: cached ?? 0 })}>
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${tone}`}>
+                                {(hit * 100).toFixed(1)}%
+                              </span>
+                            </td>
+                          )
+                        })()}
                         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{log.outputTokens ?? '—'}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-700 dark:text-gray-200">{log.tokensUsed ?? '—'}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
