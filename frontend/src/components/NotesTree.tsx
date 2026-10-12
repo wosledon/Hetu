@@ -383,9 +383,11 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         ) : (
           <button
             onClick={() => setIsAddingRoot(true)}
-            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+            className="flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-sm text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
           >
-            <Plus size={14} className="shrink-0" />
+            {/* 与笔记本行同一套前导占位（展开箭头位），图标和文字才能对齐 */}
+            <span className="w-[14px] shrink-0" />
+            <Plus size={15} className="shrink-0" />
             {t('notebook.new')}
           </button>
         )}

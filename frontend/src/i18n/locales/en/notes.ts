@@ -3,7 +3,7 @@ export default {
     untitled: 'Untitled note',
     untitledShort: 'Untitled',
     noContent: 'No content',
-    uncategorized: 'Uncategorized',
+    uncategorized: 'Default notebook',
     newNote: 'New note',
     updated: 'Updated {{time}}',
   },
@@ -14,7 +14,7 @@ export default {
     namePlaceholder: 'Notebook name',
     newChildNamePlaceholder: 'Sub-notebook name',
     deleteFailed: 'Failed to delete notebook',
-    deleteConfirm: 'Delete notebook "{{name}}"? Its notes will become uncategorized.',
+    deleteConfirm: 'Delete notebook "{{name}}"? Its notes will move to the default notebook.',
   },
   sidebar: {
     notesCount: '{{n}} notes',

@@ -92,10 +92,10 @@ function NotebookTreeItem({
   return (
     <div className="group">
       <div
-        className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 transition-all ${
+        className={`note-card group mb-1 flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2.5 transition-all ${
           isSelected
-            ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
-            : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+            ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
+            : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
         }`}
         style={{ marginLeft: `${level * 12}px` }}
         onMouseEnter={() => setIsHovered(true)}
@@ -277,8 +277,8 @@ export default function Sidebar() {
         <div className="notebook-tree flex-1 space-y-0.5 overflow-y-auto">
           {/* 新建笔记本放在列表第一行：列表再长也不用滚到底就能加 */}
           {isAddingRoot ? (
-            <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
-              <Folder size={14} className="text-blue-500" />
+            <div className="mb-1 flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 dark:border-gray-700">
+              <Folder size={14} className="shrink-0 text-blue-500" />
               <input
                 autoFocus
                 value={rootName}
@@ -292,14 +292,16 @@ export default function Sidebar() {
                 }}
                 onBlur={handleCreateRoot}
                 placeholder={t('notebook.namePlaceholder')}
-                className="min-w-0 flex-1 rounded-md border border-blue-300 bg-white px-2 py-0.5 text-sm outline-none dark:bg-gray-800"
+                className="min-w-0 flex-1 text-[13px] outline-none dark:bg-transparent"
               />
             </div>
           ) : (
             <button
               onClick={() => setIsAddingRoot(true)}
-              className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[13px] text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+              className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] text-gray-400 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-blue-500/50 dark:hover:text-blue-300"
             >
+              {/* 与笔记本行同一套前导占位（展开箭头位），图标和文字才能对齐 */}
+              <span className="w-4 shrink-0" />
               <Plus size={14} className="shrink-0" />
               {t('notebook.new')}
             </button>
@@ -310,10 +312,10 @@ export default function Sidebar() {
               setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
               navigate('/')
             }}
-            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all ${
+            className={`note-card group mb-1 flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2.5 transition-all ${
               isDefaultSelected
-                ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/40'
-                : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
+                : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
             }`}
           >
             <span className="w-4 shrink-0" />
