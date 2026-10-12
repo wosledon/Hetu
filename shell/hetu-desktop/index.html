@@ -109,42 +109,29 @@
     <script>
       /*
         首屏明暗跟随应用设置。启动屏与应用页面不同 origin，读不到应用自己的
-        localStorage，所以主题由应用通过 set_ui_theme 写进数据目录，这里先按
-        系统偏好定色（避免等待期间的空白），再向壳请求持久化的主题覆盖。
+        localStorage，所以主题由应用通过 set_ui_theme 写进数据目录。
+        这里只同步按系统偏好 + 本地 store 定色（首帧前执行）；壳侧持久化主题
+        在下方 module 脚本里补（module 才能让打包器正确解析 @tauri-apps/api）。
       */
       ;(function () {
         var root = document.documentElement
         var mq = window.matchMedia('(prefers-color-scheme: dark)')
 
-        function apply(theme) {
-          var dark =
-            theme === 'dark' ||
-            ((theme === 'system' || !theme) && mq.matches)
+        window.__applySplashTheme = function (theme) {
+          var dark = theme === 'dark' || ((theme === 'system' || !theme) && mq.matches)
           root.classList.toggle('dark', dark)
         }
 
-        apply(null)
+        window.__applySplashTheme(null)
 
         // 同 origin 时（开发期壳直接加载前端）仍可读到应用 store
         try {
           var raw = JSON.parse(localStorage.getItem('hetu-ui') || '{}')
           var local = raw && raw.state && raw.state.theme
-          if (local) apply(local)
+          if (local) window.__applySplashTheme(local)
         } catch (e) {
           /* 读不到就按系统偏好 */
         }
-
-        // 壳侧持久化的主题（应用设置里保存的那份）
-        import('@tauri-apps/api/core')
-          .then(function (mod) {
-            return mod.invoke('get_ui_theme')
-          })
-          .then(function (theme) {
-            if (theme) apply(theme)
-          })
-          .catch(function () {
-            /* 壳未就绪时保持系统偏好 */
-          })
       })()
     </script>
   </head>
@@ -156,6 +143,18 @@
     <div class="status" id="status"></div>
     <script type="module">
       const status = document.getElementById('status');
+
+      // 壳侧持久化的主题（应用设置里保存的那份）：首帧已按系统偏好定色，这里校正
+      async function applyPersistedTheme() {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const theme = await invoke('get_ui_theme');
+          if (theme) window.__applySplashTheme(theme);
+        } catch (err) {
+          console.warn('theme lookup failed:', err);
+        }
+      }
+      applyPersistedTheme();
 
       async function bind() {
         try {
