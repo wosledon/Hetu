@@ -46,13 +46,18 @@ export async function openAppWebview(url: string, title: string): Promise<'webvi
  * 用系统默认浏览器打开外链。
  * - 桌面壳：webview 会拦掉 window.open / <a target="_blank">，必须走壳侧命令
  * - 浏览器：直接新标签页
+ * 壳命令不可用时（老版本壳、ACL 缺失）退回应用内窗口，至少不会点了没反应。
  */
 export function openExternal(url: string): void {
   if (isTauri()) {
     void (async () => {
       try {
         await tauriInvoke('open_external', { url })
-      } catch { /* 命令不可用时退回新窗口 */ window.open(url, '_blank', 'noopener') }
+      } catch {
+        // 老版本壳没有该命令：退回应用内嵌窗口（这条命令更早就有）
+        const opened = await openAppWebview(url, url)
+        if (opened === 'external') window.open(url, '_blank', 'noopener')
+      }
     })()
     return
   }
