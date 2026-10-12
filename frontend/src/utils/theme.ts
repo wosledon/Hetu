@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../stores/uiStore';
 import { applyAccent, applyBackground } from './appearance';
+import { isTauri, tauriInvoke } from './tauri';
 
 export function useTheme() {
   const theme = useUIStore((state) => state.theme);
@@ -24,6 +25,10 @@ export function useTheme() {
     };
 
     applyTheme();
+
+    // 桌面壳：把主题设置交给壳持久化。启动屏与应用不同 origin，拿不到这里的
+    // localStorage，下次启动只能靠壳侧那份值才能正确铺底。
+    if (isTauri()) void tauriInvoke('set_ui_theme', { theme });
 
     if (theme !== 'system') {
       return;

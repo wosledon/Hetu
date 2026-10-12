@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect, useMemo } from 'react'
+import { type ReactNode, useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
@@ -92,6 +92,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const [moreOpen, setMoreOpen] = useState(false)
   const [moreMenuPos, setMoreMenuPos] = useState<{ top: number; left: number } | null>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
   const railRef = useRef<HTMLElement>(null)
   const [railCompact, setRailCompact] = useState(false)
 
@@ -199,6 +200,20 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     setMoreOpen(true)
   }
 
+  // 贴边修正：菜单渲染后量一次真实尺寸，超出视口就回拉
+  // （垂直胶囊里「更多」常位于下半屏，菜单会顶出屏幕底部）
+  useLayoutEffect(() => {
+    if (!moreOpen || !moreMenuPos) return
+    const el = moreMenuRef.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    const top = Math.min(moreMenuPos.top, Math.max(8, window.innerHeight - height - 8))
+    const left = Math.min(moreMenuPos.left, Math.max(8, window.innerWidth - width - 8))
+    if (Math.abs(top - moreMenuPos.top) > 0.5 || Math.abs(left - moreMenuPos.left) > 0.5) {
+      setMoreMenuPos({ top, left })
+    }
+  }, [moreOpen, moreMenuPos])
+
   const moreMenu = unpinnedItems.length > 0 && moreOpen && moreMenuPos && createPortal(
     <>
       <div
@@ -206,6 +221,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         onClick={() => setMoreOpen(false)}
       />
       <div
+        ref={moreMenuRef}
         className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white glass p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
         style={{
           top: moreMenuPos.top,

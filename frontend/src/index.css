@@ -215,31 +215,36 @@ body {
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
 }
 
-.glass,
-.glass-track {
-  position: relative;
-  /* 自建栈上下文：否则 ::before 的 z-index:-1 会逃到祖先栈里，
-     被中间层的不透明背景盖住，卡片只剩一条边线 */
-  isolation: isolate;
-}
+/* 放进 components 层：Tailwind 的 fixed / absolute utility 才能覆盖这里的 position。
+   若留在无分层样式里，unlayered 优先级高于 @layer utilities，浮层会被强制成 relative，
+   掉进文档流跑到屏幕外（「更多」菜单、右键菜单都踩过这个坑）。 */
+@layer components {
+  .glass,
+  .glass-track {
+    position: relative;
+    /* 自建栈上下文：否则 ::before 的 z-index:-1 会逃到祖先栈里，
+       被中间层的不透明背景盖住，卡片只剩一条边线 */
+    isolation: isolate;
+  }
 
-.glass::before,
-.glass-track::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background-color: var(--glass-bg);
-  background-image: var(--glass-noise);
-  box-shadow: var(--glass-sheen), var(--glass-shadow);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-}
+  .glass::before,
+  .glass-track::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: var(--glass-bg);
+    background-image: var(--glass-noise);
+    box-shadow: var(--glass-sheen), var(--glass-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
 
-.glass-track::before {
-  background-color: var(--glass-track-bg);
+  .glass-track::before {
+    background-color: var(--glass-track-bg);
+  }
 }
 
 /* 开启：抹掉宿主自身底色，让材质成为唯一的面 */

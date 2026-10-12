@@ -68,6 +68,59 @@ fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+/* ───────── 启动屏主题 ─────────
+   启动屏与应用页面不同 origin（壳资源 vs 后端 http 端口），拿不到应用自己的 localStorage，
+   所以由应用把主题设置写进数据目录里的一个小文件，启动屏启动时读它铺底色。 */
+
+/// 主题持久化文件路径（与数据库同目录）
+fn ui_theme_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    backend::data_dir(app).ok().map(|dir| dir.join("ui-theme"))
+}
+
+/// 读取持久化主题；只认 light / dark / system
+fn read_ui_theme(app: &AppHandle) -> Option<String> {
+    let raw = std::fs::read_to_string(ui_theme_path(app)?).ok()?;
+    let theme = raw.trim().to_string();
+    if theme == "light" || theme == "dark" || theme == "system" {
+        Some(theme)
+    } else {
+        None
+    }
+}
+
+/// 窗口底色跟随主题：HTML 绘制前先由壳铺好底，深色主题不会闪一帧白。
+/// system 交给 webview 的 prefers-color-scheme，这里不动。
+fn apply_window_theme(app: &AppHandle, theme: &str) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let color = match theme {
+        "light" => Some(tauri::window::Color(248, 249, 251, 255)),
+        "dark" => Some(tauri::window::Color(12, 15, 26, 255)),
+        _ => None,
+    };
+    let _ = window.set_background_color(color);
+}
+
+#[tauri::command]
+fn get_ui_theme(app: AppHandle) -> Option<String> {
+    read_ui_theme(&app)
+}
+
+#[tauri::command]
+fn set_ui_theme(app: AppHandle, theme: String) -> Result<(), String> {
+    if theme != "light" && theme != "dark" && theme != "system" {
+        return Err(format!("invalid theme: {theme}"));
+    }
+    let path = ui_theme_path(&app).ok_or_else(|| "data dir unavailable".to_string())?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, &theme).map_err(|e| e.to_string())?;
+    apply_window_theme(&app, &theme);
+    Ok(())
+}
+
 /// 打开应用内嵌网页窗口（独立 WebViewWindow）。
 ///
 /// 大模型网页对话普遍设置 X-Frame-Options / CSP frame-ancestors，前端 iframe 会被拒绝连接；
@@ -119,12 +172,19 @@ pub fn run() {
             open_main_window,
             open_data_dir,
             open_external,
+            get_ui_theme,
+            set_ui_theme,
             open_app_webview,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
             // 记录加载页开始显示的时刻，用于强制最小展示时长。
             let splash_start = std::time::Instant::now();
+
+            // 启动屏底色：用上次应用里保存的主题铺底，避免深色用户先看到一帧白
+            if let Some(theme) = read_ui_theme(&handle) {
+                apply_window_theme(&handle, &theme);
+            }
 
             // 后端启动放到异步任务，避免阻塞 setup（main 窗口由 config 直接显示加载页）。
             tauri::async_runtime::spawn(async move {
