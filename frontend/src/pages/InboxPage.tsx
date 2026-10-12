@@ -168,7 +168,7 @@ export default function InboxPage() {
                     </span>
                     <button
                       onClick={() => runBatch('read', unreadIds)}
-                      className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                      className="flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <CheckCheck size={13} />{t('inbox.markAllRead')}
                     </button>
@@ -264,7 +264,7 @@ export default function InboxPage() {
                   </label>
                   {selected.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-1">
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                      <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                         {t('inbox.selectedCount', { n: selected.length })}
                       </span>
                       <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
@@ -290,7 +290,7 @@ export default function InboxPage() {
                       onClick={() => handleItemClick(item)}
                       className={`group flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-all hover:shadow-sm ${
                         item.isRead
-                          ? 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'
+                          ? 'border-gray-200 bg-white glass hover:border-blue-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'
                           : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
                       }`}
                     >
@@ -315,7 +315,7 @@ export default function InboxPage() {
                             {item.title}
                           </span>
                           {item.occurrenceCount > 1 && (
-                            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                            <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                               ×{item.occurrenceCount}
                             </span>
                           )}

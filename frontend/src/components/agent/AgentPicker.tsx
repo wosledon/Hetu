@@ -98,7 +98,7 @@ export default function AgentPicker({
           <Icon size={12} className={`shrink-0 ${item.icon === 'brain' ? 'text-violet-400' : item.icon === 'git' ? 'text-blue-500' : 'text-indigo-400'}`} />
           <span className={`text-xs font-medium ${active ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>{item.name}</span>
           {item.badge && (
-            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${BADGE_CLASSES[item.badge] ?? 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>
+            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${BADGE_CLASSES[item.badge] ?? 'bg-gray-100 glass text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>
               {item.badge}
             </span>
           )}

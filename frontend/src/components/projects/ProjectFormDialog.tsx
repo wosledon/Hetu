@@ -468,7 +468,7 @@ export default function ProjectFormDialog({
                       .catch((e: Error) => setTestResult({ ok: false, text: e.message || t('form.testFailed') }))
                   }}
                   disabled={!host.trim()}
-                  className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                  className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                 >
                   <Wifi size={12} />
                   {t('form.testConnection')}

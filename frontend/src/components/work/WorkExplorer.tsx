@@ -1230,7 +1230,7 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
             placeholder={t('explorer.browser.urlPlaceholder')}
-            className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
+            className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
           />
           <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
             {t('explorer.browser.go')}

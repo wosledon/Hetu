@@ -82,7 +82,7 @@ function SectionHeader({
           <Icon size={16} className="shrink-0 text-gray-500 dark:text-gray-400" />
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</span>
           {count !== undefined && count > 0 && (
-            <span className="shrink-0 rounded-full bg-gray-100 px-1.5 text-[10px] font-medium leading-4 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+            <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 text-[10px] font-medium leading-4 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
               {count}
             </span>
           )}
