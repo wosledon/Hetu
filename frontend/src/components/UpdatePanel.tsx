@@ -8,7 +8,7 @@ import { updateService } from '../services/updateService'
 import { useAppVersion } from '../hooks/useAppVersion'
 import { useReleaseNotes } from '../hooks/useReleaseNotes'
 import { openRepo } from '../utils/repo'
-import { isTauriAclError } from '../utils/tauri'
+import { isTauriAclError, openExternal } from '../utils/tauri'
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
@@ -45,7 +45,7 @@ function NotesBlock({ markdown }: { markdown: string }) {
         const href = anchor?.getAttribute('href')
         if (!href) return
         e.preventDefault()
-        window.open(href, '_blank', 'noopener')
+        openExternal(href)
       }}
     >
       <ThemedMarkdown source={compactLinks(markdown)} />

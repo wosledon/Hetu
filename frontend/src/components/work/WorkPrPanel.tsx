@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, ExternalLink, GitPullRequest, GitMerge, Loader2, RefreshCw, Terminal } from 'lucide-react'
 import { workGitService } from '../../services/workService'
+import { openExternal } from '../../utils/tauri'
 import type { IWorkPrInfo } from '../../types/work'
 
 /** PR 状态色：草稿/合并/关闭/进行中 */
@@ -57,7 +58,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['workPr', projectId, sessionId] }),
   })
 
-  const open = (url: string) => window.open(url, '_blank', 'noopener')
+  const open = (url: string) => openExternal(url)
 
   const copyInstall = () => {
     if (!status?.installHint) return

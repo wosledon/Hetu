@@ -57,6 +57,17 @@ fn open_data_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 用系统默认浏览器打开外链。
+///
+/// webview 会拦掉 window.open 与 <a target="_blank">（表现为点击没反应），
+/// 必须由壳侧调 opener 插件交给系统浏览器。
+#[tauri::command]
+fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), String> {
+    tauri_plugin_opener::OpenerExt::opener(&app)
+        .open_url(url, None::<String>)
+        .map_err(|e| e.to_string())
+}
+
 /// 打开应用内嵌网页窗口（独立 WebViewWindow）。
 ///
 /// 大模型网页对话普遍设置 X-Frame-Options / CSP frame-ancestors，前端 iframe 会被拒绝连接；
@@ -107,6 +118,7 @@ pub fn run() {
             get_backend_info,
             open_main_window,
             open_data_dir,
+            open_external,
             open_app_webview,
         ])
         .setup(|app| {
