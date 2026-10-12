@@ -2,6 +2,7 @@ import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
+import SlidingPill from '../SlidingPill'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
@@ -195,7 +196,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 模式切换 */}
-          <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          <SlidingPill value={mode} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             {([
               { key: 'local' as const, label: t('sidebar.localDir'), icon: HardDrive },
               { key: 'ssh' as const, label: t('sidebar.sshRemote'), icon: Server },
@@ -205,8 +206,9 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 <button
                   key={m.key}
                   onClick={() => { setMode(m.key); setTestResult(null) }}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[13px] font-medium transition-all ${
-                    mode === m.key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  data-pill-key={m.key}
+                  className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[13px] font-medium transition-all ${
+                    mode === m.key ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
                   }`}
                 >
                   <Icon size={13} />
@@ -214,7 +216,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 </button>
               )
             })}
-          </div>
+          </SlidingPill>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.projectName')}</label>

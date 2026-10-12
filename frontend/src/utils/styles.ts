@@ -6,3 +6,8 @@ const SEGMENT_INACTIVE =
 export function segmentButtonClass(active: boolean): string {
   return active ? SEGMENT_ACTIVE : SEGMENT_INACTIVE
 }
+
+/** 仅文字态：与 SlidingPill 滑块搭配（背景由滑块提供，按钮不再自带 bg） */
+export function segmentTextClass(active: boolean): string {
+  return active ? 'text-blue-600 dark:text-blue-300' : SEGMENT_INACTIVE
+}

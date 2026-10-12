@@ -8,6 +8,7 @@ import {
   Pencil, Play, History, Power, Timer, X, Bot, MessageSquare,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { taskService } from '../services/taskService'
 import { scheduledTaskService } from '../services/scheduledTaskService'
@@ -16,7 +17,7 @@ import type {
   IScheduledTask, IScheduledTaskExecution, IScheduledTaskTargetOption,
   ScheduledTaskKind, ScheduleType, ICreateScheduledTaskRequest,
 } from '../types'
-import { segmentButtonClass } from '../utils/styles'
+import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
 
@@ -193,11 +194,12 @@ function BackgroundTasksView({
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          <SlidingPill value={typeFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
             <button
               onClick={() => setTypeFilter('')}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
-                !typeFilter ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              data-pill-key=""
+              className={`relative rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                !typeFilter ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
               }`}
             >
               {t('tasks.allTypes')}
@@ -206,14 +208,15 @@ function BackgroundTasksView({
               <button
                 key={key}
                 onClick={() => setTypeFilter(key)}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
-                  typeFilter === key ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                data-pill-key={key}
+                className={`relative rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                  typeFilter === key ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
                 }`}
               >
                 {t(val.labelKey)}
               </button>
             ))}
-          </div>
+          </SlidingPill>
           {stats && stats.completed > 0 && (
             <button
               onClick={onClearCompleted}
@@ -829,17 +832,18 @@ function ScheduledTaskEditor({
           {/* Schedule Type */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.scheduleType')}</label>
-            <div className="inline-flex w-full items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]">
+            <SlidingPill value={form.scheduleType} className="inline-flex w-full items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
               {(['Interval', 'Cron'] as ScheduleType[]).map((st) => (
                 <button
                   key={st}
                   onClick={() => set('scheduleType', st)}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${segmentButtonClass(form.scheduleType === st)}`}
+                  data-pill-key={st}
+                  className={`relative flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${segmentTextClass(form.scheduleType === st)}`}
                 >
                   {st === 'Interval' ? t('tasks.interval') : t('tasks.cron')}
                 </button>
               ))}
-            </div>
+            </SlidingPill>
           </div>
 
           {/* Schedule config */}

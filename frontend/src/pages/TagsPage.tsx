@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { tagService } from '../services/tagService'
 import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
@@ -161,14 +162,15 @@ export default function TagsPage() {
 
             {/* 控制行：筛选 + 搜索 + 新建 */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              <SlidingPill value={filter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                 {filters.map((f) => (
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+                    data-pill-key={f.key}
+                    className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                       filter === f.key
-                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        ? 'text-gray-800 dark:text-gray-100'
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
@@ -176,7 +178,7 @@ export default function TagsPage() {
                     <span className={`text-[11px] ${filter === f.key ? 'text-blue-500' : 'text-gray-400'}`}>{f.count}</span>
                   </button>
                 ))}
-              </div>
+              </SlidingPill>
               <div className="relative min-w-[180px] max-w-xs flex-1">
                 <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input

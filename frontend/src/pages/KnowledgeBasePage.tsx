@@ -37,6 +37,7 @@ function safeFormatDate(dateStr: string | null | undefined): string {
 
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
+import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import {
   knowledgeBaseService,
@@ -256,16 +257,17 @@ export default function KnowledgeBasePage() {
             </div>
 
             {/* Tabs */}
-            <div className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            <SlidingPill value={activeTab} className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+                    data-pill-key={tab.key}
+                    className={`relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
                       activeTab === tab.key
-                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        ? 'text-gray-800 dark:text-gray-100'
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
@@ -274,7 +276,7 @@ export default function KnowledgeBasePage() {
                   </button>
                 )
               })}
-            </div>
+            </SlidingPill>
 
             {/* Overview Tab */}
             {activeTab === 'overview' && (
@@ -376,16 +378,17 @@ export default function KnowledgeBasePage() {
               <div className="space-y-4">
                 {/* Type Filter + Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                  <SlidingPill value={manageFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                     {typeFilters.map((f) => {
                       const Icon = f.icon
                       return (
                         <button
                           key={f.key}
                           onClick={() => setManageFilter(f.key)}
-                          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+                          data-pill-key={f.key}
+                          className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                             manageFilter === f.key
-                              ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                              ? 'text-gray-800 dark:text-gray-100'
                               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                           }`}
                         >
@@ -394,7 +397,7 @@ export default function KnowledgeBasePage() {
                         </button>
                       )
                     })}
-                  </div>
+                  </SlidingPill>
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}

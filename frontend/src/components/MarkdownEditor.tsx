@@ -48,6 +48,7 @@ import { useNotebooks } from '../hooks/useNotebooks'
 import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
+import SlidingPill from './SlidingPill'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
 import { noteService } from '../services/noteService'
 import { noteVersionService } from '../services/noteVersionService'
@@ -636,7 +637,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-4 dark:border-gray-800/50 dark:bg-gray-900/80">
-        <div className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+        <SlidingPill value={viewMode} className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {[
             { key: 'preview', label: t('common:preview'), icon: Eye },
             { key: 'edit', label: t('common:edit'), icon: Edit3 },
@@ -644,10 +645,11 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              data-pill-key={key}
               onClick={() => setViewMode(key as typeof viewMode)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                 viewMode === key
-                  ? 'bg-white text-gray-700 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                  ? 'text-gray-700 dark:text-gray-100'
                   : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
               }`}
             >
@@ -655,7 +657,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               {label}
             </button>
           ))}
-        </div>
+        </SlidingPill>
         <div className="flex items-center gap-1.5">
           <span className="hidden text-[11px] text-gray-400/80 sm:inline">
             {updateNote.isPending ? (

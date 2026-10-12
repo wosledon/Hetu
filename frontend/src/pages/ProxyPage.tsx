@@ -5,6 +5,7 @@ import {
   Waypoints, Copy, Check, Route as RouteIcon, Zap, Plus, Trash2, Globe, Braces,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { proxyService, type IProxyConfig } from '../services/proxyService'
 import { aiProviderService } from '../services/aiProviderService'
@@ -286,7 +287,10 @@ export default function ProxyPage() {
             </div>
 
             {/* 选项卡 */}
-            <div className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+            <SlidingPill
+              value={tab}
+              className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]"
+            >
               {([
                 { key: 'shadow' as const, labelKey: 'proxy.tabShadow', icon: Zap },
                 { key: 'route' as const, labelKey: 'proxy.tabRoute', icon: RouteIcon },
@@ -295,10 +299,11 @@ export default function ProxyPage() {
                 return (
                   <button
                     key={tabItem.key}
+                    data-pill-key={tabItem.key}
                     onClick={() => setTab(tabItem.key)}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+                    className={`relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors duration-200 ${
                       tab === tabItem.key
-                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        ? 'text-gray-800 dark:text-gray-100'
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
@@ -307,7 +312,7 @@ export default function ProxyPage() {
                   </button>
                 )
               })}
-            </div>
+            </SlidingPill>
 
             <div className="space-y-4">
               {/* 接入地址 */}
