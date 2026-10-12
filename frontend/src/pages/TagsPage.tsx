@@ -160,7 +160,7 @@ export default function TagsPage() {
               </div>
             </div>
 
-            {/* 控制行：筛选 + 搜索 + 新建 */}
+            {/* 控制行：筛选居左，搜索 + 新建居右 */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
               <SlidingPill value={filter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
                 {filters.map((f) => (
@@ -179,7 +179,7 @@ export default function TagsPage() {
                   </button>
                 ))}
               </SlidingPill>
-              <div className="relative min-w-[180px] max-w-xs flex-1">
+              <div className="relative ml-auto w-64 min-w-[180px]">
                 <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   value={search}

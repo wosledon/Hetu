@@ -196,6 +196,8 @@ body {
   /* 导航条 / 导轨用更实的材质：浅色画布接近白色，太透会整条看不见 */
   --glass-nav-bg: rgba(255, 255, 255, 0.9);
   --glass-track-bg: rgba(255, 255, 255, 0.32);
+  /* 输入框比面板更透：让画布颜色透上来才有亚克力质感 */
+  --glass-field-bg: rgba(255, 255, 255, 0.58);
   --glass-blur: blur(28px) saturate(180%);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -207,6 +209,7 @@ body {
   --glass-bg: rgba(16, 20, 35, 0.72);
   --glass-nav-bg: rgba(13, 17, 30, 0.88);
   --glass-track-bg: rgba(255, 255, 255, 0.08);
+  --glass-field-bg: rgba(255, 255, 255, 0.1);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
@@ -243,6 +246,19 @@ body {
 :root[data-glass='on'] .glass,
 :root[data-glass='on'] .glass-track {
   background-color: transparent;
+}
+
+/* 表单控件（input / textarea）：伪元素在表单控件上不渲染，且 UA 自带一层白底，
+   材质必须直接落在宿主上，并关掉原生外观，否则看到的是平板白块而非亚克力 */
+:root[data-glass='on'] input.glass:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='date']):not([type='datetime-local']):not([type='time']):not([type='month']):not([type='week']),
+:root[data-glass='on'] textarea.glass {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--glass-field-bg);
+  background-image: var(--glass-noise);
+  box-shadow: var(--glass-sheen);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* 关闭：材质整块消失，回到纯白卡片 / 灰轨道 */
