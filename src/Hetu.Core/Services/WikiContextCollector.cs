@@ -18,6 +18,8 @@ internal sealed class WikiSourceMaterial
     public string FallbackSources { get; init; } = string.Empty;
     /// <summary>关联的 Code 工作项目 ID；有值时代码上下文走语义索引</summary>
     public Guid? WorkProjectId { get; init; }
+    /// <summary>顶层模块（按源码文件数排序的目录名）：规划失败时用来生成贴合项目的兜底大纲</summary>
+    public IReadOnlyList<string> TopLevelModules { get; init; } = [];
     /// <summary>采集失败原因（目录不存在、远端不可达等）</summary>
     public string? Failure { get; init; }
     /// <summary>是否采集到了可用资料</summary>
@@ -27,10 +29,12 @@ internal sealed class WikiSourceMaterial
 /// <summary>本地 / 远端项目资料采集与过期判定</summary>
 internal static class WikiContextCollector
 {
-    private const int KeyFilesBudget = 32 * 1024;
-    private const int SourceBudget = 24 * 1024;
-    private const int MaxSourceFiles = 20;
-    private const int SourceFileLimit = 1500;
+    private const int KeyFilesBudget = 48 * 1024;
+    private const int SourceBudget = 40 * 1024;
+    private const int MaxSourceFiles = 32;
+    private const int SourceFileLimit = 2400;
+    /// <summary>兜底大纲按顶层模块拆页的上限</summary>
+    private const int MaxFallbackModules = 6;
     private const int MaxTreeDepth = 3;
     private const int MaxTreeEntries = 300;
     private const int MaxScannedFiles = 5000;
@@ -106,6 +110,7 @@ internal static class WikiContextCollector
         {
             BaseContext = sb.ToString().Trim(),
             FallbackSources = BuildLocalSourceSamples(project.DirectoryPath, files),
+            TopLevelModules = TopLevelModules(files, project.DirectoryPath),
         };
     }
 
@@ -150,6 +155,7 @@ internal static class WikiContextCollector
             BaseContext = sb.ToString().Trim(),
             FallbackSources = await BuildRemoteSourceSamplesAsync(runner, files, ct),
             WorkProjectId = workProject.Id,
+            TopLevelModules = TopLevelModules(files, null),
         };
     }
 
@@ -510,6 +516,28 @@ internal static class WikiContextCollector
         for (var i = 0; i < MaxSourceFiles; i++)
             picked.Add(candidates[(int)((long)i * candidates.Count / MaxSourceFiles)]);
         return picked;
+    }
+
+    /// <summary>
+    /// 顶层模块：源码文件的第一段目录名，按文件数排序（根目录下的散文件归为「(根目录)」）。
+    /// 规划失败时用它生成贴合项目的兜底大纲，避免退回「核心模块详解」这类放之四海皆准的标题。
+    /// </summary>
+    private static List<string> TopLevelModules(List<string> files, string? root)
+    {
+        return files
+            .Where(f => SourceExtensions.Contains(Path.GetExtension(f.Replace('\\', '/'))))
+            .Select(f =>
+            {
+                var relative = root == null ? f.Replace('\\', '/') : ToRelative(root, f)?.Replace('\\', '/') ?? f.Replace('\\', '/');
+                var slash = relative.IndexOf('/');
+                return slash <= 0 ? "(根目录)" : relative[..slash];
+            })
+            .GroupBy(m => m, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Take(MaxFallbackModules)
+            .Select(g => g.Key)
+            .ToList();
     }
 
     private static void AppendKeyFiles(StringBuilder sb, string root, List<string> files, Func<string, int, string?> readHead)

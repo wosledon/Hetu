@@ -158,6 +158,8 @@ export default function WikiPage() {
       showToast(true, t('wiki.pageUpdated'))
     },
     onError: (e: Error) => showToast(false, e.message || t('wiki.regenerateFailed')),
+    // 单页重生成是同步接口：成功/失败都要收回按钮上的转圈，否则生成完了还在转
+    onSettled: () => setRegeneratingId(null),
   })
 
   const deleteMutation = useMutation({

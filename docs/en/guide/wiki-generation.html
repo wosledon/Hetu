@@ -97,7 +97,7 @@
   </aside>
     <div class="docs-body">
       <h1>Wiki generation</h1>
-      <p class="lede">Wiki generation is a long job: <strong>collect material → compress → plan the outline → generate pages concurrently → write the overview → persist the whole set</strong>. The difficulty is not the prose of one page but the engineering chain around it: 4–10 pages per run, each possibly continued to completion, and partial failures that must not sink the set.</p>
+      <p class="lede">Wiki generation is a long job: <strong>collect material → compress → plan the outline → generate pages concurrently → write the overview → persist the whole set</strong>. The difficulty is not the prose of one page but the engineering chain around it: 8–16 pages per run, each possibly continued to completion, and partial failures that must not sink the set.</p>
 
       <figure class="diagram">
 <svg viewBox="0 0 880 250" role="img" aria-label="Wiki generation stages">
@@ -110,7 +110,7 @@
   <rect class="box-accent" x="16" y="34" width="176" height="70" rx="9"/>
   <text class="label" x="30" y="60">Collect material</text>
   <text class="sub" x="30" y="80">project dir · code context</text>
-  <text class="sub" x="30" y="96">10 semantic hits / page</text>
+  <text class="sub" x="30" y="96">24 semantic hits / page</text>
 
   <rect class="box" x="216" y="34" width="150" height="70" rx="9"/>
   <text class="label" x="230" y="60">Compress</text>
@@ -119,8 +119,8 @@
 
   <rect class="box-dark" x="390" y="34" width="164" height="70" rx="9"/>
   <text class="label-light" x="404" y="60">Plan</text>
-  <text class="sub" x="404" y="80">2–4 chapters · 1–3 pages each</text>
-  <text class="sub" x="404" y="96">4–10 pages · maxTokens 3072</text>
+  <text class="sub" x="404" y="80">3–6 chapters · 8–16 pages</text>
+  <text class="sub" x="404" y="96">maxTokens 6144</text>
 
   <rect class="box" x="578" y="34" width="286" height="70" rx="9"/>
   <text class="label" x="592" y="60">Generate topic pages</text>
@@ -162,7 +162,7 @@
       <h2>Material collection and compression</h2>
       <ul>
         <li>The collector turns a managed project into material: a local directory or a remote work project, base context and code context.</li>
-        <li>When the code semantic index is available it supplies fragments per page — roughly <strong>10 hits</strong> (<code>SemanticHitsPerPage = 10</code>); otherwise it falls back to sampling source files.</li>
+        <li>When the code semantic index is available it supplies fragments per page — up to <strong>24 hits</strong> (<code>SemanticHitsPerPage = 24</code>, 2000 chars per fragment), gathered from <strong>several queries</strong> (page title / brief / covered modules) merged and de-duplicated, which yields far more project detail than a single query. Otherwise it falls back to sampling source files.</li>
         <li>Before the model call, both <code>BaseContext</code> and <code>rawCodeContext</code> pass through the compression pipeline (so <code>Enabled</code>, <code>Mode</code> and node configuration all matter).</li>
         <li>Collection failures abort immediately and <strong>never reach the background queue</strong>: missing local directory, failed remote connection, unknown work project and empty directory each have their own message.</li>
       </ul>
@@ -171,13 +171,14 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
-          <tr><td>Return shape</td><td><code>{ chapters: [{ title, pages: [{ title, brief }] }] }</code></td></tr>
-          <tr><td>Size constraints</td><td>2–4 chapters, 1–3 pages each, 4–10 pages total (cap constant <code>MaxModulePages = 10</code>)</td></tr>
-          <tr><td>Plan token budget</td><td><code>3072</code></td></tr>
-          <tr><td>Planning failure</td><td>The exception is caught and the run falls back to four default pages (project overview &amp; stack / directory layout / core modules / quick start &amp; configuration) without blocking generation</td></tr>
+          <tr><td>Return shape</td><td><code>{ chapters: [{ title, pages: [{ title, brief, covers }] }] }</code>; <code>covers</code> records the directories / files / modules that page owns</td></tr>
+          <tr><td>Size constraints</td><td>3–6 chapters, 8–16 pages total (cap constant <code>MaxModulePages = 16</code>); one page covers exactly one module / concern — unrelated modules must not share a page</td></tr>
+          <tr><td>Plan token budget</td><td><code>6144</code></td></tr>
+          <tr><td>Parse tolerance</td><td>Tries the canonical object, then a bare chapter array, then rescues complete page objects from the response with a regex (segmented by chapter markers); only if all three fail does it fall back</td></tr>
+          <tr><td>Planning failure</td><td>First retries once with the raw reply asking for JSON only; if that still fails it falls back to an outline <strong>split by the project's real top-level modules</strong> (module names come from the collected source tree) instead of four generic pages</td></tr>
         </tbody>
       </table></div>
-      <p><code>Brief</code> is persisted and becomes the writing brief for that page; single-page regeneration reuses it, so a regeneration stays aligned with the original outline.</p>
+      <p><code>Brief</code> is persisted and becomes the writing brief for that page; single-page regeneration reuses it, so a regeneration stays aligned with the original outline. <code>Covers</code> feeds both that page's code retrieval query and the page-scope fence in the prompt.</p>
 
       <h2>Generation</h2>
       <div class="table-wrap"><table>
@@ -189,8 +190,9 @@
           <tr><td>Continue limit</td><td><code>MaxContinueRounds = 4</code>; the continue prompt carries everything generated so far</td></tr>
           <tr><td>Continue guard</td><td>Continuations containing meta phrases such as "existing content", "not provided" or "cannot determine" are dropped</td></tr>
           <tr><td>Page retry</td><td><code>PageRetryCount = 1</code> with an <code>800ms</code> backoff</td></tr>
-          <tr><td>Body requirements</td><td>Markdown, Chinese, strictly grounded in the material, Mermaid diagrams for structure/flow/module relations, <code>text</code> code blocks for trees, inline code for paths and types</td></tr>
-          <tr><td>Cross-page context</td><td>The prompt lists sibling pages in the same set so pages can reference each other</td></tr>
+          <tr><td>Scope isolation</td><td>Each page resolves the code index and compression services from its own DI scope, and progress writes are serialised by a semaphore — concurrent generation no longer hits "a second operation was started on this DbContext"</td></tr>
+          <tr><td>Body requirements</td><td>Markdown, Chinese, strictly grounded in the material, Mermaid diagrams for structure/flow/module relations, <code>text</code> code blocks for trees, inline code for paths and types; <strong>before writing, list the facts the page can cite (real paths / types / endpoints / config keys) and tie every section to them</strong>; filler such as "this project is a powerful framework that…" is banned, as is turning the page into a preface or summary</td></tr>
+          <tr><td>Cross-page context</td><td>The prompt lists sibling pages in the same set and states those topics belong to their own pages, so this page must not repeat them</td></tr>
         </tbody>
       </table></div>
       <p>The overview page is generated separately and must contain a project intro, key features, tech stack, an <code>## Overall architecture</code> section (with a Mermaid <code>graph</code> / <code>flowchart</code>) and a final documentation index listing chapters verbatim. If it fails, a plain-text overview (intro + documentation index) is written instead.</p>

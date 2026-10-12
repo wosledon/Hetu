@@ -484,7 +484,7 @@ public class WorkSemanticSearchTool : IToolExecutor
         if (!_context.ProjectId.HasValue)
             return ToolExecutionResult.Error("未绑定工作项目，无法进行语义检索");
 
-        var result = await _codeIndex.SearchAsync(_context.ProjectId.Value, query, limit, cancellationToken);
+        var result = await _codeIndex.SearchAsync(_context.ProjectId.Value, query, limit, cancellationToken: cancellationToken);
         if (!result.Success || result.Data == null)
             return ToolExecutionResult.Error(result.Error ?? "语义检索失败");
 
