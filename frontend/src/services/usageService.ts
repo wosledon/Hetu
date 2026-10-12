@@ -1,4 +1,5 @@
 import { get } from './api'
+import type { IPagedResult } from '../types'
 
 export interface IUsageOverview {
   totalMessages: number
@@ -41,6 +42,23 @@ export interface IUsageSourceStat {
   tokens: number
 }
 
+/** 按来源×模型聚合的用量（调用来源条形图按模型堆叠） */
+export interface IUsageSourceModelStat {
+  source: string
+  sourceName: string
+  modelName: string
+  messages: number
+  tokens: number
+}
+
+/** 按天×模型聚合的用量（趋势图按模型拆分） */
+export interface IUsageModelDayStat {
+  date: string
+  modelName: string
+  messages: number
+  tokens: number
+}
+
 export interface IUsageStats {
   overview: IUsageOverview
   dailyTrend: IUsageDayStat[]
@@ -48,6 +66,8 @@ export interface IUsageStats {
   weekHourly: IUsageHourStat[]
   byModel: IUsageModelStat[]
   bySource: IUsageSourceStat[]
+  bySourceByModel: IUsageSourceModelStat[]
+  dailyByModel: IUsageModelDayStat[]
 }
 
 export interface IUsageLog {
@@ -68,11 +88,15 @@ export interface IUsageLog {
 }
 
 export const usageService = {
-  getStats: () => get<IUsageStats>('/usage/stats'),
-  getLogs: (page = 1, pageSize = 50, source?: string, refId?: string) =>
-    get<IUsageLog[]>(
-      `/usage/logs?page=${page}&pageSize=${pageSize}` +
-      (source ? `&source=${encodeURIComponent(source)}` : '') +
-      (refId ? `&refId=${encodeURIComponent(refId)}` : ''),
-    ),
+  /** days>0 时按模型/来源的聚合只统计最近 N 天；缺省为全量 */
+  getStats: (days?: number) =>
+    get<IUsageStats>('/usage/stats', days && days > 0 ? { days } : {}),
+  getLogs: (page = 1, pageSize = 50, source?: string, refId?: string, model?: string) =>
+    get<IPagedResult<IUsageLog>>('/usage/logs', {
+      page,
+      pageSize,
+      ...(source ? { source } : {}),
+      ...(refId ? { refId } : {}),
+      ...(model ? { model } : {}),
+    }),
 }

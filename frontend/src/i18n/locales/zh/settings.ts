@@ -260,6 +260,7 @@ export default {
     activeDays: '活跃天数',
     logs: '请求日志',
     trend: '{{range}}趋势',
+    trendTotal: '总量',
     range7d: '近 7 天',
     range30d: '近 30 天',
     range90d: '近 90 天',
@@ -294,6 +295,10 @@ export default {
     allSources: '全部来源',
     allModels: '全部模型',
     noLogs: '暂无日志',
+    pageInfo: '第 {{page}} / {{totalPages}} 页',
+    totalLogs: '共 {{count}} 条',
+    prevPage: '上一页',
+    nextPage: '下一页',
   },
   heatmap: {
     today: '今天',

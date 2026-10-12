@@ -260,6 +260,7 @@ export default {
     activeDays: 'Active days',
     logs: 'Request logs',
     trend: '{{range}} trend',
+    trendTotal: 'Total',
     range7d: 'Last 7 days',
     range30d: 'Last 30 days',
     range90d: 'Last 90 days',
@@ -294,6 +295,10 @@ export default {
     allSources: 'All sources',
     allModels: 'All models',
     noLogs: 'No logs',
+    pageInfo: 'Page {{page}} of {{totalPages}}',
+    totalLogs: '{{count}} logs',
+    prevPage: 'Previous',
+    nextPage: 'Next',
   },
   heatmap: {
     today: 'Today',

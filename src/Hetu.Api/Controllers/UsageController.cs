@@ -17,21 +17,24 @@ public class UsageController : ControllerBase
     }
 
     [HttpGet("stats")]
-    public async Task<ApiResponse<UsageStatsDto>> GetStats(CancellationToken ct)
+    public async Task<ApiResponse<UsageStatsDto>> GetStats(
+        [FromQuery] int days = 0,
+        CancellationToken ct = default)
     {
-        var stats = await _usageService.GetStatsAsync(ct);
+        var stats = await _usageService.GetStatsAsync(days, ct);
         return ApiResponse<UsageStatsDto>.Ok(stats);
     }
 
     [HttpGet("logs")]
-    public async Task<ApiResponse<List<UsageLogDto>>> GetLogs(
+    public async Task<ApiResponse<PagedResult<UsageLogDto>>> GetLogs(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] string? source = null,
+        [FromQuery] string? model = null,
         [FromQuery] Guid? refId = null,
         CancellationToken ct = default)
     {
-        var logs = await _usageService.GetLogsAsync(page, pageSize, source, refId, ct);
-        return ApiResponse<List<UsageLogDto>>.Ok(logs);
+        var logs = await _usageService.GetLogsAsync(page, pageSize, source, model, refId, ct);
+        return ApiResponse<PagedResult<UsageLogDto>>.Ok(logs);
     }
 }

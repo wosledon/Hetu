@@ -223,7 +223,6 @@ public class GetUsageStatsTool : IToolExecutor
     {
         try
         {
-            var stats = await _usageService.GetStatsAsync(cancellationToken);
             var days = 7;
             try
             {
@@ -235,6 +234,9 @@ public class GetUsageStatsTool : IToolExecutor
             {
                 // 参数非法时用默认天数
             }
+
+            // days 同时作用于按天趋势与按模型/来源聚合
+            var stats = await _usageService.GetStatsAsync(days, cancellationToken);
 
             var trend = (stats.DailyTrend ?? [])
                 .OrderByDescending(x => x.Date)
