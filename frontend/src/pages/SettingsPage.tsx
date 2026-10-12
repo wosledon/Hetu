@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
@@ -201,7 +202,12 @@ export default function SettingsPage() {
             <div className="flex gap-8">
               {/* Sidebar Navigation */}
               <aside className="w-60 shrink-0">
-                <nav className="sticky top-8 space-y-1">
+                <SlidingPill
+                  value={activeSection}
+                  orientation="vertical"
+                  className="sticky top-8 space-y-1"
+                  pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
+                >
                   {settingsSections.map((item) => {
                     const Icon = item.icon
                     const isActive = activeSection === item.key
@@ -209,10 +215,11 @@ export default function SettingsPage() {
                       <button
                         key={item.key}
                         type="button"
+                        data-pill-key={item.key}
                         onClick={() => setActiveSection(item.key)}
-                        className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-all duration-200 ${
+                        className={`group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-200 ${
                           isActive
-                            ? 'bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10'
+                            ? ''
                             : 'hover:bg-gray-100/60 dark:hover:bg-white/[0.04]'
                         }`}
                       >
@@ -237,7 +244,7 @@ export default function SettingsPage() {
                       </button>
                     )
                   })}
-                </nav>
+                </SlidingPill>
               </aside>
 
               {/* Content Area */}
