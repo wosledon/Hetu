@@ -5,14 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hetu</title>
     <style>
-      /* 首屏固定浅色：不跟随应用的暗色主题，保证水墨图标与品牌信息的可读性 */
+      /*
+        首屏明暗跟随应用设置：主题存在 localStorage 的 zustand store（hetu-ui）里，
+        在 React 启动前同步读一次并加上 .dark，避免暗色主题用户先看到一帧白底。
+      */
       :root {
         color-scheme: light;
         --bg: #f8f9fb;
-        --fg: #111827;
-        --fg-dim: #6b7280;
-        --accent: #3b82f6;
-        --track: rgba(17, 24, 39, 0.1);
+        --track: rgba(17, 24, 39, 0.08);
+      }
+      :root.dark {
+        color-scheme: dark;
+        --bg: #0c0f1a;
+        --track: rgba(255, 255, 255, 0.12);
       }
       html,
       body {
@@ -22,7 +27,7 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
           "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
         background: var(--bg);
-        color: var(--fg);
+        transition: background 0.3s ease;
         overflow: hidden;
       }
       body {
@@ -36,89 +41,102 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 28px;
+        gap: 40px;
         animation: fadeIn 0.45s ease-out both;
       }
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      /* 逐笔绘制由 SVG 自身承担（只播放一次），这里只定尺寸 */
       .logo {
-        width: 128px;
-        height: 128px;
+        width: 240px;
+        height: 240px;
         object-fit: contain;
-        animation: breathe 3.2s ease-in-out infinite;
       }
-      @keyframes breathe {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(0.965); opacity: 0.9; }
-      }
-      .title {
-        font-size: 20px;
-        font-weight: 600;
-        letter-spacing: 6px;
-        padding-left: 6px;
-        color: var(--fg);
-      }
-      .progress {
+      /* 加载动画：品牌渐变光段在轨道上横向往返（不定量、只表示进行中） */
+      .loader {
+        position: relative;
         width: 180px;
-        height: 2px;
+        height: 3px;
         border-radius: 999px;
         background: var(--track);
         overflow: hidden;
-        position: relative;
       }
-      .progress::after {
-        content: "";
+      .loader > i {
         position: absolute;
-        inset: 0;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 72px;
         border-radius: inherit;
-        background: linear-gradient(90deg, transparent, var(--accent), transparent);
-        transform: translateX(-100%);
-        animation: glide 1.4s ease-in-out infinite;
+        background: linear-gradient(
+          90deg,
+          rgba(124, 92, 255, 0),
+          #7c5cff 35%,
+          #4f7cff 65%,
+          rgba(15, 181, 214, 0)
+        );
+        animation: glide 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
       }
       @keyframes glide {
-        to { transform: translateX(100%); }
+        from { transform: translateX(-72px); }
+        to { transform: translateX(180px); }
       }
-      .progress.done::after {
-        animation: none;
-        background: var(--accent);
-        transform: none;
-      }
+      /* 启动失败才展示：默认隐藏，由 backend-error 事件点亮 */
       .status {
+        position: fixed;
+        left: 50%;
+        bottom: 48px;
+        transform: translateX(-50%);
+        display: none;
+        max-width: 560px;
         font-size: 12px;
-        letter-spacing: 2px;
-        color: var(--fg-dim);
-        min-height: 18px;
+        line-height: 1.7;
+        letter-spacing: 1px;
+        text-align: center;
+        white-space: pre-line;
+        color: #6b7280;
       }
       .status.error {
+        display: block;
         color: #ef4444;
-        white-space: pre-line;
-        max-width: 520px;
-        text-align: center;
+      }
+      :root.dark .status {
+        color: #9ca3af;
       }
     </style>
+    <script>
+      // 同步执行：在首帧绘制前定好明暗，避免暗色用户看到白底一闪
+      ;(function () {
+        try {
+          var raw = JSON.parse(localStorage.getItem('hetu-ui') || '{}')
+          var theme = raw && raw.state && raw.state.theme
+          var dark =
+            theme === 'dark' ||
+            ((theme === 'system' || !theme) &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {
+          /* 读不到设置时用浅色 */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div class="splash">
-      <img class="logo" src="./brand.png" alt="Hetu" />
-      <div class="title">HETU</div>
-      <div class="progress" id="progress"></div>
-      <div class="status" id="status">正在启动后端服务…</div>
+      <img class="logo" src="./brand-animated.svg" alt="Hetu" />
+      <div class="loader"><i></i></div>
     </div>
+    <div class="status" id="status"></div>
     <script type="module">
       const status = document.getElementById('status');
-      const progress = document.getElementById('progress');
 
       async function bind() {
         try {
           const { listen } = await import('@tauri-apps/api/event');
-          await listen('backend-ready', () => {
-            status.textContent = '就绪，正在加载界面…';
-            if (progress) progress.classList.add('done');
-          });
+          // 后端就绪即整窗导航进应用，首屏不留文字；仅启动失败时展示原因
           await listen('backend-error', (evt) => {
-            if (progress) progress.style.display = 'none';
             status.classList.add('error');
             status.textContent = '启动失败：\n' + (evt.payload ?? '未知错误');
           });

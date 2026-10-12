@@ -1,8 +1,10 @@
-// 品牌图标：使用 frontend/public/brand.png 图片资产（Tauri 窗口/托盘图标与首屏同源）
+// 品牌图标：Ht 连写字标（SVG 矢量，挂载时逐笔显现、之后仅星芒呼吸）
+// 同一套笔画另有：brand.svg（静图）、ht-monogram-animated.svg（加载循环版）、
+// ht-icon-animated.svg / ht-icon.svg（带底板版，用于桌面端启动屏与托盘/安装器图标）
 export default function BrandMark({ size = 26, className = '' }: { size?: number; className?: string }) {
   return (
     <img
-      src="/brand.png"
+      src="/brand-animated.svg"
       alt=""
       width={size}
       height={size}

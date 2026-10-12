@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Hetu loading" shape-rendering="geometricPrecision">
+  <title>Hetu — 首屏加载动画</title>
+  <!--
+    「Ht」连写按手写顺序逐笔显现：
+      H 左竖 → H 右竖 → 横画（贯通成为 t 的横）→ t 竖与弯钩 → 星芒闪现
+    用 pathLength="100" 把虚线单位归一化，无需手算各笔画长度。
+    整条时间轴 3.4s 循环：绘出 → 停留并呼吸 → 淡出重置。
+  -->
+  <defs>
+    <!-- 用 userSpaceOnUse：竖画/横画的包围盒有一边为 0，
+         objectBoundingBox 渐变会让零面积元素直接不渲染。 -->
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse"
+                    x1="110" y1="130" x2="400" y2="380">
+      <stop offset="0" stop-color="#7C5CFF"/>
+      <stop offset="0.55" stop-color="#4F7CFF"/>
+      <stop offset="1" stop-color="#0FB5D6"/>
+    </linearGradient>
+
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <style>
+      .s{
+        fill:none; stroke:url(#ink); stroke-width:30;
+        stroke-linecap:round; stroke-linejoin:round;
+        stroke-dasharray:100; stroke-dashoffset:100;
+        animation-duration:3.4s; animation-iteration-count:infinite;
+        animation-timing-function:cubic-bezier(.22,.61,.36,1);
+      }
+      .glow{ fill:none; stroke:url(#ink); stroke-width:30;
+        stroke-linecap:round; stroke-linejoin:round;
+        stroke-dasharray:100; stroke-dashoffset:100;
+        animation-duration:3.4s; animation-iteration-count:infinite;
+        animation-timing-function:cubic-bezier(.22,.61,.36,1); }
+
+      .p1{animation-name:stem1} .p2{animation-name:stem2}
+      .p3{animation-name:bar}  .p4{animation-name:tee}
+
+      /* 绘完后整体呼吸一次，作为「已就绪」的视觉停顿 */
+      .halo{ animation:breathe 3.4s ease-in-out infinite; }
+
+      .spark{ transform-box:fill-box; transform-origin:center;
+        animation:pop 3.4s cubic-bezier(.34,1.56,.64,1) infinite; }
+      .spark2{ opacity:0; transform-box:fill-box; transform-origin:center;
+        animation:pop2 3.4s cubic-bezier(.34,1.56,.64,1) infinite; }
+
+      @keyframes stem1{
+        0%{stroke-dashoffset:100;opacity:0}  4%{stroke-dashoffset:100;opacity:1}
+        19%{stroke-dashoffset:0;opacity:1}   84%{stroke-dashoffset:0;opacity:1}
+        100%{stroke-dashoffset:0;opacity:0}}
+      @keyframes stem2{
+        0%{stroke-dashoffset:100;opacity:0}  10%{stroke-dashoffset:100;opacity:1}
+        25%{stroke-dashoffset:0;opacity:1}   84%{stroke-dashoffset:0;opacity:1}
+        100%{stroke-dashoffset:0;opacity:0}}
+      @keyframes bar{
+        0%{stroke-dashoffset:100;opacity:0}  18%{stroke-dashoffset:100;opacity:1}
+        32%{stroke-dashoffset:0;opacity:1}   84%{stroke-dashoffset:0;opacity:1}
+        100%{stroke-dashoffset:0;opacity:0}}
+      @keyframes tee{
+        0%{stroke-dashoffset:100;opacity:0}  25%{stroke-dashoffset:100;opacity:1}
+        46%{stroke-dashoffset:0;opacity:1}   84%{stroke-dashoffset:0;opacity:1}
+        100%{stroke-dashoffset:0;opacity:0}}
+
+      @keyframes breathe{
+        0%,44%{opacity:0} 60%{opacity:.42} 70%{opacity:.18} 78%{opacity:.42}
+        86%,100%{opacity:0}}
+
+      @keyframes pop{
+        0%,43%{opacity:0;transform:scale(0) rotate(-24deg)}
+        50%{opacity:1;transform:scale(1.28) rotate(7deg)}
+        57%{opacity:1;transform:scale(1) rotate(0)}
+        72%{opacity:.5;transform:scale(.94)}
+        79%{opacity:.95;transform:scale(1.1)}
+        86%,100%{opacity:0;transform:scale(1)}}
+
+      @keyframes pop2{
+        0%,43%{opacity:0;transform:scale(.2)}
+        52%{opacity:.5;transform:scale(1.5)}
+        62%{opacity:0;transform:scale(1.9)}
+        100%{opacity:0;transform:scale(1.9)}}
+    </style>
+  </defs>
+
+  <!-- 光晕层：笔画绘制完成后淡入并呼吸 -->
+  <g class="halo" filter="url(#soft)" opacity="0">
+    <path class="glow p1" pathLength="100" d="M111 185 V 379"/>
+    <path class="glow p2" pathLength="100" d="M253 185 V 379"/>
+    <path class="glow p3" pathLength="100" d="M111 279 H 401"/>
+    <path class="glow p4" pathLength="100" d="M321 133 V 347 Q 321 379 353 379 H 377"/>
+  </g>
+
+  <!-- 主体笔画 -->
+  <g>
+    <path class="s p1" pathLength="100" d="M111 185 V 379"/>
+    <path class="s p2" pathLength="100" d="M253 185 V 379"/>
+    <path class="s p3" pathLength="100" d="M111 279 H 401"/>
+    <path class="s p4" pathLength="100" d="M321 133 V 347 Q 321 379 353 379 H 377"/>
+  </g>
+
+  <!-- 星芒 -->
+  <g transform="translate(388 168)">
+    <path class="spark2" fill="#67E8F9"
+          d="M0 -26 Q 5.2 5.2 26 0 Q 5.2 -5.2 0 26 Q -5.2 -5.2 -26 0 Q -5.2 5.2 0 -26 Z"/>
+    <path class="spark" fill="#67E8F9"
+          d="M0 -13 Q 2.6 2.6 13 0 Q 2.6 -2.6 0 13 Q -2.6 -2.6 -13 0 Q -2.6 2.6 0 -13 Z"/>
+  </g>
+</svg>

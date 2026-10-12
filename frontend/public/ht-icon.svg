@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none"
+     role="img" aria-label="Hetu" shape-rendering="geometricPrecision">
+  <title>Hetu — 应用图标（底板 + Ht 连写）</title>
+  <!-- 与 ht-monogram-animated.svg 同一套笔画；静态底板版用于窗口/托盘/安装器图标与位图导出 -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2A1F55"/>
+      <stop offset="0.55" stop-color="#161232"/>
+      <stop offset="1" stop-color="#0A0B16"/>
+    </linearGradient>
+
+    <radialGradient id="aura" cx="0.28" cy="0.18" r="0.95">
+      <stop offset="0" stop-color="#8B5CFF" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#5B3CE0" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#5B3CE0" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse"
+                    x1="110" y1="130" x2="400" y2="380">
+      <stop offset="0" stop-color="#C4B5FD"/>
+      <stop offset="0.5" stop-color="#8B9BFF"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 底板 -->
+  <rect x="16" y="16" width="480" height="480" rx="114" fill="url(#plate)"/>
+  <rect x="16" y="16" width="480" height="480" rx="114" fill="url(#aura)"/>
+  <rect x="17" y="17" width="478" height="478" rx="113" fill="none"
+        stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="2"/>
+  <rect x="16" y="16" width="480" height="240" rx="114" fill="url(#gloss)"/>
+
+  <!-- Ht 连写：H 两竖 + 贯通横画（兼作 t 的横）+ t 竖与弯钩 -->
+  <g stroke="url(#ink)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M111 185 V 379"/>
+    <path d="M253 185 V 379"/>
+    <path d="M111 279 H 401"/>
+    <path d="M321 133 V 347 Q 321 379 353 379 H 377"/>
+  </g>
+
+  <path fill="#67E8F9"
+        d="M388 155 Q 390.6 165.4 401 168 Q 390.6 170.6 388 181 Q 385.4 170.6 375 168 Q 385.4 165.4 388 155 Z"/>
+</svg>
