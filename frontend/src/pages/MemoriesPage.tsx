@@ -1181,7 +1181,7 @@ export default function MemoriesPage() {
                   return (
                   <div
                     key={memory.id}
-                    className={`group rounded-2xl border bg-white p-4 transition-all duration-200 hover:shadow-md dark:bg-gray-900 ${
+                    className={`group rounded-2xl border bg-white glass p-4 transition-all duration-200 hover:shadow-md dark:bg-gray-900 ${
                       state.key === 'dying'
                         ? 'border-red-200/80 hover:border-red-300 dark:border-red-500/25 dark:hover:border-red-500/40'
                         : state.key === 'fading'

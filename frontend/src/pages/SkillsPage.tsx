@@ -142,7 +142,7 @@ export default function SkillsPage() {
     return (
       <div
         key={s.id}
-        className={`group relative flex flex-col rounded-2xl border bg-white p-4 transition-all duration-200 ${
+        className={`group relative flex flex-col rounded-2xl border bg-white glass p-4 transition-all duration-200 ${
           s.isEnabled
             ? 'border-gray-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'
             : 'border-gray-100 bg-gray-50/60 opacity-60 dark:border-gray-800 dark:bg-gray-900/60'

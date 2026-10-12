@@ -92,7 +92,7 @@ export default function DreamSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white glass p-4 dark:border-gray-700 dark:bg-gray-800">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
             <Moon size={15} className="text-indigo-500" />

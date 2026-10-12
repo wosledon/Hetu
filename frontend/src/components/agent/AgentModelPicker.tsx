@@ -194,7 +194,7 @@ export default function AgentModelPicker({
         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300'
     }`
   const panelClass =
-    'absolute bottom-full left-0 z-50 mb-2 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700'
+    'absolute bottom-full left-0 z-50 mb-2 rounded-xl bg-white glass p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700'
   const panelTitleClass = 'mb-2 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400'
   const groupTitleClass = 'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400'
 
@@ -231,7 +231,7 @@ export default function AgentModelPicker({
           {/* 一张卡片：左侧供应商纵列 + 右侧搜索与模型列表 */}
           <div
             ref={modelCardRef}
-            className="flex overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
+            className="flex overflow-hidden rounded-xl bg-white glass shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
           >
             <div className="flex w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 py-1 dark:border-gray-700">
               {tabs.map((p) => {
@@ -302,7 +302,7 @@ export default function AgentModelPicker({
 
           {/* 右侧：推理强度 / 上下文，纵向对齐当前模型行 */}
           <div ref={flyoutRef} className="relative ml-2 w-56 shrink-0">
-            <div className="absolute inset-x-0 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" style={{ top: flyoutTop }}>
+            <div className="absolute inset-x-0 rounded-xl bg-white glass p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" style={{ top: flyoutTop }}>
               {!flyoutModel ? (
                 <div className="text-[11px] text-gray-400">{t('modelPicker.pickModelHint')}</div>
               ) : (

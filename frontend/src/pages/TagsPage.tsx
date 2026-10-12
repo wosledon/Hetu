@@ -315,7 +315,7 @@ export default function TagsPage() {
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-200 bg-white glass py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
           style={{
             left: Math.min(menu.x, window.innerWidth - 188),
             top: Math.min(menu.y, window.innerHeight - 220),

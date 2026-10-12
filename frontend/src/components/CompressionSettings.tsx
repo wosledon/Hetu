@@ -63,7 +63,7 @@ export default function CompressionSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white glass p-4 dark:border-gray-700 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('compression.pipeline')}</div>
           <div className="mt-0.5 text-xs text-gray-500">

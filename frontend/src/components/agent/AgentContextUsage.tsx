@@ -101,7 +101,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl bg-white p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+        <div className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl bg-white glass p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
           <div className="mb-2 flex items-center gap-1.5">
             <Gauge size={13} className={tone.stroke} />
             <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{t('contextUsage.title')}</span>

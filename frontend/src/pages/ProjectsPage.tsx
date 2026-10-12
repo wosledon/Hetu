@@ -224,7 +224,7 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>
@@ -470,7 +470,7 @@ export default function ProjectsPage() {
                               {menuFor === project.id && (
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
                                     <button
                                       onClick={() => moveToGroup(project, null)}

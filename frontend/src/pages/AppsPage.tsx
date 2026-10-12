@@ -339,7 +339,7 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
       /* 注意：mainContent 位于行向 flex 容器内，根节点必须 flex-1 + min-w-0 才能撑满宽度 */
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
         {/* 工具条 */}
-        <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white px-3 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white glass px-3 dark:border-gray-800 dark:bg-gray-900">
           <button onClick={onClose} title={t('apps.backToList')} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
             <ArrowLeft size={14} />
             {t('apps.backLabel')}

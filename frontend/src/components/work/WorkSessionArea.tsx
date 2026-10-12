@@ -1227,7 +1227,7 @@ export default function WorkSessionArea({
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
       {/* 头部：标题与统计在左，打开方式与用量在右 */}
-      <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           title={isStreaming ? t('common:running') : t('session.idle')}
@@ -1387,7 +1387,7 @@ export default function WorkSessionArea({
                 />
               )}
               {workflowOutput && (
-                <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+                <div className="rounded-xl border border-gray-200 bg-white glass p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
                   <ThemedMarkdown source={workflowOutput} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
                 </div>
               )}

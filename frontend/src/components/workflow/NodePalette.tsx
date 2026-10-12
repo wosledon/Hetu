@@ -9,7 +9,7 @@ interface NodePaletteProps {
 export default function NodePalette({ onAddNode }: NodePaletteProps) {
   const { t } = useTranslation('workflows')
   return (
-    <div className="flex w-44 flex-col gap-1 border-r border-gray-200 bg-white p-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+    <div className="flex w-44 flex-col gap-1 border-r border-gray-200 bg-white glass p-2 dark:border-white/[0.08] dark:bg-gray-900/50">
       <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{t('palette.nodeTypes')}</div>
       {NODE_TYPE_META.map(({ type, labelKey, icon: Icon }) => (
         <button

@@ -41,7 +41,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
   }, [tool.parametersSchema])
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
+    <div className="rounded-xl border border-gray-200 bg-white glass p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           <Wrench size={14} />

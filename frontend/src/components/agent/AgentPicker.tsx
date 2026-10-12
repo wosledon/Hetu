@@ -124,7 +124,7 @@ export default function AgentPicker({
         <ChevronDown size={10} />
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+        <div className="absolute bottom-full left-0 mb-2 w-56 overflow-hidden rounded-xl bg-white glass shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
           <div className="max-h-72 overflow-y-auto p-1.5">
             {/* 项目分组置顶：项目 .github 下的智能体与当前工作最相关 */}
             {onSelectProject && (

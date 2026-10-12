@@ -929,7 +929,7 @@ export default function GraphPage() {
 
   const mainContent = (
     <div className="flex flex-1 flex-col bg-transparent">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white glass px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
           <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomIn')}><ZoomIn size={15} /></button>
           <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomOut')}><ZoomOut size={15} /></button>
@@ -1061,7 +1061,7 @@ export default function GraphPage() {
   )
 
   const rightPanel = selectedEntityId && entityDetail ? (
-    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
@@ -1125,7 +1125,7 @@ export default function GraphPage() {
         {rightPanel}
       </div>
     }>
-      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>

@@ -243,7 +243,7 @@ export default function McpServerManager() {
         {servers.map((server) => (
           <div
             key={server.id}
-            className={`rounded-xl border bg-white shadow-sm transition-all dark:bg-white/[0.02] ${
+            className={`rounded-xl border bg-white glass shadow-sm transition-all dark:bg-white/[0.02] ${
               server.isEnabled
                 ? 'border-gray-200/80 dark:border-white/[0.08]'
                 : 'border-gray-100 opacity-60 dark:border-white/[0.04]'
@@ -294,7 +294,7 @@ export default function McpServerManager() {
 
       {/* Tools Panel */}
       {selectedServer && (
-        <div className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <div className="rounded-xl border border-gray-200/80 bg-white glass p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div className="mb-4 flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />

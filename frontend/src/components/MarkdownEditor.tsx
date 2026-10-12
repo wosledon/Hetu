@@ -546,7 +546,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   if (!note) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-gradient-to-br from-gray-50/80 to-gray-100/50 dark:from-gray-950 dark:to-gray-900/50">
+      <div className="flex min-h-0 flex-1 items-center justify-center bg-transparent">
         <div className="text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
             <PenLine size={28} className="text-white" />
@@ -635,8 +635,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   )
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-4 dark:border-gray-800/50 dark:bg-gray-900/80">
+    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
         <SlidingPill value={viewMode} className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {[
             { key: 'preview', label: t('common:preview'), icon: Eye },
@@ -699,7 +699,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       </div>
 
-      <div className="border-b border-gray-100 bg-white px-8 pb-3 pt-4 dark:border-gray-800/50 dark:bg-gray-900">
+      <div className="border-b border-gray-100 bg-transparent px-8 pb-3 pt-4 dark:border-gray-800/50">
         <input
           type="text"
           value={title}
@@ -830,7 +830,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           {shareLinks.length > 0 && (
             <div className="max-h-40 space-y-2 overflow-y-auto">
               {shareLinks.map((link: IShareLink) => (
-                <div key={link.id} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+                <div key={link.id} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white glass p-2 dark:border-gray-700 dark:bg-gray-800">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs text-gray-600 dark:text-gray-400">{link.shareUrl}</div>
                     <div className="mt-0.5 text-[10px] text-gray-400">
@@ -866,11 +866,11 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-950 dark:to-gray-900/50">
+      <div className="flex flex-1 overflow-hidden bg-transparent">
         {(viewMode === 'edit' || viewMode === 'split') && (
-          <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-white dark:bg-gray-900`}>
+          <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-transparent`}>
             {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格 */}
-            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-gray-100 bg-white/90 px-8 py-1.5 backdrop-blur dark:border-gray-800/50 dark:bg-gray-900/90">
+            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-gray-100 glass bg-transparent px-8 py-1.5 dark:border-gray-800/50">
               {formatToolbarContent}
             </div>
 
@@ -892,7 +892,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 style={{ top: Math.max(inlineCoords.top - 46, 4), left: inlineCoords.left }}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white p-1 shadow-lg shadow-black/5 dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg shadow-black/5 dark:border-gray-700 dark:bg-gray-800">
                   {formatToolbarContent}
                 </div>
               </div>
@@ -900,7 +900,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
             {showInlineAi && inlineCoords && (
               <div
-                className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
+                className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white glass shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
                 style={{ top: inlineCoords.top, left: inlineCoords.left }}
               >                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
                   <div className="flex items-center gap-1.5">
@@ -1058,7 +1058,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </div>
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
-          <div ref={previewScrollRef} onScroll={handlePreviewScroll} className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full bg-white dark:bg-gray-900'} overflow-y-auto px-8 py-6 bg-gray-50/30 dark:bg-gray-950/50`}>
+          <div ref={previewScrollRef} onScroll={handlePreviewScroll} className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full'} overflow-y-auto bg-transparent px-8 py-6`}>
             <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
               <ThemedMarkdown source={content} />
             </div>
@@ -1066,7 +1066,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )}
 
         {showAssistant && (
-          <div className="animate-slide-in-right flex w-80 flex-col border-l border-indigo-200 bg-white dark:border-indigo-900/30 dark:bg-gray-900">
+          <div className="animate-slide-in-right flex w-80 flex-col border-l border-indigo-200 bg-white glass dark:border-indigo-900/30 dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
@@ -1214,7 +1214,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )}
 
         {showVersions && (
-          <div className="animate-slide-in-right flex w-80 flex-col border-l border-gray-100 bg-white dark:border-gray-800/50 dark:bg-gray-900">
+          <div className="animate-slide-in-right flex w-80 flex-col border-l border-gray-100 bg-white glass dark:border-gray-800/50 dark:bg-gray-900">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">

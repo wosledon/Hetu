@@ -206,7 +206,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         onClick={() => setMoreOpen(false)}
       />
       <div
-        className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
+        className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white glass p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
         style={{
           top: moreMenuPos.top,
           left: moreMenuPos.left,

@@ -32,7 +32,7 @@ export default function InputCommandMenu({
   if (items.length === 0 && !emptyHint) return null
 
   return (
-    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white glass py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
       <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">{title}</div>
       {items.length === 0 && emptyHint && (
         <div className="px-3 py-3 text-center text-[11px] text-gray-400">{emptyHint}</div>

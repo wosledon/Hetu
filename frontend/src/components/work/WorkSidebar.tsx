@@ -870,11 +870,11 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   if (flat) {
     return (
       <div className="flex shrink-0">
-        <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
           {createDialog}
           <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
         </div>
-        <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-100 p-3 dark:border-gray-800">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('sidebar.sessions')}</h2>

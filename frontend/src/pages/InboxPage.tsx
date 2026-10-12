@@ -252,7 +252,7 @@ export default function InboxPage() {
             ) : (
               <div className="space-y-2.5">
                 {/* 工具栏：全选 + 批量操作 */}
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white glass px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
                   <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <input
                       type="checkbox"

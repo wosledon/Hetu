@@ -192,23 +192,26 @@ body {
    身上会把宿主变成 fixed / absolute 后代的包含块，浮层定位会错位，故用伪元素承载。
    由 <html data-glass="on|off"> 一键开关。 */
 :root {
-  --glass-bg: rgba(250, 251, 253, 0.86);
-  --glass-track-bg: rgba(240, 242, 247, 0.74);
-  --glass-blur: blur(24px) saturate(180%);
-  --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+  --glass-bg: rgba(255, 255, 255, 0.58);
+  --glass-track-bg: rgba(255, 255, 255, 0.45);
+  --glass-blur: blur(28px) saturate(180%);
+  --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .dark {
-  --glass-bg: rgba(14, 18, 32, 0.84);
-  --glass-track-bg: rgba(255, 255, 255, 0.07);
-  --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+  --glass-bg: rgba(16, 20, 35, 0.72);
+  --glass-track-bg: rgba(255, 255, 255, 0.06);
+  --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .glass,
 .glass-track {
   position: relative;
+  /* 自建栈上下文：否则 ::before 的 z-index:-1 会逃到祖先栈里，
+     被中间层的不透明背景盖住，卡片只剩一条边线 */
+  isolation: isolate;
 }
 
 .glass::before,

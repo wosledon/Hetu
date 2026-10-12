@@ -424,7 +424,7 @@ export default function KnowledgeBasePage() {
 
                 {/* Add URL Modal */}
                 {showAddUrl && (
-                  <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                  <div className="rounded-xl border border-gray-200 bg-white glass p-5 dark:border-gray-800 dark:bg-gray-900">
                     <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
                     <div className="flex gap-3">
                       <input
@@ -478,7 +478,7 @@ export default function KnowledgeBasePage() {
                     {embeddingStatuses.map((item) => (
                       <div
                         key={item.id}
-                        className={`group flex items-center gap-4 rounded-2xl border bg-white px-5 py-4 transition-all hover:shadow-md dark:bg-gray-900 ${
+                        className={`group flex items-center gap-4 rounded-2xl border bg-white glass px-5 py-4 transition-all hover:shadow-md dark:bg-gray-900 ${
                           item.hasRunningTask
                             ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
                             : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
@@ -651,7 +651,7 @@ export default function KnowledgeBasePage() {
                         {searchResults.map((result, index) => (
                           <div
                             key={result.id}
-                            className="rounded-xl border border-gray-200 bg-white p-4 transition-all hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
+                            className="rounded-xl border border-gray-200 bg-white glass p-4 transition-all hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
                           >
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 flex-1">
@@ -758,7 +758,7 @@ function ChunkDetailModal({
                 return (
                   <div
                     key={chunk.id}
-                    className="rounded-xl border border-gray-200 bg-white transition-all dark:border-gray-800 dark:bg-gray-900"
+                    className="rounded-xl border border-gray-200 bg-white glass transition-all dark:border-gray-800 dark:bg-gray-900"
                   >
                     <button
                       onClick={() => setExpandedChunkId(isExpanded ? null : chunk.id)}

@@ -69,7 +69,7 @@ export default function ExportBackupPanel() {
         <button
           onClick={handleExportNotes}
           disabled={isLoading}
-          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white px-4 py-4 text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white glass px-4 py-4 text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-500 transition-colors group-hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400">
             <Download size={18} />
@@ -83,7 +83,7 @@ export default function ExportBackupPanel() {
         <button
           onClick={handleBackup}
           disabled={isLoading}
-          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white px-4 py-4 text-left shadow-sm transition-all hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white glass px-4 py-4 text-left shadow-sm transition-all hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400">
             <Database size={18} />

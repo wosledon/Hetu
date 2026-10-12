@@ -741,7 +741,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
+      className={`group cursor-pointer rounded-xl border bg-white glass p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
         isDragging ? 'opacity-40' : ''
       } ${dropAbove ? 'border-indigo-400' : 'border-gray-100 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >
