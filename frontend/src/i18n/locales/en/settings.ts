@@ -10,6 +10,7 @@ export default {
     enDesc: 'English UI and messages',
   },
   sections: {
+    beta: 'Beta',
     app: 'App settings',
     appDesc: 'Name, assistant, language, tray',
     appearance: 'Theme & appearance',

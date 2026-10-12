@@ -10,6 +10,7 @@ export default {
     enDesc: 'English UI and messages',
   },
   sections: {
+    beta: 'Beta',
     app: '应用设置',
     appDesc: '名称、助手、语言、托盘',
     appearance: '主题与外观',

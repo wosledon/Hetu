@@ -28,7 +28,7 @@ type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | '
 
 const settingsSections = [
   { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
-  { key: 'appearance', labelKey: 'sections.appearance', descKey: 'sections.appearanceDesc', icon: Palette },
+  { key: 'appearance', labelKey: 'sections.appearance', descKey: 'sections.appearanceDesc', icon: Palette, beta: true },
   { key: 'navigation', labelKey: 'sections.navigation', descKey: 'sections.navigationDesc', icon: Menu },
   { key: 'models', labelKey: 'sections.models', descKey: 'sections.modelsDesc', icon: Cpu },
   { key: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
@@ -39,7 +39,7 @@ const settingsSections = [
   { key: 'trash', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
   { key: 'workspace', labelKey: 'sections.workspace', descKey: 'sections.workspaceDesc', icon: FolderGit2 },
   { key: 'about', labelKey: 'sections.about', descKey: 'sections.aboutDesc', icon: Info },
-] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings }[]
+] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings; beta?: boolean }[]
 
 const themeOptions = [
   { key: 'system' as Theme, labelKey: 'appearance.themeSystem', descKey: 'appearance.themeSystemDesc', icon: Monitor },
@@ -259,10 +259,15 @@ export default function SettingsPage() {
                           <Icon size={15} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-sm font-medium ${
+                          <div className={`flex items-center gap-1.5 text-sm font-medium ${
                             isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
                           }`}>
                             {t(item.labelKey)}
+                            {item.beta && (
+                              <span className="rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                                {t('sections.beta')}
+                              </span>
+                            )}
                           </div>
                           <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
                             {t(item.descKey)}
