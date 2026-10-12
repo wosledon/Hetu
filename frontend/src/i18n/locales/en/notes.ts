@@ -13,7 +13,6 @@ export default {
     newChild: 'New sub-notebook',
     namePlaceholder: 'Notebook name',
     newChildNamePlaceholder: 'Sub-notebook name',
-    default: 'Default notebook',
     deleteFailed: 'Failed to delete notebook',
     deleteConfirm: 'Delete notebook "{{name}}"? Its notes will become uncategorized.',
   },

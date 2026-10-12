@@ -253,6 +253,15 @@ function NotebookNode({
               {t('tree.empty')}
             </div>
           )}
+          {/* 展开内容里的最后一行：与笔记同级的新建笔记（入口不再藏在悬停菜单里） */}
+          <button
+            onClick={() => createNote.mutate({ title: '', content: '', notebookId: notebook.id })}
+            className="flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+            style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
+          >
+            <Plus size={13} className="shrink-0" />
+            {t('note.newNote')}
+          </button>
         </div>
       )}
     </div>
@@ -266,7 +275,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   const setSelectedNotebookId = useUIStore((s) => s.setSelectedNotebookId)
   const [searchTerm, setSearchTerm] = useState('')
   const [leafMenu, setLeafMenu] = useState<LeafMenuState | null>(null)
-  const [addMenu, setAddMenu] = useState<AddMenuState | null>(null)
   const [isAddingRoot, setIsAddingRoot] = useState(false)
   const [rootName, setRootName] = useState('')
   const [showUncategorized, setShowUncategorized] = useState(false)
@@ -290,16 +298,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   const createRootNotebook = useMutation({
     mutationFn: ({ name }: { name: string }) => notebookService.create({ name }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-  })
-
-  const createRootNote = useMutation({
-    mutationFn: noteService.create,
-    onSuccess: (note) => {
-      queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
-      setShowUncategorized(true)
-      onSelectNote(note)
-    },
   })
 
   const handleCreateRootNotebook = () => {
@@ -352,13 +350,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('notebook.label')}</h2>
-          <button
-            onClick={(e) => setAddMenu({ x: e.clientX, y: e.clientY })}
-            title={t('common:create')}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-          >
-            <Plus size={14} />
-          </button>
         </div>
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -372,23 +363,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {isAddingRoot && (
-          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
-            <FolderPlus size={14} className="shrink-0 text-blue-500" />
-            <input
-              autoFocus
-              value={rootName}
-              onChange={(e) => setRootName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateRootNotebook()
-                if (e.key === 'Escape') { setIsAddingRoot(false); setRootName('') }
-              }}
-              onBlur={handleCreateRootNotebook}
-              placeholder={t('notebook.namePlaceholder')}
-              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
-            />
-          </div>
-        )}
         {/* 未分类 - 始终在最前 */}
         <div>
           <div
@@ -442,16 +416,33 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
             onOpenLeafMenu={handleOpenLeafMenu}
           />
         ))}
+        {/* 树的最后一行：与笔记本同级的新建笔记本（入口不再藏在悬停菜单里） */}
+        {isAddingRoot ? (
+          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
+            <FolderPlus size={14} className="shrink-0 text-blue-500" />
+            <input
+              autoFocus
+              value={rootName}
+              onChange={(e) => setRootName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateRootNotebook()
+                if (e.key === 'Escape') { setIsAddingRoot(false); setRootName('') }
+              }}
+              onBlur={handleCreateRootNotebook}
+              placeholder={t('notebook.namePlaceholder')}
+              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAddingRoot(true)}
+            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+          >
+            <Plus size={14} className="shrink-0" />
+            {t('notebook.new')}
+          </button>
+        )}
       </div>
-
-      {addMenu && (
-        <AddMenu
-          menu={addMenu}
-          onClose={() => setAddMenu(null)}
-          onAddNotebook={() => setIsAddingRoot(true)}
-          onAddNote={() => createRootNote.mutate({ title: '', content: '' })}
-        />
-      )}
 
       {leafMenu && createPortal(
         <>

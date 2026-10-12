@@ -13,7 +13,6 @@ export default {
     newChild: '新建子笔记本',
     namePlaceholder: '新笔记本名称',
     newChildNamePlaceholder: '新子笔记本名称',
-    default: '默认笔记本',
     deleteFailed: '删除笔记本失败',
     deleteConfirm: '确定删除笔记本「{{name}}」吗？其中的笔记将变为未分类。',
   },
