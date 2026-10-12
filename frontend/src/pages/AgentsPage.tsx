@@ -779,7 +779,7 @@ export default function AgentsPage() {
                     <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                     <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                     {isGeneralSection ? (
-                      <SlidingPill value={generalSource} className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
+                      <SlidingPill value={generalSource} className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 glass-track dark:bg-white/[0.06]">
                         {([
                           { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Bot },
                           { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },

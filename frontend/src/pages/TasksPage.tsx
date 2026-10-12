@@ -832,7 +832,7 @@ function ScheduledTaskEditor({
           {/* Schedule Type */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.scheduleType')}</label>
-            <SlidingPill value={form.scheduleType} className="inline-flex w-full items-center gap-1 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.04]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+            <SlidingPill value={form.scheduleType} className="inline-flex w-full items-center gap-1 rounded-xl bg-gray-100/80 p-1 glass-track dark:bg-white/[0.04]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
               {(['Interval', 'Cron'] as ScheduleType[]).map((st) => (
                 <button
                   key={st}

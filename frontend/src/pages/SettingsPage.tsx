@@ -233,7 +233,7 @@ export default function SettingsPage() {
                 <SlidingPill
                   value={activeSection}
                   orientation="vertical"
-                  className="sticky top-8 space-y-1"
+                  className="sticky top-8 space-y-1 rounded-2xl bg-white p-1.5 glass"
                   pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
                 >
                   {settingsSections.map((item) => {

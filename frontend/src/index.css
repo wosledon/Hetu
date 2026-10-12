@@ -192,18 +192,24 @@ body {
    身上会把宿主变成 fixed / absolute 后代的包含块，浮层定位会错位，故用伪元素承载。
    由 <html data-glass="on|off"> 一键开关。 */
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.58);
-  --glass-track-bg: rgba(255, 255, 255, 0.45);
+  --glass-bg: rgba(241, 244, 250, 0.74);
+  /* 导航条 / 导轨用更实的材质：浅色画布接近白色，太透会整条看不见 */
+  --glass-nav-bg: rgba(255, 255, 255, 0.9);
+  --glass-track-bg: rgba(255, 255, 255, 0.32);
   --glass-blur: blur(28px) saturate(180%);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
-  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  /* 浅色画布接近白色，没有投影边界面就糊掉：亚克力面板必须"浮"起来 */
+  --glass-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px -12px rgba(15, 23, 42, 0.18);
 }
 
 .dark {
   --glass-bg: rgba(16, 20, 35, 0.72);
-  --glass-track-bg: rgba(255, 255, 255, 0.06);
+  --glass-nav-bg: rgba(13, 17, 30, 0.88);
+  --glass-track-bg: rgba(255, 255, 255, 0.08);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
-  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
 }
 
 .glass,
@@ -224,7 +230,7 @@ body {
   pointer-events: none;
   background-color: var(--glass-bg);
   background-image: var(--glass-noise);
-  box-shadow: var(--glass-sheen);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
 }
@@ -254,7 +260,7 @@ body {
 :root[data-glass='on'] .glass.overflow-scroll {
   background-color: var(--glass-bg);
   background-image: var(--glass-noise);
-  box-shadow: var(--glass-sheen);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
 }
@@ -270,10 +276,11 @@ body {
 
 /* ===== Glass morphism nav ===== */
 .glass-nav {
-  background-color: var(--glass-bg);
+  background-color: var(--glass-nav-bg);
   background-image: var(--glass-noise);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
@@ -283,10 +290,11 @@ body {
 
 /* ===== Vertical capsule nav rail ===== */
 .glass-rail {
-  background-color: var(--glass-bg);
+  background-color: var(--glass-nav-bg);
   background-image: var(--glass-noise);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
   border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 

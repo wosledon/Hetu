@@ -105,6 +105,8 @@ export const useUIStore = create<UIState>()(
         assistantName: state.assistantName,
         assistantPersona: state.assistantPersona,
         theme: state.theme,
+        accent: state.accent,
+        background: state.background,
         sidebarCollapsed: state.sidebarCollapsed,        secondaryMenuStyle: state.secondaryMenuStyle,
         navStyle: state.navStyle,
         pinnedNavItems: state.pinnedNavItems,

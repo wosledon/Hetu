@@ -7,6 +7,7 @@ import { useUIStore } from './stores/uiStore'
 import { useUpdateStore } from './stores/updateStore'
 import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS } from './utils/appearance'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
@@ -74,6 +75,13 @@ function App() {
           store.setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
         if (snapshot.theme === 'light' || snapshot.theme === 'dark' || snapshot.theme === 'system')
           store.setTheme(snapshot.theme)
+        // 主题配色 / 画布背景 / 亚克力开关同样要预热：否则刷新后回到默认纯色画布，
+        // 亚克力材质叠在近白画布上会整块看不见
+        const accent = ACCENT_PRESETS.find((p) => p.key === snapshot.themeAccent)
+        if (accent) store.setAccent(accent.key)
+        const background = BACKGROUND_PRESETS.find((p) => p.key === snapshot.background)
+        if (background) store.setBackground(background.key)
+        store.setGlass(snapshot.glassEffect !== 'false')
         if (snapshot.language === 'zh' || snapshot.language === 'en') void applyLanguage(snapshot.language)
         try {
           const items = JSON.parse(snapshot.pinnedNavItems)

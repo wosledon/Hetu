@@ -213,7 +213,7 @@ export default function AgentInputBox({
   }
 
   return (
-    <div className="bg-white p-3 dark:bg-gray-900">
+    <div className="bg-transparent p-3 dark:bg-transparent">
       <div className="relative mx-auto max-w-3xl">
         {aboveInput}
         <div className="relative rounded-xl border border-gray-200 bg-white glass shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800">
