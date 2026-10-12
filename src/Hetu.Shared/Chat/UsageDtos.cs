@@ -43,6 +43,16 @@ public class UsageModelStat
     public long CachedTokens { get; set; }
 }
 
+/// <summary>按天×模型聚合的用量（趋势图按模型拆分）</summary>
+public class UsageModelDayStat
+{
+    /// <summary>yyyy-MM-dd（本地时区）</summary>
+    public string Date { get; set; } = string.Empty;
+    public string ModelName { get; set; } = string.Empty;
+    public long Messages { get; set; }
+    public long Tokens { get; set; }
+}
+
 public class UsageStatsDto
 {
     public UsageOverviewDto Overview { get; set; } = new();
@@ -54,8 +64,12 @@ public class UsageStatsDto
     public List<UsageHourStat> WeekHourly { get; set; } = new();
     /// <summary>按模型聚合</summary>
     public List<UsageModelStat> ByModel { get; set; } = new();
+    /// <summary>近 90 天按 日期×模型 聚合（趋势图按模型拆分）</summary>
+    public List<UsageModelDayStat> DailyByModel { get; set; } = new();
     /// <summary>按调用来源聚合（对话 / 编码会话 / 任务看板 / Wiki / ...）</summary>
     public List<UsageSourceStat> BySource { get; set; } = new();
+    /// <summary>按来源×模型聚合（调用来源条形图按模型堆叠）</summary>
+    public List<UsageSourceModelStat> BySourceByModel { get; set; } = new();
 }
 
 /// <summary>按调用来源聚合的用量</summary>
@@ -65,6 +79,18 @@ public class UsageSourceStat
     public string Source { get; set; } = string.Empty;
     /// <summary>来源中文名</summary>
     public string SourceName { get; set; } = string.Empty;
+    public long Messages { get; set; }
+    public long Tokens { get; set; }
+}
+
+/// <summary>按来源×模型聚合的用量（调用来源条形图按模型堆叠）</summary>
+public class UsageSourceModelStat
+{
+    /// <summary>chat / work / kanban / workflow / wiki / note-ai / organize / skill / graph / search / scheduled / proxy</summary>
+    public string Source { get; set; } = string.Empty;
+    /// <summary>来源中文名</summary>
+    public string SourceName { get; set; } = string.Empty;
+    public string ModelName { get; set; } = string.Empty;
     public long Messages { get; set; }
     public long Tokens { get; set; }
 }

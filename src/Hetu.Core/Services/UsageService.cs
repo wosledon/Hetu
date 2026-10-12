@@ -1,5 +1,8 @@
+using System.Linq.Expressions;
+using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Chat;
+using Hetu.Shared.Common;
 
 namespace Hetu.Core.Services;
 
@@ -38,7 +41,7 @@ public class UsageService
         _ => source,
     };
 
-    public async Task<UsageStatsDto> GetStatsAsync(CancellationToken ct = default)
+    public async Task<UsageStatsDto> GetStatsAsync(int days = 0, CancellationToken ct = default)
     {
         // 只投影统计需要的列（不加载实体与内容摘要），聚合/分组逻辑保持不变
         var logs = await _unitOfWork.LlmUsageLogs.SelectAsync(
@@ -61,6 +64,11 @@ public class UsageService
 
         var today = DateTimeOffset.Now.Date;
         var result = new UsageStatsDto();
+
+        // 页头全局时间选择：days>0 时按模型/来源的聚合只统计最近 N 天；概览与热力图保持原口径
+        var aggLogs = days > 0
+            ? logs.Where(l => l.CreatedAt.LocalDateTime.Date >= today.AddDays(-(days - 1))).ToList()
+            : logs;
 
         result.Overview.TotalMessages = logs.Count;
         result.Overview.TotalTokens = logs.Sum(l => (long)(l.TokensUsed ?? 0));
@@ -101,6 +109,24 @@ public class UsageService
             .OrderBy(d => d.Date)
             .ToList();
 
+        // 近 90 天按 日期×模型 聚合（趋势图按模型拆分），模型展示名在此解析一次
+        var defaultModelName = _localizer.T("usage.defaultModel");
+        string NameOf(Guid? id) => id.HasValue && modelNames.TryGetValue(id.Value, out var n) ? n : defaultModelName;
+        var trendAgo = today.AddDays(-89);
+        result.DailyByModel = logs
+            .Where(l => l.CreatedAt.LocalDateTime.Date >= trendAgo)
+            .GroupBy(l => new { Date = l.CreatedAt.LocalDateTime.Date, Name = NameOf(l.ModelId) })
+            .Select(g => new UsageModelDayStat
+            {
+                Date = g.Key.Date.ToString("yyyy-MM-dd"),
+                ModelName = g.Key.Name,
+                Messages = g.Count(),
+                Tokens = g.Sum(l => (long)(l.TokensUsed ?? 0)),
+            })
+            .OrderBy(d => d.Date)
+            .ThenBy(d => d.ModelName)
+            .ToList();
+
         // 近 7 天 日期×小时 聚合（周热力图）
         var weekAgo = today.AddDays(-6);
         result.WeekHourly = logs
@@ -116,7 +142,7 @@ public class UsageService
             .ToList();
 
         // 按模型聚合
-        result.ByModel = logs
+        result.ByModel = aggLogs
             .GroupBy(l => l.ModelId)
             .Select(g => new UsageModelStat
             {
@@ -129,7 +155,7 @@ public class UsageService
             .ToList();
 
         // 按来源聚合（对话 / 编码会话 / 看板 / Wiki / ...）
-        result.BySource = logs
+        result.BySource = aggLogs
             .GroupBy(l => l.Source)
             .Select(g => new UsageSourceStat
             {
@@ -141,48 +167,91 @@ public class UsageService
             .OrderByDescending(s => s.Tokens)
             .ToList();
 
+        // 按来源×模型聚合（调用来源条形图按模型堆叠，模型名复用上面的解析）
+        result.BySourceByModel = aggLogs
+            .GroupBy(l => new { l.Source, Name = NameOf(l.ModelId) })
+            .Select(g => new UsageSourceModelStat
+            {
+                Source = g.Key.Source,
+                SourceName = LocalizeSource(g.Key.Source),
+                ModelName = g.Key.Name,
+                Messages = g.Count(),
+                Tokens = g.Sum(l => (long)(l.TokensUsed ?? 0)),
+            })
+            .OrderByDescending(x => x.Tokens)
+            .ToList();
+
         return result;
     }
 
-    /// <summary>获取请求日志明细（分页）。可按来源与业务引用（话题 / 会话 / 任务）过滤。</summary>
-    public async Task<List<UsageLogDto>> GetLogsAsync(
+    /// <summary>获取请求日志明细（数据库分页，含总数）。可按来源、模型与业务引用（话题 / 会话 / 任务）过滤。</summary>
+    public async Task<PagedResult<UsageLogDto>> GetLogsAsync(
         int page = 1,
         int pageSize = 50,
         string? source = null,
+        string? model = null,
         Guid? refId = null,
         CancellationToken ct = default)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
         var sourceFilter = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
+        var modelFilter = string.IsNullOrWhiteSpace(model) ? null : model.Trim();
         var refFilter = refId;
         var models = await _unitOfWork.AiModels.GetAllAsync(ct);
         var modelNames = models.ToDictionary(m => m.Id, m => string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName);
+        var defaultModelName = _localizer.T("usage.defaultModel");
+
+        // 模型筛选按展示名解析成 ID 集合；ModelId 为空的记录归入默认模型
+        var modelFilterIds = new List<Guid>();
+        if (modelFilter != null)
+        {
+            modelFilterIds.AddRange(
+                models.Where(m => (string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName) == modelFilter)
+                    .Select(m => m.Id));
+        }
+
+        Expression<Func<LlmUsageLog, bool>> predicate = l =>
+            (sourceFilter == null || l.Source == sourceFilter) &&
+            (refFilter == null || l.RefId == refFilter) &&
+            (modelFilter == null ||
+                (l.ModelId == null
+                    ? defaultModelName == modelFilter
+                    : modelFilterIds.Contains(l.ModelId.Value)));
 
         // 过滤与分页下推到数据库：用量日志会随每次 LLM 调用增长，不再整表加载
+        var total = await _unitOfWork.LlmUsageLogs.CountAsync(predicate, ct);
         var logs = await _unitOfWork.LlmUsageLogs.GetPagedByDateAsync(
-            l => (sourceFilter == null || l.Source == sourceFilter) && (refFilter == null || l.RefId == refFilter),
+            predicate,
             l => l.CreatedAt,
             descending: true,
             skip: (page - 1) * pageSize,
             take: pageSize,
             ct);
 
-        return logs
-            .Select(l => new UsageLogDto
-            {
-                MessageId = l.Id,
-                TopicId = l.RefId ?? Guid.Empty,
-                CreatedAt = l.CreatedAt,
-                ModelName = l.ModelId.HasValue && modelNames.TryGetValue(l.ModelId.Value, out var n) ? n : _localizer.T("usage.defaultModel"),
-                InputTokens = l.InputTokens,
-                CompressedTokens = l.CompressedTokens,
-                OutputTokens = l.OutputTokens,
-                TokensUsed = l.TokensUsed,
-                CachedTokens = l.CachedTokens,
-                LatencyMs = l.LatencyMs,
-                ContentPreview = l.ContentPreview ?? "",
-                Source = l.Source,
-                SourceName = LocalizeSource(l.Source),
-            })
-            .ToList();
+        return new PagedResult<UsageLogDto>
+        {
+            Items = logs
+                .Select(l => new UsageLogDto
+                {
+                    MessageId = l.Id,
+                    TopicId = l.RefId ?? Guid.Empty,
+                    CreatedAt = l.CreatedAt,
+                    ModelName = l.ModelId.HasValue && modelNames.TryGetValue(l.ModelId.Value, out var n) ? n : defaultModelName,
+                    InputTokens = l.InputTokens,
+                    CompressedTokens = l.CompressedTokens,
+                    OutputTokens = l.OutputTokens,
+                    TokensUsed = l.TokensUsed,
+                    CachedTokens = l.CachedTokens,
+                    LatencyMs = l.LatencyMs,
+                    ContentPreview = l.ContentPreview ?? "",
+                    Source = l.Source,
+                    SourceName = LocalizeSource(l.Source),
+                })
+                .ToList(),
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize,
+        };
     }
 }

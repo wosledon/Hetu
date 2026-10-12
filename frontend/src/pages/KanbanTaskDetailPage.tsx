@@ -132,7 +132,7 @@ export default function KanbanTaskDetailPage() {
   const { data: taskUsage = null } = useQuery({
     queryKey: ['usage-logs', 'kanban', taskId],
     queryFn: async () => {
-      const logs = await usageService.getLogs(1, 50, 'kanban', taskId!)
+      const logs = (await usageService.getLogs(1, 50, 'kanban', taskId!)).items
       if (logs.length === 0) return null
       return logs.reduce<AgentUsage>(
         (acc, l) => ({
