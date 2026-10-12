@@ -40,7 +40,6 @@ export default {
   },
   tree: {
     searchPlaceholder: 'Search...',
-    empty: 'Empty',
     moveTo: 'Move to',
     deleteConfirm: 'Delete this note?',
   },

@@ -254,14 +254,6 @@ function NotebookNode({
               </div>
             )
           })}
-          {notes.length === 0 && childNotebooks.length === 0 && (
-            <div
-              className="py-1 text-[11px] text-gray-300 dark:text-gray-600"
-              style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
-            >
-              {t('tree.empty')}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -298,6 +290,17 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   const createRootNotebook = useMutation({
     mutationFn: ({ name }: { name: string }) => notebookService.create({ name }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
+  })
+
+  /** 默认笔记本（未分类）下新建笔记 */
+  const createUncategorizedNote = useMutation({
+    mutationFn: noteService.create,
+    onSuccess: (note) => {
+      queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      setShowUncategorized(true)
+      onSelectNote(note)
+    },
   })
 
   const handleCreateRootNotebook = () => {
@@ -362,10 +365,10 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
-        {/* 新建笔记本放在树第一行：列表再长也不用滚到底就能加 */}
+      <div className="shrink-0 px-2 pt-2">
+        {/* 与平铺一致：一个独立的虚线卡片按钮，不作为树的一行 */}
         {isAddingRoot ? (
-          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
+          <div className="mb-1 flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 dark:border-gray-700">
             <FolderPlus size={14} className="shrink-0 text-blue-500" />
             <input
               autoFocus
@@ -377,21 +380,22 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
               }}
               onBlur={handleCreateRootNotebook}
               placeholder={t('notebook.namePlaceholder')}
-              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
+              className="min-w-0 flex-1 text-[13px] outline-none dark:bg-transparent"
             />
           </div>
         ) : (
           <button
             onClick={() => setIsAddingRoot(true)}
-            className="flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-sm text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+            className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:text-blue-300"
           >
-            {/* 与笔记本行同一套前导占位（展开箭头位），图标和文字才能对齐 */}
-            <span className="w-[14px] shrink-0" />
-            <Plus size={15} className="shrink-0" />
+            <Plus size={14} className="shrink-0" />
             {t('notebook.new')}
           </button>
         )}
-        {/* 未分类 - 始终排在新建行之后 */}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2">
+        {/* 默认笔记本 - 始终排在最前 */}
         <div>
           <div
             className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
@@ -405,6 +409,15 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
           </div>
           {showUncategorized && (
             <div>
+              {/* 与笔记同级的新建笔记：默认笔记本展开后里边第一行 */}
+              <button
+                onClick={() => createUncategorizedNote.mutate({ title: '', content: '' })}
+                className="flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
+                style={{ paddingLeft: '44px' }}
+              >
+                <Plus size={13} className="shrink-0" />
+                {t('note.newNote')}
+              </button>
               {uncategorized.map((note) => {
                 const active = selectedNoteId === note.id
                 return (
@@ -424,9 +437,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
                   </div>
                 )
               })}
-              {uncategorized.length === 0 && (
-                <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '44px' }}>{t('tree.empty')}</div>
-              )}
             </div>
           )}
         </div>

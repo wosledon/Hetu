@@ -40,7 +40,6 @@ export default {
   },
   tree: {
     searchPlaceholder: '搜索...',
-    empty: '空',
     moveTo: '移动到',
     deleteConfirm: '确定删除这条笔记吗？',
   },
