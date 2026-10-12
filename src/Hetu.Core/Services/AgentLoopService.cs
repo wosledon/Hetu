@@ -89,8 +89,8 @@ public class AgentLoopRequest
     /// 为空时走 SSE 会话等待用户回答。
     /// </summary>
     public Func<LlmToolCall, Task<string>>? QuestionHandler { get; set; }
-    /// <summary>逐次工具决策（权限模式 / 项目规则）</summary>
-    public Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? DecideToolCall { get; set; }
+    /// <summary>逐次工具决策（权限模式 / 项目规则）。实时解析当前档位，会话中切换配置立即生效</summary>
+    public Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall { get; set; }
     /// <summary>工作项目作用域：非空时 work_* 工具在该项目目录（或 SSH 远端）内执行</summary>
     public WorkToolScope? WorkScope { get; set; }
     /// <summary>是否启用工具调用（关闭时即使有工具也不执行，直接结束）</summary>

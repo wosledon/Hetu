@@ -137,6 +137,14 @@
         <li><code>autopilot</code>: promotes <code>ask</code> to <code>auto</code> (fewer interruptions) but never promotes <code>plan</code> / <code>readonly</code> — hard limits are not bypassed by unattended runs.</li>
       </ul>
 
+      <h2>Switching modes mid-run</h2>
+      <p>The mode is re-resolved for <strong>every</strong> tool call, so changing the permission mode or the run mode while a turn is still executing takes effect immediately — later tool calls in that same turn are decided by the new setting. A pending approval window is resolved on the spot as well:</p>
+      <ul>
+        <li>Switching to <code>auto</code> / <code>bypass</code> / <code>autopilot</code> approves it (the user already asked for no confirmations, so the tool just runs).</li>
+        <li>Switching to <code>plan</code> / <code>readonly</code> rejects it — hard limits are honoured right away.</li>
+      </ul>
+      <p>Chat topics have no server-side session row, so the chat page pushes the new mode to the running loop (<code>POST /api/chat-messages/topic/{id}/permission-mode</code>); code sessions read the persisted session row directly.</p>
+
       <h2>Differences across the three entry points</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Entry</th><th>Permission source</th></tr></thead>

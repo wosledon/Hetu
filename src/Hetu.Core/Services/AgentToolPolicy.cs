@@ -11,6 +11,12 @@ namespace Hetu.Core.Services;
 public sealed class AgentPolicyContext
 {
     public WorkPermissionMode Mode { get; init; } = WorkPermissionMode.Ask;
+    /// <summary>
+    /// 实时解析当前生效的权限模式：每次工具决策时调用一次，
+    /// 让会话进行中切换的档位（审批模式 / 交互模式）立即生效，不用等下一轮消息；
+    /// 为空时用 <see cref="Mode"/>（回合开始时的快照）。
+    /// </summary>
+    public Func<Task<WorkPermissionMode>>? ResolveMode { get; init; }
     public IReadOnlyList<WorkApprovalRule>? Rules { get; init; }
 }
 
@@ -32,16 +38,17 @@ public static class AgentToolPolicy
     /// 模式未强制要求时，是否沿用工具自身声明的 <see cref="IToolExecutor.DefaultApproval"/>
     /// （对话页行为：只读工具静默、写工具自动、命令类工具需确认）。
     /// </param>
-    public static Func<LlmToolCall, ToolApprovalMode, WorkToolDecision> CreateDecider(
+    public static Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>> CreateDecider(
         ToolRegistry registry,
         AgentPolicyContext context,
         bool respectExecutorDefault = false)
     {
-        return (toolCall, _) =>
+        return async (toolCall, _) =>
         {
             var executor = registry.GetExecutor(toolCall.Name);
             var targetPath = WorkToolPolicy.ExtractTargetPath(toolCall.Name, toolCall.Arguments);
-            var decision = WorkToolPolicy.Decide(executor, toolCall.Name, targetPath, context.Mode, context.Rules);
+            var mode = context.ResolveMode != null ? await context.ResolveMode() : context.Mode;
+            var decision = WorkToolPolicy.Decide(executor, toolCall.Name, targetPath, mode, context.Rules);
 
             if (respectExecutorDefault && decision is { Allowed: true } allowed
                 && allowed.Mode == ToolApprovalMode.Auto && executor != null)

@@ -372,6 +372,18 @@ public class WorkStreamController : ControllerBase
         var sink = new SseAgentSink(writer, this, sessionId);
         var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options);
 
+        // 权限模式实时生效：会话进行中切换审批档位 / 交互模式时，后续工具调用按新档位裁决，
+        // 不再沿用回合开始时的快照（否则用户切到「无需确认」后仍会逐个弹审批）
+        async Task<WorkPermissionMode> ResolveLiveModeAsync()
+        {
+            var current = await _unitOfWork.WorkSessions.SelectAsync(
+                s => s.Id == sessionId, s => new { s.PermissionMode, s.AgentMode }, ct);
+            var row = current.Count > 0 ? current[0] : null;
+            return row == null
+                ? permissionMode
+                : AgentModePolicy.Apply(row.AgentMode, WorkToolPolicy.Parse(row.PermissionMode));
+        }
+
         var loopResult = await _agentLoop.RunAsync(new AgentLoopRequest
         {
             ModelId = modelId,
@@ -392,7 +404,7 @@ public class WorkStreamController : ControllerBase
             DecideToolCall = request.EnableTools
                 ? AgentToolPolicy.CreateDecider(
                     _toolRegistry,
-                    new AgentPolicyContext { Mode = permissionMode, Rules = approvalRules })
+                    new AgentPolicyContext { Mode = permissionMode, Rules = approvalRules, ResolveMode = ResolveLiveModeAsync })
                 : null,
             WorkScope = new WorkToolScope
             {

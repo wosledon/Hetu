@@ -129,6 +129,9 @@ export const chatMessageService = {
   /** 提交工具调用的审批结果 */
   submitApproval: (sessionId: string | undefined, toolCallId: string, approve: boolean) =>
     post<void>('/chat-messages/approve', { sessionId, toolCallId, approve }),
+  /** 流式执行期间切换审批档位：对正在跑的这轮立即生效 */
+  setPermissionMode: (topicId: string, mode: string) =>
+    post<void>(`/chat-messages/topic/${topicId}/permission-mode`, { mode }),
   /** 提交计划工具的用户决策（批准 / 驳回，可附修改意见） */
   submitPlanDecision: (sessionId: string | undefined, toolCallId: string, approved: boolean, feedback: string) =>
     post<void>('/chat-messages/plan', { sessionId, toolCallId, approved, feedback }),

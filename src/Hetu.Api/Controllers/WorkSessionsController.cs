@@ -1,5 +1,6 @@
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Context;
 using Hetu.Shared.Work;
@@ -15,6 +16,7 @@ public class WorkSessionsController : ControllerBase
     private readonly IWorkCheckpointService _checkpointService;
     private readonly ContextCompactionService _contextCompaction;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ToolExecutionService _toolExecution;
     private readonly ILocalizer _localizer;
 
     public WorkSessionsController(
@@ -22,12 +24,14 @@ public class WorkSessionsController : ControllerBase
         IWorkCheckpointService checkpointService,
         ContextCompactionService contextCompaction,
         IUnitOfWork unitOfWork,
+        ToolExecutionService toolExecution,
         ILocalizer localizer)
     {
         _sessionService = sessionService;
         _checkpointService = checkpointService;
         _contextCompaction = contextCompaction;
         _unitOfWork = unitOfWork;
+        _toolExecution = toolExecution;
         _localizer = localizer;
     }
 
@@ -40,8 +44,19 @@ public class WorkSessionsController : ControllerBase
         => _sessionService.CreateAsync(request, cancellationToken);
 
     [HttpPut("{id:guid}")]
-    public Task<ApiResponse<WorkSessionDto>> Update(Guid id, [FromBody] UpdateWorkSessionRequest request, CancellationToken cancellationToken)
-        => _sessionService.UpdateAsync(id, request, cancellationToken);
+    public async Task<ApiResponse<WorkSessionDto>> Update(Guid id, [FromBody] UpdateWorkSessionRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sessionService.UpdateAsync(id, request, cancellationToken);
+        // 会话进行中切换档位：立即裁决该会话仍在等待的审批——切到「无需确认」按批准（不再弹窗），
+        // 切到计划 / 只读按拒绝（写操作不再放行）
+        if (result is { Success: true, Data: not null })
+        {
+            var mode = AgentModePolicy.Apply(result.Data.AgentMode, WorkToolPolicy.Parse(result.Data.PermissionMode));
+            if (mode != WorkPermissionMode.Ask)
+                _toolExecution.ResolvePendingApprovals(id.ToString(), mode is WorkPermissionMode.Auto or WorkPermissionMode.Bypass);
+        }
+        return result;
+    }
 
     [HttpDelete("{id:guid}")]
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)

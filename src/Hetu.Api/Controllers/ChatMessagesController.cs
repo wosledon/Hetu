@@ -40,6 +40,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ILogger<ChatMessagesController> _logger;
     private readonly ILocalizer _localizer;
     private readonly AgentSteeringHub _steering;
+    private readonly AgentPermissionModeHub _permissionModes;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
@@ -58,7 +59,8 @@ public class ChatMessagesController : ControllerBase
         ContextCompactionService contextCompaction,
         ILogger<ChatMessagesController> logger,
         ILocalizer localizer,
-        AgentSteeringHub steering)
+        AgentSteeringHub steering,
+        AgentPermissionModeHub permissionModes)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
@@ -77,6 +79,7 @@ public class ChatMessagesController : ControllerBase
         _logger = logger;
         _steering = steering;
         _localizer = localizer;
+        _permissionModes = permissionModes;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -167,6 +170,22 @@ public class ChatMessagesController : ControllerBase
         return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = injected });
     }
 
+    /// <summary>
+    /// 流式执行期间切换审批档位：立即对正在跑的这轮生效（后续工具调用按新档位裁决），
+    /// 档位已是「不再询问」时把仍在等待的审批按批准处理。
+    /// </summary>
+    [HttpPost("topic/{topicId:guid}/permission-mode")]
+    public ApiResponse SetPermissionMode(Guid topicId, [FromBody] SetPermissionModeRequest request)
+    {
+        if (!WorkToolPolicy.IsValidValue(request?.Mode))
+            return ApiResponse.Fail(_localizer.T("workSession.invalidPermissionMode"));
+
+        var mode = WorkToolPolicy.Parse(request!.Mode);
+        if (_permissionModes.TrySet($"chat:{topicId}", mode) && mode != WorkPermissionMode.Ask)
+            _toolExecution.ResolvePendingApprovals(topicId.ToString(), mode is WorkPermissionMode.Auto or WorkPermissionMode.Bypass);
+        return ApiResponse.Ok();
+    }
+
     [HttpPost("topic/{topicId:guid}/stream")]
     public async Task Stream(Guid topicId, [FromBody] SendMessageRequest request, CancellationToken ct = default)
     {
@@ -176,6 +195,9 @@ public class ChatMessagesController : ControllerBase
         // 运行中引导：本轮执行期间允许用户插话，由 Agent 循环在迭代边界注入
         var steeringKey = $"chat:{topicId}";
         using var steeringRegistration = _steering.Register(steeringKey);
+        // 实时权限模式：本轮执行期间切换审批档位时逐次读取，不用等下一轮消息才生效
+        var permissionMode = WorkToolPolicy.Parse(request.PermissionMode);
+        using var permissionModeRegistration = _permissionModes.Register(steeringKey, permissionMode);
 
         Log.Debug("[Stream] content={Content}, enableTools={EnableTools}",
             request.Content?.Length > 50 ? request.Content[..50] + "..." : request.Content, request.EnableTools);
@@ -260,11 +282,16 @@ public class ChatMessagesController : ControllerBase
             // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
             CoreToolNames = BuiltinProfiles.KnowledgeCoreTools,
             // 权限模式与编码会话共用五档语义（plan/readonly/ask/auto/bypass），
-            // 由统一策略按工具风险等级折算；未指定时回落到 ask（写操作需确认）
+            // 由统一策略按工具风险等级折算；未指定时回落到 ask（写操作需确认）。
+            // 会话进行中切换档位时按实时值裁决，切到「无需确认」后不再逐个弹审批
             DecideToolCall = useToolCalling
                 ? AgentToolPolicy.CreateDecider(
                     _toolRegistry,
-                    new AgentPolicyContext { Mode = WorkToolPolicy.Parse(request.PermissionMode) })
+                    new AgentPolicyContext
+                    {
+                        Mode = permissionMode,
+                        ResolveMode = () => Task.FromResult(_permissionModes.Get(steeringKey) ?? permissionMode),
+                    })
                 : null,
             Hooks = new ChatEstimateHooks(chatMessages, options, v => estimatedInput = v, v => estimatedCompressed = v),
         }, ct);

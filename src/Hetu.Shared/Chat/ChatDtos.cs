@@ -150,6 +150,12 @@ public class SendMessageRequest
     public bool EnableTools { get; set; }
 }
 
+/// <summary>流式执行期间切换审批档位：plan / readonly / ask / auto / bypass</summary>
+public class SetPermissionModeRequest
+{
+    public string? Mode { get; set; }
+}
+
 /// <summary>@ 引用：type 取值 note | notebook | tag | knowledge</summary>
 public class ChatMentionRef
 {
