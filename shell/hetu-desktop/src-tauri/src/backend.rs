@@ -270,6 +270,11 @@ fn resolve_data_dir(app: &AppHandle) -> Result<PathBuf> {
         .map_err(|e| anyhow!(e.to_string()))
 }
 
+/// 公开的数据目录：启动屏主题这类壳级文件与数据库放在同一目录，迁移时一起带走。
+pub fn data_dir(app: &AppHandle) -> Result<PathBuf> {
+    resolve_data_dir(app)
+}
+
 /// 轮询 `/api/health`，直到返回 200 或超时。
 async fn wait_until_ready(port: u16) -> Result<()> {
     let url = format!("http://127.0.0.1:{port}/api/health");
