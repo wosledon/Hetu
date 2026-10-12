@@ -1032,7 +1032,7 @@ export default function MemoriesPage() {
               <button
                 onClick={() => setView('sky')}
                 title={t('memories.backToSky')}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600"
               >
                 <Sparkles size={14} />{t('memories.starMap')}
               </button>
@@ -1123,7 +1123,7 @@ export default function MemoriesPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('memories.searchPlaceholder')}
-                  className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-teal-950/40"
+                  className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-teal-950/40"
                 />
               </div>
               {view === 'list' && (
@@ -1136,7 +1136,7 @@ export default function MemoriesPage() {
                       { value: 'strength', label: t('memories.sortStrength') },
                       { value: 'created', label: t('memories.sortCreated') },
                     ]}
-                    triggerClassName="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-600 outline-none focus:border-teal-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                    triggerClassName="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white glass px-3 py-2 text-[13px] text-gray-600 outline-none focus:border-teal-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                   />
                 </div>
               )}

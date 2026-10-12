@@ -60,7 +60,7 @@ export default function AboutSection({ appName }: { appName: string }) {
         <div className="min-w-0">
           <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 dark:text-gray-100">
             {appName}
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+            <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
               {version ? `v${version}` : '…'}
             </span>
           </h2>

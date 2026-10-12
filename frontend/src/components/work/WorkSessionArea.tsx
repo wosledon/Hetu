@@ -721,7 +721,7 @@ export default function WorkSessionArea({
             {onTogglePanel && (
               <button
                 onClick={onTogglePanel}
-                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
               >
                 <PanelRightOpen size={13} />
                 {panelOpen ? t('session.collapsePanel') : t('session.openPanel')}
@@ -1208,7 +1208,7 @@ export default function WorkSessionArea({
         <button
           key={prompt}
           onClick={() => sendPreset(prompt)}
-          className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+          className="rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
         >
           {prompt}
         </button>
@@ -1300,7 +1300,7 @@ export default function WorkSessionArea({
           {olderCount > 0 && (
             <button
               onClick={() => setShowOlder(true)}
-              className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]"
             >
               <ChevronDown size={11} />{t('session.expandOlder', { count: olderCount })}
             </button>
@@ -1416,7 +1416,7 @@ export default function WorkSessionArea({
                 <button
                   key={prompt}
                   onClick={() => sendPreset(prompt)}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
+                  className="rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
                 >
                   {prompt}
                 </button>
@@ -1902,7 +1902,7 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
   if (message.type === 'system') {
     return (
       <div className="flex justify-center">
-        <p className="rounded-full bg-gray-100 px-3 py-1 text-[11px] text-gray-400 dark:bg-gray-800/70 dark:text-gray-500">{message.content}</p>
+        <p className="rounded-full bg-gray-100 glass px-3 py-1 text-[11px] text-gray-400 dark:bg-gray-800/70 dark:text-gray-500">{message.content}</p>
       </div>
     )
   }

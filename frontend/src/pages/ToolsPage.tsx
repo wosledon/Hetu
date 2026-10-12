@@ -60,14 +60,14 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
           <p className="mt-1.5 text-xs leading-relaxed text-gray-600 dark:text-gray-300">{tool.description}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{renderToolGroup(tool.group)}</span>
+            <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">{renderToolGroup(tool.group)}</span>
             {tool.profiles.map((p) => {
               const meta = PROFILE_META[p]
               const cls = meta?.cls ?? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
               return <span key={p} className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{meta ? t(meta.labelKey) : p}</span>
             })}
             {tool.profiles.length === 0 && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-gray-800">{t('toolsPage.noProfiles')}</span>
+              <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[10px] text-gray-400 dark:bg-gray-800">{t('toolsPage.noProfiles')}</span>
             )}
           </div>
 
@@ -157,14 +157,14 @@ export default function ToolsPage() {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder={t('toolsPage.searchPlaceholder')}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
+              className="w-full rounded-lg border border-gray-200 bg-white glass py-2 pl-9 pr-3 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => { setGroup(''); setProfile('') }}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
             >
               {t('common:all')} {tools.length}
             </button>
@@ -172,7 +172,7 @@ export default function ToolsPage() {
               <button
                 key={p}
                 onClick={() => { setProfile(profile === p ? '' : p); setGroup('') }}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
               >
                 {PROFILE_META[p] ? t(PROFILE_META[p].labelKey) : p}
               </button>
@@ -184,7 +184,7 @@ export default function ToolsPage() {
               <button
                 key={g}
                 onClick={() => { setGroup(group === g ? '' : g); setProfile('') }}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'}`}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 glass text-gray-500 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]'}`}
               >
                 {renderToolGroup(g)} {tools.filter((t) => t.group === g).length}
               </button>

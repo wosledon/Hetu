@@ -220,7 +220,7 @@ function BackgroundTasksView({
           {stats && stats.completed > 0 && (
             <button
               onClick={onClearCompleted}
-              className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               <Trash2 size={12} /> {t('tasks.clearCompleted')}
             </button>
@@ -228,7 +228,7 @@ function BackgroundTasksView({
           <button
             onClick={onRefresh}
             title={t('common:refresh')}
-            className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+            className="rounded-full border border-gray-200 bg-white glass p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
           </button>
@@ -357,7 +357,7 @@ function ScheduledTasksView() {
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
             title={t('common:refresh')}
-            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             <RefreshCw size={13} />
             {t('common:refresh')}
@@ -931,7 +931,7 @@ function ScheduledTaskEditor({
                 form.isEnabled ? 'bg-sky-500' : 'bg-gray-300 glass dark:bg-gray-600'
               }`}
             >
-              <span className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ${form.isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+              <span className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-4 w-4 transform rounded-full bg-white glass shadow ring-0 transition-transform duration-200 ${form.isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
           </label>
 

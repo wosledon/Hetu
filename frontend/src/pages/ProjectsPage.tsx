@@ -246,7 +246,7 @@ export default function ProjectsPage() {
               </div>
               <button
                 onClick={() => setGroupManagerOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
               >
                 <Settings2 size={14} />
                 {t('page.manageGroups')}
@@ -376,7 +376,7 @@ export default function ProjectsPage() {
                               </span>
                             )}
                             {project.tags.map((tag) => (
-                              <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                              <span key={tag} className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                                 {tag}
                               </span>
                             ))}

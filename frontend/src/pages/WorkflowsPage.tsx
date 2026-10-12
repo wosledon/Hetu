@@ -203,7 +203,7 @@ export default function WorkflowsPage() {
                         onClick={(e) => { e.stopPropagation(); toggleMut.mutate(wf) }}
                         disabled={toggleMut.isPending}
                         title={wf.isEnabled ? t('page.clickToDisable') : t('page.clickToEnable')}
-                        className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-white/[0.06] dark:hover:bg-white/10'}`}
+                        className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-gray-100 glass text-gray-400 hover:bg-blue-50/70 dark:bg-white/[0.06] dark:hover:bg-white/10'}`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${wf.isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
                         {wf.isEnabled ? t('common:enable') : t('common:disable')}

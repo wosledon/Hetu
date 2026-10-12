@@ -407,14 +407,14 @@ export default function KnowledgeBasePage() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Upload size={13} />
                       {t('kb.uploadFile')}
                     </button>
                     <button
                       onClick={() => setShowAddUrl(true)}
-                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <Plus size={13} />
                       {t('kb.addUrl')}
@@ -521,14 +521,14 @@ export default function KnowledgeBasePage() {
                           )}
 
                           {item.embeddingModel && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
                               <Brain size={10} />
                               {item.embeddingModel}
                             </span>
                           )}
 
                           {item.embeddingDimensions > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
                               <Hash size={10} />
                               {item.embeddingDimensions}d
                             </span>
@@ -594,7 +594,7 @@ export default function KnowledgeBasePage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         placeholder={t('kb.searchPlaceholder')}
-                        className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-11 pr-4 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
+                        className="w-full rounded-full border border-gray-200 bg-white glass py-2.5 pl-11 pr-4 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
                       />
                     </div>
                     <div className="relative">
@@ -785,7 +785,7 @@ function ChunkDetailModal({
                             <CheckCircle2 size={8} />
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                             <AlertCircle size={8} />
                           </span>
                         )}

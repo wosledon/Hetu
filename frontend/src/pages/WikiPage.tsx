@@ -458,7 +458,7 @@ export default function WikiPage() {
                   onClick={() => exportMutation.mutate(selectedSet.setId)}
                   disabled={exportMutation.isPending}
                   title={t('wiki.exportTitle')}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   {exportMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                   {t('common:export')}
@@ -470,7 +470,7 @@ export default function WikiPage() {
                 <button
                   onClick={() => setModelPickerOpen((v) => !v)}
                   title={t('wiki.modelPickerTitle')}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
                 >
                   <Cpu size={14} />
                   <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>

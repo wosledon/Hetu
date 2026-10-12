@@ -184,7 +184,7 @@ export default function AppsPage() {
                 <button
                   key={p.url}
                   onClick={() => applyPreset(p)}
-                  className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                  className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                 >
                   + {p.name}
                 </button>
@@ -235,7 +235,7 @@ export default function AppsPage() {
                   <button
                     key={p.url}
                     onClick={() => applyPreset(p)}
-                    className="rounded-full border border-gray-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                    className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                   >
                     + {p.name}
                   </button>
@@ -286,7 +286,7 @@ export default function AppsPage() {
                         <button
                           key={p.url}
                           onClick={() => setForm({ name: p.name, url: p.url })}
-                          className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] text-gray-600 transition-colors hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                          className="rounded-full border border-gray-200 bg-white glass px-2.5 py-1 text-[11px] text-gray-600 transition-colors hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                         >
                           {p.name}
                         </button>

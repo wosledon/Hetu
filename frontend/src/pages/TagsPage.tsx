@@ -185,7 +185,7 @@ export default function TagsPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('tags.searchPlaceholder')}
-                  className="w-full rounded-full border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-blue-950/40"
+                  className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-blue-950/40"
                 />
               </div>
               <button
@@ -391,7 +391,7 @@ function TagChip({
     <div
       onContextMenu={onContextMenu}
       title={`${tag.name} · ${used ? t('tags.chipNotes', { n: noteCount }) : t('tags.chipNoNotes')}`}
-      className={`group inline-flex items-center gap-2 rounded-full border py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group inline-flex items-center gap-2 rounded-full border glass py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
         used
           ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30'
           : 'border-dashed border-gray-300 bg-gray-50/80 dark:border-gray-700 dark:bg-white/[0.02]'
