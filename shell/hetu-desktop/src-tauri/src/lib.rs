@@ -63,9 +63,12 @@ fn open_data_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
 /// 必须由壳侧调 opener 插件交给系统浏览器。
 #[tauri::command]
 fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), String> {
-    tauri_plugin_opener::OpenerExt::opener(&app)
-        .open_url(url, None::<String>)
-        .map_err(|e| e.to_string())
+    tracing::info!(target: "hetu::shell", "open external url: {url}");
+    let result = tauri_plugin_opener::OpenerExt::opener(&app).open_url(url.clone(), None::<String>);
+    if let Err(err) = &result {
+        tracing::error!(target: "hetu::shell", "open external failed: {err}");
+    }
+    result.map_err(|e| e.to_string())
 }
 
 /* ───────── 启动屏主题 ─────────
@@ -118,6 +121,7 @@ fn set_ui_theme(app: AppHandle, theme: String) -> Result<(), String> {
     }
     std::fs::write(&path, &theme).map_err(|e| e.to_string())?;
     apply_window_theme(&app, &theme);
+    tracing::info!(target: "hetu::shell", "ui theme saved: {theme}");
     Ok(())
 }
 
