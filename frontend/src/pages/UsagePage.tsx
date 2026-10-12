@@ -17,6 +17,7 @@ import {
   Bot,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import { usageService, type IUsageLog } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
 import { useIsDark } from '../hooks/useIsDark'
@@ -202,21 +203,22 @@ const bySource = stats?.bySource ?? []
                 </div>
               )}
               {/* 指标切换 */}
-              <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              <SlidingPill value={metric} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                 {(['tokens', 'messages', 'logs'] as Metric[]).map((m) => (
                   <button
                     key={m}
                     onClick={() => setMetric(m)}
-                    className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+                    data-pill-key={m}
+                    className={`relative rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                       metric === m
-                        ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                        ? 'text-gray-800 dark:text-gray-100'
                         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                   >
                     {m === 'tokens' ? t('metrics.tokens') : m === 'messages' ? t('metrics.messages') : t('usage.logs')}
                   </button>
                 ))}
-              </div>
+              </SlidingPill>
             </div>
 
             {isLoading ? (
@@ -256,7 +258,7 @@ const bySource = stats?.bySource ?? []
                             <CalendarClock size={15} className="text-blue-500" />
                             {t('usage.trend', { range: rangeLabel })}
                           </h3>
-                          <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                          <SlidingPill value={trendRange} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                             {([
                               { key: '7d' as const, labelKey: 'usage.days7' },
                               { key: '30d' as const, labelKey: 'usage.days30' },
@@ -265,16 +267,17 @@ const bySource = stats?.bySource ?? []
                               <button
                                 key={r.key}
                                 onClick={() => setTrendRange(r.key)}
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
+                                data-pill-key={r.key}
+                                className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
                                   trendRange === r.key
-                                    ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                                    ? 'text-gray-800 dark:text-gray-100'
                                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                                 }`}
                               >
                                 {t(r.labelKey)}
                               </button>
                             ))}
-                          </div>
+                          </SlidingPill>
                         </div>
                         <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 260, width: '100%' }} notMerge />
                       </div>
@@ -333,12 +336,13 @@ const bySource = stats?.bySource ?? []
                           <Calendar size={15} className="text-emerald-500" />
                           {t('usage.activity')}
                         </h3>
-                        <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+                        <SlidingPill value={heatTab} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                           <button
                             onClick={() => setHeatTab('week')}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                            data-pill-key="week"
+                            className={`relative rounded-full px-3 py-1 text-xs font-medium transition-all ${
                               heatTab === 'week'
-                                ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                                ? 'text-gray-800 dark:text-gray-100'
                                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                             }`}
                           >
@@ -346,15 +350,16 @@ const bySource = stats?.bySource ?? []
                           </button>
                           <button
                             onClick={() => setHeatTab('year')}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                            data-pill-key="year"
+                            className={`relative rounded-full px-3 py-1 text-xs font-medium transition-all ${
                               heatTab === 'year'
-                                ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                                ? 'text-gray-800 dark:text-gray-100'
                                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                             }`}
                           >
                             {t('usage.heatYear')}
                           </button>
-                        </div>
+                        </SlidingPill>
                       </div>
                       {heatTab === 'week' ? (
                         <WeekHourHeatmap data={stats.weekHourly} metric={metric} />

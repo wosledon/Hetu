@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
@@ -178,12 +179,13 @@ export default function InboxPage() {
 
             {/* 归档切换 + 分类筛选 */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+              <SlidingPill value={archived ? 'archived' : 'inbox'} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
                 <button
                   onClick={() => { setArchived(false); setSelected([]) }}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
+                  data-pill-key="inbox"
+                  className={`relative rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
                     !archived
-                      ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                      ? 'text-gray-800 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -191,15 +193,16 @@ export default function InboxPage() {
                 </button>
                 <button
                   onClick={() => { setArchived(true); setCategory(null); setSelected([]) }}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
+                  data-pill-key="archived"
+                  className={`relative rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
                     archived
-                      ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                      ? 'text-gray-800 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
                   {t('inbox.tabArchived')}
                 </button>
-              </div>
+              </SlidingPill>
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <button

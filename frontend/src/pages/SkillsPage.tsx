@@ -19,6 +19,7 @@ import {
 import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import FolderPickerDialog from '../components/FolderPickerDialog'
+import SlidingPill from '../components/SlidingPill'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
@@ -228,7 +229,7 @@ export default function SkillsPage() {
         </div>
 
         {/* 选项卡 */}
-        <div className="mb-4 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+        <SlidingPill value={tab} className="mb-4 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06]">
           {([
             { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Zap },
             { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
@@ -238,9 +239,10 @@ export default function SkillsPage() {
               <button
                 key={item.key}
                 onClick={() => { setTab(item.key); setActiveCategory(null); if (item.key === 'local') refetchLocal() }}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
+                data-pill-key={item.key}
+                className={`relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
                   tab === item.key
-                    ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                    ? 'text-gray-800 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
@@ -249,7 +251,7 @@ export default function SkillsPage() {
               </button>
             )
           })}
-        </div>
+        </SlidingPill>
 
         {/* 工具栏：分类筛选 + 搜索 + 操作 */}
         <div className="mb-6 flex flex-wrap items-center gap-3">

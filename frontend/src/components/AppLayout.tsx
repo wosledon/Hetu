@@ -9,7 +9,8 @@ import BrandMark from './BrandMark'
 import GithubEntry from './GithubEntry'
 import VersionEntry from './VersionEntry'
 import UpdatePanel from './UpdatePanel'
-import { segmentButtonClass } from '../utils/styles'
+import SlidingPill from './SlidingPill'
+import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
 
@@ -55,8 +56,8 @@ const secondaryNavItems = [
  */
 const verticalNavItemClass = (isActive: boolean) =>
   isActive
-    ? segmentButtonClass(true)
-    : `${segmentButtonClass(false)} hover:bg-gray-100/80 dark:hover:bg-white/[0.06]`
+    ? segmentTextClass(true)
+    : `${segmentTextClass(false)} hover:bg-gray-100/80 dark:hover:bg-white/[0.06]`
 
 /** 垂直导航的分组底槽：与顶部横栏装胶囊的容器同一套背景与圆角 */
 const railTrackClass =
@@ -154,7 +155,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <button
         key={item.path}
         onClick={() => navigate(item.path)}
-        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(isActive)}`}
+        data-pill-key={item.path}
+        className={`relative flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentTextClass(isActive)}`}
       >
         <Icon size={14} />
         {label}
@@ -174,7 +176,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         onClick={() => navigate(item.path)}
         title={label}
         data-rail-item=""
-        className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`}
+        data-pill-key={item.path}
+        className={`relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`}
       >
         <Icon size={18} />
         <span className="max-w-full truncate">{label}</span>
@@ -239,11 +242,11 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <button onClick={() => navigate('/')} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80 dark:bg-white/90" title={appName}>
         <BrandMark size={34} />
       </button>
-      <div className={railTrackClass}>
+      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {fixedNavItems.map(renderVerticalNavButton)}
-      </div>
+      </SlidingPill>
 
-      <div className={railTrackClass}>
+      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {railExpanded
           ? allConfigurableItems.map(renderVerticalNavButton)
           : pinnedItems.map(renderVerticalNavButton)}
@@ -262,29 +265,30 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             {t('nav:more')}
           </button>
         )}
-      </div>
+      </SlidingPill>
 
-      <div className={railTrackClass}>
+      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {secondaryNavItems.map(renderVerticalNavButton)}
-      </div>
+      </SlidingPill>
 
       <div className="flex-1" data-rail-spacer="" />
 
-      <div className={railTrackClass}>
+      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         <GithubEntry variant="rail" />
 
         <button
           onClick={() => navigate('/settings')}
           title={t('nav:settings')}
           data-rail-item=""
-          className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`}
+          data-pill-key="/settings"
+          className={`relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`}
         >
           <Settings size={18} />
           {t('nav:settings')}
         </button>
 
         <VersionEntry variant="rail" />
-      </div>
+      </SlidingPill>
     </nav>
   )
 
@@ -301,7 +305,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -330,12 +334,12 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                 <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />              </button>
             </div>
           )}
-          </div>
+          </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <div className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]">
+          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
             {secondaryNavItems.map(renderNavButton)}
-          </div>
+          </SlidingPill>
         </div>
         <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />

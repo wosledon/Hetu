@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import Select from '../components/Select'
 import MultiSelect from '../components/MultiSelect'
@@ -778,7 +779,7 @@ export default function AgentsPage() {
                     <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                     <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                     {isGeneralSection ? (
-                      <div className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
+                      <SlidingPill value={generalSource} className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]">
                         {([
                           { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Bot },
                           { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
@@ -787,10 +788,11 @@ export default function AgentsPage() {
                           return (
                             <button
                               key={tabItem.key}
+                              data-pill-key={tabItem.key}
                               onClick={() => { setGeneralSource(tabItem.key); setActiveCategory(null); if (tabItem.key === 'local') refetchLocal() }}
-                              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-all ${
+                              className={`relative flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-all ${
                                 generalSource === tabItem.key
-                                  ? 'bg-white text-gray-800 shadow-sm dark:bg-white/10 dark:text-gray-100'
+                                  ? 'text-gray-800 dark:text-gray-100'
                                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                               }`}
                             >
@@ -799,7 +801,7 @@ export default function AgentsPage() {
                             </button>
                           )
                         })}
-                      </div>
+                      </SlidingPill>
                     ) : (
                       <button
                         onClick={openCreateProfessionalForm}

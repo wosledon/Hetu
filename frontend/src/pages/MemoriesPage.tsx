@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Brain, X, Moon, Globe, FolderInput, MessagesSquare, Loader2, Sparkles, List, Crosshair, Activity, Pause } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
+import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { memoryService } from '../services/memoryService'
 import { projectService } from '../services/projectService'
@@ -138,6 +139,7 @@ interface SkyPalette {
   quiet: string
   label: string
   chipOn: string
+  chipOnBg: string
   chipOff: string
   chipBox: string
   inputBox: string
@@ -159,7 +161,8 @@ const NEON: { dark: SkyPalette; light: SkyPalette } = {
     panel: 'bg-[#0c1122]/95',
     quiet: 'text-slate-500',
     label: 'text-slate-300',
-    chipOn: 'bg-white/15 text-slate-100',
+    chipOn: 'text-slate-100',
+    chipOnBg: 'bg-white/15',
     chipOff: 'text-slate-400 hover:text-slate-200',
     chipBox: 'bg-white/[0.07]',
     inputBox: 'border-white/10 bg-white/[0.05] text-slate-200 placeholder:text-slate-500',
@@ -179,7 +182,8 @@ const NEON: { dark: SkyPalette; light: SkyPalette } = {
     panel: 'bg-white/95',
     quiet: 'text-slate-500',
     label: 'text-slate-700',
-    chipOn: 'bg-white text-slate-800 shadow-sm',
+    chipOn: 'text-slate-800',
+    chipOnBg: 'bg-white shadow-sm',
     chipOff: 'text-slate-500 hover:text-slate-800',
     chipBox: 'bg-slate-900/[0.06]',
     inputBox: 'border-slate-200 bg-slate-900/[0.03] text-slate-700 placeholder:text-slate-400',
@@ -210,7 +214,7 @@ function ringFor(stateKey: 'fresh' | 'fading' | 'dying', pal: SkyPalette): strin
 /** 生命周期状态 → 描边色由调色板给出（ringFor），此处不再单列常量 */
 
 /** 夜空底部筛选条的作用域按钮（选中态/待选态分别成串，避免灰字与彩色底同串出现） */
-const SKY_SCOPE_ACTIVE = 'flex items-center gap-1.5 rounded-lg bg-teal-500/90 px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors'
+const SKY_SCOPE_ACTIVE = 'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors'
 const SKY_SCOPE_IDLE = 'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:bg-slate-900/[0.05] hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200'
 
 interface SkyStar {
@@ -904,36 +908,40 @@ export default function MemoriesPage() {
             {/* 右上：视图切换 + Dream 巩固 */}
             <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
-                <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`}>
+                <SlidingPill value={view} className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName={`rounded-md ${pal.chipOnBg}`}>
                   <button
+                    data-pill-key="sky"
                     onClick={() => setView('sky')}
-                    className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOn}`}
+                    className={`relative flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOn}`}
                   >
                     <Sparkles size={12} />{t('memories.starMap')}
                   </button>
                   <button
+                    data-pill-key="list"
                     onClick={() => setView('list')}
-                    className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOff}`}
+                    className={`relative flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOff}`}
                   >
                     <List size={12} />{t('memories.listView')}
                   </button>
-                </div>
-                <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`}>
+                </SlidingPill>
+                <SlidingPill value={animate ? 'drift' : 'static'} className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName="rounded-lg bg-teal-500/90">
                   <button
+                    data-pill-key="drift"
                     onClick={() => setAnimate(true)}
-                    className={animate ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}
+                    className={`relative ${animate ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}`}
                     title={t('memories.driftTitle')}
                   >
                     <Activity size={12} />{t('memories.drift')}
                   </button>
                   <button
+                    data-pill-key="static"
                     onClick={() => setAnimate(false)}
-                    className={animate ? SKY_SCOPE_IDLE : SKY_SCOPE_ACTIVE}
+                    className={`relative ${animate ? SKY_SCOPE_IDLE : SKY_SCOPE_ACTIVE}`}
                     title={t('memories.staticTitle')}
                   >
                     <Pause size={12} />{t('memories.static')}
                   </button>
-                </div>
+                </SlidingPill>
                 <button
                   onClick={() => skyRef.current?.fit()}
                   title={t('memories.fitTitle')}
@@ -962,24 +970,27 @@ export default function MemoriesPage() {
 
             {/* 底部浮动：作用域筛选 + 语义搜索 */}
             <div className={`absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl ${pal.border} ${pal.panel}`}>
-              {([
-                { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
-                { key: 'Global' as const, label: 'memories.scopeGlobal', count: scopeCounts.Global },
-                { key: 'Session' as const, label: 'memories.scopeSession', count: scopeCounts.Session },
-                { key: 'Project' as const, label: 'memories.scopeProject', count: scopeCounts.Project },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
-                  className={scopeFilter === tab.key ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}
-                >
-                  {tab.key !== 'all' && (
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: pal[tab.key] }} />
-                  )}
-                  {t(tab.label)}
-                  <span className="text-[10px] opacity-70">{tab.count}</span>
-                </button>
-              ))}
+              <SlidingPill value={scopeFilter} className="flex items-center gap-1.5" pillClassName="rounded-lg bg-teal-500/90">
+                {([
+                  { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
+                  { key: 'Global' as const, label: 'memories.scopeGlobal', count: scopeCounts.Global },
+                  { key: 'Session' as const, label: 'memories.scopeSession', count: scopeCounts.Session },
+                  { key: 'Project' as const, label: 'memories.scopeProject', count: scopeCounts.Project },
+                ]).map((tab) => (
+                  <button
+                    key={tab.key}
+                    data-pill-key={tab.key}
+                    onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
+                    className={`relative ${scopeFilter === tab.key ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}`}
+                  >
+                    {tab.key !== 'all' && (
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: pal[tab.key] }} />
+                    )}
+                    {t(tab.label)}
+                    <span className="text-[10px] opacity-70">{tab.count}</span>
+                  </button>
+                ))}
+              </SlidingPill>
               <div className="relative mx-1 w-56">
                 <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
