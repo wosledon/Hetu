@@ -49,6 +49,19 @@ const secondaryNavItems = [
   { path: '/inbox', labelKey: 'nav:inbox', icon: Inbox },
 ] as const
 
+/**
+ * 垂直胶囊导航项的选中/未选中样式：与水平导航共用 segmentButtonClass，
+ * 选中态就是同一张白色凸起卡片（不是整块背景色）。
+ */
+const verticalNavItemClass = (isActive: boolean) =>
+  isActive
+    ? segmentButtonClass(true)
+    : `${segmentButtonClass(false)} hover:bg-gray-100/80 dark:hover:bg-white/[0.06]`
+
+/** 垂直导航的分组底槽：与顶部横栏装胶囊的容器同一套背景与圆角 */
+const railTrackClass =
+  'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06]'
+
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
 function NavUnreadBadge() {
   const { data } = useQuery({
@@ -124,9 +137,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       const itemWithGap = (itemEl?.offsetHeight ?? 52) + 2
       const lm = lastMoreItemData ? 1 : 0
       const more = unpinnedItems.length > 0 ? 1 : 0
-      const delta = (allConfigurableItems.length - pinnedItems.length - lm) * itemWithGap
-        - (more ? itemWithGap : 0)
-        - (lm ? 11 : 0)
+      const delta = (allConfigurableItems.length - pinnedItems.length - lm - more) * itemWithGap
       if (el.clientHeight - content >= delta - 1) setRailCompact(false)
     }
     check()
@@ -163,11 +174,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         onClick={() => navigate(item.path)}
         title={label}
         data-rail-item=""
-        className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
-          isActive
-            ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300'
-            : 'text-gray-400 hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
-        }`}
+        className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`}
       >
         <Icon size={18} />
         <span className="max-w-full truncate">{label}</span>
@@ -228,63 +235,56 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const railExpanded = !railCompactActive
 
   const verticalRail = (
-    <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-0.5 overflow-y-auto py-3">
-      <button onClick={() => navigate('/')} className="mb-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80 dark:bg-white/90" title={appName}>
+    <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3">
+      <button onClick={() => navigate('/')} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80 dark:bg-white/90" title={appName}>
         <BrandMark size={34} />
       </button>
-      {fixedNavItems.map(renderVerticalNavButton)}
+      <div className={railTrackClass}>
+        {fixedNavItems.map(renderVerticalNavButton)}
+      </div>
 
-      <div className="my-1 h-px w-6 shrink-0 bg-gray-200 dark:bg-white/10" />
-      {railExpanded
-        ? allConfigurableItems.map(renderVerticalNavButton)
-        : pinnedItems.map(renderVerticalNavButton)}
+      <div className={railTrackClass}>
+        {railExpanded
+          ? allConfigurableItems.map(renderVerticalNavButton)
+          : pinnedItems.map(renderVerticalNavButton)}
 
-      {!railExpanded && lastMoreItemData && (
-        <>
-          <div className="my-1 h-px w-6 shrink-0 bg-gray-200 dark:bg-white/10" />
-          {renderVerticalNavButton(lastMoreItemData)}
-        </>
-      )}
+        {!railExpanded && lastMoreItemData && renderVerticalNavButton(lastMoreItemData)}
 
-      {!railExpanded && unpinnedItems.length > 0 && (
-        <button
-          ref={moreBtnRef}
-          onClick={openMoreMenu}
-          title={t('nav:more')}
-          data-rail-item=""
-          className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
-            moreOpen
-              ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300'
-              : 'text-gray-400 hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
-          }`}
-        >
-          <ChevronDown size={18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-          {t('nav:more')}
-        </button>
-      )}
+        {!railExpanded && unpinnedItems.length > 0 && (
+          <button
+            ref={moreBtnRef}
+            onClick={openMoreMenu}
+            title={t('nav:more')}
+            data-rail-item=""
+            className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(moreOpen)}`}
+          >
+            <ChevronDown size={18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
+            {t('nav:more')}
+          </button>
+        )}
+      </div>
 
-      <div className="my-1 h-px w-6 shrink-0 bg-gray-200 dark:bg-white/10" />
-      {secondaryNavItems.map(renderVerticalNavButton)}
+      <div className={railTrackClass}>
+        {secondaryNavItems.map(renderVerticalNavButton)}
+      </div>
 
       <div className="flex-1" data-rail-spacer="" />
 
-      <GithubEntry variant="rail" />
+      <div className={railTrackClass}>
+        <GithubEntry variant="rail" />
 
-      <button
-        onClick={() => navigate('/settings')}
-        title={t('nav:settings')}
-        data-rail-item=""
-        className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${
-          location.pathname === '/settings'
-            ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300'
-            : 'text-gray-400 hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
-        }`}
-      >
-        <Settings size={18} />
-        {t('nav:settings')}
-      </button>
+        <button
+          onClick={() => navigate('/settings')}
+          title={t('nav:settings')}
+          data-rail-item=""
+          className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`}
+        >
+          <Settings size={18} />
+          {t('nav:settings')}
+        </button>
 
-      <VersionEntry variant="rail" />
+        <VersionEntry variant="rail" />
+      </div>
     </nav>
   )
 

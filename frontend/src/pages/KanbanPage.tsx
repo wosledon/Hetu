@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2,
-  AlertTriangle, Archive, ChevronRight, User, CalendarDays, Loader2, MessageSquare,
+  AlertTriangle, Archive, ChevronLeft, ChevronRight, User, CalendarDays, Loader2, MessageSquare,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
@@ -118,6 +118,50 @@ export default function KanbanPage() {
   const [blockingTask, setBlockingTask] = useState<{ id: string; status: KanbanTaskStatus; beforeTaskId: string | null } | null>(null)
   const [blockReason, setBlockReason] = useState('')
   const [error, setError] = useState('')
+
+  // 看板横向滚动：列宽保持原始宽度，放不下时用「列导航胶囊 + 左右翻页按钮」切换
+  const boardRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+  const [activeColumn, setActiveColumn] = useState<KanbanTaskStatus>('Backlog')
+  useEffect(() => {
+    const el = boardRef.current
+    if (!el) return
+    const update = () => {
+      setCanScrollLeft(el.scrollLeft > 2)
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+      // 当前视图最左侧可见的列 = 导航胶囊里的高亮项
+      const base = el.getBoundingClientRect().left
+      let current: KanbanTaskStatus = 'Backlog'
+      for (const node of el.querySelectorAll<HTMLElement>('[data-column]')) {
+        if (node.getBoundingClientRect().left - base <= 40) current = node.dataset.column as KanbanTaskStatus
+      }
+      setActiveColumn(current)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    el.addEventListener('scroll', update, { passive: true })
+    return () => {
+      observer.disconnect()
+      el.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  /** 翻页：按可视宽度滚动约一屏 */
+  const scrollBoard = (direction: 1 | -1) => {
+    boardRef.current?.scrollBy({ left: direction * (boardRef.current?.clientWidth ?? 0) * 0.85, behavior: 'smooth' })
+  }
+
+  /** 跳到指定列：对齐到可视区左边缘（抵消滚动容器的 px-8 内边距） */
+  const scrollToColumn = (status: KanbanTaskStatus) => {
+    const el = boardRef.current
+    if (!el) return
+    const node = el.querySelector<HTMLElement>(`[data-column="${status}"]`)
+    if (!node) return
+    const left = node.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft - 32
+    el.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+  }
 
   const { data: board, isLoading, isRefetching } = useQuery({
     queryKey: ['kanban-board'],
@@ -341,9 +385,55 @@ export default function KanbanPage() {
             </div>
           )}
 
+          {/* 列导航：一屏放不下所有列时，点胶囊直接跳到对应列，高亮跟随滚动位置 */}
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-8 py-2 dark:border-gray-800">
+            {COLUMNS.map((col) => {
+              const count = board ? columnTasks(board, col.status).length : 0
+              const active = activeColumn === col.status
+              return (
+                <button
+                  key={col.status}
+                  onClick={() => scrollToColumn(col.status)}
+                  title={t('board.scrollToColumn', { column: t(col.labelKey) })}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    active
+                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} />
+                  {t(col.labelKey)}
+                  <span className="tabular-nums opacity-60">{count}</span>
+                </button>
+              )
+            })}
+          </div>
+
           {/* Board */}
-          <div className="flex-1 overflow-x-auto overflow-y-hidden px-8 py-4">
-            <div className="flex h-full min-w-min gap-4">
+          <div className="relative flex-1 min-h-0">
+            {/* 左右切换按钮：只在对应方向还有内容时出现，点一下滚动约一屏 */}
+            {canScrollLeft && (
+              <button
+                onClick={() => scrollBoard(-1)}
+                title={t('board.scrollLeft')}
+                aria-label={t('board.scrollLeft')}
+                className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            )}
+            {canScrollRight && (
+              <button
+                onClick={() => scrollBoard(1)}
+                title={t('board.scrollRight')}
+                aria-label={t('board.scrollRight')}
+                className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                <ChevronRight size={18} />
+              </button>
+            )}
+            <div ref={boardRef} className="h-full overflow-x-auto overflow-y-hidden px-8 py-4">
+              <div className="flex h-full min-w-min gap-4">
               {COLUMNS.map((col) => {
                 const tasks = board ? columnTasks(board, col.status) : []
                 const canDrop = dragTaskId != null && findTask(board, dragTaskId)?.status !== col.status
@@ -351,6 +441,7 @@ export default function KanbanPage() {
                 return (
                   <div
                     key={col.status}
+                    data-column={col.status}
                     onDragOver={(e) => { e.preventDefault(); if (canDrop) setDragOverColumn(col.status) }}
                     onDragLeave={() => setDragOverColumn((c) => (c === col.status ? null : c))}
                     onDrop={() => handleDrop(col.status, null)}
@@ -403,6 +494,7 @@ export default function KanbanPage() {
                   </div>
                 )
               })}
+              </div>
             </div>
           </div>
 
