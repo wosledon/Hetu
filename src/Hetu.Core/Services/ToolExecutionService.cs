@@ -122,6 +122,23 @@ public class ToolExecutionService
     }
 
     /// <summary>
+    /// 权限模式在会话进行中被切换时，裁决该会话仍在等待的审批：
+    /// 切成 auto / bypass（「无需确认」）按批准处理，用户不该再被审批弹窗卡住；
+    /// 切成 plan / readonly（强约束）按拒绝处理，写操作不再放行。
+    /// 返回实际裁决的条数；没有正在运行的循环时为 0。
+    /// </summary>
+    public int ResolvePendingApprovals(string sessionId, bool approved)
+    {
+        if (!_sessions.TryGet(sessionId, out var state)) return 0;
+        var resolved = 0;
+        foreach (var toolCallId in state.Approvals.Keys.ToList())
+        {
+            if (state.Approvals.TryRemove(toolCallId, out var tcs) && tcs.TrySetResult(approved)) resolved++;
+        }
+        return resolved;
+    }
+
+    /// <summary>
     /// Execute a list of tool calls within a session, handling approval, ask_question, and todo.
     /// Returns the tool results so the caller can add them to the LLM chat history.
     /// </summary>
@@ -144,7 +161,7 @@ public class ToolExecutionService
         Func<string, Task> writeEventAsync,
         Func<object, Task> writeJsonAsync,
         CancellationToken cancellationToken,
-        Func<LlmToolCall, ToolApprovalMode, WorkToolDecision>? decideToolCall = null,
+        Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null,
         WorkToolScope? workScope = null,
         Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
@@ -197,7 +214,7 @@ public class ToolExecutionService
             // 策略只做"否决"与"补默认"：显式配置优先，项目规则仍可否决
             if (decideToolCall != null && !isSilentTool)
             {
-                var decision = decideToolCall(toolCall, approval);
+                var decision = await decideToolCall(toolCall, approval);
                 if (!decision.Allowed)
                 {
                     var denyMessage = decision.DenyMessage ?? _localizer.T("toolExec.denied", toolCall.Name);

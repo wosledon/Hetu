@@ -137,6 +137,14 @@
         <li><code>autopilot</code>：把 <code>ask</code> 提升为 <code>auto</code>（少打断），但 <code>plan</code> / <code>readonly</code> <strong>不会</strong>被提升——强约束不被托管执行绕过。</li>
       </ul>
 
+      <h2>会话进行中切换档位</h2>
+      <p>权限模式对<strong>每一次</strong>工具调用实时解析，因此在一轮还没跑完时切换审批模式 / 运行模式会立即生效——同一轮里后续的工具调用按新档位裁决。已经挂起的审批窗口也会当场裁决：</p>
+      <ul>
+        <li>切到 <code>auto</code> / <code>bypass</code> / <code>autopilot</code>：按批准处理（用户已明确选择无需确认，工具直接执行）。</li>
+        <li>切到 <code>plan</code> / <code>readonly</code>：按拒绝处理，强约束立刻生效。</li>
+      </ul>
+      <p>对话话题没有服务端会话行，由对话页把新档位推给正在跑的循环（<code>POST /api/chat-messages/topic/{id}/permission-mode</code>）；编码会话直接读持久化的会话行。</p>
+
       <h2>三条入口的差异</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>入口</th><th>权限来源</th></tr></thead>

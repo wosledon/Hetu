@@ -936,7 +936,9 @@ export default function WorkSessionArea({
         return [...prev, { kind: 'tool', seq: seqRef.current++, ...tc } as StreamItem]
       }),
       onToolResult: (id, result) => setStreamItems((prev) =>
-        prev.map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result } : x)),
+        // 审批模式切成「无需确认」时后端按批准直接执行：结果一到就撤掉审批条目
+        prev.filter((x) => !(x.kind === 'approval' && x.id === id))
+          .map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result } : x)),
       ),
       onFileChange: (fc) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'file' && x.path === fc.path)

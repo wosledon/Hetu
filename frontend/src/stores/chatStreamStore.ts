@@ -276,6 +276,9 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
               next.toolResults = [...cur.toolResults, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean, collapsed: chunk.collapsed as boolean }]
               next.timeline = withToolResult(cur.timeline, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean })
             }
+            // 已开始执行的调用不再停留在审批卡片：权限模式切成「无需确认」时后端会按批准直接执行
+            next.approvalRequests = cur.approvalRequests.filter((r) => r.id !== chunk.id)
+            next.timeline = next.timeline.filter((x) => !(x.kind === 'approval' && x.id === chunk.id))
             break
           case 'approval_request':
             next.approvalRequests = [...cur.approvalRequests, { id: chunk.id as string, name: chunk.name as string, arguments: chunk.arguments as string }]

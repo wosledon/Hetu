@@ -1450,7 +1450,19 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 onContextWindowChange={setContextWindow}
               />
                 <div className="flex items-center gap-1">
-                {toolCalling && <AgentPermissionSelect value={permissionMode} onChange={setPermissionMode} />}
+                {toolCalling && (
+                  <AgentPermissionSelect
+                    value={permissionMode}
+                    onChange={(v) => {
+                      setPermissionMode(v)
+                      // 正在生成时切换档位：同步给后端，让本轮后续工具调用按新档位裁决，
+                      // 切到「无需确认」后不再逐个弹审批
+                      if (isStreaming && topicId) {
+                        void chatMessageService.setPermissionMode(topicId, v).catch(() => {})
+                      }
+                    }}
+                  />
+                )}
                 <button
                   onClick={() => setToolCalling(!toolCalling)}
                   className={`flex h-[26px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
