@@ -29,6 +29,8 @@ jobs:
       # 更新包签名：私钥与口令放在仓库 Secrets（缺失时构建仍可完成，但不会生成 .sig）
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # CI 里增量编译只会撑大缓存、拖慢构建
+      CARGO_INCREMENTAL: 0
 
     steps:
       - name: Checkout
@@ -38,6 +40,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: shell/hetu-desktop/package-lock.json
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -51,6 +55,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: shell/hetu-desktop/src-tauri
+          cache-on-failure: true
+          # fat / slim 共用同一份缓存：两者的 Rust 依赖完全相同，只有打包配置不同
+          shared-key: tauri-${{ runner.os }}
+
+      # Linux：一次性装齐 sqlite-vec 编译与 Tauri 所需依赖，避免反复 apt-get update
+      - name: Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl unzip gettext \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
       # ---------- 后端 sidecar（含前端 SPA，由 csproj Release 目标自动构建） ----------
       - name: Publish backend sidecar (Windows)
@@ -82,8 +97,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y build-essential git curl unzip gettext
           TMP=$(mktemp -d)
           git clone --depth 1 https://github.com/asg017/sqlite-vec.git "$TMP/sqlite-vec"
           cd "$TMP/sqlite-vec"
@@ -96,13 +109,7 @@ jobs:
       # ---------- 桌面前端 & Tauri 打包 ----------
       - name: Install desktop deps
         working-directory: shell/hetu-desktop
-        run: npm ci
-
-      - name: Linux system deps (Tauri)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+        run: npm ci --prefer-offline --no-audit --fund=false
 
       - name: Tauri build
         working-directory: shell/hetu-desktop
