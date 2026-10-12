@@ -295,6 +295,8 @@ export default {
     allSources: '全部来源',
     allModels: '全部模型',
     noLogs: '暂无日志',
+    cached: '缓存命中率',
+    cacheHitHint: '缓存命中率 = 缓存读取 / 实际输入；悬停查看缓存 token 数',
     pageInfo: '第 {{page}} / {{totalPages}} 页',
     totalLogs: '共 {{count}} 条',
     prevPage: '上一页',

@@ -295,6 +295,8 @@ export default {
     allSources: 'All sources',
     allModels: 'All models',
     noLogs: 'No logs',
+    cached: 'Cache hit',
+    cacheHitHint: 'Cache hit = cached / actual input; hover to see cached token count',
     pageInfo: 'Page {{page}} of {{totalPages}}',
     totalLogs: '{{count}} logs',
     prevPage: 'Previous',
