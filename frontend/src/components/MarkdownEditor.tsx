@@ -58,7 +58,7 @@ import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
-import { Button, IconButton, Input, Textarea } from './ui'
+import { Button, Card, IconButton, Input, Textarea } from './ui'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
 const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
@@ -620,7 +620,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
-        <SlidingPill value={viewMode} className="flex items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+        <SlidingPill value={viewMode} className="gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {[
             { key: 'preview', label: t('common:preview'), icon: Eye },
             { key: 'edit', label: t('common:edit'), icon: Edit3 },
@@ -809,7 +809,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           {shareLinks.length > 0 && (
             <div className="max-h-40 space-y-2 overflow-y-auto">
               {shareLinks.map((link: IShareLink) => (
-                <div key={link.id} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white glass p-2 dark:border-gray-700 dark:bg-gray-800">
+                <Card key={link.id} className="flex items-center gap-2 rounded-xl p-2 dark:bg-gray-800">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs text-gray-600 dark:text-gray-400">{link.shareUrl}</div>
                     <div className="mt-0.5 text-[10px] text-gray-400">
@@ -831,7 +831,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       <X size={14} />
                     </IconButton>
                   )}
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -1152,7 +1152,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )}
 
         {showVersions && (
-          <div className="animate-slide-in-right flex w-80 flex-col border-l border-gray-100 bg-white glass dark:border-gray-800/50 dark:bg-gray-900">
+          <Card padded={false} className="animate-slide-in-right flex w-80 flex-col border-l">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
@@ -1225,7 +1225,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 </button>
               </div>
             )}
-          </div>
+          </Card>
         )}
       </div>
     </div>

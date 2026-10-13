@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { NODE_TYPE_META } from './workflowNodeModel'
-import { Button } from '../ui'
+import { Button, Card } from '../ui'
 
 interface NodePaletteProps {
   onAddNode: (type: string) => void
@@ -10,7 +10,7 @@ interface NodePaletteProps {
 export default function NodePalette({ onAddNode }: NodePaletteProps) {
   const { t } = useTranslation('workflows')
   return (
-    <div className="flex w-44 flex-col gap-1 border-r border-gray-200 bg-white glass p-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+    <Card className="flex w-44 flex-col gap-1 border-r p-2 dark:bg-gray-900/50">
       <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{t('palette.nodeTypes')}</div>
       {NODE_TYPE_META.map(({ type, labelKey, icon: Icon }) => (
         <Button variant="secondary" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left text-sm text-gray-700 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-gray-800 dark:text-gray-200 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 dark:hover:text-blue-400" key={type}
@@ -24,6 +24,6 @@ export default function NodePalette({ onAddNode }: NodePaletteProps) {
           <span className="truncate">{t(labelKey)}</span>
         </Button>
       ))}
-    </div>
+    </Card>
   )
 }

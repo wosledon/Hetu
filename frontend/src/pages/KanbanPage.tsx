@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
+import SlidingPill from '../components/SlidingPill'
 import DatePicker from '../components/DatePicker'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
@@ -20,7 +21,7 @@ import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
 } from '../types'
-import { Button, IconButton, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -382,27 +383,33 @@ export default function KanbanPage() {
           )}
 
           {/* 列导航：一屏放不下所有列时，点胶囊直接跳到对应列，高亮跟随滚动位置 */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-8 py-2 dark:border-gray-800">
-            {COLUMNS.map((col) => {
-              const count = board ? columnTasks(board, col.status).length : 0
-              const active = activeColumn === col.status
-              return (
-                <button
-                  key={col.status}
-                  onClick={() => scrollToColumn(col.status)}
-                  title={t('board.scrollToColumn', { column: t(col.labelKey) })}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                    active
-                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200'
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} />
-                  {t(col.labelKey)}
-                  <span className="tabular-nums opacity-60">{count}</span>
-                </button>
-              )
-            })}
+          <div className="flex items-center overflow-x-auto border-b border-gray-100 px-8 py-2 dark:border-gray-800">
+            <SlidingPill
+              value={activeColumn}
+              className="shrink-0"
+            >
+              {COLUMNS.map((col) => {
+                const count = board ? columnTasks(board, col.status).length : 0
+                const active = activeColumn === col.status
+                return (
+                  <button
+                    key={col.status}
+                    data-pill-key={col.status}
+                    onClick={() => scrollToColumn(col.status)}
+                    title={t('board.scrollToColumn', { column: t(col.labelKey) })}
+                    className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? 'text-gray-800 dark:text-gray-100'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} />
+                    {t(col.labelKey)}
+                    <span className="tabular-nums opacity-60">{count}</span>
+                  </button>
+                )
+              })}
+            </SlidingPill>
           </div>
 
           {/* Board */}
@@ -429,16 +436,17 @@ export default function KanbanPage() {
                 const canDrop = dragTaskId != null && findTask(board, dragTaskId)?.status !== col.status
                   && TRANSITIONS[findTask(board, dragTaskId)?.status ?? 'Backlog'].includes(col.status)
                 return (
-                  <div
+                  <Card
                     key={col.status}
+                    padded={false}
                     data-column={col.status}
                     onDragOver={(e) => { e.preventDefault(); if (canDrop) setDragOverColumn(col.status) }}
                     onDragLeave={() => setDragOverColumn((c) => (c === col.status ? null : c))}
                     onDrop={() => handleDrop(col.status, null)}
-                    className={`flex h-full w-72 shrink-0 flex-col rounded-2xl border transition-colors ${
+                    className={`flex h-full w-72 shrink-0 flex-col transition-colors ${
                       dragOverColumn === col.status
-                        ? 'border-indigo-300 bg-indigo-50/60 dark:border-indigo-500/40 dark:bg-indigo-500/5'
-                        : 'border-gray-100 bg-gray-100/60 dark:border-gray-800 dark:bg-white/[0.02]'
+                        ? 'border-indigo-300 ring-2 ring-indigo-300/70 dark:border-indigo-500/40 dark:ring-indigo-500/40'
+                        : ''
                     }`}
                   >
                     {/* Column header */}
@@ -479,7 +487,7 @@ export default function KanbanPage() {
                         <div className="py-8 text-center text-xs text-gray-300 dark:text-gray-600">{t('board.noTasks')}</div>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 )
               })}
               </div>
@@ -709,7 +717,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
   const targets = TRANSITIONS[task.status]
 
   return (
-    <div
+    <Card
       draggable
       onClick={onOpenDetail}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
@@ -722,9 +730,9 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-pointer rounded-xl border bg-white glass p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
+      className={`group cursor-pointer rounded-xl p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
         isDragging ? 'opacity-40' : ''
-      } ${dropAbove ? 'border-indigo-400' : 'border-gray-100 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
+      } ${dropAbove ? 'border-indigo-400' : 'hover:border-white/40 dark:hover:border-white/10'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >
       <div className="flex items-start gap-2">
         <span className="text-sm font-medium leading-snug text-gray-800 dark:text-gray-100">{task.title}</span>
@@ -815,6 +823,6 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           </IconButton>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

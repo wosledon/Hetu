@@ -5,7 +5,7 @@ import { Plus, Trash2, Edit2, Check, X, Wrench, RefreshCw, Loader2 } from 'lucid
 import { mcpService } from '../services/mcpService'
 import Select from './Select'
 import type { IMcpServer, IMcpTool } from '../types'
-import { Button, IconButton, Input, Textarea } from './ui'
+import { Button, Card, IconButton, Input, Textarea } from './ui'
 
 const defaultConfig = JSON.stringify(
   {
@@ -229,12 +229,13 @@ export default function McpServerManager() {
       {/* Server Cards */}
       <div className="space-y-3">
         {servers.map((server) => (
-          <div
+          <Card
             key={server.id}
-            className={`rounded-xl border bg-white glass shadow-sm transition-all dark:bg-white/[0.02] ${
+            padded={false}
+            className={`rounded-xl shadow-sm transition-all dark:bg-white/[0.02] ${
               server.isEnabled
-                ? 'border-gray-200/80 dark:border-white/[0.08]'
-                : 'border-gray-100 opacity-60 dark:border-white/[0.04]'
+                ? ''
+                : 'opacity-60'
             }`}
           >
             <div className="flex items-start justify-between px-5 py-4">
@@ -274,13 +275,13 @@ export default function McpServerManager() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Tools Panel */}
       {selectedServer && (
-        <div className="rounded-xl border border-gray-200/80 bg-white glass p-5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <Card className="rounded-xl p-5 shadow-sm dark:bg-white/[0.02]">
           <div className="mb-4 flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />
@@ -320,7 +321,7 @@ export default function McpServerManager() {
               <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">{toolResult.content}</pre>
             </div>
           )}
-        </div>
+        </Card>
       )}
     </section>
   )

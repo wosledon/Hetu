@@ -14,7 +14,7 @@ import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
-import { Input } from '../components/ui'
+import { Card, Input } from '../components/ui'
 
 /** 合并后的会话页：左栏一级菜单「主对话 / 会话 / 项目」，右侧共用同一套聊天区（Code 会话叠加项目能力） */
 type CodeView = 'chat' | 'code'
@@ -353,7 +353,7 @@ export default function WorkPage() {
       mainContent={
         <div className="flex h-full min-w-0 flex-1">
           {/* 左栏一级菜单：主对话（置顶） / 会话（会话组） / 项目（项目与会话） */}
-          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+          <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
             {/* 一级：主对话 */}
             <div className="shrink-0 p-2">
               <MainChatEntry
@@ -437,7 +437,7 @@ export default function WorkPage() {
                 />
               </div>
             )}
-          </div>
+          </Card>
 
           {view === 'chat' ? (
             activeTopic ? (

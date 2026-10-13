@@ -48,7 +48,7 @@ export default function ProjectsSidebar({
     }`
 
   return (
-    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-transparent bg-white glass glass-soft dark:bg-gray-900">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <button
           onClick={() => onFilterChange(ALL_FILTER)}

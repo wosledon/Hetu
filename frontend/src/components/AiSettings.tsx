@@ -6,7 +6,7 @@ import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Br
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
-import { Button, IconButton, Input, Modal } from './ui'
+import { Button, Card, IconButton, Input, Modal } from './ui'
 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -226,7 +226,7 @@ export default function AiSettings() {
 
       {/* Provider Cards */}
       {providers.map((provider) => (
-        <div key={provider.id} className="rounded-xl border border-gray-200/80 bg-white glass shadow-sm dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <Card key={provider.id} padded={false} className="rounded-xl shadow-sm dark:bg-white/[0.02]">
           {/* Provider Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
             <div className="flex items-center gap-3">
@@ -348,7 +348,7 @@ export default function AiSettings() {
               </div>
             )}
           </div>
-        </div>
+        </Card>
       ))}
 
       {/* Model Form Modal */}

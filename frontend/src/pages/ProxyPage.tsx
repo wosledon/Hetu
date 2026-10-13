@@ -285,7 +285,7 @@ export default function ProxyPage() {
             {/* 选项卡 */}
             <SlidingPill
               value={tab}
-              className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track"
+              className="mb-6"
             >
               {([
                 { key: 'shadow' as const, labelKey: 'proxy.tabShadow', icon: Zap },

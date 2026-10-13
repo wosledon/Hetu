@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { cn } from '../utils/cn'
 
 /** 弹性缓动：切换时轻微过冲（用户明确要求弹性切换） */
 const EASE = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
@@ -146,7 +147,7 @@ export default function SlidingPill({
   }, [measure])
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={cn('relative flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track', className)}>
       {rect && (
         <span
           key={snapKey}
