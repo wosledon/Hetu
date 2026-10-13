@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { workTerminalService, workTerminalUrl } from '../../services/workService'
 import { useIsDark } from '../../hooks/useIsDark'
+import { IconButton } from '../ui'
 
 interface WorkTerminalProps {
   projectId?: string
@@ -159,15 +160,15 @@ export default function WorkTerminal({ projectId, sessionId, commandRequest }: W
         <span className="text-[11px] font-medium">{t('terminal.title')}</span>
         {sessionId && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400">{t('terminal.boundSession')}</span>}
         <div className="ml-auto flex items-center gap-0.5">
-          <button onClick={clearScreen} className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" title={t('terminal.clear')}>
+          <IconButton label={t('terminal.clear')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={clearScreen}  title={t('terminal.clear')}>
             <Eraser size={12} />
-          </button>
-          <button onClick={restart} className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" title={t('terminal.restart')}>
+          </IconButton>
+          <IconButton label={t('terminal.restart')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={restart}  title={t('terminal.restart')}>
             <RotateCcw size={12} />
-          </button>
-          <button onClick={() => { wsRef.current?.close() }} className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" title={t('terminal.disconnect')}>
+          </IconButton>
+          <IconButton label={t('terminal.disconnect')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={() => { wsRef.current?.close() }}  title={t('terminal.disconnect')}>
             <Trash2 size={12} />
-          </button>
+          </IconButton>
           <span className="ml-1 flex items-center gap-1 text-[10px] text-emerald-400">
             <Wifi size={10} />
             PTY

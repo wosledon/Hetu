@@ -6,8 +6,7 @@ import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Br
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
-
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
+import { Button, IconButton, Input, Modal } from './ui'
 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -178,12 +177,9 @@ export default function AiSettings() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('ai.title')}</h2>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle')}</p>
         </div>
-        <button
-          onClick={() => setShowProviderForm(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
-        >
+        <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={() => setShowProviderForm(true)}>
           <Plus size={15} /> {t('ai.addProvider')}
-        </button>
+        </Button>
       </div>
 
       {/* Provider Form */}
@@ -249,33 +245,27 @@ export default function AiSettings() {
               </div>
             </div>
             <div className="flex gap-1.5">
-              <button
-                onClick={() => {
+              <IconButton label={t('ai.addModel')} variant="ghost" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
                   setSelectedProviderId(provider.id)
                   setShowModelForm(true)
                 }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-                title={t('ai.addModel')}
-              >
+                
+                title={t('ai.addModel')}>
                 <Plus size={15} />
-              </button>
-              <button
-                onClick={() => {
+              </IconButton>
+              <IconButton label={t('ai.fetchModels')} variant="ghost" className="p-2 text-gray-400 hover:text-blue-500" onClick={() => {
                   setSelectedProviderId(provider.id)
                   setShowFetchForm(true)
                 }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-400"
-                title={t('ai.fetchModels')}
-              >
+                
+                title={t('ai.fetchModels')}>
                 <Download size={15} />
-              </button>
-              <button
-                onClick={() => deleteProvider.mutate(provider.id)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                title={t('ai.deleteProvider')}
-              >
+              </IconButton>
+              <IconButton label={t('ai.deleteProvider')} variant="danger" className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-500" onClick={() => deleteProvider.mutate(provider.id)}
+                
+                title={t('ai.deleteProvider')}>
                 <Trash2 size={15} />
-              </button>
+              </IconButton>
             </div>
           </div>
 
@@ -331,16 +321,14 @@ export default function AiSettings() {
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
                       </button>
-                      <button
-                        onClick={() => {
+                      <IconButton label={t('ai.editModel')} variant="ghost" className="p-1.5 text-gray-300 hover:text-blue-500" onClick={() => {
                           setEditingModel(model)
                           setShowModelForm(true)
                         }}
-                        className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400"
-                        title={t('ai.editModel')}
-                      >
+                        
+                        title={t('ai.editModel')}>
                         <Pencil size={14} />
-                      </button>
+                      </IconButton>
                       <button
                         onClick={() => toggleModelVisibility.mutate({ id: model.id, isVisible: !model.isVisible })}
                         className={`rounded-md p-1.5 transition-colors ${model.isVisible ? 'text-gray-300 hover:text-gray-500 dark:text-gray-600' : 'text-gray-300 hover:text-blue-400 dark:text-gray-600'}`}
@@ -471,12 +459,12 @@ function ProviderForm({
         {/* 供应商目录：选中后只需填 API Key */}
         <div className="relative">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
+          <Input
             type="text"
             value={catalogQuery}
             onChange={(e) => setCatalogQuery(e.target.value)}
             placeholder={t('ai.catalogProviderPlaceholder')}
-            className={`${inputClass} pl-9`}
+            className="pl-9"
           />
           {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
             <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white glass p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
@@ -503,18 +491,15 @@ function ProviderForm({
             {t('ai.catalogSelected')}
             {!catalogProvider.api && t('ai.catalogNoBaseUrl')}
             {catalogProvider.env && <span className="ml-1">{t('ai.catalogEnv', { env: catalogProvider.env })}</span>}
-            <button
-              type="button"
+            <Button variant="link" tone="blue" className="ml-2 text-blue-500 hover:text-red-500" type="button"
               onClick={() => {
                 setCatalogProvider(null)
                 setImportModels(false)
                 setName('')
                 setBaseUrl('')
-              }}
-              className="ml-2 text-blue-500 hover:underline dark:text-blue-400"
-            >
+              }}>
               {t('ai.clear')}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -526,30 +511,26 @@ function ProviderForm({
             { value: 'anthropic', label: 'Anthropic' },
           ]}
         />
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t('ai.providerNamePlaceholder')}
-          className={inputClass}
         />
-        <input
+        <Input
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder={catalogProvider?.env ?? 'API Key'}
-          className={inputClass}
         />
-        <input
+        <Input
           type="text"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           placeholder={t('ai.baseUrlPlaceholder')}
-          className={inputClass}
         />
         <div className="flex items-center gap-2 pt-1">
-          <button
-            onClick={() => onSubmit({
+          <Button variant="primary" className="px-4 py-2 shadow-blue-500/25 hover:bg-gray-50" onClick={() => onSubmit({
               providerType,
               name,
               apiKey,
@@ -557,17 +538,12 @@ function ProviderForm({
               catalogProviderId: catalogProvider?.id,
               importModels: importModels && !!catalogProvider,
             })}
-            disabled={!name.trim()}
-            className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
-          >
+            disabled={!name.trim()}>
             {catalogProvider && importModels ? t('ai.saveAndImport') : t('common:save')}
-          </button>
-          <button
-            onClick={onCancel}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-          >
+          </Button>
+          <Button variant="link" tone="blue" className="px-4 py-2 text-gray-600" onClick={onCancel}>
             {t('common:cancel')}
-          </button>
+          </Button>
         </div>
         {catalogProvider && (
           <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
@@ -721,11 +697,8 @@ function ModelForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
-      <div
-        className="w-[560px] max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onCancel} size="none" scroll className="w-[560px] border border-gray-200/80 dark:border-white/[0.08]">
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{isEdit ? t('ai.editModel') : t('ai.addModel')}</h3>
@@ -754,12 +727,12 @@ function ModelForm({
               </div>
               <div className="relative">
                 <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Input
                   type="text"
                   value={catalogQuery}
                   onChange={(e) => setCatalogQuery(e.target.value)}
                   placeholder={t('ai.searchModelPlaceholder')}
-                  className={`${inputClass} pl-9`}
+                  className="pl-9"
                 />
               </div>
               {catalogQuery.trim().length === 1 && (
@@ -843,23 +816,22 @@ function ModelForm({
             </div>
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.modelId')}</label>
-              <input
+              <Input
                 type="text"
                 value={modelId}
                 onChange={(e) => setModelId(e.target.value)}
                 placeholder={isChat ? 'gpt-4o, claude-3-opus, ...' : 'text-embedding-3-small, ...'}
                 disabled={isEdit}
-                className={`${inputClass} ${isEdit ? 'opacity-60' : ''}`}
+                className={isEdit ? 'opacity-60' : undefined}
               />
             </div>
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.displayName')}</label>
-              <input
+              <Input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={t('ai.displayNamePlaceholder')}
-                className={inputClass}
               />
             </div>
           </section>
@@ -870,12 +842,11 @@ function ModelForm({
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.chatConfig')}</h4>
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.contextWindow')}</label>
-                <input
+                <Input
                   type="number"
                   value={contextWindow}
                   onChange={(e) => setContextWindow(e.target.value)}
                   placeholder={t('ai.contextWindowPlaceholder')}
-                  className={inputClass}
                 />
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.contextWindowHint')}</p>
               </div>
@@ -911,12 +882,11 @@ function ModelForm({
                     ]}
                   />
                   {customEffort && (
-                    <input
+                    <Input
                       type="text"
                       value={reasoningEffort}
                       onChange={(e) => setReasoningEffort(e.target.value)}
                       placeholder={t('ai.customEffortPlaceholder')}
-                      className={inputClass}
                     />
                   )}
                   {catalogEffortValues.length > 0 && (
@@ -929,12 +899,11 @@ function ModelForm({
               {reasoningMode !== 'none' && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.reasoningBudget')}</label>
-                  <input
+                  <Input
                     type="number"
                     value={reasoningBudgetTokens}
                     onChange={(e) => setReasoningBudgetTokens(e.target.value)}
                     placeholder={t('ai.budgetPlaceholder', { n: catalogBudgetMin ?? 4096 })}
-                    className={inputClass}
                   />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500">
                     {t('ai.budgetHint')}
@@ -983,23 +952,21 @@ function ModelForm({
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('ai.embeddingConfig')}</h4>
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.dimensions')}</label>
-                <input
+                <Input
                   type="number"
                   value={dimensions}
                   onChange={(e) => setDimensions(e.target.value)}
                   placeholder={t('ai.dimensionsPlaceholder')}
-                  className={inputClass}
                 />
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.dimensionsHint')}</p>
               </div>
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.contextWindow')}</label>
-                <input
+                <Input
                   type="number"
                   value={contextWindow}
                   onChange={(e) => setContextWindow(e.target.value)}
                   placeholder={t('common:optional')}
-                  className={inputClass}
                 />
               </div>
             </section>
@@ -1030,22 +997,15 @@ function ModelForm({
 
         {/* Footer */}
         <div className="flex gap-2 border-t border-gray-100 px-6 py-4 dark:border-white/[0.06]">
-          <button
-            onClick={handleSubmit}
-            disabled={!modelId.trim()}
-            className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50"
-          >
+          <Button variant="primary" tone="blue" className="flex-1 py-2.5 shadow-blue-500/25" onClick={handleSubmit}
+            disabled={!modelId.trim()}>
             {isEdit ? t('ai.update') : t('common:add')}
-          </button>
-          <button
-            onClick={onCancel}
-            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-          >
+          </Button>
+          <Button variant="ghost" tone="gray" className="px-5 py-2.5 text-gray-600 hover:bg-gray-50" onClick={onCancel}>
             {t('common:cancel')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 
@@ -1127,11 +1087,8 @@ function FetchModelsForm({
   const selectedModels = catalogResults.filter((m) => selected.has(`${m.providerId}/${m.modelId}`))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onCancel}>
-      <div
-        className="w-[520px] max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onCancel} size="none" scroll className="w-[520px] max-h-[80vh] border border-gray-200/80 p-6 dark:border-white/[0.08]">
+
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('ai.fetchModels')}</h3>
           <button onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
@@ -1150,12 +1107,12 @@ function FetchModelsForm({
             </div>
             <div className="relative">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
+              <Input
                 type="text"
                 value={catalogQuery}
                 onChange={(e) => setCatalogQuery(e.target.value)}
                 placeholder={t('ai.batchSearchPlaceholder')}
-                className={`${inputClass} pl-9`}
+                className="pl-9"
               />
             </div>
             {catalogQuery.trim().length >= 2 && (
@@ -1197,30 +1154,21 @@ function FetchModelsForm({
                   })}
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}
-                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-                  >
+                  <Button variant="secondary" size="sm" className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-600" onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}>
                     {t('common:selectAll')}
-                  </button>
-                  <button
-                    onClick={() => setSelected(new Set())}
-                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-                  >
+                  </Button>
+                  <Button variant="secondary" size="sm" className="px-3 py-1.5 text-gray-600" onClick={() => setSelected(new Set())}>
                     {t('ai.clearSelection')}
-                  </button>
-                  <button
-                    onClick={() => {
+                  </Button>
+                  <Button variant="primary" tone="blue" className="ml-auto px-3 py-1.5" onClick={() => {
                       onAddBatch(selectedModels)
                       setSelected(new Set())
                       setCatalogQuery('')
                       setCatalogResults([])
                     }}
-                    disabled={selectedModels.length === 0}
-                    className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97] disabled:opacity-50"
-                  >
+                    disabled={selectedModels.length === 0}>
                     {t('ai.importSelected', { count: selectedModels.length })}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -1259,26 +1207,19 @@ function FetchModelsForm({
                     <p className="text-xs text-gray-400">{t('ai.contextLabel', { value: m.contextWindow.toLocaleString() })}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => onAdd(m.modelId)}
-                  className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97]"
-                >
+                <Button variant="ghost" tone="gray" className="px-3 py-1.5 hover:bg-gray-50" onClick={() => onAdd(m.modelId)}>
                   {t('common:add')}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
 
         <div className="mt-5 flex justify-end">
-          <button
-            onClick={onCancel}
-            className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-          >
+          <Button variant="secondary" className="px-5 py-2 text-gray-600 hover:bg-gray-100 hover:text-gray-600" onClick={onCancel}>
             {t('common:close')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }

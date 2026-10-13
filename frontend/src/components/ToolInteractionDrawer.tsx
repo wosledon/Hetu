@@ -14,6 +14,7 @@ import { getInteraction, useInteractionStore } from '../stores/interactionStore'
 import type { InteractionTodo } from '../stores/interactionStore'
 import QuestionFlow from './tools/QuestionFlow'
 import PlanFlow from './tools/PlanFlow'
+import { IconButton } from './ui'
 
 type InteractionTab = 'question' | 'plan' | 'todo'
 
@@ -189,14 +190,11 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
             </div>
           )}
 
-          <button
-            type="button"
+          <IconButton label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')} variant="ghost" className="flex-shrink-0 p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" type="button"
             onClick={() => setCollapsed(v => !v)}
-            aria-label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')}
-            className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-          >
+            aria-label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')}>
             {collapsed ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronDown size={14} />}
-          </button>
+          </IconButton>
         </div>
 
         {/* Body */}

@@ -29,6 +29,7 @@ import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
+import { Button, IconButton, Input, Modal } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -931,17 +932,17 @@ export default function GraphPage() {
     <div className="flex flex-1 flex-col bg-transparent">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white glass px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomIn')}><ZoomIn size={15} /></button>
-          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomOut')}><ZoomOut size={15} /></button>
-          <button onClick={handleResetView} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.resetView')}><RotateCcw size={15} /></button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleResetView}  title={t('graph.resetView')}><RotateCcw size={15} /></Button>
           <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <button onClick={handleAutoLayout} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.autoLayout')}><Network size={15} /></button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleAutoLayout}  title={t('graph.autoLayout')}><Network size={15} /></Button>
           <span className="ml-1 text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" title={t('graph.extractTooltip')}>
+          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
             <Sparkles size={13} />{t('graph.extractFromNotes')}
-          </button>
+          </Button>
         </div>
       </div>
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
@@ -966,7 +967,7 @@ export default function GraphPage() {
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30"><Network size={36} className="text-indigo-500" /></div>
               <div className="text-center"><h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('graph.emptyTitle')}</h3><p className="mt-1 text-sm text-gray-500">{t('graph.emptyHint')}</p></div>
-              <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600"><Sparkles size={15} />{t('graph.extractFromNotes')}</button>
+              <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2" onClick={() => setShowExtractDialog(true)}><Sparkles size={15} />{t('graph.extractFromNotes')}</Button>
             </div>
           )}
 
@@ -982,9 +983,8 @@ export default function GraphPage() {
         </div>
 
       {showExtractDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <Modal open onClose={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30"><Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" /></div>
                 <div><h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.extractDialogTitle')}</h3><p className="text-xs text-gray-500">{selectedNoteIds.size > 0 ? t('graph.selectedNotes', { n: selectedNoteIds.size }) : t('graph.extractDialogHint')}</p></div>
@@ -992,7 +992,7 @@ export default function GraphPage() {
               <button onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
             </div>
             <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
-              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 dark:border-gray-600 dark:bg-gray-700 dark:placeholder:text-gray-500 dark:focus:border-emerald-600" /></div>
+              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="emerald" value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full pl-8 pr-3" /></div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? t('graph.noMatchingNotes') : t('graph.noNotes')}</div>) : (
@@ -1020,10 +1020,10 @@ export default function GraphPage() {
             </div>
             <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <button onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }} className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300">{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</button>
-                <button onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+                <Button variant="link" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
+                <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2 hover:bg-gray-50" onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting}>
                   {isExtracting ? (<><Loader2 size={14} className="animate-spin" />{t('graph.extracting')}</>) : (<><Sparkles size={14} />{t('graph.extractSelected', { n: selectedNoteIds.size })}</>)}
-                </button>
+                </Button>
                 {extractQueued && (
                   <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                     <Check size={12} />{extractQueued}
@@ -1031,14 +1031,12 @@ export default function GraphPage() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {previewNoteId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }}>
-          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass" onClick={e => e.stopPropagation()}>
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <Modal open onClose={() => { setPreviewNoteId(null); setPreviewNoteContent('') }} size="2xl" className="flex max-h-[85vh] max-w-4xl flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
                   <FolderOpen size={16} className="text-indigo-600 dark:text-indigo-400" />
@@ -1054,8 +1052,7 @@ export default function GraphPage() {
                 <ThemedMarkdown source={previewNoteContent} />
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )
@@ -1065,8 +1062,8 @@ export default function GraphPage() {
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" title={t('graph.deleteEntity')}><Trash2 size={14} /></button>
-          <button onClick={() => setSelectedEntityId(null)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('common:close')}><X size={14} /></button>
+          <IconButton variant="ghost" label={t('graph.deleteEntity')} className="p-1.5 text-gray-400 hover:text-gray-700" onClick={() => deleteEntityMutation.mutate(selectedEntityId)}  title={t('graph.deleteEntity')}><Trash2 size={14} /></IconButton>
+          <IconButton variant="primary" label={t('common:close')} className="p-1.5 text-gray-400 hover:bg-emerald-600" onClick={() => setSelectedEntityId(null)}  title={t('common:close')}><X size={14} /></IconButton>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
@@ -1131,7 +1128,7 @@ export default function GraphPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
           </div>
-          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
+          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="blue" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full pl-8 pr-3" /></div>
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{t('common:all')} {entities.length}</button>
             {entityTypes.map(type => (

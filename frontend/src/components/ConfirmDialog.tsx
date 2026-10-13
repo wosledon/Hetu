@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, X } from 'lucide-react'
 import { ConfirmContext, registerGlobalConfirm, type ConfirmOptions } from './confirm'
+import { Button, Modal } from './ui'
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
@@ -26,8 +27,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <ConfirmContext.Provider value={setState}>
       {children}
       {state && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={handleCancel}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800 glass" onClick={e => e.stopPropagation()}>
+        <Modal open onClose={handleCancel} size="sm" className="max-w-sm p-6">
+
             <div className="mb-4 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
                 <AlertTriangle size={20} className="text-red-500" />
@@ -39,11 +40,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               <button onClick={handleCancel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={handleCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700">{t('common:cancel')}</button>
-              <button onClick={handleConfirm} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">{t('ui:confirmDialog.delete')}</button>
+              <Button variant="outline" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-gray-100" onClick={handleCancel}>{t('common:cancel')}</Button>
+              <Button variant="ghost" tone="gray" className="px-4 py-2 hover:bg-gray-50" onClick={handleConfirm}>{t('ui:confirmDialog.delete')}</Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </ConfirmContext.Provider>
   )

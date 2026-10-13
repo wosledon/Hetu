@@ -7,6 +7,7 @@ import {
 import SlidingPill from '../SlidingPill'
 import { workSshService, workBrowseService } from '../../services/workService'
 import Select from '../Select'
+import { Button, IconButton, Input, Modal } from '../ui'
 import type { IDirListing } from '../../services/workService'
 import type { IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest } from '../../types/project'
 
@@ -58,24 +59,19 @@ function DirBrowser({
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300" title={data?.current || ''}>
           {data?.current || '—'}
         </span>
-        <button
-          onClick={onClose}
-          className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+        <IconButton label={t('browser.closeAria')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-200" onClick={onClose}
+          
           title={t('browser.close')}
-          aria-label={t('browser.closeAria')}
-        >
+          aria-label={t('browser.closeAria')}>
           <X size={12} />
-        </button>
+        </IconButton>
       </div>
       <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         {data?.parent !== null && data?.parent !== undefined && (
-          <button
-            onClick={() => setPath(data.parent!)}
-            className="flex w-full items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5 text-left text-[12px] text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
+          <Button variant="ghost" tone="gray" className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-gray-500 hover:bg-gray-50" onClick={() => setPath(data.parent!)}>
             <CornerLeftUp size={12} className="shrink-0" />
             {t('browser.parent')}
-          </button>
+          </Button>
         )}
         {listing.isLoading && (
           <div className="flex items-center gap-1.5 px-2.5 py-3 text-[12px] text-gray-400">
@@ -101,19 +97,14 @@ function DirBrowser({
         )}
       </div>
       <div className="mt-1.5 flex justify-end">
-        <button
-          onClick={() => { onPick(data?.current || path); onClose() }}
-          disabled={!data?.current}
-          className="rounded-lg bg-blue-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
-        >
+        <Button variant="ghost" tone="gray" className="px-2.5 py-1 hover:bg-blue-50" onClick={() => { onPick(data?.current || path); onClose() }}
+          disabled={!data?.current}>
           {t('browser.pickCurrent')}
-        </button>
+        </Button>
       </div>
     </div>
   )
 }
-
-const inputCls = 'w-full rounded-xl border border-gray-200 bg-white glass px-3.5 py-2 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40'
 
 export default function ProjectFormDialog({
   project, groups, projects, onSubmit, onCreateGroup, onClose, pending,
@@ -203,8 +194,8 @@ export default function ProjectFormDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
+    <Modal open onClose={onClose} size="lg" scroll className="max-h-[90vh] max-w-lg">
+
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{isEdit ? t('form.editTitle') : t('form.createTitle')}</h3>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
@@ -235,12 +226,12 @@ export default function ProjectFormDialog({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.name')}</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('form.namePlaceholder')} className={inputCls} />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('form.namePlaceholder')} />
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.description')}</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} className={inputCls} />
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} />
           </div>
 
           {/* 分组与归类 */}
@@ -255,21 +246,18 @@ export default function ProjectFormDialog({
                     { value: '', label: t('form.ungrouped') },
                     ...groups.map((g) => ({ value: g.id, label: g.name })),
                   ]}
-                  triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                  
                 />
-                <button
-                  onClick={() => setGroupCreateOpen((v) => !v)}
+                <Button variant="primary" tone="blue" className="shrink-0 px-3 py-2 text-gray-700" onClick={() => setGroupCreateOpen((v) => !v)}
                   title={t('form.newGroup')}
                   aria-label={t('form.newGroup')}
-                  aria-expanded={groupCreateOpen}
-                  className="shrink-0 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
+                  aria-expanded={groupCreateOpen}>
                   +
-                </button>
+                </Button>
               </div>
               {groupCreateOpen && (
                 <div className="mt-2 flex items-center gap-1.5">
-                  <input
+                  <Input
                     autoFocus
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
@@ -279,26 +267,23 @@ export default function ProjectFormDialog({
                     }}
                     placeholder={t('form.newGroupPlaceholder')}
                     disabled={creatingGroup}
-                    className={inputCls}
+                    
                   />
-                  <button
-                    onClick={() => void handleCreateGroup()}
-                    disabled={creatingGroup || !newGroupName.trim()}
-                    className="shrink-0 rounded-xl bg-blue-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
-                  >
+                  <Button variant="primary" size="sm" className="shrink-0 px-3 py-2 hover:bg-gray-100" onClick={() => void handleCreateGroup()}
+                    disabled={creatingGroup || !newGroupName.trim()}>
                     {creatingGroup ? <Loader2 size={13} className="animate-spin" /> : t('common:confirm')}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.category')}</label>
-              <input
+              <Input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 list="project-category-options"
                 placeholder={t('form.categoryPlaceholder')}
-                className={inputCls}
+                
               />
               <datalist id="project-category-options">
                 {categoryOptions.map((c) => <option key={c} value={c} />)}
@@ -310,12 +295,12 @@ export default function ProjectFormDialog({
               {t('form.tags')}
               <span className="ml-1 text-[11px] font-normal text-gray-400">{t('form.tagsHint')}</span>
             </label>
-            <input
+            <Input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               list="project-tag-options"
               placeholder={t('form.tagsPlaceholder')}
-              className={inputCls}
+              
             />
             <datalist id="project-tag-options">
               {tagOptions.map((t) => <option key={t} value={t} />)}
@@ -326,19 +311,16 @@ export default function ProjectFormDialog({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.directory')}</label>
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   value={directoryPath}
                   onChange={(e) => setDirectoryPath(e.target.value)}
                   placeholder={t('form.directoryPlaceholder')}
-                  className={`${inputCls} font-mono text-[13px]`}
+                  className="font-mono text-[13px]"
                 />
-                <button
-                  onClick={() => setLocalBrowsing((v) => !v)}
-                  className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
+                <Button variant="secondary" size="sm" className="flex shrink-0 items-center gap-1 px-3 py-2 text-gray-700" onClick={() => setLocalBrowsing((v) => !v)}>
                   <FolderOpen size={13} />
                   {t('form.browse')}
-                </button>
+                </Button>
               </div>
               {localBrowsing && <DirBrowser kind="local" onPick={(p) => setDirectoryPath(p)} onClose={() => setLocalBrowsing(false)} />}
             </div>
@@ -375,7 +357,7 @@ export default function ProjectFormDialog({
                       value: h.alias,
                       label: `${h.alias}${h.hostName && h.hostName !== h.alias ? ` → ${h.hostName}` : ''}${h.user ? t('form.sshConfigUser', { user: h.user }) : ''}`,
                     }))}
-                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                    
                   />
                 </div>
               )}
@@ -383,17 +365,17 @@ export default function ProjectFormDialog({
               <div className="grid grid-cols-[1fr_96px] gap-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.host')}</label>
-                  <input value={host} onChange={(e) => setHost(e.target.value)} placeholder={t('form.hostPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
+                  <Input value={host} onChange={(e) => setHost(e.target.value)} placeholder={t('form.hostPlaceholder')} className="font-mono text-[13px]" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.port')}</label>
-                  <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} className={inputCls} />
+                  <Input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.loginUser')}</label>
-                  <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" className={`${inputCls} font-mono text-[13px]`} />
+                  <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="root" className="font-mono text-[13px]" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.authType')}</label>
@@ -405,45 +387,42 @@ export default function ProjectFormDialog({
                       { value: 'Password', label: t('form.authPassword') },
                       { value: 'Agent', label: t('form.authAgent') },
                     ]}
-                    triggerClassName={`${inputCls} flex items-center justify-between gap-2`}
+                    
                   />
                 </div>
               </div>
               {authType === 'Key' && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.keyPath')}</label>
-                  <input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder={t('form.keyPathPlaceholder')} className={`${inputCls} font-mono text-[13px]`} />
+                  <Input value={keyPath} onChange={(e) => setKeyPath(e.target.value)} placeholder={t('form.keyPathPlaceholder')} className="font-mono text-[13px]" />
                 </div>
               )}
               {authType === 'Password' && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.password')}</label>
-                  <input
+                  <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={isEdit && project?.hasSshPassword ? t('form.passwordKeepPlaceholder') : t('form.passwordPlaceholder')}
-                    className={inputCls}
+                    
                   />
                 </div>
               )}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.remoteDirectory')}</label>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     value={directoryPath}
                     onChange={(e) => setDirectoryPath(e.target.value)}
                     placeholder={t('form.remoteDirectoryPlaceholder')}
-                    className={`${inputCls} font-mono text-[13px]`}
+                    className="font-mono text-[13px]"
                   />
-                  <button
-                    onClick={() => setRemoteBrowsing((v) => !v)}
-                    disabled={!host.trim()}
-                    className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  >
+                  <Button variant="primary" tone="blue" size="sm" className="flex shrink-0 items-center gap-1 px-3 py-2 text-gray-700" onClick={() => setRemoteBrowsing((v) => !v)}
+                    disabled={!host.trim()}>
                     <FolderOpen size={13} />
                     {t('form.browse')}
-                  </button>
+                  </Button>
                 </div>
                 {remoteBrowsing && (
                   <DirBrowser
@@ -455,8 +434,7 @@ export default function ProjectFormDialog({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
+                <Button variant="secondary" size="sm" className="flex items-center gap-1.5 px-4 py-1.5 text-gray-700" onClick={() => {
                     setTestResult(null)
                     workSshService.test({
                       host: host.trim(), port, user: user.trim() || undefined, authType,
@@ -467,12 +445,10 @@ export default function ProjectFormDialog({
                       .then((r) => setTestResult({ ok: r.success, text: r.remoteBanner ? `${r.message}（${r.remoteBanner}）` : r.message }))
                       .catch((e: Error) => setTestResult({ ok: false, text: e.message || t('form.testFailed') }))
                   }}
-                  disabled={!host.trim()}
-                  className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                >
+                  disabled={!host.trim()}>
                   <Wifi size={12} />
                   {t('form.testConnection')}
-                </button>
+                </Button>
                 {testResult && (
                   <span className={`flex items-center gap-1 text-[11px] ${testResult.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                     {testResult.ok ? <Check size={11} /> : <AlertCircle size={11} />}
@@ -486,7 +462,7 @@ export default function ProjectFormDialog({
           {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">{t('common:cancel')}</button>
+          <Button variant="secondary" size="sm" className="px-4 py-2 text-gray-600" onClick={onClose}>{t('common:cancel')}</Button>
           <button
             onClick={handleSubmit}
             disabled={pending}
@@ -495,7 +471,6 @@ export default function ProjectFormDialog({
             {pending ? t('form.saving') : isEdit ? t('common:save') : t('common:create')}
           </button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }

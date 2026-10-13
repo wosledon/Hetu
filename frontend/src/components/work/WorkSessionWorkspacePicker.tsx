@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronDown, Cloud, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
 import { workGitService, workSessionService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
+import { Button } from '../ui'
 
 /**
  * Code 会话的工作区选择：前一个下拉选「当前分支 / 新工作树」，后一个下拉选工作树的基分支。
@@ -209,13 +210,10 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
       </div>
 
       {apply.isError && (
-        <button
-          onClick={() => apply.reset()}
-          title={t('workspace.dismissError')}
-          className="absolute bottom-full right-0 z-50 mb-1.5 max-w-[20rem] rounded-lg border border-red-200 bg-white px-2 py-1 text-left text-[11px] text-red-600 shadow-lg dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300"
-        >
+        <Button variant="outline" tone="red" className="absolute bottom-full right-0 z-50 mb-1.5 max-w-[20rem] px-2 py-1 text-left text-red-600 shadow-lg" onClick={() => apply.reset()}
+          title={t('workspace.dismissError')}>
           {(apply.error as Error)?.message}
-        </button>
+        </Button>
       )}
     </div>
   )

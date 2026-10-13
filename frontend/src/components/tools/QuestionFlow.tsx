@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, HelpCircle, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InteractionQuestion } from '../../stores/interactionStore'
+import { Input } from '../ui'
 
 interface QuestionFlowProps {
   questions: InteractionQuestion[]
@@ -167,7 +168,7 @@ export default function QuestionFlow({
 
         {q.allowCustom !== false && (
           <div className="flex items-center gap-2">
-            <input
+            <Input tone="indigo" glass
               type="text"
               placeholder={isCustomDraft ? t('question.customContinue') : t('question.customPlaceholder')}
               value={isCustomDraft ? (currentAnswer || '') : customDraft}
@@ -183,7 +184,7 @@ export default function QuestionFlow({
                   else if (!isLast) goNext()
                 }
               }}
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs outline-none transition-all placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200/50 dark:border-gray-700 dark:bg-gray-800/60 dark:placeholder:text-gray-500 dark:focus:ring-indigo-900/40"
+              className="min-w-0 flex-1 text-xs"
             />
           </div>
         )}

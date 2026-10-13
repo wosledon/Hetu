@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Cpu, Search } from 'lucide-react'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
 import { segmentButtonClass } from '../../utils/styles'
+import { Input } from '../ui'
 
 export interface ModelPickerModel {
   id: string
@@ -260,12 +261,12 @@ export default function AgentModelPicker({
             <div className="flex w-60 shrink-0 flex-col">
               <div className="relative border-b border-gray-100 p-2 dark:border-gray-700">
                 <Search size={12} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Input tone="indigo" size="sm"
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('modelPicker.search')}
-                  className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-6 pr-2 text-[12px] outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900/60 dark:focus:border-indigo-500"
+                  className="w-full pl-6 pr-2 text-[12px]"
                 />
               </div>
 

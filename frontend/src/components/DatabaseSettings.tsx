@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Database, Loader2 } from 'lucide-react';
 import { settingService } from '../services/settingService';
 import Select from './Select';
+import { Button, Input } from './ui';
 
 type Provider = 'Sqlite' | 'Postgresql';
-
-const inputClass = 'w-full max-w-md rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm font-mono outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20';
 
 export default function DatabaseSettings() {
   const { t } = useTranslation('settings');
@@ -72,22 +71,19 @@ export default function DatabaseSettings() {
 
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('database.connectionString')}</label>
-          <input
+          <Input
             type="text"
             value={connectionString}
             onChange={(e) => setConnectionString(e.target.value)}
-            className={inputClass}
+            className="max-w-md font-mono"
           />
         </div>
 
-        <button
-          onClick={handleTest}
-          disabled={testing}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-emerald-500/25 transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <Button variant="primary" tone="emerald" className="inline-flex items-center gap-2 px-4 py-2.5 shadow-emerald-500/25" onClick={handleTest}
+          disabled={testing}>
           {testing ? <Loader2 size={14} className="animate-spin" /> : null}
           {testing ? t('database.testing') : t('database.testConnection')}
-        </button>
+        </Button>
 
         {testResult && (
           <div

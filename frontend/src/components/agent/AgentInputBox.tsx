@@ -4,6 +4,7 @@ import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { type InputCommandItem } from '../InputCommandMenu'
 import { extractMentionQuery, extractSlashQuery } from '../../utils/inputQuery'
 import { countTextLines, isLongText } from '../../utils/longText'
+import { Button, IconButton } from '../ui'
 
 /** 输入框上方的上下文 chip（引用文件 / 提示词模板 / 技能 / 选中代码 等） */
 export interface AgentInputChip {
@@ -243,13 +244,10 @@ export default function AgentInputBox({
                   )}
                   {chip.icon}
                   <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
-                  <button
-                    onClick={chip.onRemove}
-                    aria-label={t('input.removeChip', { label: chip.label })}
-                    className="shrink-0 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100"
-                  >
+                  <IconButton label={t('input.removeChip', { label: chip.label })} variant="ghost" className="shrink-0 p-0.5 opacity-60 transition-opacity hover:opacity-100" onClick={chip.onRemove}
+                    aria-label={t('input.removeChip', { label: chip.label })}>
                     <X size={9} />
-                  </button>
+                  </IconButton>
                 </span>
               ))}
             </div>
@@ -261,23 +259,17 @@ export default function AgentInputBox({
                 <FileText size={12} className="shrink-0 text-gray-400" />
                 <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">{t('input.collapsedBlock')}</span>
                 <span className="truncate text-gray-400">{t('input.blockMeta', { lines: lineCount, chars: block.length })}</span>
-                <button
-                  onClick={() => setShowBlockPreview((v) => !v)}
-                  className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-                >
+                <Button variant="ghost" tone="blue" className="ml-auto shrink-0 px-1.5 py-0.5 text-blue-600" onClick={() => setShowBlockPreview((v) => !v)}>
                   {showBlockPreview ? t('input.collapse') : t('common:view')}
-                </button>
-                <button
-                  onClick={() => {
+                </Button>
+                <IconButton label={t('input.removeBlock')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:text-gray-600" onClick={() => {
                     setShowBlockPreview(false)
                     onBlockChange?.('')
                   }}
                   aria-label={t('input.removeBlock')}
-                  title={t('input.removeBlock')}
-                  className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-                >
+                  title={t('input.removeBlock')}>
                   <X size={11} />
-                </button>
+                </IconButton>
               </div>
               {showBlockPreview && (
                 <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
@@ -302,24 +294,18 @@ export default function AgentInputBox({
             {toolbar}
             <div className="ml-auto">
               {streaming ? (
-                <button
-                  onClick={onStop}
+                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center" onClick={onStop}
                   title={t('input.stop')}
-                  aria-label={t('input.stop')}
-                  className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600"
-                >
+                  aria-label={t('input.stop')}>
                   <Square size={13} fill="currentColor" />
-                </button>
+                </Button>
               ) : (
-                <button
-                  onClick={onSubmit}
+                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center" onClick={onSubmit}
                   disabled={busy || !canSubmit}
                   title={t('input.send')}
-                  aria-label={t('input.send')}
-                  className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45"
-                >
+                  aria-label={t('input.send')}>
                   <Send size={14} />
-                </button>
+                </Button>
               )}
             </div>
           </div>

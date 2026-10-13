@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Folder, FolderOpen, Inbox, LayoutGrid, Pin, Settings2, Tag, X } from 'lucide-react'
 import type { IProjectGroup, IManagedProject, IProjectFilter } from '../../types/project'
+import { IconButton } from '../ui'
 
 interface ProjectsSidebarProps {
   groups: IProjectGroup[]
@@ -61,14 +62,11 @@ export default function ProjectsSidebar({
         {/* 分组 */}
         <div className="mt-5 flex items-center justify-between px-2.5">
           <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.groups')}</span>
-          <button
-            onClick={onManageGroups}
+          <IconButton label={t('sidebar.manageGroups')} variant="ghost" className="p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={onManageGroups}
             title={t('sidebar.manageGroups')}
-            aria-label={t('sidebar.manageGroups')}
-            className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-          >
+            aria-label={t('sidebar.manageGroups')}>
             <Settings2 size={12} />
-          </button>
+          </IconButton>
         </div>
         <div className="mt-1 space-y-0.5">
           <button
@@ -166,14 +164,11 @@ export default function ProjectsSidebar({
               {filter.type === 'category' && t('sidebar.filterCategory', { name: filter.id ?? '' })}
               {filter.type === 'tag' && t('sidebar.filterTag', { name: filter.id ?? '' })}
             </span>
-            <button
-              onClick={() => onFilterChange(ALL_FILTER)}
+            <IconButton label={t('sidebar.clearFilter')} variant="ghost" className="shrink-0 p-0.5 hover:bg-gray-100" onClick={() => onFilterChange(ALL_FILTER)}
               title={t('sidebar.clearFilter')}
-              aria-label={t('sidebar.clearFilter')}
-              className="shrink-0 rounded p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
+              aria-label={t('sidebar.clearFilter')}>
               <X size={11} />
-            </button>
+            </IconButton>
           </div>
         </div>
       )}

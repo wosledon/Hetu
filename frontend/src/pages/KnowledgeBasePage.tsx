@@ -46,6 +46,7 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
+import { Button, Card, Input, Modal } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -282,7 +283,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-4">
                 {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 glass">
+                <Card padded="lg">
                   <div className="flex flex-wrap items-center gap-8">
                     {/* 进度环 */}
                     <div className="relative h-24 w-24 shrink-0">
@@ -370,7 +371,7 @@ export default function KnowledgeBasePage() {
                       {(batchMutation.error as Error).message}
                     </p>
                   )}
-                </div>
+                </Card>
               </div>
             )}
             {/* Manage Tab */}
@@ -405,20 +406,14 @@ export default function KnowledgeBasePage() {
                       className="hidden"
                       onChange={handleFileUpload}
                     />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
+                    <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => fileInputRef.current?.click()}>
                       <Upload size={13} />
                       {t('kb.uploadFile')}
-                    </button>
-                    <button
-                      onClick={() => setShowAddUrl(true)}
-                      className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
+                    </Button>
+                    <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => setShowAddUrl(true)}>
                       <Plus size={13} />
                       {t('kb.addUrl')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -427,34 +422,28 @@ export default function KnowledgeBasePage() {
                   <div className="rounded-xl border border-gray-200 bg-white glass p-5 dark:border-gray-800 dark:bg-gray-900">
                     <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
                     <div className="flex gap-3">
-                      <input
+                      <Input tone="blue"
                         type="url"
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
                         placeholder="https://example.com"
-                        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+                        className="flex-1"
                       />
-                      <input
+                      <Input tone="blue"
                         type="text"
                         value={urlTitle}
                         onChange={(e) => setUrlTitle(e.target.value)}
                         placeholder={t('kb.urlTitlePlaceholder')}
-                        className="w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+                        className="w-48"
                       />
-                      <button
-                        onClick={handleAddUrl}
-                        disabled={addUrlMutation.isPending || !urlInput.trim()}
-                        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50"
-                      >
+                      <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2" onClick={handleAddUrl}
+                        disabled={addUrlMutation.isPending || !urlInput.trim()}>
                         {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         {t('common:add')}
-                      </button>
-                      <button
-                        onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}
-                        className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
+                      </Button>
+                      <Button variant="primary" tone="blue" className="px-3 py-2 text-gray-500 hover:bg-blue-700" onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}>
                         {t('common:cancel')}
-                      </button>
+                      </Button>
                     </div>
                     {addUrlMutation.error && (
                       <p className="mt-2 text-xs text-red-500">{(addUrlMutation.error as Error).message}</p>
@@ -548,18 +537,15 @@ export default function KnowledgeBasePage() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => generateMutation.mutate(item.id)}
-                            disabled={generateMutation.isPending || item.hasRunningTask}
-                            className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                          >
+                          <Button variant="ghost" tone="gray" className="flex items-center gap-1.5 px-3.5 py-1.5 text-blue-600" onClick={() => generateMutation.mutate(item.id)}
+                            disabled={generateMutation.isPending || item.hasRunningTask}>
                             {item.hasRunningTask || generateMutation.isPending ? (
                               <Loader2 size={12} className="animate-spin" />
                             ) : (
                               <RefreshCw size={12} />
                             )}
                             {item.hasRunningTask ? t('kb.actionIndexing') : item.hasEmbedding ? t('kb.actionReindex') : t('kb.actionIndex')}
-                          </button>
+                          </Button>
                           {item.type !== 'note' && (
                             <button
                               onClick={() => {
@@ -583,18 +569,18 @@ export default function KnowledgeBasePage() {
             {activeTab === 'search' && (
               <div className="space-y-6">
                 {/* Search Input */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 glass">
+                <Card padded="lg">
                   <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
                       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                      <Input tone="blue" size="lg" glass pill
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         placeholder={t('kb.searchPlaceholder')}
-                        className="w-full rounded-full border border-gray-200 bg-white glass py-2.5 pl-11 pr-4 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
+                        className="w-full pl-11 pr-4 text-sm"
                       />
                     </div>
                     <div className="relative">
@@ -621,7 +607,7 @@ export default function KnowledgeBasePage() {
                       {t('common:search')}
                     </button>
                   </div>
-                </div>
+                </Card>
 
                 {/* Search Results */}
                 {searchError && (
@@ -715,11 +701,8 @@ function ChunkDetailModal({
   const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="flex h-[80vh] w-[640px] flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#12151f] glass"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} size="none" className="flex h-[80vh] w-[640px] flex-col border border-gray-200/80 dark:border-white/[0.08]">
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <div className="min-w-0 flex-1">
@@ -827,8 +810,7 @@ function ChunkDetailModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 

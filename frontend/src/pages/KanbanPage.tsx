@@ -20,6 +20,7 @@ import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
 } from '../types'
+import { Button, IconButton, Input, Modal, Textarea } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -363,19 +364,14 @@ export default function KanbanPage() {
               >
                 <Zap size={14} />{t('board.automation')}
               </button>
-              <button
-                onClick={() => invalidate()}
-                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                title={t('common:refresh')}
-              >
+              <IconButton label={t('common:refresh')} variant="ghost" className="p-2 text-gray-400" onClick={() => invalidate()}
+                
+                title={t('common:refresh')}>
                 <RefreshCw size={16} className={isRefetching ? 'animate-spin' : ''} />
-              </button>
-              <button
-                onClick={() => openCreate('Backlog')}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600"
-              >
+              </IconButton>
+              <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={() => openCreate('Backlog')}>
                 <Plus size={16} />{t('board.newTask')}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -413,24 +409,18 @@ export default function KanbanPage() {
           <div className="relative flex-1 min-h-0">
             {/* 左右切换按钮：只在对应方向还有内容时出现，点一下滚动约一屏 */}
             {canScrollLeft && (
-              <button
-                onClick={() => scrollBoard(-1)}
+              <Button variant="primary" tone="indigo" className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-gray-500 shadow-lg backdrop-blur transition" onClick={() => scrollBoard(-1)}
                 title={t('board.scrollLeft')}
-                aria-label={t('board.scrollLeft')}
-                className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100"
-              >
+                aria-label={t('board.scrollLeft')}>
                 <ChevronLeft size={18} />
-              </button>
+              </Button>
             )}
             {canScrollRight && (
-              <button
-                onClick={() => scrollBoard(1)}
+              <Button variant="outline" tone="gray" pill className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800" onClick={() => scrollBoard(1)}
                 title={t('board.scrollRight')}
-                aria-label={t('board.scrollRight')}
-                className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100"
-              >
+                aria-label={t('board.scrollRight')}>
                 <ChevronRight size={18} />
-              </button>
+              </Button>
             )}
             <div ref={boardRef} className="h-full overflow-x-auto overflow-y-hidden px-8 py-4">
               <div className="flex h-full min-w-min gap-4">
@@ -457,13 +447,11 @@ export default function KanbanPage() {
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(col.labelKey)}</span>
                       <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${col.countBg}`}>{tasks.length}</span>
                       {col.status === 'Archived' && <span className="text-[11px] text-gray-400">{t('board.within7Days')}</span>}
-                      <button
-                        onClick={() => openCreate(col.status)}
-                        className="ml-auto rounded-md p-1 text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-gray-700"
-                        title={t('board.createInColumn', { column: t(col.labelKey) })}
-                      >
+                      <IconButton variant="secondary" size="lg" label={t('board.createInColumn', { column: t(col.labelKey) })} className="ml-auto p-1 text-gray-400 hover:text-gray-800" onClick={() => openCreate(col.status)}
+                        
+                        title={t('board.createInColumn', { column: t(col.labelKey) })}>
                         <Plus size={14} />
-                      </button>
+                      </IconButton>
                     </div>
 
                     {/* Cards */}
@@ -500,9 +488,8 @@ export default function KanbanPage() {
 
           {/* Create/Edit modal */}
           {showForm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+            <Modal open onClose={() => setShowForm(false)} dismissible={false} size="lg" className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
                       <SquareKanban size={16} className="text-indigo-600 dark:text-indigo-400" />
@@ -518,21 +505,21 @@ export default function KanbanPage() {
                 <div className="space-y-4 px-5 py-4">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.titleField')}</label>
-                    <input
+                    <Input tone="indigo"
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
                       placeholder={t('board.titlePlaceholder')}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
+                      className="w-full"
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.description')}</label>
-                    <textarea
+                    <Textarea tone="indigo"
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
                       rows={6}
                       placeholder={t('board.descriptionPlaceholder')}
-                      className="w-full min-h-[120px] resize-y rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
+                      className="w-full min-h-[120px] resize-y leading-relaxed"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -561,11 +548,11 @@ export default function KanbanPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.assignee')}</label>
-                      <input
+                      <Input tone="indigo"
                         value={form.assignee}
                         onChange={(e) => setForm({ ...form, assignee: e.target.value })}
                         placeholder={t('common:optional')}
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
+                        className="w-full"
                       />
                     </div>
                     <div>
@@ -636,71 +623,65 @@ export default function KanbanPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.tags')}</label>
-                    <input
+                    <Input tone="indigo"
                       value={form.tags}
                       onChange={(e) => setForm({ ...form, tags: e.target.value })}
                       placeholder={t('board.tagsPlaceholder')}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700"
+                      className="w-full"
                     />
                   </div>
                   {form.status === 'Blocked' && (
                     <div>
                       <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.blockedReason')}</label>
-                      <input
+                      <Input tone="red"
                         value={form.blockedReason}
                         onChange={(e) => setForm({ ...form, blockedReason: e.target.value })}
                         placeholder={t('board.blockedReasonPlaceholder')}
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
+                        className="w-full"
                       />
                     </div>
                   )}
                 </div>
                 <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                  <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
-                  <button
-                    onClick={handleSave}
-                    disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}
-                    className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
+                  <Button variant="ghost" className="px-4 py-2 text-gray-600 hover:bg-gray-200/60 hover:text-gray-600" onClick={closeForm}>{t('common:cancel')}</Button>
+                  <Button variant="primary" tone="indigo" className="px-4 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={handleSave}
+                    disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}>
                     {editingId ? t('common:save') : t('common:create')}
-                  </button>
+                  </Button>
                 </div>
-              </div>
-            </div>
+            </Modal>
           )}
 
           {/* 阻塞原因 modal */}
           {blockingTask && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                      <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('board.markBlocked')}</h3>
+            <Modal open onClose={() => setBlockingTask(null)} dismissible={false} className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+                    <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
                   </div>
-                  <button onClick={() => setBlockingTask(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
-                    <X size={18} />
-                  </button>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('board.markBlocked')}</h3>
                 </div>
-                <div className="px-5 py-4">
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.blockedReason')}</label>
-                  <input
-                    autoFocus
-                    value={blockReason}
-                    onChange={(e) => setBlockReason(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && confirmBlock()}
-                    placeholder={t('board.blockReasonPlaceholder')}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-red-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                  <button onClick={() => setBlockingTask(null)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
-                  <button onClick={confirmBlock} className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-600">{t('board.confirmBlock')}</button>
-                </div>
+                <button onClick={() => setBlockingTask(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
+                  <X size={18} />
+                </button>
               </div>
-            </div>
+              <div className="px-5 py-4">
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.blockedReason')}</label>
+                <Input tone="red"
+                  autoFocus
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && confirmBlock()}
+                  placeholder={t('board.blockReasonPlaceholder')}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
+                <Button variant="ghost" tone="gray" className="px-4 py-2 text-gray-600" onClick={() => setBlockingTask(null)}>{t('common:cancel')}</Button>
+                <Button variant="primary" tone="indigo" className="px-4 py-2" onClick={confirmBlock}>{t('board.confirmBlock')}</Button>
+              </div>
+            </Modal>
           )}
         </div>
       }
@@ -826,12 +807,12 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           </button>
         ))}
         <div className="ml-auto flex items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
-          <button onClick={onEdit} title={t('common:edit')} className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+          <IconButton label={t('common:edit')} variant="ghost" className="p-1 hover:bg-gray-100 hover:text-gray-600" onClick={onEdit} title={t('common:edit')}>
             <Pencil size={12} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete() }} title={t('common:delete')} className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700">
+          </IconButton>
+          <IconButton variant="ghost" label={t('common:delete')} className="p-1 hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onDelete() }} title={t('common:delete')}>
             <Trash2 size={12} />
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote, INotebook } from '../types'
+import { Button, IconButton, Input } from './ui'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -224,11 +225,11 @@ export default function NoteList({
         </div>
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
+          <Input tone="blue" glass
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('list.searchPlaceholder')}
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 glass py-2 pl-8 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white/70 focus:shadow-sm focus:shadow-blue-500/5 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700/50 dark:bg-gray-800/50 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800"
+            className="w-full pl-8 pr-3"
           />
         </div>
       </div>
@@ -276,20 +277,16 @@ export default function NoteList({
                       <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}
-                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20"
-                              title={t('list.restore')}
-                            >
+                            <IconButton label={t('list.restore')} variant="ghost" className="p-1.5 text-gray-400" onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}
+                              
+                              title={t('list.restore')}>
                               <RotateCcw size={13} />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}
-                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-                              title={t('list.hardDelete')}
-                            >
+                            </IconButton>
+                            <IconButton variant="ghost" label={t('list.hardDelete')} className="p-1.5 text-gray-400 hover:bg-green-50 hover:text-green-600" onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}
+                              
+                              title={t('list.hardDelete')}>
                               <Trash2 size={13} />
-                            </button>
+                            </IconButton>
                           </>
                         ) : (
                           <>
@@ -307,13 +304,11 @@ export default function NoteList({
                             >
                               <Star size={13} className={note.isFavorite ? 'fill-amber-400' : ''} />
                             </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}
-                              className="rounded-lg p-1.5 text-gray-300 opacity-0 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-red-900/20"
-                              title={t('common:delete')}
-                            >
+                            <IconButton label={t('common:delete')} variant="danger" className="p-1.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500" onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}
+                              
+                              title={t('common:delete')}>
                               <Trash2 size={13} />
-                            </button>
+                            </IconButton>
                           </>
                         )}
                       </div>
@@ -394,13 +389,10 @@ export default function NoteList({
             ))}
           </div>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <button
-            onClick={() => { closeMenu(); deleteNote.mutate(menu.note.id) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
+          <Button variant="link" tone="red" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 hover:bg-red-50 hover:text-red-500" onClick={() => { closeMenu(); deleteNote.mutate(menu.note.id) }}>
             <Trash2 size={14} />
             {t('common:delete')}
-          </button>
+          </Button>
         </div>,
         document.body
       )}

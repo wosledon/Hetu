@@ -9,6 +9,7 @@ import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { proxyService, type IProxyConfig } from '../services/proxyService'
 import { aiProviderService } from '../services/aiProviderService'
+import { Button, Card, IconButton } from '../components/ui'
 
 const CATEGORIES = [
   { value: 'simple', labelKey: 'proxy.categories.simple' },
@@ -179,12 +180,9 @@ function ProxyCard({
           <section>
             <div className="mb-2 flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('proxy.routeRules')}</label>
-              <button
-                onClick={() => patch({ routeRules: [...form.routeRules, { category: 'simple', targetModelKey: '', sortOrder: form.routeRules.length }] })}
-                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-blue-500 transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10"
-              >
+              <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1 px-2.5 py-1 text-blue-500" onClick={() => patch({ routeRules: [...form.routeRules, { category: 'simple', targetModelKey: '', sortOrder: form.routeRules.length }] })}>
                 <Plus size={13} /> {t('proxy.addRule')}
-              </button>
+              </Button>
             </div>
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
               {form.routeRules.map((rule, idx) => (
@@ -209,13 +207,11 @@ function ProxyCard({
                       searchable
                     />
                   </div>
-                  <button
-                    onClick={() => patch({ routeRules: form.routeRules.filter((_, i) => i !== idx) })}
-                    className="shrink-0 rounded-full p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    title={t('proxy.deleteRule')}
-                  >
+                  <IconButton label={t('proxy.deleteRule')} variant="danger" className="shrink-0 p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => patch({ routeRules: form.routeRules.filter((_, i) => i !== idx) })}
+                    
+                    title={t('proxy.deleteRule')}>
                     <Trash2 size={14} />
-                  </button>
+                  </IconButton>
                 </div>
               ))}
             </div>
@@ -316,7 +312,7 @@ export default function ProxyPage() {
 
             <div className="space-y-4">
               {/* 接入地址 */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
+              <Card>
                 <div className="mb-3 flex items-center gap-2">
                   <Globe size={14} className="text-blue-500" />
                   <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('proxy.endpointTitle')}</h2>
@@ -333,12 +329,12 @@ export default function ProxyPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
 
               {/* 配置卡 */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
+              <Card>
                 <ProxyCard key={tab} mode={tab} modelOptions={modelOptions} />
-              </div>
+              </Card>
             </div>
           </div>
         </div>

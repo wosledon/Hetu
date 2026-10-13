@@ -23,6 +23,7 @@ import SlidingPill from '../components/SlidingPill'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
+import { Button, Input, Modal, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -174,9 +175,9 @@ export default function SkillsPage() {
 
         {isDb && !(s as ISkill).isBuiltIn && (
           <div className="flex items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <button onClick={() => openEditForm(s as ISkill)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700">
+            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 px-2.5 py-1 text-gray-500 hover:text-gray-700" onClick={() => openEditForm(s as ISkill)}>
               <Pencil size={11} /> {t('common:edit')}
-            </button>
+            </Button>
             <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
               <Trash2 size={11} /> {t('common:delete')}
             </button>
@@ -276,30 +277,24 @@ export default function SkillsPage() {
           </div>
           <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
             <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
+            <Input tone="amber" glass pill
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('skillsPage.searchSkills')}
-              className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-amber-950/40"
+              className="w-full pl-10 pr-3 text-sm"
             />
           </div>
           {tab === 'local' ? (
             <>
-              <button
-                onClick={() => setShowDirConfig(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600" onClick={() => setShowDirConfig(true)}>
                 <Settings size={14} />
                 {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
-              </button>
-              <button
-                onClick={() => refetchLocal()}
-                title={t('skillsPage.refreshLocalSkills')}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
+              </Button>
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => refetchLocal()}
+                title={t('skillsPage.refreshLocalSkills')}>
                 <RefreshCw size={14} />
                 {t('common:refresh')}
-              </button>
+              </Button>
             </>
           ) : (
             <button
@@ -325,13 +320,13 @@ export default function SkillsPage() {
             </div>
             <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
             {tab === 'local' ? (
-              <button onClick={() => setShowDirConfig(true)} className="mt-2 text-xs text-amber-500 hover:underline">
+              <Button variant="secondary" pill className="mt-2 text-amber-500" onClick={() => setShowDirConfig(true)}>
                 {t('empty.configureSkillDirs')}
-              </button>
+              </Button>
             ) : (
-              <button onClick={openCreateForm} className="mt-2 text-xs text-amber-500 hover:underline">
+              <Button variant="link" tone="amber" size="sm" className="mt-2 text-amber-500" onClick={openCreateForm}>
                 {t('empty.createFirstSkill')}
-              </button>
+              </Button>
             )}
           </div>
         ) : (
@@ -347,9 +342,8 @@ export default function SkillsPage() {
     <AppLayout showSidebar={false} mainContent={mainContent}>
       {/* Create/Edit modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <Modal open onClose={closeForm} dismissible={false} size="lg" className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
                   <Zap size={16} className="text-amber-600 dark:text-amber-400" />
@@ -364,20 +358,20 @@ export default function SkillsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.category')}</label>
-                  <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={t('form.skillCategoryPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <Input tone="amber" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={t('form.skillCategoryPlaceholder')} className="w-full" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.skillName')}</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('form.skillNamePlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                  <Input tone="amber" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('form.skillNamePlaceholder')} className="w-full" />
                 </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:description')}</label>
-                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('form.skillDescriptionPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                <Input tone="amber" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('form.skillDescriptionPlaceholder')} className="w-full" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.configJson')}</label>
-                <textarea value={form.config} onChange={(e) => setForm({ ...form, config: e.target.value })} className="h-32 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-xs outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700" />
+                <Textarea tone="amber" value={form.config} onChange={(e) => setForm({ ...form, config: e.target.value })} className="h-32 w-full resize-none font-mono text-xs" />
               </div>
               {editingId && (
                 <label className="flex items-center gap-2 text-sm">
@@ -387,19 +381,18 @@ export default function SkillsPage() {
               )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <button onClick={closeForm} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
-              <button onClick={handleSave} disabled={!form.name.trim() || !form.description.trim()} className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
+              <Button variant="link" tone="amber" size="sm" className="px-4 py-2 text-gray-600" onClick={closeForm}>{t('common:cancel')}</Button>
+              <Button variant="link" tone="amber" size="sm" className="px-4 py-2" onClick={handleSave} disabled={!form.name.trim() || !form.description.trim()}>
                 {editingId ? t('common:save') : t('common:create')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Directory config modal */}
-      {showDirConfig && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+      {showDirConfig && (
+        <Modal open onClose={() => setShowDirConfig(false)} dismissible={false} className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
                   <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
@@ -413,23 +406,20 @@ export default function SkillsPage() {
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
-                <button
-                  onClick={handleBrowseDir}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
-                >
+                <Button variant="primary" tone="amber" className="flex shrink-0 items-center gap-1.5 px-3 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={handleBrowseDir}>
                   <FolderSearch size={14} />
                   {t('dir.browse')}
-                </button>
-                <input
+                </Button>
+                <Input tone="amber"
                   value={dirInput}
                   onChange={(e) => setDirInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir() }}
                   placeholder={t('dir.skillPathPlaceholder')}
-                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-amber-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
+                  className="flex-1"
                 />
-                <button onClick={handleAddDir} disabled={!dirInput.trim()} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                <Button variant="ghost" tone="gray" className="px-3 py-2 text-gray-700" onClick={handleAddDir} disabled={!dirInput.trim()}>
                   {t('common:add')}
-                </button>
+                </Button>
               </div>
               <div className="max-h-48 space-y-1.5 overflow-y-auto">
                 {directories.length === 0 ? (
@@ -457,12 +447,11 @@ export default function SkillsPage() {
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <button onClick={() => setShowDirConfig(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+              <Button variant="primary" tone="amber" className="px-4 py-2 text-gray-700" onClick={() => setShowDirConfig(false)}>
                 {t('dir.done')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* 前端目录选择器 */}

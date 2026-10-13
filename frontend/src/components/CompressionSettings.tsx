@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
+import { Input } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -109,12 +110,12 @@ export default function CompressionSettings() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.llmThreshold')}</label>
-            <input
+            <Input tone="violet" glass
               type="number"
               min={0}
               value={draft.llmThreshold ?? 500}
               onChange={(e) => saveNow({ ...draft, llmThreshold: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
-              className="w-40 rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm outline-none focus:border-violet-300 dark:border-gray-600 dark:bg-gray-700"
+              className="w-40"
             />
             <p className="mt-1 text-[11px] text-gray-400">
               {t('compression.thresholdHint')}

@@ -10,6 +10,7 @@ import type { IWorkflow } from '../types/workflow'
 import type { IPromptPreset } from '../types'
 import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
+import { Button, IconButton } from '../components/ui'
 
 const AVAILABLE_TOOLS = [
   'search_notes',
@@ -165,12 +166,9 @@ export default function WorkflowsPage() {
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
               <span className="text-xs text-gray-400">{t('page.subtitle')}</span>
             </div>
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
-            >
+            <Button variant="primary" tone="blue" className="flex items-center gap-1.5 px-3 py-1.5" onClick={handleCreate}>
               <Plus size={15} /> {t('page.newWorkflow')}
-            </button>
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
@@ -181,12 +179,9 @@ export default function WorkflowsPage() {
                 </div>
                 <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('page.emptyTitle')}</h2>
                 <p className="mt-1 text-sm text-gray-400">{t('page.emptyHint')}</p>
-                <button
-                  onClick={handleCreate}
-                  className="mt-4 flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-                >
+                <Button variant="primary" tone="blue" className="mt-4 flex items-center gap-1.5 px-4 py-2" onClick={handleCreate}>
                   <Plus size={16} /> {t('page.newWorkflow')}
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -216,23 +211,21 @@ export default function WorkflowsPage() {
                       <span>v{wf.version}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-white/[0.06]">
-                      <button onClick={() => setRunningWorkflow(wf)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10" title={t('common:run')}>
+                      <Button variant="ghost" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 text-green-600" onClick={() => setRunningWorkflow(wf)}  title={t('common:run')}>
                         <Play size={13} /> {t('common:run')}
-                      </button>
-                      <button onClick={() => setEditingId(wf.id)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10" title={t('common:edit')}>
+                      </Button>
+                      <Button variant="ghost" tone="blue" size="sm" className="flex items-center gap-1 px-2 py-1 text-blue-600" onClick={() => setEditingId(wf.id)}  title={t('common:edit')}>
                         <Pencil size={13} /> {t('common:edit')}
-                      </button>
-                      <button onClick={() => duplicateMut.mutate(wf.id)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('common:copy')}>
+                      </Button>
+                      <IconButton label={t('common:copy')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100" onClick={() => duplicateMut.mutate(wf.id)}  title={t('common:copy')}>
                         <Copy size={13} />
-                      </button>
+                      </IconButton>
                       <div className="flex-1" />
-                      <button
-                        onClick={() => confirm({ message: t('page.deleteConfirm', { name: wf.name }), onConfirm: () => deleteMut.mutate(wf.id) })}
-                        className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                        title={t('common:delete')}
-                      >
+                      <IconButton label={t('common:delete')} variant="danger" className="p-1 text-gray-400 hover:bg-red-50 hover:text-red-500" onClick={() => confirm({ message: t('page.deleteConfirm', { name: wf.name }), onConfirm: () => deleteMut.mutate(wf.id) })}
+                        
+                        title={t('common:delete')}>
                         <Trash2 size={13} />
-                      </button>
+                      </IconButton>
                     </div>
                   </div>
                 ))}

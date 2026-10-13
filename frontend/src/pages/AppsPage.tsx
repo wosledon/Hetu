@@ -8,6 +8,7 @@ import AppLayout from '../components/AppLayout'
 import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
 import { isTauri, openAppWebview, openExternal } from '../utils/tauri'
+import { Button, IconButton, Input, Modal } from '../components/ui'
 
 /** 从 URL 取展示用主机名 */
 function hostOf(url: string): string {
@@ -161,13 +162,10 @@ export default function AppsPage() {
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('apps.title')}</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">{t('apps.subtitle')}</p>
           </div>
-          <button
-            onClick={openCreate}
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-cyan-700 active:scale-[0.97]"
-          >
+          <Button variant="primary" tone="cyan" pill className="ml-auto flex shrink-0 items-center gap-1.5 px-4 py-2 hover:bg-cyan-700" onClick={openCreate}>
             <Plus size={16} />
             {t('apps.add')}
-          </button>
+          </Button>
         </div>
 
         {isLoading ? (
@@ -181,13 +179,10 @@ export default function AppsPage() {
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               {presets.slice(0, 5).map((p) => (
-                <button
-                  key={p.url}
-                  onClick={() => applyPreset(p)}
-                  className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                >
+                <Button variant="secondary" pill className="px-3.5 py-1.5 text-gray-700 hover:border-cyan-300 hover:text-cyan-600" key={p.url}
+                  onClick={() => applyPreset(p)}>
                   + {p.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -207,22 +202,16 @@ export default function AppsPage() {
                     </span>
                   </button>
                   <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={() => openEdit(app)}
+                    <IconButton label={t('common:edit')} variant="ghost" className="p-1.5 text-gray-400" onClick={() => openEdit(app)}
                       title={t('common:edit')}
-                      aria-label={t('common:edit')}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                    >
+                      aria-label={t('common:edit')}>
                       <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(app)}
+                    </IconButton>
+                    <IconButton variant="ghost" label={t('common:delete')} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => handleDelete(app)}
                       title={t('common:delete')}
-                      aria-label={t('common:delete')}
-                      className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
-                    >
+                      aria-label={t('common:delete')}>
                       <Trash2 size={13} />
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
               ))}
@@ -232,13 +221,10 @@ export default function AppsPage() {
               <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-gray-400">{t('apps.presetsTitle')}</p>
               <div className="flex flex-wrap gap-2">
                 {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).map((p) => (
-                  <button
-                    key={p.url}
-                    onClick={() => applyPreset(p)}
-                    className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                  >
+                  <Button variant="secondary" pill className="px-3.5 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-red-500" key={p.url}
+                    onClick={() => applyPreset(p)}>
                     + {p.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -247,9 +233,8 @@ export default function AppsPage() {
 
         {/* 添加 / 编辑弹窗 */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+          <Modal open onClose={() => setShowForm(false)} dismissible={false} className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
                     <Globe size={16} className="text-cyan-600 dark:text-cyan-400" />
@@ -261,21 +246,21 @@ export default function AppsPage() {
               <div className="space-y-4 px-5 py-4">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:name')}</label>
-                  <input
+                  <Input tone="cyan"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder={t('apps.namePlaceholder')}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-cyan-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.urlLabel')}</label>
-                  <input
+                  <Input tone="cyan"
                     value={form.url}
                     onChange={(e) => setForm({ ...form, url: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                     placeholder="https://chat.deepseek.com"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-cyan-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700"
+                    className="w-full"
                   />
                 </div>
                 {!editingApp && (
@@ -283,13 +268,10 @@ export default function AppsPage() {
                     <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.quickPick')}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).slice(0, 6).map((p) => (
-                        <button
-                          key={p.url}
-                          onClick={() => setForm({ name: p.name, url: p.url })}
-                          className="rounded-full border border-gray-200 bg-white glass px-2.5 py-1 text-[11px] text-gray-600 transition-colors hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                        >
+                        <Button variant="secondary" pill className="px-2.5 py-1 text-gray-600 hover:border-cyan-300 hover:text-cyan-600" key={p.url}
+                          onClick={() => setForm({ name: p.name, url: p.url })}>
                           {p.name}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
@@ -299,17 +281,13 @@ export default function AppsPage() {
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{t('common:cancel')}</button>
-                <button
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending}
-                  className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
-                >
+                <Button variant="ghost" className="px-4 py-2 text-gray-600 hover:bg-gray-100" onClick={() => setShowForm(false)}>{t('common:cancel')}</Button>
+                <Button variant="secondary" pill surface="modal" className="px-4 py-2 hover:border-cyan-300 hover:text-cyan-600" onClick={handleSave}
+                  disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? t('apps.saving') : editingApp ? t('common:save') : t('common:add')}
-                </button>
+                </Button>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
         </div>
       </div>
@@ -340,20 +318,20 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
         {/* 工具条 */}
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white glass px-3 dark:border-gray-800 dark:bg-gray-900">
-          <button onClick={onClose} title={t('apps.backToList')} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
+          <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1.5 text-gray-500" onClick={onClose} title={t('apps.backToList')}>
             <ArrowLeft size={14} />
             {t('apps.backLabel')}
-          </button>
+          </Button>
           <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-          <button onClick={() => setFrameKey((k) => k + 1)} title={t('common:refresh')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          <Button variant="primary" tone="cyan" className="p-1.5 text-gray-500 hover:bg-cyan-700" onClick={() => setFrameKey((k) => k + 1)} title={t('common:refresh')}>
             <RefreshCw size={14} />
-          </button>
-          <button onClick={() => void openAppWebview(url, app.name)} title={t('apps.openInAppWindow')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          </Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => void openAppWebview(url, app.name)} title={t('apps.openInAppWindow')}>
             <AppWindow size={14} />
-          </button>
-          <button onClick={() => openExternal(url)} title={t('apps.openInBrowser')} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
+          </Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500" onClick={() => openExternal(url)} title={t('apps.openInBrowser')}>
             <ExternalLink size={14} />
-          </button>
+          </Button>
           <div className="mx-1 flex min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
             <Globe size={12} className="shrink-0 text-gray-400" />
             <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300">{url}</span>
@@ -366,12 +344,9 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
           <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
             <AlertCircle size={13} className="shrink-0" />
             <span className="min-w-0 flex-1">{t('apps.embedBlocked')}</span>
-            <button
-              onClick={() => void openAppWebview(url, app.name)}
-              className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-amber-700"
-            >
+            <Button variant="ghost" tone="gray" className="shrink-0 px-2.5 py-1" onClick={() => void openAppWebview(url, app.name)}>
               {t('apps.openAppWindow')}
-            </button>
+            </Button>
           </div>
         )}
 

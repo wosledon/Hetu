@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderGit2, Loader2, RotateCcw, Save } from 'lucide-react'
 import { settingService } from '../services/settingService'
+import { Button, Input } from './ui'
 
 /**
  * Code 工作树位置：默认统一放在仓库父目录的 .hetu-worktrees 下（按仓库名分子目录，父目录只多这一个文件夹）；
@@ -61,32 +62,26 @@ export default function WorktreeLocationSettings() {
       <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
         <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('worktreeLocation.rootLabel')}</label>
         <div className="flex items-center gap-2">
-          <input
+          <Input tone="indigo" glass
             value={draft}
             placeholder={t('worktreeLocation.placeholder')}
             onChange={(e) => setEdit({ base: savedRoot, value: e.target.value })}
-            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white glass px-3 py-2 font-mono text-[12px] outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+            className="min-w-0 flex-1 font-mono text-[12px]"
           />
-          <button
-            onClick={() => {
+          <Button variant="ghost" tone="gray" className="inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-gray-600 hover:bg-gray-50" onClick={() => {
               setEdit(null)
               save('')
             }}
             disabled={saveMutation.isPending}
-            title={t('worktreeLocation.resetTitle')}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/[0.06]"
-          >
+            title={t('worktreeLocation.resetTitle')}>
             <RotateCcw size={13} />
             {t('worktreeLocation.reset')}
-          </button>
-          <button
-            onClick={() => save(draft)}
-            disabled={saveMutation.isPending || !dirty}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" tone="emerald" className="inline-flex shrink-0 items-center gap-1.5 px-4 py-2" onClick={() => save(draft)}
+            disabled={saveMutation.isPending || !dirty}>
             {saveMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             {t('worktreeLocation.save')}
-          </button>
+          </Button>
         </div>
         <p className="mt-1.5 text-[11px] text-gray-400">{t('worktreeLocation.hint')}</p>
 

@@ -5,6 +5,7 @@ import { Check, Copy, ExternalLink, GitPullRequest, GitMerge, Loader2, RefreshCw
 import { workGitService } from '../../services/workService'
 import { openExternal } from '../../utils/tauri'
 import type { IWorkPrInfo } from '../../types/work'
+import { Button, IconButton, Input, Textarea } from '../ui'
 
 /** PR 状态色：草稿/合并/关闭/进行中 */
 function stateClass(state: string, isDraft: boolean): string {
@@ -86,15 +87,12 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
           {status.isRepo ? status.branch : t('explorer.notGitRepo')}
           {status.tool && <span className="ml-1 text-gray-400">· {status.tool}</span>}
         </span>
-        <button
-          onClick={() => void refetch()}
+        <IconButton label={t('pr.refresh')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => void refetch()}
           disabled={isFetching}
           title={t('pr.refresh')}
-          aria-label={t('pr.refresh')}
-          className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800"
-        >
+          aria-label={t('pr.refresh')}>
           <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
-        </button>
+        </IconButton>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -119,14 +117,11 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
             {status.installHint && (
               <div className="flex items-center gap-2 rounded-lg bg-white/70 px-2 py-1.5 dark:bg-white/[0.04]">
                 <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">{status.installHint}</code>
-                <button
-                  onClick={copyInstall}
+                <IconButton label={t('pr.copy')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={copyInstall}
                   title={t('pr.copy')}
-                  aria-label={t('pr.copy')}
-                  className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-                >
+                  aria-label={t('pr.copy')}>
                   {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                </button>
+                </IconButton>
               </div>
             )}
             {status.installUrl && (
@@ -159,12 +154,9 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
               </p>
             )}
             {pr.url && (
-              <button
-                onClick={() => open(pr.url)}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
-              >
+              <Button variant="link" tone="blue" className="inline-flex items-center gap-1 text-blue-600" onClick={() => open(pr.url)}>
                 <ExternalLink size={11} />{t('pr.openInHost', { host: status.host === 'gitlab' ? 'GitLab' : 'GitHub' })}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -176,26 +168,26 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
             {status.message && <p className="truncate text-[11px] text-gray-400" title={status.message}>{status.message}</p>}
             <div className="space-y-2 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
               <div className="text-[12px] font-medium text-gray-700 dark:text-gray-200">{t('pr.createTitle')}</div>
-              <input
+              <Input tone="blue" size="sm" glass
                 value={title}
                 onChange={(e) => patch({ title: e.target.value })}
                 placeholder={t('pr.titlePlaceholder')}
-                className="w-full rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                className="w-full text-[12px]"
               />
-              <textarea
+              <Textarea tone="blue" size="sm" glass
                 value={body}
                 onChange={(e) => patch({ body: e.target.value })}
                 rows={4}
                 placeholder={t('pr.bodyPlaceholder')}
-                className="w-full resize-y rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                className="w-full resize-y text-[12px]"
               />
               <div className="space-y-2">
                 <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('pr.basePlaceholder')}</label>
-                <input
+                <Input tone="blue" size="sm" glass
                   value={baseBranch}
                   onChange={(e) => patch({ baseBranch: e.target.value })}
                   placeholder={status.baseBranch ?? 'main'}
-                  className="w-full rounded-lg border border-gray-200 bg-white glass px-2 py-1.5 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                  className="w-full font-mono text-[11px]"
                 />
               </div>
               <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
@@ -206,14 +198,11 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
                   {t('pr.branchNotPushed', { branch: status.branch ?? '' })}
                 </p>
               )}
-              <button
-                onClick={() => create.mutate()}
-                disabled={create.isPending || !title.trim()}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
-              >
+              <Button variant="link" tone="blue" className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-1.5" onClick={() => create.mutate()}
+                disabled={create.isPending || !title.trim()}>
                 {create.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitPullRequest size={12} />}
                 {create.isPending ? t('pr.creating') : t('pr.create', { tool: status.tool })}
-              </button>
+              </Button>
               {create.isError && <p className="text-[11px] text-red-600 dark:text-red-300">{(create.error as Error).message}</p>}
               <p className="text-[10px] leading-4 text-gray-400">{t('pr.createHint', { tool: status.tool, base: baseBranch || status.baseBranch || '' })}</p>
             </div>
@@ -226,15 +215,12 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
               {t('pr.openTitle', { host: status.host === 'gitlab' ? 'GitLab' : 'GitHub', count: status.openPrs!.length })}
             </p>
             {status.openPrs!.map((item) => (
-              <button
-                key={`${item.number}-${item.url}`}
-                onClick={() => item.url && open(item.url)}
-                className="flex w-full items-center gap-2 rounded-lg border border-gray-200 px-2 py-1.5 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-white/[0.04]"
-              >
+              <Button variant="primary" tone="blue" className="flex w-full items-center gap-2 px-2 py-1.5 text-left" key={`${item.number}-${item.url}`}
+                onClick={() => item.url && open(item.url)}>
                 <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">#{item.number}</span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-gray-700 dark:text-gray-200">{item.title}</span>
                 <span className="shrink-0 font-mono text-[10px] text-gray-400">{item.headBranch}</span>
-              </button>
+              </Button>
             ))}
           </div>
         )}

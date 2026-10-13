@@ -9,6 +9,7 @@ import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
+import { Button, IconButton, Textarea } from './ui'
 
 interface ITimelineSegment {
   kind?: string
@@ -137,18 +138,15 @@ export default memo(function ChatMessageItem({
         <div className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 dark:bg-blue-950/30' : 'w-full'}`}>
           {isEditing ? (
             <div className="space-y-2">
-              <textarea
+              <Textarea tone="blue" glass
                 value={editingContent}
                 onChange={(e) => onEditContentChange(e.target.value)}
-                className="w-full min-h-28 rounded-md border border-gray-200 bg-white glass p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                className="w-full min-h-28 p-2 text-gray-900 dark:text-gray-100"
               />
               <div className="flex justify-end gap-2">
-                <button
-                  onClick={onCancelEdit}
-                  className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
+                <Button variant="ghost" tone="gray" size="sm" className="px-2 py-1 text-gray-500" onClick={onCancelEdit}>
                   <X size={14} />
-                </button>
+                </Button>
                 <button
                   onClick={onSaveEdit}
                   disabled={!editingContent.trim() || actionsDisabled}
@@ -335,32 +333,26 @@ export default memo(function ChatMessageItem({
         {/* 操作栏：气泡下方的副标题行，图标弱化显示、悬停整行提亮 */}
         {!isEditing && (
           <div className="mt-1.5 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={() => onCopy(message.id, message.content)}
-              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            <IconButton variant="primary" label={t('common:copy')} className="p-1 text-gray-400" onClick={() => onCopy(message.id, message.content)}
+              
               title={t('common:copy')}
-              aria-label={t('common:copy')}
-            >
+              aria-label={t('common:copy')}>
               {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-            </button>
-            <button
-              onClick={() => onStartEdit(message.id, message.content)}
+            </IconButton>
+            <IconButton label={t('common:edit')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => onStartEdit(message.id, message.content)}
               disabled={actionsDisabled}
-              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              
               title={t('common:edit')}
-              aria-label={t('common:edit')}
-            >
+              aria-label={t('common:edit')}>
               <Pencil size={12} />
-            </button>
-            <button
-              onClick={() => onDelete(message.id)}
+            </IconButton>
+            <IconButton variant="ghost" label={t('common:delete')} className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => onDelete(message.id)}
               disabled={actionsDisabled}
-              className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
+              
               title={t('common:delete')}
-              aria-label={t('common:delete')}
-            >
+              aria-label={t('common:delete')}>
               <Trash2 size={12} />
-            </button>
+            </IconButton>
           </div>
         )}
       </div>

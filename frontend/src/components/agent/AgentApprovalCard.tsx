@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck } from 'lucide-react'
 import { renderToolName } from '../../utils/toolRendering'
+import { Button } from '../ui'
 
 export interface AgentApprovalRequest {
   id: string
@@ -41,12 +42,9 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
         {args}
       </pre>
       <div className="mt-2 flex gap-2">
-        <button
-          onClick={onApprove}
-          className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-emerald-600"
-        >
+        <Button variant="primary" tone="emerald" className="px-3 py-1.5" onClick={onApprove}>
           {t('approval.allow')}
-        </button>
+        </Button>
         <button
           onClick={onDeny}
           className="rounded-lg bg-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"

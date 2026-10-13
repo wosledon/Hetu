@@ -8,6 +8,7 @@ import { skillService } from '../../services/skillService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
 import type { IWorkProject } from '../../types/work'
+import { Button, IconButton, Input, Modal } from '../ui'
 
 interface WorkProjectSettingsProps {
   project: IWorkProject
@@ -118,11 +119,8 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-[560px] flex-col overflow-hidden rounded-xl bg-white glass shadow-xl dark:bg-gray-900"
-      >
+    <Modal open onClose={onClose} size="none" className="flex max-h-[85vh] w-[560px] flex-col overflow-hidden rounded-xl shadow-xl">
+
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('projectSettings.title', { name: project.name })}</h3>
           <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -140,11 +138,11 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
 
           <div>
             <label className="mb-1 block text-[12px] font-medium text-gray-600 dark:text-gray-300">{t('projectSettings.diagnosticsCommand')}</label>
-            <input
+            <Input tone="blue" size="sm"
               value={diagnosticsCommand}
               onChange={(e) => setDiagnosticsCommand(e.target.value)}
               placeholder={t('projectSettings.diagnosticsPlaceholder')}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[12px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+              className="w-full text-[12px]"
             />
             <p className="mt-1 text-[11px] text-gray-400">{t('projectSettings.diagnosticsHint')}</p>
           </div>
@@ -213,37 +211,35 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${rule.decision === 'allow' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'}`}>
                     {rule.decision === 'allow' ? t('projectSettings.allow') : t('projectSettings.deny')}
                   </span>
-                  <button
-                    onClick={() => confirm({
+                  <IconButton label={t('projectSettings.deleteRule')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-100" onClick={() => confirm({
                       message: t('projectSettings.deleteRuleConfirm', { name: rule.toolName }),
                       onConfirm: () => deleteRule.mutate(rule.id),
                     })}
-                    className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-rose-500 dark:hover:bg-gray-800"
+                    
                     title={t('projectSettings.deleteRule')}
-                    aria-label={t('projectSettings.deleteRule')}
-                  >
+                    aria-label={t('projectSettings.deleteRule')}>
                     <Trash2 size={11} />
-                  </button>
+                  </IconButton>
                 </div>
               ))}
               <div className="flex items-center gap-1 border-t border-gray-100 px-1.5 pt-1.5 dark:border-gray-800">
-                <input
+                <Input tone="blue" size="sm"
                   value={ruleTool}
                   onChange={(e) => setRuleTool(e.target.value)}
                   list="work-tool-names"
                   placeholder={t('projectSettings.toolName')}
-                  className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-1 font-mono text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                  className="min-w-0 flex-1 font-mono text-[11px]"
                 />
                 <datalist id="work-tool-names">
                   {['work_list_dir', 'work_read_file', 'work_write_file', 'work_run_command', 'work_task', 'work_diagnostics', 'work_semantic_search', 'work_skill'].map((n) => (
                     <option key={n} value={n} />
                   ))}
                 </datalist>
-                <input
+                <Input tone="blue" size="sm"
                   value={rulePattern}
                   onChange={(e) => setRulePattern(e.target.value)}
                   placeholder={t('projectSettings.pathPattern')}
-                  className="min-w-0 flex-1 rounded border border-gray-200 bg-gray-50 px-1.5 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                  className="min-w-0 flex-1 text-[11px]"
                 />
                 <Select
                   value={ruleDecision}
@@ -254,14 +250,11 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   ]}
                   triggerClassName="flex w-[70px] shrink-0 items-center justify-between gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none dark:border-gray-700 dark:bg-gray-800"
                 />
-                <button
-                  onClick={() => ruleTool.trim() && createRule.mutate()}
-                  disabled={!ruleTool.trim() || createRule.isPending}
-                  className="flex shrink-0 items-center gap-0.5 rounded px-1.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                >
+                <Button variant="link" tone="blue" className="flex shrink-0 items-center gap-0.5 px-1.5 py-1 text-blue-600 hover:bg-gray-100 hover:text-rose-500" onClick={() => ruleTool.trim() && createRule.mutate()}
+                  disabled={!ruleTool.trim() || createRule.isPending}>
                   {createRule.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                   {t('common:add')}
-                </button>
+                </Button>
               </div>
             </div>
             <p className="mt-1 text-[11px] text-gray-400">{t('projectSettings.rulesHint')}</p>
@@ -283,44 +276,32 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   <span className="ml-1 text-amber-600 dark:text-amber-400">{t('projectSettings.staleFiles', { count: indexStatus.staleFileCount })}</span>
                 )}
               </span>
-              <button
-                onClick={() => rebuildIndex.mutate()}
-                disabled={rebuildIndex.isPending}
-                className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
-              >
+              <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 px-2 py-0.5 text-blue-600" onClick={() => rebuildIndex.mutate()}
+                disabled={rebuildIndex.isPending}>
                 {rebuildIndex.isPending ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                 {t('projectSettings.rebuild')}
-              </button>
-              <button
-                onClick={handleClearIndex}
+              </Button>
+              <IconButton variant="ghost" label={t('projectSettings.clearIndex')} className="shrink-0 p-1 text-gray-400" onClick={handleClearIndex}
                 disabled={clearIndex.isPending || !indexStatus?.isReady}
-                className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-800"
+                
                 title={t('projectSettings.clearIndex')}
-                aria-label={t('projectSettings.clearIndex')}
-              >
+                aria-label={t('projectSettings.clearIndex')}>
                 <Trash2 size={11} />
-              </button>
+              </IconButton>
             </div>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
           {message && <span className="min-w-0 flex-1 truncate text-[11px] text-gray-500 dark:text-gray-400">{message}</span>}
-          <button
-            onClick={() => save.mutate()}
-            disabled={save.isPending}
-            className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-40"
-          >
+          <Button variant="primary" size="sm" className="ml-auto px-3 py-1.5 hover:bg-gray-100 hover:text-rose-500" onClick={() => save.mutate()}
+            disabled={save.isPending}>
             {t('common:save')}
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-          >
+          </Button>
+          <Button variant="primary" tone="blue" size="sm" className="px-3 py-1.5" onClick={onClose}>
             {t('common:close')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }

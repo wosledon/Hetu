@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Gauge } from 'lucide-react'
 import type { IContextUsage } from '../../types/context'
 import { formatTokens } from '../../utils/agentStream'
+import { Button } from '../ui'
 
 export interface AgentContextUsageProps {
   usage: IContextUsage | null
@@ -77,12 +78,9 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
       onMouseEnter={() => { cancelClose(); setOpen(true); onRefresh?.() }}
       onMouseLeave={scheduleClose}
     >
-      <button
-        onClick={() => { setOpen((v) => !v); onRefresh?.() }}
+      <Button variant="ghost" tone="gray" className="flex h-[27px] items-center gap-1 px-1.5 text-gray-500" onClick={() => { setOpen((v) => !v); onRefresh?.() }}
         title={t('contextUsage.trigger')}
-        aria-label={t('contextUsage.trigger')}
-        className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50"
-      >
+        aria-label={t('contextUsage.trigger')}>
         <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90">
           <circle cx="10" cy="10" r={radius} fill="none" strokeWidth="3.5" className="stroke-gray-200 dark:stroke-gray-700" />
           <circle
@@ -98,7 +96,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
           />
         </svg>
         <span className={tone.text}>{usage ? `${percent}%` : '—'}</span>
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl bg-white glass p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -155,13 +153,10 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
               {(onCompact || onRefresh) && (
                 <div className="mt-3">
                   {onCompact && (
-                    <button
-                      onClick={onCompact}
-                      disabled={compacting}
-                      className="w-full rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
-                    >
+                    <Button variant="primary" tone="violet" className="w-full px-3 py-1.5 disabled:bg-gray-300" onClick={onCompact}
+                      disabled={compacting}>
                       {compacting ? t('contextUsage.compacting') : t('contextUsage.compact')}
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}

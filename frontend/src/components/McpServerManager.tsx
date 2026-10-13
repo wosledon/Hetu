@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit2, Check, X, Wrench, RefreshCw, Loader2 } from 'lucid
 import { mcpService } from '../services/mcpService'
 import Select from './Select'
 import type { IMcpServer, IMcpTool } from '../types'
+import { Button, IconButton, Input, Textarea } from './ui'
 
 const defaultConfig = JSON.stringify(
   {
@@ -15,8 +16,6 @@ const defaultConfig = JSON.stringify(
   null,
   2
 )
-
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 export default function McpServerManager() {
   const queryClient = useQueryClient()
@@ -150,12 +149,9 @@ export default function McpServerManager() {
           </div>
         </div>
         {!isCreating && !editingId && (
-          <button
-            onClick={() => setIsCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md active:scale-[0.98]"
-          >
+          <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={() => setIsCreating(true)}>
             <Plus size={15} /> {t('mcp.add')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -166,19 +162,17 @@ export default function McpServerManager() {
             {editingId ? t('mcp.editServer') : t('mcp.createServer')}
           </h3>
           <div className="space-y-3">
-            <input
+            <Input
               type="text"
               placeholder={t('common:name')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={inputClass}
             />
-            <input
+            <Input
               type="text"
               placeholder={t('common:description')}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className={inputClass}
             />
             <Select
               value={form.type}
@@ -188,11 +182,11 @@ export default function McpServerManager() {
                 { value: 'sse', label: 'sse' },
               ]}
             />
-            <textarea
+            <Textarea tone="blue" size="lg" glass
               placeholder={t('mcp.configPlaceholder')}
               value={form.connectionConfig}
               onChange={(e) => setForm({ ...form, connectionConfig: e.target.value })}
-              className="h-32 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 glass px-4 py-3 font-mono text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+              className="h-32 w-full resize-none font-mono"
             />
             {editingId && (
               <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
@@ -206,22 +200,16 @@ export default function McpServerManager() {
               </label>
             )}
             <div className="flex gap-2 pt-1">
-              <button
-                onClick={handleSave}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
-              >
+              <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={handleSave}>
                 <Check size={14} /> {t('common:save')}
-              </button>
-              <button
-                onClick={() => {
+              </Button>
+              <Button variant="ghost" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-gray-50" onClick={() => {
                   setIsCreating(false)
                   setEditingId(null)
                   resetForm()
-                }}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]"
-              >
+                }}>
                 <span className="inline-flex items-center gap-1.5"><X size={14} /> {t('common:cancel')}</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -267,13 +255,11 @@ export default function McpServerManager() {
                 )}
               </div>
               <div className="flex gap-1 ml-3">
-                <button
-                  onClick={() => handleListTools(server)}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600 dark:hover:bg-white/[0.06] dark:hover:text-indigo-400"
-                  title={t('mcp.discoverTools')}
-                >
+                <IconButton label={t('mcp.discoverTools')} variant="ghost" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-indigo-600" onClick={() => handleListTools(server)}
+                  
+                  title={t('mcp.discoverTools')}>
                   <RefreshCw size={14} />
-                </button>
+                </IconButton>
                 <button
                   onClick={() => startEdit(server)}
                   className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600 dark:hover:bg-white/[0.06] dark:hover:text-indigo-400"

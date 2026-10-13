@@ -55,6 +55,7 @@ import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
 import { useInteractionStore } from '../../stores/interactionStore'
+import { Button, IconButton, Textarea } from '../ui'
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
@@ -709,23 +710,17 @@ export default function WorkSessionArea({
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {project && (
-              <button
-                onClick={startNewSession}
-                disabled={createSession.isPending}
-                className="inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
-              >
+              <Button variant="primary" tone="blue" pill className="inline-flex items-center gap-1.5 px-3.5 py-1.5" onClick={startNewSession}
+                disabled={createSession.isPending}>
                 {createSession.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                 {t('session.newSessionInProject', { name: project.name })}
-              </button>
+              </Button>
             )}
             {onTogglePanel && (
-              <button
-                onClick={onTogglePanel}
-                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-              >
+              <Button variant="secondary" pill className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:border-blue-300 hover:text-blue-600" onClick={onTogglePanel}>
                 <PanelRightOpen size={13} />
                 {panelOpen ? t('session.collapsePanel') : t('session.openPanel')}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1205,13 +1200,10 @@ export default function WorkSessionArea({
   const emptyStart = (
     <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
       {startPrompts.map((prompt) => (
-        <button
-          key={prompt}
-          onClick={() => sendPreset(prompt)}
-          className="rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-        >
+        <Button variant="secondary" pill className="px-3 py-1.5 text-gray-600 hover:border-blue-300 hover:text-blue-600" key={prompt}
+          onClick={() => sendPreset(prompt)}>
           {prompt}
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -1248,23 +1240,17 @@ export default function WorkSessionArea({
           />
           {project && (
             <div className="flex items-center gap-0.5">
-              <button
-                onClick={startNewSession}
+              <IconButton label={t('session.newSession')} variant="ghost" className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={startNewSession}
                 disabled={createSession.isPending}
                 title={t('session.newSessionShortcut')}
-                aria-label={t('session.newSession')}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              >
+                aria-label={t('session.newSession')}>
                 {createSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              </button>
-              <button
-                onClick={exportMarkdown}
+              </IconButton>
+              <IconButton label={t('session.exportMarkdown')} variant="ghost" className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={exportMarkdown}
                 title={t('session.exportMarkdown')}
-                aria-label={t('session.exportMarkdown')}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-              >
+                aria-label={t('session.exportMarkdown')}>
                 <Download size={14} />
-              </button>
+              </IconButton>
               <OpenWithButton
                 apps={openApps}
                 onOpen={handleOpen}
@@ -1298,12 +1284,9 @@ export default function WorkSessionArea({
       <div className={emptyConversation ? 'hidden' : 'flex-1 overflow-y-auto overflow-x-hidden'}>
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
           {olderCount > 0 && (
-            <button
-              onClick={() => setShowOlder(true)}
-              className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]"
-            >
+            <Button variant="secondary" pill className="mx-auto flex items-center gap-1 px-3 py-1 text-gray-500" onClick={() => setShowOlder(true)}>
               <ChevronDown size={11} />{t('session.expandOlder', { count: olderCount })}
-            </button>
+            </Button>
           )}
           {foldedHistory.map((entry, i) => {
             if (entry.kind === 'tool') {
@@ -1400,12 +1383,9 @@ export default function WorkSessionArea({
               <span className="min-w-0 flex-1 text-[12px] text-sky-800 dark:text-sky-300">
                 {t('session.planHint')}
               </span>
-              <button
-                onClick={executePlan}
-                className="shrink-0 rounded-lg bg-sky-500 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-sky-600"
-              >
+              <Button variant="primary" tone="sky" className="shrink-0 px-2.5 py-1" onClick={executePlan}>
                 {t('session.executePlan')}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1413,13 +1393,10 @@ export default function WorkSessionArea({
           {!isStreaming && orderedMessages.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
               {followUpPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => sendPreset(prompt)}
-                  className="rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-600"
-                >
+                <Button variant="secondary" pill className="px-3 py-1.5 text-gray-600 hover:border-blue-300 hover:text-blue-600" key={prompt}
+                  onClick={() => sendPreset(prompt)}>
                   {prompt}
-                </button>
+                </Button>
               ))}
               <button
                 onClick={() => void retryLast()}
@@ -1672,15 +1649,12 @@ export default function WorkSessionArea({
 
               {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}
               {project && (
-                <button
-                  onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
+                <Button variant="outline" tone="gray" className="flex h-[27px] shrink-0 items-center gap-1 px-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
                   disabled={isStreaming}
                   title={t('session.runDiagnosticsHint')}
-                  aria-label={t('session.runDiagnostics')}
-                  className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60"
-                >
+                  aria-label={t('session.runDiagnostics')}>
                   <Stethoscope size={12} />{t('session.diagnostics')}
-                </button>
+                </Button>
               )}
             </>
           }
@@ -1735,22 +1709,16 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
 
   return (
     <div ref={containerRef} className="relative flex items-center">
-      <button
-        onClick={() => onOpen(current.app)}
+      <Button variant="outline" tone="gray" className="p-1.5 text-gray-500" onClick={() => onOpen(current.app)}
         title={t('session.openWith', { app: current.label })}
-        aria-label={t('session.openWith', { app: current.label })}
-        className="rounded-l-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-      >
+        aria-label={t('session.openWith', { app: current.label })}>
         <AppIcon app={current.app} iconUrl={current.iconUrl} />
-      </button>
-      <button
-        onClick={() => setMenuOpen((v) => !v)}
+      </Button>
+      <IconButton variant="secondary" label={t('session.pickOpenWith')} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" onClick={() => setMenuOpen((v) => !v)}
         title={t('session.pickOpenWith')}
-        aria-label={t('session.pickOpenWith')}
-        className="rounded-r-lg border border-l-0 border-gray-200 p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-      >
+        aria-label={t('session.pickOpenWith')}>
         <ChevronDown size={12} />
-      </button>
+      </IconButton>
       {menuOpen && (
         <div className="absolute right-0 top-9 z-50 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {available.map((a) => (
@@ -1765,13 +1733,10 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
             </button>
           ))}
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <button
-            onClick={() => { setMenuOpen(false); onCopyPath() }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50"
-          >
+          <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-600 hover:text-gray-700" onClick={() => { setMenuOpen(false); onCopyPath() }}>
             <Copy size={13} className="shrink-0" />
             {t('session.copyProjectPath')}
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -1803,15 +1768,15 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
   const { t } = useTranslation('work')
   return (
     <div className="space-y-2">
-      <textarea
+      <Textarea tone="blue" glass
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-28 w-full rounded-md border border-gray-200 bg-white glass p-2 text-sm text-gray-900 outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        className="min-h-28 w-full p-2 text-gray-900 dark:text-gray-100"
       />
       <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+        <Button variant="ghost" className="p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={onCancel}>
           <X size={14} />
-        </button>
+        </Button>
         <button
           onClick={onSave}
           disabled={!value.trim() || disabled}
@@ -1829,32 +1794,23 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
   const { t } = useTranslation('work')
   return (
     <div className="mt-1 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
-      <button
-        onClick={() => actions.onCopy(message.id, message.content)}
+      <IconButton variant="ghost" label={t('common:copy')} className="p-1 text-gray-400 hover:bg-gray-50" onClick={() => actions.onCopy(message.id, message.content)}
         title={t('common:copy')}
-        aria-label={t('common:copy')}
-        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-      >
+        aria-label={t('common:copy')}>
         {actions.isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-      </button>
-      <button
-        onClick={() => actions.onStartEdit(message.id, message.content)}
+      </IconButton>
+      <IconButton variant="ghost" label={t('common:edit')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={() => actions.onStartEdit(message.id, message.content)}
         disabled={actions.actionsDisabled}
         title={t('common:edit')}
-        aria-label={t('common:edit')}
-        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-      >
+        aria-label={t('common:edit')}>
         <Pencil size={12} />
-      </button>
-      <button
-        onClick={() => actions.onDelete(message.id)}
+      </IconButton>
+      <IconButton variant="primary" label={t('common:delete')} className="p-1 text-gray-400" onClick={() => actions.onDelete(message.id)}
         disabled={actions.actionsDisabled}
         title={t('common:delete')}
-        aria-label={t('common:delete')}
-        className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800"
-      >
+        aria-label={t('common:delete')}>
         <Trash2 size={12} />
-      </button>
+      </IconButton>
     </div>
   )
 }

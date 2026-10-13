@@ -13,6 +13,7 @@ import SlidingPill from './SlidingPill'
 import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
+import { IconButton } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -255,9 +256,9 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const verticalRail = (
     <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3">
-      <button onClick={() => navigate('/')} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" title={appName}>
+      <IconButton label={appName} variant="ghost" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center transition-opacity hover:opacity-80" onClick={() => navigate('/')}  title={appName}>
         <BrandMark size={34} />
-      </button>
+      </IconButton>
       <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {fixedNavItems.map(renderVerticalNavButton)}
       </SlidingPill>
