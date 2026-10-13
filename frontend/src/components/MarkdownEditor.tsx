@@ -809,7 +809,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           {shareLinks.length > 0 && (
             <div className="max-h-40 space-y-2 overflow-y-auto">
               {shareLinks.map((link: IShareLink) => (
-                <Card key={link.id} className="flex items-center gap-2 rounded-xl p-2 dark:bg-gray-800">
+                <Card key={link.id} className="flex items-center gap-2 p-2 dark:bg-gray-800">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs text-gray-600 dark:text-gray-400">{link.shareUrl}</div>
                     <div className="mt-0.5 text-[10px] text-gray-400">

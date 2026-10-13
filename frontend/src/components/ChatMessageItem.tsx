@@ -135,7 +135,8 @@ export default memo(function ChatMessageItem({
         )}
         {/* Copilot 式瀑布流：无聊天气泡。用户消息右浮动（头像在右）；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
         {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
-        <div className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 dark:bg-blue-950/30' : 'w-full'}`}>
+        {/* 用户气泡套用全局 Card 材质；AI 回复没有气泡，用 before:hidden 退掉表面只留透明 div */}
+        <Card padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] px-4 py-2.5' : 'w-full bg-transparent before:hidden'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <Textarea tone="blue" glass
@@ -233,7 +234,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
+                    <Card padded={false} className="mt-2 overflow-hidden">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Search size={11} />
                         {t('shared.sources')}
@@ -264,7 +265,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
+                    <Card padded={false} className="mt-2 overflow-hidden">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Database size={11} />
                         {t('shared.knowledgeSources')}
@@ -294,7 +295,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
+                    <Card padded={false} className="mt-2 overflow-hidden">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Atom size={11} />
                         {t('shared.memorySources')}
@@ -329,7 +330,7 @@ export default memo(function ChatMessageItem({
               )}
             </>
           )}
-        </div>
+        </Card>
         {/* 操作栏：气泡下方的副标题行，图标弱化显示、悬停整行提亮 */}
         {!isEditing && (
           <div className="mt-1.5 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">

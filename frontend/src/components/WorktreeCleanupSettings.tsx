@@ -102,7 +102,7 @@ export default function WorktreeCleanupSettings() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('worktreeCleanup.subtitle')}</p>
       </div>
 
-      <Card className="flex items-start justify-between gap-4 rounded-xl p-4 dark:bg-gray-800">
+      <Card className="flex items-start justify-between gap-4 p-4 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('worktreeCleanup.autoTitle')}</div>
           <div className="mt-0.5 text-xs text-gray-500">

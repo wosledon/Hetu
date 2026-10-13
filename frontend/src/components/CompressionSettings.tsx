@@ -64,7 +64,7 @@ export default function CompressionSettings() {
 
   return (
     <div className="space-y-6">
-      <Card className="flex items-center justify-between rounded-xl p-4 dark:bg-gray-800">
+      <Card className="flex items-center justify-between p-4 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('compression.pipeline')}</div>
           <div className="mt-0.5 text-xs text-gray-500">
@@ -131,7 +131,7 @@ export default function CompressionSettings() {
             <Card
               key={node.key}
               padded={false}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+              className="flex items-center gap-3 px-3 py-2.5"
             >
               <span className="text-[10px] text-gray-300 tabular-nums w-4">{idx + 1}</span>
               <div className="flex-1 min-w-0">

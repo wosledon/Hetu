@@ -226,7 +226,7 @@ export default function AiSettings() {
 
       {/* Provider Cards */}
       {providers.map((provider) => (
-        <Card key={provider.id} padded={false} className="rounded-xl shadow-sm dark:bg-white/[0.02]">
+        <Card key={provider.id} padded={false} className="shadow-sm dark:bg-white/[0.02]">
           {/* Provider Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
             <div className="flex items-center gap-3">

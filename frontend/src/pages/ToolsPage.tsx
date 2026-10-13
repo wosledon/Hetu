@@ -42,7 +42,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
   }, [tool.parametersSchema])
 
   return (
-    <Card className="rounded-xl p-4 transition-colors hover:border-white/40 dark:hover:border-white/10">
+    <Card className="p-4 transition-colors hover:border-white/40 dark:hover:border-white/10">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           <Wrench size={14} />

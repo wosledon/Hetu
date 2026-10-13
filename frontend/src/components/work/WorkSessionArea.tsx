@@ -1325,9 +1325,9 @@ export default function WorkSessionArea({
                 <User size={15} />
               </div>
               <div className="flex max-w-[85%] flex-col items-end">
-                <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
+                <Card padded={false} className="px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
                   <UserMessageContent content={pendingUser} />
-                </div>
+                </Card>
               </div>
             </div>
             )}
@@ -1370,7 +1370,7 @@ export default function WorkSessionArea({
                 />
               )}
               {workflowOutput && (
-                <Card className="rounded-xl p-3 text-sm text-gray-800 dark:text-gray-100">
+                <Card className="p-3 text-sm text-gray-800 dark:text-gray-100">
                   <ThemedMarkdown source={workflowOutput} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
                 </Card>
               )}
@@ -1829,7 +1829,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
           <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
         </div>
         {editing && actions ? (
-          <Card className="w-full min-w-[280px] rounded-2xl rounded-tr-sm p-2">
+          <Card className="w-full min-w-[280px] p-2">
             <MessageEditor
               value={actions.editingContent}
               disabled={actions.actionsDisabled}
@@ -1839,9 +1839,9 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
             />
           </Card>
         ) : (
-          <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
+          <Card padded={false} className="px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
             <UserMessageContent content={message.content} />
-          </div>
+          </Card>
         )}
         {!editing && actions && <MessageActionBar message={message} actions={actions} />}
       </div>

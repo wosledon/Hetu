@@ -232,7 +232,7 @@ export default function McpServerManager() {
           <Card
             key={server.id}
             padded={false}
-            className={`rounded-xl shadow-sm transition-all dark:bg-white/[0.02] ${
+            className={`shadow-sm transition-all dark:bg-white/[0.02] ${
               server.isEnabled
                 ? ''
                 : 'opacity-60'
@@ -281,7 +281,7 @@ export default function McpServerManager() {
 
       {/* Tools Panel */}
       {selectedServer && (
-        <Card className="rounded-xl p-5 shadow-sm dark:bg-white/[0.02]">
+        <Card className="p-5 shadow-sm dark:bg-white/[0.02]">
           <div className="mb-4 flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />
