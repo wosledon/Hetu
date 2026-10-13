@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Check, Search, X } from 'lucide-react'
+import { ChevronDown, Check, X } from 'lucide-react'
+import { SearchInput } from './ui'
 
 export interface MultiSelectOption {
   value: string
@@ -186,14 +187,14 @@ export default function MultiSelect({
           className="z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white glass shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e]"
         >
           <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-white/[0.06]">
-            <Search size={14} className="shrink-0 text-gray-400" />
-            <input
+            <SearchInput
               ref={searchRef}
+              size="sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') close() }}
               placeholder={searchHint}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
+              className="w-full dark:text-gray-200"
             />
             <button
               onClick={() => setGroup(filtered, !allSelected)}

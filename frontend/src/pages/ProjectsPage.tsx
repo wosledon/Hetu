@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Search, Server, Settings2, Trash2, X,
+  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Server, Settings2, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ProjectsSidebar from '../components/projects/ProjectsSidebar'
@@ -15,7 +15,7 @@ import type {
   IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest,
   ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
 } from '../types/project'
-import { Button, Card, Input } from '../components/ui'
+import { Button, Card, SearchInput } from '../components/ui'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
 
@@ -237,12 +237,11 @@ export default function ProjectsPage() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input tone="blue" size="sm" pill
+                <SearchInput tone="blue" size="sm"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   placeholder={t('page.searchPlaceholder')}
-                  className="w-56 pl-8 pr-3"
+                  className="w-56"
                 />
               </div>
               <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>

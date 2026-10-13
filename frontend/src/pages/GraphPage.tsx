@@ -4,7 +4,6 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Network,
   RotateCcw,
-  Search,
   Sparkles,
   Trash2,
   X,
@@ -31,7 +30,7 @@ import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, Card, IconButton, Input, Modal } from '../components/ui'
+import { Button, Card, IconButton, Modal, SearchInput } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1151,7 +1150,12 @@ export default function GraphPage() {
               <button onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
             </div>
             <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
-              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="emerald" value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full pl-8 pr-3" /></div>
+              <SearchInput tone="emerald"
+                value={extractSearch}
+                onChange={(e) => setExtractSearch(e.target.value)}
+                placeholder={t('graph.searchNotesPlaceholder')}
+                className="w-full"
+              />
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? t('graph.noMatchingNotes') : t('graph.noNotes')}</div>) : (
@@ -1289,7 +1293,14 @@ export default function GraphPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
           </div>
-          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="blue" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full pl-8 pr-3" /></div>
+          <div className="relative mb-3">
+            <SearchInput tone="blue"
+              value={entitySearch}
+              onChange={(e) => setEntitySearch(e.target.value)}
+              placeholder={t('graph.searchEntitiesPlaceholder')}
+              className="w-full"
+            />
+          </div>
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{t('common:all')} {entities.length}</button>
             {entityTypes.map(type => (

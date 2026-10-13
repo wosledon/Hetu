@@ -11,7 +11,6 @@ import {
   FolderOpen,
   FileText,
   Plus,
-  Search,
   Trash2,
   Pin,
   Star,
@@ -23,7 +22,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INote, INotebook } from '../types'
-import { Button, Card, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input, SearchInput } from './ui'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -352,15 +351,12 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('notebook.label')}</h2>
         </div>
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input tone="blue" size="sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('tree.searchPlaceholder')}
-            className="w-full pl-7 pr-2"
-          />
-        </div>
+        <SearchInput tone="blue" size="sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder={t('tree.searchPlaceholder')}
+          className="w-full"
+        />
       </div>
 
       <div className="shrink-0 px-2 pt-2">

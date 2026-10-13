@@ -12,7 +12,7 @@ import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote, INotebook } from '../types'
-import { Button, Card, IconButton, Input } from './ui'
+import { Button, Card, IconButton, SearchInput } from './ui'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -223,15 +223,12 @@ export default function NoteList({
             </button>
           )}
         </div>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input tone="blue" glass
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('list.searchPlaceholder')}
-            className="w-full pl-8 pr-3"
-          />
-        </div>
+        <SearchInput tone="blue"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder={t('list.searchPlaceholder')}
+          className="w-full"
+        />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-2" onScroll={handleScroll}>

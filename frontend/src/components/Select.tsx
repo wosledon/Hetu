@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Check, Search } from 'lucide-react'
+import { ChevronDown, Check } from 'lucide-react'
+import { SearchInput } from './ui'
 
 export interface SelectOption {
   value: string
@@ -226,13 +227,13 @@ export default function Select({
           >
             {searchable && (
               <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-white/[0.06]">
-                <Search size={14} className="shrink-0 text-gray-400" />
-                <input
+                <SearchInput
                   ref={searchRef}
+                  size="sm"
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setActiveIndex(-1) }}
                   placeholder={searchHint}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-gray-200"
+                  className="w-full dark:text-gray-200"
                 />
               </div>
             )}
