@@ -210,7 +210,7 @@ function NotebookTreeItem({
             {t('common:rename')}
           </button>
           <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-          <Button variant="link" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:text-gray-600" onClick={() => { closeMenu(); handleDelete() }}>
+          <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); handleDelete() }}>
             <Trash2 size={14} />
             {t('common:delete')}
           </Button>

@@ -45,4 +45,36 @@ export default defineConfig({
       },
     },
   },
+  // 生产等效本地预览（npm run build && npm run preview）：与开发代理一致，
+  // 用来对比「正式构建」的加载流畅度——dev 服务器要逐模块下发 ~10MB 未压缩
+  // JS（react-dom 开发版、lucide 全图标注册表等，vite dep 预打包不 tree-shake），
+  // 弱机/内嵌 webview 上大模块求值会卡顿；生产构建初始 JS 约 267KB
+  preview: {
+    port: 5175,
+    proxy: {
+      '/api/graph/stream': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['x-accel-buffering'] = 'no'
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform'
+            proxyRes.headers['connection'] = 'keep-alive'
+          })
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('X-Accel-Buffering', 'no')
+          })
+        },
+      },
+      '/api/work-terminal': {
+        target: 'ws://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

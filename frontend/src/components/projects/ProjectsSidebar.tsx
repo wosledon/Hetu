@@ -62,7 +62,7 @@ export default function ProjectsSidebar({
         {/* 分组 */}
         <div className="mt-5 flex items-center justify-between px-2.5">
           <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.groups')}</span>
-          <IconButton label={t('sidebar.manageGroups')} variant="ghost" className="p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={onManageGroups}
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('sidebar.manageGroups')} onClick={onManageGroups}
             title={t('sidebar.manageGroups')}
             aria-label={t('sidebar.manageGroups')}>
             <Settings2 size={12} />
@@ -164,7 +164,7 @@ export default function ProjectsSidebar({
               {filter.type === 'category' && t('sidebar.filterCategory', { name: filter.id ?? '' })}
               {filter.type === 'tag' && t('sidebar.filterTag', { name: filter.id ?? '' })}
             </span>
-            <IconButton label={t('sidebar.clearFilter')} variant="ghost" className="shrink-0 p-0.5 hover:bg-gray-100" onClick={() => onFilterChange(ALL_FILTER)}
+            <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800" label={t('sidebar.clearFilter')} onClick={() => onFilterChange(ALL_FILTER)}
               title={t('sidebar.clearFilter')}
               aria-label={t('sidebar.clearFilter')}>
               <X size={11} />

@@ -265,7 +265,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const verticalRail = (
     <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3">
-      <IconButton label={appName} variant="ghost" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center transition-opacity hover:opacity-80" onClick={() => navigate('/')}  title={appName}>
+      <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
         <BrandMark size={34} />
       </IconButton>
       <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-main" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">

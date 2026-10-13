@@ -149,7 +149,7 @@ export default function McpServerManager() {
           </div>
         </div>
         {!isCreating && !editingId && (
-          <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={() => setIsCreating(true)}>
+          <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md active:scale-[0.98]" onClick={() => setIsCreating(true)}>
             <Plus size={15} /> {t('mcp.add')}
           </Button>
         )}
@@ -200,10 +200,10 @@ export default function McpServerManager() {
               </label>
             )}
             <div className="flex gap-2 pt-1">
-              <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={handleSave}>
+              <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={handleSave}>
                 <Check size={14} /> {t('common:save')}
               </Button>
-              <Button variant="ghost" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-gray-50" onClick={() => {
+              <Button variant="ghost" tone="gray" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={() => {
                   setIsCreating(false)
                   setEditingId(null)
                   resetForm()
@@ -255,7 +255,7 @@ export default function McpServerManager() {
                 )}
               </div>
               <div className="flex gap-1 ml-3">
-                <IconButton label={t('mcp.discoverTools')} variant="ghost" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-indigo-600" onClick={() => handleListTools(server)}
+                <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600 dark:hover:bg-white/[0.06] dark:hover:text-indigo-400" label={t('mcp.discoverTools')} onClick={() => handleListTools(server)}
                   
                   title={t('mcp.discoverTools')}>
                   <RefreshCw size={14} />

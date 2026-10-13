@@ -193,6 +193,9 @@ public class OpenAiLlmProvider : ILLMProvider
     /// 判断一段 reasoning delta 是否已经是正文章节的开头（思考→正文兜底切换用）。
     /// 部分推理模型/中转在思考结束后不守约定，把正式答复继续写进 reasoning_content，
     /// 整轮 content 为空、正文全混在思考里。命中这些特征即从该点起按正文转发。
+    /// 只认「Markdown 结构」与「以下是/下面」这类正文引导语；「好的」「让我」「Now/Let me」
+    /// 是思考流的经典开场白，认它会让整段思考漏进正文（曾把「好的，现在整理成最终的
+    /// Markdown…」整段写进 Wiki），一律不认。
     /// </summary>
     private static bool LooksLikeAnswerStart(string text)
     {
@@ -207,13 +210,8 @@ public class OpenAiLlmProvider : ILLMProvider
             || t.StartsWith("> ", StringComparison.Ordinal)
             || t.StartsWith("```", StringComparison.Ordinal)
             || t.StartsWith("|", StringComparison.Ordinal)
-            || t.StartsWith("好的，", StringComparison.Ordinal)
-            || t.StartsWith("好，", StringComparison.Ordinal)
             || t.StartsWith("以下是", StringComparison.Ordinal)
-            || t.StartsWith("下面", StringComparison.Ordinal)
-            || t.StartsWith("Now ", StringComparison.Ordinal)
-            || t.StartsWith("Let me ", StringComparison.Ordinal)
-            || t.StartsWith("Here ", StringComparison.Ordinal);
+            || t.StartsWith("下面", StringComparison.Ordinal);
     }
 
     /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>

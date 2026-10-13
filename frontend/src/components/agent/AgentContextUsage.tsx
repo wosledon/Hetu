@@ -78,7 +78,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
       onMouseEnter={() => { cancelClose(); setOpen(true); onRefresh?.() }}
       onMouseLeave={scheduleClose}
     >
-      <Button variant="ghost" tone="gray" className="flex h-[27px] items-center gap-1 px-1.5 text-gray-500" onClick={() => { setOpen((v) => !v); onRefresh?.() }}
+      <Button variant="ghost" tone="gray" className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50" onClick={() => { setOpen((v) => !v); onRefresh?.() }}
         title={t('contextUsage.trigger')}
         aria-label={t('contextUsage.trigger')}>
         <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90">
@@ -153,7 +153,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
               {(onCompact || onRefresh) && (
                 <div className="mt-3">
                   {onCompact && (
-                    <Button variant="primary" tone="violet" className="w-full px-3 py-1.5 disabled:bg-gray-300" onClick={onCompact}
+                    <Button variant="primary" tone="violet" className="w-full rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700" onClick={onCompact}
                       disabled={compacting}>
                       {compacting ? t('contextUsage.compacting') : t('contextUsage.compact')}
                     </Button>

@@ -175,7 +175,7 @@ export default function SkillsPage() {
 
         {isDb && !(s as ISkill).isBuiltIn && (
           <div className="flex items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 px-2.5 py-1 text-gray-500 hover:text-gray-700" onClick={() => openEditForm(s as ISkill)}>
+            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(s as ISkill)}>
               <Pencil size={11} /> {t('common:edit')}
             </Button>
             <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
@@ -286,11 +286,11 @@ export default function SkillsPage() {
           </div>
           {tab === 'local' ? (
             <>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600" onClick={() => setShowDirConfig(true)}>
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
                 <Settings size={14} />
                 {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
               </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => refetchLocal()}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
                 title={t('skillsPage.refreshLocalSkills')}>
                 <RefreshCw size={14} />
                 {t('common:refresh')}
@@ -320,11 +320,11 @@ export default function SkillsPage() {
             </div>
             <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
             {tab === 'local' ? (
-              <Button variant="secondary" pill className="mt-2 text-amber-500" onClick={() => setShowDirConfig(true)}>
+              <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={() => setShowDirConfig(true)}>
                 {t('empty.configureSkillDirs')}
               </Button>
             ) : (
-              <Button variant="link" tone="amber" size="sm" className="mt-2 text-amber-500" onClick={openCreateForm}>
+              <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={openCreateForm}>
                 {t('empty.createFirstSkill')}
               </Button>
             )}
@@ -381,8 +381,8 @@ export default function SkillsPage() {
               )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <Button variant="link" tone="amber" size="sm" className="px-4 py-2 text-gray-600" onClick={closeForm}>{t('common:cancel')}</Button>
-              <Button variant="link" tone="amber" size="sm" className="px-4 py-2" onClick={handleSave} disabled={!form.name.trim() || !form.description.trim()}>
+              <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" onClick={closeForm}>{t('common:cancel')}</Button>
+              <Button variant="primary" tone="amber" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave} disabled={!form.name.trim() || !form.description.trim()}>
                 {editingId ? t('common:save') : t('common:create')}
               </Button>
             </div>
@@ -406,7 +406,7 @@ export default function SkillsPage() {
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
-                <Button variant="primary" tone="amber" className="flex shrink-0 items-center gap-1.5 px-3 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={handleBrowseDir}>
+                <Button variant="primary" tone="amber" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600" onClick={handleBrowseDir}>
                   <FolderSearch size={14} />
                   {t('dir.browse')}
                 </Button>
@@ -417,7 +417,7 @@ export default function SkillsPage() {
                   placeholder={t('dir.skillPathPlaceholder')}
                   className="flex-1"
                 />
-                <Button variant="ghost" tone="gray" className="px-3 py-2 text-gray-700" onClick={handleAddDir} disabled={!dirInput.trim()}>
+                <Button variant="secondary" surface="modal" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200" onClick={handleAddDir} disabled={!dirInput.trim()}>
                   {t('common:add')}
                 </Button>
               </div>
@@ -447,7 +447,7 @@ export default function SkillsPage() {
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <Button variant="primary" tone="amber" className="px-4 py-2 text-gray-700" onClick={() => setShowDirConfig(false)}>
+              <Button variant="secondary" surface="modal" className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600" onClick={() => setShowDirConfig(false)}>
                 {t('dir.done')}
               </Button>
             </div>

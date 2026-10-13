@@ -105,7 +105,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
       })}
 
       <div className="relative">
-        <Button variant="link" tone="gray" size="sm" pill className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-500" onClick={() => {
+        <Button variant="link" tone="gray" size="sm" pill className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:border-gray-600" onClick={() => {
             setIsOpen(true)
             setTimeout(() => inputRef.current?.focus(), 0)
           }}>

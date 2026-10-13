@@ -211,7 +211,7 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${rule.decision === 'allow' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'}`}>
                     {rule.decision === 'allow' ? t('projectSettings.allow') : t('projectSettings.deny')}
                   </span>
-                  <IconButton label={t('projectSettings.deleteRule')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-100" onClick={() => confirm({
+                  <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-rose-500 dark:hover:bg-gray-800" label={t('projectSettings.deleteRule')} onClick={() => confirm({
                       message: t('projectSettings.deleteRuleConfirm', { name: rule.toolName }),
                       onConfirm: () => deleteRule.mutate(rule.id),
                     })}
@@ -250,7 +250,7 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   ]}
                   triggerClassName="flex w-[70px] shrink-0 items-center justify-between gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none dark:border-gray-700 dark:bg-gray-800"
                 />
-                <Button variant="link" tone="blue" className="flex shrink-0 items-center gap-0.5 px-1.5 py-1 text-blue-600 hover:bg-gray-100 hover:text-rose-500" onClick={() => ruleTool.trim() && createRule.mutate()}
+                <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-0.5 rounded px-1.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40" onClick={() => ruleTool.trim() && createRule.mutate()}
                   disabled={!ruleTool.trim() || createRule.isPending}>
                   {createRule.isPending ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
                   {t('common:add')}
@@ -276,12 +276,12 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
                   <span className="ml-1 text-amber-600 dark:text-amber-400">{t('projectSettings.staleFiles', { count: indexStatus.staleFileCount })}</span>
                 )}
               </span>
-              <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 px-2 py-0.5 text-blue-600" onClick={() => rebuildIndex.mutate()}
+              <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40" onClick={() => rebuildIndex.mutate()}
                 disabled={rebuildIndex.isPending}>
                 {rebuildIndex.isPending ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                 {t('projectSettings.rebuild')}
               </Button>
-              <IconButton variant="ghost" label={t('projectSettings.clearIndex')} className="shrink-0 p-1 text-gray-400" onClick={handleClearIndex}
+              <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-800" label={t('projectSettings.clearIndex')} onClick={handleClearIndex}
                 disabled={clearIndex.isPending || !indexStatus?.isReady}
                 
                 title={t('projectSettings.clearIndex')}
@@ -294,11 +294,11 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
 
         <div className="flex shrink-0 items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
           {message && <span className="min-w-0 flex-1 truncate text-[11px] text-gray-500 dark:text-gray-400">{message}</span>}
-          <Button variant="primary" size="sm" className="ml-auto px-3 py-1.5 hover:bg-gray-100 hover:text-rose-500" onClick={() => save.mutate()}
+          <Button variant="primary" tone="blue" size="sm" className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-40" onClick={() => save.mutate()}
             disabled={save.isPending}>
             {t('common:save')}
           </Button>
-          <Button variant="primary" tone="blue" size="sm" className="px-3 py-1.5" onClick={onClose}>
+          <Button variant="ghost" tone="gray" size="sm" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" onClick={onClose}>
             {t('common:close')}
           </Button>
         </div>

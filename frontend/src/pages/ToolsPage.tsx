@@ -74,7 +74,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
 
           {(tool.usageGuideline || schema) && (
             <>
-              <Button variant="link" tone="gray" className="mt-2 flex items-center gap-1 text-gray-500 hover:text-gray-700" onClick={() => setOpen((v) => !v)}>
+              <Button variant="link" tone="gray" className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => setOpen((v) => !v)}>
                 {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 {t('toolsPage.parametersAndGuidelines')}
               </Button>

@@ -46,7 +46,7 @@ export default function AgentQueueBar({ items, steeringId, onSteer, onRemove }: 
               <CornerDownRight size={11} />
               {t('queue.steer')}
             </button>
-            <IconButton variant="ghost" label={t('queue.remove')} className="shrink-0 p-0.5 text-gray-400 hover:bg-sky-100" onClick={() => onRemove(item)}
+            <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('queue.remove')} onClick={() => onRemove(item)}
               title={t('queue.remove')}
               aria-label={t('queue.remove')}>
               <X size={11} />

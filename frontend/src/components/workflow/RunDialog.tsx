@@ -140,8 +140,8 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
             <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-500/20 dark:bg-orange-500/10">
               <UserCheck size={18} className="text-orange-500" />
               <div className="flex-1 text-sm text-orange-700 dark:text-orange-400">{pendingApproval.prompt}</div>
-              <Button variant="primary" tone="green" size="sm" className="px-3 py-1 hover:bg-gray-100" onClick={() => handleApprove(true)}>{t('approval.approve')}</Button>
-              <Button variant="primary" tone="green" size="sm" className="px-3 py-1" onClick={() => handleApprove(false)}>{t('approval.reject')}</Button>
+              <Button variant="primary" tone="green" size="sm" className="rounded-lg bg-green-500 px-3 py-1 text-xs text-white hover:bg-green-600" onClick={() => handleApprove(true)}>{t('approval.approve')}</Button>
+              <Button variant="danger" size="sm" className="rounded-lg bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600" onClick={() => handleApprove(false)}>{t('approval.reject')}</Button>
             </div>
           )}
 
@@ -162,12 +162,12 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
 
         <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-white/[0.08]">
           {running ? (
-            <Button variant="danger" size="sm" className="px-4 py-2 text-red-600" onClick={handleCancel}>{t('run.cancelRun')}</Button>
+            <Button variant="ghost" tone="red" className="rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={handleCancel}>{t('run.cancelRun')}</Button>
           ) : (
-            <Button variant="ghost" tone="red" className="px-4 py-2 text-gray-600" onClick={onClose}>{t('common:close')}</Button>
+            <Button variant="ghost" tone="gray" className="rounded-xl px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={onClose}>{t('common:close')}</Button>
           )}
           {!running && finalStatus === null && (
-            <Button variant="ghost" tone="gray" className="flex items-center gap-1.5 px-4 py-2" onClick={handleRun}>
+            <Button variant="primary" tone="green" className="flex items-center gap-1.5 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600" onClick={handleRun}>
               <Play size={15} /> {t('common:run')}
             </Button>
           )}

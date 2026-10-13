@@ -197,7 +197,7 @@ export default function KanbanTaskDetailPage() {
       <AppLayout showSidebar={false} mainContent={
         <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-400">
           <p>{t('detail.notFound')}</p>
-          <Button variant="primary" tone="indigo" className="px-4 py-2" onClick={() => navigate('/kanban')}>
+          <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-500 px-4 py-2 text-sm text-white hover:bg-indigo-600" onClick={() => navigate('/kanban')}>
             {t('detail.backToBoard')}
           </Button>
         </div>
@@ -248,7 +248,7 @@ export default function KanbanTaskDetailPage() {
           <div className="w-full px-6 py-6 lg:px-10">
             {/* 顶部导航 */}
             <div className="mb-4 flex items-center gap-2">
-              <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1 text-gray-500 hover:text-gray-700" onClick={() => navigate('/kanban')}>
+              <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" onClick={() => navigate('/kanban')}>
                 <ArrowLeft size={14} />{t('board.title')}
               </Button>
               <span className="text-gray-300 dark:text-gray-600">/</span>
@@ -282,24 +282,24 @@ export default function KanbanTaskDetailPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {canReview && (
-                      <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={() => moveMutation.mutate('Done')}
+                      <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50" onClick={() => moveMutation.mutate('Done')}
                         disabled={moveMutation.isPending}>
                         <CheckCircle2 size={13} />{t('detail.approve')}
                       </Button>
                     )}
                     {task.status === 'Done' && (
-                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => moveMutation.mutate('Archived')}
+                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => moveMutation.mutate('Archived')}
                         disabled={moveMutation.isPending}>
                         <Hash size={13} />{t('detail.archive')}
                       </Button>
                     )}
                     {task.hasAutomation && task.status === 'Todo' && (
-                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => rerunMutation.mutate()}
+                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => rerunMutation.mutate()}
                         disabled={rerunMutation.isPending}>
                         <Play size={13} />{t('detail.runNow')}
                       </Button>
                     )}
-                    <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => navigate('/kanban')}>
+                    <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => navigate('/kanban')}>
                       <Pencil size={13} />{t('detail.editInBoard')}
                     </Button>
                     <button
@@ -449,13 +449,13 @@ export default function KanbanTaskDetailPage() {
                     className="w-full min-h-[96px] resize-y leading-relaxed"
                   />
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 hover:bg-red-50 hover:text-red-500" onClick={() => submitComment()}
+                    <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => submitComment()}
                       disabled={!comment.trim() || commentMutation.isPending}>
                       {commentMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
                       {pendingAnswerRun ? t('detail.answerAndContinue') : t('detail.submitComment')}
                     </Button>
                     {canRework && !pendingAnswerRun && (
-                      <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 text-indigo-600" onClick={() => submitComment()}
+                      <Button variant="outline" tone="indigo" className="flex items-center gap-1.5 rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-950/40" onClick={() => submitComment()}
                         disabled={!comment.trim() || commentMutation.isPending}>
                         <Play size={14} />{t('detail.submitAndRework')}
                       </Button>
@@ -481,7 +481,7 @@ export default function KanbanTaskDetailPage() {
                       <dt className="w-16 shrink-0 text-gray-400">{t('board.status')}</dt>
                       <dd className="flex flex-wrap gap-1">
                         {NEXT_STATUS[task.status].map((s) => (
-                          <Button variant="outline" tone="indigo" className="px-2 py-0.5 text-gray-600" key={s}
+                          <Button variant="link" tone="gray" className="rounded-md border border-gray-200 px-2 py-0.5 text-[12px] text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300" key={s}
                             onClick={() => moveMutation.mutate(s)}
                             disabled={moveMutation.isPending}>
                             → {t(STATUS_META[s].labelKey)}

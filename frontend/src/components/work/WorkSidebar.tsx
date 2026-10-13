@@ -62,7 +62,7 @@ function DirBrowser({
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300" title={data?.current || ''}>
           {data?.current || '—'}
         </span>
-        <IconButton label={t('sidebar.closeDirBrowser')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-200" onClick={onClose}
+        <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700" label={t('sidebar.closeDirBrowser')} onClick={onClose}
           
           title={t('sidebar.closeBrowse')}
           aria-label={t('sidebar.closeDirBrowser')}>
@@ -71,7 +71,7 @@ function DirBrowser({
       </div>
       <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         {data?.parent !== null && data?.parent !== undefined && (
-          <Button variant="ghost" tone="gray" className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-gray-500 hover:bg-gray-50" onClick={() => setPath(data.parent!)}>
+          <Button variant="ghost" tone="gray" className="flex w-full items-center gap-1.5 border-b border-gray-100 px-2.5 py-1.5 text-left text-[12px] text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800" onClick={() => setPath(data.parent!)}>
             <CornerLeftUp size={12} className="shrink-0" />
             {t('sidebar.parentDir')}
           </Button>
@@ -102,7 +102,7 @@ function DirBrowser({
         )}
       </div>
       <div className="mt-1.5 flex justify-end gap-1.5">
-        <Button variant="ghost" tone="gray" className="px-2.5 py-1 hover:bg-blue-50" onClick={() => { onPick(data?.current || path); onClose() }}
+        <Button variant="primary" tone="blue" className="rounded-lg bg-blue-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-40" onClick={() => { onPick(data?.current || path); onClose() }}
           disabled={!data?.current}>
           {t('sidebar.pickCurrentDir')}
         </Button>
@@ -220,7 +220,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.localDir')}</label>
               <div className="flex items-center gap-2">
                 <Input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder={t('sidebar.localDirPlaceholder')} className="font-mono text-[13px]" />
-                <Button variant="primary" tone="blue" className="flex shrink-0 items-center gap-1 px-3 py-2 text-gray-700" onClick={() => setLocalBrowsing((v) => !v)}>
+                <Button variant="secondary" size="sm" className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setLocalBrowsing((v) => !v)}>
                   <FolderOpen size={13} />
                   {t('sidebar.browse')}
                 </Button>
@@ -327,7 +327,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('sidebar.remoteDir')}</label>
                 <div className="flex items-center gap-2">
                   <Input value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder={t('sidebar.remoteDirPlaceholder')} className="font-mono text-[13px]" />
-                  <Button variant="secondary" size="sm" className="flex shrink-0 items-center gap-1 px-3 py-2 text-gray-700 hover:bg-gray-100" onClick={() => setRemoteBrowsing((v) => !v)}
+                  <Button variant="secondary" size="sm" className="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white glass px-3 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setRemoteBrowsing((v) => !v)}
                     disabled={!host.trim()}>
                     <FolderOpen size={13} />
                     {t('sidebar.browse')}
@@ -343,7 +343,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" className="flex items-center gap-1.5 px-4 py-1.5 text-gray-700" onClick={() => { setTestResult(null); testConnection.mutate({ host: host.trim(), port, user: user.trim() || undefined, authType, keyPath: keyPath.trim() || undefined, password: password || undefined, rootPath: rootPath.trim() || '~' }) }}
+                <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" onClick={() => { setTestResult(null); testConnection.mutate({ host: host.trim(), port, user: user.trim() || undefined, authType, keyPath: keyPath.trim() || undefined, password: password || undefined, rootPath: rootPath.trim() || '~' }) }}
                   disabled={testConnection.isPending || !host.trim()}>
                   {testConnection.isPending ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
                   {t('sidebar.testConnection')}
@@ -360,7 +360,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
           {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <Button variant="secondary" size="sm" className="px-4 py-2 text-gray-600" onClick={onClose}>{t('common:cancel')}</Button>
+          <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClose}>{t('common:cancel')}</Button>
           <button
             onClick={handleCreate}
             disabled={create.isPending}
@@ -533,12 +533,12 @@ function SessionList({
             )}
             {renamingSessionId !== session.id && (
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                <IconButton variant="secondary" label={t('sidebar.renameSession')} className="p-0.5 text-gray-400" onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
+                <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameSession')} onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
                   title={t('sidebar.renameSession')}
                   aria-label={t('sidebar.renameSession')}>
                   <Pencil size={10} />
                 </IconButton>
-                <IconButton variant="ghost" label={t('sidebar.deleteSession')} className="p-0.5 text-gray-400 hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
+                <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700" label={t('sidebar.deleteSession')} onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
                   disabled={deleteSessionMutation.isPending}
                   title={t('sidebar.deleteSession')}
                   aria-label={t('sidebar.deleteSession')}>
@@ -558,7 +558,7 @@ function SessionList({
         <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '32px' } : undefined}>
           <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
           <span className="text-[11px] text-gray-400">{t('sidebar.noSessions')}</span>
-          <Button variant="outline" tone="gray" className="px-2.5 py-1 text-gray-500" onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}>
+          <Button variant="link" tone="gray" className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400" onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}>
             {t('sidebar.newSession')}
           </Button>
         </div>
@@ -638,16 +638,16 @@ function ProjectNode({
           </span>
         )}
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
-          <IconButton label={t('sidebar.projectSettings')} variant="ghost" className="p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={(e) => { e.stopPropagation(); setSetting(true) }}
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.projectSettings')} onClick={(e) => { e.stopPropagation(); setSetting(true) }}
             title={t('sidebar.projectSettings')}>
             <Settings size={11} />
           </IconButton>
-          <IconButton variant="danger" label={t('sidebar.renameProject')} className="p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500" onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameProject')} onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
             title={t('sidebar.renameProject')}
             aria-label={t('sidebar.renameProject')}>
             <Pencil size={11} />
           </IconButton>
-          <IconButton variant="secondary" label={t('sidebar.deleteProject')} className="p-0.5 text-gray-400 hover:border-blue-300 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('sidebar.deleteProject')} onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
             title={t('sidebar.deleteProject')}
             aria-label={t('sidebar.deleteProject')}>
             <Trash2 size={11} />
@@ -672,7 +672,7 @@ function ProjectNode({
             }}
             className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[12px] outline-none dark:bg-gray-800"
           />
-          <Button variant="link" tone="emerald" className="p-0.5 text-emerald-500 hover:text-blue-500" onClick={() => { if (name.trim()) onRenameProject({ ...project, name: name.trim() }); setRenaming(false) }}><Check size={12} /></Button>
+          <Button variant="link" tone="emerald" className="p-0.5 text-emerald-500" onClick={() => { if (name.trim()) onRenameProject({ ...project, name: name.trim() }); setRenaming(false) }}><Check size={12} /></Button>
           <button onClick={() => setRenaming(false)} className="p-0.5 text-gray-400"><X size={12} /></button>
         </div>
       )}

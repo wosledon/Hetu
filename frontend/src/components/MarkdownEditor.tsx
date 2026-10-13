@@ -565,7 +565,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       {FORMAT_ACTIONS.map((item) => {
         const Icon = item.icon
         return (
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center text-gray-600" key={item.key}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" key={item.key}
             title={t(`editor.format.${item.titleKey}`)}
             onClick={(e) => { e.preventDefault(); runFormat(item.run) }}>
             <Icon size={14} />
@@ -573,26 +573,26 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )
       })}
       <span className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-      <Button variant="ghost" tone="indigo" className="flex h-7 items-center gap-1 px-1.5 text-indigo-600" title={t('editor.inlineAiHint')}
+      <Button variant="ghost" tone="indigo" className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30" title={t('editor.inlineAiHint')}
         onClick={() => { setShowInlineAi(true); setInlineAiResult(''); setInlineCustomPrompt('') }}>
         <Sparkles size={14} />
         AI
       </Button>
       {linkDraft === null ? (
         <>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center text-gray-600" title={t('editor.insertLink')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertLink')}
             onClick={() => setLinkDraft('')}>
             <Link2 size={14} />
           </Button>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center text-gray-600" title={t('editor.insertTable')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertTable')}
             onClick={() => runFormat((md) => md.insertTable())}>
             <Table2 size={14} />
           </Button>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center text-gray-600" title={t('editor.divider')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.divider')}
             onClick={() => runFormat((md) => md.insertDivider())}>
             <Minus size={14} />
           </Button>
-          <Button variant="ghost" tone="gray" className="flex h-7 items-center gap-1 px-1.5 text-gray-600" title={t('editor.insertDiagram')}
+          <Button variant="ghost" tone="gray" className="flex h-7 items-center gap-1 rounded-lg px-1.5 text-[12px] text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertDiagram')}
             onClick={() => runFormat((md) => md.insertDiagram())}>
             <Workflow size={14} />
             {t('editor.diagramLabel')}
@@ -725,7 +725,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               {indexError}
             </span>
           )}
-          <Button variant="secondary" className="flex items-center gap-1 px-2 py-1 text-gray-500 hover:border-blue-300 hover:text-blue-600" onClick={() => generateEmbedding.mutate()}
+          <Button variant="secondary" className="flex items-center gap-1 rounded-md border border-gray-200 bg-white glass px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400" onClick={() => generateEmbedding.mutate()}
             disabled={generateEmbedding.isPending || isIndexing}
             
             title={currentEmbedding?.hasEmbedding ? t('editor.rebuildIndex') : t('editor.generateIndex')}>
@@ -746,7 +746,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   ? t('editor.rebuildIndex')
                   : t('editor.generateIndex')}
           </Button>
-          <Button variant="secondary" className="flex items-center gap-1 px-2 py-1 text-gray-500 hover:border-violet-300 hover:text-violet-600" onClick={() => extractGraph.mutate()}
+          <Button variant="secondary" className="flex items-center gap-1 rounded-md border border-gray-200 bg-white glass px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400" onClick={() => extractGraph.mutate()}
             disabled={extractGraph.isPending}
             
             title={t('editor.extractHint')}>
@@ -818,14 +818,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     </div>
                   </div>
                   {link.isActive && (
-                    <IconButton label={t('share.copyLink')} variant="ghost" className="p-1.5 text-gray-400 hover:bg-white/50 hover:text-gray-600" onClick={() => handleCopyLink(link.shareUrl)}
+                    <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" label={t('share.copyLink')} onClick={() => handleCopyLink(link.shareUrl)}
                       
                       title={t('share.copyLink')}>
                       {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                     </IconButton>
                   )}
                   {link.isActive && (
-                    <IconButton variant="ghost" label={t('share.disableLink')} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => deactivateShareLink.mutate(link.id)}
+                    <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500" label={t('share.disableLink')} onClick={() => deactivateShareLink.mutate(link.id)}
                       
                       title={t('share.disableLink')}>
                       <X size={14} />
@@ -953,7 +953,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
                 <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-gray-800 dark:bg-gray-950/50">
                   <div className="relative" ref={modelPickerRef}>
-                    <Button variant="link" tone="gray" className="flex items-center gap-1 px-1.5 py-0.5 text-gray-500 hover:bg-red-50 hover:text-red-500" onClick={() => setShowModelPicker((v) => !v)}
+                    <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => setShowModelPicker((v) => !v)}
                       
                       title={t('editor.selectModel')}>
                       <Bot size={11} />
@@ -962,12 +962,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     </Button>
                     {showModelPicker && (
                       <div className="absolute bottom-full left-0 z-30 mb-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                        <Button variant="link" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-gray-600 hover:bg-gray-100 hover:text-gray-600" onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}>
+                        <Button variant="ghost" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}>
                           <span className="flex-1">{t('editor.defaultModel')}</span>
                           {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
                         </Button>
                         {chatModels.filter((m) => !m.isDefault).map((m) => (
-                          <Button variant="ghost" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-gray-600 hover:bg-gray-200" key={m.id}
+                          <Button variant="ghost" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700" key={m.id}
                             onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}>
                             <span className="flex-1">{m.displayName}</span>
                             {selectedModelId === m.id && <span className="text-[10px] text-emerald-500">✓</span>}
@@ -979,13 +979,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   <div className="flex items-center gap-1.5">
                     {inlineAiResult && !inlineAiResult.startsWith('[ERROR]') && (
                       <>
-                        <Button variant="ghost" tone="gray" className="px-2.5 py-1 hover:bg-gray-50" onClick={handleReplaceSelection}>
+                        <Button variant="primary" tone="emerald" className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700" onClick={handleReplaceSelection}>
                           {t('editor.acceptReplace')}
                         </Button>
-                        <Button variant="ghost" tone="gray" className="px-2.5 py-1 text-indigo-600 hover:bg-gray-50" onClick={handleInsertAiResult}>
+                        <Button variant="ghost" tone="indigo" className="rounded-md px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30" onClick={handleInsertAiResult}>
                           {t('editor.append')}
                         </Button>
-                        <Button variant="primary" tone="emerald" className="px-2.5 py-1 text-gray-500 hover:bg-emerald-700" onClick={() => { setInlineAiResult(''); setInlineCustomPrompt('') }}>
+                        <Button variant="ghost" tone="gray" className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800" onClick={() => { setInlineAiResult(''); setInlineCustomPrompt('') }}>
                           {t('editor.rewrite')}
                         </Button>
                       </>
@@ -1001,7 +1001,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       </button>
                     )}
                     {inlineAiLoading && (
-                      <Button variant="ghost" tone="indigo" className="flex items-center gap-1 px-2.5 py-1 text-red-500" onClick={() => handleStopAi('inline')}>
+                      <Button variant="ghost" tone="red" className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => handleStopAi('inline')}>
                         <Square size={11} />
                         {t('common:stop')}
                       </Button>
@@ -1095,7 +1095,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
               <div className="flex items-center justify-between">
                 <div className="relative">
-                  <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-1.5 py-0.5 text-gray-500 hover:bg-gray-200" onClick={() => setShowModelPicker((v) => !v)}
+                  <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => setShowModelPicker((v) => !v)}
                     
                     title={t('editor.selectModel')}>
                     <Bot size={11} />
@@ -1104,12 +1104,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   </Button>
                   {showModelPicker && (
                     <div className="absolute bottom-full left-0 z-30 mb-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                      <Button variant="link" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-gray-600" onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}>
+                      <Button variant="ghost" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => { setSelectedModelId(''); setShowModelPicker(false) }}>
                         <span className="flex-1">{t('editor.defaultModel')}</span>
                         {!selectedModelId && <span className="text-[10px] text-emerald-500">✓</span>}
                       </Button>
                       {chatModels.filter((m) => !m.isDefault).map((m) => (
-                        <Button variant="ghost" tone="red" className="flex w-full items-center px-3 py-1.5 text-left text-gray-600" key={m.id}
+                        <Button variant="ghost" tone="gray" className="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700" key={m.id}
                           onClick={() => { setSelectedModelId(m.id); setShowModelPicker(false) }}>
                           <span className="flex-1">{m.displayName}</span>
                           {selectedModelId === m.id && <span className="text-[10px] text-emerald-500">✓</span>}
@@ -1121,10 +1121,10 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <div className="flex items-center gap-1.5">
                   {assistantResult && !assistantResult.startsWith('[ERROR]') && (
                     <>
-                      <Button variant="primary" tone="emerald" className="px-2.5 py-1 hover:bg-gray-100 hover:text-gray-600" onClick={handleInsertAiResult}>
+                      <Button variant="primary" tone="emerald" className="rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700" onClick={handleInsertAiResult}>
                         {t('editor.appendToEnd')}
                       </Button>
-                      <Button variant="ghost" tone="gray" className="px-2.5 py-1 text-gray-500 hover:bg-gray-200" onClick={() => { setAssistantResult(''); setAssistantCustomPrompt('') }}>
+                      <Button variant="ghost" tone="gray" className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200 dark:hover:bg-gray-800" onClick={() => { setAssistantResult(''); setAssistantCustomPrompt('') }}>
                         {t('editor.rewrite')}
                       </Button>
                     </>
@@ -1140,7 +1140,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     </button>
                   )}
                   {assistantLoading && (
-                    <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1 text-red-500 hover:bg-gray-50" onClick={() => handleStopAi('assistant')}>
+                    <Button variant="ghost" tone="red" className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => handleStopAi('assistant')}>
                       <Square size={11} />
                       {t('common:stop')}
                     </Button>
@@ -1195,7 +1195,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               <div className="border-t border-gray-100 p-4 dark:border-gray-800">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{diffMode ? t('editor.versionCompare') : t('editor.versionPreview')}</div>
-                  <Button variant="ghost" tone="gray" className="px-2 py-1 text-gray-600 hover:bg-gray-50" onClick={() => setDiffMode((v) => !v)}>
+                  <Button variant="ghost" tone="gray" size="sm" className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setDiffMode((v) => !v)}>
                     {diffMode ? t('editor.closeCompare') : t('editor.compareCurrent')}
                   </Button>
                 </div>

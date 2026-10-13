@@ -113,10 +113,10 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" tone="red" size="sm" className="flex items-center gap-1.5 px-3.5 py-1.5 text-red-600" onClick={() => onDecide(false)}>
+            <Button variant="outline" tone="red" size="sm" className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => onDecide(false)}>
               <X size={13} /> {t('plan.reject')}
             </Button>
-            <Button variant="primary" tone="teal" size="sm" className="flex items-center gap-1.5 px-4 py-1.5" onClick={() => onDecide(true)}>
+            <Button variant="primary" tone="teal" size="sm" className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-600 hover:shadow" onClick={() => onDecide(true)}>
               <Play size={12} /> {t('plan.approve')}
             </Button>
           </div>

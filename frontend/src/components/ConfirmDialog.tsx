@@ -40,8 +40,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               <button onClick={handleCancel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-gray-100" onClick={handleCancel}>{t('common:cancel')}</Button>
-              <Button variant="ghost" tone="gray" className="px-4 py-2 hover:bg-gray-50" onClick={handleConfirm}>{t('ui:confirmDialog.delete')}</Button>
+              <Button variant="ghost" tone="gray" className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleCancel}>{t('common:cancel')}</Button>
+              <Button variant="danger" className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" onClick={handleConfirm}>{t('ui:confirmDialog.delete')}</Button>
             </div>
 </Modal>
       )}

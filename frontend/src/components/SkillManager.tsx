@@ -114,7 +114,7 @@ export default function SkillManager() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">{t('skills.title')}</h2>
         {!isCreating && !editingId && (
-          <Button variant="primary" tone="indigo" className="flex items-center gap-1 px-3 py-1.5 hover:bg-indigo-700" onClick={() => setIsCreating(true)}>
+          <Button variant="primary" tone="indigo" className="flex items-center gap-1 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={() => setIsCreating(true)}>
             <Plus size={14} />
             {t('common:create')}
           </Button>
@@ -161,7 +161,7 @@ export default function SkillManager() {
             </label>
           )}
           <div className="flex gap-2">
-            <Button variant="primary" tone="emerald" className="flex items-center gap-1 px-3 py-1.5 hover:bg-emerald-700" onClick={handleSave}>
+            <Button variant="primary" tone="emerald" className="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700" onClick={handleSave}>
               <Check size={14} />
               {t('common:save')}
             </Button>
@@ -200,10 +200,10 @@ export default function SkillManager() {
                   </div>
                   {!skill.isBuiltIn && (
                     <div className="flex gap-1 ml-2">
-                      <Button variant="ghost" tone="gray" surface="modal" className="p-1 text-gray-500 hover:bg-gray-300" onClick={() => startEdit(skill)}>
+                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-indigo-600" onClick={() => startEdit(skill)}>
                         <Edit2 size={14} />
                       </Button>
-                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-indigo-600" onClick={() => deleteMutation.mutate(skill.id)}>
+                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-red-600" onClick={() => deleteMutation.mutate(skill.id)}>
                         <Trash2 size={14} />
                       </Button>
                     </div>

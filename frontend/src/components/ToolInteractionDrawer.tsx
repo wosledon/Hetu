@@ -190,7 +190,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
             </div>
           )}
 
-          <IconButton label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')} variant="ghost" className="flex-shrink-0 p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" type="button"
+          <IconButton variant="ghost" tone="gray" className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300" label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')} type="button"
             onClick={() => setCollapsed(v => !v)}
             aria-label={collapsed ? t('interaction.expandDrawer') : t('interaction.collapseDrawer')}>
             {collapsed ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronDown size={14} />}

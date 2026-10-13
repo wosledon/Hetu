@@ -167,7 +167,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
     <div className="flex h-full flex-1 flex-col">
       {/* 工具栏 */}
       <div className="flex items-center gap-2 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
-        <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1 text-gray-600" onClick={onBack}>
+        <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={onBack}>
           <ChevronLeft size={16} /> {t('common:back')}
         </Button>
         <div className="h-4 w-px bg-gray-200 dark:bg-white/[0.08]" />
@@ -205,7 +205,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
                     className="w-full resize-none"
                   />
                 </div>
-                <Button variant="ghost" tone="gray" className="w-full py-1.5" onClick={() => setShowMeta(false)}>
+                <Button variant="primary" tone="blue" size="sm" className="w-full rounded-lg bg-blue-500 py-1.5 text-xs font-medium text-white hover:bg-blue-600" onClick={() => setShowMeta(false)}>
                   {t('editor.done')}
                 </Button>
               </div>
@@ -227,21 +227,21 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           {isEnabled ? t('common:enable') : t('common:disable')}
         </button>
         <div className="flex-1" />
-        <Button variant="primary" tone="blue" size="sm" className="flex items-center gap-1 px-2.5 py-1.5 text-gray-600" onClick={autoLayout}>
+        <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={autoLayout}>
           <Layout size={14} /> {t('editor.autoLayout')}
         </Button>
         {!isNew && (
-          <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-2.5 py-1.5 text-gray-600" onClick={handleValidate}>
+          <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={handleValidate}>
             <CheckCircle size={14} /> {t('editor.validate')}
           </Button>
         )}
-        <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
+        <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
           disabled={isNew}
           
           title={isNew ? t('editor.runAfterSave') : t('common:run')}>
           <Play size={14} /> {t('common:run')}
         </Button>
-        <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={handleSave} disabled={saveMut.isPending}>
+        <Button variant="primary" tone="blue" size="sm" className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50" onClick={handleSave} disabled={saveMut.isPending}>
           {saved ? <CheckCircle size={14} /> : <Save size={14} />} {saved ? t('common:saved') : t('common:save')}
         </Button>
       </div>

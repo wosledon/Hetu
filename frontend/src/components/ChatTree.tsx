@@ -141,7 +141,7 @@ function GroupNode({
         <span className={`min-w-0 flex-1 truncate text-sm ${isGroupFocused ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'}`}>
           {group.name}
         </span>
-        <IconButton label={t('tree.newTopic')} variant="ghost" className="p-0.5 text-gray-300 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
+        <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700" label={t('tree.newTopic')} onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
           title={t('tree.newTopic')}>
           <Plus size={13} />
         </IconButton>
@@ -306,7 +306,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
                   onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenamingId(null) }}
                   className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-1 text-xs outline-none dark:bg-gray-900"
                 />
-                <Button variant="link" tone="emerald" className="p-1 text-emerald-500 hover:bg-gray-100 hover:text-gray-500" onClick={submitRename}><Check size={13} /></Button>
+                <Button variant="link" tone="emerald" className="p-1 text-emerald-500" onClick={submitRename}><Check size={13} /></Button>
                 <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400"><X size={13} /></button>
               </div>
             ) : (
@@ -319,7 +319,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
               </button>
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <Button variant="link" tone="emerald" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600" onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}>
+            <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}>
               <Trash2 size={13} />
               {t('common:delete')}
             </Button>

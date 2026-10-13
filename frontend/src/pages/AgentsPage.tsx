@@ -599,9 +599,9 @@ export default function AgentsPage() {
 
         {!isLocal && !dbPreset.isBuiltIn && (
           <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 px-2.5 py-1 text-gray-500 hover:text-gray-700" onClick={() => openEditForm(dbPreset)}><Edit2 size={11} /> {t('common:edit')}</Button>
+            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)}><Edit2 size={11} /> {t('common:edit')}</Button>
             {!isProfessionalAgent && (
-              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 px-2.5 py-1 text-violet-500 hover:text-violet-600" onClick={() => createProfessionalMutation.mutate(p.id)}
+              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
                 disabled={createProfessionalMutation.isPending}
                 title={t('card.fromGeneralTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
             )}
@@ -610,7 +610,7 @@ export default function AgentsPage() {
         )}
         {!isLocal && dbPreset.isBuiltIn && (
           <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <Button variant="link" tone="violet" pill className="flex items-center gap-1 px-2.5 py-1 text-violet-500 hover:bg-red-50 hover:text-red-600" onClick={() => createProfessionalMutation.mutate(p.id)}
+            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
               disabled={createProfessionalMutation.isPending}
               title={t('card.fromBuiltInTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
             <Lock size={11} className="text-gray-300 dark:text-gray-600" />
@@ -620,7 +620,7 @@ export default function AgentsPage() {
         {isLocal && (
           <div className="border-t border-gray-100 pt-2.5 dark:border-gray-800">
             <div className="mb-1.5 flex items-center gap-1">
-              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 px-2.5 py-1 text-violet-500 hover:text-violet-600" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
+              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
                 disabled={createProfessionalFromLocalMutation.isPending}
                 title={t('card.fromLocalTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
             </div>
@@ -702,11 +702,11 @@ export default function AgentsPage() {
           />
           {generalSource === 'local' ? (
             <>
-              <Button variant="ghost" tone="violet" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700 hover:text-violet-600" onClick={() => setShowDirConfig(true)}>
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
                 <Settings size={14} />
                 {t('page.configureDirectories')}
               </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => refetchLocal()}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
                 title={t('page.refreshLocalAgents')}>
                 <RefreshCw size={14} />
                 {t('common:refresh')}
@@ -714,12 +714,12 @@ export default function AgentsPage() {
             </>
           ) : (
             <>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700" onClick={handleExport}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
                 title={t('common:export')}>
                 <Download size={14} />
                 {t('common:export')}
               </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => fileInputRef.current?.click()}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
                 title={t('common:import')}>
                 <Import size={14} />
                 {t('common:import')}
@@ -783,7 +783,7 @@ export default function AgentsPage() {
                         })}
                       </SlidingPill>
                     ) : (
-                      <Button variant="secondary" pill className="ml-auto flex shrink-0 items-center gap-1 px-3 py-1" onClick={openCreateProfessionalForm}>
+                      <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
                         <Plus size={13} />{t('sections.newProfessional')}
                       </Button>
                     )}
@@ -794,12 +794,12 @@ export default function AgentsPage() {
                       {t('sections.empty', { title: t(section.titleKey) })}
                       {isGeneralSection
                         ? (isLocalTab ? (
-                            <Button variant="link" tone="rose" className="text-rose-500" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
+                            <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
                           ) : (
-                            <Button variant="primary" tone="violet" pill className="text-rose-500" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                            <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
                           ))
                         : (
-                          <Button variant="link" tone="rose" className="text-violet-500" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                          <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
                         )}
                     </div>
                   ) : (
@@ -817,11 +817,11 @@ export default function AgentsPage() {
                 </div>
                 <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
                 {isLocalTab ? (
-                  <Button variant="link" tone="rose" className="mt-2 text-rose-500" onClick={() => setShowDirConfig(true)}>
+                  <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>
                     {t('empty.configureAgentDirs')}
                   </Button>
                 ) : (
-                  <Button variant="link" tone="violet" className="mt-2 text-rose-500" onClick={openCreateForm}>
+                  <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
                     {t('empty.createFirstAgent')}
                   </Button>
                 )}
@@ -907,7 +907,7 @@ export default function AgentsPage() {
                       triggerClassName="flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-violet-200 bg-white px-2.5 text-xs outline-none dark:border-violet-700 dark:bg-gray-800"
                       options={sourceAgentOptions}
                     />
-                    <Button variant="link" tone="rose" size="sm" className="h-8 shrink-0 px-3" onClick={handleCreateProfessionalFromSource}
+                    <Button variant="primary" tone="violet" size="sm" className="h-8 shrink-0 rounded-lg bg-violet-500 px-3 text-xs font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleCreateProfessionalFromSource}
                       disabled={!sourceAgentId || createProfessionalMutation.isPending || createProfessionalFromLocalMutation.isPending}>
                       {t('common:create')}
                     </Button>
@@ -1070,8 +1070,8 @@ export default function AgentsPage() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <Button variant="link" tone="rose" size="sm" className="px-4 py-2 text-gray-600" onClick={closeForm}>{t('common:cancel')}</Button>
-              <Button variant="primary" tone="rose" className="px-4 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={handleSave} disabled={!form.name.trim() || !form.content.trim()}>{editingId ? t('common:save') : t('common:create')}</Button>
+              <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={closeForm}>{t('common:cancel')}</Button>
+              <Button variant="primary" tone="rose" className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave} disabled={!form.name.trim() || !form.content.trim()}>{editingId ? t('common:save') : t('common:create')}</Button>
             </div>
         </Modal>
       )}
@@ -1093,7 +1093,7 @@ export default function AgentsPage() {
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
-                <Button variant="primary" tone="violet" size="sm" className="flex shrink-0 items-center gap-1.5 px-3 py-2" onClick={handleBrowseDir}>
+                <Button variant="primary" tone="amber" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600" onClick={handleBrowseDir}>
                   <FolderSearch size={14} />
                   {t('dir.browse')}
                 </Button>
@@ -1104,7 +1104,7 @@ export default function AgentsPage() {
                   placeholder={t('dir.agentPathPlaceholder')}
                   className="flex-1"
                 />
-                <Button variant="secondary" surface="modal" className="px-3 py-2 text-gray-700 hover:text-rose-500" onClick={handleAddDir} disabled={!dirInput.trim()}>
+                <Button variant="secondary" surface="modal" className="rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200" onClick={handleAddDir} disabled={!dirInput.trim()}>
                   {t('common:add')}
                 </Button>
               </div>
@@ -1134,7 +1134,7 @@ export default function AgentsPage() {
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <Button variant="soft" tone="gray" surface="modal" className="px-4 py-2 text-gray-700 hover:text-rose-500" onClick={() => setShowDirConfig(false)}>
+              <Button variant="secondary" surface="modal" className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600" onClick={() => setShowDirConfig(false)}>
                 {t('dir.done')}
               </Button>
             </div>

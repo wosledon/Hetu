@@ -219,11 +219,11 @@ function BackgroundTasksView({
             ))}
           </SlidingPill>
           {stats && stats.completed > 0 && (
-            <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600" onClick={onClearCompleted}>
+            <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClearCompleted}>
               <Trash2 size={12} /> {t('tasks.clearCompleted')}
             </Button>
           )}
-          <Button variant="secondary" pill className="p-2 text-gray-500" onClick={onRefresh}
+          <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800" onClick={onRefresh}
             title={t('common:refresh')}>
             <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
           </Button>
@@ -349,7 +349,7 @@ function ScheduledTasksView() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="ml-auto flex items-center gap-2">
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
-          <Button variant="secondary" pill className="flex items-center gap-1.5 px-3.5 py-2 text-gray-600" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
+          <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
             title={t('common:refresh')}>
             <RefreshCw size={13} />
             {t('common:refresh')}
@@ -507,16 +507,16 @@ function ScheduledTaskRow({
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <Button variant="link" tone="sky" pill className="p-1.5 text-sky-500" onClick={onRun}  title={t('tasks.runNow')}>
+          <Button variant="ghost" tone="sky" pill className="rounded-full p-1.5 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/10" onClick={onRun}  title={t('tasks.runNow')}>
             <Play size={14} />
           </Button>
-          <IconButton variant="ghost" label={t('tasks.runHistory')} className="p-1.5 text-gray-400 hover:bg-sky-50" onClick={onHistory}  title={t('tasks.runHistory')}>
+          <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('tasks.runHistory')} onClick={onHistory}  title={t('tasks.runHistory')}>
             <History size={14} />
           </IconButton>
-          <IconButton label={t('common:edit')} variant="ghost" className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={onEdit}  title={t('common:edit')}>
+          <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('common:edit')} onClick={onEdit}  title={t('common:edit')}>
             <Pencil size={14} />
           </IconButton>
-          <IconButton variant="ghost" label={t('common:delete')} className="p-1.5 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-600" onClick={onDelete}  title={t('common:delete')}>
+          <IconButton variant="ghost" tone="red" className="rounded-full p-1.5 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" label={t('common:delete')} onClick={onDelete}  title={t('common:delete')}>
             <Trash2 size={14} />
           </IconButton>
         </div>
@@ -935,7 +935,7 @@ function ScheduledTaskEditor({
 
         {/* Footer */}
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
-          <Button variant="outline" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600" onClick={onClose}>
+          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" onClick={onClose}>
             {t('common:cancel')}
           </Button>
           <button
@@ -1104,7 +1104,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         </span>
 
         {/* Delete */}
-        <IconButton variant="ghost" label={t('tasks.deleteRecord')} className="shrink-0 p-1 text-red-400 opacity-0 group-hover:opacity-100" onClick={onDelete}
+        <IconButton variant="ghost" tone="red" className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" label={t('tasks.deleteRecord')} onClick={onDelete}
           
           title={t('tasks.deleteRecord')}>
           <Trash2 size={13} />

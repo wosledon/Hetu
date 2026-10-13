@@ -26,7 +26,7 @@ export default function ApprovalPanel({ requests, onApprove }: ApprovalPanelProp
               components={{ strong: <span className="font-medium" /> }}
             />
           </span>
-          <Button variant="primary" tone="emerald" className="px-2.5 py-1" onClick={() => onApprove(req.id, true)}>
+          <Button variant="primary" tone="emerald" className="rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600" onClick={() => onApprove(req.id, true)}>
             {t('approval.allow')}
           </Button>
           <button

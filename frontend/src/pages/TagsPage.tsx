@@ -189,7 +189,7 @@ export default function TagsPage() {
                   className="w-full pl-10 pr-3 text-sm"
                 />
               </div>
-              <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 shadow-blue-500/20" onClick={() => setEdit({ mode: 'create' })}>
+              <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
                 <Plus size={16} />
                 {t('tags.create')}
               </Button>
@@ -291,10 +291,10 @@ export default function TagsPage() {
               />
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-              <Button variant="ghost" className="px-4 py-2 text-gray-600 hover:bg-gray-100" onClick={() => { setMergeSource(null); setMergeTargetId('') }}>
+              <Button variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => { setMergeSource(null); setMergeTargetId('') }}>
                 {t('common:cancel')}
               </Button>
-              <Button variant="ghost" tone="gray" className="px-4 py-2" onClick={handleMergeConfirm}
+              <Button variant="primary" tone="blue" className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleMergeConfirm}
                 disabled={!mergeTargetId || mergeMutation.isPending}>
                 {mergeMutation.isPending ? t('tags.merging') : t('tags.mergeConfirm')}
               </Button>
@@ -336,7 +336,7 @@ export default function TagsPage() {
             {t('tags.merge')}
           </button>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <Button variant="primary" tone="blue" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600" onClick={() => { closeMenu(); handleDelete(menu.tag) }}>
+          <Button variant="ghost" tone="red" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); handleDelete(menu.tag) }}>
             <Trash2 size={14} />
             {t('common:delete')}
           </Button>
@@ -407,15 +407,15 @@ function TagChip({
         </span>
       )}
       <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
-        <IconButton variant="ghost" label={t('common:rename')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onRename}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('common:rename')} onClick={onRename}
           title={t('common:rename')}>
           <Pencil size={12} />
         </IconButton>
-        <IconButton variant="ghost" label={t('tags.merge')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onMerge}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('tags.merge')} onClick={onMerge}
           title={t('tags.merge')}>
           <GitMerge size={12} />
         </IconButton>
-        <IconButton variant="ghost" label={t('common:delete')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onDelete}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-red-600 dark:hover:bg-white/10 dark:hover:text-red-400" label={t('common:delete')} onClick={onDelete}
           title={t('common:delete')}>
           <Trash2 size={12} />
         </IconButton>
@@ -476,10 +476,10 @@ function TagEditDialog({
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <Button variant="ghost" tone="red" className="px-4 py-2 text-gray-600" onClick={onClose}>
+          <Button variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={onClose}>
             {t('common:cancel')}
           </Button>
-          <Button variant="primary" className="px-4 py-2 hover:bg-white/70 hover:text-gray-600" onClick={() => name.trim() && onSubmit(name.trim(), color)}
+          <Button variant="primary" tone="blue" className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => name.trim() && onSubmit(name.trim(), color)}
             disabled={!name.trim() || pending}>
             {pending ? t('tags.saving') : mode === 'create' ? t('tags.submitCreate') : t('common:save')}
           </Button>
