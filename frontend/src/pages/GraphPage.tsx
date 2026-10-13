@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
@@ -23,7 +23,9 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import ThemedMarkdown from '../components/ThemedMarkdown'
+// 笔记预览用的 Markdown 渲染链（react-markdown + katex + mermaid 等）非常重，
+// 只有打开预览弹窗才需要：懒加载，别让它拖慢图谱页首屏
+const ThemedMarkdown = lazy(() => import('../components/ThemedMarkdown'))
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
@@ -178,6 +180,8 @@ function useForceLayout(
 
     let iteration = 0
     let alpha = 1
+    // 连续静止计数：位移不可见若干迭代即判定收敛，别让用户对着静止画面干等
+    let stillCount = 0
     // 根据节点数量动态调整迭代次数
     const nodeCount = nodes.length
     const maxIterations = Math.max(200, nodeCount > 100 ? 260 : 320)
@@ -276,6 +280,20 @@ function useForceLayout(
         node.y = Math.max(40, Math.min(height - 40, node.y))
       }
 
+      // 收敛早退：每节点位移已不可见且持续若干迭代 → 直接定稿进入适配视图，
+      // 否则平衡布局（如初始环形）会空转满 200+ 迭代，首屏几秒静止像卡死
+      let maxDisp = 0
+      for (const node of nodes) {
+        const d = Math.abs(node.vx) + Math.abs(node.vy)
+        if (d > maxDisp) maxDisp = d
+      }
+      stillCount = maxDisp < 0.05 ? stillCount + 1 : 0
+      if (iteration > 5 && stillCount >= 8) {
+        setPositions([...nodes])
+        onSettleRef.current?.(nodes)
+        return
+      }
+
       iteration++
       alpha += alphaDecay * (0 - alpha)
       positionsRef.current = nodes
@@ -342,6 +360,9 @@ function useCanvasRenderer(
   const viewTweenRef = useRef<Animation | null>(null)
   const tweenActiveRef = useRef(false)
   const pendingFinalDrawRef = useRef(false)
+  // 补间收尾看门狗：不依赖 WAAPI 的 finished promise（个别 webview 不落），
+  // 到点强制交接重绘，否则补间挂起会把画布永久冻住
+  const tweenWatchdogRef = useRef<number | null>(null)
 
   // Keep refs in sync with latest props for the render loop (avoids stale closures)
   const posMapRef = useRef<Map<string, NodePosition>>(new Map())
@@ -366,6 +387,10 @@ function useCanvasRenderer(
 
   // 打断补间：把当前视觉冻结进行内样式，交给下一次重绘交接（不闪）
   const cancelTween = useCallback(() => {
+    if (tweenWatchdogRef.current !== null) {
+      window.clearTimeout(tweenWatchdogRef.current)
+      tweenWatchdogRef.current = null
+    }
     const anim = viewTweenRef.current
     if (!anim) return
     try { anim.commitStyles() } catch { /* 未开始的动画没有可固化的样式 */ }
@@ -382,6 +407,10 @@ function useCanvasRenderer(
   const startViewTween = useCallback((toPan: { x: number; y: number }, toZoom: number, dur: number) => {
     const canvas = canvasRef.current
     if (!canvas) return
+    if (tweenWatchdogRef.current !== null) {
+      window.clearTimeout(tweenWatchdogRef.current)
+      tweenWatchdogRef.current = null
+    }
     const prev = viewTweenRef.current
     if (prev) {
       // 续接：先把当前视觉固化进 style，新补间从这里出发，不跳变
@@ -404,12 +433,15 @@ function useCanvasRenderer(
       { duration: dur, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' },
     )
     viewTweenRef.current = anim
-    void anim.finished.then(() => {
+    // 收尾用看门狗定时器而不是 anim.finished：个别 webview 的 WAAPI promise 不落，
+    // 挂起会把画布永久冻在变换态；到点强制交接（被 cancel/替换时定时器已清）
+    tweenWatchdogRef.current = window.setTimeout(() => {
+      tweenWatchdogRef.current = null
       if (viewTweenRef.current !== anim) return
       tweenActiveRef.current = false
       pendingFinalDrawRef.current = true
       kickRef.current?.()
-    }).catch(() => { /* 被 cancel 打断 */ })
+    }, dur + 80)
   }, [canvasRef])
 
   // --- Render loop ---
@@ -422,22 +454,51 @@ function useCanvasRenderer(
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    let running = false
     let dirty = true
-    // 节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象，React 状态是节流的）：
-    // 位置指纹变了就继续跑，保证运动 60fps；指纹不变才休眠。
+    // 位置指纹：节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象），
+    // 指纹变化即内容在动，需要重绘。
     let lastSig = Number.NaN
     const textWidthCache = new Map<string, number>()
 
     const draw = () => {
-      // CSS 变换补间期间不重绘（位图冻结，由合成器演变换）
-      if (tweenActiveRef.current) { running = false; return }
+      // 补间收尾交接：撤掉变换并强制定格重绘
+      let force = false
       if (pendingFinalDrawRef.current) {
-        // 补间收尾交接：同一次绘制里撤掉变换并按目标视图定格，中间不露旧画面
         pendingFinalDrawRef.current = false
         viewTweenRef.current?.cancel()
         viewTweenRef.current = null
         canvas.style.transform = ''
+        force = true
+      }
+      // 展示变换：每帧向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）；
+      // 适配视图 / 居中实体的大跨度补间由合成器 CSS 变换承担，不走这里
+      const dz = zoomRef.current - dispZoomRef.current
+      const dx = panRef.current.x - dispPanRef.current.x
+      const dy = panRef.current.y - dispPanRef.current.y
+      if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        dispZoomRef.current = zoomRef.current
+        dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
+      } else {
+        dispZoomRef.current += dz * 0.22
+        dispPanRef.current.x += dx * 0.22
+        dispPanRef.current.y += dy * 0.22
+      }
+      // 心跳判定：内容有变化（节点移动 / 收敛中 / 有状态变更 / 补间交接）才真正重绘。
+      // 心跳本身永不间断——帧链休眠后 webview 会降频/加唤醒延迟，表现为整体卡顿；
+      // 而空转的判定不做任何绘制，不会引闪（玻璃材质也已无 backdrop-filter）。
+      let sig = 0
+      for (const np of posMapRef.current.values()) sig += np.x * 31 + np.y
+      const moved = sig !== lastSig
+      lastSig = sig
+      const animating =
+        Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
+        Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
+        Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
+      const need = dirty || moved || animating || force
+      dirty = false
+      if (!need || tweenActiveRef.current) {
+        animationRef.current = requestAnimationFrame(draw)
+        return
       }
       const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
@@ -451,26 +512,17 @@ function useCanvasRenderer(
         ctx.scale(dpr, dpr)
       }
       const w = canvas.width / dpr, h = canvas.height / dpr
-      // 展示变换：向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）；
-      // 适配视图 / 居中实体的大跨度补间由合成器 CSS 变换承担，不走这里
-      const dz = zoomRef.current - dispZoomRef.current
-      const dx = panRef.current.x - dispPanRef.current.x
-      const dy = panRef.current.y - dispPanRef.current.y
-      if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-        dispZoomRef.current = zoomRef.current
-        dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
-      } else {
-        dispZoomRef.current += dz * 0.22
-        dispPanRef.current.x += dx * 0.22
-        dispPanRef.current.y += dy * 0.22
-      }
       const z = dispZoomRef.current, p = dispPanRef.current
       const selId = selectedRef.current
       const posMap = posMapRef.current, emap = entityMapRef.current, rels = relationsRef.current
 
       ctx.save()
       ctx.clearRect(0, 0, w, h)
-      if (posMap.size === 0) { ctx.restore(); scheduleNext(); return }
+      if (posMap.size === 0) {
+        ctx.restore()
+        animationRef.current = requestAnimationFrame(draw)
+        return
+      }
 
       ctx.translate(p.x, p.y)
       ctx.scale(z, z)
@@ -609,41 +661,20 @@ function useCanvasRenderer(
       ctx.restore()
       // 记录位图这次绘制用的视图：后续变换补间以它为基准换算
       bufferViewRef.current = { pan: { x: p.x, y: p.y }, zoom: z }
-      scheduleNext()
-    }
-
-    function scheduleNext() {
-      // 节点位置指纹：模拟/拖拽直接改写共享节点对象，指纹变化即视为内容在动
-      let sig = 0
-      for (const p of posMapRef.current.values()) sig += p.x * 31 + p.y
-      const moved = sig !== lastSig
-      lastSig = sig
-      // 收敛未到 / 本帧有状态变更 / 节点还在动 → 续帧；否则休眠待 kick
-      const animating =
-        Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
-        Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
-        Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
-      if (!animating && !dirty && !moved) { running = false; return }
-      dirty = false
       animationRef.current = requestAnimationFrame(draw)
     }
 
-    const kick = () => {
-      dirty = true
-      if (running) return
-      running = true
-      animationRef.current = requestAnimationFrame(draw)
-    }
+    // 唤醒：只标记脏；心跳由 draw 链自己维持
+    const kick = () => { dirty = true }
     kickRef.current = kick
 
-    // 主题切换会改绘制配色（draw 内读 dark 类），随类名变更唤醒补一帧
+    // 主题切换会改绘制配色（draw 内读 dark 类），随类名变更标记脏补一帧
     const themeObserver = new MutationObserver(kick)
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 
-    kick()
+    animationRef.current = requestAnimationFrame(draw)
     return () => {
       kickRef.current = null
-      running = false
       themeObserver.disconnect()
       cancelAnimationFrame(animationRef.current)
     }
@@ -1177,7 +1208,9 @@ export default function GraphPage() {
               {isLoadingNote ? (
                 <div className="flex items-center justify-center gap-2 py-12 text-gray-400"><Loader2 size={20} className="animate-spin" />{t('common:loading')}</div>
               ) : (
-                <ThemedMarkdown source={previewNoteContent} />
+                <Suspense fallback={null}>
+                  <ThemedMarkdown source={previewNoteContent} />
+                </Suspense>
               )}
             </div>
         </Modal>

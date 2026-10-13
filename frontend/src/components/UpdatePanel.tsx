@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, CheckCircle2, Download, Loader2, RefreshCw, RotateCw, X } from 'lucide-react'
-import ThemedMarkdown from './ThemedMarkdown'
 import { useUpdateStore } from '../stores/updateStore'
 import { updateService } from '../services/updateService'
 import { useAppVersion } from '../hooks/useAppVersion'
@@ -10,6 +9,10 @@ import { useReleaseNotes } from '../hooks/useReleaseNotes'
 import { openRepo } from '../utils/repo'
 import { isTauriAclError, openExternal } from '../utils/tauri'
 import { Button } from './ui'
+
+// 发布说明渲染链（react-markdown + katex + mermaid）很重，只在打开更新面板时才需要：
+// 懒加载，否则挂在 AppLayout 上会把整条链拖进每个页面的首屏
+const ThemedMarkdown = lazy(() => import('./ThemedMarkdown'))
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
@@ -49,7 +52,9 @@ function NotesBlock({ markdown }: { markdown: string }) {
         openExternal(href)
       }}
     >
-      <ThemedMarkdown source={compactLinks(markdown)} />
+      <Suspense fallback={null}>
+        <ThemedMarkdown source={compactLinks(markdown)} />
+      </Suspense>
     </div>
   )
 }
