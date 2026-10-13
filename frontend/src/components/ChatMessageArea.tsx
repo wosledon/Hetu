@@ -40,7 +40,7 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
-import { Button, Card, IconButton, Input } from './ui'
+import { Button, Card, IconButton, SearchInput } from './ui'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -994,14 +994,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex gap-2 mb-2">
             <div className="relative flex-1">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input tone="indigo" size="sm"
+              <SearchInput tone="indigo" size="sm"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
                 placeholder={t('messageArea.searchPlaceholder')}
-                className="w-full pl-8 pr-3"
+                className="w-full"
               />
             </div>
             <Button variant="primary" tone="indigo" className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={handleSearch}>{t('common:search')}</Button>

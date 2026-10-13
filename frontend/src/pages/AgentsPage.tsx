@@ -51,7 +51,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, SearchInput, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -685,12 +685,11 @@ export default function AgentsPage() {
             ))}
           </div>
           <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
-            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input tone="rose" glass pill
+            <SearchInput tone="rose"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('page.searchAgents')}
-              className="w-full pl-10 pr-3 text-sm"
+              className="w-full"
             />
           </div>
           <input
@@ -1004,12 +1003,11 @@ export default function AgentsPage() {
                   </div>
                 </div>
                 <div className="relative mb-2">
-                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <Input tone="rose" size="sm"
+                  <SearchInput tone="rose" size="sm"
                     value={toolSearch}
                     onChange={(e) => setToolSearch(e.target.value)}
                     placeholder={t('form.searchTools')}
-                    className="w-full pl-7 pr-2"
+                    className="w-full"
                   />
                 </div>
                 <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">

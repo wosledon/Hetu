@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap, Search } from 'lucide-react'
+import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Brain, Pencil, Zap } from 'lucide-react'
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
-import { Button, Card, IconButton, Input, Modal } from './ui'
+import { Button, Card, IconButton, Input, Modal, SearchInput } from './ui'
 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -458,13 +458,11 @@ function ProviderForm({
       <div className="space-y-3">
         {/* 供应商目录：选中后只需填 API Key */}
         <div className="relative">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
+          <SearchInput
             type="text"
             value={catalogQuery}
             onChange={(e) => setCatalogQuery(e.target.value)}
             placeholder={t('ai.catalogProviderPlaceholder')}
-            className="pl-9"
           />
           {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
             <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white glass p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
@@ -725,16 +723,12 @@ function ModelForm({
                   models.dev
                 </a>
               </div>
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input
-                  type="text"
-                  value={catalogQuery}
-                  onChange={(e) => setCatalogQuery(e.target.value)}
-                  placeholder={t('ai.searchModelPlaceholder')}
-                  className="pl-9"
-                />
-              </div>
+              <SearchInput
+                type="text"
+                value={catalogQuery}
+                onChange={(e) => setCatalogQuery(e.target.value)}
+                placeholder={t('ai.searchModelPlaceholder')}
+              />
               {catalogQuery.trim().length === 1 && (
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('ai.minChars')}</p>
               )}
@@ -1105,16 +1099,12 @@ function FetchModelsForm({
                 models.dev
               </a>
             </div>
-            <div className="relative">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input
-                type="text"
-                value={catalogQuery}
-                onChange={(e) => setCatalogQuery(e.target.value)}
-                placeholder={t('ai.batchSearchPlaceholder')}
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              type="text"
+              value={catalogQuery}
+              onChange={(e) => setCatalogQuery(e.target.value)}
+              placeholder={t('ai.batchSearchPlaceholder')}
+            />
             {catalogQuery.trim().length >= 2 && (
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
                 {catalogLoading ? t('ai.searchingCatalog') : catalogResults.length > 0 ? t('ai.matchedModels', { count: catalogResults.length }) : t('ai.noModelsMatched')}

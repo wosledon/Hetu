@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitPullRequest, Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Search, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
+import { GitPullRequest, Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -19,7 +19,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
-import { Button, Card, IconButton, Input } from '../ui'
+import { Button, Card, IconButton, Input, SearchInput } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -906,12 +906,12 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-1 border-b border-gray-100 p-1.5 dark:border-gray-800">
-              <Search size={12} className="shrink-0 text-gray-400" />
-              <input
+              <SearchInput
+                size="sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={searchMode === 'semantic' ? t('explorer.searchSemanticPlaceholder') : t('explorer.searchTextPlaceholder')}
-                className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-gray-400"
+                className="min-w-0 flex-1"
               />
               <button
                 onClick={() => setSearchMode(searchMode === 'text' ? 'semantic' : 'text')}

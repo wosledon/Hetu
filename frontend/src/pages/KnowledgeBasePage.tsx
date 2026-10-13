@@ -46,7 +46,7 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
-import { Button, Card, Input, Modal } from '../components/ui'
+import { Button, Card, Input, Modal, SearchInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -574,14 +574,13 @@ export default function KnowledgeBasePage() {
                   <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
                   <div className="flex gap-3">
                     <div className="relative flex-1">
-                      <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <Input tone="blue" size="lg" glass pill
+                      <SearchInput tone="blue" size="lg"
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         placeholder={t('kb.searchPlaceholder')}
-                        className="w-full pl-11 pr-4 text-sm"
+                        className="w-full"
                       />
                     </div>
                     <div className="relative">

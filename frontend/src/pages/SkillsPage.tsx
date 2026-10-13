@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Search,
   Settings,
   Terminal,
   Trash2,
@@ -23,7 +22,7 @@ import SlidingPill from '../components/SlidingPill'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
-import { Button, Card, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, SearchInput, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -276,12 +275,11 @@ export default function SkillsPage() {
             ))}
           </div>
           <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
-            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input tone="amber" glass pill
+            <SearchInput tone="amber"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('skillsPage.searchSkills')}
-              className="w-full pl-10 pr-3 text-sm"
+              className="w-full"
             />
           </div>
           {tab === 'local' ? (

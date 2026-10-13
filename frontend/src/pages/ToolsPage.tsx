@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
 import { renderToolGroup } from '../utils/toolRendering'
-import { ChevronDown, ChevronRight, Search, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
-import { Button, Card, Input } from '../components/ui'
+import { ChevronDown, ChevronRight, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
+import { Button, Card, SearchInput } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
 const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
@@ -149,15 +149,12 @@ export default function ToolsPage() {
         </div>
 
         <div className="mb-4 flex flex-col gap-3">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input tone="blue" glass
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder={t('toolsPage.searchPlaceholder')}
-              className="w-full pl-9 pr-3 text-xs dark:text-gray-200"
-            />
-          </div>
+          <SearchInput tone="blue" size="sm"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder={t('toolsPage.searchPlaceholder')}
+            className="w-full dark:text-gray-200"
+          />
 
           <div className="flex flex-wrap items-center gap-1.5">
             <button

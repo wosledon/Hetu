@@ -443,7 +443,7 @@ const bySource = stats?.bySource ?? []
                       </Card>
 
                       {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
-                      <Card>
+                      <Card className="lg:col-span-3">
                         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <Layers size={15} className="text-sky-500" />
                           {t('usage.callSources')}

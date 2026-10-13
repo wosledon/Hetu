@@ -2,7 +2,7 @@ import { confirm } from '../components/confirm'
 import { useState, useMemo, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Atom, Plus, Search, Trash2, Pencil, Save, Tag, Brain, X, Moon, Globe, FolderInput, MessagesSquare, Loader2, Sparkles, List, Crosshair, Activity, Pause } from 'lucide-react'
+import { Atom, Plus, Trash2, Pencil, Save, Tag, Brain, X, Moon, Globe, FolderInput, MessagesSquare, Loader2, Sparkles, List, Crosshair, Activity, Pause } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
@@ -13,7 +13,7 @@ import { useUIStore } from '../stores/uiStore'
 import i18n from '../i18n'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
-import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, SearchInput, Textarea } from '../components/ui'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
@@ -993,13 +993,12 @@ export default function MemoriesPage() {
                 ))}
               </SlidingPill>
               <div className="relative mx-1 w-56">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
+                <SearchInput tone="teal" size="sm"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('memories.searchPlaceholder')}
-                  className={`w-full rounded-lg border py-1.5 pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-teal-400/60 ${pal.inputBox}`}
+                  className="w-full"
                 />
               </div>
               <span className={`mr-1 hidden text-[10px] lg:inline ${pal.quiet}`}>{t('memories.skyHint')}</span>
@@ -1112,13 +1111,12 @@ export default function MemoriesPage() {
                 ))}
               </div>
               <div className="relative min-w-[180px] max-w-xs flex-1">
-                <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input tone="teal" glass pill
+                <SearchInput tone="teal"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('memories.searchPlaceholder')}
-                  className="w-full pl-10 pr-3 text-sm"
+                  className="w-full"
                 />
               </div>
               {view === 'list' && (

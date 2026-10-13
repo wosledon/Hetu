@@ -10,7 +10,6 @@ import {
   GitMerge,
   Pencil,
   Plus,
-  Search,
   Tag as TagIcon,
   Trash2,
   X,
@@ -23,7 +22,7 @@ import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
-import { Button, IconButton, Input, Modal } from '../components/ui'
+import { Button, IconButton, Input, Modal, SearchInput } from '../components/ui'
 
 interface ContextMenuState {
   x: number
@@ -181,12 +180,11 @@ export default function TagsPage() {
                 ))}
               </SlidingPill>
               <div className="relative ml-auto w-64 min-w-[180px]">
-                <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input tone="blue" glass pill
+                <SearchInput tone="blue"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('tags.searchPlaceholder')}
-                  className="w-full pl-10 pr-3 text-sm"
+                  className="w-full"
                 />
               </div>
               <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
