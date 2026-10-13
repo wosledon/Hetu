@@ -450,6 +450,66 @@ public class WikiService : IWikiService
     private static int CountFences(string content)
         => Regex.Matches(content, "```").Count;
 
+    /// <summary>
+    /// 粘连标题：「…确保格式正确。## 小节」这类「句子+标题」写在一行（模型输出常见
+    /// 格式事故，续写拼接处也会出现），一律在标点后断行还原成标准 Markdown。
+    /// </summary>
+    private static readonly Regex GluedHeading = new(@"([。！？；：.!?:;])\s*(#{1,6}\s)", RegexOptions.Compiled);
+
+    /// <summary>行首元对话开场白（「好的，」「让我」「I'll」…），宽松前缀，其余由内容卫兵把关</summary>
+    private static readonly Regex MetaLine = new(
+        @"^(?:好的?[，,、。]|嗯[，,、。]|好吧[，,。]|OK[，,。.!]|Alright[，,.]|Sure[，,.]|Let me |Now I|I'll |I will |I need to|稍等[，,]|抱歉[，,])",
+        RegexOptions.Compiled);
+
+    /// <summary>「现在整理一下」「整理成最终的 Markdown」等输出过程说明</summary>
+    private static readonly Regex MetaPhrase = new(
+        @"现在整理成最终|整理成最终的?\s*[Mm]arkdown|^现在(?:我|我们)?(?:来|将|开始)?\s*(?:整理|生成|编写|输出)(?:成)?|^以下是最终|^确保格式(?:正确|无误|完整)[。.!]?\s*$",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// 清洗模型输出里的过程性文本：粘连标题断行 + 丢弃元对话行 + 去首尾空行。
+    /// 代码围栏内不作任何处理（避免破坏代码/图表）。
+    /// </summary>
+    private static string SanitizeWikiContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return content;
+        var kept = new List<string>();
+        var inFence = false;
+        foreach (var line in content.Split('\n'))
+        {
+            var t = line.Trim();
+            if (t.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                kept.Add(line);
+                continue;
+            }
+            if (inFence)
+            {
+                kept.Add(line);
+                continue;
+            }
+            // 粘连标题断行：「…。## 标题」→ 「…。\n## 标题」（一行可能多个）
+            var outLine = GluedHeading.Replace(line, "$1\n$2");
+            foreach (var seg in outLine.Split('\n'))
+            {
+                var s = seg.Trim();
+                // 元对话行：命中开场白/过程短语，且本行不含任何 Markdown 结构（保守，避免误删正文）
+                var meta = s.Length > 0
+                    && (MetaLine.IsMatch(s) || MetaPhrase.IsMatch(s))
+                    && !s.Contains('`') && !s.Contains("**") && !s.Contains("](")
+                    && !s.StartsWith('#') && !s.StartsWith('-') && !s.StartsWith('*')
+                    && !s.StartsWith('|') && !s.StartsWith('>') && !char.IsDigit(s[0]);
+                if (!meta) kept.Add(seg);
+            }
+        }
+        var i = 0;
+        while (i < kept.Count && string.IsNullOrWhiteSpace(kept[i])) i++;
+        var j = kept.Count;
+        while (j > i && string.IsNullOrWhiteSpace(kept[j - 1])) j--;
+        return string.Join('\n', kept.Skip(i).Take(j - i));
+    }
+
     /// <summary>把页面清单按章节组织成缩进导航文本</summary>
     private static string BuildNavText(List<WikiDocument> pages)
     {
@@ -467,7 +527,7 @@ public class WikiService : IWikiService
     /// <summary>续写提示：携带全部已有内容（不截断），从截断处继续输出</summary>
     private static string BuildContinuePrompt(string existing) => $"""
         以下是一篇 Wiki 文档已生成的内容，输出在末尾被截断（可能停在句子中途或未闭合的代码块内）。
-        请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释，保持原有格式续写下去。
+        请从截断处继续输出剩余内容：不要重复已有内容，不要输出解释或过渡语（例如「好的，继续」「接下来」），保持原有格式续写下去。
         若停在代码块内，请先补全该代码块（含收尾的 ```）。
 
         【已有内容】
@@ -521,7 +581,8 @@ public class WikiService : IWikiService
             if (round == MaxContinueRounds - 1)
                 _logger.LogWarning("Wiki 内容已达最大续写次数 {Max}，可能仍未生成完整", MaxContinueRounds);
         }
-        return full;
+        // 统一清洗：粘连标题断行、剔除混进正文的思考/前言行
+        return SanitizeWikiContent(full);
     }
 
     public async Task<ApiResponse<WikiDocumentDto>> RegeneratePageAsync(Guid id, CancellationToken cancellationToken = default)
@@ -911,12 +972,12 @@ public class WikiService : IWikiService
 
             请撰写本页内容（Markdown，中文）。这是给本项目用的技术文档，不是项目前言，要求：
             1. 只依据上面提供的资料撰写，不得编造资料中不存在的信息；资料缺失的部分简要说明即可；
-            2. 动笔前先在内心列一遍本页可引用的事实（真实文件路径、类型 / 函数名、接口或命令、配置键与取值、目录名），正文里每个小节都要落到这些具体事物上；
-            3. 用二级标题（##）组织 3-6 个小节，不要输出一级标题，不要输出页面导航章节；
+            2. 正文里每个小节都要落到具体事实上（真实文件路径、类型 / 函数名、接口或命令、配置键与取值、目录名）；不要在文中罗列、说明你的写作过程或检查步骤；
+            3. 用二级标题（##）组织 3-6 个小节，不要输出一级标题，不要输出页面导航章节；每行只写一个语义单元，标题必须独占一行；
             4. 涉及结构、流程或模块关系时，用 ```mermaid 代码块绘制相应图表，仅限 mermaid 支持的图类型（graph / flowchart / sequenceDiagram / classDiagram / stateDiagram / erDiagram / pie / gantt）；目录结构、文件树用 ```text 代码块表示，不要用 mermaid；
             5. 代码、类型、路径、配置键一律用行内代码标注；能引用真实代码片段的地方直接贴片段（注明 文件:行）；
             6. 禁止空话：不要写「本项目是一个…的强大框架」「具有良好的扩展性」这类放之四海皆准的介绍，不要重复项目简介，不要把本页写成摘要或前言；
-            7. 语言简洁专业，直接输出 Markdown 正文，不要用代码块包裹整篇内容。
+            7. 直接输出 Markdown 正文：第一行起就是正文，禁止输出任何前言、思考或过程说明（例如「好的」「现在整理」「让我先看看」「以下是最终的 Markdown」），也不要用代码块包裹整篇内容。
             """;
 
         var inputTokens = EstimateBeforeCompression(prompt,
@@ -960,7 +1021,7 @@ public class WikiService : IWikiService
             2. 用二级标题（##）组织小节，依次涵盖：项目简介、核心特性、技术栈、总体架构；
             3. 「总体架构」一节必须包含一个 ```mermaid 代码块绘制的架构图（graph 或 flowchart），清晰表达主要组件及其关系；
             4. 最后一节为「文档导航」，按上面的章节层级用无序列表原样列出（章节与其下页面）；
-            5. 不要输出一级标题，不要用代码块包裹整篇内容。
+            5. 不要输出一级标题，不要用代码块包裹整篇内容；第一行起就是正文，禁止输出任何前言、思考或过程说明（例如「好的」「现在整理」「让我」）。
             """;
 
         try
