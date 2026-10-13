@@ -333,14 +333,15 @@ function useCanvasRenderer(
   const externalHoverRef = useRef(externalHoverId)
   useEffect(() => { externalHoverRef.current = externalHoverId; kickRef.current?.() }, [externalHoverId])
 
-  // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛/补间，缩放与平移更顺滑
+  // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛，缩放与平移更顺滑
   const dispZoomRef = useRef(zoom)
   const dispPanRef = useRef(pan)
-  const animRef = useRef<{
-    t0: number; dur: number
-    fromPan: { x: number; y: number }; fromZoom: number
-    toPan: { x: number; y: number }; toZoom: number
-  } | null>(null)
+  // 「适配视图 / 居中实体」的大跨度补间用合成器驱动的 CSS 变换：冻结画布位图、
+  // 只变换图层，不逐帧重绘（逐帧重绘的补间在弱 GPU / 低刷新环境会明显掉帧），
+  // 结束时一次重绘定格到目标视图。
+  const viewTweenRef = useRef<Animation | null>(null)
+  const tweenActiveRef = useRef(false)
+  const pendingFinalDrawRef = useRef(false)
 
   // Keep refs in sync with latest props for the render loop (avoids stale closures)
   const posMapRef = useRef<Map<string, NodePosition>>(new Map())
@@ -360,6 +361,57 @@ function useCanvasRenderer(
   const callbacksRef = useRef({ onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition })
   useEffect(() => { callbacksRef.current = { onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition } })
 
+  // 当前画布位图实际绘制时用的视图（变换补间期间位图冻结，disp 已是目标值）
+  const bufferViewRef = useRef({ pan: { x: pan.x, y: pan.y }, zoom })
+
+  // 打断补间：把当前视觉冻结进行内样式，交给下一次重绘交接（不闪）
+  const cancelTween = useCallback(() => {
+    const anim = viewTweenRef.current
+    if (!anim) return
+    try { anim.commitStyles() } catch { /* 未开始的动画没有可固化的样式 */ }
+    anim.cancel()
+    viewTweenRef.current = null
+    tweenActiveRef.current = false
+    pendingFinalDrawRef.current = true
+    kickRef.current?.()
+  }, [])
+
+  // 合成器补间：把「位图视图 → 目标视图」的变换用 CSS transform 演完，期间不重绘画布；
+  // 任何帧率下都顺滑（逐帧重绘的补间在弱 GPU / 低刷新环境会明显掉帧）。
+  // 结束后由 pendingFinalDraw 交接：同一次绘制里撤掉变换并按目标视图定格。
+  const startViewTween = useCallback((toPan: { x: number; y: number }, toZoom: number, dur: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const prev = viewTweenRef.current
+    if (prev) {
+      // 续接：先把当前视觉固化进 style，新补间从这里出发，不跳变
+      try { prev.commitStyles() } catch { /* ignore */ }
+      prev.cancel()
+      viewTweenRef.current = null
+    }
+    pendingFinalDrawRef.current = false
+    const bv = bufferViewRef.current
+    const k = toZoom / (bv.zoom || 1)
+    const fromTransform = canvas.style.transform || 'none'
+    const tx = toPan.x - k * bv.pan.x
+    const ty = toPan.y - k * bv.pan.y
+    dispZoomRef.current = toZoom
+    dispPanRef.current = { x: toPan.x, y: toPan.y }
+    tweenActiveRef.current = true
+    canvas.style.transformOrigin = '0 0'
+    const anim = canvas.animate(
+      [{ transform: fromTransform }, { transform: `translate(${tx}px, ${ty}px) scale(${k})` }],
+      { duration: dur, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' },
+    )
+    viewTweenRef.current = anim
+    void anim.finished.then(() => {
+      if (viewTweenRef.current !== anim) return
+      tweenActiveRef.current = false
+      pendingFinalDrawRef.current = true
+      kickRef.current?.()
+    }).catch(() => { /* 被 cancel 打断 */ })
+  }, [canvasRef])
+
   // --- Render loop ---
   // 按需绘制：补间/收敛/内容变更期间逐帧续期，静止即休眠，由 kickRef 唤醒。
   // 不能空转 rAF——每帧重绘会让合成器每帧重合成，GPU 合成下带 backdrop-filter 的
@@ -378,6 +430,15 @@ function useCanvasRenderer(
     const textWidthCache = new Map<string, number>()
 
     const draw = () => {
+      // CSS 变换补间期间不重绘（位图冻结，由合成器演变换）
+      if (tweenActiveRef.current) { running = false; return }
+      if (pendingFinalDrawRef.current) {
+        // 补间收尾交接：同一次绘制里撤掉变换并按目标视图定格，中间不露旧画面
+        pendingFinalDrawRef.current = false
+        viewTweenRef.current?.cancel()
+        viewTweenRef.current = null
+        canvas.style.transform = ''
+      }
       const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
       // Always keep canvas buffer in sync with CSS layout
@@ -390,29 +451,18 @@ function useCanvasRenderer(
         ctx.scale(dpr, dpr)
       }
       const w = canvas.width / dpr, h = canvas.height / dpr
-      // 展示变换：补间动画优先，否则向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）
-      const anim = animRef.current
-      if (anim) {
-        const t = Math.min(1, (performance.now() - anim.t0) / anim.dur)
-        const e = 1 - Math.pow(1 - t, 3)
-        dispPanRef.current = {
-          x: anim.fromPan.x + (anim.toPan.x - anim.fromPan.x) * e,
-          y: anim.fromPan.y + (anim.toPan.y - anim.fromPan.y) * e,
-        }
-        dispZoomRef.current = anim.fromZoom + (anim.toZoom - anim.fromZoom) * e
-        if (t >= 1) animRef.current = null
+      // 展示变换：向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）；
+      // 适配视图 / 居中实体的大跨度补间由合成器 CSS 变换承担，不走这里
+      const dz = zoomRef.current - dispZoomRef.current
+      const dx = panRef.current.x - dispPanRef.current.x
+      const dy = panRef.current.y - dispPanRef.current.y
+      if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        dispZoomRef.current = zoomRef.current
+        dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
       } else {
-        const dz = zoomRef.current - dispZoomRef.current
-        const dx = panRef.current.x - dispPanRef.current.x
-        const dy = panRef.current.y - dispPanRef.current.y
-        if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-          dispZoomRef.current = zoomRef.current
-          dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
-        } else {
-          dispZoomRef.current += dz * 0.22
-          dispPanRef.current.x += dx * 0.22
-          dispPanRef.current.y += dy * 0.22
-        }
+        dispZoomRef.current += dz * 0.22
+        dispPanRef.current.x += dx * 0.22
+        dispPanRef.current.y += dy * 0.22
       }
       const z = dispZoomRef.current, p = dispPanRef.current
       const selId = selectedRef.current
@@ -557,6 +607,8 @@ function useCanvasRenderer(
       }
 
       ctx.restore()
+      // 记录位图这次绘制用的视图：后续变换补间以它为基准换算
+      bufferViewRef.current = { pan: { x: p.x, y: p.y }, zoom: z }
       scheduleNext()
     }
 
@@ -566,9 +618,8 @@ function useCanvasRenderer(
       for (const p of posMapRef.current.values()) sig += p.x * 31 + p.y
       const moved = sig !== lastSig
       lastSig = sig
-      // 补间未完 / 收敛未到 / 本帧有状态变更 / 节点还在动 → 续帧；否则休眠待 kick
+      // 收敛未到 / 本帧有状态变更 / 节点还在动 → 续帧；否则休眠待 kick
       const animating =
-        animRef.current !== null ||
         Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
         Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
         Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
@@ -709,6 +760,7 @@ function useCanvasRenderer(
 
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return
+      cancelTween()
       moved = false
       startCX = e.clientX; startCY = e.clientY
       const hit = hitTest(e.clientX, e.clientY)
@@ -735,7 +787,7 @@ function useCanvasRenderer(
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      animRef.current = null
+      cancelTween()
       const rect = canvas.getBoundingClientRect()
       const mx = e.clientX - rect.left, my = e.clientY - rect.top
       const cz = zoomRef.current, cp = panRef.current
@@ -759,7 +811,7 @@ function useCanvasRenderer(
       window.removeEventListener('mousemove', onWinMove)
       window.removeEventListener('mouseup', onWinUp)
     }
-  }, [canvasRef, entities, options.dragRef])
+  }, [canvasRef, entities, options.dragRef, cancelTween])
 
   // 平滑地将视图居中到指定实体（从侧栏/详情跳转时用）
   const centerOnEntity = useCallback((id: string) => {
@@ -769,18 +821,11 @@ function useCanvasRenderer(
     const rect = canvas.getBoundingClientRect()
     const z = Math.max(0.3, Math.min(1.5, dispZoomRef.current))
     const toPan = { x: rect.width / 2 - pos.x * z, y: rect.height / 2 - pos.y * z }
-    animRef.current = {
-      t0: performance.now(),
-      dur: 450,
-      fromPan: { ...dispPanRef.current },
-      fromZoom: dispZoomRef.current,
-      toPan,
-      toZoom: z,
-    }
+    startViewTween(toPan, z, 450)
     // 同步逻辑态，避免动画结束后显示值向旧逻辑值漂移
     callbacksRef.current.onPanChange(toPan)
     callbacksRef.current.onZoomChange(z)
-  }, [canvasRef])
+  }, [canvasRef, startViewTween])
 
   // 平滑地将整幅图谱适配进视口（首次布局收敛后用）
   const fitToNodes = useCallback((nodes: NodePosition[]) => {
@@ -796,17 +841,10 @@ function useCanvasRenderer(
     const pad = 70
     const z = Math.max(0.3, Math.min(1.5, Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh)))
     const toPan = { x: rect.width / 2 - ((minX + maxX) / 2) * z, y: rect.height / 2 - ((minY + maxY) / 2) * z }
-    animRef.current = {
-      t0: performance.now(),
-      dur: 600,
-      fromPan: { ...dispPanRef.current },
-      fromZoom: dispZoomRef.current,
-      toPan,
-      toZoom: z,
-    }
+    startViewTween(toPan, z, 600)
     callbacksRef.current.onPanChange(toPan)
     callbacksRef.current.onZoomChange(z)
-  }, [canvasRef])
+  }, [canvasRef, startViewTween])
 
   return { centerOnEntity, fitToNodes }
 }
