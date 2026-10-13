@@ -419,7 +419,7 @@ export default function KnowledgeBasePage() {
 
                 {/* Add URL Modal */}
                 {showAddUrl && (
-                  <Card className="rounded-xl p-5">
+                  <Card className="p-5">
                     <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
                     <div className="flex gap-3">
                       <Input tone="blue"
@@ -638,7 +638,7 @@ export default function KnowledgeBasePage() {
                         {searchResults.map((result, index) => (
                           <Card
                             key={result.id}
-                            className="rounded-xl p-4 transition-all hover:shadow-sm"
+                            className="p-4 transition-all hover:shadow-sm"
                           >
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 flex-1">
@@ -743,7 +743,7 @@ function ChunkDetailModal({
                   <Card
                     key={chunk.id}
                     padded={false}
-                    className="rounded-xl transition-all"
+                    className="transition-all"
                   >
                     <button
                       onClick={() => setExpandedChunkId(isExpanded ? null : chunk.id)}

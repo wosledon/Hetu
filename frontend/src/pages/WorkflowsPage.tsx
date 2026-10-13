@@ -188,7 +188,7 @@ export default function WorkflowsPage() {
                 {workflows.map((wf) => (
                   <Card
                     key={wf.id}
-                    className="group flex flex-col rounded-xl p-4 transition-all hover:border-blue-300 hover:shadow-md dark:bg-gray-800 dark:hover:border-blue-500/40"
+                    className="group flex flex-col p-4 transition-all hover:border-blue-300 hover:shadow-md dark:bg-gray-800 dark:hover:border-blue-500/40"
                   >
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">

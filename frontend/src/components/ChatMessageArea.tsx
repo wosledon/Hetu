@@ -1056,9 +1056,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               <div className="mb-1.5">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('shared.you')}</span>
               </div>
-              <div className="w-fit max-w-[85%] rounded-2xl rounded-tr-sm bg-blue-50/70 px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:bg-blue-950/30 dark:text-gray-100">
+              <Card padded={false} className="w-fit max-w-[85%] px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:text-gray-100">
                 <UserMessageContent content={pendingUserMessage} />
-              </div>
+              </Card>
             </div>
           </div>
         )}
@@ -1092,7 +1092,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
-                  <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
+                  <Card padded={false} className="mt-2 overflow-hidden">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Search size={11} />
                       {t('shared.sources')}
@@ -1143,7 +1143,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Memory results - show when memory was used */}
                 {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
-                  <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
+                  <Card padded={false} className="mt-2 overflow-hidden">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Atom size={11} />
                       {t('shared.memorySources')}
