@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createPortal } from 'react-dom'
 import {
   AlertCircle, BookText, Check, Cpu, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
 } from 'lucide-react'
@@ -48,6 +49,8 @@ export default function WikiPage() {
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const [chosenModelId, setChosenModelId] = useState<string | undefined>(undefined)
+  const modelBtnRef = useRef<HTMLButtonElement>(null)
+  const [modelPanelStyle, setModelPanelStyle] = useState<React.CSSProperties>({})
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const autoGenerateHandled = useRef(false)
 
@@ -89,6 +92,32 @@ export default function WikiPage() {
     [jobs],
   )
   const lastRunningJobId = useRef<string | null>(null)
+
+  // 模型下拉面板定位：与 Select 一致，portal 到 body + fixed 定位。
+  // 页内 absolute 会被文档内容盖住（Wiki 正文是后绘制的地面），必须脱离文档流。
+  useLayoutEffect(() => {
+    if (!modelPickerOpen) return
+    const update = () => {
+      const rect = modelBtnRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = 224
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8)
+      const dropUp = window.innerHeight - rect.bottom < 240 && rect.top > window.innerHeight - rect.bottom
+      setModelPanelStyle({
+        position: 'fixed',
+        left,
+        width,
+        ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [modelPickerOpen])
 
   useEffect(() => {
     const runningId = activeJob?.id ?? null
@@ -453,15 +482,15 @@ export default function WikiPage() {
 
               {/* 生成模型选择 */}
               <div className="relative">
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-700" onClick={() => setModelPickerOpen((v) => !v)}
+                <Button ref={modelBtnRef} variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-700" onClick={() => setModelPickerOpen((v) => !v)}
                   title={t('wiki.modelPickerTitle')}>
                   <Cpu size={14} />
                   <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
                 </Button>
-                {modelPickerOpen && (
+                {modelPickerOpen && createPortal(
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setModelPickerOpen(false)} />
-                    <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
+                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -488,7 +517,8 @@ export default function WikiPage() {
                         </button>
                       ))}
                     </div>
-                  </>
+                  </>,
+                  document.body
                 )}
               </div>
 
