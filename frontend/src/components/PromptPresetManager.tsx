@@ -134,13 +134,13 @@ export default function PromptPresetManager() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">{t('presets.title')}</h2>
         <div className="flex gap-2">
-          <Button variant="outline" tone="gray" className="flex items-center gap-1 px-3 py-1.5 hover:bg-gray-100" onClick={handleExport}
+          <Button variant="ghost" tone="gray" className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" onClick={handleExport}
             
             title={t('presets.exportTitle')}>
             <Download size={14} />
             {t('common:export')}
           </Button>
-          <Button variant="outline" tone="gray" className="flex items-center gap-1 px-3 py-1.5 hover:bg-gray-100" onClick={() => fileInputRef.current?.click()}
+          <Button variant="ghost" tone="gray" className="flex items-center gap-1 text-sm px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
             
             title={t('presets.importTitle')}>
             <Upload size={14} />
@@ -148,7 +148,7 @@ export default function PromptPresetManager() {
           </Button>
           <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
           {!isCreating && !editingId && (
-            <Button variant="primary" tone="indigo" className="flex items-center gap-1 px-3 py-1.5 hover:bg-indigo-700" onClick={() => setIsCreating(true)}>
+            <Button variant="primary" tone="indigo" className="flex items-center gap-1 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={() => setIsCreating(true)}>
               <Plus size={14} />
               {t('common:create')}
             </Button>
@@ -188,7 +188,7 @@ export default function PromptPresetManager() {
                 className="flex-1"
               />
               {extractedVars.length > 0 && (
-                <Button variant="outline" tone="gray" size="sm" className="flex items-center gap-1 px-2 py-2 hover:bg-gray-100" onClick={handleAutoExtractVars}
+                <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 text-xs px-2 py-2 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" onClick={handleAutoExtractVars}
                   
                   title={t('presets.autoExtractTitle')}>
                   <RefreshCw size={12} />
@@ -203,7 +203,7 @@ export default function PromptPresetManager() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="primary" tone="emerald" className="flex items-center gap-1 px-3 py-1.5 hover:bg-emerald-700" onClick={handleSave}>
+            <Button variant="primary" tone="emerald" className="flex items-center gap-1 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700" onClick={handleSave}>
               <Check size={14} />
               {t('common:save')}
             </Button>
@@ -238,10 +238,10 @@ export default function PromptPresetManager() {
                   </div>
                   {!preset.isBuiltIn && (
                     <div className="flex gap-1 ml-2">
-                      <Button variant="ghost" tone="gray" surface="modal" className="p-1 text-gray-500 hover:bg-gray-300" onClick={() => startEdit(preset)}>
+                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-indigo-600" onClick={() => startEdit(preset)}>
                         <Edit2 size={14} />
                       </Button>
-                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-indigo-600" onClick={() => deleteMutation.mutate(preset.id)}>
+                      <Button variant="link" tone="gray" className="p-1 text-gray-500 hover:text-red-600" onClick={() => deleteMutation.mutate(preset.id)}>
                         <Trash2 size={14} />
                       </Button>
                     </div>

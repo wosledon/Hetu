@@ -1030,7 +1030,7 @@ export default function MemoriesPage() {
                   </>
                 )}
               </div>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:bg-indigo-400" onClick={() => setView('sky')}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
                 title={t('memories.backToSky')}>
                 <Sparkles size={14} />{t('memories.starMap')}
               </Button>
@@ -1051,7 +1051,7 @@ export default function MemoriesPage() {
                     {degradingCount > 0 && ` · ${t('memories.degrading', { n: degradingCount })}`}
                   </p>
                 </div>
-                <Button variant="secondary" pill className="ml-auto flex shrink-0 items-center gap-1.5 px-3.5 py-2 shadow-indigo-500/20 hover:border-blue-300 hover:text-gray-800" onClick={() => dreamMutation.mutate()}
+                <Button variant="primary" tone="indigo" className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
                   disabled={dreamMutation.isPending}
                   title={t('memories.dreamTitle')}>
                   {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
@@ -1247,7 +1247,7 @@ export default function MemoriesPage() {
                           </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button variant="primary" tone="indigo" className="px-3 py-1.5 text-gray-500" onClick={() => setEditingId(null)}>
+                          <Button variant="ghost" tone="gray" className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setEditingId(null)}>
                             {t('common:cancel')}
                           </Button>
                           <button
@@ -1290,12 +1290,12 @@ export default function MemoriesPage() {
                             )}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5">
-                            <IconButton label={t('common:edit')} variant="ghost" className="p-1.5 text-gray-400" onClick={() => startEdit(memory)}
+                            <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300" label={t('common:edit')} onClick={() => startEdit(memory)}
                               
                               title={t('common:edit')}>
                               <Pencil size={14} />
                             </IconButton>
-                            <IconButton variant="ghost" label={t('common:delete')} className="p-1.5 text-gray-400 hover:bg-gray-100" onClick={() => {
+                            <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-white/[0.06] dark:hover:text-red-400" label={t('common:delete')} onClick={() => {
                                 confirm({ message: t('memories.deleteConfirm'), onConfirm: () => deleteMutation.mutate(memory.id) })
                               }}
                               
@@ -1396,7 +1396,7 @@ export default function MemoriesPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-              <Button variant="ghost" className="px-4 py-2 text-gray-600" onClick={() => setIsCreating(false)}>
+              <Button variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setIsCreating(false)}>
                 {t('common:cancel')}
               </Button>
               <button

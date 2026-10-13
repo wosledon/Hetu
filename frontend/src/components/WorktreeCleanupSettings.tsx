@@ -148,7 +148,7 @@ export default function WorktreeCleanupSettings() {
           <p className="font-medium">{t('worktreeCleanup.manualTitle')}</p>
           <p className="mt-0.5 text-emerald-600/80 dark:text-emerald-300/80">{t('worktreeCleanup.manualHint')}</p>
         </div>
-        <Button variant="primary" tone="emerald" className="flex shrink-0 items-center gap-1.5 px-4 py-2" onClick={() => runMutation.mutate()}
+        <Button variant="primary" tone="emerald" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50" onClick={() => runMutation.mutate()}
           disabled={runMutation.isPending}>
           {runMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           {runMutation.isPending ? t('worktreeCleanup.running') : t('worktreeCleanup.runOnce')}

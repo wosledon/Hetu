@@ -210,7 +210,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
       </div>
 
       {apply.isError && (
-        <Button variant="outline" tone="red" className="absolute bottom-full right-0 z-50 mb-1.5 max-w-[20rem] px-2 py-1 text-left text-red-600 shadow-lg" onClick={() => apply.reset()}
+        <Button variant="outline" tone="red" className="absolute bottom-full right-0 z-50 mb-1.5 max-w-[20rem] rounded-lg border border-red-200 bg-white px-2 py-1 text-left text-[11px] text-red-600 shadow-lg dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300" onClick={() => apply.reset()}
           title={t('workspace.dismissError')}>
           {(apply.error as Error)?.message}
         </Button>

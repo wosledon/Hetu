@@ -364,12 +364,12 @@ export default function KanbanPage() {
               >
                 <Zap size={14} />{t('board.automation')}
               </button>
-              <IconButton label={t('common:refresh')} variant="ghost" className="p-2 text-gray-400" onClick={() => invalidate()}
+              <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('common:refresh')} onClick={() => invalidate()}
                 
                 title={t('common:refresh')}>
                 <RefreshCw size={16} className={isRefetching ? 'animate-spin' : ''} />
               </IconButton>
-              <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={() => openCreate('Backlog')}>
+              <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600" onClick={() => openCreate('Backlog')}>
                 <Plus size={16} />{t('board.newTask')}
               </Button>
             </div>
@@ -409,14 +409,14 @@ export default function KanbanPage() {
           <div className="relative flex-1 min-h-0">
             {/* 左右切换按钮：只在对应方向还有内容时出现，点一下滚动约一屏 */}
             {canScrollLeft && (
-              <Button variant="primary" tone="indigo" className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-gray-500 shadow-lg backdrop-blur transition" onClick={() => scrollBoard(-1)}
+              <Button variant="ghost" tone="gray" pill className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(-1)}
                 title={t('board.scrollLeft')}
                 aria-label={t('board.scrollLeft')}>
                 <ChevronLeft size={18} />
               </Button>
             )}
             {canScrollRight && (
-              <Button variant="outline" tone="gray" pill className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800" onClick={() => scrollBoard(1)}
+              <Button variant="ghost" tone="gray" pill className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(1)}
                 title={t('board.scrollRight')}
                 aria-label={t('board.scrollRight')}>
                 <ChevronRight size={18} />
@@ -447,7 +447,7 @@ export default function KanbanPage() {
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(col.labelKey)}</span>
                       <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${col.countBg}`}>{tasks.length}</span>
                       {col.status === 'Archived' && <span className="text-[11px] text-gray-400">{t('board.within7Days')}</span>}
-                      <IconButton variant="secondary" size="lg" label={t('board.createInColumn', { column: t(col.labelKey) })} className="ml-auto p-1 text-gray-400 hover:text-gray-800" onClick={() => openCreate(col.status)}
+                      <IconButton variant="ghost" tone="gray" className="ml-auto rounded-md p-1 text-gray-400 hover:bg-gray-200/60 hover:text-gray-600 dark:hover:bg-gray-700" label={t('board.createInColumn', { column: t(col.labelKey) })} onClick={() => openCreate(col.status)}
                         
                         title={t('board.createInColumn', { column: t(col.labelKey) })}>
                         <Plus size={14} />
@@ -643,8 +643,8 @@ export default function KanbanPage() {
                   )}
                 </div>
                 <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                  <Button variant="ghost" className="px-4 py-2 text-gray-600 hover:bg-gray-200/60 hover:text-gray-600" onClick={closeForm}>{t('common:cancel')}</Button>
-                  <Button variant="primary" tone="indigo" className="px-4 py-2 hover:bg-gray-100 hover:text-gray-600" onClick={handleSave}
+                  <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" onClick={closeForm}>{t('common:cancel')}</Button>
+                  <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave}
                     disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}>
                     {editingId ? t('common:save') : t('common:create')}
                   </Button>
@@ -678,8 +678,8 @@ export default function KanbanPage() {
                 />
               </div>
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                <Button variant="ghost" tone="gray" className="px-4 py-2 text-gray-600" onClick={() => setBlockingTask(null)}>{t('common:cancel')}</Button>
-                <Button variant="primary" tone="indigo" className="px-4 py-2" onClick={confirmBlock}>{t('board.confirmBlock')}</Button>
+                <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" onClick={() => setBlockingTask(null)}>{t('common:cancel')}</Button>
+                <Button variant="danger" className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-600" onClick={confirmBlock}>{t('board.confirmBlock')}</Button>
               </div>
             </Modal>
           )}
@@ -807,10 +807,10 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           </button>
         ))}
         <div className="ml-auto flex items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
-          <IconButton label={t('common:edit')} variant="ghost" className="p-1 hover:bg-gray-100 hover:text-gray-600" onClick={onEdit} title={t('common:edit')}>
+          <IconButton variant="ghost" tone="gray" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200" label={t('common:edit')} onClick={onEdit} title={t('common:edit')}>
             <Pencil size={12} />
           </IconButton>
-          <IconButton variant="ghost" label={t('common:delete')} className="p-1 hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); onDelete() }} title={t('common:delete')}>
+          <IconButton variant="ghost" tone="gray" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('common:delete')} onClick={(e) => { e.stopPropagation(); onDelete() }} title={t('common:delete')}>
             <Trash2 size={12} />
           </IconButton>
         </div>

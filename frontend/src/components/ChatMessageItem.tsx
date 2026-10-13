@@ -144,7 +144,7 @@ export default memo(function ChatMessageItem({
                 className="w-full min-h-28 p-2 text-gray-900 dark:text-gray-100"
               />
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" tone="gray" size="sm" className="px-2 py-1 text-gray-500" onClick={onCancelEdit}>
+                <Button variant="ghost" tone="gray" size="sm" className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={onCancelEdit}>
                   <X size={14} />
                 </Button>
                 <button
@@ -333,20 +333,20 @@ export default memo(function ChatMessageItem({
         {/* 操作栏：气泡下方的副标题行，图标弱化显示、悬停整行提亮 */}
         {!isEditing && (
           <div className="mt-1.5 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
-            <IconButton variant="primary" label={t('common:copy')} className="p-1 text-gray-400" onClick={() => onCopy(message.id, message.content)}
+            <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('common:copy')} onClick={() => onCopy(message.id, message.content)}
               
               title={t('common:copy')}
               aria-label={t('common:copy')}>
               {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
             </IconButton>
-            <IconButton label={t('common:edit')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => onStartEdit(message.id, message.content)}
+            <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('common:edit')} onClick={() => onStartEdit(message.id, message.content)}
               disabled={actionsDisabled}
               
               title={t('common:edit')}
               aria-label={t('common:edit')}>
               <Pencil size={12} />
             </IconButton>
-            <IconButton variant="ghost" label={t('common:delete')} className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => onDelete(message.id)}
+            <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 disabled:opacity-50 dark:hover:bg-gray-800" label={t('common:delete')} onClick={() => onDelete(message.id)}
               disabled={actionsDisabled}
               
               title={t('common:delete')}

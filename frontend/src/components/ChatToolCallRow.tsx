@@ -70,7 +70,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
-        <IconButton label={open ? t('tool.collapseDetails') : t('tool.expandDetails')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-200" onClick={() => setOpen(!open)}
+        <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" label={open ? t('tool.collapseDetails') : t('tool.expandDetails')} onClick={() => setOpen(!open)}
           aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}>
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
         </IconButton>
@@ -91,7 +91,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         )}
         {!summary && <span className="flex-1" />}
         {canRun && (
-          <IconButton label={t('tool.runInTerminal')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:text-blue-500" onClick={() => onRunCommand?.(summary ?? '')}
+          <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700" label={t('tool.runInTerminal')} onClick={() => onRunCommand?.(summary ?? '')}
             title={t('tool.runInTerminal')}
             aria-label={t('tool.runInTerminal')}>
             <Play size={11} />

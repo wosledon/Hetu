@@ -138,7 +138,7 @@ export default function DreamSettings() {
           <p className="flex items-center gap-1.5 font-medium"><Sparkles size={13} />{t('dream.manualTitle')}</p>
           <p className="mt-0.5 text-indigo-600/80 dark:text-indigo-300/80">{t('dream.manualHint')}</p>
         </div>
-        <Button variant="primary" tone="indigo" className="flex shrink-0 items-center gap-1.5 px-4 py-2" onClick={() => dreamMutation.mutate()}
+        <Button variant="primary" tone="indigo" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
           disabled={dreamMutation.isPending}>
           {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
           {dreamMutation.isPending ? t('dream.running') : t('dream.runOnce')}

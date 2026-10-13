@@ -168,7 +168,7 @@ function NotebookNode({
         >
           {notebook.name}
         </span>
-        <IconButton variant="ghost" label={t('common:create')} className="p-0.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-gray-100" onClick={(e) => {
+        <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700" label={t('common:create')} onClick={(e) => {
             e.stopPropagation()
             setAddMenu({ x: e.clientX, y: e.clientY })
           }}
@@ -382,7 +382,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
             />
           </div>
         ) : (
-          <Button variant="ghost" tone="gray" className="mb-1 flex w-full items-center gap-1.5 px-3 py-2.5 text-left text-gray-500" onClick={() => setIsAddingRoot(true)}>
+          <Button variant="link" tone="gray" className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:text-blue-300" onClick={() => setIsAddingRoot(true)}>
             <Plus size={14} className="shrink-0" />
             {t('notebook.new')}
           </Button>
@@ -481,12 +481,12 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
             </button>
             {leafMenu.showMove && (
               <div className="max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
-                <Button variant="ghost" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-600" onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}>
+                <Button variant="ghost" tone="gray" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}>
                   <Inbox size={12} />
                   {t('note.uncategorized')}
                 </Button>
                 {notebooks.map(nb => (
-                  <Button variant="ghost" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-600 hover:bg-gray-100 hover:text-gray-500" key={nb.id}
+                  <Button variant="ghost" tone="gray" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" key={nb.id}
                     onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id })}>
                     <Folder size={12} />
                     {nb.name}
@@ -495,7 +495,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
               </div>
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <Button variant="link" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-gray-50 hover:text-blue-600" onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}>
+            <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}>
               <Trash2 size={13} />
               {t('common:delete')}
             </Button>

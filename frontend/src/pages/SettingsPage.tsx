@@ -415,7 +415,7 @@ function AppSettingsSection({
             className="flex-1"
             placeholder={t('app.displayNamePlaceholder')}
           />
-          <Button variant="primary" tone="blue" className="shrink-0 px-4 py-2.5 shadow-blue-500/25" onClick={onAppNameSave}>
+          <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAppNameSave}>
             {t('common:save')}
           </Button>
         </div>
@@ -434,7 +434,7 @@ function AppSettingsSection({
             className="flex-1"
             placeholder={t('app.assistantNamePlaceholder')}
           />
-          <Button variant="primary" tone="blue" className="shrink-0 px-4 py-2.5 shadow-blue-500/25" onClick={onAssistantNameSave}>
+          <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAssistantNameSave}>
             {t('common:save')}
           </Button>
         </div>
@@ -454,7 +454,7 @@ function AppSettingsSection({
           />
           <div className="mt-2 flex items-center justify-between">
             <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.personaHint')}</p>
-            <Button variant="primary" tone="blue" size="sm" className="shrink-0 px-4 py-1.5 shadow-blue-500/25" onClick={onAssistantPersonaSave}>
+            <Button variant="primary" tone="blue" size="sm" className="shrink-0 rounded-xl bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAssistantPersonaSave}>
               {t('common:save')}
             </Button>
           </div>
@@ -823,7 +823,7 @@ function NavigationSettingsSection({
         {configurableNavItems.map((item) => {
           const Icon = item.icon
           return (
-            <Button variant="soft" tone="gray" className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600" key={item.path}
+            <Button variant="soft" tone="gray" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300" key={item.path}
               onClick={() => onNavigate(item.path)}>
               <Icon size={14} />
               {t(item.labelKey)}
@@ -983,7 +983,7 @@ function DefaultModelsSection({
         </div>
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
           {t('models.graphManualPrefix')}{' '}
-          <Button variant="link" tone="blue" className="text-blue-500 hover:text-blue-600" onClick={() => onNavigate('/graph')}>
+          <Button variant="link" tone="blue" className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400" onClick={() => onNavigate('/graph')}>
             {t('models.graphManualLink')}
           </Button>
           {' '}{t('models.graphManualSuffix')}
@@ -1088,7 +1088,7 @@ function TrashSection({ onNavigate }: { onNavigate: (path: string) => void }) {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('trash.title')}</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('trash.subtitle')}</p>
       </div>
-      <Button variant="primary" tone="blue" className="inline-flex items-center gap-2 px-5 py-2.5 shadow-blue-500/25" onClick={() => onNavigate('/trash')}>
+      <Button variant="primary" tone="blue" className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]" onClick={() => onNavigate('/trash')}>
         <Trash2 size={15} />
         {t('trash.open')}
       </Button>

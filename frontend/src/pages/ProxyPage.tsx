@@ -180,7 +180,7 @@ function ProxyCard({
           <section>
             <div className="mb-2 flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('proxy.routeRules')}</label>
-              <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1 px-2.5 py-1 text-blue-500" onClick={() => patch({ routeRules: [...form.routeRules, { category: 'simple', targetModelKey: '', sortOrder: form.routeRules.length }] })}>
+              <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-blue-500 transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10" onClick={() => patch({ routeRules: [...form.routeRules, { category: 'simple', targetModelKey: '', sortOrder: form.routeRules.length }] })}>
                 <Plus size={13} /> {t('proxy.addRule')}
               </Button>
             </div>
@@ -207,7 +207,7 @@ function ProxyCard({
                       searchable
                     />
                   </div>
-                  <IconButton label={t('proxy.deleteRule')} variant="danger" className="shrink-0 p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => patch({ routeRules: form.routeRules.filter((_, i) => i !== idx) })}
+                  <IconButton variant="ghost" tone="red" className="shrink-0 rounded-full p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400" label={t('proxy.deleteRule')} onClick={() => patch({ routeRules: form.routeRules.filter((_, i) => i !== idx) })}
                     
                     title={t('proxy.deleteRule')}>
                     <Trash2 size={14} />

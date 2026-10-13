@@ -1091,15 +1091,15 @@ export default function GraphPage() {
     <div className="flex flex-1 flex-col bg-transparent">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white glass px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
-          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
-          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
-          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleResetView}  title={t('graph.resetView')}><RotateCcw size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={handleResetView}  title={t('graph.resetView')}><RotateCcw size={15} /></Button>
           <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleAutoLayout}  title={t('graph.autoLayout')}><Network size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={handleAutoLayout}  title={t('graph.autoLayout')}><Network size={15} /></Button>
           <span className="ml-1 text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
+          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
             <Sparkles size={13} />{t('graph.extractFromNotes')}
           </Button>
         </div>
@@ -1126,7 +1126,7 @@ export default function GraphPage() {
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30"><Network size={36} className="text-indigo-500" /></div>
               <div className="text-center"><h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('graph.emptyTitle')}</h3><p className="mt-1 text-sm text-gray-500">{t('graph.emptyHint')}</p></div>
-              <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2" onClick={() => setShowExtractDialog(true)}><Sparkles size={15} />{t('graph.extractFromNotes')}</Button>
+              <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" onClick={() => setShowExtractDialog(true)}><Sparkles size={15} />{t('graph.extractFromNotes')}</Button>
             </div>
           )}
 
@@ -1179,8 +1179,8 @@ export default function GraphPage() {
             </div>
             <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <Button variant="link" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
-                <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2 hover:bg-gray-50" onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting}>
+                <Button variant="link" tone="gray" size="sm" className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
+                <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting}>
                   {isExtracting ? (<><Loader2 size={14} className="animate-spin" />{t('graph.extracting')}</>) : (<><Sparkles size={14} />{t('graph.extractSelected', { n: selectedNoteIds.size })}</>)}
                 </Button>
                 {extractQueued && (
@@ -1223,8 +1223,8 @@ export default function GraphPage() {
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
-          <IconButton variant="ghost" label={t('graph.deleteEntity')} className="p-1.5 text-gray-400 hover:text-gray-700" onClick={() => deleteEntityMutation.mutate(selectedEntityId)}  title={t('graph.deleteEntity')}><Trash2 size={14} /></IconButton>
-          <IconButton variant="primary" label={t('common:close')} className="p-1.5 text-gray-400 hover:bg-emerald-600" onClick={() => setSelectedEntityId(null)}  title={t('common:close')}><X size={14} /></IconButton>
+          <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" label={t('graph.deleteEntity')} onClick={() => deleteEntityMutation.mutate(selectedEntityId)}  title={t('graph.deleteEntity')}><Trash2 size={14} /></IconButton>
+          <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" label={t('common:close')} onClick={() => setSelectedEntityId(null)}  title={t('common:close')}><X size={14} /></IconButton>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">

@@ -244,7 +244,7 @@ export default function AgentInputBox({
                   )}
                   {chip.icon}
                   <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
-                  <IconButton label={t('input.removeChip', { label: chip.label })} variant="ghost" className="shrink-0 p-0.5 opacity-60 transition-opacity hover:opacity-100" onClick={chip.onRemove}
+                  <IconButton variant="ghost" tone="gray" className="shrink-0 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100" label={t('input.removeChip', { label: chip.label })} onClick={chip.onRemove}
                     aria-label={t('input.removeChip', { label: chip.label })}>
                     <X size={9} />
                   </IconButton>
@@ -259,10 +259,10 @@ export default function AgentInputBox({
                 <FileText size={12} className="shrink-0 text-gray-400" />
                 <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">{t('input.collapsedBlock')}</span>
                 <span className="truncate text-gray-400">{t('input.blockMeta', { lines: lineCount, chars: block.length })}</span>
-                <Button variant="ghost" tone="blue" className="ml-auto shrink-0 px-1.5 py-0.5 text-blue-600" onClick={() => setShowBlockPreview((v) => !v)}>
+                <Button variant="ghost" tone="blue" className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40" onClick={() => setShowBlockPreview((v) => !v)}>
                   {showBlockPreview ? t('input.collapse') : t('common:view')}
                 </Button>
-                <IconButton label={t('input.removeBlock')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:text-gray-600" onClick={() => {
+                <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200" label={t('input.removeBlock')} onClick={() => {
                     setShowBlockPreview(false)
                     onBlockChange?.('')
                   }}
@@ -294,13 +294,13 @@ export default function AgentInputBox({
             {toolbar}
             <div className="ml-auto">
               {streaming ? (
-                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center" onClick={onStop}
+                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600" onClick={onStop}
                   title={t('input.stop')}
                   aria-label={t('input.stop')}>
                   <Square size={13} fill="currentColor" />
                 </Button>
               ) : (
-                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center" onClick={onSubmit}
+                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45" onClick={onSubmit}
                   disabled={busy || !canSubmit}
                   title={t('input.send')}
                   aria-label={t('input.send')}>

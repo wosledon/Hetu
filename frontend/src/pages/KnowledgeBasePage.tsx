@@ -406,11 +406,11 @@ export default function KnowledgeBasePage() {
                       className="hidden"
                       onChange={handleFileUpload}
                     />
-                    <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => fileInputRef.current?.click()}>
+                    <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
                       <Upload size={13} />
                       {t('kb.uploadFile')}
                     </Button>
-                    <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2 text-gray-700" onClick={() => setShowAddUrl(true)}>
+                    <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
                       <Plus size={13} />
                       {t('kb.addUrl')}
                     </Button>
@@ -436,12 +436,12 @@ export default function KnowledgeBasePage() {
                         placeholder={t('kb.urlTitlePlaceholder')}
                         className="w-48"
                       />
-                      <Button variant="secondary" pill className="flex items-center gap-1.5 px-4 py-2" onClick={handleAddUrl}
+                      <Button variant="primary" tone="blue" className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50" onClick={handleAddUrl}
                         disabled={addUrlMutation.isPending || !urlInput.trim()}>
                         {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         {t('common:add')}
                       </Button>
-                      <Button variant="primary" tone="blue" className="px-3 py-2 text-gray-500 hover:bg-blue-700" onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}>
+                      <Button variant="ghost" tone="gray" className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}>
                         {t('common:cancel')}
                       </Button>
                     </div>
@@ -537,7 +537,7 @@ export default function KnowledgeBasePage() {
 
                         {/* Actions */}
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" tone="gray" className="flex items-center gap-1.5 px-3.5 py-1.5 text-blue-600" onClick={() => generateMutation.mutate(item.id)}
+                          <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30" onClick={() => generateMutation.mutate(item.id)}
                             disabled={generateMutation.isPending || item.hasRunningTask}>
                             {item.hasRunningTask || generateMutation.isPending ? (
                               <Loader2 size={12} className="animate-spin" />

@@ -177,7 +177,7 @@ export default function AiSettings() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('ai.title')}</h2>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle')}</p>
         </div>
-        <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-4 py-2 shadow-blue-500/25" onClick={() => setShowProviderForm(true)}>
+        <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]" onClick={() => setShowProviderForm(true)}>
           <Plus size={15} /> {t('ai.addProvider')}
         </Button>
       </div>
@@ -245,7 +245,7 @@ export default function AiSettings() {
               </div>
             </div>
             <div className="flex gap-1.5">
-              <IconButton label={t('ai.addModel')} variant="ghost" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
+              <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300" label={t('ai.addModel')} onClick={() => {
                   setSelectedProviderId(provider.id)
                   setShowModelForm(true)
                 }}
@@ -253,7 +253,7 @@ export default function AiSettings() {
                 title={t('ai.addModel')}>
                 <Plus size={15} />
               </IconButton>
-              <IconButton label={t('ai.fetchModels')} variant="ghost" className="p-2 text-gray-400 hover:text-blue-500" onClick={() => {
+              <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-400" label={t('ai.fetchModels')} onClick={() => {
                   setSelectedProviderId(provider.id)
                   setShowFetchForm(true)
                 }}
@@ -261,7 +261,7 @@ export default function AiSettings() {
                 title={t('ai.fetchModels')}>
                 <Download size={15} />
               </IconButton>
-              <IconButton label={t('ai.deleteProvider')} variant="danger" className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-500" onClick={() => deleteProvider.mutate(provider.id)}
+              <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400" label={t('ai.deleteProvider')} onClick={() => deleteProvider.mutate(provider.id)}
                 
                 title={t('ai.deleteProvider')}>
                 <Trash2 size={15} />
@@ -321,7 +321,7 @@ export default function AiSettings() {
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
                       </button>
-                      <IconButton label={t('ai.editModel')} variant="ghost" className="p-1.5 text-gray-300 hover:text-blue-500" onClick={() => {
+                      <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400" label={t('ai.editModel')} onClick={() => {
                           setEditingModel(model)
                           setShowModelForm(true)
                         }}
@@ -491,7 +491,7 @@ function ProviderForm({
             {t('ai.catalogSelected')}
             {!catalogProvider.api && t('ai.catalogNoBaseUrl')}
             {catalogProvider.env && <span className="ml-1">{t('ai.catalogEnv', { env: catalogProvider.env })}</span>}
-            <Button variant="link" tone="blue" className="ml-2 text-blue-500 hover:text-red-500" type="button"
+            <Button variant="link" tone="blue" className="ml-2 text-blue-500 hover:underline dark:text-blue-400" type="button"
               onClick={() => {
                 setCatalogProvider(null)
                 setImportModels(false)
@@ -530,7 +530,7 @@ function ProviderForm({
           placeholder={t('ai.baseUrlPlaceholder')}
         />
         <div className="flex items-center gap-2 pt-1">
-          <Button variant="primary" className="px-4 py-2 shadow-blue-500/25 hover:bg-gray-50" onClick={() => onSubmit({
+          <Button variant="primary" tone="blue" className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50" onClick={() => onSubmit({
               providerType,
               name,
               apiKey,
@@ -541,7 +541,7 @@ function ProviderForm({
             disabled={!name.trim()}>
             {catalogProvider && importModels ? t('ai.saveAndImport') : t('common:save')}
           </Button>
-          <Button variant="link" tone="blue" className="px-4 py-2 text-gray-600" onClick={onCancel}>
+          <Button variant="ghost" tone="gray" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={onCancel}>
             {t('common:cancel')}
           </Button>
         </div>
@@ -997,11 +997,11 @@ function ModelForm({
 
         {/* Footer */}
         <div className="flex gap-2 border-t border-gray-100 px-6 py-4 dark:border-white/[0.06]">
-          <Button variant="primary" tone="blue" className="flex-1 py-2.5 shadow-blue-500/25" onClick={handleSubmit}
+          <Button variant="primary" tone="blue" className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50" onClick={handleSubmit}
             disabled={!modelId.trim()}>
             {isEdit ? t('ai.update') : t('common:add')}
           </Button>
-          <Button variant="ghost" tone="gray" className="px-5 py-2.5 text-gray-600 hover:bg-gray-50" onClick={onCancel}>
+          <Button variant="ghost" tone="gray" className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={onCancel}>
             {t('common:cancel')}
           </Button>
         </div>
@@ -1154,13 +1154,13 @@ function FetchModelsForm({
                   })}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-600" onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}>
+                  <Button variant="ghost" tone="gray" size="sm" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={() => setSelected(new Set(catalogResults.map((m) => `${m.providerId}/${m.modelId}`)))}>
                     {t('common:selectAll')}
                   </Button>
-                  <Button variant="secondary" size="sm" className="px-3 py-1.5 text-gray-600" onClick={() => setSelected(new Set())}>
+                  <Button variant="ghost" tone="gray" size="sm" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={() => setSelected(new Set())}>
                     {t('ai.clearSelection')}
                   </Button>
-                  <Button variant="primary" tone="blue" className="ml-auto px-3 py-1.5" onClick={() => {
+                  <Button variant="primary" tone="blue" size="sm" className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97] disabled:opacity-50" onClick={() => {
                       onAddBatch(selectedModels)
                       setSelected(new Set())
                       setCatalogQuery('')
@@ -1207,7 +1207,7 @@ function FetchModelsForm({
                     <p className="text-xs text-gray-400">{t('ai.contextLabel', { value: m.contextWindow.toLocaleString() })}</p>
                   )}
                 </div>
-                <Button variant="ghost" tone="gray" className="px-3 py-1.5 hover:bg-gray-50" onClick={() => onAdd(m.modelId)}>
+                <Button variant="primary" tone="blue" size="sm" className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => onAdd(m.modelId)}>
                   {t('common:add')}
                 </Button>
               </div>
@@ -1216,7 +1216,7 @@ function FetchModelsForm({
         )}
 
         <div className="mt-5 flex justify-end">
-          <Button variant="secondary" className="px-5 py-2 text-gray-600 hover:bg-gray-100 hover:text-gray-600" onClick={onCancel}>
+          <Button variant="ghost" tone="gray" className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={onCancel}>
             {t('common:close')}
           </Button>
         </div>

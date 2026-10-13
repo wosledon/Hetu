@@ -88,7 +88,7 @@ export default function NodeConfigPanel({
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-white/[0.08]">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('config.title')}</h3>
         <div className="flex items-center gap-1">
-          <IconButton label={t('config.deleteNode')} variant="danger" className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500" onClick={onDelete}
+          <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10" label={t('config.deleteNode')} onClick={onDelete}
             
             title={t('config.deleteNode')}>
             <Trash2 size={15} />

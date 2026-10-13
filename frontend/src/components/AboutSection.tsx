@@ -152,11 +152,11 @@ export default function AboutSection({ appName }: { appName: string }) {
               </p>
             </div>
             {status === 'available' ? (
-              <Button variant="primary" tone="blue" className="px-3.5 py-1.5 hover:bg-blue-700" onClick={openPanel}>
+              <Button variant="primary" tone="blue" className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700" onClick={openPanel}>
                 {t('update.installNow')}
               </Button>
             ) : (
-              <Button variant="ghost" tone="gray" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:bg-gray-50" onClick={openPanel}>
+              <Button variant="ghost" tone="gray" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.04]" onClick={openPanel}>
                 <RefreshCw size={12} />
                 {t('update.check')}
               </Button>

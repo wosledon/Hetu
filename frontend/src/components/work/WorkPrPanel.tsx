@@ -87,7 +87,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
           {status.isRepo ? status.branch : t('explorer.notGitRepo')}
           {status.tool && <span className="ml-1 text-gray-400">· {status.tool}</span>}
         </span>
-        <IconButton label={t('pr.refresh')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => void refetch()}
+        <IconButton variant="ghost" tone="gray" className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-gray-800" label={t('pr.refresh')} onClick={() => void refetch()}
           disabled={isFetching}
           title={t('pr.refresh')}
           aria-label={t('pr.refresh')}>
@@ -117,7 +117,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
             {status.installHint && (
               <div className="flex items-center gap-2 rounded-lg bg-white/70 px-2 py-1.5 dark:bg-white/[0.04]">
                 <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">{status.installHint}</code>
-                <IconButton label={t('pr.copy')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={copyInstall}
+                <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('pr.copy')} onClick={copyInstall}
                   title={t('pr.copy')}
                   aria-label={t('pr.copy')}>
                   {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
@@ -154,7 +154,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
               </p>
             )}
             {pr.url && (
-              <Button variant="link" tone="blue" className="inline-flex items-center gap-1 text-blue-600" onClick={() => open(pr.url)}>
+              <Button variant="link" tone="blue" className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400" onClick={() => open(pr.url)}>
                 <ExternalLink size={11} />{t('pr.openInHost', { host: status.host === 'gitlab' ? 'GitLab' : 'GitHub' })}
               </Button>
             )}
@@ -198,7 +198,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
                   {t('pr.branchNotPushed', { branch: status.branch ?? '' })}
                 </p>
               )}
-              <Button variant="link" tone="blue" className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-1.5" onClick={() => create.mutate()}
+              <Button variant="primary" tone="blue" className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50" onClick={() => create.mutate()}
                 disabled={create.isPending || !title.trim()}>
                 {create.isPending ? <Loader2 size={12} className="animate-spin" /> : <GitPullRequest size={12} />}
                 {create.isPending ? t('pr.creating') : t('pr.create', { tool: status.tool })}
@@ -215,7 +215,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle }: { pr
               {t('pr.openTitle', { host: status.host === 'gitlab' ? 'GitLab' : 'GitHub', count: status.openPrs!.length })}
             </p>
             {status.openPrs!.map((item) => (
-              <Button variant="primary" tone="blue" className="flex w-full items-center gap-2 px-2 py-1.5 text-left" key={`${item.number}-${item.url}`}
+              <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 rounded-lg border border-gray-200 px-2 py-1.5 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-white/[0.04]" key={`${item.number}-${item.url}`}
                 onClick={() => item.url && open(item.url)}>
                 <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">#{item.number}</span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-gray-700 dark:text-gray-200">{item.title}</span>

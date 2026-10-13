@@ -158,7 +158,7 @@ export default function UpdatePanel() {
               <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.currentNotes')}</p>
-                  <Button variant="link" tone="blue" className="shrink-0 text-blue-600 hover:bg-gray-100" onClick={openRepo}>
+                  <Button variant="link" tone="blue" className="shrink-0 text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200" onClick={openRepo}>
                     {t('update.viewOnGitHub')}
                   </Button>
                 </div>
@@ -175,13 +175,13 @@ export default function UpdatePanel() {
 
             <div className="mt-4 flex items-center justify-end gap-2">
               {(status === 'idle' || status === 'up-to-date' || status === 'error') && (
-                <Button variant="link" tone="blue" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:text-blue-700" onClick={() => void check()}>
+                <Button variant="ghost" tone="gray" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.04]" onClick={() => void check()}>
                   <RefreshCw size={12} />
                   {t('update.check')}
                 </Button>
               )}
               {status === 'available' && (
-                <Button variant="ghost" tone="gray" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 hover:bg-gray-50" onClick={() => void install()}>
+                <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700" onClick={() => void install()}>
                   <Download size={12} />
                   {t('update.installNow')}
                 </Button>
@@ -193,7 +193,7 @@ export default function UpdatePanel() {
                 </span>
               )}
               {status === 'installed' && (
-                <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 hover:bg-blue-700" onClick={() => void restart()}>
+                <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700" onClick={() => void restart()}>
                   <RotateCw size={12} />
                   {t('update.restart')}
                 </Button>

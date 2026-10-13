@@ -46,14 +46,14 @@ export default function WorkDiffView({
         <span className="text-[11px] text-red-500 dark:text-red-400">-{stats.removed}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {onRevert && change.action !== 'create' && change.oldContent != null && (
-            <Button variant="ghost" tone="amber" className="flex items-center gap-1 px-2 py-0.5 text-amber-600" onClick={onRevert}
+            <Button variant="ghost" tone="amber" className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-40 dark:text-amber-400 dark:hover:bg-amber-950/40" onClick={onRevert}
               disabled={actionPending}>
               {actionPending ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
               {revertText}
             </Button>
           )}
           {onApply && change.action !== 'delete' && (
-            <Button variant="ghost" tone="blue" className="flex items-center gap-1 px-2 py-0.5 text-blue-600" onClick={onApply}
+            <Button variant="ghost" tone="blue" className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40" onClick={onApply}
               disabled={actionPending}>
               {actionPending ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpFromLine size={11} />}
               {applyText}

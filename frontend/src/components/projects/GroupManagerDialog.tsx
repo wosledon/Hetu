@@ -70,12 +70,12 @@ export default function GroupManagerDialog({
                         autoFocus
                         className="min-w-0 flex-1"
                       />
-                      <Button variant="link" tone="emerald" className="shrink-0 p-1 text-emerald-600 hover:bg-gray-100" onClick={() => submitRename(group)}
+                      <Button variant="ghost" tone="emerald" className="shrink-0 rounded p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30" onClick={() => submitRename(group)}
                         
                         title={t('common:save')}>
                         <Pencil size={13} />
                       </Button>
-                      <IconButton variant="ghost" label={t('common:cancel')} className="shrink-0 p-1 text-gray-400 hover:bg-emerald-50" onClick={() => setEditingId(null)}
+                      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" label={t('common:cancel')} onClick={() => setEditingId(null)}
                         
                         title={t('common:cancel')}>
                         <X size={13} />
@@ -87,12 +87,12 @@ export default function GroupManagerDialog({
                         {group.name}
                       </span>
                       <span className="shrink-0 text-[11px] text-gray-400">{t('groupDialog.projectCount', { count: group.projectCount })}</span>
-                      <IconButton label={t('common:rename')} variant="ghost" className="shrink-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100" onClick={() => { setEditingId(group.id); setEditingName(group.name); setError('') }}
+                      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-gray-800" label={t('common:rename')} onClick={() => { setEditingId(group.id); setEditingName(group.name); setError('') }}
                         
                         title={t('common:rename')}>
                         <Pencil size={13} />
                       </IconButton>
-                      <IconButton variant="ghost" label={t('groupDialog.deleteTitle')} className="shrink-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
+                      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-gray-800" label={t('groupDialog.deleteTitle')} onClick={() => {
                           if (window.confirm(t('groupDialog.deleteConfirm', { name: group.name }))) onDelete(group.id)
                         }}
                         
@@ -116,7 +116,7 @@ export default function GroupManagerDialog({
               placeholder={t('groupDialog.newGroupPlaceholder')}
               className="min-w-0 flex-1"
             />
-            <Button variant="primary" size="sm" className="flex shrink-0 items-center gap-1 px-3.5 py-2 hover:bg-gray-100 hover:text-red-500" onClick={submitNew}
+            <Button variant="primary" tone="blue" size="sm" className="flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50" onClick={submitNew}
               disabled={pending}>
               {pending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
               {t('groupDialog.create')}

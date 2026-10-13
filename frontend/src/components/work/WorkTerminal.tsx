@@ -160,13 +160,13 @@ export default function WorkTerminal({ projectId, sessionId, commandRequest }: W
         <span className="text-[11px] font-medium">{t('terminal.title')}</span>
         {sessionId && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400">{t('terminal.boundSession')}</span>}
         <div className="ml-auto flex items-center gap-0.5">
-          <IconButton label={t('terminal.clear')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={clearScreen}  title={t('terminal.clear')}>
+          <IconButton variant="ghost" tone="gray" className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" label={t('terminal.clear')} onClick={clearScreen}  title={t('terminal.clear')}>
             <Eraser size={12} />
           </IconButton>
-          <IconButton label={t('terminal.restart')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={restart}  title={t('terminal.restart')}>
+          <IconButton variant="ghost" tone="gray" className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" label={t('terminal.restart')} onClick={restart}  title={t('terminal.restart')}>
             <RotateCcw size={12} />
           </IconButton>
-          <IconButton label={t('terminal.disconnect')} variant="ghost" className="p-1 text-gray-400 hover:bg-white/10 hover:text-white" onClick={() => { wsRef.current?.close() }}  title={t('terminal.disconnect')}>
+          <IconButton variant="ghost" tone="gray" className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white" label={t('terminal.disconnect')} onClick={() => { wsRef.current?.close() }}  title={t('terminal.disconnect')}>
             <Trash2 size={12} />
           </IconButton>
           <span className="ml-1 flex items-center gap-1 text-[10px] text-emerald-400">
