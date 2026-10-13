@@ -178,16 +178,17 @@ function useForceLayout(
 
     let iteration = 0
     let alpha = 1
-    // 根据节点数量动态调整迭代次数和节流间隔
+    // 根据节点数量动态调整迭代次数
     const nodeCount = nodes.length
     const maxIterations = Math.max(200, nodeCount > 100 ? 260 : 320)
-    const THROTTLE_INTERVAL = nodeCount > 100 ? 8 : 4
     // d3-force 式冷却：力随 alpha 衰减，布局平滑收敛而非生硬停摆
     const alphaDecay = 1 - Math.pow(0.001, 1 / maxIterations)
     const velocityDecay = 0.6
 
     const simulate = () => {
       if (iteration >= maxIterations || alpha < 0.015) {
+        // 终态发布：仅此一处让 React 拿到收敛后的坐标
+        setPositions([...nodes])
         onSettleRef.current?.(nodes)
         return
       }
@@ -279,10 +280,10 @@ function useForceLayout(
       alpha += alphaDecay * (0 - alpha)
       positionsRef.current = nodes
 
-      // Throttle React state updates: every THROTTLE_INTERVAL iterations + always on last
-      if (iteration % THROTTLE_INTERVAL === 0 || iteration >= maxIterations) {
-        setPositions([...nodes])
-      }
+      // 只在首帧发布一次：渲染器的 Map 与模拟共享同一批节点对象，之后坐标变化
+      // 实时可见（按需绘制靠位置指纹跟随），无需整页重渲染跟着跑——大图每秒十几次
+      // 的重渲染会把帧预算吃掉，布局动画掉帧。终态在退出处发布。
+      if (iteration === 1) setPositions([...nodes])
 
       if (iteration < maxIterations) {
         frameRef.current = requestAnimationFrame(simulate)
@@ -374,6 +375,7 @@ function useCanvasRenderer(
     // 节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象，React 状态是节流的）：
     // 位置指纹变了就继续跑，保证运动 60fps；指纹不变才休眠。
     let lastSig = Number.NaN
+    const textWidthCache = new Map<string, number>()
 
     const draw = () => {
       const dpr = window.devicePixelRatio || 1
@@ -528,8 +530,16 @@ function useCanvasRenderer(
       const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
       for (const c of labelCandidates) {
         const fsc = Math.max(10, 11.5 / z)
-        ctx.font = `${c.isSel || c.isHov ? 600 : 400} ${fsc}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`
-        const tw = ctx.measureText(c.entity.name).width * z
+        const font = `${c.isSel || c.isHov ? 600 : 400} ${fsc}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`
+        ctx.font = font
+        // 文本宽度只与字体/内容有关，缓存避免每帧每标签做一次文本塑形
+        const cacheKey = `${font}|${c.entity.name}`
+        let textW = textWidthCache.get(cacheKey)
+        if (textW === undefined) {
+          textW = ctx.measureText(c.entity.name).width
+          textWidthCache.set(cacheKey, textW)
+        }
+        const tw = textW * z
         const sx = c.pos.x * z + p.x, sy = c.pos.y * z + p.y
         const ly = sy + c.rr * z + 5
         const lh = fsc * z
@@ -671,7 +681,10 @@ function useCanvasRenderer(
       if (mode === 'none') return
       if (Math.abs(e.clientX - startCX) > 3 || Math.abs(e.clientY - startCY) > 3) moved = true
       if (mode === 'pan') {
-        callbacksRef.current.onPanChange({ x: startPanX + e.clientX - startCX, y: startPanY + e.clientY - startCY })
+        // 直接写 panRef + 唤醒绘制：拖动期间逐帧 setState 会整页重渲染，掉帧；
+        // React 状态只在松手时提交一次
+        panRef.current = { x: startPanX + e.clientX - startCX, y: startPanY + e.clientY - startCY }
+        kickRef.current?.()
       } else if (mode === 'node' && dragId) {
         const g = toGraph(e.clientX, e.clientY)
         const x = g.x - dragOX, y = g.y - dragOY
@@ -687,6 +700,9 @@ function useCanvasRenderer(
       if (mode === 'node' && dragId) {
         drag.current = { id: null, x: 0, y: 0 }
         callbacksRef.current.onWakeSimulation()
+      } else if (mode === 'pan') {
+        // 松手时把最终平移提交回 React 状态（拖动期间只写 panRef）
+        callbacksRef.current.onPanChange({ x: panRef.current.x, y: panRef.current.y })
       }
       mode = 'none'; dragId = null
     }
