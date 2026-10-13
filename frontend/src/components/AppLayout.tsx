@@ -13,7 +13,7 @@ import SlidingPill from './SlidingPill'
 import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
-import { IconButton } from './ui'
+import { IconButton, PillTabs } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -366,9 +366,25 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <SlidingPill value={location.pathname} trackId="top-secondary" className="justify-center gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-            {secondaryNavItems.map(renderNavButton)}
-          </SlidingPill>
+          <PillTabs
+            value={location.pathname}
+            trackId="top-secondary"
+            className="justify-center gap-0.5 rounded-xl"
+            onSelect={(key) => navigate(key)}
+            items={secondaryNavItems.map((item) => {
+              const Icon = item.icon
+              return {
+                key: item.path,
+                label: (
+                  <>
+                    <Icon size={14} />
+                    {t(item.labelKey)}
+                    {item.path === '/inbox' && <NavUnreadBadge />}
+                  </>
+                ),
+              }
+            })}
+          />
         </div>
         <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />

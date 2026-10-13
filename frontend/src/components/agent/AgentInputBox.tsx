@@ -294,13 +294,13 @@ export default function AgentInputBox({
             {toolbar}
             <div className="ml-auto">
               {streaming ? (
-                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600" onClick={onStop}
+                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center p-0 rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600" onClick={onStop}
                   title={t('input.stop')}
                   aria-label={t('input.stop')}>
                   <Square size={13} fill="currentColor" />
                 </Button>
               ) : (
-                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45" onClick={onSubmit}
+                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center p-0 rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45" onClick={onSubmit}
                   disabled={busy || !canSubmit}
                   title={t('input.send')}
                   aria-label={t('input.send')}>

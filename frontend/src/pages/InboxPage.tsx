@@ -19,12 +19,11 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import SlidingPill from '../components/SlidingPill'
 import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
-import { Button, Card, IconButton } from '../components/ui'
+import { Button, Card, IconButton, PillTabs } from '../components/ui'
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
   Info: { icon: Info, className: 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' },
@@ -177,30 +176,16 @@ export default function InboxPage() {
 
             {/* 归档切换 + 分类筛选 */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <SlidingPill value={archived ? 'archived' : 'inbox'}>
-                <button
-                  onClick={() => { setArchived(false); setSelected([]) }}
-                  data-pill-key="inbox"
-                  className={`relative rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
-                    !archived
-                      ? 'text-gray-800 dark:text-gray-100'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t('inbox.tabInbox')}
-                </button>
-                <button
-                  onClick={() => { setArchived(true); setCategory(null); setSelected([]) }}
-                  data-pill-key="archived"
-                  className={`relative rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
-                    archived
-                      ? 'text-gray-800 dark:text-gray-100'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t('inbox.tabArchived')}
-                </button>
-              </SlidingPill>
+              <PillTabs
+                value={archived ? 'archived' : 'inbox'}
+                onSelect={(key) => {
+                  if (key === 'inbox') { setArchived(false); setSelected([]) } else { setArchived(true); setCategory(null); setSelected([]) }
+                }}
+                items={[
+                  { key: 'inbox', label: t('inbox.tabInbox') },
+                  { key: 'archived', label: t('inbox.tabArchived') },
+                ]}
+              />
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <button

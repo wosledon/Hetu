@@ -19,12 +19,11 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import SlidingPill from '../components/SlidingPill'
 import { usageService, type IUsageLog, type IUsageModelDayStat, type IUsageSourceModelStat } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
 import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
-import { Card } from '../components/ui'
+import { Card, PillTabs } from '../components/ui'
 
 type HeatTab = 'week' | 'year'
 type Metric = 'messages' | 'tokens' | 'logs'
@@ -341,30 +340,14 @@ const bySource = stats?.bySource ?? []
                       <Calendar size={15} className="text-emerald-500" />
                       {t('usage.activity')}
                     </h3>
-                    <SlidingPill value={heatTab}>
-                      <button
-                        onClick={() => setHeatTab('week')}
-                        data-pill-key="week"
-                        className={`relative rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                          heatTab === 'week'
-                            ? 'text-gray-800 dark:text-gray-100'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        {t('usage.heatWeek')}
-                      </button>
-                      <button
-                        onClick={() => setHeatTab('year')}
-                        data-pill-key="year"
-                        className={`relative rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                          heatTab === 'year'
-                            ? 'text-gray-800 dark:text-gray-100'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        {t('usage.heatYear')}
-                      </button>
-                    </SlidingPill>
+                    <PillTabs
+                      value={heatTab}
+                      onSelect={(key) => setHeatTab(key as typeof heatTab)}
+                      items={[
+                        { key: 'week', label: t('usage.heatWeek') },
+                        { key: 'year', label: t('usage.heatYear') },
+                      ]}
+                    />
                   </div>
                   {heatTab === 'week' ? (
                     <WeekHourHeatmap data={stats.weekHourly} metric={metric === 'logs' ? 'messages' : metric} />
@@ -375,42 +358,24 @@ const bySource = stats?.bySource ?? []
 
                 {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
                 <div className="flex items-center justify-end gap-2">
-                  <SlidingPill value={dateRange}>
-                    {([
-                      { key: '7d' as const, labelKey: 'usage.days7' },
-                      { key: '30d' as const, labelKey: 'usage.days30' },
-                      { key: '90d' as const, labelKey: 'usage.days90' },
-                    ]).map((r) => (
-                      <button
-                        key={r.key}
-                        onClick={() => setDateRange(r.key)}
-                        data-pill-key={r.key}
-                        className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                          dateRange === r.key
-                            ? 'text-gray-800 dark:text-gray-100'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        {t(r.labelKey)}
-                      </button>
-                    ))}
-                  </SlidingPill>
-                  <SlidingPill value={metric}>
-                    {(['tokens', 'messages', 'logs'] as Metric[]).map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setMetric(m)}
-                        data-pill-key={m}
-                        className={`relative rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                          metric === m
-                            ? 'text-gray-800 dark:text-gray-100'
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        {m === 'tokens' ? t('metrics.tokens') : m === 'messages' ? t('metrics.messages') : t('usage.logs')}
-                      </button>
-                    ))}
-                  </SlidingPill>
+                  <PillTabs
+                    value={dateRange}
+                    onSelect={(key) => setDateRange(key as typeof dateRange)}
+                    items={[
+                      { key: '7d', label: t('usage.days7') },
+                      { key: '30d', label: t('usage.days30') },
+                      { key: '90d', label: t('usage.days90') },
+                    ]}
+                  />
+                  <PillTabs
+                    value={metric}
+                    onSelect={(key) => setMetric(key as Metric)}
+                    items={[
+                      { key: 'tokens', label: t('metrics.tokens') },
+                      { key: 'messages', label: t('metrics.messages') },
+                      { key: 'logs', label: t('usage.logs') },
+                    ]}
+                  />
                 </div>
 
                 {metric === 'logs' ? (

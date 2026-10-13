@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
-import SlidingPill from '../components/SlidingPill'
 import DatePicker from '../components/DatePicker'
 import { confirm } from '../components/confirm'
 import { kanbanTaskService } from '../services/kanbanTaskService'
@@ -21,7 +20,7 @@ import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
 } from '../types'
-import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PillTabs, Textarea } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -383,47 +382,37 @@ export default function KanbanPage() {
           )}
 
           {/* 列导航：一屏放不下所有列时，点胶囊直接跳到对应列，高亮跟随滚动位置 */}
-          <div className="flex items-center overflow-x-auto border-b border-gray-100 px-8 py-2 dark:border-gray-800">
-            <SlidingPill
+          <div className="flex items-center overflow-x-auto px-8 py-2">
+            <PillTabs
               value={activeColumn}
+              onSelect={(key) => scrollToColumn(key as typeof activeColumn)}
               className="shrink-0"
-            >
-              {COLUMNS.map((col) => {
-                const count = board ? columnTasks(board, col.status).length : 0
-                const active = activeColumn === col.status
-                return (
-                  <button
-                    key={col.status}
-                    data-pill-key={col.status}
-                    onClick={() => scrollToColumn(col.status)}
-                    title={t('board.scrollToColumn', { column: t(col.labelKey) })}
-                    className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                      active
-                        ? 'text-gray-800 dark:text-gray-100'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
-                  >
+              items={COLUMNS.map((col) => ({
+                key: col.status,
+                title: t('board.scrollToColumn', { column: t(col.labelKey) }),
+                label: (
+                  <>
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} />
                     {t(col.labelKey)}
-                    <span className="tabular-nums opacity-60">{count}</span>
-                  </button>
-                )
-              })}
-            </SlidingPill>
+                    <span className="tabular-nums opacity-60">{board ? columnTasks(board, col.status).length : 0}</span>
+                  </>
+                ),
+              }))}
+            />
           </div>
 
           {/* Board */}
           <div className="relative flex-1 min-h-0">
             {/* 左右切换按钮：只在对应方向还有内容时出现，点一下滚动约一屏 */}
             {canScrollLeft && (
-              <Button variant="ghost" tone="gray" pill className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(-1)}
+              <Button variant="ghost" tone="gray" pill className="absolute left-3 top-1/2 z-10 flex h-9 w-9 p-0 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(-1)}
                 title={t('board.scrollLeft')}
                 aria-label={t('board.scrollLeft')}>
                 <ChevronLeft size={18} />
               </Button>
             )}
             {canScrollRight && (
-              <Button variant="ghost" tone="gray" pill className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(1)}
+              <Button variant="ghost" tone="gray" pill className="absolute right-3 top-1/2 z-10 flex h-9 w-9 p-0 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-gray-500 shadow-lg backdrop-blur transition hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-400 dark:hover:text-gray-100" onClick={() => scrollBoard(1)}
                 title={t('board.scrollRight')}
                 aria-label={t('board.scrollRight')}>
                 <ChevronRight size={18} />
