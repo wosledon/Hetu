@@ -187,9 +187,14 @@ body {
 
 /* ===== 亚克力材质 =====
    卡片 / 胶囊轨道 / 侧栏加上 .glass（轨道用 .glass-track）即透出画布背景。
-   亚克力 = 高不透明度底色 + 背景模糊提色 + 细噪点纹理 + 顶部高光，
-   相比纯毛玻璃更"实"、更干净。材质画在 ::before 上：backdrop-filter 放在宿主
+   亚克力 = 高不透明度底色 + 细噪点纹理 + 顶部高光 + 投影，
+   相比纯毛玻璃更"实"、更干净。材质画在 ::before 上：滤镜放在宿主
    身上会把宿主变成 fixed / absolute 后代的包含块，浮层定位会错位，故用伪元素承载。
+   材质刻意不用 backdrop-filter：只要页面内容在重绘（流程图/画布首屏渲染、
+   动画帧），带 backdrop-filter 的面会被 GPU 每帧重新栅格化——模糊重采样 +
+   feTurbulence 噪点重绘——表现为玻璃面闪烁，且内容越复杂越明显。
+   画布背景本身是平滑渐变/低对比纹理，模糊几乎无视觉贡献；改为静态栅格后
+   玻璃面的纹理只在自身变化时才重画，任何页面内容的重绘都不会再引闪。
    由 <html data-glass="on|off"> 一键开关。 */
 :root {
   --glass-bg: rgba(241, 244, 250, 0.74);
@@ -198,7 +203,6 @@ body {
   --glass-track-bg: rgba(255, 255, 255, 0.32);
   /* 输入框比面板更透：让画布颜色透上来才有亚克力质感 */
   --glass-field-bg: rgba(255, 255, 255, 0.58);
-  --glass-blur: blur(28px) saturate(180%);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   /* 浅色画布接近白色，没有投影边界面就糊掉：亚克力面板必须"浮"起来 */
@@ -238,8 +242,6 @@ body {
     background-color: var(--glass-bg);
     background-image: var(--glass-noise);
     box-shadow: var(--glass-sheen), var(--glass-shadow);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
   }
 
   .glass-track::before {
@@ -262,8 +264,6 @@ body {
   background-color: var(--glass-field-bg);
   background-image: var(--glass-noise);
   box-shadow: var(--glass-sheen);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* 关闭：材质整块消失，回到纯白卡片 / 灰轨道 */
@@ -282,8 +282,6 @@ body {
   background-color: var(--glass-bg);
   background-image: var(--glass-noise);
   box-shadow: var(--glass-sheen), var(--glass-shadow);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 :root[data-glass='on'] .glass.overflow-y-auto::before,
@@ -299,8 +297,6 @@ body {
 .glass-nav {
   background-color: var(--glass-nav-bg);
   background-image: var(--glass-noise);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
@@ -313,8 +309,6 @@ body {
 .glass-rail {
   background-color: var(--glass-nav-bg);
   background-image: var(--glass-noise);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   border-right: 1px solid rgba(0, 0, 0, 0.05);
   /* 滚动条不占布局：占位会把 64px 内容区吃掉约 7px，居中的胶囊轨道被挤到左边，
@@ -336,8 +330,6 @@ body {
 :root[data-glass='off'] .glass-rail {
   background-color: #ffffff;
   background-image: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 :root[data-glass='off'] .dark .glass-nav,
