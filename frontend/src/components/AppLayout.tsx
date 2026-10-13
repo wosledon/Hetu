@@ -259,7 +259,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       <IconButton label={appName} variant="ghost" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center transition-opacity hover:opacity-80" onClick={() => navigate('/')}  title={appName}>
         <BrandMark size={34} />
       </IconButton>
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-main" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {fixedNavItems.map(renderVerticalNavButton)}
 
         {/* 与水平导航一致：固定项与可配置项合轨，中间一条分隔线 */}
@@ -287,13 +287,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         )}
       </SlidingPill>
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-secondary" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {secondaryNavItems.map(renderVerticalNavButton)}
       </SlidingPill>
 
       <div className="flex-1" data-rail-spacer="" />
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-bottom" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         <GithubEntry variant="rail" />
 
         <button
@@ -325,7 +325,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-main" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -357,7 +357,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-secondary" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
             {secondaryNavItems.map(renderNavButton)}
           </SlidingPill>
         </div>

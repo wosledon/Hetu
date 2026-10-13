@@ -11,6 +11,13 @@ interface SlidingPillProps {
   className?: string
   /** 滑块完整外观（圆角/背景/阴影），整体覆盖默认白卡 */
   pillClassName?: string
+  /**
+   * 轨道稳定标识：跨路由/重挂载复用滑块位置缓存的 key。
+   * 默认用各项 data-pill-key 拼接，但轨道内容会动态变化时（如导航栏的
+   * 「最近访问」项、固定项随紧凑态增减）必须显式传入，否则缓存 key
+   * 一变就找不到上一次的位置，滑块会直接蹦到新位置而没有滑动动画。
+   */
+  trackId?: string
   children: ReactNode
 }
 
@@ -43,6 +50,7 @@ export default function SlidingPill({
   orientation = 'horizontal',
   className = '',
   pillClassName = '',
+  trackId,
   children,
 }: SlidingPillProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -69,10 +77,10 @@ export default function SlidingPill({
       w: orientation === 'horizontal' ? active.offsetWidth : base.offsetWidth,
       h: orientation === 'vertical' ? active.offsetHeight : base.offsetHeight,
     }
-    const trackId = items.map((it) => it.dataset.pillKey).join('|')
+    const trackKey = trackId ?? items.map((it) => it.dataset.pillKey).join('|')
     if (!initializedRef.current) {
       initializedRef.current = true
-      const prev = lastRects.get(trackId)
+      const prev = lastRects.get(trackKey)
       if (prev && !sameRect(prev, next)) {
         // 首帧先落在上一次激活项的位置，渲染两帧后再切到当前位置以触发过渡
         pendingRef.current = true
@@ -80,16 +88,16 @@ export default function SlidingPill({
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             pendingRef.current = false
-            lastRects.set(trackId, next)
+            lastRects.set(trackKey, next)
             setRect(next)
           })
         })
         return
       }
     }
-    lastRects.set(trackId, next)
+    lastRects.set(trackKey, next)
     setRect((prevRect) => (prevRect && sameRect(prevRect, next) ? prevRect : next))
-  }, [value, orientation])
+  }, [value, orientation, trackId])
 
   // 挂载即在首帧前测好位置（无闪现），尺寸变化由 ResizeObserver 跟随
   useLayoutEffect(() => {
