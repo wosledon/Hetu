@@ -282,7 +282,7 @@ export default function SettingsPage() {
               </aside>
 
               {/* Content Area */}
-              <div className="min-w-0 flex-1 animate-fade-in pt-8">
+              <div className="min-w-0 flex-1 animate-fade-in">
                 <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none glass">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
