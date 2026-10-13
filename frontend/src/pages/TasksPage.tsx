@@ -20,7 +20,7 @@ import type {
 import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
-import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PillTabs, Textarea } from '../components/ui'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -195,29 +195,14 @@ function BackgroundTasksView({
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <SlidingPill value={typeFilter}>
-            <button
-              onClick={() => setTypeFilter('')}
-              data-pill-key=""
-              className={`relative rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
-                !typeFilter ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-              }`}
-            >
-              {t('tasks.allTypes')}
-            </button>
-            {Object.entries(TYPE_MAP).map(([key, val]) => (
-              <button
-                key={key}
-                onClick={() => setTypeFilter(key)}
-                data-pill-key={key}
-                className={`relative rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
-                  typeFilter === key ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                }`}
-              >
-                {t(val.labelKey)}
-              </button>
-            ))}
-          </SlidingPill>
+          <PillTabs
+            value={typeFilter}
+            onSelect={(key) => setTypeFilter(key)}
+            items={[
+              { key: '', label: t('tasks.allTypes') },
+              ...Object.entries(TYPE_MAP).map(([key, val]) => ({ key, label: t(val.labelKey) })),
+            ]}
+          />
           {stats && stats.completed > 0 && (
             <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClearCompleted}>
               <Trash2 size={12} /> {t('tasks.clearCompleted')}

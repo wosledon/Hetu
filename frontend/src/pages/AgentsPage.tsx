@@ -42,7 +42,6 @@ import {
 } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
-import SlidingPill from '../components/SlidingPill'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import Select from '../components/Select'
 import MultiSelect from '../components/MultiSelect'
@@ -51,7 +50,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, PillTabs, SearchInput, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -758,29 +757,15 @@ export default function AgentsPage() {
                     <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                     <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                     {isGeneralSection ? (
-                      <SlidingPill value={generalSource} className="ml-auto gap-0.5 p-0.5">
-                        {([
-                          { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Bot },
-                          { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },
-                        ]).map((tabItem) => {
-                          const Icon = tabItem.icon
-                          return (
-                            <button
-                              key={tabItem.key}
-                              data-pill-key={tabItem.key}
-                              onClick={() => { setGeneralSource(tabItem.key); setActiveCategory(null); if (tabItem.key === 'local') refetchLocal() }}
-                              className={`relative flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-all ${
-                                generalSource === tabItem.key
-                                  ? 'text-gray-800 dark:text-gray-100'
-                                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                              }`}
-                            >
-                              <Icon size={13} />
-                              {t(tabItem.labelKey)}
-                            </button>
-                          )
-                        })}
-                      </SlidingPill>
+                      <PillTabs
+                        value={generalSource}
+                        onSelect={(key) => { setGeneralSource(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
+                        className="ml-auto gap-0.5 p-0.5"
+                        items={[
+                          { key: 'database', label: <><Bot size={13} />{t('tabs.database')}</> },
+                          { key: 'local', label: <><FolderOpen size={13} />{t('tabs.local')}</> },
+                        ]}
+                      />
                     ) : (
                       <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
                         <Plus size={13} />{t('sections.newProfessional')}

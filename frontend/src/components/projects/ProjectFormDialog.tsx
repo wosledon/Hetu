@@ -4,10 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle, Check, ChevronRight, CornerLeftUp, Folder, FolderOpen, HardDrive, Loader2, Server, Wifi, X,
 } from 'lucide-react'
-import SlidingPill from '../SlidingPill'
 import { workSshService, workBrowseService } from '../../services/workService'
 import Select from '../Select'
-import { Button, IconButton, Input, Modal } from '../ui'
+import { Button, IconButton, Input, Modal, PillTabs } from '../ui'
 import type { IDirListing } from '../../services/workService'
 import type { IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest } from '../../types/project'
 
@@ -202,27 +201,14 @@ export default function ProjectFormDialog({
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 类型切换 */}
-          <SlidingPill value={mode}>
-            {([
-              { key: 'local' as const, label: t('form.localDirTab'), icon: HardDrive },
-              { key: 'ssh' as const, label: t('form.sshTab'), icon: Server },
-            ]).map((m) => {
-              const Icon = m.icon
-              return (
-                <button
-                  key={m.key}
-                  onClick={() => { setMode(m.key); setTestResult(null) }}
-                  data-pill-key={m.key}
-                  className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[13px] font-medium transition-all ${
-                    mode === m.key ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  <Icon size={13} />
-                  {m.label}
-                </button>
-              )
-            })}
-          </SlidingPill>
+          <PillTabs
+            value={mode}
+            onSelect={(key) => { setMode(key as typeof mode); setTestResult(null) }}
+            items={[
+              { key: 'local', label: <><HardDrive size={13} />{t('form.localDirTab')}</> },
+              { key: 'ssh', label: <><Server size={13} />{t('form.sshTab')}</> },
+            ]}
+          />
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.name')}</label>

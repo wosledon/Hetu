@@ -15,14 +15,13 @@ import {
   X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { tagService } from '../services/tagService'
 import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
-import { Button, IconButton, Input, Modal, SearchInput } from '../components/ui'
+import { Button, IconButton, Input, Modal, PillTabs, SearchInput } from '../components/ui'
 
 interface ContextMenuState {
   x: number
@@ -162,23 +161,19 @@ export default function TagsPage() {
 
             {/* 控制行：筛选居左，搜索 + 新建居右 */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
-              <SlidingPill value={filter}>
-                {filters.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    data-pill-key={f.key}
-                    className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                      filter === f.key
-                        ? 'text-gray-800 dark:text-gray-100'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    {f.label}
-                    <span className={`text-[11px] ${filter === f.key ? 'text-blue-500' : 'text-gray-400'}`}>{f.count}</span>
-                  </button>
-                ))}
-              </SlidingPill>
+              <PillTabs
+                value={filter}
+                onSelect={(key) => setFilter(key as typeof filter)}
+                items={filters.map((f) => ({
+                  key: f.key,
+                  label: (
+                    <>
+                      {f.label}
+                      <span className={`text-[11px] ${filter === f.key ? 'text-blue-500' : 'text-gray-400'}`}>{f.count}</span>
+                    </>
+                  ),
+                }))}
+              />
               <div className="relative ml-auto w-64 min-w-[180px]">
                 <SearchInput tone="blue"
                   value={search}

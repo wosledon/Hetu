@@ -37,7 +37,6 @@ function safeFormatDate(dateStr: string | null | undefined): string {
 
 import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
-import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import {
   knowledgeBaseService,
@@ -46,7 +45,7 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
-import { Button, Card, Input, Modal, SearchInput } from '../components/ui'
+import { Button, Card, Input, Modal, PillTabs, SearchInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -258,26 +257,15 @@ export default function KnowledgeBasePage() {
             </div>
 
             {/* Tabs */}
-            <SlidingPill value={activeTab} className="mb-6">
-              {tabs.map((tab) => {
+            <PillTabs
+              value={activeTab}
+              onSelect={(key) => setActiveTab(key as typeof activeTab)}
+              className="mb-6"
+              items={tabs.map((tab) => {
                 const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    data-pill-key={tab.key}
-                    className={`relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all ${
-                      activeTab === tab.key
-                        ? 'text-gray-800 dark:text-gray-100'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <Icon size={14} />
-                    {t(tab.label)}
-                  </button>
-                )
+                return { key: tab.key, label: <><Icon size={14} />{t(tab.label)}</> }
               })}
-            </SlidingPill>
+            />
 
             {/* Overview Tab */}
             {activeTab === 'overview' && (
@@ -379,26 +367,14 @@ export default function KnowledgeBasePage() {
               <div className="space-y-4">
                 {/* Type Filter + Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                  <SlidingPill value={manageFilter}>
-                    {typeFilters.map((f) => {
+                  <PillTabs
+                    value={manageFilter}
+                    onSelect={(key) => setManageFilter(key as typeof manageFilter)}
+                    items={typeFilters.map((f) => {
                       const Icon = f.icon
-                      return (
-                        <button
-                          key={f.key}
-                          onClick={() => setManageFilter(f.key)}
-                          data-pill-key={f.key}
-                          className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                            manageFilter === f.key
-                              ? 'text-gray-800 dark:text-gray-100'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                          }`}
-                        >
-                          <Icon size={13} />
-                          {t(f.label)}
-                        </button>
-                      )
+                      return { key: f.key, label: <><Icon size={13} />{t(f.label)}</> }
                     })}
-                  </SlidingPill>
+                  />
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}

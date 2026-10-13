@@ -48,7 +48,6 @@ import { useNotebooks } from '../hooks/useNotebooks'
 import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
-import SlidingPill from './SlidingPill'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
 import { noteService } from '../services/noteService'
 import { noteVersionService } from '../services/noteVersionService'
@@ -58,7 +57,7 @@ import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
-import { Button, Card, IconButton, Input, Textarea } from './ui'
+import { Button, Card, IconButton, Input, PillTabs, Textarea } from './ui'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
 const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
@@ -565,7 +564,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       {FORMAT_ACTIONS.map((item) => {
         const Icon = item.icon
         return (
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" key={item.key}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center p-0 rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" key={item.key}
             title={t(`editor.format.${item.titleKey}`)}
             onClick={(e) => { e.preventDefault(); runFormat(item.run) }}>
             <Icon size={14} />
@@ -580,15 +579,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       </Button>
       {linkDraft === null ? (
         <>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertLink')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center p-0 rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertLink')}
             onClick={() => setLinkDraft('')}>
             <Link2 size={14} />
           </Button>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertTable')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center p-0 rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.insertTable')}
             onClick={() => runFormat((md) => md.insertTable())}>
             <Table2 size={14} />
           </Button>
-          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.divider')}
+          <Button variant="ghost" tone="gray" className="flex h-7 w-7 items-center justify-center p-0 rounded-lg text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.08]" title={t('editor.divider')}
             onClick={() => runFormat((md) => md.insertDivider())}>
             <Minus size={14} />
           </Button>
@@ -620,27 +619,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
-        <SlidingPill value={viewMode} className="gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-          {[
-            { key: 'preview', label: t('common:preview'), icon: Eye },
-            { key: 'edit', label: t('common:edit'), icon: Edit3 },
-            { key: 'split', label: t('editor.viewSplit'), icon: Columns2 },
-          ].map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              data-pill-key={key}
-              onClick={() => setViewMode(key as typeof viewMode)}
-              className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                viewMode === key
-                  ? 'text-gray-700 dark:text-gray-100'
-                  : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
-              }`}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          ))}
-        </SlidingPill>
+        <PillTabs
+          value={viewMode}
+          onSelect={(key) => setViewMode(key as typeof viewMode)}
+          className="gap-0.5 rounded-xl"
+          items={[
+            { key: 'preview', label: <><Eye size={13} />{t('common:preview')}</> },
+            { key: 'edit', label: <><Edit3 size={13} />{t('common:edit')}</> },
+            { key: 'split', label: <><Columns2 size={13} />{t('editor.viewSplit')}</> },
+          ]}
+        />
         <div className="flex items-center gap-1.5">
           <span className="hidden text-[11px] text-gray-400/80 sm:inline">
             {updateNote.isPending ? (
@@ -845,9 +833,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-transparent`}>
             {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格 */}
-            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-gray-100 glass bg-transparent px-8 py-1.5 dark:border-gray-800/50">
+            <Card padded={false} className="sticky top-0 z-10 mx-8 flex flex-wrap items-center gap-0.5 px-1 py-1.5">
               {formatToolbarContent}
-            </div>
+            </Card>
 
             <div className="px-8 py-5">
               <MilkdownEditor
@@ -867,9 +855,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 style={{ top: Math.max(inlineCoords.top - 46, 4), left: inlineCoords.left }}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg shadow-black/5 dark:border-gray-700 dark:bg-gray-800">
+                <Card padded={false} className="flex flex-wrap items-center gap-0.5 p-1 shadow-lg shadow-black/5">
                   {formatToolbarContent}
-                </div>
+                </Card>
               </div>
             )}
 
