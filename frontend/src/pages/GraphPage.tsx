@@ -169,6 +169,13 @@ function useForceLayout(
       if (dragNode) { dragNode.x = dragRef.current.x; dragNode.y = dragRef.current.y }
     }
 
+    // 空图不需要物理布局：不启动 rAF。否则挂载后会空转数百帧，每帧重绘引闪
+    // （GPU 合成下连带 backdrop-filter 的导轨一起抖）。
+    if (nodes.length === 0) {
+      onSettleRef.current?.(nodes)
+      return
+    }
+
     let iteration = 0
     let alpha = 1
     // 根据节点数量动态调整迭代次数和节流间隔
@@ -319,9 +326,11 @@ function useCanvasRenderer(
 ) {
   const { zoom, pan, selectedEntityId, onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition, externalHoverId } = options
   const animationRef = useRef<number>(0)
+  // 唤醒按需绘制循环（状态/交互变更后补一帧）；循环静止时挂起，见下方 Render loop
+  const kickRef = useRef<(() => void) | null>(null)
   const hoveredIdRef = useRef<string | null>(null)
   const externalHoverRef = useRef(externalHoverId)
-  useEffect(() => { externalHoverRef.current = externalHoverId }, [externalHoverId])
+  useEffect(() => { externalHoverRef.current = externalHoverId; kickRef.current?.() }, [externalHoverId])
 
   // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛/补间，缩放与平移更顺滑
   const dispZoomRef = useRef(zoom)
@@ -334,28 +343,34 @@ function useCanvasRenderer(
 
   // Keep refs in sync with latest props for the render loop (avoids stale closures)
   const posMapRef = useRef<Map<string, NodePosition>>(new Map())
-  useEffect(() => { posMapRef.current = new Map(positions.map(p => [p.id, p])) }, [positions])
+  useEffect(() => { posMapRef.current = new Map(positions.map(p => [p.id, p])); kickRef.current?.() }, [positions])
 
   const entityMapRef = useRef<Map<string, IGraphEntity>>(new Map())
-  useEffect(() => { entityMapRef.current = new Map(entities.map(e => [e.id, e])) }, [entities])
+  useEffect(() => { entityMapRef.current = new Map(entities.map(e => [e.id, e])); kickRef.current?.() }, [entities])
 
   const relationsRef = useRef(relations)
-  useEffect(() => { relationsRef.current = relations }, [relations])
+  useEffect(() => { relationsRef.current = relations; kickRef.current?.() }, [relations])
 
   const zoomRef = useRef(zoom), panRef = useRef(pan), selectedRef = useRef(selectedEntityId)
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  useEffect(() => { panRef.current = pan }, [pan])
-  useEffect(() => { selectedRef.current = selectedEntityId }, [selectedEntityId])
+  useEffect(() => { zoomRef.current = zoom; kickRef.current?.() }, [zoom])
+  useEffect(() => { panRef.current = pan; kickRef.current?.() }, [pan])
+  useEffect(() => { selectedRef.current = selectedEntityId; kickRef.current?.() }, [selectedEntityId])
 
   const callbacksRef = useRef({ onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition })
   useEffect(() => { callbacksRef.current = { onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition } })
 
   // --- Render loop ---
+  // 按需绘制：补间/收敛/内容变更期间逐帧续期，静止即休眠，由 kickRef 唤醒。
+  // 不能空转 rAF——每帧重绘会让合成器每帧重合成，GPU 合成下带 backdrop-filter 的
+  // 导轨/导航条会肉眼可见地闪（图谱页独有的闪就来自这里），也白烧 CPU。
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    let running = false
+    let dirty = true
 
     const draw = () => {
       const dpr = window.devicePixelRatio || 1
@@ -366,9 +381,11 @@ function useCanvasRenderer(
       if (rect.width > 0 && rect.height > 0 && (canvas.width !== targetW || canvas.height !== targetH)) {
         canvas.width = targetW
         canvas.height = targetH
+        // 设 width 会重置变换矩阵；基准态是 dpr 缩放（与 ResizeObserver 的 resize 一致）
+        ctx.scale(dpr, dpr)
       }
       const w = canvas.width / dpr, h = canvas.height / dpr
-      // 展示变换：补间动画优先，否则向逻辑值收敛
+      // 展示变换：补间动画优先，否则向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）
       const anim = animRef.current
       if (anim) {
         const t = Math.min(1, (performance.now() - anim.t0) / anim.dur)
@@ -380,9 +397,17 @@ function useCanvasRenderer(
         dispZoomRef.current = anim.fromZoom + (anim.toZoom - anim.fromZoom) * e
         if (t >= 1) animRef.current = null
       } else {
-        dispZoomRef.current += (zoomRef.current - dispZoomRef.current) * 0.22
-        dispPanRef.current.x += (panRef.current.x - dispPanRef.current.x) * 0.22
-        dispPanRef.current.y += (panRef.current.y - dispPanRef.current.y) * 0.22
+        const dz = zoomRef.current - dispZoomRef.current
+        const dx = panRef.current.x - dispPanRef.current.x
+        const dy = panRef.current.y - dispPanRef.current.y
+        if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+          dispZoomRef.current = zoomRef.current
+          dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
+        } else {
+          dispZoomRef.current += dz * 0.22
+          dispPanRef.current.x += dx * 0.22
+          dispPanRef.current.y += dy * 0.22
+        }
       }
       const z = dispZoomRef.current, p = dispPanRef.current
       const selId = selectedRef.current
@@ -390,7 +415,7 @@ function useCanvasRenderer(
 
       ctx.save()
       ctx.clearRect(0, 0, w, h)
-      if (posMap.size === 0) { ctx.restore(); animationRef.current = requestAnimationFrame(draw); return }
+      if (posMap.size === 0) { ctx.restore(); scheduleNext(); return }
 
       ctx.translate(p.x, p.y)
       ctx.scale(z, z)
@@ -519,10 +544,40 @@ function useCanvasRenderer(
       }
 
       ctx.restore()
+      scheduleNext()
+    }
+
+    function scheduleNext() {
+      // 只有补间未完 / 收敛未到 / 本帧期间有状态变更时才续帧，否则休眠待 kick
+      const animating =
+        animRef.current !== null ||
+        Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
+        Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
+        Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
+      if (!animating && !dirty) { running = false; return }
+      dirty = false
       animationRef.current = requestAnimationFrame(draw)
     }
-    animationRef.current = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(animationRef.current)
+
+    const kick = () => {
+      dirty = true
+      if (running) return
+      running = true
+      animationRef.current = requestAnimationFrame(draw)
+    }
+    kickRef.current = kick
+
+    // 主题切换会改绘制配色（draw 内读 dark 类），随类名变更唤醒补一帧
+    const themeObserver = new MutationObserver(kick)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+
+    kick()
+    return () => {
+      kickRef.current = null
+      running = false
+      themeObserver.disconnect()
+      cancelAnimationFrame(animationRef.current)
+    }
   }, [canvasRef, entities])
 
   // --- Resize observer ---
@@ -535,6 +590,7 @@ function useCanvasRenderer(
         canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr)
         const ctx = canvas.getContext('2d'); if (ctx) ctx.scale(dpr, dpr)
       }
+      kickRef.current?.()
     }
     resize()
     const obs = new ResizeObserver(resize); obs.observe(canvas)
@@ -588,11 +644,20 @@ function useCanvasRenderer(
     const onMove = (e: MouseEvent) => {
       if (mode !== 'none') { canvas.style.cursor = 'grabbing'; return }
       const hit = hitTest(e.clientX, e.clientY)
-      hoveredIdRef.current = hit.entity ?? null
+      const nextHover = hit.entity ?? null
+      if (hoveredIdRef.current !== nextHover) {
+        hoveredIdRef.current = nextHover
+        kickRef.current?.()
+      }
       canvas.style.cursor = (hit.entity || hit.relation) ? 'pointer' : 'grab'
     }
 
-    const onLeave = () => { hoveredIdRef.current = null }
+    const onLeave = () => {
+      if (hoveredIdRef.current !== null) {
+        hoveredIdRef.current = null
+        kickRef.current?.()
+      }
+    }
 
     const onWinMove = (e: MouseEvent) => {
       if (mode === 'none') return
@@ -606,6 +671,7 @@ function useCanvasRenderer(
         if (pos) { pos.x = x; pos.y = y }
         drag.current = { id: dragId, x, y }
         callbacksRef.current.setNodePosition(dragId, x, y)
+        kickRef.current?.()
       }
     }
 
