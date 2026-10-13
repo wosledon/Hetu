@@ -261,9 +261,12 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       </IconButton>
       <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {fixedNavItems.map(renderVerticalNavButton)}
-      </SlidingPill>
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+        {/* 与水平导航一致：固定项与可配置项合轨，中间一条分隔线 */}
+        {(railExpanded || pinnedItems.length > 0 || lastMoreItemData || unpinnedItems.length > 0) && (
+          <div className="my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10" />
+        )}
+
         {railExpanded
           ? allConfigurableItems.map(renderVerticalNavButton)
           : pinnedItems.map(renderVerticalNavButton)}
