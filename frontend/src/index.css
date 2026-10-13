@@ -317,6 +317,14 @@ body {
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   border-right: 1px solid rgba(0, 0, 0, 0.05);
+  /* 滚动条不占布局：占位会把 64px 内容区吃掉约 7px，居中的胶囊轨道被挤到左边，
+     右侧露出导轨底色（视觉上像被垂直切开）；且内容高度跨过溢出阈值时滚动条
+     出现/消失会让整条轨道左右跳。滚轮滚动仍可用。 */
+  scrollbar-width: none;
+}
+
+.glass-rail::-webkit-scrollbar {
+  display: none;
 }
 
 .dark .glass-rail {
