@@ -315,7 +315,7 @@ const bySource = stats?.bySource ?? []
             ) : (
               <div className="space-y-6">
                 {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
-                <div className="rounded-2xl border border-gray-200 bg-white px-1 py-4 dark:border-gray-800 dark:bg-gray-900 glass">
+                <Card padded={false} className="px-1 py-4">
                   <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
                     {cards.map((c: typeof cards[number] & { subValue?: string }) => {
                       const Icon = c.icon
@@ -332,7 +332,7 @@ const bySource = stats?.bySource ?? []
                       )
                     })}
                   </div>
-                </div>
+                </Card>
 
                 {/* 活跃热力：第二行整行 */}
                 <Card>
@@ -341,7 +341,7 @@ const bySource = stats?.bySource ?? []
                       <Calendar size={15} className="text-emerald-500" />
                       {t('usage.activity')}
                     </h3>
-                    <SlidingPill value={heatTab} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+                    <SlidingPill value={heatTab}>
                       <button
                         onClick={() => setHeatTab('week')}
                         data-pill-key="week"
@@ -375,7 +375,7 @@ const bySource = stats?.bySource ?? []
 
                 {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
                 <div className="flex items-center justify-end gap-2">
-                  <SlidingPill value={dateRange} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+                  <SlidingPill value={dateRange}>
                     {([
                       { key: '7d' as const, labelKey: 'usage.days7' },
                       { key: '30d' as const, labelKey: 'usage.days30' },
@@ -395,7 +395,7 @@ const bySource = stats?.bySource ?? []
                       </button>
                     ))}
                   </SlidingPill>
-                  <SlidingPill value={metric} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+                  <SlidingPill value={metric}>
                     {(['tokens', 'messages', 'logs'] as Metric[]).map((m) => (
                       <button
                         key={m}

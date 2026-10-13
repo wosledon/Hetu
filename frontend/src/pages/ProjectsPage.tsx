@@ -15,7 +15,7 @@ import type {
   IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest,
   ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
 } from '../types/project'
-import { Button, Input } from '../components/ui'
+import { Button, Card, Input } from '../components/ui'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
 
@@ -301,7 +301,7 @@ export default function ProjectsPage() {
                     )}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {section.projects.map((project) => (
-                        <div
+                        <Card
                           key={project.id}
                           draggable
                           onDragStart={(e) => {
@@ -315,7 +315,7 @@ export default function ProjectsPage() {
                             e.currentTarget.classList.remove('ring-1', 'ring-blue-300')
                             handleCardDrop(section, project.id, e.dataTransfer.getData('application/x-project-id'))
                           }}
-                          className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
+                          className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
                         >
                           <div className="flex items-start gap-3">
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
@@ -467,7 +467,7 @@ export default function ProjectsPage() {
                               )}
                             </div>
                           </div>
-                        </div>
+                        </Card>
                       ))}
                     </div>
                   </section>

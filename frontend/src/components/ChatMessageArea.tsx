@@ -40,7 +40,7 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
-import { Button, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input } from './ui'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -1092,7 +1092,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+                  <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Search size={11} />
                       {t('shared.sources')}
@@ -1114,7 +1114,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                         </a>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
                 {/* Knowledge base results - show when knowledge base was used */}
                 {(streamKnowledgeBase || streamingKnowledgeResults.length > 0) && streamingKnowledgeResults.length > 0 && (
@@ -1143,7 +1143,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 )}
                 {/* Memory results - show when memory was used */}
                 {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+                  <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                       <Atom size={11} />
                       {t('shared.memorySources')}
@@ -1165,7 +1165,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
                 {/* Loading dots - show only when streaming and nothing rendered yet */}
                 {timeline.length === 0 && !streamingContent && !streamingThinking && isStreaming && (

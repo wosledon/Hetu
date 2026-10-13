@@ -24,7 +24,7 @@ import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
-import { Button, IconButton } from '../components/ui'
+import { Button, Card, IconButton } from '../components/ui'
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
   Info: { icon: Info, className: 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' },
@@ -177,7 +177,7 @@ export default function InboxPage() {
 
             {/* 归档切换 + 分类筛选 */}
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <SlidingPill value={archived ? 'archived' : 'inbox'} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+              <SlidingPill value={archived ? 'archived' : 'inbox'}>
                 <button
                   onClick={() => { setArchived(false); setSelected([]) }}
                   data-pill-key="inbox"
@@ -250,7 +250,7 @@ export default function InboxPage() {
             ) : (
               <div className="space-y-2.5">
                 {/* 工具栏：全选 + 批量操作 */}
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white glass px-3.5 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+                <Card padded={false} className="flex flex-wrap items-center gap-2 rounded-xl px-3.5 py-2.5">
                   <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <input
                       type="checkbox"
@@ -277,18 +277,18 @@ export default function InboxPage() {
                   ) : (
                     <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('inbox.totalHint', { n: items.length })}</span>
                   )}
-                </div>
+                </Card>
 
                 {items.map((item) => {
                   const level = LEVEL_STYLE[item.level] ?? LEVEL_STYLE.Info
                   const LevelIcon = level.icon
                   return (
-                    <div
+                    <Card
                       key={item.id}
                       onClick={() => handleItemClick(item)}
-                      className={`group flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-all hover:shadow-sm ${
+                      className={`group flex cursor-pointer items-start gap-3 p-3.5 transition-all hover:shadow-sm ${
                         item.isRead
-                          ? 'border-gray-200 bg-white glass hover:border-blue-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'
+                          ? 'hover:border-blue-300 dark:hover:border-white/10'
                           : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
                       }`}
                     >
@@ -364,7 +364,7 @@ export default function InboxPage() {
                           <Trash2 size={14} />
                         </IconButton>
                       </div>
-                    </div>
+                    </Card>
                   )
                 })}
               </div>

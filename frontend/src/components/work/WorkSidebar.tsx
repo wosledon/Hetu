@@ -6,7 +6,7 @@ import SlidingPill from '../SlidingPill'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
-import { Button, IconButton, Input, Modal } from '../ui'
+import { Button, Card, IconButton, Input, Modal } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
@@ -188,7 +188,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 模式切换 */}
-          <SlidingPill value={mode} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+          <SlidingPill value={mode}>
             {([
               { key: 'local' as const, label: t('sidebar.localDir'), icon: HardDrive },
               { key: 'ssh' as const, label: t('sidebar.sshRemote'), icon: Server },
@@ -834,11 +834,11 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   if (flat) {
     return (
       <div className="flex shrink-0">
-        <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        <Card padded={false} className="flex w-44 shrink-0 flex-col border-r">
           {createDialog}
           <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
-        </div>
-        <div className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        </Card>
+        <Card padded={false} className="flex w-56 shrink-0 flex-col border-r">
           <div className="border-b border-gray-100 p-3 dark:border-gray-800">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('sidebar.sessions')}</h2>
@@ -863,19 +863,19 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
               <div className="py-8 text-center text-xs text-gray-400">{t('sidebar.selectProjectForSessions')}</div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     )
   }
 
   // 树形：项目下挂会议话列表，单栏展示（合并侧栏固定用此形态；搜索/新建由一级菜单提供）
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-900 glass ${embedded ? 'min-h-0 w-full flex-1' : 'w-60 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
+    <Card padded={false} className={`flex flex-col ${embedded ? 'min-h-0 w-full flex-1' : 'w-60 shrink-0 border-r'}`}>
       {createDialog}
       <div className="flex-1 overflow-y-auto p-2">
         {projectList}
       </div>
-    </div>
+    </Card>
   )
 })
 

@@ -337,7 +337,7 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <div className="flex h-full min-w-0 flex-1 bg-transparent">
         {/* 项目列表 */}
-        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-transparent bg-white glass glass-soft dark:bg-gray-900">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -388,7 +388,7 @@ export default function WikiPage() {
         </aside>
 
         {/* Wiki 套件与页面 */}
-        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-transparent bg-white glass glass-soft dark:bg-gray-900">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>

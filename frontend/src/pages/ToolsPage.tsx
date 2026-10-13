@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
 import { renderToolGroup } from '../utils/toolRendering'
 import { ChevronDown, ChevronRight, Search, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
-import { Button, Input } from '../components/ui'
+import { Button, Card, Input } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
 const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
@@ -42,7 +42,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
   }, [tool.parametersSchema])
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white glass p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
+    <Card className="rounded-xl p-4 transition-colors hover:border-white/40 dark:hover:border-white/10">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
           <Wrench size={14} />
@@ -97,7 +97,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
           )}
         </div>
       </div>
-    </div>
+    </Card>
   )
 }
 

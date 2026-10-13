@@ -22,7 +22,7 @@ import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
-import { Button, Input, Textarea } from '../components/ui'
+import { Button, Card, Input, Textarea } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
@@ -231,10 +231,11 @@ export default function SettingsPage() {
             <div className="flex gap-8">
               {/* Sidebar Navigation */}
               <aside className="w-60 shrink-0">
+                <Card padded={false} className="sticky top-8">
                 <SlidingPill
                   value={activeSection}
                   orientation="vertical"
-                  className="sticky top-8 space-y-1 rounded-2xl bg-white p-1.5 glass"
+                  className="flex-col rounded-2xl p-1.5"
                   pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
                 >
                   {settingsSections.map((item) => {
@@ -279,11 +280,12 @@ export default function SettingsPage() {
                     )
                   })}
                 </SlidingPill>
+                </Card>
               </aside>
 
               {/* Content Area */}
               <div className="min-w-0 flex-1 animate-fade-in">
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none glass">
+                <Card className="p-8 shadow-sm shadow-gray-100/50 dark:bg-white/[0.03] dark:shadow-none">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
                     assistantName={assistantName}
@@ -353,7 +355,7 @@ export default function SettingsPage() {
                   {activeSection === 'mcp' && <McpServerManager />}
 
                   {activeSection === 'about' && <AboutSection appName={appName} />}
-                </div>
+                </Card>
               </div>
             </div>
           </div>

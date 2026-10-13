@@ -202,7 +202,7 @@ export default function ProjectFormDialog({
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 类型切换 */}
-          <SlidingPill value={mode} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+          <SlidingPill value={mode}>
             {([
               { key: 'local' as const, label: t('form.localDirTab'), icon: HardDrive },
               { key: 'ssh' as const, label: t('form.sshTab'), icon: Server },

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
-import { Input } from './ui'
+import { Card, Input } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -64,7 +64,7 @@ export default function CompressionSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white glass p-4 dark:border-gray-700 dark:bg-gray-800">
+      <Card className="flex items-center justify-between rounded-xl p-4 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('compression.pipeline')}</div>
           <div className="mt-0.5 text-xs text-gray-500">
@@ -74,7 +74,7 @@ export default function CompressionSettings() {
           </div>
         </div>
         <Toggle checked={draft.enabled} onChange={() => saveNow({ ...draft, enabled: !draft.enabled })} />
-      </div>
+      </Card>
 
       <div>
         <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.mode')}</label>
@@ -128,9 +128,10 @@ export default function CompressionSettings() {
         <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.nodes')}</label>
         <div className="space-y-1.5">
           {[...draft.nodes].sort((a, b) => a.order - b.order).map((node, idx) => (
-            <div
+            <Card
               key={node.key}
-              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800"
+              padded={false}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5"
             >
               <span className="text-[10px] text-gray-300 tabular-nums w-4">{idx + 1}</span>
               <div className="flex-1 min-w-0">
@@ -138,7 +139,7 @@ export default function CompressionSettings() {
                 <div className="mt-0.5 text-[10px] text-gray-400 truncate">{node.description}</div>
               </div>
               <Toggle checked={node.enabled} onChange={() => saveNow({ ...draft, nodes: draft.nodes.map(n => n.key === node.key ? { ...n, enabled: !n.enabled } : n) })} />
-            </div>
+            </Card>
           ))}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { FolderGit2, Loader2, RefreshCw } from 'lucide-react'
 import { settingService, type WorktreeCleanupConfig } from '../services/settingService'
 import { formatDateTime } from '../utils/locale'
 import Select from './Select'
-import { Button, Input } from './ui'
+import { Button, Card, Input } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -102,7 +102,7 @@ export default function WorktreeCleanupSettings() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('worktreeCleanup.subtitle')}</p>
       </div>
 
-      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white glass p-4 dark:border-gray-700 dark:bg-gray-800">
+      <Card className="flex items-start justify-between gap-4 rounded-xl p-4 dark:bg-gray-800">
         <div>
           <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('worktreeCleanup.autoTitle')}</div>
           <div className="mt-0.5 text-xs text-gray-500">
@@ -116,7 +116,7 @@ export default function WorktreeCleanupSettings() {
           </div>
         </div>
         <Toggle checked={draft.enabled} onChange={() => saveNow({ ...draft, enabled: !draft.enabled })} />
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>

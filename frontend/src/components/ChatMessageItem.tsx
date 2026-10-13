@@ -9,7 +9,7 @@ import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
-import { Button, IconButton, Textarea } from './ui'
+import { Button, Card, IconButton, Textarea } from './ui'
 
 interface ITimelineSegment {
   kind?: string
@@ -233,7 +233,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Search size={11} />
                         {t('shared.sources')}
@@ -255,7 +255,7 @@ export default memo(function ChatMessageItem({
                           </a>
                         ))}
                       </div>
-                    </div>
+                    </Card>
                   )
                 } catch { return null }
               })()}
@@ -264,7 +264,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Database size={11} />
                         {t('shared.knowledgeSources')}
@@ -285,7 +285,7 @@ export default memo(function ChatMessageItem({
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </Card>
                   )
                 } catch { return null }
               })()}
@@ -294,7 +294,7 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                   if (results.length === 0) return null
                   return (
-                    <div className="mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+                    <Card padded={false} className="mt-2 overflow-hidden rounded-xl">
                       <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
                         <Atom size={11} />
                         {t('shared.memorySources')}
@@ -313,7 +313,7 @@ export default memo(function ChatMessageItem({
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </Card>
                   )
                 } catch { return null }
               })()}

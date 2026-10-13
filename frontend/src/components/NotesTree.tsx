@@ -23,7 +23,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INote, INotebook } from '../types'
-import { Button, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input } from './ui'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -347,7 +347,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
   }
 
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50 glass">
+    <Card padded={false} className="flex w-64 shrink-0 flex-col border-r bg-white/80 dark:bg-gray-900/50">
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('notebook.label')}</h2>
@@ -503,6 +503,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         </>,
         document.body
       )}
-    </div>
+    </Card>
   )
 }

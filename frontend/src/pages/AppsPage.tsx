@@ -8,7 +8,7 @@ import AppLayout from '../components/AppLayout'
 import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
 import { isTauri, openAppWebview, openExternal } from '../utils/tauri'
-import { Button, IconButton, Input, Modal } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal } from '../components/ui'
 
 /** 从 URL 取展示用主机名 */
 function hostOf(url: string): string {
@@ -190,9 +190,9 @@ export default function AppsPage() {
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {apps.map((app) => (
-                <div
+                <Card
                   key={app.id}
-                  className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
+                  className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
                 >
                   <button onClick={() => void handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
                     <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
@@ -213,7 +213,7 @@ export default function AppsPage() {
                       <Trash2 size={13} />
                     </IconButton>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
 

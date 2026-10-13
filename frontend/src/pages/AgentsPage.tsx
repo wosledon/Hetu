@@ -51,7 +51,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -530,9 +530,9 @@ export default function AgentsPage() {
     const boundModel = isProfessionalAgent && dbPreset.modelId ? models.find(m => m.id === dbPreset.modelId) : undefined
     const effortOption = REASONING_EFFORT_OPTIONS.find(o => o.value === dbPreset.reasoningEffort)
     return (
-      <div
+      <Card
         key={p.id}
-        className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass"
+        className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
       >
         <div className="mb-2 flex items-start justify-between">
           <div className="flex min-w-0 items-start gap-2.5">
@@ -629,7 +629,7 @@ export default function AgentsPage() {
             </span>
           </div>
         )}
-      </div>
+      </Card>
     )
   }
 
@@ -759,7 +759,7 @@ export default function AgentsPage() {
                     <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                     <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                     {isGeneralSection ? (
-                      <SlidingPill value={generalSource} className="ml-auto flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 glass-track dark:bg-white/[0.06]">
+                      <SlidingPill value={generalSource} className="ml-auto gap-0.5 p-0.5">
                         {([
                           { key: 'database' as TabKey, labelKey: 'tabs.database', icon: Bot },
                           { key: 'local' as TabKey, labelKey: 'tabs.local', icon: FolderOpen },

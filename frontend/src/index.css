@@ -247,6 +247,15 @@ body {
   .glass-track::before {
     background-color: var(--glass-track-bg);
   }
+
+  /* 激进轻量卡片：直接借用轨道的高透明底色，去掉边框感（试效果中） */
+  .glass-soft {
+    --glass-bg: var(--glass-track-bg);
+  }
+
+  .dark .glass-soft {
+    --glass-bg: var(--glass-track-bg);
+  }
 }
 
 /* 开启：抹掉宿主自身底色，让材质成为唯一的面 */

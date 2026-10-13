@@ -55,7 +55,7 @@ import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { Button, IconButton, Textarea } from '../ui'
+import { Button, Card, IconButton, Textarea } from '../ui'
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
@@ -1370,9 +1370,9 @@ export default function WorkSessionArea({
                 />
               )}
               {workflowOutput && (
-                <div className="rounded-xl border border-gray-200 bg-white glass p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+                <Card className="rounded-xl p-3 text-sm text-gray-800 dark:text-gray-100">
                   <ThemedMarkdown source={workflowOutput} onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }} />
-                </div>
+                </Card>
               )}
             </div>
           )}
@@ -1829,7 +1829,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
           <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
         </div>
         {editing && actions ? (
-          <div className="w-full min-w-[280px] rounded-2xl rounded-tr-sm border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900 glass">
+          <Card className="w-full min-w-[280px] rounded-2xl rounded-tr-sm p-2">
             <MessageEditor
               value={actions.editingContent}
               disabled={actions.actionsDisabled}
@@ -1837,7 +1837,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
               onCancel={actions.onCancelEdit}
               onSave={actions.onSaveEdit}
             />
-          </div>
+          </Card>
         ) : (
           <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm [overflow-wrap:anywhere]">
             <UserMessageContent content={message.content} />

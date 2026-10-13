@@ -264,7 +264,7 @@ export default function Sidebar() {
 
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-gray-100 bg-white/80 dark:border-gray-800/50 dark:bg-gray-900/50 glass">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-transparent bg-white/80 dark:bg-gray-900/50 glass glass-soft">
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">

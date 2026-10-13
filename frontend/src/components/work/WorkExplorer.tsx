@@ -19,7 +19,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
-import { Button, IconButton, Input } from '../ui'
+import { Button, Card, IconButton, Input } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -636,7 +636,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
 
   return (
     <>
-    <div className="flex min-w-0 flex-1 border-l border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+    <Card padded={false} className="flex min-w-0 flex-1 border-l">
       {/* 左侧垂直导航 */}
       <div className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-gray-100 py-2 dark:border-gray-800">
         {NAV_ITEMS.map((n) => {
@@ -1103,7 +1103,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
       )}
     </div>
     </div>
-  </div>
+  </Card>
 
   {/* 标签页右键菜单 */}
   {tabMenu && (

@@ -258,7 +258,7 @@ export default function KnowledgeBasePage() {
             </div>
 
             {/* Tabs */}
-            <SlidingPill value={activeTab} className="mb-6 flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+            <SlidingPill value={activeTab} className="mb-6">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -283,7 +283,7 @@ export default function KnowledgeBasePage() {
             {activeTab === 'overview' && (
               <div className="space-y-4">
                 {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-                <Card padded="lg">
+                <Card padded="lg" className="glass-soft border-transparent dark:border-transparent">
                   <div className="flex flex-wrap items-center gap-8">
                     {/* 进度环 */}
                     <div className="relative h-24 w-24 shrink-0">
@@ -379,7 +379,7 @@ export default function KnowledgeBasePage() {
               <div className="space-y-4">
                 {/* Type Filter + Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                  <SlidingPill value={manageFilter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+                  <SlidingPill value={manageFilter}>
                     {typeFilters.map((f) => {
                       const Icon = f.icon
                       return (
@@ -419,7 +419,7 @@ export default function KnowledgeBasePage() {
 
                 {/* Add URL Modal */}
                 {showAddUrl && (
-                  <div className="rounded-xl border border-gray-200 bg-white glass p-5 dark:border-gray-800 dark:bg-gray-900">
+                  <Card className="rounded-xl p-5">
                     <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
                     <div className="flex gap-3">
                       <Input tone="blue"
@@ -448,7 +448,7 @@ export default function KnowledgeBasePage() {
                     {addUrlMutation.error && (
                       <p className="mt-2 text-xs text-red-500">{(addUrlMutation.error as Error).message}</p>
                     )}
-                  </div>
+                  </Card>
                 )}
 
                 {/* Items List */}
@@ -465,12 +465,13 @@ export default function KnowledgeBasePage() {
                 ) : (
                   <div className="space-y-2">
                     {embeddingStatuses.map((item) => (
-                      <div
+                      <Card
                         key={item.id}
-                        className={`group flex items-center gap-4 rounded-2xl border bg-white glass px-5 py-4 transition-all hover:shadow-md dark:bg-gray-900 ${
+                        padded={false}
+                        className={`group flex items-center gap-4 px-5 py-4 transition-all hover:shadow-md ${
                           item.hasRunningTask
                             ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+                            : 'hover:border-white/40 dark:hover:border-white/10'
                         }`}
                       >
                         {/* Type + Title */}
@@ -558,7 +559,7 @@ export default function KnowledgeBasePage() {
                             </button>
                           )}
                         </div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 )}
@@ -635,9 +636,9 @@ export default function KnowledgeBasePage() {
                     ) : (
                       <div className="space-y-2">
                         {searchResults.map((result, index) => (
-                          <div
+                          <Card
                             key={result.id}
-                            className="rounded-xl border border-gray-200 bg-white glass p-4 transition-all hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
+                            className="rounded-xl p-4 transition-all hover:shadow-sm"
                           >
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 flex-1">
@@ -659,7 +660,7 @@ export default function KnowledgeBasePage() {
                                 {safeFormatDate(result.updatedAt)}
                               </span>
                             </div>
-                          </div>
+                          </Card>
                         ))}
                       </div>
                     )}
@@ -739,9 +740,10 @@ function ChunkDetailModal({
               {chunks.map((chunk) => {
                 const isExpanded = expandedChunkId === chunk.id
                 return (
-                  <div
+                  <Card
                     key={chunk.id}
-                    className="rounded-xl border border-gray-200 bg-white glass transition-all dark:border-gray-800 dark:bg-gray-900"
+                    padded={false}
+                    className="rounded-xl transition-all"
                   >
                     <button
                       onClick={() => setExpandedChunkId(isExpanded ? null : chunk.id)}
@@ -804,7 +806,7 @@ function ChunkDetailModal({
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Card>
                 )
               })}
             </div>

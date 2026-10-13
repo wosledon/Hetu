@@ -12,7 +12,7 @@ import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote, INotebook } from '../types'
-import { Button, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input } from './ui'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -200,7 +200,7 @@ export default function NoteList({
   const offsetY = startIndex * ITEM_HEIGHT
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-r border-gray-100 bg-white/60 glass dark:border-gray-800/50 dark:bg-gray-900/40">
+    <Card padded={false} className="flex w-80 shrink-0 flex-col border-r bg-white/60 dark:bg-gray-900/40">
       <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -396,6 +396,6 @@ export default function NoteList({
         </div>,
         document.body
       )}
-    </div>
+    </Card>
   )
 }

@@ -62,7 +62,7 @@ const verticalNavItemClass = (isActive: boolean) =>
 
 /** 垂直导航的分组底槽：与顶部横栏装胶囊的容器同一套背景与圆角 */
 const railTrackClass =
-  'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track'
+  'w-14 shrink-0 flex-col gap-0.5 rounded-xl'
 
 /** 导轨紧凑态上次判定（模块级，跨路由重挂载存活）：首帧即用对的样子，避免展开→收起闪烁 */
 let lastRailCompact = false
@@ -334,7 +334,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <SlidingPill value={location.pathname} trackId="top-main" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-main" className="justify-center gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -366,7 +366,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <SlidingPill value={location.pathname} trackId="top-secondary" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-secondary" className="justify-center gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
             {secondaryNavItems.map(renderNavButton)}
           </SlidingPill>
         </div>

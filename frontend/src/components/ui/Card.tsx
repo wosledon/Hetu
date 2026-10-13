@@ -23,10 +23,10 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={cn(
-        'rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 glass',
+        'rounded-2xl border border-transparent bg-white dark:bg-gray-900 glass glass-soft',
         padded && PADDING[padded],
         interactive &&
-          'transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:hover:border-gray-700',
+          'transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10',
         className,
       )}
       {...rest}

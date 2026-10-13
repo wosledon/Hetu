@@ -13,7 +13,7 @@ import { useUIStore } from '../stores/uiStore'
 import i18n from '../i18n'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
-import { Button, IconButton, Input, Modal, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
@@ -909,7 +909,7 @@ export default function MemoriesPage() {
             {/* 右上：视图切换 + Dream 巩固 */}
             <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
-                <SlidingPill value={view} className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName={`rounded-md ${pal.chipOnBg}`}>
+                <SlidingPill value={view} className={`gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName={`rounded-md ${pal.chipOnBg}`}>
                   <button
                     data-pill-key="sky"
                     onClick={() => setView('sky')}
@@ -925,7 +925,7 @@ export default function MemoriesPage() {
                     <List size={12} />{t('memories.listView')}
                   </button>
                 </SlidingPill>
-                <SlidingPill value={animate ? 'drift' : 'static'} className={`flex items-center gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName="rounded-lg bg-teal-500/90">
+                <SlidingPill value={animate ? 'drift' : 'static'} className={`gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName="rounded-lg bg-teal-500/90">
                   <button
                     data-pill-key="drift"
                     onClick={() => setAnimate(true)}
@@ -971,7 +971,7 @@ export default function MemoriesPage() {
 
             {/* 底部浮动：作用域筛选 + 语义搜索 */}
             <div className={`absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl ${pal.border} ${pal.panel}`}>
-              <SlidingPill value={scopeFilter} className="flex items-center gap-1.5" pillClassName="rounded-lg bg-teal-500/90">
+              <SlidingPill value={scopeFilter} className="gap-1.5" pillClassName="rounded-lg bg-teal-500/90">
                 {([
                   { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
                   { key: 'Global' as const, label: 'memories.scopeGlobal', count: scopeCounts.Global },
@@ -1174,14 +1174,14 @@ export default function MemoriesPage() {
                 {sortedMemories.map((memory) => {
                   const state = stateOf(memory, decayDays, forgetDays)
                   return (
-                  <div
+                  <Card
                     key={memory.id}
-                    className={`group rounded-2xl border bg-white glass p-4 transition-all duration-200 hover:shadow-md dark:bg-gray-900 ${
+                    className={`group p-4 transition-all duration-200 hover:shadow-md ${
                       state.key === 'dying'
                         ? 'border-red-200/80 hover:border-red-300 dark:border-red-500/25 dark:hover:border-red-500/40'
                         : state.key === 'fading'
                           ? 'border-amber-200/70 hover:border-amber-300 dark:border-amber-500/20 dark:hover:border-amber-500/40'
-                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+                          : 'hover:border-white/40 dark:hover:border-white/10'
                     }`}
                   >
                     {editingId === memory.id ? (
@@ -1306,7 +1306,7 @@ export default function MemoriesPage() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Card>
                   )
                 })}
               </div>

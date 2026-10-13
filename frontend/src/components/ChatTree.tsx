@@ -20,7 +20,7 @@ import {
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
 import MainChatEntry from './MainChatEntry'
-import { Button, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -245,7 +245,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   }
 
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-900 glass ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r border-gray-200 dark:border-gray-800'}`}>
+    <Card padded={false} className={`flex flex-col ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r'}`}>
       <div className="flex-1 overflow-y-auto p-2">
         {mainChat && !hideMainChat && (
           <>
@@ -327,7 +327,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
         </>,
         document.body
       )}
-    </div>
+    </Card>
   )
 })
 

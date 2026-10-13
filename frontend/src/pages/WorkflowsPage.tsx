@@ -10,7 +10,7 @@ import type { IWorkflow } from '../types/workflow'
 import type { IPromptPreset } from '../types'
 import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
-import { Button, IconButton } from '../components/ui'
+import { Button, Card, IconButton } from '../components/ui'
 
 const AVAILABLE_TOOLS = [
   'search_notes',
@@ -186,9 +186,9 @@ export default function WorkflowsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {workflows.map((wf) => (
-                  <div
+                  <Card
                     key={wf.id}
-                    className="group flex flex-col rounded-xl border border-gray-200 bg-white glass p-4 transition-all hover:border-blue-300 hover:shadow-md dark:border-white/[0.08] dark:bg-gray-800 dark:hover:border-blue-500/40"
+                    className="group flex flex-col rounded-xl p-4 transition-all hover:border-blue-300 hover:shadow-md dark:bg-gray-800 dark:hover:border-blue-500/40"
                   >
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
@@ -227,7 +227,7 @@ export default function WorkflowsPage() {
                         <Trash2 size={13} />
                       </IconButton>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             )}

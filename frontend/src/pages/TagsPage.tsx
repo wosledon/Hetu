@@ -163,7 +163,7 @@ export default function TagsPage() {
 
             {/* 控制行：筛选居左，搜索 + 新建居右 */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
-              <SlidingPill value={filter} className="flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track">
+              <SlidingPill value={filter}>
                 {filters.map((f) => (
                   <button
                     key={f.key}
@@ -379,10 +379,10 @@ function TagChip({
     <div
       onContextMenu={onContextMenu}
       title={`${tag.name} · ${used ? t('tags.chipNotes', { n: noteCount }) : t('tags.chipNoNotes')}`}
-      className={`group inline-flex items-center gap-2 rounded-full border glass py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group inline-flex items-center gap-2 rounded-full border glass glass-soft py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
         used
           ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30'
-          : 'border-dashed border-gray-300 bg-gray-50/80 dark:border-gray-700 dark:bg-white/[0.02]'
+          : 'border-dashed border-transparent bg-gray-50/80 dark:bg-white/[0.02]'
       }`}
       style={used ? { background: palette.soft, borderColor: `${palette.dot}33` } : undefined}
     >

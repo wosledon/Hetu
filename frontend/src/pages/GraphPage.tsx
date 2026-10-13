@@ -31,7 +31,7 @@ import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, IconButton, Input, Modal } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1219,7 +1219,7 @@ export default function GraphPage() {
   )
 
   const rightPanel = selectedEntityId && entityDetail ? (
-    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+    <Card padded={false} className="flex w-80 shrink-0 flex-col border-l">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
@@ -1273,7 +1273,7 @@ export default function GraphPage() {
           </div>
         )}
       </div>
-    </div>
+    </Card>
   ) : null
 
   return (
@@ -1283,7 +1283,7 @@ export default function GraphPage() {
         {rightPanel}
       </div>
     }>
-      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+      <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
@@ -1325,7 +1325,7 @@ export default function GraphPage() {
             )
           })}
         </div>
-      </div>
+      </Card>
     </AppLayout>
   )
 }
