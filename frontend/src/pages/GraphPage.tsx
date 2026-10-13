@@ -371,6 +371,9 @@ function useCanvasRenderer(
 
     let running = false
     let dirty = true
+    // 节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象，React 状态是节流的）：
+    // 位置指纹变了就继续跑，保证运动 60fps；指纹不变才休眠。
+    let lastSig = Number.NaN
 
     const draw = () => {
       const dpr = window.devicePixelRatio || 1
@@ -548,13 +551,18 @@ function useCanvasRenderer(
     }
 
     function scheduleNext() {
-      // 只有补间未完 / 收敛未到 / 本帧期间有状态变更时才续帧，否则休眠待 kick
+      // 节点位置指纹：模拟/拖拽直接改写共享节点对象，指纹变化即视为内容在动
+      let sig = 0
+      for (const p of posMapRef.current.values()) sig += p.x * 31 + p.y
+      const moved = sig !== lastSig
+      lastSig = sig
+      // 补间未完 / 收敛未到 / 本帧有状态变更 / 节点还在动 → 续帧；否则休眠待 kick
       const animating =
         animRef.current !== null ||
         Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
         Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
         Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
-      if (!animating && !dirty) { running = false; return }
+      if (!animating && !dirty && !moved) { running = false; return }
       dirty = false
       animationRef.current = requestAnimationFrame(draw)
     }
