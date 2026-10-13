@@ -7,6 +7,7 @@ import { memoryService } from '../services/memoryService'
 import i18n from '../i18n'
 import { formatDateTime } from '../utils/locale'
 import Select from './Select'
+import { Button, Input } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -77,7 +78,7 @@ export default function DreamSettings() {
   }
 
   const numberField = (value: number, min: number, max: number, onChange: (v: number) => void) => (
-    <input
+    <Input tone="indigo" glass
       type="number"
       min={min}
       max={max}
@@ -86,7 +87,7 @@ export default function DreamSettings() {
         const v = parseInt(e.target.value || '0', 10) || 0
         onChange(Math.min(max, Math.max(min, v)))
       }}
-      className="w-28 rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+      className="w-28"
     />
   )
 
@@ -137,14 +138,11 @@ export default function DreamSettings() {
           <p className="flex items-center gap-1.5 font-medium"><Sparkles size={13} />{t('dream.manualTitle')}</p>
           <p className="mt-0.5 text-indigo-600/80 dark:text-indigo-300/80">{t('dream.manualHint')}</p>
         </div>
-        <button
-          onClick={() => dreamMutation.mutate()}
-          disabled={dreamMutation.isPending}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-600 disabled:opacity-50"
-        >
+        <Button variant="primary" tone="indigo" className="flex shrink-0 items-center gap-1.5 px-4 py-2" onClick={() => dreamMutation.mutate()}
+          disabled={dreamMutation.isPending}>
           {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
           {dreamMutation.isPending ? t('dream.running') : t('dream.runOnce')}
-        </button>
+        </Button>
       </div>
 
       {dreamResult && (

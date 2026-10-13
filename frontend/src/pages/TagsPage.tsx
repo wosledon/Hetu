@@ -23,6 +23,7 @@ import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
+import { Button, IconButton, Input, Modal } from '../components/ui'
 
 interface ContextMenuState {
   x: number
@@ -181,20 +182,17 @@ export default function TagsPage() {
               </SlidingPill>
               <div className="relative ml-auto w-64 min-w-[180px]">
                 <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Input tone="blue" glass pill
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('tags.searchPlaceholder')}
-                  className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-blue-950/40"
+                  className="w-full pl-10 pr-3 text-sm"
                 />
               </div>
-              <button
-                onClick={() => setEdit({ mode: 'create' })}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]"
-              >
+              <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 px-4 py-2 shadow-blue-500/20" onClick={() => setEdit({ mode: 'create' })}>
                 <Plus size={16} />
                 {t('tags.create')}
-              </button>
+              </Button>
             </div>
 
             {/* 标签墙 */}
@@ -261,8 +259,8 @@ export default function TagsPage() {
 
       {/* 合并对话框 */}
       {mergeSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setMergeSource(null); setMergeTargetId('') }}>
-          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
+        <Modal open onClose={() => { setMergeSource(null); setMergeTargetId('') }} className="max-w-md overflow-hidden">
+
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <GitMerge size={18} className="text-blue-500" />
@@ -293,22 +291,15 @@ export default function TagsPage() {
               />
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-              <button
-                onClick={() => { setMergeSource(null); setMergeTargetId('') }}
-                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
+              <Button variant="ghost" className="px-4 py-2 text-gray-600 hover:bg-gray-100" onClick={() => { setMergeSource(null); setMergeTargetId('') }}>
                 {t('common:cancel')}
-              </button>
-              <button
-                onClick={handleMergeConfirm}
-                disabled={!mergeTargetId || mergeMutation.isPending}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="ghost" tone="gray" className="px-4 py-2" onClick={handleMergeConfirm}
+                disabled={!mergeTargetId || mergeMutation.isPending}>
                 {mergeMutation.isPending ? t('tags.merging') : t('tags.mergeConfirm')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* 右键菜单 */}
@@ -345,13 +336,10 @@ export default function TagsPage() {
             {t('tags.merge')}
           </button>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <button
-            onClick={() => { closeMenu(); handleDelete(menu.tag) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
+          <Button variant="primary" tone="blue" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600" onClick={() => { closeMenu(); handleDelete(menu.tag) }}>
             <Trash2 size={14} />
             {t('common:delete')}
-          </button>
+          </Button>
         </div>,
         document.body
       )}
@@ -419,27 +407,18 @@ function TagChip({
         </span>
       )}
       <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
-        <button
-          onClick={onRename}
-          title={t('common:rename')}
-          className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
-        >
+        <IconButton variant="ghost" label={t('common:rename')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onRename}
+          title={t('common:rename')}>
           <Pencil size={12} />
-        </button>
-        <button
-          onClick={onMerge}
-          title={t('tags.merge')}
-          className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
-        >
+        </IconButton>
+        <IconButton variant="ghost" label={t('tags.merge')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onMerge}
+          title={t('tags.merge')}>
           <GitMerge size={12} />
-        </button>
-        <button
-          onClick={onDelete}
-          title={t('common:delete')}
-          className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-red-600 dark:hover:bg-white/10 dark:hover:text-red-400"
-        >
+        </IconButton>
+        <IconButton variant="ghost" label={t('common:delete')} className="p-1 text-gray-400 hover:bg-gray-100" onClick={onDelete}
+          title={t('common:delete')}>
           <Trash2 size={12} />
-        </button>
+        </IconButton>
       </span>
     </div>
   )
@@ -465,8 +444,8 @@ function TagEditDialog({
   const [color, setColor] = useState(tag?.color ?? '')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
+    <Modal open onClose={onClose} className="max-w-md overflow-hidden">
+
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
             {mode === 'create' ? <Plus size={18} className="text-blue-500" /> : <Pencil size={18} className="text-blue-500" />}
@@ -479,7 +458,7 @@ function TagEditDialog({
         <div className="space-y-4 px-5 py-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('common:name')}</label>
-            <input
+            <Input tone="blue" size="lg"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -488,7 +467,7 @@ function TagEditDialog({
                 if (e.key === 'Escape') onClose()
               }}
               placeholder={t('tags.namePlaceholder')}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-blue-950/40"
+              className="w-full"
             />
           </div>
           <div>
@@ -497,22 +476,15 @@ function TagEditDialog({
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
+          <Button variant="ghost" tone="red" className="px-4 py-2 text-gray-600" onClick={onClose}>
             {t('common:cancel')}
-          </button>
-          <button
-            onClick={() => name.trim() && onSubmit(name.trim(), color)}
-            disabled={!name.trim() || pending}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" className="px-4 py-2 hover:bg-white/70 hover:text-gray-600" onClick={() => name.trim() && onSubmit(name.trim(), color)}
+            disabled={!name.trim() || pending}>
             {pending ? t('tags.saving') : mode === 'create' ? t('tags.submitCreate') : t('common:save')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 

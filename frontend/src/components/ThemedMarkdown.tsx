@@ -10,6 +10,7 @@ import { Copy, Check, ArrowUpFromLine } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { mermaidConfig } from '../utils/mermaidTheme'
 import MermaidDiagram from './MermaidDiagram'
+import { Button } from './ui'
 
 /** 从 React 节点中提取纯文本 */
 function extractText(node: React.ReactNode): string {
@@ -51,23 +52,17 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
       <pre className="overflow-x-auto">{children}</pre>
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-white/90 p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100 dark:bg-gray-900/90">
         <span className="code-lang">{language}</span>
-        <button
-          onClick={copy}
+        <Button variant="ghost" tone="gray" className="p-1 text-gray-500 hover:text-gray-700" onClick={copy}
           title={t('ui:markdown.copyCode')}
-          aria-label={t('ui:markdown.copyCode')}
-          className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
+          aria-label={t('ui:markdown.copyCode')}>
           {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-        </button>
+        </Button>
         {onCodeAction && (
-          <button
-            onClick={() => onCodeAction(text, 'insert')}
+          <Button variant="ghost" tone="gray" className="p-1 text-gray-500 hover:text-gray-700" onClick={() => onCodeAction(text, 'insert')}
             title={t('ui:markdown.insertToEditor')}
-            aria-label={t('ui:markdown.insertToEditor')}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
+            aria-label={t('ui:markdown.insertToEditor')}>
             <ArrowUpFromLine size={12} />
-          </button>
+          </Button>
         )}
       </div>
     </div>

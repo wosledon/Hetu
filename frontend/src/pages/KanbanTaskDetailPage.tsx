@@ -22,6 +22,7 @@ import type {
   IKanbanTask, IKanbanTaskComment, IKanbanTaskRun, IKanbanTaskRunStep,
   KanbanTaskPriority, KanbanTaskStatus,
 } from '../types'
+import { Button, Card, Textarea } from '../components/ui'
 
 const STATUS_META: Record<KanbanTaskStatus, { labelKey: string; cls: string }> = {
   Backlog: { labelKey: 'status.backlog', cls: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
@@ -196,9 +197,9 @@ export default function KanbanTaskDetailPage() {
       <AppLayout showSidebar={false} mainContent={
         <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-400">
           <p>{t('detail.notFound')}</p>
-          <button onClick={() => navigate('/kanban')} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm text-white hover:bg-indigo-600">
+          <Button variant="primary" tone="indigo" className="px-4 py-2" onClick={() => navigate('/kanban')}>
             {t('detail.backToBoard')}
-          </button>
+          </Button>
         </div>
       } />
     )
@@ -247,12 +248,9 @@ export default function KanbanTaskDetailPage() {
           <div className="w-full px-6 py-6 lg:px-10">
             {/* 顶部导航 */}
             <div className="mb-4 flex items-center gap-2">
-              <button
-                onClick={() => navigate('/kanban')}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-              >
+              <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1 text-gray-500 hover:text-gray-700" onClick={() => navigate('/kanban')}>
                 <ArrowLeft size={14} />{t('board.title')}
-              </button>
+              </Button>
               <span className="text-gray-300 dark:text-gray-600">/</span>
               <span className="truncate text-[13px] text-gray-400">{task.title}</span>
             </div>
@@ -260,7 +258,7 @@ export default function KanbanTaskDetailPage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
               {/* 主区：标题、时间线、评论 */}
               <div className="min-w-0 space-y-6">
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 glass">
+                <Card>
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{task.title}</h1>
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_META[task.status].cls}`}>
@@ -284,38 +282,26 @@ export default function KanbanTaskDetailPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {canReview && (
-                      <button
-                        onClick={() => moveMutation.mutate('Done')}
-                        disabled={moveMutation.isPending}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
-                      >
+                      <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={() => moveMutation.mutate('Done')}
+                        disabled={moveMutation.isPending}>
                         <CheckCircle2 size={13} />{t('detail.approve')}
-                      </button>
+                      </Button>
                     )}
                     {task.status === 'Done' && (
-                      <button
-                        onClick={() => moveMutation.mutate('Archived')}
-                        disabled={moveMutation.isPending}
-                        className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
+                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => moveMutation.mutate('Archived')}
+                        disabled={moveMutation.isPending}>
                         <Hash size={13} />{t('detail.archive')}
-                      </button>
+                      </Button>
                     )}
                     {task.hasAutomation && task.status === 'Todo' && (
-                      <button
-                        onClick={() => rerunMutation.mutate()}
-                        disabled={rerunMutation.isPending}
-                        className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
+                      <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => rerunMutation.mutate()}
+                        disabled={rerunMutation.isPending}>
                         <Play size={13} />{t('detail.runNow')}
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      onClick={() => navigate('/kanban')}
-                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
+                    <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5 text-gray-600 hover:bg-gray-50" onClick={() => navigate('/kanban')}>
                       <Pencil size={13} />{t('detail.editInBoard')}
-                    </button>
+                    </Button>
                     <button
                       onClick={() => confirm({
                         title: t('detail.deleteTitle'),
@@ -327,7 +313,7 @@ export default function KanbanTaskDetailPage() {
                       <Trash2 size={13} />{t('common:delete')}
                     </button>
                   </div>
-                </div>
+                </Card>
 
                 {/* 时间线：创建 / 执行过程 / 评论统一按时间排列（条目自身即卡片，不套外层卡片） */}
                 <section>
@@ -449,7 +435,7 @@ export default function KanbanTaskDetailPage() {
                   <h2 className="mb-3 text-[13px] font-semibold text-gray-700 dark:text-gray-300">
                     {pendingAnswerRun ? t('detail.answerQuestion') : t('detail.addComment')}
                   </h2>
-                  <textarea
+                  <Textarea tone="indigo" size="lg"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     rows={4}
@@ -460,25 +446,19 @@ export default function KanbanTaskDetailPage() {
                           ? t('detail.reworkPlaceholder')
                           : t('detail.commentPlaceholder')
                     }
-                    className="w-full min-h-[96px] resize-y rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm leading-relaxed outline-none transition-all placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:bg-gray-800"
+                    className="w-full min-h-[96px] resize-y leading-relaxed"
                   />
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => submitComment()}
-                      disabled={!comment.trim() || commentMutation.isPending}
-                      className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-600 disabled:opacity-50"
-                    >
+                    <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 hover:bg-red-50 hover:text-red-500" onClick={() => submitComment()}
+                      disabled={!comment.trim() || commentMutation.isPending}>
                       {commentMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
                       {pendingAnswerRun ? t('detail.answerAndContinue') : t('detail.submitComment')}
-                    </button>
+                    </Button>
                     {canRework && !pendingAnswerRun && (
-                      <button
-                        onClick={() => submitComment()}
-                        disabled={!comment.trim() || commentMutation.isPending}
-                        className="flex items-center gap-1.5 rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-40 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
-                      >
+                      <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 px-4 py-2 text-indigo-600" onClick={() => submitComment()}
+                        disabled={!comment.trim() || commentMutation.isPending}>
                         <Play size={14} />{t('detail.submitAndRework')}
-                      </button>
+                      </Button>
                     )}
                     <span className="text-[11px] text-gray-400">
                       {pendingAnswerRun
@@ -494,21 +474,18 @@ export default function KanbanTaskDetailPage() {
 
               {/* 侧栏：属性与流转（宽屏下固定在右侧，不随时间线滚走） */}
               <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 glass">
+                <Card padded="sm">
                   <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('detail.properties')}</h3>
                   <dl className="space-y-2.5 text-[13px]">
                     <div className="flex items-center gap-2">
                       <dt className="w-16 shrink-0 text-gray-400">{t('board.status')}</dt>
                       <dd className="flex flex-wrap gap-1">
                         {NEXT_STATUS[task.status].map((s) => (
-                          <button
-                            key={s}
+                          <Button variant="outline" tone="indigo" className="px-2 py-0.5 text-gray-600" key={s}
                             onClick={() => moveMutation.mutate(s)}
-                            disabled={moveMutation.isPending}
-                            className="rounded-md border border-gray-200 px-2 py-0.5 text-[12px] text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
-                          >
+                            disabled={moveMutation.isPending}>
                             → {t(STATUS_META[s].labelKey)}
-                          </button>
+                          </Button>
                         ))}
                         {NEXT_STATUS[task.status].length === 0 && <span className="text-gray-400">{t('detail.finalState')}</span>}
                       </dd>
@@ -570,7 +547,7 @@ export default function KanbanTaskDetailPage() {
                       <dd className="text-gray-500 dark:text-gray-400">{formatDateTime(task.createdAt)}</dd>
                     </div>
                   </dl>
-                </div>
+                </Card>
 
                 {task.hasAutomation && (
                   <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4 text-[12px] leading-relaxed text-violet-700 dark:border-violet-500/20 dark:bg-violet-950/20 dark:text-violet-300">

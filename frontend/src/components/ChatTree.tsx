@@ -20,6 +20,7 @@ import {
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
 import MainChatEntry from './MainChatEntry'
+import { Button, IconButton, Input } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -140,13 +141,10 @@ function GroupNode({
         <span className={`min-w-0 flex-1 truncate text-sm ${isGroupFocused ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'}`}>
           {group.name}
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
-          title={t('tree.newTopic')}
-          className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
-        >
+        <IconButton label={t('tree.newTopic')} variant="ghost" className="p-0.5 text-gray-300 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
+          title={t('tree.newTopic')}>
           <Plus size={13} />
-        </button>
+        </IconButton>
       </div>
 
       {expanded && (
@@ -260,7 +258,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
         {isAddingGroup && (
           <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
             <Folder size={14} className="shrink-0 text-blue-500" />
-            <input
+            <Input
               autoFocus
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
@@ -301,14 +299,14 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
           >
             {renamingId === topicMenu.topic.id ? (
               <div className="flex items-center gap-1 px-2 py-1">
-                <input
+                <Input
                   autoFocus
                   value={renameText}
                   onChange={(e) => setRenameText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenamingId(null) }}
                   className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-1 text-xs outline-none dark:bg-gray-900"
                 />
-                <button onClick={submitRename} className="p-1 text-emerald-500"><Check size={13} /></button>
+                <Button variant="link" tone="emerald" className="p-1 text-emerald-500 hover:bg-gray-100 hover:text-gray-500" onClick={submitRename}><Check size={13} /></Button>
                 <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400"><X size={13} /></button>
               </div>
             ) : (
@@ -321,13 +319,10 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
               </button>
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <button
-              onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-            >
+            <Button variant="link" tone="emerald" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600" onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}>
               <Trash2 size={13} />
               {t('common:delete')}
-            </button>
+            </Button>
           </div>
         </>,
         document.body

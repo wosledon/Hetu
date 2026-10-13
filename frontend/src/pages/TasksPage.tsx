@@ -20,6 +20,7 @@ import type {
 import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
+import { Button, Card, IconButton, Input, Modal, Textarea } from '../components/ui'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -218,20 +219,14 @@ function BackgroundTasksView({
             ))}
           </SlidingPill>
           {stats && stats.completed > 0 && (
-            <button
-              onClick={onClearCompleted}
-              className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
+            <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600" onClick={onClearCompleted}>
               <Trash2 size={12} /> {t('tasks.clearCompleted')}
-            </button>
+            </Button>
           )}
-          <button
-            onClick={onRefresh}
-            title={t('common:refresh')}
-            className="rounded-full border border-gray-200 bg-white glass p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
+          <Button variant="secondary" pill className="p-2 text-gray-500" onClick={onRefresh}
+            title={t('common:refresh')}>
             <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -354,14 +349,11 @@ function ScheduledTasksView() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="ml-auto flex items-center gap-2">
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
-          <button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
-            title={t('common:refresh')}
-            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
+          <Button variant="secondary" pill className="flex items-center gap-1.5 px-3.5 py-2 text-gray-600" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
+            title={t('common:refresh')}>
             <RefreshCw size={13} />
             {t('common:refresh')}
-          </button>
+          </Button>
           <button
             onClick={handleCreate}
             className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
@@ -437,7 +429,7 @@ function ScheduledTaskRow({
   const statusInfo = task.lastStatus ? LAST_STATUS_MAP[task.lastStatus] : null
 
   return (
-    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass">
+    <Card interactive padded="sm">
       <div className="flex items-center gap-3">
         {/* Enable indicator */}
         <button
@@ -515,18 +507,18 @@ function ScheduledTaskRow({
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <button onClick={onRun} className="rounded-full p-1.5 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/10" title={t('tasks.runNow')}>
+          <Button variant="link" tone="sky" pill className="p-1.5 text-sky-500" onClick={onRun}  title={t('tasks.runNow')}>
             <Play size={14} />
-          </button>
-          <button onClick={onHistory} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title={t('tasks.runHistory')}>
+          </Button>
+          <IconButton variant="ghost" label={t('tasks.runHistory')} className="p-1.5 text-gray-400 hover:bg-sky-50" onClick={onHistory}  title={t('tasks.runHistory')}>
             <History size={14} />
-          </button>
-          <button onClick={onEdit} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" title={t('common:edit')}>
+          </IconButton>
+          <IconButton label={t('common:edit')} variant="ghost" className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={onEdit}  title={t('common:edit')}>
             <Pencil size={14} />
-          </button>
-          <button onClick={onDelete} className="rounded-full p-1.5 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" title={t('common:delete')}>
+          </IconButton>
+          <IconButton variant="ghost" label={t('common:delete')} className="p-1.5 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-600" onClick={onDelete}  title={t('common:delete')}>
             <Trash2 size={14} />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -537,7 +529,7 @@ function ScheduledTaskRow({
           <span className="text-xs text-red-600 dark:text-red-400">{task.lastError}</span>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -694,11 +686,9 @@ function ScheduledTaskEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900 glass">
-        {/* Header */}
-        <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
+    <Modal open onClose={onClose} scroll className="max-h-[90vh] border border-gray-200 dark:border-white/[0.08] dark:bg-gray-900">
+      {/* Header */}
+      <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
             {isEdit ? t('tasks.editorEditTitle') : t('tasks.editorCreateTitle')}
           </h2>
@@ -712,22 +702,22 @@ function ScheduledTaskEditor({
           {/* Name */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.taskName')}</label>
-            <input
+            <Input tone="sky"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder={t('tasks.taskNamePlaceholder')}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+              className="w-full dark:text-gray-100"
             />
           </div>
 
           {/* Description */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:description')}</label>
-            <input
+            <Input tone="sky"
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               placeholder={t('common:optional')}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+              className="w-full dark:text-gray-100"
             />
           </div>
 
@@ -790,12 +780,12 @@ function ScheduledTaskEditor({
           {needsTarget && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.parameters')}</label>
-              <textarea
+              <Textarea tone="sky"
                 value={form.parameters}
                 onChange={(e) => set('parameters', e.target.value)}
                 placeholder={t('tasks.parametersPlaceholder')}
                 rows={3}
-                className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-full resize-none dark:text-gray-100"
               />
             </div>
           )}
@@ -805,22 +795,22 @@ function ScheduledTaskEditor({
             <>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.systemPrompt')}</label>
-                <textarea
+                <Textarea tone="sky"
                   value={aiSystemPrompt}
                   onChange={(e) => setAiSystemPrompt(e.target.value)}
                   placeholder={t('tasks.systemPromptPlaceholder')}
                   rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-full resize-none dark:text-gray-100"
                 />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.aiInstruction')}</label>
-                <textarea
+                <Textarea tone="sky"
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   placeholder={t('tasks.aiInstructionPlaceholder')}
                   rows={4}
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-full resize-none dark:text-gray-100"
                 />
                 <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
                   {t('tasks.aiHint')}
@@ -851,12 +841,12 @@ function ScheduledTaskEditor({
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.intervalMinutes')}</label>
               <div className="flex items-center gap-2">
-                <input
+                <Input tone="sky"
                   type="number"
                   min={1}
                   value={form.intervalMinutes}
                   onChange={(e) => set('intervalMinutes', Number(e.target.value))}
-                  className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                  className="w-32 dark:text-gray-100"
                 />
                 <span className="text-xs text-gray-400">{t('tasks.minutesUnit')}</span>
                 <div className="ml-auto flex gap-1">
@@ -875,11 +865,11 @@ function ScheduledTaskEditor({
           ) : (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.cronExpression')} <span className="font-normal text-gray-400">{t('tasks.cronHint')}</span></label>
-              <input
+              <Input tone="sky"
                 value={form.cronExpression}
                 onChange={(e) => set('cronExpression', e.target.value)}
                 placeholder="0 8 * * *"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-full font-mono dark:text-gray-100"
               />
               <div className="mt-2 flex flex-wrap gap-1">
                 {CRON_PRESETS.map((p) => (
@@ -899,13 +889,13 @@ function ScheduledTaskEditor({
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.maxRetries')}</label>
             <div className="flex items-center gap-2">
-              <input
+              <Input tone="sky"
                 type="number"
                 min={0}
                 max={5}
                 value={form.maxRetries}
                 onChange={(e) => set('maxRetries', Number(e.target.value))}
-                className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-100"
+                className="w-32 dark:text-gray-100"
               />
               <span className="text-xs text-gray-400">{t('tasks.retryHint')}</span>
             </div>
@@ -945,12 +935,9 @@ function ScheduledTaskEditor({
 
         {/* Footer */}
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-gray-100 bg-white px-6 py-4 dark:border-white/[0.06] dark:bg-gray-900">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
+          <Button variant="outline" tone="gray" className="px-4 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600" onClick={onClose}>
             {t('common:cancel')}
-          </button>
+          </Button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
@@ -960,8 +947,7 @@ function ScheduledTaskEditor({
             {isEdit ? t('common:save') : t('common:create')}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -984,11 +970,9 @@ function ScheduledTaskHistoryModal({
   })
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-gray-900 glass">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
+    <Modal open onClose={onClose} size="xl" className="max-h-[80vh] overflow-hidden border border-gray-200 dark:border-white/[0.08] dark:bg-gray-900">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <div className="flex items-center gap-2">
             <History size={18} className="text-gray-400" />
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('tasks.runHistory')}</h2>
@@ -1018,8 +1002,7 @@ function ScheduledTaskHistoryModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1081,7 +1064,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
   }
 
   return (
-    <div className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 glass">
+    <Card interactive padded="sm">
       <div className="flex items-center gap-3">
         {/* Status Icon */}
         <div className={`rounded-xl p-1.5 ${status.bg}`}>
@@ -1121,13 +1104,11 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
         </span>
 
         {/* Delete */}
-        <button
-          onClick={onDelete}
-          className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-          title={t('tasks.deleteRecord')}
-        >
+        <IconButton variant="ghost" label={t('tasks.deleteRecord')} className="shrink-0 p-1 text-red-400 opacity-0 group-hover:opacity-100" onClick={onDelete}
+          
+          title={t('tasks.deleteRecord')}>
           <Trash2 size={13} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Error */}
@@ -1137,7 +1118,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
           <span className="text-xs text-red-600 dark:text-red-400">{task.errorMessage}</span>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 

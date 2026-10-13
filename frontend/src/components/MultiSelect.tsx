@@ -27,7 +27,7 @@ interface MultiSelectProps {
 }
 
 const TRIGGER_CLASS =
-  'flex w-full min-h-[38px] items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-left outline-none transition-all focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700'
+  'flex w-full min-h-[38px] items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-left outline-none transition-all focus:border-rose-300 focus:bg-white dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700'
 
 /**
  * 可搜索的多选下拉：选项多时通过搜索 + 分组 + 全选快速勾选，

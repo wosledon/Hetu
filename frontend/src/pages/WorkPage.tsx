@@ -14,6 +14,7 @@ import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
+import { Input } from '../components/ui'
 
 /** 合并后的会话页：左栏一级菜单「主对话 / 会话 / 项目」，右侧共用同一套聊天区（Code 会话叠加项目能力） */
 type CodeView = 'chat' | 'code'
@@ -103,12 +104,12 @@ function SectionHeader({
       {searchOpen && (
         <div className="relative px-2 pb-2">
           <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
+          <Input tone="blue" size="sm"
             autoFocus
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:border-blue-600"
+            className="w-full pl-7 pr-2"
           />
         </div>
       )}

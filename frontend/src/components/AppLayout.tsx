@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
@@ -13,6 +13,7 @@ import SlidingPill from './SlidingPill'
 import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
+import { IconButton } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -63,6 +64,9 @@ const verticalNavItemClass = (isActive: boolean) =>
 const railTrackClass =
   'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track'
 
+/** 导轨紧凑态上次判定（模块级，跨路由重挂载存活）：首帧即用对的样子，避免展开→收起闪烁 */
+let lastRailCompact = false
+
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
 function NavUnreadBadge() {
   const { data } = useQuery({
@@ -94,7 +98,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const moreBtnRef = useRef<HTMLButtonElement>(null)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const railRef = useRef<HTMLElement>(null)
-  const [railCompact, setRailCompact] = useState(false)
+  const [railCompact, setRailCompact] = useState(lastRailCompact)
 
   const isVertical = navStyle === 'vertical'
   // 非垂直导航固定平铺：用派生值代替「在 effect 里同步 setState 复位」
@@ -115,8 +119,10 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     [lastMoreItem, pinnedNavItems],
   )
 
-  // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"
-  useEffect(() => {
+  // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"。
+  // 判定放在布局效应里（首帧绘制前生效）：放在被动效应里会先绘制一帧展开态再收起，
+  // 导轨 visibly 闪一下。同时把上次判定缓存到模块级，重挂载首帧即用对的样子。
+  useLayoutEffect(() => {
     if (!isVertical) return
     const el = railRef.current
     if (!el) return
@@ -131,16 +137,20 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       if (spacer && prevDisplay !== undefined) spacer.style.display = prevDisplay
       return content
     }
+    const apply = (compact: boolean) => {
+      lastRailCompact = compact
+      setRailCompact(compact)
+    }
     const check = () => {
       const content = measure()
-      if (content > el.clientHeight + 1) { setRailCompact(true); return }
+      if (content > el.clientHeight + 1) { apply(true); return }
       // 收起态或刚切回垂直导航：估算展开全部可配置项后的增量，放得下则恢复平铺
       const itemEl = el.querySelector<HTMLElement>('[data-rail-item]')
       const itemWithGap = (itemEl?.offsetHeight ?? 52) + 2
       const lm = lastMoreItemData ? 1 : 0
       const more = unpinnedItems.length > 0 ? 1 : 0
       const delta = (allConfigurableItems.length - pinnedItems.length - lm - more) * itemWithGap
-      if (el.clientHeight - content >= delta - 1) setRailCompact(false)
+      if (el.clientHeight - content >= delta - 1) apply(false)
     }
     check()
     const observer = new ResizeObserver(check)
@@ -255,14 +265,17 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const verticalRail = (
     <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3">
-      <button onClick={() => navigate('/')} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" title={appName}>
+      <IconButton label={appName} variant="ghost" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center transition-opacity hover:opacity-80" onClick={() => navigate('/')}  title={appName}>
         <BrandMark size={34} />
-      </button>
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      </IconButton>
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-main" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {fixedNavItems.map(renderVerticalNavButton)}
-      </SlidingPill>
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+        {/* 与水平导航一致：固定项与可配置项合轨，中间一条分隔线 */}
+        {(railExpanded || pinnedItems.length > 0 || lastMoreItemData || unpinnedItems.length > 0) && (
+          <div className="my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10" />
+        )}
+
         {railExpanded
           ? allConfigurableItems.map(renderVerticalNavButton)
           : pinnedItems.map(renderVerticalNavButton)}
@@ -283,13 +296,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         )}
       </SlidingPill>
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-secondary" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         {secondaryNavItems.map(renderVerticalNavButton)}
       </SlidingPill>
 
       <div className="flex-1" data-rail-spacer="" />
 
-      <SlidingPill value={location.pathname} orientation="vertical" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-bottom" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
         <GithubEntry variant="rail" />
 
         <button
@@ -321,7 +334,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-main" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
           {fixedNavItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -353,7 +366,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </SlidingPill>
 
           {/* 右侧独立分组：代理服务 / 用量统计 */}
-          <SlidingPill value={location.pathname} className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-secondary" className="flex items-center justify-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
             {secondaryNavItems.map(renderNavButton)}
           </SlidingPill>
         </div>

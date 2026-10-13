@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { History, Loader2, RotateCcw } from 'lucide-react'
+import { Button } from '../ui'
 
 export interface AgentCheckpointRowProps {
   label: string
@@ -24,8 +25,7 @@ export default function AgentCheckpointRow({ label, fileCount, onRestore }: Agen
         {fileCount != null && fileCount > 0 && t('checkpoint.files', { n: fileCount })}
       </span>
       {onRestore && (
-        <button
-          onClick={async () => {
+        <Button variant="ghost" tone="sky" className="flex shrink-0 items-center gap-1 px-1.5 py-0.5 text-sky-600 hover:bg-sky-100" onClick={async () => {
             setRestoring(true)
             try {
               await onRestore()
@@ -34,12 +34,10 @@ export default function AgentCheckpointRow({ label, fileCount, onRestore }: Agen
             }
           }}
           disabled={restoring}
-          title={t('checkpoint.restoreTitle')}
-          className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-sky-600 transition-colors hover:bg-sky-100 disabled:opacity-40 dark:text-sky-300 dark:hover:bg-sky-900/40"
-        >
+          title={t('checkpoint.restoreTitle')}>
           {restoring ? <Loader2 size={10} className="animate-spin" /> : <RotateCcw size={10} />}
           {t('checkpoint.restore')}
-        </button>
+        </Button>
       )}
     </div>
   )

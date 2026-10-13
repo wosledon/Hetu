@@ -24,6 +24,7 @@ import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
+import { Button, IconButton } from '../components/ui'
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
   Info: { icon: Info, className: 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' },
@@ -166,12 +167,9 @@ export default function InboxPage() {
                     <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
                       {t('inbox.unreadCount', { n: unreadCount })}
                     </span>
-                    <button
-                      onClick={() => runBatch('read', unreadIds)}
-                      className="flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
+                    <Button variant="secondary" size="sm" pill className="flex items-center gap-1 px-3 py-1.5 text-gray-600" onClick={() => runBatch('read', unreadIds)}>
                       <CheckCheck size={13} />{t('inbox.markAllRead')}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -339,32 +337,22 @@ export default function InboxPage() {
                       </div>
 
                       <div className="flex shrink-0 items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
-                        <button
-                          title={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')}
-                          onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}
-                          className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                        >
+                        <IconButton label={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')} variant="ghost" className="p-1.5 hover:bg-gray-100 hover:text-gray-600" title={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')}
+                          onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}>
                           {item.isRead ? <MailOpen size={14} /> : <Check size={14} />}
-                        </button>
+                        </IconButton>
                         {archived ? (
-                          <button
-                            title={t('inbox.unarchive')}
-                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}
-                            className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                          >
+                          <IconButton label={t('inbox.unarchive')} variant="ghost" className="p-1.5 hover:bg-gray-100 hover:text-gray-600" title={t('inbox.unarchive')}
+                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}>
                             <ArchiveRestore size={14} />
-                          </button>
+                          </IconButton>
                         ) : (
-                          <button
-                            title={t('inbox.archive')}
-                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}
-                            className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-                          >
+                          <IconButton label={t('inbox.archive')} variant="ghost" className="p-1.5 hover:bg-gray-100 hover:text-gray-600" title={t('inbox.archive')}
+                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}>
                             <Archive size={14} />
-                          </button>
+                          </IconButton>
                         )}
-                        <button
-                          title={t('common:delete')}
+                        <IconButton label={t('common:delete')} variant="danger" className="p-1.5 hover:bg-red-50 hover:text-red-500" title={t('common:delete')}
                           onClick={(e) => {
                             e.stopPropagation()
                             confirm({
@@ -372,11 +360,9 @@ export default function InboxPage() {
                               message: t('inbox.deleteOneMessage'),
                               onConfirm: () => deleteMutation.mutate(item.id),
                             })
-                          }}
-                          className="rounded-lg p-1.5 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                        >
+                          }}>
                           <Trash2 size={14} />
-                        </button>
+                        </IconButton>
                       </div>
                     </div>
                   )

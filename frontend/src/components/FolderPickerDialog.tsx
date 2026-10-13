@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronRight, Folder, FolderOpen, HardDrive, Home, Loader2, CornerLeftUp, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { systemService } from '../services/systemService'
+import { Button, Modal } from './ui'
 
 interface FolderPickerDialogProps {
   /** 初始路径（已有目录时定位到这里） */
@@ -50,9 +51,8 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
   const isRootList = !current
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="flex h-[520px] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+    <Modal open onClose={onClose} size="lg" className="flex h-[520px] flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
               <FolderOpen size={16} className="text-amber-600 dark:text-amber-400" />
@@ -68,19 +68,17 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
             <span className="text-gray-400">{t('ui:folderPicker.thisPc')}</span>
           ) : (
             <>
-              <button onClick={() => open('')} className="shrink-0 rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title={t('ui:folderPicker.thisPc')}>
+              <Button variant="ghost" className="shrink-0 px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={() => open('')}  title={t('ui:folderPicker.thisPc')}>
                 <HardDrive size={13} />
-              </button>
+              </Button>
               {crumbs.map((c, i) => (
                 <div key={c.path} className="flex shrink-0 items-center">
                   {i > 0 && <ChevronRight size={12} className="text-gray-300 dark:text-gray-600" />}
-                  <button
-                    onClick={() => open(c.path)}
-                    className="max-w-[140px] truncate rounded px-1.5 py-0.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    title={c.path}
-                  >
+                  <Button variant="ghost" tone="gray" className="max-w-[140px] truncate px-1.5 py-0.5 text-gray-600" onClick={() => open(c.path)}
+                    
+                    title={c.path}>
                     {c.name}
-                  </button>
+                  </Button>
                 </div>
               ))}
             </>
@@ -96,22 +94,16 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
           ) : (
             <>
               {!isRootList && data?.parent !== undefined && data?.parent !== null && (
-                <button
-                  onClick={() => open(data.parent!)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-                >
+                <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-gray-500" onClick={() => open(data.parent!)}>
                   <CornerLeftUp size={14} className="shrink-0" />
                   {t('ui:folderPicker.parent')}
-                </button>
+                </Button>
               )}
               {isRootList && (
-                <button
-                  onClick={() => open(data?.dirs.find(d => d.name === '主目录' || d.path === '/')?.path ?? '/')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
+                <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-gray-600" onClick={() => open(data?.dirs.find(d => d.name === '主目录' || d.path === '/')?.path ?? '/')}>
                   <Home size={14} className="shrink-0" />
                   {t('ui:folderPicker.home')}
-                </button>
+                </Button>
               )}
               {(data?.dirs.length ?? 0) === 0 && !isLoading && (
                 <div className="py-10 text-center text-xs text-gray-400">{t('ui:folderPicker.empty')}</div>
@@ -145,19 +137,15 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={onClose} className="rounded-lg border border-gray-200 bg-white glass px-4 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+            <Button variant="ghost" tone="gray" className="px-4 py-1.5 text-gray-700" onClick={onClose}>
               {t('common:cancel')}
-            </button>
-            <button
-              onClick={() => onPick(selected ?? current)}
-              disabled={!selected && !current}
-              className="rounded-lg bg-amber-500 px-4 py-1.5 text-[13px] font-medium text-white hover:bg-amber-600 disabled:opacity-40"
-            >
+            </Button>
+            <Button variant="secondary" surface="modal" className="px-4 py-1.5" onClick={() => onPick(selected ?? current)}
+              disabled={!selected && !current}>
               {t('ui:folderPicker.pickCurrent')}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

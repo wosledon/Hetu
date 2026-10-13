@@ -19,6 +19,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
+import { Button, IconButton, Input } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -658,9 +659,9 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
           )
         })}
         <div className="flex-1" />
-        <button onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} title={t('common:refresh')} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]">
+        <IconButton label={t('common:refresh')} variant="ghost" className="flex h-8 w-8 items-center justify-center text-gray-400 hover:bg-gray-100" onClick={() => { setLoadedDirs(new Map()); setExpanded(new Set()); void rootQuery.refetch() }} title={t('common:refresh')}>
           <RefreshCw size={13} />
-        </button>
+        </IconButton>
       </div>
 
       {/* 主区：浏览器风格标签条 + 内容 */}
@@ -796,38 +797,29 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
                       {new Date(cp.createdAt).toLocaleTimeString()} · {t('explorer.fileCount', { count: cp.fileCount })}
                     </div>
                   </div>
-                  <button
-                    onClick={() => void openCheckpointDiffTab(cp)}
+                  <IconButton label={t('explorer.viewWorkspaceDiff')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:bg-gray-100" onClick={() => void openCheckpointDiffTab(cp)}
                     title={t('explorer.viewWorkspaceDiff')}
-                    aria-label={t('explorer.viewWorkspaceDiff')}
-                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700"
-                  >
+                    aria-label={t('explorer.viewWorkspaceDiff')}>
                     <Diff size={12} />
-                  </button>
-                  <button
-                    onClick={() => confirm({
+                  </IconButton>
+                  <IconButton label={t('explorer.rollbackToCheckpoint')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600" onClick={() => confirm({
                       message: t('explorer.rollbackCheckpointConfirm', { label: cp.label }),
                       onConfirm: () => restoreCheckpoint.mutate(cp.id),
                     })}
                     disabled={restoreCheckpoint.isPending}
                     title={t('explorer.rollbackToCheckpoint')}
-                    aria-label={t('explorer.rollbackToCheckpoint')}
-                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700"
-                  >
+                    aria-label={t('explorer.rollbackToCheckpoint')}>
                     <RotateCcw size={12} />
-                  </button>
-                  <button
-                    onClick={() => confirm({
+                  </IconButton>
+                  <IconButton label={t('explorer.deleteCheckpoint')} variant="ghost" className="shrink-0 p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600" onClick={() => confirm({
                       message: t('explorer.deleteCheckpointConfirm', { label: cp.label }),
                       onConfirm: () => deleteCheckpoint.mutate(cp.id),
                     })}
                     disabled={deleteCheckpoint.isPending}
                     title={t('explorer.deleteCheckpoint')}
-                    aria-label={t('explorer.deleteCheckpoint')}
-                    className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-rose-500 disabled:opacity-40 dark:hover:bg-gray-700"
-                  >
+                    aria-label={t('explorer.deleteCheckpoint')}>
                     <Trash2 size={12} />
-                  </button>
+                  </IconButton>
                 </div>
                 {cp.files.length > 0 && (
                   <div className="mt-0.5 truncate pl-5 font-mono text-[10px] text-gray-400">{cp.files.join(' · ')}</div>
@@ -844,14 +836,12 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
               <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-600 dark:text-gray-300">
                 {gitStatus?.isRepo ? gitStatus.branch : t('explorer.notGitRepo')}
               </span>
-              <button
-                onClick={() => { setGitMessage(''); void refetchGit() }}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+              <IconButton label={t('explorer.refreshGitStatus')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-200 hover:text-rose-500" onClick={() => { setGitMessage(''); void refetchGit() }}
+                
                 title={t('explorer.refreshGitStatus')}
-                aria-label={t('explorer.refreshGitStatus')}
-              >
+                aria-label={t('explorer.refreshGitStatus')}>
                 <RefreshCw size={11} className={isGitLoading ? 'animate-spin' : ''} />
-              </button>
+              </IconButton>
             </div>
             {gitMessage && (
               <div className="mx-2 mt-1.5 rounded bg-sky-50 px-2 py-1 text-[10px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
@@ -896,23 +886,20 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
             </div>
             {gitSelected.size > 0 && (
               <div className="shrink-0 border-t border-gray-100 p-2 dark:border-gray-800">
-                <input
+                <Input tone="blue" size="sm"
                   value={gitCommitMessage}
                   onChange={(e) => setGitCommitMessage(e.target.value)}
                   placeholder={t('explorer.commitMessagePlaceholder')}
-                  className="mb-1.5 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] outline-none focus:border-blue-300 dark:border-gray-700 dark:bg-gray-800"
+                  className="mb-1.5 w-full text-[11px]"
                 />
-                <button
-                  onClick={() => confirm({
+                <Button variant="primary" className="flex w-full items-center justify-center gap-1 py-1.5 hover:bg-gray-100" onClick={() => confirm({
                     message: t('explorer.commitConfirm', { count: gitSelected.size }),
                     onConfirm: () => gitCommit.mutate(),
                   })}
-                  disabled={!gitCommitMessage.trim() || gitCommit.isPending}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-500 py-1.5 text-[11px] font-medium text-white hover:bg-blue-600 disabled:opacity-40"
-                >
+                  disabled={!gitCommitMessage.trim() || gitCommit.isPending}>
                   {gitCommit.isPending ? <Loader2 size={11} className="animate-spin" /> : <GitCommitHorizontal size={11} />}
                   {t('explorer.commitSelected', { count: gitSelected.size })}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1015,9 +1002,9 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
               {actionError && (
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-red-50 px-3 py-1 text-[11px] text-red-600 dark:border-gray-800 dark:bg-red-950/30 dark:text-red-400">
                   <span className="min-w-0 flex-1">{actionError}</span>
-                  <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label={t('explorer.closeError')}>
+                  <IconButton variant="primary" label={t('explorer.closeError')} className="shrink-0 p-0.5" onClick={() => setActionError('')}  aria-label={t('explorer.closeError')}>
                     <X size={10} />
-                  </button>
+                  </IconButton>
                 </div>
               )}
               {saveMessage && (
@@ -1051,22 +1038,17 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1 dark:border-gray-800">
                       <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-400">{activeDoc.file.path}</span>
-                      <button
-                        onClick={quoteSelection}
-                        title={t('explorer.quoteSelection')}
-                        className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                      >
+                      <Button variant="ghost" className="flex shrink-0 items-center gap-1 px-2 py-0.5 text-gray-500 hover:text-gray-600" onClick={quoteSelection}
+                        title={t('explorer.quoteSelection')}>
                         <Quote size={11} />{t('explorer.quoteSelected')}
-                      </button>
-                      <button
-                        onClick={saveactiveDoc}
+                      </Button>
+                      <Button variant="link" tone="blue" className="flex shrink-0 items-center gap-1 px-2 py-0.5 text-blue-600 hover:bg-red-100" onClick={saveactiveDoc}
                         disabled={!drafts.has(activeDoc.key) || saveFile.isPending}
-                        className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                        title={t('explorer.saveShortcut')}
-                      >
+                        
+                        title={t('explorer.saveShortcut')}>
                         {saveFile.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
                         {t('common:save')}
-                      </button>
+                      </Button>
                     </div>
                     <div className="min-h-0 flex-1 overflow-auto">
                       <CodeMirror
@@ -1106,9 +1088,9 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
             {actionError && (
               <div className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-600 dark:bg-red-950/30 dark:text-red-400">
                 <span className="min-w-0 flex-1">{actionError}</span>
-                <button onClick={() => setActionError('')} className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40" aria-label={t('explorer.closeError')}>
+                <IconButton variant="ghost" label={t('explorer.closeError')} className="shrink-0 p-0.5 hover:bg-gray-100" onClick={() => setActionError('')}  aria-label={t('explorer.closeError')}>
                   <X size={10} />
-                </button>
+                </IconButton>
               </div>
             )}
             <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
@@ -1225,31 +1207,28 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
           <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t('explorer.tabs.browser')}</h3>
         </div>
         <div className="mb-3 flex gap-1">
-          <input
+          <Input tone="blue" size="sm" glass pill
             value={input}
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
             placeholder={t('explorer.browser.urlPlaceholder')}
-            className="min-w-0 flex-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[11px] outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
+            className="min-w-0 flex-1 text-[11px]"
           />
-          <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
+          <Button variant="ghost" tone="blue" className="shrink-0 px-3 py-1.5" onClick={() => navigate(input)}>
             {t('explorer.browser.go')}
-          </button>
+          </Button>
         </div>
         <div className="space-y-1.5">
           <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('explorer.browser.quickLinks')}</p>
           {browserPresets.map((p) => (
-            <button
-              key={p.url}
-              onClick={() => navigate(p.url)}
-              className="flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left transition-all hover:border-blue-300 hover:bg-blue-50/40 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-950/20"
-            >
+            <Button variant="secondary" className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-red-100" key={p.url}
+              onClick={() => navigate(p.url)}>
               <Globe size={13} className="shrink-0 text-blue-500" />
               <div className="min-w-0">
                 <div className="truncate text-[11px] font-medium text-gray-700 dark:text-gray-200">{p.label}</div>
                 <div className="truncate text-[10px] text-gray-400">{p.url}</div>
               </div>
-            </button>
+            </Button>
           ))}
         </div>
         <p className="mt-4 text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">
@@ -1263,27 +1242,27 @@ function BrowserPanel({ url, onUrlChange }: { url: string; onUrlChange: (u: stri
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 工具条 */}
       <div className="flex shrink-0 items-center gap-1 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
-        <button onClick={goBack} disabled={historyIndex <= 0} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title={t('explorer.browser.back')}>
+        <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500" onClick={goBack} disabled={historyIndex <= 0}  title={t('explorer.browser.back')}>
           <ArrowLeft size={13} />
-        </button>
-        <button onClick={goForward} disabled={historyIndex >= history.length - 1} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-white/[0.06]" title={t('explorer.browser.forward')}>
+        </Button>
+        <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500" onClick={goForward} disabled={historyIndex >= history.length - 1}  title={t('explorer.browser.forward')}>
           <ArrowRight size={13} />
-        </button>
-        <button onClick={() => { setLoaded(false); setFrameKey((k) => k + 1) }} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.refresh')}>
+        </Button>
+        <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500" onClick={() => { setLoaded(false); setFrameKey((k) => k + 1) }}  title={t('explorer.browser.refresh')}>
           <RotateCcw size={13} />
-        </button>
-        <button onClick={() => navigate('http://localhost:5174')} className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.goHome')}>
+        </Button>
+        <Button variant="primary" tone="blue" pill className="p-1.5 text-gray-500" onClick={() => navigate('http://localhost:5174')}  title={t('explorer.browser.goHome')}>
           <Home size={13} />
-        </button>
-        <input
+        </Button>
+        <Input tone="blue" size="sm" pill
           value={input}
           onChange={(e) => setTyped(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && navigate(input)}
-          className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] outline-none focus:border-blue-400 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
+          className="min-w-0 flex-1 text-[11px]"
         />
-        <button onClick={() => navigate(input)} className="shrink-0 rounded-full bg-blue-500 px-3 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600">
+        <Button variant="secondary" className="shrink-0 px-3 py-1 hover:border-blue-300 hover:bg-blue-50/40" onClick={() => navigate(input)}>
           {t('explorer.browser.go')}
-        </button>
+        </Button>
         <a href={url} target="_blank" rel="noreferrer" className="shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]" title={t('explorer.browser.openInSystem')}>
           <ExternalLink size={13} />
         </a>

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createPortal } from 'react-dom'
 import {
   AlertCircle, BookText, Check, Cpu, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
+import { Button, IconButton } from '../components/ui'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -47,6 +49,8 @@ export default function WikiPage() {
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const [chosenModelId, setChosenModelId] = useState<string | undefined>(undefined)
+  const modelBtnRef = useRef<HTMLButtonElement>(null)
+  const [modelPanelStyle, setModelPanelStyle] = useState<React.CSSProperties>({})
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const autoGenerateHandled = useRef(false)
 
@@ -88,6 +92,32 @@ export default function WikiPage() {
     [jobs],
   )
   const lastRunningJobId = useRef<string | null>(null)
+
+  // 模型下拉面板定位：与 Select 一致，portal 到 body + fixed 定位。
+  // 页内 absolute 会被文档内容盖住（Wiki 正文是后绘制的地面），必须脱离文档流。
+  useLayoutEffect(() => {
+    if (!modelPickerOpen) return
+    const update = () => {
+      const rect = modelBtnRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = 224
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8)
+      const dropUp = window.innerHeight - rect.bottom < 240 && rect.top > window.innerHeight - rect.bottom
+      setModelPanelStyle({
+        position: 'fixed',
+        left,
+        width,
+        ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [modelPickerOpen])
 
   useEffect(() => {
     const runningId = activeJob?.id ?? null
@@ -244,23 +274,19 @@ export default function WikiPage() {
       <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
         {page.sortOrder === 0 ? '★ ' : ''}{page.title}
       </span>
-      <button
-        onClick={(e) => {
+      <IconButton label={t('wiki.regeneratePage')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-100 hover:text-emerald-500" onClick={(e) => {
           e.stopPropagation()
           setRegeneratingId(page.id)
           regenerateMutation.mutate(page.id)
         }}
         disabled={regeneratingId === page.id}
         title={t('wiki.regenerateTitle')}
-        aria-label={t('wiki.regeneratePage')}
-        className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100"
-      >
+        aria-label={t('wiki.regeneratePage')}>
         {regeneratingId === page.id
           ? <Loader2 size={12} className="animate-spin" />
           : <RefreshCw size={12} />}
-      </button>
-      <button
-        onClick={(e) => {
+      </IconButton>
+      <IconButton label={t('common:delete')} variant="danger" className="shrink-0 p-0.5 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500" onClick={(e) => {
           e.stopPropagation()
           confirm({
             title: t('wiki.deletePageTitle'),
@@ -269,11 +295,9 @@ export default function WikiPage() {
           })
         }}
         title={t('common:delete')}
-        aria-label={t('common:delete')}
-        className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
-      >
+        aria-label={t('common:delete')}>
         <Trash2 size={12} />
-      </button>
+      </IconButton>
     </div>
   )
 
@@ -379,13 +403,10 @@ export default function WikiPage() {
                   {projectParam ? t('wiki.emptyForProject') : t('wiki.empty')}
                 </p>
                 {selectedProject && selectedProject.projectType === 'Local' && (
-                  <button
-                    onClick={() => generateMutation.mutate(selectedProject.id)}
-                    disabled={generating}
-                    className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                  >
+                  <Button variant="primary" tone="emerald" pill className="mt-3 px-3.5 py-1.5 hover:bg-emerald-700" onClick={() => generateMutation.mutate(selectedProject.id)}
+                    disabled={generating}>
                     {t('wiki.generateFirstSet')}
-                  </button>
+                  </Button>
                 )}
               </div>
             ) : (
@@ -416,18 +437,15 @@ export default function WikiPage() {
                           </span>
                         </span>
                       </button>
-                      <button
-                        onClick={() => confirm({
+                      <IconButton variant="ghost" label={t('wiki.deleteSetTooltip')} className="shrink-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" onClick={() => confirm({
                           title: t('wiki.deleteSetTitle'),
                           message: t('wiki.deleteSetMessage', { title: set.title, n: set.pageCount }),
                           onConfirm: () => deleteSetMutation.mutate(set.setId),
                         })}
                         title={t('wiki.deleteSetTooltip')}
-                        aria-label={t('wiki.deleteSetTooltip')}
-                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
-                      >
+                        aria-label={t('wiki.deleteSetTooltip')}>
                         <Trash2 size={12} />
-                      </button>
+                      </IconButton>
                     </div>
                     {expanded && renderSetTree(set)}
                   </div>
@@ -454,31 +472,25 @@ export default function WikiPage() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               {selectedSet && (
-                <button
-                  onClick={() => exportMutation.mutate(selectedSet.setId)}
+                <Button variant="outline" tone="gray" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-700 hover:text-red-500" onClick={() => exportMutation.mutate(selectedSet.setId)}
                   disabled={exportMutation.isPending}
-                  title={t('wiki.exportTitle')}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
+                  title={t('wiki.exportTitle')}>
                   {exportMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                   {t('common:export')}
-                </button>
+                </Button>
               )}
 
               {/* 生成模型选择 */}
               <div className="relative">
-                <button
-                  onClick={() => setModelPickerOpen((v) => !v)}
-                  title={t('wiki.modelPickerTitle')}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
+                <Button ref={modelBtnRef} variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-700" onClick={() => setModelPickerOpen((v) => !v)}
+                  title={t('wiki.modelPickerTitle')}>
                   <Cpu size={14} />
                   <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
-                </button>
-                {modelPickerOpen && (
+                </Button>
+                {modelPickerOpen && createPortal(
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setModelPickerOpen(false)} />
-                    <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
+                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -505,23 +517,21 @@ export default function WikiPage() {
                         </button>
                       ))}
                     </div>
-                  </>
+                  </>,
+                  document.body
                 )}
               </div>
 
-              <button
-                onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-4 py-1.5" onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
                 disabled={!selectedProject || generating}
                 title={
                   !selectedProject
                     ? t('wiki.selectProjectFirst')
                     : t('wiki.generateTitle')
-                }
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                }>
                 {generating ? <Loader2 size={15} className="animate-spin" /> : <BookText size={15} />}
                 {generating ? t('wiki.generating') : t('wiki.generate')}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -580,16 +590,13 @@ export default function WikiPage() {
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
-                    <button
-                      onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
+                    <IconButton variant="primary" label={t('wiki.regenerateTitle')} className="p-1 text-gray-400 hover:bg-emerald-700" onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
                       disabled={regeneratingId === selectedDoc.id}
-                      title={t('wiki.regenerateTitle')}
-                      className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800"
-                    >
+                      title={t('wiki.regenerateTitle')}>
                       {regeneratingId === selectedDoc.id
                         ? <Loader2 size={13} className="animate-spin" />
                         : <RefreshCw size={13} />}
-                    </button>
+                    </IconButton>
                   </div>
                   <p className="mt-1 text-[11px] text-gray-400">
                     {selectedDoc.projectName} · {formatTime(selectedDoc.createdAt)}
@@ -612,12 +619,9 @@ export default function WikiPage() {
                     : t('wiki.noWikiHint')}
                 </p>
                 {visibleSets.length === 0 && (
-                  <button
-                    onClick={() => navigate('/projects')}
-                    className="mt-5 rounded-full border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                  >
+                  <Button variant="outline" tone="gray" pill className="mt-5 px-4 py-2 text-gray-700 hover:bg-black/5" onClick={() => navigate('/projects')}>
                     {t('wiki.goProjects')}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

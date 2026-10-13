@@ -15,6 +15,7 @@ import type {
   IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest,
   ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
 } from '../types/project'
+import { Button, Input } from '../components/ui'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
 
@@ -237,27 +238,21 @@ export default function ProjectsPage() {
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Input tone="blue" size="sm" pill
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   placeholder={t('page.searchPlaceholder')}
-                  className="w-56 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-3 text-[13px] outline-none transition-all focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus:bg-gray-900"
+                  className="w-56 pl-8 pr-3"
                 />
               </div>
-              <button
-                onClick={() => setGroupManagerOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-              >
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-700" onClick={() => setGroupManagerOpen(true)}>
                 <Settings2 size={14} />
                 {t('page.manageGroups')}
-              </button>
-              <button
-                onClick={openCreate}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.97]"
-              >
+              </Button>
+              <Button variant="primary" tone="indigo" pill className="flex shrink-0 items-center gap-1.5 px-4 py-1.5 hover:bg-indigo-700" onClick={openCreate}>
                 <Plus size={15} />
                 {t('page.newProject')}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -285,12 +280,9 @@ export default function ProjectsPage() {
                 <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
                   {t('page.emptyHint')}
                 </p>
-                <button
-                  onClick={openCreate}
-                  className="mt-5 rounded-full bg-indigo-600 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-indigo-700"
-                >
+                <Button variant="primary" tone="indigo" pill className="mt-5 px-4 py-2 hover:bg-black/5" onClick={openCreate}>
                   {t('page.createFirst')}
-                </button>
+                </Button>
               </div>
             ) : visible.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
@@ -385,42 +377,30 @@ export default function ProjectsPage() {
                           {/* 操作区：空间不足时自动换行，避免操作按钮被裁出卡片 */}
                           <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800">
                             {project.projectType === 'Local' && (
-                              <button
-                                onClick={() => openMutation.mutate(project.id)}
-                                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-                              >
+                              <Button variant="primary" tone="indigo" pill className="flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 text-gray-500 hover:bg-indigo-700" onClick={() => openMutation.mutate(project.id)}>
                                 <HardDrive size={12} />
                                 {t('page.openDirectory')}
-                              </button>
+                              </Button>
                             )}
-                            <button
-                              onClick={() => copyPath(project)}
-                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-                            >
+                            <Button variant="ghost" tone="gray" className="flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 text-gray-500 hover:text-gray-700" onClick={() => copyPath(project)}>
                               {copiedId === project.id ? <Check size={12} /> : <Copy size={12} />}
                               {copiedId === project.id ? t('common:copied') : t('page.copyPath')}
-                            </button>
+                            </Button>
                             {/* 与 Code 工作区互通：直接跳到对应工作项目 */}
-                            <button
-                              onClick={() => navigate(project.workProjectId ? `/code?project=${project.workProjectId}` : '/code')}
-                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                            >
+                            <Button variant="ghost" tone="gray" className="flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 text-blue-600 hover:text-gray-700" onClick={() => navigate(project.workProjectId ? `/code?project=${project.workProjectId}` : '/code')}>
                               <Code size={12} />
                               {t('page.openInCode')}
-                            </button>
+                            </Button>
                             {/* 生成项目 Wiki：本地项目进入即触发生成，远程项目仅跳转（不支持） */}
-                            <button
-                              onClick={() => navigate(
+                            <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 text-emerald-600" onClick={() => navigate(
                                 project.projectType === 'Local'
                                   ? `/wiki?project=${project.id}&generate=1`
                                   : `/wiki?project=${project.id}`,
                               )}
-                              title={project.projectType === 'Local' ? t('page.generateWikiTitle') : t('page.wikiRemoteUnsupported')}
-                              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
-                            >
+                              title={project.projectType === 'Local' ? t('page.generateWikiTitle') : t('page.wikiRemoteUnsupported')}>
                               <BookText size={12} />
                               {t('page.generateWiki')}
-                            </button>
+                            </Button>
                             {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
                             <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">
                               <button
@@ -472,21 +452,15 @@ export default function ProjectsPage() {
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
                                   <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
-                                    <button
-                                      onClick={() => moveToGroup(project, null)}
-                                      className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    >
+                                    <Button variant="ghost" tone="emerald" className="flex w-full items-center px-2.5 py-1.5 text-left text-gray-600" onClick={() => moveToGroup(project, null)}>
                                       {t('page.ungrouped')}
-                                    </button>
+                                    </Button>
                                     {groups.map((group) => (
-                                      <button
-                                        key={group.id}
+                                      <Button variant="ghost" tone="gray" className="flex w-full items-center px-2.5 py-1.5 text-left text-gray-600" key={group.id}
                                         onClick={() => moveToGroup(project, group.id)}
-                                        disabled={project.groupId === group.id}
-                                        className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] text-gray-600 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-300 dark:hover:bg-gray-700"
-                                      >
+                                        disabled={project.groupId === group.id}>
                                         {group.name}
-                                      </button>
+                                      </Button>
                                     ))}
                                   </div>
                                 </>

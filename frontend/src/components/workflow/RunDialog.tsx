@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Play, CheckCircle, XCircle, Loader, UserCheck } from 'lucide-react'
 import type { IWorkflow, IWorkflowEvent } from '../../types/workflow'
 import { streamWorkflowRun, workflowService } from '../../services/workflowService'
+import { Button, Modal, Textarea } from '../ui'
 
 interface RunDialogProps {
   workflow: IWorkflow
@@ -95,9 +96,8 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 dark:border-white/[0.08]">
+    <Modal open onClose={onClose} size="xl" className="flex max-h-[90vh] flex-col overflow-hidden">
+      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 dark:border-white/[0.08]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('run.title', { name: workflow.name })}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">
             <X size={18} />
@@ -107,8 +107,8 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">{t('run.inputParams')}</label>
-            <textarea
-              className="h-20 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 glass px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03]"
+            <Textarea tone="blue" glass
+              className="h-20 w-full resize-none"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={t('run.inputPlaceholder')}
@@ -140,8 +140,8 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
             <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-500/20 dark:bg-orange-500/10">
               <UserCheck size={18} className="text-orange-500" />
               <div className="flex-1 text-sm text-orange-700 dark:text-orange-400">{pendingApproval.prompt}</div>
-              <button onClick={() => handleApprove(true)} className="rounded-lg bg-green-500 px-3 py-1 text-xs text-white hover:bg-green-600">{t('approval.approve')}</button>
-              <button onClick={() => handleApprove(false)} className="rounded-lg bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600">{t('approval.reject')}</button>
+              <Button variant="primary" tone="green" size="sm" className="px-3 py-1 hover:bg-gray-100" onClick={() => handleApprove(true)}>{t('approval.approve')}</Button>
+              <Button variant="primary" tone="green" size="sm" className="px-3 py-1" onClick={() => handleApprove(false)}>{t('approval.reject')}</Button>
             </div>
           )}
 
@@ -162,17 +162,16 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
 
         <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-white/[0.08]">
           {running ? (
-            <button onClick={handleCancel} className="rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">{t('run.cancelRun')}</button>
+            <Button variant="danger" size="sm" className="px-4 py-2 text-red-600" onClick={handleCancel}>{t('run.cancelRun')}</Button>
           ) : (
-            <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">{t('common:close')}</button>
+            <Button variant="ghost" tone="red" className="px-4 py-2 text-gray-600" onClick={onClose}>{t('common:close')}</Button>
           )}
           {!running && finalStatus === null && (
-            <button onClick={handleRun} className="flex items-center gap-1.5 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">
+            <Button variant="ghost" tone="gray" className="flex items-center gap-1.5 px-4 py-2" onClick={handleRun}>
               <Play size={15} /> {t('common:run')}
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

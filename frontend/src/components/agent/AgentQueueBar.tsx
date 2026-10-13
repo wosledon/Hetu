@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { CornerDownRight, ListEnd, X } from 'lucide-react'
+import { IconButton } from '../ui'
 
 /** 队列里的一条待发送消息 */
 export interface PendingMessage {
@@ -45,14 +46,11 @@ export default function AgentQueueBar({ items, steeringId, onSteer, onRemove }: 
               <CornerDownRight size={11} />
               {t('queue.steer')}
             </button>
-            <button
-              onClick={() => onRemove(item)}
+            <IconButton variant="ghost" label={t('queue.remove')} className="shrink-0 p-0.5 text-gray-400 hover:bg-sky-100" onClick={() => onRemove(item)}
               title={t('queue.remove')}
-              aria-label={t('queue.remove')}
-              className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-            >
+              aria-label={t('queue.remove')}>
               <X size={11} />
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>

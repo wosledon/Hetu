@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import type { IProjectGroup, ICreateProjectGroupRequest, IUpdateProjectGroupRequest } from '../../types/project'
+import { Button, IconButton, Input, Modal } from '../ui'
 
 interface GroupManagerDialogProps {
   groups: IProjectGroup[]
@@ -43,8 +44,8 @@ export default function GroupManagerDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-4 max-h-[85vh] w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
+    <Modal open onClose={onClose} className="max-w-md max-h-[85vh] overflow-hidden">
+
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('groupDialog.title')}</h3>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
@@ -62,27 +63,23 @@ export default function GroupManagerDialog({
                 >
                   {editingId === group.id ? (
                     <>
-                      <input
+                      <Input tone="blue" size="sm"
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && submitRename(group)}
                         autoFocus
-                        className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-sm outline-none focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800"
+                        className="min-w-0 flex-1"
                       />
-                      <button
-                        onClick={() => submitRename(group)}
-                        className="shrink-0 rounded p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                        title={t('common:save')}
-                      >
+                      <Button variant="link" tone="emerald" className="shrink-0 p-1 text-emerald-600 hover:bg-gray-100" onClick={() => submitRename(group)}
+                        
+                        title={t('common:save')}>
                         <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                        title={t('common:cancel')}
-                      >
+                      </Button>
+                      <IconButton variant="ghost" label={t('common:cancel')} className="shrink-0 p-1 text-gray-400 hover:bg-emerald-50" onClick={() => setEditingId(null)}
+                        
+                        title={t('common:cancel')}>
                         <X size={13} />
-                      </button>
+                      </IconButton>
                     </>
                   ) : (
                     <>
@@ -90,22 +87,18 @@ export default function GroupManagerDialog({
                         {group.name}
                       </span>
                       <span className="shrink-0 text-[11px] text-gray-400">{t('groupDialog.projectCount', { count: group.projectCount })}</span>
-                      <button
-                        onClick={() => { setEditingId(group.id); setEditingName(group.name); setError('') }}
-                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-gray-800"
-                        title={t('common:rename')}
-                      >
+                      <IconButton label={t('common:rename')} variant="ghost" className="shrink-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100" onClick={() => { setEditingId(group.id); setEditingName(group.name); setError('') }}
+                        
+                        title={t('common:rename')}>
                         <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => {
+                      </IconButton>
+                      <IconButton variant="ghost" label={t('groupDialog.deleteTitle')} className="shrink-0 p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-600" onClick={() => {
                           if (window.confirm(t('groupDialog.deleteConfirm', { name: group.name }))) onDelete(group.id)
                         }}
-                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-gray-800"
-                        title={t('groupDialog.deleteTitle')}
-                      >
+                        
+                        title={t('groupDialog.deleteTitle')}>
                         <Trash2 size={13} />
-                      </button>
+                      </IconButton>
                     </>
                   )}
                 </li>
@@ -116,26 +109,22 @@ export default function GroupManagerDialog({
 
         <div className="border-t border-gray-100 px-5 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
-            <input
+            <Input tone="blue"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submitNew()}
               placeholder={t('groupDialog.newGroupPlaceholder')}
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-600 dark:bg-gray-800"
+              className="min-w-0 flex-1"
             />
-            <button
-              onClick={submitNew}
-              disabled={pending}
-              className="flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-            >
+            <Button variant="primary" size="sm" className="flex shrink-0 items-center gap-1 px-3.5 py-2 hover:bg-gray-100 hover:text-red-500" onClick={submitNew}
+              disabled={pending}>
               {pending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
               {t('groupDialog.create')}
-            </button>
+            </Button>
           </div>
           {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{t('groupDialog.deleteHint')}</p>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }

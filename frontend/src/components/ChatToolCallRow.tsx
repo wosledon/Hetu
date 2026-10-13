@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Check, Loader2, Play, Terminal, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
+import { IconButton } from './ui'
 
 export interface ChatToolCallRowProps {
   name: string
@@ -69,13 +70,10 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
-        <button
-          onClick={() => setOpen(!open)}
-          aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
-          className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
-        >
+        <IconButton label={open ? t('tool.collapseDetails') : t('tool.expandDetails')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:bg-gray-200" onClick={() => setOpen(!open)}
+          aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}>
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        </button>
+        </IconButton>
         <Icon size={11} className={`shrink-0 ${isText || name !== 'run_command' ? 'text-gray-400' : 'text-emerald-500'}`} />
         <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{rowLabel}</span>
         {summary && (
@@ -93,14 +91,11 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         )}
         {!summary && <span className="flex-1" />}
         {canRun && (
-          <button
-            onClick={() => onRunCommand?.(summary ?? '')}
+          <IconButton label={t('tool.runInTerminal')} variant="ghost" className="shrink-0 p-0.5 text-gray-400 hover:text-blue-500" onClick={() => onRunCommand?.(summary ?? '')}
             title={t('tool.runInTerminal')}
-            aria-label={t('tool.runInTerminal')}
-            className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
-          >
+            aria-label={t('tool.runInTerminal')}>
             <Play size={11} />
-          </button>
+          </IconButton>
         )}
         {!isText && (
           running

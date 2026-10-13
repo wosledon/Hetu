@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
@@ -23,12 +23,15 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import ThemedMarkdown from '../components/ThemedMarkdown'
+// 笔记预览用的 Markdown 渲染链（react-markdown + katex + mermaid 等）非常重，
+// 只有打开预览弹窗才需要：懒加载，别让它拖慢图谱页首屏
+const ThemedMarkdown = lazy(() => import('../components/ThemedMarkdown'))
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
+import { Button, IconButton, Input, Modal } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -168,18 +171,28 @@ function useForceLayout(
       if (dragNode) { dragNode.x = dragRef.current.x; dragNode.y = dragRef.current.y }
     }
 
+    // 空图不需要物理布局：不启动 rAF。否则挂载后会空转数百帧，每帧重绘引闪
+    // （GPU 合成下连带 backdrop-filter 的导轨一起抖）。
+    if (nodes.length === 0) {
+      onSettleRef.current?.(nodes)
+      return
+    }
+
     let iteration = 0
     let alpha = 1
-    // 根据节点数量动态调整迭代次数和节流间隔
+    // 连续静止计数：位移不可见若干迭代即判定收敛，别让用户对着静止画面干等
+    let stillCount = 0
+    // 根据节点数量动态调整迭代次数
     const nodeCount = nodes.length
     const maxIterations = Math.max(200, nodeCount > 100 ? 260 : 320)
-    const THROTTLE_INTERVAL = nodeCount > 100 ? 8 : 4
     // d3-force 式冷却：力随 alpha 衰减，布局平滑收敛而非生硬停摆
     const alphaDecay = 1 - Math.pow(0.001, 1 / maxIterations)
     const velocityDecay = 0.6
 
     const simulate = () => {
       if (iteration >= maxIterations || alpha < 0.015) {
+        // 终态发布：仅此一处让 React 拿到收敛后的坐标
+        setPositions([...nodes])
         onSettleRef.current?.(nodes)
         return
       }
@@ -267,14 +280,28 @@ function useForceLayout(
         node.y = Math.max(40, Math.min(height - 40, node.y))
       }
 
+      // 收敛早退：每节点位移已不可见且持续若干迭代 → 直接定稿进入适配视图，
+      // 否则平衡布局（如初始环形）会空转满 200+ 迭代，首屏几秒静止像卡死
+      let maxDisp = 0
+      for (const node of nodes) {
+        const d = Math.abs(node.vx) + Math.abs(node.vy)
+        if (d > maxDisp) maxDisp = d
+      }
+      stillCount = maxDisp < 0.05 ? stillCount + 1 : 0
+      if (iteration > 5 && stillCount >= 8) {
+        setPositions([...nodes])
+        onSettleRef.current?.(nodes)
+        return
+      }
+
       iteration++
       alpha += alphaDecay * (0 - alpha)
       positionsRef.current = nodes
 
-      // Throttle React state updates: every THROTTLE_INTERVAL iterations + always on last
-      if (iteration % THROTTLE_INTERVAL === 0 || iteration >= maxIterations) {
-        setPositions([...nodes])
-      }
+      // 只在首帧发布一次：渲染器的 Map 与模拟共享同一批节点对象，之后坐标变化
+      // 实时可见（按需绘制靠位置指纹跟随），无需整页重渲染跟着跑——大图每秒十几次
+      // 的重渲染会把帧预算吃掉，布局动画掉帧。终态在退出处发布。
+      if (iteration === 1) setPositions([...nodes])
 
       if (iteration < maxIterations) {
         frameRef.current = requestAnimationFrame(simulate)
@@ -318,45 +345,161 @@ function useCanvasRenderer(
 ) {
   const { zoom, pan, selectedEntityId, onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition, externalHoverId } = options
   const animationRef = useRef<number>(0)
+  // 唤醒按需绘制循环（状态/交互变更后补一帧）；循环静止时挂起，见下方 Render loop
+  const kickRef = useRef<(() => void) | null>(null)
   const hoveredIdRef = useRef<string | null>(null)
   const externalHoverRef = useRef(externalHoverId)
-  useEffect(() => { externalHoverRef.current = externalHoverId }, [externalHoverId])
+  useEffect(() => { externalHoverRef.current = externalHoverId; kickRef.current?.() }, [externalHoverId])
 
-  // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛/补间，缩放与平移更顺滑
+  // 平滑显示变换：逻辑值由 props 驱动，展示值逐帧收敛，缩放与平移更顺滑
   const dispZoomRef = useRef(zoom)
   const dispPanRef = useRef(pan)
-  const animRef = useRef<{
-    t0: number; dur: number
-    fromPan: { x: number; y: number }; fromZoom: number
-    toPan: { x: number; y: number }; toZoom: number
-  } | null>(null)
+  // 「适配视图 / 居中实体」的大跨度补间用合成器驱动的 CSS 变换：冻结画布位图、
+  // 只变换图层，不逐帧重绘（逐帧重绘的补间在弱 GPU / 低刷新环境会明显掉帧），
+  // 结束时一次重绘定格到目标视图。
+  const viewTweenRef = useRef<Animation | null>(null)
+  const tweenActiveRef = useRef(false)
+  const pendingFinalDrawRef = useRef(false)
+  // 补间收尾看门狗：不依赖 WAAPI 的 finished promise（个别 webview 不落），
+  // 到点强制交接重绘，否则补间挂起会把画布永久冻住
+  const tweenWatchdogRef = useRef<number | null>(null)
 
   // Keep refs in sync with latest props for the render loop (avoids stale closures)
   const posMapRef = useRef<Map<string, NodePosition>>(new Map())
-  useEffect(() => { posMapRef.current = new Map(positions.map(p => [p.id, p])) }, [positions])
+  useEffect(() => { posMapRef.current = new Map(positions.map(p => [p.id, p])); kickRef.current?.() }, [positions])
 
   const entityMapRef = useRef<Map<string, IGraphEntity>>(new Map())
-  useEffect(() => { entityMapRef.current = new Map(entities.map(e => [e.id, e])) }, [entities])
+  useEffect(() => { entityMapRef.current = new Map(entities.map(e => [e.id, e])); kickRef.current?.() }, [entities])
 
   const relationsRef = useRef(relations)
-  useEffect(() => { relationsRef.current = relations }, [relations])
+  useEffect(() => { relationsRef.current = relations; kickRef.current?.() }, [relations])
 
   const zoomRef = useRef(zoom), panRef = useRef(pan), selectedRef = useRef(selectedEntityId)
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  useEffect(() => { panRef.current = pan }, [pan])
-  useEffect(() => { selectedRef.current = selectedEntityId }, [selectedEntityId])
+  useEffect(() => { zoomRef.current = zoom; kickRef.current?.() }, [zoom])
+  useEffect(() => { panRef.current = pan; kickRef.current?.() }, [pan])
+  useEffect(() => { selectedRef.current = selectedEntityId; kickRef.current?.() }, [selectedEntityId])
 
   const callbacksRef = useRef({ onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition })
   useEffect(() => { callbacksRef.current = { onSelectEntity, onDeleteRelation, onDeselect, onPanChange, onZoomChange, onWakeSimulation, setNodePosition } })
 
+  // 当前画布位图实际绘制时用的视图（变换补间期间位图冻结，disp 已是目标值）
+  const bufferViewRef = useRef({ pan: { x: pan.x, y: pan.y }, zoom })
+
+  // 打断补间：把当前视觉冻结进行内样式，交给下一次重绘交接（不闪）
+  const cancelTween = useCallback(() => {
+    if (tweenWatchdogRef.current !== null) {
+      window.clearTimeout(tweenWatchdogRef.current)
+      tweenWatchdogRef.current = null
+    }
+    const anim = viewTweenRef.current
+    if (!anim) return
+    try { anim.commitStyles() } catch { /* 未开始的动画没有可固化的样式 */ }
+    anim.cancel()
+    viewTweenRef.current = null
+    tweenActiveRef.current = false
+    pendingFinalDrawRef.current = true
+    kickRef.current?.()
+  }, [])
+
+  // 合成器补间：把「位图视图 → 目标视图」的变换用 CSS transform 演完，期间不重绘画布；
+  // 任何帧率下都顺滑（逐帧重绘的补间在弱 GPU / 低刷新环境会明显掉帧）。
+  // 结束后由 pendingFinalDraw 交接：同一次绘制里撤掉变换并按目标视图定格。
+  const startViewTween = useCallback((toPan: { x: number; y: number }, toZoom: number, dur: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    if (tweenWatchdogRef.current !== null) {
+      window.clearTimeout(tweenWatchdogRef.current)
+      tweenWatchdogRef.current = null
+    }
+    const prev = viewTweenRef.current
+    if (prev) {
+      // 续接：先把当前视觉固化进 style，新补间从这里出发，不跳变
+      try { prev.commitStyles() } catch { /* ignore */ }
+      prev.cancel()
+      viewTweenRef.current = null
+    }
+    pendingFinalDrawRef.current = false
+    const bv = bufferViewRef.current
+    const k = toZoom / (bv.zoom || 1)
+    const fromTransform = canvas.style.transform || 'none'
+    const tx = toPan.x - k * bv.pan.x
+    const ty = toPan.y - k * bv.pan.y
+    dispZoomRef.current = toZoom
+    dispPanRef.current = { x: toPan.x, y: toPan.y }
+    tweenActiveRef.current = true
+    canvas.style.transformOrigin = '0 0'
+    const anim = canvas.animate(
+      [{ transform: fromTransform }, { transform: `translate(${tx}px, ${ty}px) scale(${k})` }],
+      { duration: dur, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' },
+    )
+    viewTweenRef.current = anim
+    // 收尾用看门狗定时器而不是 anim.finished：个别 webview 的 WAAPI promise 不落，
+    // 挂起会把画布永久冻在变换态；到点强制交接（被 cancel/替换时定时器已清）
+    tweenWatchdogRef.current = window.setTimeout(() => {
+      tweenWatchdogRef.current = null
+      if (viewTweenRef.current !== anim) return
+      tweenActiveRef.current = false
+      pendingFinalDrawRef.current = true
+      kickRef.current?.()
+    }, dur + 80)
+  }, [canvasRef])
+
   // --- Render loop ---
+  // 按需绘制：补间/收敛/内容变更期间逐帧续期，静止即休眠，由 kickRef 唤醒。
+  // 不能空转 rAF——每帧重绘会让合成器每帧重合成，GPU 合成下带 backdrop-filter 的
+  // 导轨/导航条会肉眼可见地闪（图谱页独有的闪就来自这里），也白烧 CPU。
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    let dirty = true
+    // 位置指纹：节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象），
+    // 指纹变化即内容在动，需要重绘。
+    let lastSig = Number.NaN
+    const textWidthCache = new Map<string, number>()
+
     const draw = () => {
+      // 补间收尾交接：撤掉变换并强制定格重绘
+      let force = false
+      if (pendingFinalDrawRef.current) {
+        pendingFinalDrawRef.current = false
+        viewTweenRef.current?.cancel()
+        viewTweenRef.current = null
+        canvas.style.transform = ''
+        force = true
+      }
+      // 展示变换：每帧向逻辑值收敛（快收敛时吸附，避免渐近尾巴永不归零）；
+      // 适配视图 / 居中实体的大跨度补间由合成器 CSS 变换承担，不走这里
+      const dz = zoomRef.current - dispZoomRef.current
+      const dx = panRef.current.x - dispPanRef.current.x
+      const dy = panRef.current.y - dispPanRef.current.y
+      if (Math.abs(dz) < 0.005 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        dispZoomRef.current = zoomRef.current
+        dispPanRef.current = { x: panRef.current.x, y: panRef.current.y }
+      } else {
+        dispZoomRef.current += dz * 0.22
+        dispPanRef.current.x += dx * 0.22
+        dispPanRef.current.y += dy * 0.22
+      }
+      // 心跳判定：内容有变化（节点移动 / 收敛中 / 有状态变更 / 补间交接）才真正重绘。
+      // 心跳本身永不间断——帧链休眠后 webview 会降频/加唤醒延迟，表现为整体卡顿；
+      // 而空转的判定不做任何绘制，不会引闪（玻璃材质也已无 backdrop-filter）。
+      let sig = 0
+      for (const np of posMapRef.current.values()) sig += np.x * 31 + np.y
+      const moved = sig !== lastSig
+      lastSig = sig
+      const animating =
+        Math.abs(dispZoomRef.current - zoomRef.current) > 0.005 ||
+        Math.abs(dispPanRef.current.x - panRef.current.x) > 0.5 ||
+        Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
+      const need = dirty || moved || animating || force
+      dirty = false
+      if (!need || tweenActiveRef.current) {
+        animationRef.current = requestAnimationFrame(draw)
+        return
+      }
       const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
       // Always keep canvas buffer in sync with CSS layout
@@ -365,31 +508,21 @@ function useCanvasRenderer(
       if (rect.width > 0 && rect.height > 0 && (canvas.width !== targetW || canvas.height !== targetH)) {
         canvas.width = targetW
         canvas.height = targetH
+        // 设 width 会重置变换矩阵；基准态是 dpr 缩放（与 ResizeObserver 的 resize 一致）
+        ctx.scale(dpr, dpr)
       }
       const w = canvas.width / dpr, h = canvas.height / dpr
-      // 展示变换：补间动画优先，否则向逻辑值收敛
-      const anim = animRef.current
-      if (anim) {
-        const t = Math.min(1, (performance.now() - anim.t0) / anim.dur)
-        const e = 1 - Math.pow(1 - t, 3)
-        dispPanRef.current = {
-          x: anim.fromPan.x + (anim.toPan.x - anim.fromPan.x) * e,
-          y: anim.fromPan.y + (anim.toPan.y - anim.fromPan.y) * e,
-        }
-        dispZoomRef.current = anim.fromZoom + (anim.toZoom - anim.fromZoom) * e
-        if (t >= 1) animRef.current = null
-      } else {
-        dispZoomRef.current += (zoomRef.current - dispZoomRef.current) * 0.22
-        dispPanRef.current.x += (panRef.current.x - dispPanRef.current.x) * 0.22
-        dispPanRef.current.y += (panRef.current.y - dispPanRef.current.y) * 0.22
-      }
       const z = dispZoomRef.current, p = dispPanRef.current
       const selId = selectedRef.current
       const posMap = posMapRef.current, emap = entityMapRef.current, rels = relationsRef.current
 
       ctx.save()
       ctx.clearRect(0, 0, w, h)
-      if (posMap.size === 0) { ctx.restore(); animationRef.current = requestAnimationFrame(draw); return }
+      if (posMap.size === 0) {
+        ctx.restore()
+        animationRef.current = requestAnimationFrame(draw)
+        return
+      }
 
       ctx.translate(p.x, p.y)
       ctx.scale(z, z)
@@ -499,8 +632,16 @@ function useCanvasRenderer(
       const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
       for (const c of labelCandidates) {
         const fsc = Math.max(10, 11.5 / z)
-        ctx.font = `${c.isSel || c.isHov ? 600 : 400} ${fsc}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`
-        const tw = ctx.measureText(c.entity.name).width * z
+        const font = `${c.isSel || c.isHov ? 600 : 400} ${fsc}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`
+        ctx.font = font
+        // 文本宽度只与字体/内容有关，缓存避免每帧每标签做一次文本塑形
+        const cacheKey = `${font}|${c.entity.name}`
+        let textW = textWidthCache.get(cacheKey)
+        if (textW === undefined) {
+          textW = ctx.measureText(c.entity.name).width
+          textWidthCache.set(cacheKey, textW)
+        }
+        const tw = textW * z
         const sx = c.pos.x * z + p.x, sy = c.pos.y * z + p.y
         const ly = sy + c.rr * z + 5
         const lh = fsc * z
@@ -518,10 +659,25 @@ function useCanvasRenderer(
       }
 
       ctx.restore()
+      // 记录位图这次绘制用的视图：后续变换补间以它为基准换算
+      bufferViewRef.current = { pan: { x: p.x, y: p.y }, zoom: z }
       animationRef.current = requestAnimationFrame(draw)
     }
+
+    // 唤醒：只标记脏；心跳由 draw 链自己维持
+    const kick = () => { dirty = true }
+    kickRef.current = kick
+
+    // 主题切换会改绘制配色（draw 内读 dark 类），随类名变更标记脏补一帧
+    const themeObserver = new MutationObserver(kick)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+
     animationRef.current = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(animationRef.current)
+    return () => {
+      kickRef.current = null
+      themeObserver.disconnect()
+      cancelAnimationFrame(animationRef.current)
+    }
   }, [canvasRef, entities])
 
   // --- Resize observer ---
@@ -534,6 +690,7 @@ function useCanvasRenderer(
         canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr)
         const ctx = canvas.getContext('2d'); if (ctx) ctx.scale(dpr, dpr)
       }
+      kickRef.current?.()
     }
     resize()
     const obs = new ResizeObserver(resize); obs.observe(canvas)
@@ -587,17 +744,29 @@ function useCanvasRenderer(
     const onMove = (e: MouseEvent) => {
       if (mode !== 'none') { canvas.style.cursor = 'grabbing'; return }
       const hit = hitTest(e.clientX, e.clientY)
-      hoveredIdRef.current = hit.entity ?? null
+      const nextHover = hit.entity ?? null
+      if (hoveredIdRef.current !== nextHover) {
+        hoveredIdRef.current = nextHover
+        kickRef.current?.()
+      }
       canvas.style.cursor = (hit.entity || hit.relation) ? 'pointer' : 'grab'
     }
 
-    const onLeave = () => { hoveredIdRef.current = null }
+    const onLeave = () => {
+      if (hoveredIdRef.current !== null) {
+        hoveredIdRef.current = null
+        kickRef.current?.()
+      }
+    }
 
     const onWinMove = (e: MouseEvent) => {
       if (mode === 'none') return
       if (Math.abs(e.clientX - startCX) > 3 || Math.abs(e.clientY - startCY) > 3) moved = true
       if (mode === 'pan') {
-        callbacksRef.current.onPanChange({ x: startPanX + e.clientX - startCX, y: startPanY + e.clientY - startCY })
+        // 直接写 panRef + 唤醒绘制：拖动期间逐帧 setState 会整页重渲染，掉帧；
+        // React 状态只在松手时提交一次
+        panRef.current = { x: startPanX + e.clientX - startCX, y: startPanY + e.clientY - startCY }
+        kickRef.current?.()
       } else if (mode === 'node' && dragId) {
         const g = toGraph(e.clientX, e.clientY)
         const x = g.x - dragOX, y = g.y - dragOY
@@ -605,6 +774,7 @@ function useCanvasRenderer(
         if (pos) { pos.x = x; pos.y = y }
         drag.current = { id: dragId, x, y }
         callbacksRef.current.setNodePosition(dragId, x, y)
+        kickRef.current?.()
       }
     }
 
@@ -612,12 +782,16 @@ function useCanvasRenderer(
       if (mode === 'node' && dragId) {
         drag.current = { id: null, x: 0, y: 0 }
         callbacksRef.current.onWakeSimulation()
+      } else if (mode === 'pan') {
+        // 松手时把最终平移提交回 React 状态（拖动期间只写 panRef）
+        callbacksRef.current.onPanChange({ x: panRef.current.x, y: panRef.current.y })
       }
       mode = 'none'; dragId = null
     }
 
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return
+      cancelTween()
       moved = false
       startCX = e.clientX; startCY = e.clientY
       const hit = hitTest(e.clientX, e.clientY)
@@ -644,7 +818,7 @@ function useCanvasRenderer(
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      animRef.current = null
+      cancelTween()
       const rect = canvas.getBoundingClientRect()
       const mx = e.clientX - rect.left, my = e.clientY - rect.top
       const cz = zoomRef.current, cp = panRef.current
@@ -668,7 +842,7 @@ function useCanvasRenderer(
       window.removeEventListener('mousemove', onWinMove)
       window.removeEventListener('mouseup', onWinUp)
     }
-  }, [canvasRef, entities, options.dragRef])
+  }, [canvasRef, entities, options.dragRef, cancelTween])
 
   // 平滑地将视图居中到指定实体（从侧栏/详情跳转时用）
   const centerOnEntity = useCallback((id: string) => {
@@ -678,18 +852,11 @@ function useCanvasRenderer(
     const rect = canvas.getBoundingClientRect()
     const z = Math.max(0.3, Math.min(1.5, dispZoomRef.current))
     const toPan = { x: rect.width / 2 - pos.x * z, y: rect.height / 2 - pos.y * z }
-    animRef.current = {
-      t0: performance.now(),
-      dur: 450,
-      fromPan: { ...dispPanRef.current },
-      fromZoom: dispZoomRef.current,
-      toPan,
-      toZoom: z,
-    }
+    startViewTween(toPan, z, 450)
     // 同步逻辑态，避免动画结束后显示值向旧逻辑值漂移
     callbacksRef.current.onPanChange(toPan)
     callbacksRef.current.onZoomChange(z)
-  }, [canvasRef])
+  }, [canvasRef, startViewTween])
 
   // 平滑地将整幅图谱适配进视口（首次布局收敛后用）
   const fitToNodes = useCallback((nodes: NodePosition[]) => {
@@ -705,17 +872,10 @@ function useCanvasRenderer(
     const pad = 70
     const z = Math.max(0.3, Math.min(1.5, Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh)))
     const toPan = { x: rect.width / 2 - ((minX + maxX) / 2) * z, y: rect.height / 2 - ((minY + maxY) / 2) * z }
-    animRef.current = {
-      t0: performance.now(),
-      dur: 600,
-      fromPan: { ...dispPanRef.current },
-      fromZoom: dispZoomRef.current,
-      toPan,
-      toZoom: z,
-    }
+    startViewTween(toPan, z, 600)
     callbacksRef.current.onPanChange(toPan)
     callbacksRef.current.onZoomChange(z)
-  }, [canvasRef])
+  }, [canvasRef, startViewTween])
 
   return { centerOnEntity, fitToNodes }
 }
@@ -931,17 +1091,17 @@ export default function GraphPage() {
     <div className="flex flex-1 flex-col bg-transparent">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white glass px-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomIn')}><ZoomIn size={15} /></button>
-          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.zoomOut')}><ZoomOut size={15} /></button>
-          <button onClick={handleResetView} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.resetView')}><RotateCcw size={15} /></button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleResetView}  title={t('graph.resetView')}><RotateCcw size={15} /></Button>
           <div className="mx-1 h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <button onClick={handleAutoLayout} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('graph.autoLayout')}><Network size={15} /></button>
+          <Button variant="ghost" tone="gray" className="p-1.5 text-gray-500 hover:text-gray-700" onClick={handleAutoLayout}  title={t('graph.autoLayout')}><Network size={15} /></Button>
           <span className="ml-1 text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" title={t('graph.extractTooltip')}>
+          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
             <Sparkles size={13} />{t('graph.extractFromNotes')}
-          </button>
+          </Button>
         </div>
       </div>
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
@@ -966,7 +1126,7 @@ export default function GraphPage() {
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30"><Network size={36} className="text-indigo-500" /></div>
               <div className="text-center"><h3 className="text-base font-medium text-gray-800 dark:text-gray-100">{t('graph.emptyTitle')}</h3><p className="mt-1 text-sm text-gray-500">{t('graph.emptyHint')}</p></div>
-              <button onClick={() => setShowExtractDialog(true)} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600"><Sparkles size={15} />{t('graph.extractFromNotes')}</button>
+              <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2" onClick={() => setShowExtractDialog(true)}><Sparkles size={15} />{t('graph.extractFromNotes')}</Button>
             </div>
           )}
 
@@ -982,9 +1142,8 @@ export default function GraphPage() {
         </div>
 
       {showExtractDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <Modal open onClose={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30"><Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" /></div>
                 <div><h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.extractDialogTitle')}</h3><p className="text-xs text-gray-500">{selectedNoteIds.size > 0 ? t('graph.selectedNotes', { n: selectedNoteIds.size }) : t('graph.extractDialogHint')}</p></div>
@@ -992,7 +1151,7 @@ export default function GraphPage() {
               <button onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
             </div>
             <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
-              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-emerald-300 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 dark:border-gray-600 dark:bg-gray-700 dark:placeholder:text-gray-500 dark:focus:border-emerald-600" /></div>
+              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="emerald" value={extractSearch} onChange={(e) => setExtractSearch(e.target.value)} placeholder={t('graph.searchNotesPlaceholder')} className="w-full pl-8 pr-3" /></div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? t('graph.noMatchingNotes') : t('graph.noNotes')}</div>) : (
@@ -1020,10 +1179,10 @@ export default function GraphPage() {
             </div>
             <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <button onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }} className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300">{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</button>
-                <button onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+                <Button variant="link" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-600" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
+                <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 px-4 py-2 hover:bg-gray-50" onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting}>
                   {isExtracting ? (<><Loader2 size={14} className="animate-spin" />{t('graph.extracting')}</>) : (<><Sparkles size={14} />{t('graph.extractSelected', { n: selectedNoteIds.size })}</>)}
-                </button>
+                </Button>
                 {extractQueued && (
                   <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                     <Check size={12} />{extractQueued}
@@ -1031,14 +1190,12 @@ export default function GraphPage() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {previewNoteId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }}>
-          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass" onClick={e => e.stopPropagation()}>
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <Modal open onClose={() => { setPreviewNoteId(null); setPreviewNoteContent('') }} size="2xl" className="flex max-h-[85vh] max-w-4xl flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
                   <FolderOpen size={16} className="text-indigo-600 dark:text-indigo-400" />
@@ -1051,11 +1208,12 @@ export default function GraphPage() {
               {isLoadingNote ? (
                 <div className="flex items-center justify-center gap-2 py-12 text-gray-400"><Loader2 size={20} className="animate-spin" />{t('common:loading')}</div>
               ) : (
-                <ThemedMarkdown source={previewNoteContent} />
+                <Suspense fallback={null}>
+                  <ThemedMarkdown source={previewNoteContent} />
+                </Suspense>
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )
@@ -1065,8 +1223,8 @@ export default function GraphPage() {
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => deleteEntityMutation.mutate(selectedEntityId)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" title={t('graph.deleteEntity')}><Trash2 size={14} /></button>
-          <button onClick={() => setSelectedEntityId(null)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200" title={t('common:close')}><X size={14} /></button>
+          <IconButton variant="ghost" label={t('graph.deleteEntity')} className="p-1.5 text-gray-400 hover:text-gray-700" onClick={() => deleteEntityMutation.mutate(selectedEntityId)}  title={t('graph.deleteEntity')}><Trash2 size={14} /></IconButton>
+          <IconButton variant="primary" label={t('common:close')} className="p-1.5 text-gray-400 hover:bg-emerald-600" onClick={() => setSelectedEntityId(null)}  title={t('common:close')}><X size={14} /></IconButton>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
@@ -1131,7 +1289,7 @@ export default function GraphPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
           </div>
-          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-sm outline-none placeholder:text-gray-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-blue-600 dark:focus:bg-gray-800" /></div>
+          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><Input tone="blue" value={entitySearch} onChange={(e) => setEntitySearch(e.target.value)} placeholder={t('graph.searchEntitiesPlaceholder')} className="w-full pl-8 pr-3" /></div>
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{t('common:all')} {entities.length}</button>
             {entityTypes.map(type => (

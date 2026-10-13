@@ -22,6 +22,7 @@ import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
+import { Button, Input, Textarea } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
@@ -281,7 +282,7 @@ export default function SettingsPage() {
               </aside>
 
               {/* Content Area */}
-              <div className="min-w-0 flex-1 animate-fade-in pt-8">
+              <div className="min-w-0 flex-1 animate-fade-in">
                 <div className="rounded-2xl border border-gray-200/80 bg-white p-8 shadow-sm shadow-gray-100/50 dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none glass">
                   {activeSection === 'app' && <AppSettingsSection
                     appName={appName}
@@ -406,20 +407,17 @@ function AppSettingsSection({
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.displayName')}</label>
         <div className="flex max-w-sm items-center gap-2">
-          <input
+          <Input tone="blue" size="lg"
             type="text"
             value={appName}
             onChange={(e) => onAppNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
-            className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            className="flex-1"
             placeholder={t('app.displayNamePlaceholder')}
           />
-          <button
-            onClick={onAppNameSave}
-            className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
-          >
+          <Button variant="primary" tone="blue" className="shrink-0 px-4 py-2.5 shadow-blue-500/25" onClick={onAppNameSave}>
             {t('common:save')}
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.displayNameHint')}</p>
       </div>
@@ -428,20 +426,17 @@ function AppSettingsSection({
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.assistantName')}</label>
         <div className="flex max-w-sm items-center gap-2">
-          <input
+          <Input tone="blue" size="lg"
             type="text"
             value={assistantName}
             onChange={(e) => onAssistantNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
-            className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            className="flex-1"
             placeholder={t('app.assistantNamePlaceholder')}
           />
-          <button
-            onClick={onAssistantNameSave}
-            className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
-          >
+          <Button variant="primary" tone="blue" className="shrink-0 px-4 py-2.5 shadow-blue-500/25" onClick={onAssistantNameSave}>
             {t('common:save')}
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.assistantNameHint')}</p>
       </div>
@@ -450,21 +445,18 @@ function AppSettingsSection({
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.persona')}</label>
         <div className="max-w-xl">
-          <textarea
+          <Textarea tone="blue" size="lg"
             value={assistantPersona}
             onChange={(e) => onAssistantPersonaChange(e.target.value)}
             rows={4}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20"
+            className="w-full"
             placeholder={t('app.personaPlaceholder')}
           />
           <div className="mt-2 flex items-center justify-between">
             <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.personaHint')}</p>
-            <button
-              onClick={onAssistantPersonaSave}
-              className="shrink-0 rounded-xl bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]"
-            >
+            <Button variant="primary" tone="blue" size="sm" className="shrink-0 px-4 py-1.5 shadow-blue-500/25" onClick={onAssistantPersonaSave}>
               {t('common:save')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -831,14 +823,11 @@ function NavigationSettingsSection({
         {configurableNavItems.map((item) => {
           const Icon = item.icon
           return (
-            <button
-              key={item.path}
-              onClick={() => onNavigate(item.path)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300"
-            >
+            <Button variant="soft" tone="gray" className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600" key={item.path}
+              onClick={() => onNavigate(item.path)}>
               <Icon size={14} />
               {t(item.labelKey)}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -994,9 +983,9 @@ function DefaultModelsSection({
         </div>
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
           {t('models.graphManualPrefix')}{' '}
-          <button onClick={() => onNavigate('/graph')} className="font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400">
+          <Button variant="link" tone="blue" className="text-blue-500 hover:text-blue-600" onClick={() => onNavigate('/graph')}>
             {t('models.graphManualLink')}
-          </button>
+          </Button>
           {' '}{t('models.graphManualSuffix')}
         </p>
       </div>
@@ -1034,14 +1023,14 @@ function DefaultModelsSection({
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.contextSubtitle')}</p>
         </div>
         <div className="max-w-xs">
-          <input
+          <Input tone="blue"
             type="number"
             value={snapshot?.contextWindowSize?.toString() ?? ''}
             onChange={(e) => onSettingChange('ContextWindowSize', e.target.value || '')}
             placeholder={t('models.contextPlaceholder')}
             min={1}
             max={100}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800"
+            className="w-full"
           />
           <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
             {t('models.contextHint')}
@@ -1099,13 +1088,10 @@ function TrashSection({ onNavigate }: { onNavigate: (path: string) => void }) {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('trash.title')}</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('trash.subtitle')}</p>
       </div>
-      <button
-        onClick={() => onNavigate('/trash')}
-        className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]"
-      >
+      <Button variant="primary" tone="blue" className="inline-flex items-center gap-2 px-5 py-2.5 shadow-blue-500/25" onClick={() => onNavigate('/trash')}>
         <Trash2 size={15} />
         {t('trash.open')}
-      </button>
+      </Button>
     </section>
   )
 }

@@ -5,6 +5,7 @@ import { Check, Plus, X } from 'lucide-react'
 import { tagService } from '../services/tagService'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
+import { Button, Input } from './ui'
 
 interface TagInputProps {
   noteId: string
@@ -104,16 +105,13 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
       })}
 
       <div className="relative">
-        <button
-          onClick={() => {
+        <Button variant="link" tone="gray" size="sm" pill className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-500" onClick={() => {
             setIsOpen(true)
             setTimeout(() => inputRef.current?.focus(), 0)
-          }}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:border-gray-600"
-        >
+          }}>
           <Plus size={12} />
           {t('tagInput.add')}
-        </button>
+        </Button>
 
         {isOpen && (
           <>
@@ -122,14 +120,14 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
               onClick={() => setIsOpen(false)}
             />
             <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-              <input
+              <Input tone="blue" size="sm"
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={t('tagInput.placeholder')}
-                className="w-full rounded border border-gray-200 bg-transparent px-2 py-1 text-sm outline-none focus:border-blue-400 dark:border-gray-700"
+                className="w-full"
               />
               <div className="mt-2">
                 <div className="mb-1 px-1 text-[10px] text-gray-400">{t('tagInput.colorLabel')}</div>

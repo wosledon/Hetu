@@ -9,6 +9,7 @@ import type { IWorkflow } from '../../types/workflow'
 import { aiModelService } from '../../services/aiProviderService'
 import { mcpService } from '../../services/mcpService'
 import Select from '../Select'
+import { IconButton, Input, Textarea } from '../ui'
 
 interface NodeConfigPanelProps {
   node: IWorkflowNode | null
@@ -19,9 +20,6 @@ interface NodeConfigPanelProps {
   onDelete: () => void
   onClose: () => void
 }
-
-const inputClass =
-  'w-full rounded-xl border border-gray-200 bg-gray-50/50 glass px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white/70 focus:ring-2 focus:ring-blue-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:border-blue-500/50 dark:focus:bg-transparent dark:focus:ring-blue-500/20'
 
 const labelClass = 'mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400'
 
@@ -90,13 +88,11 @@ export default function NodeConfigPanel({
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-white/[0.08]">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('config.title')}</h3>
         <div className="flex items-center gap-1">
-          <button
-            onClick={onDelete}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-            title={t('config.deleteNode')}
-          >
+          <IconButton label={t('config.deleteNode')} variant="danger" className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500" onClick={onDelete}
+            
+            title={t('config.deleteNode')}>
             <Trash2 size={15} />
-          </button>
+          </IconButton>
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]"
@@ -109,8 +105,7 @@ export default function NodeConfigPanel({
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         <div>
           <label className={labelClass}>{t('common:name')}</label>
-          <input
-            className={inputClass}
+          <Input
             value={node.label}
             onChange={(e) => onChange({ label: e.target.value })}
             placeholder={t('config.nodeNamePlaceholder')}
@@ -213,18 +208,16 @@ export default function NodeConfigPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>{t('config.maxToolCallsPerTurn')}</label>
-              <input
+              <Input
                 type="number"
-                className={inputClass}
                 value={(config.maxToolCallsPerTurn as number) ?? 5}
                 onChange={(e) => updateConfig('maxToolCallsPerTurn', parseInt(e.target.value) || 5)}
               />
             </div>
             <div>
               <label className={labelClass}>{t('config.maxIterations')}</label>
-              <input
+              <Input
                 type="number"
-                className={inputClass}
                 value={(config.maxIterations as number) ?? 15}
                 onChange={(e) => updateConfig('maxIterations', parseInt(e.target.value) || 15)}
               />
@@ -237,8 +230,8 @@ export default function NodeConfigPanel({
           <>
             <div>
               <label className={labelClass}>{t('config.instruction')}</label>
-              <textarea
-                className={`${inputClass} h-20 resize-none`}
+              <Textarea
+                className="h-20 resize-none"
                 value={(config.instruction as string) ?? ''}
                 onChange={(e) => updateConfig('instruction', e.target.value)}
                 placeholder={t('config.instructionPlaceholder')}
@@ -257,8 +250,8 @@ export default function NodeConfigPanel({
             <p className="mb-1 text-xs text-gray-400">
               {t('config.branchHint')}
             </p>
-            <textarea
-              className={`${inputClass} h-40 resize-none font-mono text-xs`}
+            <Textarea
+              className="h-40 resize-none font-mono text-xs"
               value={node.config ?? ''}
               onChange={(e) => onChange({ config: e.target.value })}
               placeholder={'{\n  "branches": [\n    {"handle":"true","expression":"{{prev.output}} == yes"},\n    {"handle":"false"}\n  ]\n}'}
@@ -271,17 +264,15 @@ export default function NodeConfigPanel({
           <>
             <div>
               <label className={labelClass}>{t('config.maxLoopIterations')}</label>
-              <input
+              <Input
                 type="number"
-                className={inputClass}
                 value={(config.maxIterations as number) ?? 5}
                 onChange={(e) => updateConfig('maxIterations', parseInt(e.target.value) || 5)}
               />
             </div>
             <div>
               <label className={labelClass}>{t('config.exitCondition')}</label>
-              <input
-                className={inputClass}
+              <Input
                 value={(config.exitCondition as string) ?? ''}
                 onChange={(e) => updateConfig('exitCondition', e.target.value)}
                 placeholder={'{{prev.output}} == done'}
@@ -306,8 +297,8 @@ export default function NodeConfigPanel({
             </div>
             <div>
               <label className={labelClass}>{t('config.argumentsTemplate')}</label>
-              <textarea
-                className={`${inputClass} h-24 resize-none font-mono text-xs`}
+              <Textarea
+                className="h-24 resize-none font-mono text-xs"
                 value={(config.argumentsTemplate as string) ?? '{}'}
                 onChange={(e) => updateConfig('argumentsTemplate', e.target.value)}
                 placeholder={'{\n  "query": "{{start.input}}"\n}'}
@@ -331,8 +322,7 @@ export default function NodeConfigPanel({
             </div>
             <div>
               <label className={labelClass}>{t('config.inputTemplate')}</label>
-              <input
-                className={inputClass}
+              <Input
                 value={(config.inputTemplate as string) ?? ''}
                 onChange={(e) => updateConfig('inputTemplate', e.target.value)}
                 placeholder="{{start.input}}"
@@ -346,8 +336,8 @@ export default function NodeConfigPanel({
           <>
             <div>
               <label className={labelClass}>{t('config.approvalPrompt')}</label>
-              <textarea
-                className={`${inputClass} h-20 resize-none`}
+              <Textarea
+                className="h-20 resize-none"
                 value={(config.prompt as string) ?? ''}
                 onChange={(e) => updateConfig('prompt', e.target.value)}
                 placeholder={t('config.approvalPromptPlaceholder')}
@@ -355,9 +345,8 @@ export default function NodeConfigPanel({
             </div>
             <div>
               <label className={labelClass}>{t('config.timeoutSeconds')}</label>
-              <input
+              <Input
                 type="number"
-                className={inputClass}
                 value={(config.timeoutSeconds as number) ?? 300}
                 onChange={(e) => updateConfig('timeoutSeconds', parseInt(e.target.value) || 300)}
               />
@@ -369,8 +358,8 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.Merge && (
           <div>
             <label className={labelClass}>{t('config.outputTemplate')}</label>
-            <textarea
-              className={`${inputClass} h-20 resize-none font-mono text-xs`}
+            <Textarea
+              className="h-20 resize-none font-mono text-xs"
               value={(config.outputTemplate as string) ?? ''}
               onChange={(e) => updateConfig('outputTemplate', e.target.value)}
               placeholder={t('config.mergeOutputTemplatePlaceholder', { ref: '{{branchA.output}}' })}
@@ -383,8 +372,8 @@ export default function NodeConfigPanel({
         {node.type === WorkflowNodeTypes.End && (
           <div>
             <label className={labelClass}>{t('config.outputTemplate')}</label>
-            <textarea
-              className={`${inputClass} h-20 resize-none font-mono text-xs`}
+            <Textarea
+              className="h-20 resize-none font-mono text-xs"
               value={(config.outputTemplate as string) ?? ''}
               onChange={(e) => updateConfig('outputTemplate', e.target.value)}
               placeholder={t('config.endOutputTemplatePlaceholder', { ref: '{{agent.output}}' })}

@@ -20,6 +20,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INotebook } from '../types'
+import { Button, Input } from './ui'
 
 function NotebookTreeItem({
   notebook,
@@ -209,13 +210,10 @@ function NotebookTreeItem({
             {t('common:rename')}
           </button>
           <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-          <button
-            onClick={() => { closeMenu(); handleDelete() }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
+          <Button variant="link" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:text-gray-600" onClick={() => { closeMenu(); handleDelete() }}>
             <Trash2 size={14} />
             {t('common:delete')}
-          </button>
+          </Button>
         </div>,
         document.body
       )}
@@ -279,7 +277,7 @@ export default function Sidebar() {
           {isAddingRoot ? (
             <div className="mb-1 flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 dark:border-gray-700">
               <Folder size={14} className="shrink-0 text-blue-500" />
-              <input
+              <Input tone="blue"
                 autoFocus
                 value={rootName}
                 onChange={(e) => setRootName(e.target.value)}
@@ -292,7 +290,7 @@ export default function Sidebar() {
                 }}
                 onBlur={handleCreateRoot}
                 placeholder={t('notebook.namePlaceholder')}
-                className="min-w-0 flex-1 text-[13px] outline-none dark:bg-transparent"
+                className="min-w-0 flex-1"
               />
             </div>
           ) : (

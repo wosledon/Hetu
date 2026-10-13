@@ -23,6 +23,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INote, INotebook } from '../types'
+import { Button, IconButton, Input } from './ui'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -167,16 +168,13 @@ function NotebookNode({
         >
           {notebook.name}
         </span>
-        <button
-          onClick={(e) => {
+        <IconButton variant="ghost" label={t('common:create')} className="p-0.5 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-gray-100" onClick={(e) => {
             e.stopPropagation()
             setAddMenu({ x: e.clientX, y: e.clientY })
           }}
-          title={t('common:create')}
-          className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700"
-        >
+          title={t('common:create')}>
           <Plus size={13} />
-        </button>
+        </IconButton>
       </div>
 
       {isAddingChild && (
@@ -356,11 +354,11 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         </div>
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
+          <Input tone="blue" size="sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('tree.searchPlaceholder')}
-            className="w-full rounded-lg border border-gray-200/80 bg-gray-50/80 py-1.5 pl-7 pr-2 text-[13px] outline-none transition-all placeholder:text-gray-400 focus:border-blue-300 focus:bg-white dark:border-gray-700/50 dark:bg-gray-800/50 dark:focus:border-blue-600"
+            className="w-full pl-7 pr-2"
           />
         </div>
       </div>
@@ -370,7 +368,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         {isAddingRoot ? (
           <div className="mb-1 flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 dark:border-gray-700">
             <FolderPlus size={14} className="shrink-0 text-blue-500" />
-            <input
+            <Input tone="blue"
               autoFocus
               value={rootName}
               onChange={(e) => setRootName(e.target.value)}
@@ -380,17 +378,14 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
               }}
               onBlur={handleCreateRootNotebook}
               placeholder={t('notebook.namePlaceholder')}
-              className="min-w-0 flex-1 text-[13px] outline-none dark:bg-transparent"
+              className="min-w-0 flex-1"
             />
           </div>
         ) : (
-          <button
-            onClick={() => setIsAddingRoot(true)}
-            className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:text-blue-300"
-          >
+          <Button variant="ghost" tone="gray" className="mb-1 flex w-full items-center gap-1.5 px-3 py-2.5 text-left text-gray-500" onClick={() => setIsAddingRoot(true)}>
             <Plus size={14} className="shrink-0" />
             {t('notebook.new')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -486,33 +481,24 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
             </button>
             {leafMenu.showMove && (
               <div className="max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
-                <button
-                  onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
+                <Button variant="ghost" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-600" onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}>
                   <Inbox size={12} />
                   {t('note.uncategorized')}
-                </button>
+                </Button>
                 {notebooks.map(nb => (
-                  <button
-                    key={nb.id}
-                    onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id })}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
+                  <Button variant="ghost" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-600 hover:bg-gray-100 hover:text-gray-500" key={nb.id}
+                    onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id })}>
                     <Folder size={12} />
                     {nb.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
             <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <button
-              onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-            >
+            <Button variant="link" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-gray-50 hover:text-blue-600" onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}>
               <Trash2 size={13} />
               {t('common:delete')}
-            </button>
+            </Button>
           </div>
         </>,
         document.body

@@ -5,6 +5,7 @@ import { FolderGit2, Loader2, RefreshCw } from 'lucide-react'
 import { settingService, type WorktreeCleanupConfig } from '../services/settingService'
 import { formatDateTime } from '../utils/locale'
 import Select from './Select'
+import { Button, Input } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -78,7 +79,7 @@ export default function WorktreeCleanupSettings() {
   }
 
   const numberField = (value: number, min: number, max: number, onChange: (v: number) => void) => (
-    <input
+    <Input tone="indigo" glass
       type="number"
       min={min}
       max={max}
@@ -87,7 +88,7 @@ export default function WorktreeCleanupSettings() {
         const v = parseInt(e.target.value || '0', 10) || 0
         onChange(Math.min(max, Math.max(min, v)))
       }}
-      className="w-28 rounded-lg border border-gray-200 bg-white glass px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700"
+      className="w-28"
     />
   )
 
@@ -147,14 +148,11 @@ export default function WorktreeCleanupSettings() {
           <p className="font-medium">{t('worktreeCleanup.manualTitle')}</p>
           <p className="mt-0.5 text-emerald-600/80 dark:text-emerald-300/80">{t('worktreeCleanup.manualHint')}</p>
         </div>
-        <button
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50"
-        >
+        <Button variant="primary" tone="emerald" className="flex shrink-0 items-center gap-1.5 px-4 py-2" onClick={() => runMutation.mutate()}
+          disabled={runMutation.isPending}>
           {runMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           {runMutation.isPending ? t('worktreeCleanup.running') : t('worktreeCleanup.runOnce')}
-        </button>
+        </Button>
       </div>
 
       {runResult && (

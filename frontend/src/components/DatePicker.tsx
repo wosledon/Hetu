@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button, IconButton } from './ui'
 
 export interface DatePickerProps {
   /** YYYY-MM-DD，空字符串表示未选择 */
@@ -125,23 +126,19 @@ export default function DatePicker({
           className="z-[9999] w-[260px] rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
         >
           <div className="mb-2 flex items-center justify-between">
-            <button
-              type="button"
+            <IconButton label={t('ui:datePicker.prevMonth')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" type="button"
               onClick={() => setNavMonth(new Date(year, month - 1, 1))}
-              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-              aria-label={t('ui:datePicker.prevMonth')}
-            >
+              
+              aria-label={t('ui:datePicker.prevMonth')}>
               <ChevronLeft size={15} />
-            </button>
+            </IconButton>
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{t('ui:datePicker.yearMonth', { year, month: month + 1 })}</span>
-            <button
-              type="button"
+            <IconButton label={t('ui:datePicker.nextMonth')} variant="ghost" className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600" type="button"
               onClick={() => setNavMonth(new Date(year, month + 1, 1))}
-              className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
-              aria-label={t('ui:datePicker.nextMonth')}
-            >
+              
+              aria-label={t('ui:datePicker.nextMonth')}>
               <ChevronRight size={15} />
-            </button>
+            </IconButton>
           </div>
 
           <div className="mb-1 grid grid-cols-7">
@@ -168,21 +165,15 @@ export default function DatePicker({
           </div>
 
           <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/[0.06]">
-            <button
-              type="button"
-              onClick={() => { const now = new Date(); onChange(toISO(now)); setNavMonth(new Date(now.getFullYear(), now.getMonth(), 1)) }}
-              className="rounded-lg px-2 py-1 text-[12px] text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
-            >
+            <Button variant="ghost" tone="blue" className="px-2 py-1 text-blue-600" type="button"
+              onClick={() => { const now = new Date(); onChange(toISO(now)); setNavMonth(new Date(now.getFullYear(), now.getMonth(), 1)) }}>
               {t('ui:datePicker.today')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button variant="ghost" tone="gray" className="px-2 py-1 text-gray-500" type="button"
               onClick={() => { onChange(''); close() }}
-              disabled={!selected}
-              className="rounded-lg px-2 py-1 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-40 dark:text-gray-400 dark:hover:bg-white/[0.06]"
-            >
+              disabled={!selected}>
               {t('ui:datePicker.clear')}
-            </button>
+            </Button>
           </div>
         </div>,
         document.body,

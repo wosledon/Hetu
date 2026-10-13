@@ -1,14 +1,18 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, CheckCircle2, Download, Loader2, RefreshCw, RotateCw, X } from 'lucide-react'
-import ThemedMarkdown from './ThemedMarkdown'
 import { useUpdateStore } from '../stores/updateStore'
 import { updateService } from '../services/updateService'
 import { useAppVersion } from '../hooks/useAppVersion'
 import { useReleaseNotes } from '../hooks/useReleaseNotes'
 import { openRepo } from '../utils/repo'
 import { isTauriAclError, openExternal } from '../utils/tauri'
+import { Button } from './ui'
+
+// 发布说明渲染链（react-markdown + katex + mermaid）很重，只在打开更新面板时才需要：
+// 懒加载，否则挂在 AppLayout 上会把整条链拖进每个页面的首屏
+const ThemedMarkdown = lazy(() => import('./ThemedMarkdown'))
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
@@ -48,7 +52,9 @@ function NotesBlock({ markdown }: { markdown: string }) {
         openExternal(href)
       }}
     >
-      <ThemedMarkdown source={compactLinks(markdown)} />
+      <Suspense fallback={null}>
+        <ThemedMarkdown source={compactLinks(markdown)} />
+      </Suspense>
     </div>
   )
 }
@@ -152,12 +158,9 @@ export default function UpdatePanel() {
               <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('update.currentNotes')}</p>
-                  <button
-                    onClick={openRepo}
-                    className="shrink-0 text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
-                  >
+                  <Button variant="link" tone="blue" className="shrink-0 text-blue-600 hover:bg-gray-100" onClick={openRepo}>
                     {t('update.viewOnGitHub')}
-                  </button>
+                  </Button>
                 </div>
                 {notesLoading ? (
                   <p className="text-[12px] text-gray-400 dark:text-gray-500">{t('common:loading')}</p>
@@ -172,22 +175,16 @@ export default function UpdatePanel() {
 
             <div className="mt-4 flex items-center justify-end gap-2">
               {(status === 'idle' || status === 'up-to-date' || status === 'error') && (
-                <button
-                  onClick={() => void check()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3.5 py-1.5 text-[12px] font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                >
+                <Button variant="link" tone="blue" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:text-blue-700" onClick={() => void check()}>
                   <RefreshCw size={12} />
                   {t('update.check')}
-                </button>
+                </Button>
               )}
               {status === 'available' && (
-                <button
-                  onClick={() => void install()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700"
-                >
+                <Button variant="ghost" tone="gray" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 hover:bg-gray-50" onClick={() => void install()}>
                   <Download size={12} />
                   {t('update.installNow')}
-                </button>
+                </Button>
               )}
               {status === 'downloading' && (
                 <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400">
@@ -196,13 +193,10 @@ export default function UpdatePanel() {
                 </span>
               )}
               {status === 'installed' && (
-                <button
-                  onClick={() => void restart()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-700"
-                >
+                <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 hover:bg-blue-700" onClick={() => void restart()}>
                   <RotateCw size={12} />
                   {t('update.restart')}
-                </button>
+                </Button>
               )}
             </div>
 

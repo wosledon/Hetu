@@ -10,6 +10,7 @@ import { renderToolName } from '../../utils/toolRendering'
 import QuestionFlow from '../tools/QuestionFlow'
 import PlanFlow from '../tools/PlanFlow'
 import type { InteractionPlan } from '../../stores/interactionStore'
+import { Button } from '../ui'
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
@@ -119,18 +120,12 @@ export default function InlineWorkflowPanel({
         <div className="flex items-center gap-2 border-t border-orange-200 bg-orange-50 px-3 py-2.5 dark:border-orange-800 dark:bg-orange-950/30">
           <UserCheck size={14} className="text-orange-500 shrink-0" />
           <span className="text-xs text-orange-700 dark:text-orange-300 flex-1 truncate">{pendingApproval.prompt}</span>
-          <button
-            onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, true)}
-            className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
-          >
+          <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 hover:text-blue-600" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, true)}>
             <Check size={11} /> {t('approval.approve')}
-          </button>
-          <button
-            onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, false)}
-            className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-          >
+          </Button>
+          <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-green-700" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, false)}>
             <X size={11} /> {t('approval.reject')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -159,18 +154,12 @@ export default function InlineWorkflowPanel({
                 }
               })()}
             </div>
-            <button
-              onClick={() => onToolApprove(true)}
-              className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
-            >
+            <Button variant="danger" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-red-700" onClick={() => onToolApprove(true)}>
               <Check size={11} /> {t('approval.approve')}
-            </button>
-            <button
-              onClick={() => onToolApprove(false)}
-              className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
-            >
+            </Button>
+            <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-green-700" onClick={() => onToolApprove(false)}>
               <X size={11} /> {t('approval.reject')}
-            </button>
+            </Button>
           </div>
         )
       })()}
@@ -215,7 +204,7 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
           <div className="text-xs text-violet-700 dark:text-violet-300">{t('inline.waitingUserInput')}</div>
           <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
         </div>
-        <button onClick={() => onSubmit('')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> {t('inline.submit')}</button>
+        <Button variant="danger" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-red-700" onClick={() => onSubmit('')}><Check size={11} /> {t('inline.submit')}</Button>
       </div>
     )
   }
@@ -283,8 +272,8 @@ function WorkflowPlanPanel({ arguments: argsJson, onSubmit }: {
           <div className="text-xs text-teal-700 dark:text-teal-300">{t('inline.waitingPlanConfirm')}</div>
           <div className="text-[10px] text-gray-400 truncate">{argsJson.slice(0, 200)}</div>
         </div>
-        <button onClick={() => onSubmit(true, '')} className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"><Check size={11} /> {t('approval.approve')}</button>
-        <button onClick={() => onSubmit(false, '')} className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"><X size={11} /> {t('approval.reject')}</button>
+        <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-green-700" onClick={() => onSubmit(true, '')}><Check size={11} /> {t('approval.approve')}</Button>
+        <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-2 py-1 hover:bg-green-700" onClick={() => onSubmit(false, '')}><X size={11} /> {t('approval.reject')}</Button>
       </div>
     )
   }

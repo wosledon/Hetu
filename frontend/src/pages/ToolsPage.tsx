@@ -5,6 +5,7 @@ import AppLayout from '../components/AppLayout'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
 import { renderToolGroup } from '../utils/toolRendering'
 import { ChevronDown, ChevronRight, Search, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
+import { Button, Input } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
 const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
@@ -73,13 +74,10 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
 
           {(tool.usageGuideline || schema) && (
             <>
-              <button
-                onClick={() => setOpen((v) => !v)}
-                className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
+              <Button variant="link" tone="gray" className="mt-2 flex items-center gap-1 text-gray-500 hover:text-gray-700" onClick={() => setOpen((v) => !v)}>
                 {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 {t('toolsPage.parametersAndGuidelines')}
-              </button>
+              </Button>
 
               {open && (
                 <div className="mt-2 flex flex-col gap-2">
@@ -153,11 +151,11 @@ export default function ToolsPage() {
         <div className="mb-4 flex flex-col gap-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
+            <Input tone="blue" glass
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder={t('toolsPage.searchPlaceholder')}
-              className="w-full rounded-lg border border-gray-200 bg-white glass py-2 pl-9 pr-3 text-xs outline-none transition-colors placeholder:text-gray-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
+              className="w-full pl-9 pr-3 text-xs dark:text-gray-200"
             />
           </div>
 

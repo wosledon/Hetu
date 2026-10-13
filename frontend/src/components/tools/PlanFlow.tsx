@@ -1,6 +1,7 @@
 import { Check, CircleCheckBig, ListChecks, Loader2, MessageSquare, Play, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InteractionPlan } from '../../stores/interactionStore'
+import { Button } from '../ui'
 
 interface PlanFlowProps {
   plan: InteractionPlan
@@ -112,18 +113,12 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => onDecide(false)}
-              className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
-            >
+            <Button variant="outline" tone="red" size="sm" className="flex items-center gap-1.5 px-3.5 py-1.5 text-red-600" onClick={() => onDecide(false)}>
               <X size={13} /> {t('plan.reject')}
-            </button>
-            <button
-              onClick={() => onDecide(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-600 hover:shadow"
-            >
+            </Button>
+            <Button variant="primary" tone="teal" size="sm" className="flex items-center gap-1.5 px-4 py-1.5" onClick={() => onDecide(true)}>
               <Play size={12} /> {t('plan.approve')}
-            </button>
+            </Button>
           </div>
         </div>
       )}

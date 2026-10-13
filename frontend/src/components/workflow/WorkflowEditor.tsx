@@ -28,6 +28,7 @@ import NodePalette from './NodePalette'
 import NodeConfigPanel from './NodeConfigPanel'
 import type { IPromptPreset } from '../../types'
 import type { NodeTypes } from '@xyflow/react'
+import { Button, Input, Textarea } from '../ui'
 
 interface WorkflowEditorProps {
   workflow: IWorkflow
@@ -166,9 +167,9 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
     <div className="flex h-full flex-1 flex-col">
       {/* 工具栏 */}
       <div className="flex items-center gap-2 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
-        <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
+        <Button variant="ghost" tone="gray" className="flex items-center gap-1 px-2 py-1 text-gray-600" onClick={onBack}>
           <ChevronLeft size={16} /> {t('common:back')}
-        </button>
+        </Button>
         <div className="h-4 w-px bg-gray-200 dark:bg-white/[0.08]" />
         {/* 名称/描述 可编辑 */}
         <div className="relative">
@@ -186,30 +187,27 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
               <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
                 <div>
                   <label className="mb-1 block text-[11px] text-gray-400">{t('common:name')}</label>
-                  <input
+                  <Input tone="blue" size="sm"
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={t('editor.namePlaceholder')}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] text-gray-400">{t('common:description')}</label>
-                  <textarea
+                  <Textarea tone="blue" size="sm"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t('editor.descriptionPlaceholder')}
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300 focus:bg-white dark:border-gray-700 dark:bg-gray-900"
+                    className="w-full resize-none"
                   />
                 </div>
-                <button
-                  onClick={() => setShowMeta(false)}
-                  className="w-full rounded-lg bg-blue-500 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
-                >
+                <Button variant="ghost" tone="gray" className="w-full py-1.5" onClick={() => setShowMeta(false)}>
                   {t('editor.done')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -229,25 +227,23 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           {isEnabled ? t('common:enable') : t('common:disable')}
         </button>
         <div className="flex-1" />
-        <button onClick={autoLayout} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
+        <Button variant="primary" tone="blue" size="sm" className="flex items-center gap-1 px-2.5 py-1.5 text-gray-600" onClick={autoLayout}>
           <Layout size={14} /> {t('editor.autoLayout')}
-        </button>
+        </Button>
         {!isNew && (
-          <button onClick={handleValidate} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
+          <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-2.5 py-1.5 text-gray-600" onClick={handleValidate}>
             <CheckCircle size={14} /> {t('editor.validate')}
-          </button>
+          </Button>
         )}
-        <button
-          onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
+        <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={() => onRun({ ...workflow, name, description, isEnabled, nodes: collectNodes(), edges: collectEdges() })}
           disabled={isNew}
-          className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-40"
-          title={isNew ? t('editor.runAfterSave') : t('common:run')}
-        >
+          
+          title={isNew ? t('editor.runAfterSave') : t('common:run')}>
           <Play size={14} /> {t('common:run')}
-        </button>
-        <button onClick={handleSave} disabled={saveMut.isPending} className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50">
+        </Button>
+        <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 px-3 py-1.5" onClick={handleSave} disabled={saveMut.isPending}>
           {saved ? <CheckCircle size={14} /> : <Save size={14} />} {saved ? t('common:saved') : t('common:save')}
-        </button>
+        </Button>
       </div>
 
       {/* 校验结果 */}

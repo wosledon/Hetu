@@ -13,6 +13,7 @@ import { useUIStore } from '../stores/uiStore'
 import i18n from '../i18n'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
+import { Button, IconButton, Input, Modal, Textarea } from '../components/ui'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
@@ -1029,13 +1030,10 @@ export default function MemoriesPage() {
                   </>
                 )}
               </div>
-              <button
-                onClick={() => setView('sky')}
-                title={t('memories.backToSky')}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600"
-              >
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 text-gray-600 hover:bg-indigo-400" onClick={() => setView('sky')}
+                title={t('memories.backToSky')}>
                 <Sparkles size={14} />{t('memories.starMap')}
-              </button>
+              </Button>
             </div>
 
             {/* Dream 巩固面板：索引模式下与星空模式共用同一份巩固能力 */}
@@ -1053,15 +1051,12 @@ export default function MemoriesPage() {
                     {degradingCount > 0 && ` · ${t('memories.degrading', { n: degradingCount })}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => dreamMutation.mutate()}
+                <Button variant="secondary" pill className="ml-auto flex shrink-0 items-center gap-1.5 px-3.5 py-2 shadow-indigo-500/20 hover:border-blue-300 hover:text-gray-800" onClick={() => dreamMutation.mutate()}
                   disabled={dreamMutation.isPending}
-                  title={t('memories.dreamTitle')}
-                  className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-600 disabled:opacity-50"
-                >
+                  title={t('memories.dreamTitle')}>
                   {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
                   {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dreamShort')}
-                </button>
+                </Button>
               </div>
               {dreamMsg && (
                 <p className="mt-3 animate-fade-in rounded-lg bg-white/70 px-3 py-2 text-xs text-indigo-800 dark:bg-white/[0.05] dark:text-indigo-200">
@@ -1118,12 +1113,12 @@ export default function MemoriesPage() {
               </div>
               <div className="relative min-w-[180px] max-w-xs flex-1">
                 <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
+                <Input tone="teal" glass pill
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('memories.searchPlaceholder')}
-                  className="w-full rounded-full border border-gray-200 bg-white glass py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-800 dark:bg-gray-900 dark:focus:ring-teal-950/40"
+                  className="w-full pl-10 pr-3 text-sm"
                 />
               </div>
               {view === 'list' && (
@@ -1192,11 +1187,11 @@ export default function MemoriesPage() {
                     {editingId === memory.id ? (
                       /* 编辑模式 */
                       <div>
-                        <textarea
+                        <Textarea tone="teal"
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
                           rows={3}
-                          className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition-all focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-teal-950/40"
+                          className="mb-3 w-full dark:text-gray-100"
                         />
                         <div className="mb-3 flex flex-wrap gap-3">
                           <div className="min-w-[140px]">
@@ -1230,12 +1225,12 @@ export default function MemoriesPage() {
                         </div>
                         <div className="mb-3 flex flex-wrap gap-3">
                           <div className="min-w-[160px] flex-1">
-                            <input
+                            <Input tone="teal" size="sm"
                               type="text"
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
                               placeholder={t('memories.category')}
-                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                              className="w-full dark:text-gray-100"
                             />
                           </div>
                           <div className="w-40">
@@ -1252,12 +1247,9 @@ export default function MemoriesPage() {
                           </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
+                          <Button variant="primary" tone="indigo" className="px-3 py-1.5 text-gray-500" onClick={() => setEditingId(null)}>
                             {t('common:cancel')}
-                          </button>
+                          </Button>
                           <button
                             onClick={() => handleUpdate(memory.id)}
                             className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
@@ -1298,22 +1290,18 @@ export default function MemoriesPage() {
                             )}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5">
-                            <button
-                              onClick={() => startEdit(memory)}
-                              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
-                              title={t('common:edit')}
-                            >
+                            <IconButton label={t('common:edit')} variant="ghost" className="p-1.5 text-gray-400" onClick={() => startEdit(memory)}
+                              
+                              title={t('common:edit')}>
                               <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => {
+                            </IconButton>
+                            <IconButton variant="ghost" label={t('common:delete')} className="p-1.5 text-gray-400 hover:bg-gray-100" onClick={() => {
                                 confirm({ message: t('memories.deleteConfirm'), onConfirm: () => deleteMutation.mutate(memory.id) })
                               }}
-                              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-white/[0.06] dark:hover:text-red-400"
-                              title={t('common:delete')}
-                            >
+                              
+                              title={t('common:delete')}>
                               <Trash2 size={14} />
-                            </button>
+                            </IconButton>
                           </div>
                         </div>
                       </div>
@@ -1330,8 +1318,8 @@ export default function MemoriesPage() {
     >
       {/* 新建记忆对话框 */}
       {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setIsCreating(false)}>
-          <div className="mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900 glass" onClick={(e) => e.stopPropagation()}>
+        <Modal open onClose={() => setIsCreating(false)} className="max-w-md overflow-hidden">
+
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <Atom size={18} className="text-teal-500" />
@@ -1344,13 +1332,13 @@ export default function MemoriesPage() {
             <div className="space-y-4 px-5 py-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.content')}</label>
-                <textarea
+                <Textarea tone="teal" size="lg"
                   autoFocus
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   placeholder={t('memories.contentPlaceholder')}
                   rows={4}
-                  className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
+                  className="w-full resize-none"
                 />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1384,12 +1372,12 @@ export default function MemoriesPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t('memories.category')}</label>
-                <input
+                <Input tone="teal" size="lg"
                   type="text"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   placeholder={t('memories.categoryPlaceholder')}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-teal-950/40"
+                  className="w-full"
                 />
               </div>
               <div>
@@ -1408,12 +1396,9 @@ export default function MemoriesPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-              <button
-                onClick={() => setIsCreating(false)}
-                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
+              <Button variant="ghost" className="px-4 py-2 text-gray-600" onClick={() => setIsCreating(false)}>
                 {t('common:cancel')}
-              </button>
+              </Button>
               <button
                 onClick={handleCreate}
                 disabled={!newContent.trim() || createMutation.isPending || (newScope === 'Project' && !newProjectId)}
@@ -1422,8 +1407,7 @@ export default function MemoriesPage() {
                 {createMutation.isPending ? t('memories.saving') : t('common:save')}
               </button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </AppLayout>
   )

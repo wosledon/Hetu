@@ -40,6 +40,7 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
+import { Button, IconButton, Input } from './ui'
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -894,14 +895,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
         <div className="flex items-center gap-1">
           {topic.isMain && (
-            <button
-              onClick={handleClearTopic}
+            <IconButton label={t('messageArea.clearMain')} variant="danger" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500" onClick={handleClearTopic}
               disabled={isStreaming || clearTopicMutation.isPending}
-              className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-red-400"
-              title={t('messageArea.clearMain')}
-            >
+              
+              title={t('messageArea.clearMain')}>
               {clearTopicMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Eraser size={15} />}
-            </button>
+            </IconButton>
           )}
           <button
             onClick={() => { setShowSearch(!showSearch); if (showSearch) { setSearchQuery(''); setSearchResults([]) } }}
@@ -910,23 +909,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           >
             <Search size={15} />
           </button>
-          <button
-            onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
+          <IconButton label={t('messageArea.forkTopic')} variant="ghost" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600" onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
             disabled={messages.length === 0}
-            className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300"
-            title={t('messageArea.forkTopic')}
-          >
+            
+            title={t('messageArea.forkTopic')}>
             <GitBranch size={15} />
-          </button>
-          <button
-            onClick={() => setShowOrganizeOptions(!showOrganizeOptions)}
-            disabled={isOrganizing || isStreaming || messages.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-          >
+          </IconButton>
+          <Button variant="ghost" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5 text-emerald-600" onClick={() => setShowOrganizeOptions(!showOrganizeOptions)}
+            disabled={isOrganizing || isStreaming || messages.length === 0}>
             <FileText size={14} />
             {isOrganizing ? t('messageArea.organizing') : t('messageArea.organize')}
             <ChevronDown size={12} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -962,14 +956,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             </div>
             <div className="flex-1 relative">
               <span className="mb-1 block text-[11px] text-gray-500">{t('messageArea.targetNotebook')}</span>
-              <button
-                type="button"
-                onClick={() => setShowNotebookPicker(!showNotebookPicker)}
-                className="w-full rounded-lg border border-gray-200 bg-white glass px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800"
-              >
+              <Button variant="secondary" size="sm" className="w-full px-2.5 py-1.5 text-left flex items-center justify-between" type="button"
+                onClick={() => setShowNotebookPicker(!showNotebookPicker)}>
                 <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : t('shared.defaultNotebook')}</span>
                 <ChevronDown size={12} className="text-gray-400 shrink-0" />
-              </button>
+              </Button>
               {showNotebookPicker && (
                 <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   <button
@@ -988,19 +979,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 </div>
               )}
             </div>
-            <button
-              onClick={() => { setShowOrganizeOptions(false); handleOrganize() }}
-              disabled={isOrganizing}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
+            <Button variant="primary" tone="emerald" size="sm" className="px-3 py-1.5 hover:bg-emerald-700" onClick={() => { setShowOrganizeOptions(false); handleOrganize() }}
+              disabled={isOrganizing}>
               {t('messageArea.startOrganize')}
-            </button>
-            <button
-              onClick={() => setShowOrganizeOptions(false)}
-              className="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
+            </Button>
+            <Button variant="ghost" tone="gray" size="sm" className="px-3 py-1.5 text-gray-500 hover:bg-gray-200" onClick={() => setShowOrganizeOptions(false)}>
               {t('common:cancel')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1010,16 +995,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           <div className="flex gap-2 mb-2">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
+              <Input tone="indigo" size="sm"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
                 placeholder={t('messageArea.searchPlaceholder')}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 outline-none focus:border-indigo-400"
+                className="w-full pl-8 pr-3"
               />
             </div>
-            <button onClick={handleSearch} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">{t('common:search')}</button>
+            <Button variant="primary" tone="indigo" className="px-3 py-1.5 hover:bg-indigo-700" onClick={handleSearch}>{t('common:search')}</Button>
           </div>
           {searchResults.length > 0 && (
             <div className="max-h-48 overflow-y-auto space-y-1">
@@ -1092,14 +1077,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 {/* 时间线为空但仍有思考内容的降级渲染 */}
                 {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-                    <button
-                      onClick={() => setShowThinking(!showThinking)}
-                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60"
-                    >
+                    <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-gray-500 hover:bg-gray-100/60" onClick={() => setShowThinking(!showThinking)}>
                       {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
                       <Brain size={11} className="shrink-0 text-gray-400" />
                       <span>{t('messageArea.deepThinking')}</span>
-                    </button>
+                    </Button>
                     {showThinking && (
                       <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-transparent px-2.5 py-2 dark:border-gray-800 dark:bg-transparent">
                         <ThemedMarkdown source={streamingThinking} />
@@ -1210,7 +1192,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           <div className="mt-2 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <Gauge size={14} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{contextNotice}</span>
-            <button onClick={() => setContextNotice(null)} className="shrink-0 text-amber-500 hover:text-amber-700 dark:hover:text-amber-200"><X size={13} /></button>
+            <Button variant="link" tone="amber" className="shrink-0 text-amber-500 hover:text-red-600" onClick={() => setContextNotice(null)}><X size={13} /></Button>
           </div>
         )}
 
