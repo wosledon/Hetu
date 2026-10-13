@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
@@ -64,6 +64,9 @@ const verticalNavItemClass = (isActive: boolean) =>
 const railTrackClass =
   'flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track'
 
+/** 导轨紧凑态上次判定（模块级，跨路由重挂载存活）：首帧即用对的样子，避免展开→收起闪烁 */
+let lastRailCompact = false
+
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
 function NavUnreadBadge() {
   const { data } = useQuery({
@@ -95,7 +98,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const moreBtnRef = useRef<HTMLButtonElement>(null)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const railRef = useRef<HTMLElement>(null)
-  const [railCompact, setRailCompact] = useState(false)
+  const [railCompact, setRailCompact] = useState(lastRailCompact)
 
   const isVertical = navStyle === 'vertical'
   // 非垂直导航固定平铺：用派生值代替「在 effect 里同步 setState 复位」
@@ -116,8 +119,10 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     [lastMoreItem, pinnedNavItems],
   )
 
-  // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"
-  useEffect(() => {
+  // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"。
+  // 判定放在布局效应里（首帧绘制前生效）：放在被动效应里会先绘制一帧展开态再收起，
+  // 导轨 visibly 闪一下。同时把上次判定缓存到模块级，重挂载首帧即用对的样子。
+  useLayoutEffect(() => {
     if (!isVertical) return
     const el = railRef.current
     if (!el) return
@@ -132,16 +137,20 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       if (spacer && prevDisplay !== undefined) spacer.style.display = prevDisplay
       return content
     }
+    const apply = (compact: boolean) => {
+      lastRailCompact = compact
+      setRailCompact(compact)
+    }
     const check = () => {
       const content = measure()
-      if (content > el.clientHeight + 1) { setRailCompact(true); return }
+      if (content > el.clientHeight + 1) { apply(true); return }
       // 收起态或刚切回垂直导航：估算展开全部可配置项后的增量，放得下则恢复平铺
       const itemEl = el.querySelector<HTMLElement>('[data-rail-item]')
       const itemWithGap = (itemEl?.offsetHeight ?? 52) + 2
       const lm = lastMoreItemData ? 1 : 0
       const more = unpinnedItems.length > 0 ? 1 : 0
       const delta = (allConfigurableItems.length - pinnedItems.length - lm - more) * itemWithGap
-      if (el.clientHeight - content >= delta - 1) setRailCompact(false)
+      if (el.clientHeight - content >= delta - 1) apply(false)
     }
     check()
     const observer = new ResizeObserver(check)
