@@ -17,7 +17,7 @@ import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
-import { Button, IconButton } from '../components/ui'
+import { Button, Card, IconButton } from '../components/ui'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -337,7 +337,7 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <div className="flex h-full min-w-0 flex-1 bg-transparent">
         {/* 项目列表 */}
-        <aside className="flex h-full w-52 shrink-0 flex-col border-r border-transparent bg-white glass glass-soft dark:bg-gray-900">
+        <Card padded={false} className="flex h-full w-52 shrink-0 flex-col border-r border-transparent">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -385,10 +385,10 @@ export default function WikiPage() {
               )}
             </div>
           </div>
-        </aside>
+        </Card>
 
         {/* Wiki 套件与页面 */}
-        <aside className="flex h-full w-56 shrink-0 flex-col border-r border-transparent bg-white glass glass-soft dark:bg-gray-900">
+        <Card padded={false} className="flex h-full w-56 shrink-0 flex-col border-r border-transparent">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
@@ -453,7 +453,7 @@ export default function WikiPage() {
               })
             )}
           </div>
-        </aside>
+        </Card>
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
           <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
