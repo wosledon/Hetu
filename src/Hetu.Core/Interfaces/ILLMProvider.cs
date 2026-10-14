@@ -90,6 +90,13 @@ public class ChatOptions
     /// </summary>
     public int? ReasoningBudgetTokens { get; set; }
     /// <summary>
+    /// 推理模型把答复写进 reasoning_content 时的流内兜底：一旦判定为正文就按 content 转发。
+    /// 聊天默认开启（流式出正文）；文档生成等批量场景应关闭——起草常发生在思考里
+    /// （含草稿标题/图表骨架），流内启发式会误判，把整段思考混进正文；关闭后思考与
+    /// 正文各自独立上报，调用方在流结束后自行取舍。
+    /// </summary>
+    public bool FallbackReasoningToContent { get; set; } = true;
+    /// <summary>
     /// 可用工具定义列表（传给 LLM）
     /// </summary>
     public List<LlmToolDefinition>? Tools { get; set; }

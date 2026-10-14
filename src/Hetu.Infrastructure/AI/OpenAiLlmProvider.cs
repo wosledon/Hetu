@@ -101,19 +101,24 @@ public class OpenAiLlmProvider : ILLMProvider
             // return reasoning and content in the SAME chunk, so they must not be mutually
             // exclusive (an else-if here would drop the content whenever reasoning is present).
             //
-            // 思考转正文的兜底：部分推理模型/中转在思考结束后不守约定，把正式答复继续写进
-            // reasoning_content（整轮 content 为空，正文全混在思考里）。检测到正文章节特征
-            // （Markdown 标题/有序列表等）时从该点起切换为正文，单向不可逆——符合"先思考后作答"。
+            // 思考转正文的兜底（FallbackReasoningToContent=true，聊天默认开）：部分推理模型/
+            // 中转在思考结束后不守约定，把正式答复继续写进 reasoning_content（整轮 content 为空，
+            // 正文全混在思考里）。检测到正文章节特征（Markdown 标题/有序列表等）时从该点起切换为
+            // 正文，单向不可逆——符合"先思考后作答"。文档生成等批量场景须关闭：模型在思考里
+            // 起草文档很常见（草稿标题、mermaid 骨架都会命中特征），误切会把整段思考混进正文。
             if (!string.IsNullOrEmpty(reasoning))
             {
-                if (!reasoningTurnedToAnswer && !string.IsNullOrEmpty(content))
+                if (options.FallbackReasoningToContent)
                 {
-                    // 本帧同时带正文：说明模型遵守约定，不做兜底切换
-                    reasoningTurnedToAnswer = true;
-                }
-                if (!reasoningTurnedToAnswer && LooksLikeAnswerStart(reasoning))
-                {
-                    reasoningTurnedToAnswer = true;
+                    if (!reasoningTurnedToAnswer && !string.IsNullOrEmpty(content))
+                    {
+                        // 本帧同时带正文：说明模型遵守约定，不做兜底切换
+                        reasoningTurnedToAnswer = true;
+                    }
+                    if (!reasoningTurnedToAnswer && LooksLikeAnswerStart(reasoning))
+                    {
+                        reasoningTurnedToAnswer = true;
+                    }
                 }
                 yield return $"{{\"type\":\"{(reasoningTurnedToAnswer ? "content" : "thinking")}\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
             }

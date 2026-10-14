@@ -543,9 +543,12 @@ public class WikiService : IWikiService
         ILLMProvider provider, string initialPrompt, string systemPrompt,
         int inputTokens, string? preview, Guid? projectId, CancellationToken cancellationToken)
     {
-        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+        // 关闭流内思考→正文切换：模型必在思考里起草（草稿标题/图表骨架都会命中启发式），
+        // 误切会把整段自言自语混进正文（「对，这个能清楚表达关系」「等下，再调整下细节」…）。
+        // 思考与正文分开收集，流结束后取舍：正文通道有内容就用正文，否则从思考里抢救并激进清洗。
+        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken, fallbackReasoningToContent: false);
         await RecordWikiUsageAsync(initialPrompt, inputTokens, preview, projectId, first, cancellationToken);
-        var full = first.Content;
+        var full = PickBody(first);
         var finish = first.Finish;
 
         for (var round = 0; round < MaxContinueRounds; round++)
@@ -558,10 +561,10 @@ public class WikiService : IWikiService
             try
             {
                 var continuePrompt = BuildContinuePrompt(full);
-                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken, fallbackReasoningToContent: false);
                 // 续写不再经过压缩管道：输入 = 压缩后 = 实际发送
                 await RecordWikiUsageAsync(continuePrompt, LlmTokenEstimator.Estimate(continuePrompt), null, projectId, result, cancellationToken);
-                more = result.Content;
+                more = PickBody(result);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -584,6 +587,33 @@ public class WikiService : IWikiService
         // 统一清洗：粘连标题断行、剔除混进正文的思考/前言行
         return SanitizeWikiContent(full);
     }
+
+    /// <summary>
+    /// 取本次调用的正文：优先 content 通道；模型把整篇答复写进思考通道时从思考里抢救。
+    /// 思考流里混着大量自言自语（「对，这个能清楚表达关系」「等下，再调整下细节，更自然点？」）
+    /// 与零散草稿（半截 mermaid、导航清单），直接当正文会满篇口语。抢救策略：
+    /// 先行级清洗（粘连标题断行 + 剔口语行），再从第一个标题切出正式稿——
+    /// 模型的成稿几乎总以 ## 小节 开头（提示词要求），而口语规划里的标题是被
+    /// 「比如：## 项目简介」这类句子粘着的，断行后才认得出来。
+    /// </summary>
+    private static string PickBody(LlmCallResult result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.Content)) return result.Content;
+        var thinking = result.Thinking;
+        if (string.IsNullOrWhiteSpace(thinking)) return string.Empty;
+
+        var cleaned = SanitizeWikiContent(thinking);
+        var heading = HeadingStart.Match(cleaned);
+        if (heading.Success) return cleaned[heading.Index..];
+        // 无标题时退而求其次：从第一个代码围栏开始（图表/文件树成稿）
+        var fence = FenceStart.Match(cleaned);
+        return fence.Success ? cleaned[fence.Index..] : string.Empty;
+    }
+
+    /// <summary>标题行首（清理后文本里找成稿起点）</summary>
+    private static readonly Regex HeadingStart = new(@"(?m)^[ \t]*#{1,6}[ \t]", RegexOptions.Compiled);
+    /// <summary>代码围栏行首（无标题成稿的兜底起点）</summary>
+    private static readonly Regex FenceStart = new(@"(?m)^[ \t]*```", RegexOptions.Compiled);
 
     public async Task<ApiResponse<WikiDocumentDto>> RegeneratePageAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -732,26 +762,28 @@ public class WikiService : IWikiService
         try
         {
             var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
-            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken);
+            // 同正文生成：关流内思考切换，JSON 被写进思考通道时从思考里取
+            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken, fallbackReasoningToContent: false);
             await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
-            plans = ParseOutline(planResult.Content);
+            plans = ParseOutline(planResult.ContentOrThinking());
 
             // 解析失败时带原始回复重试一次：让模型只输出 JSON，别放弃规划（否则只能退回通用大纲）
             if (plans.Count == 0)
             {
+                var rawOutline = TruncateForLog(planResult.ContentOrThinking());
                 _logger.LogWarning(
                     "Wiki 大纲解析失败，带原始回复重试一次 projectId={ProjectId} raw={Raw}",
-                    project.Id, TruncateForLog(planResult.Content));
+                    project.Id, rawOutline);
                 var repairPrompt = $"""
                     上一次回复无法解析为 JSON。下面是你上次的回复，请严格按给定格式重新输出，只输出 JSON，不要任何解释文字。
                     格式：{JsonSpec}
 
                     【上次的回复】
-                    {TruncateForLog(planResult.Content)}
+                    {rawOutline}
                     """;
-                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken);
+                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken, fallbackReasoningToContent: false);
                 await RecordWikiUsageAsync(repairPrompt, LlmTokenEstimator.Estimate(repairPrompt), null, project.Id, retry, cancellationToken);
-                plans = ParseOutline(retry.Content);
+                plans = ParseOutline(retry.ContentOrThinking());
                 if (plans.Count == 0)
                     _logger.LogWarning("Wiki 大纲重试后仍无法解析 projectId={ProjectId} raw={Raw}", project.Id, TruncateForLog(retry.Content));
             }
