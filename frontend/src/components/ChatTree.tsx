@@ -3,8 +3,6 @@ import { forwardRef, useImperativeHandle, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
-  ChevronDown,
-  ChevronRight,
   MessageSquare,
   Plus,
   Trash2,
@@ -20,7 +18,7 @@ import {
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
 import MainChatEntry from './MainChatEntry'
-import { Button, Card, IconButton, Input } from './ui'
+import { Button, Card, IconButton, Input, TreeRow } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -123,53 +121,46 @@ function GroupNode({
 
   return (
     <div>
-      <div
-        className={`group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
-          isGroupFocused ? 'bg-gray-100/70 dark:bg-white/[0.06]' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-        }`}
+      <TreeRow
+        expandable
+        expanded={expanded}
+        onToggle={() => setExpanded(!expanded)}
+        selected={isGroupFocused}
+        icon={(
+          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${GROUP_COLOR_CLASSES[color]}`}>
+            <Icon size={11} />
+          </div>
+        )}
+        label={group.name}
         onClick={() => { onSelectGroup(group); setExpanded(true) }}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
-          className="shrink-0 text-gray-400"
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${GROUP_COLOR_CLASSES[color]}`}>
-          <Icon size={11} />
-        </div>
-        <span className={`min-w-0 flex-1 truncate text-sm ${isGroupFocused ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'}`}>
-          {group.name}
-        </span>
-        <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700" label={t('tree.newTopic')} onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
-          title={t('tree.newTopic')}>
-          <Plus size={13} />
-        </IconButton>
-      </div>
+        actions={
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('tree.newTopic')} onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
+            title={t('tree.newTopic')}>
+            <Plus size={13} />
+          </IconButton>
+        }
+      />
 
       {expanded && (
         <div>
           {filtered.map((topic) => {
             const active = selectedTopicId === topic.id
             return (
-              <div
+              <TreeRow
                 key={topic.id}
+                depth={1}
+                indentExtra
+                selected={active}
                 onClick={() => { onSelectGroup(group); onSelectTopic(topic) }}
                 onContextMenu={(e) => { e.preventDefault(); onOpenTopicMenu(e, topic) }}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
-                  active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                }`}
-                style={{ paddingLeft: '42px' }}
-              >
-                <MessageSquare size={12} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-                <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {topic.title || t('tree.newTopicFallback')}
-                </span>
-              </div>
+                icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
+                label={topic.title || t('tree.newTopicFallback')}
+                labelClassName="text-gray-600 dark:text-gray-300"
+              />
             )
           })}
           {filtered.length === 0 && (
-            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: '42px' }}>{t('tree.empty')}</div>
+            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: `${8 + 14 + 14}px` }}>{t('tree.empty')}</div>
           )}
         </div>
       )}

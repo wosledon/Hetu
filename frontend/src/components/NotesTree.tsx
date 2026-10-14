@@ -5,8 +5,6 @@ import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronDown,
-  ChevronRight,
   Folder,
   FolderOpen,
   FileText,
@@ -22,7 +20,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INote, INotebook } from '../types'
-import { Button, Card, IconButton, Input, SearchInput } from './ui'
+import { Button, Card, IconButton, Input, SearchInput, TreeRow } from './ui'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -145,41 +143,33 @@ function NotebookNode({
 
   return (
     <div>
-      <div
-        className={`group flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${
-          isSelected ? 'bg-blue-50/80 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-        }`}
-        style={{ paddingLeft: `${8 + level * 14}px` }}
+      <TreeRow
+        depth={level}
+        expandable
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        selected={isSelected}
+        icon={(active) => (expanded
+          ? <FolderOpen size={15} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
+          : <Folder size={15} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />)}
+        label={notebook.name}
+        onDoubleClick={() => navigate('/')}
         onClick={() => { setSelectedNotebookId(notebook.id); setExpanded((v) => !v); onSelectNotebook?.() }}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
-          className="shrink-0 text-gray-400"
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {expanded
-          ? <FolderOpen size={15} className={`shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-          : <Folder size={15} className={`shrink-0 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />}
-        <span
-          className={`min-w-0 flex-1 truncate text-sm ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}
-          onDoubleClick={() => navigate('/')}
-        >
-          {notebook.name}
-        </span>
-        <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-gray-700" label={t('common:create')} onClick={(e) => {
-            e.stopPropagation()
-            setAddMenu({ x: e.clientX, y: e.clientY })
-          }}
-          title={t('common:create')}>
-          <Plus size={13} />
-        </IconButton>
-      </div>
+        actions={
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-500 dark:text-gray-600 dark:hover:bg-gray-700" label={t('common:create')} onClick={(e) => {
+              e.stopPropagation()
+              setAddMenu({ x: e.clientX, y: e.clientY })
+            }}
+            title={t('common:create')}>
+            <Plus size={13} />
+          </IconButton>
+        }
+      />
 
       {isAddingChild && (
         <div
           className="flex items-center gap-1.5 py-1 pr-2"
-          style={{ paddingLeft: `${8 + (level + 1) * 14}px` }}
+          style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
         >
           <FolderPlus size={13} className="shrink-0 text-blue-500" />
           <input
@@ -209,14 +199,14 @@ function NotebookNode({
       {expanded && (
         <div>
           {/* 新建笔记放在展开内容第一行：与笔记同级，不用滚到该笔记本底部 */}
-          <button
+          <TreeRow
+            depth={level + 1}
+            indentExtra
+            icon={<Plus size={13} className="shrink-0" />}
+            label={t('note.newNote')}
+            labelClassName="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-300"
             onClick={() => createNote.mutate({ title: '', content: '', notebookId: notebook.id })}
-            className="flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
-            style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
-          >
-            <Plus size={13} className="shrink-0" />
-            {t('note.newNote')}
-          </button>
+          />
           {childNotebooks.map((child) => (
             <NotebookNode
               key={child.id}
@@ -233,22 +223,23 @@ function NotebookNode({
           {notes.map((note) => {
             const active = selectedNoteId === note.id
             return (
-              <div
+              <TreeRow
                 key={note.id}
+                depth={level + 1}
+                indentExtra
+                selected={active}
                 onClick={() => { setSelectedNotebookId(notebook.id); onSelectNote(note); onClearNotebook?.() }}
                 onContextMenu={(e) => { e.preventDefault(); onOpenLeafMenu(e, note) }}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
-                  active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                }`}
-                style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
-              >
-                <FileText size={13} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-                {note.isPinned && <Pin size={10} className="shrink-0 fill-blue-500 text-blue-500" />}
-                {note.isFavorite && <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />}
-                <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {note.title || t('note.untitled')}
-                </span>
-              </div>
+                icon={(activeIcon) => <FileText size={13} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
+                label={(
+                  <>
+                    {note.isPinned && <Pin size={10} className="mr-1 inline-block shrink-0 fill-blue-500 text-blue-500 align-[-1px]" />}
+                    {note.isFavorite && <Star size={10} className="mr-1 inline-block shrink-0 fill-amber-400 text-amber-400 align-[-1px]" />}
+                    {note.title || t('note.untitled')}
+                  </>
+                )}
+                labelClassName="text-gray-600 dark:text-gray-300"
+              />
             )
           })}
         </div>
@@ -388,44 +379,40 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
       <div className="flex-1 overflow-y-auto p-2">
         {/* 默认笔记本 - 始终排在最前 */}
         <div>
-          <div
-            className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+          <TreeRow
+            expandable
+            expanded={showUncategorized}
+            onToggle={() => setShowUncategorized((v) => !v)}
             onClick={() => setShowUncategorized((v) => !v)}
-          >
-            <button className="shrink-0 text-gray-400">
-              {showUncategorized ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-            <Inbox size={15} className="shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 truncate text-sm text-gray-600 dark:text-gray-300">{t('note.uncategorized')}</span>
-          </div>
+            icon={<Inbox size={15} className="shrink-0 text-gray-400" />}
+            label={t('note.uncategorized')}
+            labelClassName="text-gray-600 dark:text-gray-300"
+          />
           {showUncategorized && (
             <div>
               {/* 与笔记同级的新建笔记：默认笔记本展开后里边第一行 */}
-              <button
+              <TreeRow
+                depth={1}
+                indentExtra
+                icon={<Plus size={13} className="shrink-0" />}
+                label={t('note.newNote')}
+                labelClassName="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-300"
                 onClick={() => createUncategorizedNote.mutate({ title: '', content: '' })}
-                className="flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600 dark:text-gray-500 dark:hover:bg-white/[0.04] dark:hover:text-blue-300"
-                style={{ paddingLeft: '44px' }}
-              >
-                <Plus size={13} className="shrink-0" />
-                {t('note.newNote')}
-              </button>
+              />
               {uncategorized.map((note) => {
                 const active = selectedNoteId === note.id
                 return (
-                  <div
+                  <TreeRow
                     key={note.id}
+                    depth={1}
+                    indentExtra
+                    selected={active}
                     onClick={() => { setSelectedNotebookId(undefined); onSelectNote(note); onClearNotebook?.() }}
                     onContextMenu={(e) => { e.preventDefault(); handleOpenLeafMenu(e, note) }}
-                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
-                      active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                    }`}
-                    style={{ paddingLeft: '44px' }}
-                  >
-                    <FileText size={13} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-                    <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                      {note.title || t('note.untitled')}
-                    </span>
-                  </div>
+                    icon={(activeIcon) => <FileText size={13} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
+                    label={note.title || t('note.untitled')}
+                    labelClassName="text-gray-600 dark:text-gray-300"
+                  />
                 )
               })}
             </div>

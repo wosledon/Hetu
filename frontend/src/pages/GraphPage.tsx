@@ -18,8 +18,6 @@ import {
   Loader2,
   Check,
   FolderOpen,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 // 笔记预览用的 Markdown 渲染链（react-markdown + katex + mermaid 等）非常重，
@@ -30,7 +28,7 @@ import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, Card, IconButton, Modal, SearchInput } from '../components/ui'
+import { Button, Card, IconButton, Modal, SearchInput, TreeRow } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1174,15 +1172,22 @@ export default function GraphPage() {
                   const someSelected = notebookNotes.some(n => selectedNoteIds.has(n.id))
                   return (
                     <div key={notebookId} className="mb-1">
-                      <button onClick={() => { setExpandedNotebooks(prev => { const next = new Set(prev); if (next.has(notebookId)) next.delete(notebookId); else next.add(notebookId); return next }) }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        {isExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-                        <FolderOpen size={14} className="text-emerald-500" /><span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-300">{notebookName}</span>
-                        <span className="text-[10px] text-gray-400">{notebookNotes.length}</span>
-                        <div onClick={(e) => { e.stopPropagation(); toggleNotebookSelection(notebookNotes.map(n => n.id)) }} className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${allSelected ? 'border-emerald-500 bg-emerald-500' : someSelected ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/30' : 'border-gray-300 dark:border-gray-600'}`}>{(allSelected || someSelected) && <Check size={10} className="text-white" />}</div>
-                      </button>
+                      <TreeRow
+                        expandable
+                        expanded={isExpanded}
+                        onToggle={() => { setExpandedNotebooks(prev => { const next = new Set(prev); if (next.has(notebookId)) next.delete(notebookId); else next.add(notebookId); return next }) }}
+                        tone="emerald"
+                        icon={<FolderOpen size={14} className="shrink-0 text-emerald-500" />}
+                        label={notebookName}
+                        labelClassName="text-xs font-medium text-gray-600 dark:text-gray-300"
+                        onClick={() => { setExpandedNotebooks(prev => { const next = new Set(prev); if (next.has(notebookId)) next.delete(notebookId); else next.add(notebookId); return next }) }}
+                        badge={<span className="text-[10px] text-gray-400">{notebookNotes.length}</span>}
+                        actions={(
+                          <div onClick={(e) => { e.stopPropagation(); toggleNotebookSelection(notebookNotes.map(n => n.id)) }} className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${allSelected ? 'border-emerald-500 bg-emerald-500' : someSelected ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/30' : 'border-gray-300 dark:border-gray-600'}`}>{(allSelected || someSelected) && <Check size={10} className="text-white" />}</div>
+                        )}
+                      />
                       {isExpanded && (<div className="ml-5 space-y-0.5">{notebookNotes.map((note) => { const isSelected = selectedNoteIds.has(note.id); const result = extractResults.get(note.id); return (
-                        <div key={note.id} onClick={() => toggleNoteSelection(note.id)} className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
-                          <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>{isSelected && <Check size={10} className="text-white" />}</div>
+                        <div key={note.id} onClick={() => toggleNoteSelection(note.id)} className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>                          <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>{isSelected && <Check size={10} className="text-white" />}</div>
                           <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{note.title || t('graph.untitledNote')}</span>{result && 'newEntities' in result && <span className="flex items-center gap-1 text-[10px] text-emerald-600">{t('graph.resultDelta', { entities: result.newEntities, relations: result.newRelations })}</span>}{result && 'error' in result && <span className="text-[10px] text-red-500">{t('graph.failed')}</span>}</div><p className="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">{note.content?.slice(0, 80) || t('graph.noContent')}</p></div>
                         </div>) })}</div>)}
                     </div>)

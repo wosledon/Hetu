@@ -7,8 +7,6 @@ import { useTranslation } from 'react-i18next'
 import {
   Trash2,
   Plus,
-  ChevronDown,
-  ChevronRight,
   Pencil,
   Folder,
   FolderOpen,
@@ -20,7 +18,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INotebook } from '../types'
-import { Button, Input } from './ui'
+import { Button, Input, TreeRow } from './ui'
 
 function NotebookTreeItem({
   notebook,
@@ -40,7 +38,6 @@ function NotebookTreeItem({
   const [draftName, setDraftName] = useState(notebook.name)
   const [isAddingChild, setIsAddingChild] = useState(false)
   const [childName, setChildName] = useState('')
-  const [, setIsHovered] = useState(false)
 
   const updateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
@@ -92,15 +89,37 @@ function NotebookTreeItem({
 
   return (
     <div className="group">
-      <div
-        className={`note-card group mb-1 flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2.5 transition-all ${
+      <TreeRow
+        depth={level}
+        expandable={notebook.children.length > 0}
+        expanded={isExpanded}
+        onToggle={() => setIsExpanded((v) => !v)}
+        className={`note-card mb-1 rounded-xl border px-3 py-2.5 transition-all ${
           isSelected
             ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
             : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
         }`}
-        style={{ marginLeft: `${level * 12}px` }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        icon={isSelected && !isRenaming
+          ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
+          : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
+        label={isRenaming ? (
+          <input
+            autoFocus
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRename()
+              if (e.key === 'Escape') {
+                setIsRenaming(false)
+                setDraftName(notebook.name)
+              }
+            }}
+            onBlur={handleRename}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-sm outline-none dark:bg-gray-800"
+          />
+        ) : notebook.name}
+        labelClassName={isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
         onClick={() => {
           setSelectedNotebookId(notebook.id)
           navigate('/')
@@ -110,55 +129,12 @@ function NotebookTreeItem({
           e.stopPropagation()
           setMenu({ x: e.clientX, y: e.clientY })
         }}
-      >
-        {isRenaming ? (
-          <div className="flex min-w-0 flex-1 items-center space-x-2">
-            <Folder size={16} className="shrink-0 text-blue-500" />
-            <input
-              autoFocus
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRename()
-                if (e.key === 'Escape') {
-                  setIsRenaming(false)
-                  setDraftName(notebook.name)
-                }
-              }}
-              onBlur={handleRename}
-              onClick={(e) => e.stopPropagation()}
-              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-sm outline-none dark:bg-gray-800"
-            />
-          </div>
-        ) : (
-          <>
-            <div className="flex min-w-0 items-center gap-1.5">
-              {notebook.children.length > 0 ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsExpanded((v) => !v)
-                  }}
-                  className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </button>
-              ) : (
-                <span className="w-4 shrink-0" />
-              )}
-              {isSelected
-                ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
-                : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-              <span className={`min-w-0 flex-1 truncate text-[13px] ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{notebook.name}</span>
-            </div>
-          </>
-        )}
-      </div>
+      />
 
       {isAddingChild && (
         <div
           className="flex items-center gap-1 px-2 py-1"
-          style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+          style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
         >
           <Folder size={14} className="text-gray-500" />
           <input
@@ -305,23 +281,22 @@ export default function Sidebar() {
             </button>
           )}
           {/* 未分类 - 始终排在新建行之后 */}
-          <div
-            onClick={() => {
-              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
-              navigate('/')
-            }}
-            className={`note-card group mb-1 flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2.5 transition-all ${
+          <TreeRow
+            className={`note-card mb-1 rounded-xl border px-3 py-2.5 transition-all ${
               isDefaultSelected
                 ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
                 : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
             }`}
-          >
-            <span className="w-4 shrink-0" />
-            {isDefaultSelected
+            icon={isDefaultSelected
               ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
               : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-            <span className={`min-w-0 flex-1 truncate text-[13px] ${isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>{t('note.uncategorized')}</span>
-          </div>
+            label={t('note.uncategorized')}
+            labelClassName={isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
+            onClick={() => {
+              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
+              navigate('/')
+            }}
+          />
           {/* 其他笔记本 */}
           {notebooks.map((notebook) => (
             <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />

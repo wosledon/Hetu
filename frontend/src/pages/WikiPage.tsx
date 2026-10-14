@@ -17,7 +17,7 @@ import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
-import { Button, Card, IconButton } from '../components/ui'
+import { Button, Card, IconButton, TreeRow } from '../components/ui'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -260,45 +260,50 @@ export default function WikiPage() {
     }
   }
 
-  const pageRow = (page: IWikiSetPage, indent: string) => (
-    <div
+  const pageRow = (page: IWikiSetPage, depth: number) => (
+    <TreeRow
       key={page.id}
+      depth={depth}
+      size="sm"
+      tone="emerald"
+      selected={page.id === selectedDoc?.id}
       onClick={() => setSelectedDocId(page.id)}
-      className={`group flex cursor-pointer items-center gap-2 border-l-2 py-1.5 pr-3 transition-colors ${
-        page.id === selectedDoc?.id
-          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20'
-          : 'border-transparent hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-      }`}
-      style={{ paddingLeft: indent }}
-    >
-      <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300" title={page.title}>
-        {page.sortOrder === 0 ? '★ ' : ''}{page.title}
-      </span>
-      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-emerald-500 group-hover:opacity-100 disabled:opacity-100" label={t('wiki.regeneratePage')} onClick={(e) => {
-          e.stopPropagation()
-          setRegeneratingId(page.id)
-          regenerateMutation.mutate(page.id)
-        }}
-        disabled={regeneratingId === page.id}
-        title={t('wiki.regenerateTitle')}
-        aria-label={t('wiki.regeneratePage')}>
-        {regeneratingId === page.id
-          ? <Loader2 size={12} className="animate-spin" />
-          : <RefreshCw size={12} />}
-      </IconButton>
-      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100" label={t('common:delete')} onClick={(e) => {
-          e.stopPropagation()
-          confirm({
-            title: t('wiki.deletePageTitle'),
-            message: t('wiki.deletePageMessage', { title: page.title }),
-            onConfirm: () => deleteMutation.mutate(page.id),
-          })
-        }}
-        title={t('common:delete')}
-        aria-label={t('common:delete')}>
-        <Trash2 size={12} />
-      </IconButton>
-    </div>
+      label={(
+        <>
+          {page.sortOrder === 0 ? '★ ' : ''}{page.title}
+        </>
+      )}
+      labelClassName="text-gray-600 dark:text-gray-300"
+      title={page.title}
+      actions={(
+        <>
+          <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 hover:text-emerald-500 disabled:opacity-100" label={t('wiki.regeneratePage')} onClick={(e) => {
+              e.stopPropagation()
+              setRegeneratingId(page.id)
+              regenerateMutation.mutate(page.id)
+            }}
+            disabled={regeneratingId === page.id}
+            title={t('wiki.regenerateTitle')}
+            aria-label={t('wiki.regeneratePage')}>
+            {regeneratingId === page.id
+              ? <Loader2 size={12} className="animate-spin" />
+              : <RefreshCw size={12} />}
+          </IconButton>
+          <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500" label={t('common:delete')} onClick={(e) => {
+              e.stopPropagation()
+              confirm({
+                title: t('wiki.deletePageTitle'),
+                message: t('wiki.deletePageMessage', { title: page.title }),
+                onConfirm: () => deleteMutation.mutate(page.id),
+              })
+            }}
+            title={t('common:delete')}
+            aria-label={t('common:delete')}>
+            <Trash2 size={12} />
+          </IconButton>
+        </>
+      )}
+    />
   )
 
   /** 套件内的父子级树：总览 → 章节（父） → 页面（子）；无章节时平铺 */
@@ -309,7 +314,7 @@ export default function WikiPage() {
 
     for (const page of ordered) {
       if (page.sortOrder === 0) {
-        nodes.push(pageRow(page, '1.75rem'))
+        nodes.push(pageRow(page, 0))
         continue
       }
       if (page.chapter !== currentChapter) {
@@ -322,7 +327,7 @@ export default function WikiPage() {
           )
         }
       }
-      nodes.push(pageRow(page, page.chapter ? '2.75rem' : '1.75rem'))
+      nodes.push(pageRow(page, page.chapter ? 1 : 0))
     }
     return nodes
   }

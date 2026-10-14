@@ -1,11 +1,11 @@
 import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, ChevronDown, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
+import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
-import { Button, Card, IconButton, Input, Modal, PillTabs } from '../ui'
+import { Button, Card, IconButton, Input, Modal, PillTabs, TreeRow } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
@@ -481,26 +481,25 @@ function SessionList({
     })
   }
 
-  const pad = indent ? { paddingLeft: '40px' } : undefined
+  const pad = indent ? { paddingLeft: `${8 + 14 + 14}px` } : undefined
 
   return (
-    <div className="mt-0.5">
-      {actionError && (
-        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={indent ? { marginLeft: '40px' } : undefined}>
+    <div>
+      {actionError && (        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={indent ? { marginLeft: `${8 + 14 + 14}px` } : undefined}>
           {actionError}
         </div>
       )}
       {sessions.map((session) => {
         const active = selectedSessionId === session.id
         return (
-          <div
+          <TreeRow
             key={session.id}
+            depth={indent ? 1 : 0}
+            indentExtra={indent}
+            selected={active}
             onClick={() => { onSelectProject(project); onSelectSession(session) }}
-            className={`group flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pl-2 pr-1.5 transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
-            style={pad}
-          >
-            <MessageSquare size={11} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
-            {renamingSessionId === session.id ? (
+            icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
+            label={renamingSessionId === session.id ? (
               <Input
                 autoFocus
                 value={sessionName}
@@ -512,13 +511,10 @@ function SessionList({
                 onClick={(e) => e.stopPropagation()}
                 className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
               />
-            ) : (
-              <span className={`min-w-0 flex-1 truncate text-[12px] ${active ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                {session.title || t('sidebar.newSession')}
-              </span>
-            )}
-            {renamingSessionId !== session.id && (
-              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            ) : (session.title || t('sidebar.newSession'))}
+            labelClassName="text-gray-600 dark:text-gray-300"
+            actions={renamingSessionId !== session.id && (
+              <>
                 <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameSession')} onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
                   title={t('sidebar.renameSession')}
                   aria-label={t('sidebar.renameSession')}>
@@ -530,9 +526,9 @@ function SessionList({
                   aria-label={t('sidebar.deleteSession')}>
                   <Trash2 size={10} />
                 </IconButton>
-              </div>
+              </>
             )}
-          </div>
+          />
         )
       })}
       {sessions.length === 0 && sessionQuery && (
@@ -550,13 +546,14 @@ function SessionList({
         </div>
       ) : (
         sessions.length > 0 && (
-          <button
+          <TreeRow
+            depth={indent ? 1 : 0}
+            indentExtra={indent}
+            icon={<Plus size={12} className="shrink-0" />}
+            label={t('sidebar.newSession')}
+            labelClassName="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
             onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}
-            className="flex items-center gap-1 py-0.5 text-[11px] text-gray-400 transition-colors hover:text-blue-500"
-            style={pad}
-          >
-            <Plus size={10} /> {t('sidebar.newSession')}
-          </button>
+          />
         )
       )}
     </div>
@@ -600,51 +597,48 @@ function ProjectNode({
   const color = resolveColor(project)
 
   return (
-    <div className="mb-0.5">
-      <div
-        onClick={() => { onSelectProject(project); if (!flat) onToggle() }}
-        className={`group flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors ${
-          selectedProjectId === project.id ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-        }`}
-      >
-        {!flat && (
-          <button onClick={(e) => { e.stopPropagation(); onToggle() }} className="shrink-0 text-gray-400">
-            {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          </button>
+    <div>
+      <TreeRow
+        expandable={!flat}
+        expanded={expanded}
+        onToggle={onToggle}
+        selected={selectedProjectId === project.id}
+        icon={(
+          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
+            {expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
+          </div>
         )}
-        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
-          {expanded ? <FolderOpen size={11} /> : <Folder size={11} />}
-        </div>
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${selectedProjectId === project.id ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>
-          {project.name}
-        </span>
-        {project.connectionType === 'Ssh' && (
+        label={project.name}
+        onClick={() => { onSelectProject(project); if (!flat) onToggle() }}
+        badge={project.connectionType === 'Ssh' && (
           <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-900/40 dark:text-violet-300" title={`SSH：${project.sshUser ?? ''}${project.sshUser ? '@' : ''}${project.sshHost}:${project.sshPort}`}>
             SSH
           </span>
         )}
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
-          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.projectSettings')} onClick={(e) => { e.stopPropagation(); setSetting(true) }}
-            title={t('sidebar.projectSettings')}>
-            <Settings size={11} />
-          </IconButton>
-          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameProject')} onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
-            title={t('sidebar.renameProject')}
-            aria-label={t('sidebar.renameProject')}>
-            <Pencil size={11} />
-          </IconButton>
-          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('sidebar.deleteProject')} onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
-            title={t('sidebar.deleteProject')}
-            aria-label={t('sidebar.deleteProject')}>
-            <Trash2 size={11} />
-          </IconButton>
-        </div>
-      </div>
+        actions={(
+          <>
+            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.projectSettings')} onClick={(e) => { e.stopPropagation(); setSetting(true) }}
+              title={t('sidebar.projectSettings')}>
+              <Settings size={11} />
+            </IconButton>
+            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameProject')} onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
+              title={t('sidebar.renameProject')}
+              aria-label={t('sidebar.renameProject')}>
+              <Pencil size={11} />
+            </IconButton>
+            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('sidebar.deleteProject')} onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
+              title={t('sidebar.deleteProject')}
+              aria-label={t('sidebar.deleteProject')}>
+              <Trash2 size={11} />
+            </IconButton>
+          </>
+        )}
+      />
 
       {setting && <WorkProjectSettings project={project} onClose={() => setSetting(false)} />}
 
       {renaming && (
-        <div className="flex items-center gap-1 px-2 py-1" style={{ paddingLeft: '36px' }}>
+        <div className="flex items-center gap-1 px-2 py-1" style={{ paddingLeft: `${8 + 14 + 14}px` }}>
           <Input
             autoFocus
             value={name}

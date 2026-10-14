@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitPullRequest, Folder, File, ChevronRight, ChevronDown, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
+import { GitPullRequest, Folder, File, ChevronRight, RefreshCw, Loader2, X, Globe, GitCompare, GitBranch, GitCommitHorizontal, FileCode, History, RotateCcw, Save, Sparkles, Diff, Trash2, Quote, LayoutGrid, TerminalSquare, ArrowLeft, ArrowRight, ExternalLink, Home } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
@@ -19,7 +19,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
-import { Button, Card, IconButton, Input, SearchInput } from '../ui'
+import { Button, Card, IconButton, Input, SearchInput, TreeRow } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -484,26 +484,20 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
 
     return (
       <div key={nodePath}>
-        <div
+        <TreeRow
+          size="sm"
+          depth={depth}
+          expandable={node.isDirectory}
+          expanded={isOpen}
+          onToggle={() => toggleNode(node, parentPath)}
+          selected={isSelected}
           onClick={() => toggleNode(node, parentPath)}
-          className={`group flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-[3px] transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-gray-100 dark:hover:bg-white/[0.04]'}`}
-          style={{ paddingLeft: `${6 + depth * 14}px` }}
-        >
-          {node.isDirectory ? (
-            <>
-              {isOpen ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
-              <Folder size={13} className="shrink-0 text-amber-500" />
-            </>
-          ) : (
-            <>
-              <span className="w-[11px] shrink-0" />
-              <File size={13} className="shrink-0 text-gray-400" />
-            </>
-          )}
-          <span className={`min-w-0 flex-1 truncate text-[12px] ${isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>
-            {node.name}
-          </span>
-        </div>
+          icon={node.isDirectory
+            ? <Folder size={13} className="shrink-0 text-amber-500" />
+            : <File size={13} className="shrink-0 text-gray-400" />}
+          label={node.name}
+          className="hover:bg-gray-100"
+        />
         {node.isDirectory && isOpen && node.children?.map((child) => renderNode(child, nodePath, depth + 1))}
       </div>
     )
