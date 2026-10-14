@@ -832,8 +832,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       <div className="flex flex-1 overflow-hidden bg-transparent">
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-transparent`}>
-            {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格 */}
-            <Card padded={false} className="sticky top-0 z-10 mx-8 flex flex-wrap items-center gap-0.5 px-1 py-1.5">
+            {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格
+                吸顶条必须不透明：glass-soft 只有 ~8% 底色，滚动时正文会透上来 */}
+            <Card padded={false} className="sticky top-0 z-10 mx-8 flex flex-wrap items-center gap-0.5 px-1 py-1.5 [--glass-bg:#ffffff] dark:[--glass-bg:#10141f]">
               {formatToolbarContent}
             </Card>
 
@@ -855,7 +856,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 style={{ top: Math.max(inlineCoords.top - 46, 4), left: inlineCoords.left }}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <Card padded={false} className="flex flex-wrap items-center gap-0.5 p-1 shadow-lg shadow-black/5">
+                <Card padded={false} className="flex flex-wrap items-center gap-0.5 p-1 shadow-lg shadow-black/5 [--glass-bg:#ffffff] dark:[--glass-bg:#10141f]">
                   {formatToolbarContent}
                 </Card>
               </div>

@@ -13,7 +13,7 @@ import SlidingPill from './SlidingPill'
 import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { inboxService } from '../services/inboxService'
-import { IconButton, PillTabs } from './ui'
+import { Card, IconButton, PillTabs } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -97,7 +97,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const [moreMenuPos, setMoreMenuPos] = useState<{ top: number; left: number } | null>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
   const moreMenuRef = useRef<HTMLDivElement>(null)
-  const railRef = useRef<HTMLElement>(null)
+  const railRef = useRef<HTMLDivElement>(null)
   const [railCompact, setRailCompact] = useState(lastRailCompact)
 
   const isVertical = navStyle === 'vertical'
@@ -264,7 +264,15 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const railExpanded = !railCompactActive
 
   const verticalRail = (
-    <nav ref={railRef} className="glass-rail flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto py-3">
+    <nav className="flex w-16 shrink-0 flex-col">
+      {/* 导轨滚动条必须隐藏：占位会吃掉 64px 内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），
+          且内容跨过溢出阈值时滚动条出现/消失会让整条轨道左右跳。滚轮滚动仍可用。
+          材质沿用 --glass-nav-bg（Card 默认 glass-soft 太透，浅色画布上整条导轨会看不见）。 */}
+      <Card
+        ref={railRef}
+        padded={false}
+        className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [border-right-color:rgba(0,0,0,0.05)] dark:[border-right-color:rgba(255,255,255,0.05)] [--glass-bg:var(--glass-nav-bg)]"
+      >
       <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
         <BrandMark size={34} />
       </IconButton>
@@ -318,6 +326,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
         <VersionEntry variant="rail" />
       </SlidingPill>
+      </Card>
     </nav>
   )
 

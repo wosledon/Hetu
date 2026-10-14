@@ -189,6 +189,12 @@ function useForceLayout(
     const velocityDecay = 0.6
 
     const simulate = () => {
+      // 每帧时间预算内多跑几步迭代，但限制步数：步数太多一帧就收敛完，
+      // 进入时的扩散动画直接瞬移；3 步/帧兼顾动画可见与重绘窗口缩短
+      const deadline = performance.now() + 6
+      let steps = 0
+      do {
+        steps++
       if (iteration >= maxIterations || alpha < 0.015) {
         // 终态发布：仅此一处让 React 拿到收敛后的坐标
         setPositions([...nodes])
@@ -301,8 +307,9 @@ function useForceLayout(
       // 实时可见（按需绘制靠位置指纹跟随），无需整页重渲染跟着跑——大图每秒十几次
       // 的重渲染会把帧预算吃掉，布局动画掉帧。终态在退出处发布。
       if (iteration === 1) setPositions([...nodes])
+      } while (steps < 3 && iteration < maxIterations && alpha >= 0.015 && performance.now() < deadline)
 
-      if (iteration < maxIterations) {
+      if (iteration < maxIterations && alpha >= 0.015) {
         frameRef.current = requestAnimationFrame(simulate)
       }
     }
@@ -1088,7 +1095,7 @@ export default function GraphPage() {
 
   const mainContent = (
     <div className="flex flex-1 flex-col bg-transparent">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white glass px-4 dark:border-gray-800 dark:bg-gray-900">
+      <Card padded={false} className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-800">
         <div className="flex items-center gap-1.5">
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
@@ -1102,12 +1109,12 @@ export default function GraphPage() {
             <Sparkles size={13} />{t('graph.extractFromNotes')}
           </Button>
         </div>
-      </div>
+      </Card>
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
           <canvas ref={canvasRef} className="block h-full w-full" style={{ cursor: 'grab', width: '100%', height: '100%' }} />
 
           {isLoading && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-50/80 text-gray-500 backdrop-blur-sm dark:bg-gray-950/80">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-50/80 text-gray-500 dark:bg-gray-950/80">
               <Loader2 size={32} className="animate-spin text-indigo-500" />
               {streamMeta ? (
                 <div className="mt-3 text-center">
@@ -1129,7 +1136,8 @@ export default function GraphPage() {
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-gray-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/90">
+          {/* 图例不加 backdrop-blur：布局动画期间画布每帧重绘，blur 面会跟着每帧重新栅格化（弱 GPU 上掉帧） */}
+          <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-gray-200 bg-white/90 px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
             <div className="flex flex-wrap gap-3">
               {Object.entries(ENTITY_COLORS).slice(0, 5).map(([type, color]) => (
                 <span key={type} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">

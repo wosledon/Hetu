@@ -315,34 +315,17 @@ body {
 }
 
 /* ===== Vertical capsule nav rail ===== */
-.glass-rail {
-  background-color: var(--glass-nav-bg);
-  background-image: var(--glass-noise);
-  box-shadow: var(--glass-shadow);
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-  /* 滚动条不占布局：占位会把 64px 内容区吃掉约 7px，居中的胶囊轨道被挤到左边，
-     右侧露出导轨底色（视觉上像被垂直切开）；且内容高度跨过溢出阈值时滚动条
-     出现/消失会让整条轨道左右跳。滚轮滚动仍可用。 */
-  scrollbar-width: none;
-}
+/* 滚动条不占布局：占位会把 64px 内容区吃掉约 7px，居中的胶囊轨道被挤到左边，
+   右侧露出导轨底色（视觉上像被垂直切开）；且内容高度跨过溢出阈值时滚动条
+   出现/消失会让整条轨道左右跳。滚轮滚动仍可用。实现见 AppLayout 导轨 Card。 */
 
-.glass-rail::-webkit-scrollbar {
-  display: none;
-}
-
-.dark .glass-rail {
-  border-right-color: rgba(255, 255, 255, 0.05);
-}
-
-/* 关闭毛玻璃时导航条 / 导轨回到纯色 */
-:root[data-glass='off'] .glass-nav,
-:root[data-glass='off'] .glass-rail {
+/* 关闭毛玻璃时导航条回到纯色 */
+:root[data-glass='off'] .glass-nav {
   background-color: #ffffff;
   background-image: none;
 }
 
-:root[data-glass='off'] .dark .glass-nav,
-:root[data-glass='off'] .dark .glass-rail {
+:root[data-glass='off'] .dark .glass-nav {
   background-color: var(--color-gray-900);
 }
 
