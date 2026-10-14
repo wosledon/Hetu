@@ -15,7 +15,7 @@ import type {
   IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest,
   ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
 } from '../types/project'
-import { Button, Card, SearchInput } from '../components/ui'
+import { Button, Card, PageContainer, SearchInput } from '../components/ui'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
 
@@ -210,7 +210,7 @@ export default function ProjectsPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex h-full min-w-0 flex-1 bg-transparent">
+      <PageContainer variant="fill">
         <ProjectsSidebar
           groups={groups}
           projects={projects}
@@ -507,7 +507,7 @@ export default function ProjectsPage() {
             onClose={() => setGroupManagerOpen(false)}
           />
         )}
-      </div>
+      </PageContainer>
     } />
   )
 }

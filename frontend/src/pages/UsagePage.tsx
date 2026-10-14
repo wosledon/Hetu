@@ -23,7 +23,7 @@ import { usageService, type IUsageLog, type IUsageModelDayStat, type IUsageSourc
 import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
 import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
-import { Card, PillTabs } from '../components/ui'
+import { Card, PageContainer, PillTabs } from '../components/ui'
 
 type HeatTab = 'week' | 'year'
 type Metric = 'messages' | 'tokens' | 'logs'
@@ -289,143 +289,141 @@ const bySource = stats?.bySource ?? []
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* Header */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-                  <Gauge size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('usage.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('usage.subtitle')}</p>
-                </div>
+        <PageContainer>
+          {/* Header */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
+                <Gauge size={20} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('usage.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('usage.subtitle')}</p>
               </div>
             </div>
+          </div>
 
-            {isLoading ? (
-              <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
-                {t('common:loading')}
-              </div>
-            ) : !stats ? (
-              <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">{t('common:empty')}</div>
-            ) : (
-              <div className="space-y-6">
-                {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
-                <Card padded={false} className="px-1 py-4">
-                  <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
-                    {cards.map((c: typeof cards[number] & { subValue?: string }) => {
-                      const Icon = c.icon
-                      return (
-                        <div key={c.label} className="min-w-0 px-4 xl:border-l xl:border-gray-100 xl:first:border-l-0 dark:xl:border-white/[0.06]">
-                          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                            <Icon size={12} className={`shrink-0 ${c.color}`} />
-                            <span className="truncate">{c.label}</span>
-                          </div>
-                          <div className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                            {c.value}{c.subValue ? <span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-gray-500">/{c.subValue}</span> : null}
-                          </div>
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">
+              <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
+              {t('common:loading')}
+            </div>
+          ) : !stats ? (
+            <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">{t('common:empty')}</div>
+          ) : (
+            <div className="space-y-6">
+              {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
+              <Card padded={false} className="px-1 py-4">
+                <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
+                  {cards.map((c: typeof cards[number] & { subValue?: string }) => {
+                    const Icon = c.icon
+                    return (
+                      <div key={c.label} className="min-w-0 px-4 xl:border-l xl:border-gray-100 xl:first:border-l-0 dark:xl:border-white/[0.06]">
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                          <Icon size={12} className={`shrink-0 ${c.color}`} />
+                          <span className="truncate">{c.label}</span>
                         </div>
-                      )
-                    })}
-                  </div>
-                </Card>
+                        <div className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                          {c.value}{c.subValue ? <span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-gray-500">/{c.subValue}</span> : null}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
 
-                {/* 活跃热力：第二行整行 */}
-                <Card>
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                      <Calendar size={15} className="text-emerald-500" />
-                      {t('usage.activity')}
-                    </h3>
-                    <PillTabs
-                      value={heatTab}
-                      onSelect={(key) => setHeatTab(key as typeof heatTab)}
-                      items={[
-                        { key: 'week', label: t('usage.heatWeek') },
-                        { key: 'year', label: t('usage.heatYear') },
-                      ]}
-                    />
-                  </div>
-                  {heatTab === 'week' ? (
-                    <WeekHourHeatmap data={stats.weekHourly} metric={metric === 'logs' ? 'messages' : metric} />
-                  ) : (
-                    <YearHeatmap data={stats.yearDaily} metric={metric === 'logs' ? 'messages' : metric} />
-                  )}
-                </Card>
-
-                {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
-                <div className="flex items-center justify-end gap-2">
+              {/* 活跃热力：第二行整行 */}
+              <Card>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <Calendar size={15} className="text-emerald-500" />
+                    {t('usage.activity')}
+                  </h3>
                   <PillTabs
-                    value={dateRange}
-                    onSelect={(key) => setDateRange(key as typeof dateRange)}
+                    value={heatTab}
+                    onSelect={(key) => setHeatTab(key as typeof heatTab)}
                     items={[
-                      { key: '7d', label: t('usage.days7') },
-                      { key: '30d', label: t('usage.days30') },
-                      { key: '90d', label: t('usage.days90') },
-                    ]}
-                  />
-                  <PillTabs
-                    value={metric}
-                    onSelect={(key) => setMetric(key as Metric)}
-                    items={[
-                      { key: 'tokens', label: t('metrics.tokens') },
-                      { key: 'messages', label: t('metrics.messages') },
-                      { key: 'logs', label: t('usage.logs') },
+                      { key: 'week', label: t('usage.heatWeek') },
+                      { key: 'year', label: t('usage.heatYear') },
                     ]}
                   />
                 </div>
-
-                {metric === 'logs' ? (
-                  <UsageLogs />
+                {heatTab === 'week' ? (
+                  <WeekHourHeatmap data={stats.weekHourly} metric={metric === 'logs' ? 'messages' : metric} />
                 ) : (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                      {/* 趋势 */}
-                      <Card className="lg:col-span-2">
-                        <div className="mb-2 flex items-center justify-between">
-                          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            <CalendarClock size={15} className="text-blue-500" />
-                            {t('usage.trend', { range: rangeLabel })}
-                          </h3>
-                        </div>
-                        <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 260, width: '100%' }} notMerge />
-                      </Card>
-
-                      {/* 模型分布 */}
-                      <Card>
-                        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          <Cpu size={15} className="text-violet-500" />
-                          {t('usage.modelDistribution')}
-                        </h3>
-                        {byModel.length === 0 ? (
-                          <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
-                        ) : (
-                          <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
-                        )}
-                      </Card>
-
-                      {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
-                      <Card className="lg:col-span-3">
-                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          <Layers size={15} className="text-sky-500" />
-                          {t('usage.callSources')}
-                        </h3>
-                        {bySource.length === 0 ? (
-                          <p className="flex h-[120px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
-                        ) : (
-                          <ReactEChartsCore echarts={echarts} option={sourceOption} style={{ height: sourceChartHeight, width: '100%' }} notMerge />
-                        )}
-                      </Card>
-                    </div>
-                  </>
+                  <YearHeatmap data={stats.yearDaily} metric={metric === 'logs' ? 'messages' : metric} />
                 )}
+              </Card>
+
+              {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
+              <div className="flex items-center justify-end gap-2">
+                <PillTabs
+                  value={dateRange}
+                  onSelect={(key) => setDateRange(key as typeof dateRange)}
+                  items={[
+                    { key: '7d', label: t('usage.days7') },
+                    { key: '30d', label: t('usage.days30') },
+                    { key: '90d', label: t('usage.days90') },
+                  ]}
+                />
+                <PillTabs
+                  value={metric}
+                  onSelect={(key) => setMetric(key as Metric)}
+                  items={[
+                    { key: 'tokens', label: t('metrics.tokens') },
+                    { key: 'messages', label: t('metrics.messages') },
+                    { key: 'logs', label: t('usage.logs') },
+                  ]}
+                />
               </div>
-            )}
-          </div>
-        </div>
+
+              {metric === 'logs' ? (
+                <UsageLogs />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    {/* 趋势 */}
+                    <Card className="lg:col-span-2">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          <CalendarClock size={15} className="text-blue-500" />
+                          {t('usage.trend', { range: rangeLabel })}
+                        </h3>
+                      </div>
+                      <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 260, width: '100%' }} notMerge />
+                    </Card>
+
+                    {/* 模型分布 */}
+                    <Card>
+                      <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        <Cpu size={15} className="text-violet-500" />
+                        {t('usage.modelDistribution')}
+                      </h3>
+                      {byModel.length === 0 ? (
+                        <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
+                      ) : (
+                        <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
+                      )}
+                    </Card>
+
+                    {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
+                    <Card className="lg:col-span-3">
+                      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        <Layers size={15} className="text-sky-500" />
+                        {t('usage.callSources')}
+                      </h3>
+                      {bySource.length === 0 ? (
+                        <p className="flex h-[120px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
+                      ) : (
+                        <ReactEChartsCore echarts={echarts} option={sourceOption} style={{ height: sourceChartHeight, width: '100%' }} notMerge />
+                      )}
+                    </Card>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </PageContainer>
       }
     />
   )

@@ -8,7 +8,7 @@ import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import { proxyService, type IProxyConfig } from '../services/proxyService'
 import { aiProviderService } from '../services/aiProviderService'
-import { Button, Card, IconButton, PillTabs } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, PillTabs } from '../components/ui'
 
 const CATEGORIES = [
   { value: 'simple', labelKey: 'proxy.categories.simple' },
@@ -261,65 +261,63 @@ export default function ProxyPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* 页头 */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-sm shadow-blue-500/20">
-                  <Waypoints size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('proxy.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('proxy.subtitle')}</p>
-                </div>
+        <PageContainer>
+          {/* 页头 */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-sm shadow-blue-500/20">
+                <Waypoints size={20} className="text-white" />
               </div>
-              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{modelOptions.length}</b> {t('proxy.availableModelsSuffix')}</span>
-                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-blue-600 dark:text-blue-400">2</b> {t('proxy.protocolsSuffix')}</span>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('proxy.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('proxy.subtitle')}</p>
               </div>
             </div>
-
-            {/* 选项卡 */}
-            <PillTabs
-              value={tab}
-              onSelect={(key) => setTab(key as typeof tab)}
-              className="mb-6"
-              items={[
-                { key: 'shadow', label: <><Zap size={14} />{t('proxy.tabShadow')}</> },
-                { key: 'route', label: <><RouteIcon size={14} />{t('proxy.tabRoute')}</> },
-              ]}
-            />
-
-            <div className="space-y-4">
-              {/* 接入地址 */}
-              <Card>
-                <div className="mb-3 flex items-center gap-2">
-                  <Globe size={14} className="text-blue-500" />
-                  <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('proxy.endpointTitle')}</h2>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('proxy.endpointHint')}</span>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {endpoints.map((e) => (
-                    <div key={e.label} className="flex items-center gap-2 rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-white/[0.03]">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-0.5 text-[11px] text-gray-400 dark:text-gray-500">{e.label}</div>
-                        <code className="block truncate font-mono text-xs text-gray-700 dark:text-gray-300">{e.value}</code>
-                      </div>
-                      <CopyBtn text={e.value} />
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              {/* 配置卡 */}
-              <Card>
-                <ProxyCard key={tab} mode={tab} modelOptions={modelOptions} />
-              </Card>
+            <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{modelOptions.length}</b> {t('proxy.availableModelsSuffix')}</span>
+              <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+              <span><b className="text-sm font-semibold text-blue-600 dark:text-blue-400">2</b> {t('proxy.protocolsSuffix')}</span>
             </div>
           </div>
-        </div>
+
+          {/* 选项卡 */}
+          <PillTabs
+            value={tab}
+            onSelect={(key) => setTab(key as typeof tab)}
+            className="mb-6"
+            items={[
+              { key: 'shadow', label: <><Zap size={14} />{t('proxy.tabShadow')}</> },
+              { key: 'route', label: <><RouteIcon size={14} />{t('proxy.tabRoute')}</> },
+            ]}
+          />
+
+          <div className="space-y-4">
+            {/* 接入地址 */}
+            <Card>
+              <div className="mb-3 flex items-center gap-2">
+                <Globe size={14} className="text-blue-500" />
+                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('proxy.endpointTitle')}</h2>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('proxy.endpointHint')}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {endpoints.map((e) => (
+                  <div key={e.label} className="flex items-center gap-2 rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-white/[0.03]">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-0.5 text-[11px] text-gray-400 dark:text-gray-500">{e.label}</div>
+                      <code className="block truncate font-mono text-xs text-gray-700 dark:text-gray-300">{e.value}</code>
+                    </div>
+                    <CopyBtn text={e.value} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* 配置卡 */}
+            <Card>
+              <ProxyCard key={tab} mode={tab} modelOptions={modelOptions} />
+            </Card>
+          </div>
+        </PageContainer>
       }
     />
   )

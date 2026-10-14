@@ -28,7 +28,7 @@ import { noteService } from '../services/noteService'
 import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, Card, IconButton, Modal, SearchInput, TreeRow } from '../components/ui'
+import { Button, Card, IconButton, Modal, PageContainer, SearchInput, TreeRow } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1295,10 +1295,10 @@ export default function GraphPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex flex-1 overflow-hidden">
+      <PageContainer variant="fill" className="overflow-hidden">
         {mainContent}
         {rightPanel}
-      </div>
+      </PageContainer>
     }>
       <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">

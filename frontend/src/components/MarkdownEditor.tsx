@@ -57,7 +57,7 @@ import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
-import { Button, Card, IconButton, Input, PillTabs, Textarea } from './ui'
+import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea } from './ui'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
 const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
@@ -617,7 +617,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   )
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
+    <PageContainer variant="fill" className="flex-col bg-white dark:bg-gray-900 glass">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
         <PillTabs
           value={viewMode}
@@ -1217,6 +1217,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </Card>
         )}
       </div>
-    </div>
+    </PageContainer>
   )
 }

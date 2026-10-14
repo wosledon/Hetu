@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { shareService } from '../services/shareService';
 import { formatDateTime } from '../utils/locale';
-import ThemedMarkdown from '../components/ThemedMarkdown';
+import ThemedMarkdown from '../components/ThemedMarkdown'
+import { PageContainer } from '../components/ui';
 
 export default function SharedNotePage() {
   const { t } = useTranslation('notes');
@@ -36,7 +37,7 @@ export default function SharedNotePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <PageContainer>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <header className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
@@ -51,7 +52,7 @@ export default function SharedNotePage() {
         <footer className="mt-4 text-center text-sm text-gray-400">
           {t('share.poweredBy')}
         </footer>
-      </div>
+      </PageContainer>
     </div>
   );
 }

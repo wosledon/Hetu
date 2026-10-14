@@ -21,7 +21,7 @@ import FolderPickerDialog from '../components/FolderPickerDialog'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
-import { Button, Card, Input, Modal, PillTabs, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -203,122 +203,120 @@ export default function SkillsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <div className="flex-1 overflow-y-auto bg-transparent">
-      <div className="mx-auto max-w-6xl px-8 py-8">
-        {/* 页头 */}
-        <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm shadow-amber-500/20">
-              <Zap size={20} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('skillsPage.title')}</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('skillsPage.subtitle')}</p>
-            </div>
+    <PageContainer>
+      {/* 页头 */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm shadow-amber-500/20">
+            <Zap size={20} className="text-white" />
           </div>
-          <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-            <span>
-              <Trans ns="agents" i18nKey="skillsPage.skillCount" values={{ n: skills.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
-            </span>
-            <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-            <span>
-              <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-amber-600 dark:text-amber-400" /> }} />
-            </span>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('skillsPage.title')}</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('skillsPage.subtitle')}</p>
           </div>
         </div>
-
-        {/* 选项卡 */}
-        <PillTabs
-          value={tab}
-          onSelect={(key) => { setTab(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
-          className="mb-4"
-          items={[
-            { key: 'database', label: <><Zap size={14} />{t('tabs.database')}</> },
-            { key: 'local', label: <><FolderOpen size={14} />{t('tabs.local')}</> },
-          ]}
-        />
-
-        {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
-            >
-              {t('common:all')}
-              <span className="text-[11px] opacity-70">{skills.length}</span>
-            </button>
-            {categories.map(([cat, count]) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
-              >
-                {cat}
-                <span className="text-[11px] opacity-70">{count}</span>
-              </button>
-            ))}
-          </div>
-          <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
-            <SearchInput tone="amber"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('skillsPage.searchSkills')}
-              className="w-full"
-            />
-          </div>
-          {tab === 'local' ? (
-            <>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
-                <Settings size={14} />
-                {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
-              </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
-                title={t('skillsPage.refreshLocalSkills')}>
-                <RefreshCw size={14} />
-                {t('common:refresh')}
-              </Button>
-            </>
-          ) : (
-            <button
-              onClick={openCreateForm}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-            >
-              <Plus size={16} />
-              {t('skillsPage.newSkill')}
-            </button>
-          )}
+        <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+          <span>
+            <Trans ns="agents" i18nKey="skillsPage.skillCount" values={{ n: skills.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+          </span>
+          <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+          <span>
+            <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-amber-600 dark:text-amber-400" /> }} />
+          </span>
         </div>
+      </div>
 
-        {/* 卡片网格 */}
-        {tab === 'local' && localLoading ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
-            <Loader2 size={32} className="mb-3 animate-spin text-amber-400" />
-            <p className="text-sm">{t('skillsPage.scanningLocalSkills')}</p>
-          </div>
-        ) : filteredSkills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-              <Zap size={36} className="opacity-50" />
-            </div>
-            <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
-            {tab === 'local' ? (
-              <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={() => setShowDirConfig(true)}>
-                {t('empty.configureSkillDirs')}
-              </Button>
-            ) : (
-              <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={openCreateForm}>
-                {t('empty.createFirstSkill')}
-              </Button>
-            )}
-          </div>
+      {/* 选项卡 */}
+      <PillTabs
+        value={tab}
+        onSelect={(key) => { setTab(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
+        className="mb-4"
+        items={[
+          { key: 'database', label: <><Zap size={14} />{t('tabs.database')}</> },
+          { key: 'local', label: <><FolderOpen size={14} />{t('tabs.local')}</> },
+        ]}
+      />
+
+      {/* 工具栏：分类筛选 + 搜索 + 操作 */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+          >
+            {t('common:all')}
+            <span className="text-[11px] opacity-70">{skills.length}</span>
+          </button>
+          {categories.map(([cat, count]) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
+            >
+              {cat}
+              <span className="text-[11px] opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
+          <SearchInput tone="amber"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('skillsPage.searchSkills')}
+            className="w-full"
+          />
+        </div>
+        {tab === 'local' ? (
+          <>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
+              <Settings size={14} />
+              {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
+            </Button>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+              title={t('skillsPage.refreshLocalSkills')}>
+              <RefreshCw size={14} />
+              {t('common:refresh')}
+            </Button>
+          </>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredSkills.map(s => renderSkillCard(s, tab === 'local'))}
-          </div>
+          <button
+            onClick={openCreateForm}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+          >
+            <Plus size={16} />
+            {t('skillsPage.newSkill')}
+          </button>
         )}
       </div>
-    </div>
+
+      {/* 卡片网格 */}
+      {tab === 'local' && localLoading ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
+          <Loader2 size={32} className="mb-3 animate-spin text-amber-400" />
+          <p className="text-sm">{t('skillsPage.scanningLocalSkills')}</p>
+        </div>
+      ) : filteredSkills.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+            <Zap size={36} className="opacity-50" />
+          </div>
+          <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
+          {tab === 'local' ? (
+            <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={() => setShowDirConfig(true)}>
+              {t('empty.configureSkillDirs')}
+            </Button>
+          ) : (
+            <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={openCreateForm}>
+              {t('empty.createFirstSkill')}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredSkills.map(s => renderSkillCard(s, tab === 'local'))}
+        </div>
+      )}
+    </PageContainer>
   )
 
   return (

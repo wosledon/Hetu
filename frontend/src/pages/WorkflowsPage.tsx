@@ -10,7 +10,7 @@ import type { IWorkflow } from '../types/workflow'
 import type { IPromptPreset } from '../types'
 import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
-import { Button, Card, IconButton } from '../components/ui'
+import { Button, Card, IconButton, PageContainer } from '../components/ui'
 
 const AVAILABLE_TOOLS = [
   'search_notes',
@@ -159,7 +159,7 @@ export default function WorkflowsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <PageContainer variant="fill" className="flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
@@ -236,7 +236,7 @@ export default function WorkflowsPage() {
           {runningWorkflow && (
             <RunDialog workflow={runningWorkflow} onClose={() => setRunningWorkflow(null)} />
           )}
-        </div>
+        </PageContainer>
       }
     >
       {null}

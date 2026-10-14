@@ -50,7 +50,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, PillTabs, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea } from '../components/ui'
 
 type TabKey = 'database' | 'local'
 
@@ -638,183 +638,181 @@ export default function AgentsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <div className="flex-1 overflow-y-auto bg-transparent">
-      <div className="mx-auto max-w-6xl px-8 py-8">
-        {/* 页头 */}
-        <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
-              <Bot size={20} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
-            </div>
+    <PageContainer>
+      {/* 页头 */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
+            <Bot size={20} className="text-white" />
           </div>
-          <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-            <span>
-              <Trans ns="agents" i18nKey="page.agentCount" values={{ n: presets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
-            </span>
-            <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-            <span>
-              <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-rose-600 dark:text-rose-400" /> }} />
-            </span>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
           </div>
         </div>
+        <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+          <span>
+            <Trans ns="agents" i18nKey="page.agentCount" values={{ n: presets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+          </span>
+          <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+          <span>
+            <Trans ns="agents" i18nKey="page.categoryCount" values={{ n: categories.length }} components={{ b: <b className="text-sm font-semibold text-rose-600 dark:text-rose-400" /> }} />
+          </span>
+        </div>
+      </div>
 
-        {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
+      {/* 工具栏：分类筛选 + 搜索 + 操作 */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+          >
+            {t('common:all')}
+            <span className="text-[11px] opacity-70">{presets.length}</span>
+          </button>
+          {categories.map(([cat, count]) => (
             <button
-              onClick={() => setActiveCategory(null)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+              key={cat}
+              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
             >
-              {t('common:all')}
-              <span className="text-[11px] opacity-70">{presets.length}</span>
+              {cat}
+              <span className="text-[11px] opacity-70">{count}</span>
             </button>
-            {categories.map(([cat, count]) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
-              >
-                {cat}
-                <span className="text-[11px] opacity-70">{count}</span>
-              </button>
-            ))}
-          </div>
-          <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
-            <SearchInput tone="rose"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('page.searchAgents')}
-              className="w-full"
-            />
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleImport}
-          />
-          {generalSource === 'local' ? (
-            <>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
-                <Settings size={14} />
-                {t('page.configureDirectories')}
-              </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
-                title={t('page.refreshLocalAgents')}>
-                <RefreshCw size={14} />
-                {t('common:refresh')}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
-                title={t('common:export')}>
-                <Download size={14} />
-                {t('common:export')}
-              </Button>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
-                title={t('common:import')}>
-                <Import size={14} />
-                {t('common:import')}
-              </Button>
-              <button
-                onClick={openCreateForm}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-              >
-                <Plus size={16} />
-                {t('page.newAgent')}
-              </button>
-            </>
-          )}
+          ))}
         </div>
-
-        {/* 智能体分栏：上「通用」（本地/数据库可切换），下「专业」（仅数据库） */}
-        {generalSource === 'local' && localLoading ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
-            <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
-            <p className="text-sm">{t('page.scanningLocalAgents')}</p>
-          </div>
+        <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
+          <SearchInput tone="rose"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('page.searchAgents')}
+            className="w-full"
+          />
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          className="hidden"
+          onChange={handleImport}
+        />
+        {generalSource === 'local' ? (
+          <>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
+              <Settings size={14} />
+              {t('page.configureDirectories')}
+            </Button>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+              title={t('page.refreshLocalAgents')}>
+              <RefreshCw size={14} />
+              {t('common:refresh')}
+            </Button>
+          </>
         ) : (
-          <div className="space-y-8">
-            {[
-              { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
-              { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
-            ].map(section => {
-              const SectionIcon = section.icon
-              const empty = section.items.length === 0
-              const isGeneralSection = section.key === 'general'
-              return (
-                <section key={section.key}>
-                  <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                    <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${section.accent}`}>
-                      <SectionIcon size={15} />{t(section.titleKey)}
-                    </span>
-                    <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
-                    <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
-                    {isGeneralSection ? (
-                      <PillTabs
-                        value={generalSource}
-                        onSelect={(key) => { setGeneralSource(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
-                        className="ml-auto gap-0.5 p-0.5"
-                        items={[
-                          { key: 'database', label: <><Bot size={13} />{t('tabs.database')}</> },
-                          { key: 'local', label: <><FolderOpen size={13} />{t('tabs.local')}</> },
-                        ]}
-                      />
-                    ) : (
-                      <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
-                        <Plus size={13} />{t('sections.newProfessional')}
-                      </Button>
-                    )}
-                    <span className={`h-3.5 w-0.5 rounded-full ${section.bar}`} />
-                  </div>
-                  {empty ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
-                      {t('sections.empty', { title: t(section.titleKey) })}
-                      {isGeneralSection
-                        ? (isLocalTab ? (
-                            <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
-                          ) : (
-                            <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                          ))
-                        : (
-                          <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                        )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {section.items.map(p => renderPresetCard(p, isGeneralSection && generalSource === 'local'))}
-                    </div>
-                  )}
-                </section>
-              )
-            })}
-            {generalPresets.length === 0 && professionalPresets.length === 0 && (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-                  <Sparkles size={36} className="opacity-50" />
-                </div>
-                <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
-                {isLocalTab ? (
-                  <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>
-                    {t('empty.configureAgentDirs')}
-                  </Button>
-                ) : (
-                  <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
-                    {t('empty.createFirstAgent')}
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+          <>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
+              title={t('common:export')}>
+              <Download size={14} />
+              {t('common:export')}
+            </Button>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
+              title={t('common:import')}>
+              <Import size={14} />
+              {t('common:import')}
+            </Button>
+            <button
+              onClick={openCreateForm}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+            >
+              <Plus size={16} />
+              {t('page.newAgent')}
+            </button>
+          </>
         )}
       </div>
-    </div>
+
+      {/* 智能体分栏：上「通用」（本地/数据库可切换），下「专业」（仅数据库） */}
+      {generalSource === 'local' && localLoading ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
+          <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
+          <p className="text-sm">{t('page.scanningLocalAgents')}</p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {[
+            { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
+            { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
+          ].map(section => {
+            const SectionIcon = section.icon
+            const empty = section.items.length === 0
+            const isGeneralSection = section.key === 'general'
+            return (
+              <section key={section.key}>
+                <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${section.accent}`}>
+                    <SectionIcon size={15} />{t(section.titleKey)}
+                  </span>
+                  <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
+                  <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
+                  {isGeneralSection ? (
+                    <PillTabs
+                      value={generalSource}
+                      onSelect={(key) => { setGeneralSource(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
+                      className="ml-auto gap-0.5 p-0.5"
+                      items={[
+                        { key: 'database', label: <><Bot size={13} />{t('tabs.database')}</> },
+                        { key: 'local', label: <><FolderOpen size={13} />{t('tabs.local')}</> },
+                      ]}
+                    />
+                  ) : (
+                    <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
+                      <Plus size={13} />{t('sections.newProfessional')}
+                    </Button>
+                  )}
+                  <span className={`h-3.5 w-0.5 rounded-full ${section.bar}`} />
+                </div>
+                {empty ? (
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
+                    {t('sections.empty', { title: t(section.titleKey) })}
+                    {isGeneralSection
+                      ? (isLocalTab ? (
+                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
+                        ) : (
+                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                        ))
+                      : (
+                        <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                      )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {section.items.map(p => renderPresetCard(p, isGeneralSection && generalSource === 'local'))}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+          {generalPresets.length === 0 && professionalPresets.length === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                <Sparkles size={36} className="opacity-50" />
+              </div>
+              <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
+              {isLocalTab ? (
+                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>
+                  {t('empty.configureAgentDirs')}
+                </Button>
+              ) : (
+                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
+                  {t('empty.createFirstAgent')}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </PageContainer>
   )
 
   return (

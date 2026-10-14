@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
 import { renderToolGroup } from '../utils/toolRendering'
 import { ChevronDown, ChevronRight, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
-import { Button, Card, SearchInput } from '../components/ui'
+import { Button, Card, PageContainer, SearchInput } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
 const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
@@ -134,73 +134,71 @@ export default function ToolsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-5xl px-8 py-8">
-        <div className="mb-5 flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 shadow-sm shadow-slate-500/20">
-            <Terminal size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('toolsPage.title')}</h1>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('toolsPage.subtitle', { n: tools.length })}
-            </p>
-          </div>
+        <PageContainer>
+      <div className="mb-5 flex items-start gap-3">
+        <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 shadow-sm shadow-slate-500/20">
+          <Terminal size={20} className="text-white" />
         </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('toolsPage.title')}</h1>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t('toolsPage.subtitle', { n: tools.length })}
+          </p>
+        </div>
+      </div>
 
-        <div className="mb-4 flex flex-col gap-3">
-          <SearchInput tone="blue" size="sm"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('toolsPage.searchPlaceholder')}
-            className="w-full dark:text-gray-200"
-          />
+      <div className="mb-4 flex flex-col gap-3">
+        <SearchInput tone="blue" size="sm"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder={t('toolsPage.searchPlaceholder')}
+          className="w-full dark:text-gray-200"
+        />
 
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => { setGroup(''); setProfile('') }}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
+          >
+            {t('common:all')} {tools.length}
+          </button>
+          {(['knowledge', 'work', 'desktop', 'cowork'] as const).filter((p) => tools.some((t) => t.profiles.includes(p))).map((p) => (
             <button
-              onClick={() => { setGroup(''); setProfile('') }}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
+              key={p}
+              onClick={() => { setProfile(profile === p ? '' : p); setGroup('') }}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
             >
-              {t('common:all')} {tools.length}
+              {PROFILE_META[p] ? t(PROFILE_META[p].labelKey) : p}
             </button>
-            {(['knowledge', 'work', 'desktop', 'cowork'] as const).filter((p) => tools.some((t) => t.profiles.includes(p))).map((p) => (
-              <button
-                key={p}
-                onClick={() => { setProfile(profile === p ? '' : p); setGroup('') }}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-500 text-white' : 'bg-gray-100 glass text-gray-600 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.12]'}`}
-              >
-                {PROFILE_META[p] ? t(PROFILE_META[p].labelKey) : p}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {groups.map((g) => (
-              <button
-                key={g}
-                onClick={() => { setGroup(group === g ? '' : g); setProfile('') }}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 glass text-gray-500 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]'}`}
-              >
-                {renderToolGroup(g)} {tools.filter((t) => t.group === g).length}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
 
-        {isLoading ? (
-          <div className="py-16 text-center text-xs text-gray-400">{t('common:loading')}</div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
-            <Zap size={20} />
-            <span className="text-xs">{t('toolsPage.noToolsMatch')}</span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {filtered.map((t) => <ToolCard key={t.name} tool={t} />)}
-          </div>
-        )}
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {groups.map((g) => (
+            <button
+              key={g}
+              onClick={() => { setGroup(group === g ? '' : g); setProfile('') }}
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 glass text-gray-500 hover:bg-blue-50/70 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]'}`}
+            >
+              {renderToolGroup(g)} {tools.filter((t) => t.group === g).length}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {isLoading ? (
+        <div className="py-16 text-center text-xs text-gray-400">{t('common:loading')}</div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
+          <Zap size={20} />
+          <span className="text-xs">{t('toolsPage.noToolsMatch')}</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {filtered.map((t) => <ToolCard key={t.name} tool={t} />)}
+        </div>
+      )}
+        </PageContainer>
       }
     />
   )

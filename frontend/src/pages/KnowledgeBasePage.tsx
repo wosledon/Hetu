@@ -45,7 +45,7 @@ import {
 import type {
   INoteChunk,
 } from '../services/knowledgeBaseService'
-import { Button, Card, Input, Modal, PillTabs, SearchInput } from '../components/ui'
+import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url'
@@ -234,416 +234,414 @@ export default function KnowledgeBasePage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* Header */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
-                  <Database size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('kb.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('kb.subtitle')}</p>
-                </div>
+        <PageContainer>
+          {/* Header */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
+                <Database size={20} className="text-white" />
               </div>
-              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{status?.totalItems ?? '-'}</b> {t('kb.statItems')}</span>
-                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{status?.indexedItems ?? '-'}</b> {t('kb.statIndexed')}</span>
-                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-violet-600 dark:text-violet-400">{indexedPercent}%</b> {t('kb.statCoverage')}</span>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('kb.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('kb.subtitle')}</p>
               </div>
             </div>
+            <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{status?.totalItems ?? '-'}</b> {t('kb.statItems')}</span>
+              <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+              <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{status?.indexedItems ?? '-'}</b> {t('kb.statIndexed')}</span>
+              <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+              <span><b className="text-sm font-semibold text-violet-600 dark:text-violet-400">{indexedPercent}%</b> {t('kb.statCoverage')}</span>
+            </div>
+          </div>
 
-            {/* Tabs */}
-            <PillTabs
-              value={activeTab}
-              onSelect={(key) => setActiveTab(key as typeof activeTab)}
-              className="mb-6"
-              items={tabs.map((tab) => {
-                const Icon = tab.icon
-                return { key: tab.key, label: <><Icon size={14} />{t(tab.label)}</> }
-              })}
-            />
+          {/* Tabs */}
+          <PillTabs
+            value={activeTab}
+            onSelect={(key) => setActiveTab(key as typeof activeTab)}
+            className="mb-6"
+            items={tabs.map((tab) => {
+              const Icon = tab.icon
+              return { key: tab.key, label: <><Icon size={14} />{t(tab.label)}</> }
+            })}
+          />
 
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-              <div className="space-y-4">
-                {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-                <Card padded="lg" className="glass-soft border-transparent dark:border-transparent">
-                  <div className="flex flex-wrap items-center gap-8">
-                    {/* 进度环 */}
-                    <div className="relative h-24 w-24 shrink-0">
-                      <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-gray-100 dark:stroke-white/[0.06]" />
-                        <circle
-                          cx="50" cy="50" r="42" fill="none" strokeWidth="8" strokeLinecap="round"
-                          className="stroke-emerald-500 transition-all duration-700"
-                          strokeDasharray={`${(indexedPercent * 2.64).toFixed(1)} 264`}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{indexedPercent}%</span>
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('kb.statIndexed')}</span>
-                      </div>
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
+              <Card padded="lg" className="glass-soft border-transparent dark:border-transparent">
+                <div className="flex flex-wrap items-center gap-8">
+                  {/* 进度环 */}
+                  <div className="relative h-24 w-24 shrink-0">
+                    <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-gray-100 dark:stroke-white/[0.06]" />
+                      <circle
+                        cx="50" cy="50" r="42" fill="none" strokeWidth="8" strokeLinecap="round"
+                        className="stroke-emerald-500 transition-all duration-700"
+                        strokeDasharray={`${(indexedPercent * 2.64).toFixed(1)} 264`}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{indexedPercent}%</span>
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('kb.statIndexed')}</span>
                     </div>
-
-                    {/* 说明 + 状态 */}
-                    <div className="min-w-[220px] flex-1">
-                      <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('kb.cockpitTitle')}</h2>
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {status ? t('kb.cockpitProgress', { indexed: status.indexedItems, total: status.totalItems }) : t('common:loading')}
-                      </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                          status?.hasEmbeddingProvider
-                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
-                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                        }`}>
-                          {status?.hasEmbeddingProvider ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                          {status?.hasEmbeddingProvider ? t('kb.embeddingConfigured', { n: status.dimensions }) : t('kb.embeddingMissing')}
-                        </span>
-                        {status && status.runningTaskCount > 0 && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-600 dark:bg-teal-950/40 dark:text-teal-400">
-                            <Loader2 size={12} className="animate-spin" />
-                            {t('kb.tasksRunning', { n: status.runningTaskCount })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 批量操作 */}
-                    {status && status.unindexedItems > 0 ? (
-                      <button
-                        onClick={() => batchMutation.mutate()}
-                        disabled={batchMutation.isPending || !status.hasEmbeddingProvider || status.runningTaskCount > 0}
-                        className="flex shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
-                      >
-                        {batchMutation.isPending || status.runningTaskCount > 0 ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Zap size={16} />
-                        )}
-                        {batchMutation.isPending ? t('kb.batchQueued') : status.runningTaskCount > 0 ? t('kb.batchRunning') : t('kb.batchGenerate', { n: status.unindexedItems })}
-                      </button>
-                    ) : (
-                      <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
-                        <CheckCircle2 size={14} />
-                        {t('kb.allIndexed')}
-                      </div>
-                    )}
                   </div>
 
-                  {/* 关键指标 */}
-                  <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800">
-                    <MetricPill icon={<Layers size={13} />} color="blue" label={t('kb.metricTotal')} value={status?.totalItems ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<FileText size={13} />} color="indigo" label={t('kb.typeNote')} value={status?.noteCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<Upload size={13} />} color="green" label={t('kb.typeFile')} value={status?.fileCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<Globe size={13} />} color="purple" label={t('kb.typeUrl')} value={status?.urlCount ?? '-'} loading={statusLoading} />
-                    <MetricPill icon={<AlertCircle size={13} />} color="amber" label={t('kb.notIndexed')} value={status?.unindexedItems ?? '-'} loading={statusLoading} />
-                  </div>
-
-                  {batchMutation.data && (
-                    <p className="mt-4 text-xs text-green-600 dark:text-green-400">
-                      {t('kb.batchResult', { n: batchMutation.data.queuedCount })}
-                      {batchMutation.data.skippedCount > 0 && (
-                        <span className="ml-2 text-amber-600 dark:text-amber-400">
-                          {t('kb.batchSkipped', { n: batchMutation.data.skippedCount })}
+                  {/* 说明 + 状态 */}
+                  <div className="min-w-[220px] flex-1">
+                    <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('kb.cockpitTitle')}</h2>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {status ? t('kb.cockpitProgress', { indexed: status.indexedItems, total: status.totalItems }) : t('common:loading')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                        status?.hasEmbeddingProvider
+                          ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                          : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                      }`}>
+                        {status?.hasEmbeddingProvider ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                        {status?.hasEmbeddingProvider ? t('kb.embeddingConfigured', { n: status.dimensions }) : t('kb.embeddingMissing')}
+                      </span>
+                      {status && status.runningTaskCount > 0 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-medium text-teal-600 dark:bg-teal-950/40 dark:text-teal-400">
+                          <Loader2 size={12} className="animate-spin" />
+                          {t('kb.tasksRunning', { n: status.runningTaskCount })}
                         </span>
                       )}
-                    </p>
-                  )}
-                  {batchMutation.error && (
-                    <p className="mt-4 text-xs text-red-600 dark:text-red-400">
-                      {(batchMutation.error as Error).message}
-                    </p>
-                  )}
-                </Card>
-              </div>
-            )}
-            {/* Manage Tab */}
-            {activeTab === 'manage' && (
-              <div className="space-y-4">
-                {/* Type Filter + Actions */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <PillTabs
-                    value={manageFilter}
-                    onSelect={(key) => setManageFilter(key as typeof manageFilter)}
-                    items={typeFilters.map((f) => {
-                      const Icon = f.icon
-                      return { key: f.key, label: <><Icon size={13} />{t(f.label)}</> }
-                    })}
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                    <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
-                      <Upload size={13} />
-                      {t('kb.uploadFile')}
-                    </Button>
-                    <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
-                      <Plus size={13} />
-                      {t('kb.addUrl')}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Add URL Modal */}
-                {showAddUrl && (
-                  <Card className="p-5">
-                    <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
-                    <div className="flex gap-3">
-                      <Input tone="blue"
-                        type="url"
-                        value={urlInput}
-                        onChange={(e) => setUrlInput(e.target.value)}
-                        placeholder="https://example.com"
-                        className="flex-1"
-                      />
-                      <Input tone="blue"
-                        type="text"
-                        value={urlTitle}
-                        onChange={(e) => setUrlTitle(e.target.value)}
-                        placeholder={t('kb.urlTitlePlaceholder')}
-                        className="w-48"
-                      />
-                      <Button variant="primary" tone="blue" className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50" onClick={handleAddUrl}
-                        disabled={addUrlMutation.isPending || !urlInput.trim()}>
-                        {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        {t('common:add')}
-                      </Button>
-                      <Button variant="ghost" tone="gray" className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}>
-                        {t('common:cancel')}
-                      </Button>
                     </div>
-                    {addUrlMutation.error && (
-                      <p className="mt-2 text-xs text-red-500">{(addUrlMutation.error as Error).message}</p>
-                    )}
-                  </Card>
-                )}
-
-                {/* Items List */}
-                {embeddingsLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <Loader2 size={24} className="animate-spin text-gray-400" />
                   </div>
-                ) : embeddingStatuses.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                    <Layers size={48} strokeWidth={1} />
-                    <p className="mt-4 text-sm">{t('kb.empty')}</p>
-                    <p className="mt-1 text-xs">{t('kb.emptyHint')}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {embeddingStatuses.map((item) => (
-                      <Card
-                        key={item.id}
-                        padded={false}
-                        className={`group flex items-center gap-4 px-5 py-4 transition-all hover:shadow-md ${
-                          item.hasRunningTask
-                            ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
-                            : 'hover:border-white/40 dark:hover:border-white/10'
-                        }`}
-                      >
-                        {/* Type + Title */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            {getTypeBadge(item.type)}
-                            <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {item.title || t('kb.untitled')}
-                            </p>
-                          </div>
-                          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                            {item.hasRunningTask
-                              ? t('kb.indexing')
-                              : item.embeddingUpdatedAt
-                                ? t('kb.indexedAt', { time: safeFormatDate(item.embeddingUpdatedAt) })
-                                : t('kb.notIndexed')}
-                          </p>
-                        </div>
 
-                        {/* Status badges */}
-                        <div className="flex items-center gap-2">
-                          {item.hasRunningTask ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
-                              <Loader2 size={10} className="animate-spin" />
-                              {t('kb.badgeIndexing')}
-                            </span>
-                          ) : item.hasEmbedding ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                              <CheckCircle2 size={10} />
-                              {t('kb.statIndexed')}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                              <AlertCircle size={10} />
-                              {t('kb.notIndexed')}
-                            </span>
-                          )}
-
-                          {item.embeddingModel && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
-                              <Brain size={10} />
-                              {item.embeddingModel}
-                            </span>
-                          )}
-
-                          {item.embeddingDimensions > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
-                              <Hash size={10} />
-                              {item.embeddingDimensions}d
-                            </span>
-                          )}
-
-                          {item.chunkCount > 0 && (
-                            <button
-                              onClick={() => openChunkDetail(item.id, item.title)}
-                              className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                              title={t('kb.chunkCountTitle')}
-                            >
-                              <Layers size={10} />
-                              {t('kb.chunkCount', { n: item.chunkCount })}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30" onClick={() => generateMutation.mutate(item.id)}
-                            disabled={generateMutation.isPending || item.hasRunningTask}>
-                            {item.hasRunningTask || generateMutation.isPending ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <RefreshCw size={12} />
-                            )}
-                            {item.hasRunningTask ? t('kb.actionIndexing') : item.hasEmbedding ? t('kb.actionReindex') : t('kb.actionIndex')}
-                          </Button>
-                          {item.type !== 'note' && (
-                            <button
-                              onClick={() => {
-                                confirm({ message: t('kb.deleteItemConfirm'), onConfirm: () => deleteMutation.mutate(item.id) })
-                              }}
-                              className="flex items-center gap-1 rounded-full p-1.5 text-red-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                              title={t('kb.deleteItemTitle')}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Search Test Tab */}
-            {activeTab === 'search' && (
-              <div className="space-y-6">
-                {/* Search Input */}
-                <Card padded="lg">
-                  <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
-                      <SearchInput tone="blue" size="lg"
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        placeholder={t('kb.searchPlaceholder')}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Select
-                        value={searchTopK.toString()}
-                        onChange={(value) => setSearchTopK(Number(value))}
-                        options={[
-                          { value: '5', label: 'Top 5' },
-                          { value: '10', label: 'Top 10' },
-                          { value: '20', label: 'Top 20' },
-                        ]}
-                      />
-                    </div>
+                  {/* 批量操作 */}
+                  {status && status.unindexedItems > 0 ? (
                     <button
-                      onClick={handleSearch}
-                      disabled={isSearching || !searchQuery.trim()}
-                      className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+                      onClick={() => batchMutation.mutate()}
+                      disabled={batchMutation.isPending || !status.hasEmbeddingProvider || status.runningTaskCount > 0}
+                      className="flex shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
                     >
-                      {isSearching ? (
+                      {batchMutation.isPending || status.runningTaskCount > 0 ? (
                         <Loader2 size={16} className="animate-spin" />
                       ) : (
-                        <Play size={16} />
+                        <Zap size={16} />
                       )}
-                      {t('common:search')}
+                      {batchMutation.isPending ? t('kb.batchQueued') : status.runningTaskCount > 0 ? t('kb.batchRunning') : t('kb.batchGenerate', { n: status.unindexedItems })}
                     </button>
-                  </div>
-                </Card>
-
-                {/* Search Results */}
-                {searchError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                      <AlertCircle size={16} />
-                      <span className="text-sm">{searchError}</span>
+                  ) : (
+                    <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      <CheckCircle2 size={14} />
+                      {t('kb.allIndexed')}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {searchResults && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t('kb.searchResults', { n: searchResults.length })}
-                      </h3>
-                    </div>
-                    {searchResults.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                        <Search size={48} strokeWidth={1} />
-                        <p className="mt-4 text-sm">{t('kb.searchEmpty')}</p>
-                        <p className="mt-1 text-xs">{t('kb.searchEmptyHint')}</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {searchResults.map((result, index) => (
-                          <Card
-                            key={result.id}
-                            className="p-4 transition-all hover:shadow-sm"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                                    {index + 1}
-                                  </span>
-                                  <h4 className="truncate font-medium text-gray-900 dark:text-gray-100">
-                                    <HighlightText text={result.title} keyword={searchQuery} />
-                                  </h4>
-                                </div>
-                                {result.contentSnippet && (
-                                  <p className="mt-2 pl-7 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                                    <HighlightText text={result.contentSnippet} keyword={searchQuery} />
-                                  </p>
-                                )}
-                              </div>
-                              <span className="ml-4 shrink-0 text-xs text-gray-400">
-                                {safeFormatDate(result.updatedAt)}
-                              </span>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
+                {/* 关键指标 */}
+                <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800">
+                  <MetricPill icon={<Layers size={13} />} color="blue" label={t('kb.metricTotal')} value={status?.totalItems ?? '-'} loading={statusLoading} />
+                  <MetricPill icon={<FileText size={13} />} color="indigo" label={t('kb.typeNote')} value={status?.noteCount ?? '-'} loading={statusLoading} />
+                  <MetricPill icon={<Upload size={13} />} color="green" label={t('kb.typeFile')} value={status?.fileCount ?? '-'} loading={statusLoading} />
+                  <MetricPill icon={<Globe size={13} />} color="purple" label={t('kb.typeUrl')} value={status?.urlCount ?? '-'} loading={statusLoading} />
+                  <MetricPill icon={<AlertCircle size={13} />} color="amber" label={t('kb.notIndexed')} value={status?.unindexedItems ?? '-'} loading={statusLoading} />
+                </div>
+
+                {batchMutation.data && (
+                  <p className="mt-4 text-xs text-green-600 dark:text-green-400">
+                    {t('kb.batchResult', { n: batchMutation.data.queuedCount })}
+                    {batchMutation.data.skippedCount > 0 && (
+                      <span className="ml-2 text-amber-600 dark:text-amber-400">
+                        {t('kb.batchSkipped', { n: batchMutation.data.skippedCount })}
+                      </span>
                     )}
-                  </div>
+                  </p>
                 )}
+                {batchMutation.error && (
+                  <p className="mt-4 text-xs text-red-600 dark:text-red-400">
+                    {(batchMutation.error as Error).message}
+                  </p>
+                )}
+              </Card>
+            </div>
+          )}
+          {/* Manage Tab */}
+          {activeTab === 'manage' && (
+            <div className="space-y-4">
+              {/* Type Filter + Actions */}
+              <div className="flex flex-wrap items-center gap-3">
+                <PillTabs
+                  value={manageFilter}
+                  onSelect={(key) => setManageFilter(key as typeof manageFilter)}
+                  items={typeFilters.map((f) => {
+                    const Icon = f.icon
+                    return { key: f.key, label: <><Icon size={13} />{t(f.label)}</> }
+                  })}
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
+                    <Upload size={13} />
+                    {t('kb.uploadFile')}
+                  </Button>
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
+                    <Plus size={13} />
+                    {t('kb.addUrl')}
+                  </Button>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Add URL Modal */}
+              {showAddUrl && (
+                <Card className="p-5">
+                  <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.addUrl')}</h3>
+                  <div className="flex gap-3">
+                    <Input tone="blue"
+                      type="url"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="https://example.com"
+                      className="flex-1"
+                    />
+                    <Input tone="blue"
+                      type="text"
+                      value={urlTitle}
+                      onChange={(e) => setUrlTitle(e.target.value)}
+                      placeholder={t('kb.urlTitlePlaceholder')}
+                      className="w-48"
+                    />
+                    <Button variant="primary" tone="blue" className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50" onClick={handleAddUrl}
+                      disabled={addUrlMutation.isPending || !urlInput.trim()}>
+                      {addUrlMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                      {t('common:add')}
+                    </Button>
+                    <Button variant="ghost" tone="gray" className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => { setShowAddUrl(false); setUrlInput(''); setUrlTitle('') }}>
+                      {t('common:cancel')}
+                    </Button>
+                  </div>
+                  {addUrlMutation.error && (
+                    <p className="mt-2 text-xs text-red-500">{(addUrlMutation.error as Error).message}</p>
+                  )}
+                </Card>
+              )}
+
+              {/* Items List */}
+              {embeddingsLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 size={24} className="animate-spin text-gray-400" />
+                </div>
+              ) : embeddingStatuses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                  <Layers size={48} strokeWidth={1} />
+                  <p className="mt-4 text-sm">{t('kb.empty')}</p>
+                  <p className="mt-1 text-xs">{t('kb.emptyHint')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {embeddingStatuses.map((item) => (
+                    <Card
+                      key={item.id}
+                      padded={false}
+                      className={`group flex items-center gap-4 px-5 py-4 transition-all hover:shadow-md ${
+                        item.hasRunningTask
+                          ? 'border-teal-300 bg-teal-50/30 dark:border-teal-700 dark:bg-teal-900/10'
+                          : 'hover:border-white/40 dark:hover:border-white/10'
+                      }`}
+                    >
+                      {/* Type + Title */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {getTypeBadge(item.type)}
+                          <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {item.title || t('kb.untitled')}
+                          </p>
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                          {item.hasRunningTask
+                            ? t('kb.indexing')
+                            : item.embeddingUpdatedAt
+                              ? t('kb.indexedAt', { time: safeFormatDate(item.embeddingUpdatedAt) })
+                              : t('kb.notIndexed')}
+                        </p>
+                      </div>
+
+                      {/* Status badges */}
+                      <div className="flex items-center gap-2">
+                        {item.hasRunningTask ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                            <Loader2 size={10} className="animate-spin" />
+                            {t('kb.badgeIndexing')}
+                          </span>
+                        ) : item.hasEmbedding ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                            <CheckCircle2 size={10} />
+                            {t('kb.statIndexed')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            <AlertCircle size={10} />
+                            {t('kb.notIndexed')}
+                          </span>
+                        )}
+
+                        {item.embeddingModel && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                            <Brain size={10} />
+                            {item.embeddingModel}
+                          </span>
+                        )}
+
+                        {item.embeddingDimensions > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                            <Hash size={10} />
+                            {item.embeddingDimensions}d
+                          </span>
+                        )}
+
+                        {item.chunkCount > 0 && (
+                          <button
+                            onClick={() => openChunkDetail(item.id, item.title)}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                            title={t('kb.chunkCountTitle')}
+                          >
+                            <Layers size={10} />
+                            {t('kb.chunkCount', { n: item.chunkCount })}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" tone="blue" size="sm" pill className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-blue-600 transition-all hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-950/30" onClick={() => generateMutation.mutate(item.id)}
+                          disabled={generateMutation.isPending || item.hasRunningTask}>
+                          {item.hasRunningTask || generateMutation.isPending ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={12} />
+                          )}
+                          {item.hasRunningTask ? t('kb.actionIndexing') : item.hasEmbedding ? t('kb.actionReindex') : t('kb.actionIndex')}
+                        </Button>
+                        {item.type !== 'note' && (
+                          <button
+                            onClick={() => {
+                              confirm({ message: t('kb.deleteItemConfirm'), onConfirm: () => deleteMutation.mutate(item.id) })
+                            }}
+                            className="flex items-center gap-1 rounded-full p-1.5 text-red-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                            title={t('kb.deleteItemTitle')}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Search Test Tab */}
+          {activeTab === 'search' && (
+            <div className="space-y-6">
+              {/* Search Input */}
+              <Card padded="lg">
+                <h3 className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.searchTestTitle')}</h3>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <SearchInput tone="blue" size="lg"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder={t('kb.searchPlaceholder')}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Select
+                      value={searchTopK.toString()}
+                      onChange={(value) => setSearchTopK(Number(value))}
+                      options={[
+                        { value: '5', label: 'Top 5' },
+                        { value: '10', label: 'Top 10' },
+                        { value: '20', label: 'Top 20' },
+                      ]}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSearch}
+                    disabled={isSearching || !searchQuery.trim()}
+                    className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+                  >
+                    {isSearching ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Play size={16} />
+                    )}
+                    {t('common:search')}
+                  </button>
+                </div>
+              </Card>
+
+              {/* Search Results */}
+              {searchError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">{searchError}</span>
+                  </div>
+                </div>
+              )}
+
+              {searchResults && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('kb.searchResults', { n: searchResults.length })}
+                    </h3>
+                  </div>
+                  {searchResults.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                      <Search size={48} strokeWidth={1} />
+                      <p className="mt-4 text-sm">{t('kb.searchEmpty')}</p>
+                      <p className="mt-1 text-xs">{t('kb.searchEmptyHint')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {searchResults.map((result, index) => (
+                        <Card
+                          key={result.id}
+                          className="p-4 transition-all hover:shadow-sm"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                  {index + 1}
+                                </span>
+                                <h4 className="truncate font-medium text-gray-900 dark:text-gray-100">
+                                  <HighlightText text={result.title} keyword={searchQuery} />
+                                </h4>
+                              </div>
+                              {result.contentSnippet && (
+                                <p className="mt-2 pl-7 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                                  <HighlightText text={result.contentSnippet} keyword={searchQuery} />
+                                </p>
+                              )}
+                            </div>
+                            <span className="ml-4 shrink-0 text-xs text-gray-400">
+                              {safeFormatDate(result.updatedAt)}
+                            </span>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Chunk Detail Modal */}
           {chunkDetailId && (
@@ -654,7 +652,7 @@ export default function KnowledgeBasePage() {
               onClose={closeChunkDetail}
             />
           )}
-        </div>
+        </PageContainer>
       }
     />
   )

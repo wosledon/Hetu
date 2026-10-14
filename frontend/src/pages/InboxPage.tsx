@@ -23,7 +23,7 @@ import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
-import { Button, Card, IconButton, PillTabs } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, PillTabs } from '../components/ui'
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
   Info: { icon: Info, className: 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' },
@@ -145,217 +145,215 @@ export default function InboxPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-4xl px-8 py-8">
-            {/* Header */}
-            <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-                  <Inbox size={22} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('inbox.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {archived ? t('inbox.subtitleArchived') : t('inbox.subtitleInbox')}
-                  </p>
-                </div>
+        <PageContainer>
+          {/* Header */}
+          <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
+                <Inbox size={22} className="text-white" />
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                {!archived && (unreadCount ?? 0) > 0 && (
-                  <>
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                      {t('inbox.unreadCount', { n: unreadCount })}
-                    </span>
-                    <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
-                      <CheckCheck size={13} />{t('inbox.markAllRead')}
-                    </Button>
-                  </>
-                )}
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('inbox.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {archived ? t('inbox.subtitleArchived') : t('inbox.subtitleInbox')}
+                </p>
               </div>
             </div>
+            <div className="ml-auto flex items-center gap-2">
+              {!archived && (unreadCount ?? 0) > 0 && (
+                <>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                    {t('inbox.unreadCount', { n: unreadCount })}
+                  </span>
+                  <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
+                    <CheckCheck size={13} />{t('inbox.markAllRead')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
 
-            {/* 归档切换 + 分类筛选 */}
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <PillTabs
-                value={archived ? 'archived' : 'inbox'}
-                onSelect={(key) => {
-                  if (key === 'inbox') { setArchived(false); setSelected([]) } else { setArchived(true); setCategory(null); setSelected([]) }
-                }}
-                items={[
-                  { key: 'inbox', label: t('inbox.tabInbox') },
-                  { key: 'archived', label: t('inbox.tabArchived') },
-                ]}
-              />
+          {/* 归档切换 + 分类筛选 */}
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <PillTabs
+              value={archived ? 'archived' : 'inbox'}
+              onSelect={(key) => {
+                if (key === 'inbox') { setArchived(false); setSelected([]) } else { setArchived(true); setCategory(null); setSelected([]) }
+              }}
+              items={[
+                { key: 'inbox', label: t('inbox.tabInbox') },
+                { key: 'archived', label: t('inbox.tabArchived') },
+              ]}
+            />
 
-              <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => { setCategory(null); setSelected([]) }}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  category === null
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
+                }`}
+              >
+                {t('common:all')}
+              </button>
+              {(categories ?? []).map((c) => (
                 <button
-                  onClick={() => { setCategory(null); setSelected([]) }}
+                  key={c.category}
+                  onClick={() => { setCategory(c.category); setSelected([]) }}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    category === null
+                    category === c.category
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
                   }`}
                 >
-                  {t('common:all')}
+                  {c.category}
+                  {c.unreadCount > 0 && (
+                    <span className={`ml-1 ${category === c.category ? 'text-blue-100' : 'text-blue-500'}`}>
+                      {c.unreadCount}
+                    </span>
+                  )}
                 </button>
-                {(categories ?? []).map((c) => (
-                  <button
-                    key={c.category}
-                    onClick={() => { setCategory(c.category); setSelected([]) }}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      category === c.category
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
+              ))}
+            </div>
+          </div>
+
+          {/* 列表 */}
+          {isLoading ? (
+            <div className="flex h-48 items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+              <Loader2 size={16} className="mr-2 animate-spin" />{t('common:loading')}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                <Inbox size={28} className="opacity-50" />
+              </div>
+              <p className="text-[13px] font-medium">{archived ? t('inbox.emptyArchived') : t('inbox.emptyInbox')}</p>
+              <p className="text-[11px]">{archived ? t('inbox.hintArchived') : t('inbox.hintInbox')}</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {/* 工具栏：全选 + 批量操作 */}
+              <Card padded={false} className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
+                  />
+                  {t('common:selectAll')}
+                </label>
+                {selected.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                      {t('inbox.selectedCount', { n: selected.length })}
+                    </span>
+                    <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
+                    <BatchButton icon={MailOpen} label={t('inbox.unread')} onClick={() => runBatch('unread')} />
+                    {archived ? (
+                      <BatchButton icon={ArchiveRestore} label={t('inbox.unarchive')} onClick={() => runBatch('unarchive')} />
+                    ) : (
+                      <BatchButton icon={Archive} label={t('inbox.archive')} onClick={() => runBatch('archive')} />
+                    )}
+                    <BatchButton icon={Trash2} label={t('common:delete')} danger onClick={() => runBatch('delete')} />
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('inbox.totalHint', { n: items.length })}</span>
+                )}
+              </Card>
+
+              {items.map((item) => {
+                const level = LEVEL_STYLE[item.level] ?? LEVEL_STYLE.Info
+                const LevelIcon = level.icon
+                return (
+                  <Card
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    className={`group flex cursor-pointer items-start gap-3 p-3.5 transition-all hover:shadow-sm ${
+                      item.isRead
+                        ? 'hover:border-blue-300 dark:hover:border-white/10'
+                        : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
                     }`}
                   >
-                    {c.category}
-                    {c.unreadCount > 0 && (
-                      <span className={`ml-1 ${category === c.category ? 'text-blue-100' : 'text-blue-500'}`}>
-                        {c.unreadCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 列表 */}
-            {isLoading ? (
-              <div className="flex h-48 items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                <Loader2 size={16} className="mr-2 animate-spin" />{t('common:loading')}
-              </div>
-            ) : items.length === 0 ? (
-              <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-                  <Inbox size={28} className="opacity-50" />
-                </div>
-                <p className="text-[13px] font-medium">{archived ? t('inbox.emptyArchived') : t('inbox.emptyInbox')}</p>
-                <p className="text-[11px]">{archived ? t('inbox.hintArchived') : t('inbox.hintInbox')}</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {/* 工具栏：全选 + 批量操作 */}
-                <Card padded={false} className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <input
                       type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
+                      checked={selectedSet.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 dark:border-gray-600"
                     />
-                    {t('common:selectAll')}
-                  </label>
-                  {selected.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                        {t('inbox.selectedCount', { n: selected.length })}
-                      </span>
-                      <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
-                      <BatchButton icon={MailOpen} label={t('inbox.unread')} onClick={() => runBatch('unread')} />
-                      {archived ? (
-                        <BatchButton icon={ArchiveRestore} label={t('inbox.unarchive')} onClick={() => runBatch('unarchive')} />
-                      ) : (
-                        <BatchButton icon={Archive} label={t('inbox.archive')} onClick={() => runBatch('archive')} />
-                      )}
-                      <BatchButton icon={Trash2} label={t('common:delete')} danger onClick={() => runBatch('delete')} />
+
+                    <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-black/[0.02] ${level.className}`}>
+                      <LevelIcon size={16} />
                     </div>
-                  ) : (
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('inbox.totalHint', { n: items.length })}</span>
-                  )}
-                </Card>
 
-                {items.map((item) => {
-                  const level = LEVEL_STYLE[item.level] ?? LEVEL_STYLE.Info
-                  const LevelIcon = level.icon
-                  return (
-                    <Card
-                      key={item.id}
-                      onClick={() => handleItemClick(item)}
-                      className={`group flex cursor-pointer items-start gap-3 p-3.5 transition-all hover:shadow-sm ${
-                        item.isRead
-                          ? 'hover:border-blue-300 dark:hover:border-white/10'
-                          : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSet.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 dark:border-gray-600"
-                      />
-
-                      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-black/[0.02] ${level.className}`}>
-                        <LevelIcon size={16} />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {!item.isRead && (
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" title={t('inbox.unread')} />
-                          )}
-                          <span className={`truncate text-[13px] ${item.isRead ? 'text-gray-700 dark:text-gray-200' : 'font-semibold text-gray-900 dark:text-gray-100'}`}>
-                            {item.title}
-                          </span>
-                          {item.occurrenceCount > 1 && (
-                            <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-                              ×{item.occurrenceCount}
-                            </span>
-                          )}
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryStyle(item.category)}`}>
-                            {item.category}
-                          </span>
-                          <span className="ml-auto shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
-                            {formatTime(item.updatedAt)}
-                          </span>
-                        </div>
-                        {item.content && (
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                            {item.content}
-                          </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!item.isRead && (
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" title={t('inbox.unread')} />
                         )}
-                        {item.link && (
-                          <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-300">
-                            {t('inbox.viewDetail')}<ChevronRight size={11} />
+                        <span className={`truncate text-[13px] ${item.isRead ? 'text-gray-700 dark:text-gray-200' : 'font-semibold text-gray-900 dark:text-gray-100'}`}>
+                          {item.title}
+                        </span>
+                        {item.occurrenceCount > 1 && (
+                          <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                            ×{item.occurrenceCount}
                           </span>
                         )}
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryStyle(item.category)}`}>
+                          {item.category}
+                        </span>
+                        <span className="ml-auto shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+                          {formatTime(item.updatedAt)}
+                        </span>
                       </div>
+                      {item.content && (
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                          {item.content}
+                        </p>
+                      )}
+                      {item.link && (
+                        <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-300">
+                          {t('inbox.viewDetail')}<ChevronRight size={11} />
+                        </span>
+                      )}
+                    </div>
 
-                      <div className="flex shrink-0 items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
-                        <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')} title={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')}
-                          onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}>
-                          {item.isRead ? <MailOpen size={14} /> : <Check size={14} />}
+                    <div className="flex shrink-0 items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
+                      <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')} title={item.isRead ? t('inbox.markUnread') : t('inbox.markRead')}
+                        onClick={(e) => { e.stopPropagation(); markReadMutation.mutate({ id: item.id, isRead: !item.isRead }) }}>
+                        {item.isRead ? <MailOpen size={14} /> : <Check size={14} />}
+                      </IconButton>
+                      {archived ? (
+                        <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={t('inbox.unarchive')} title={t('inbox.unarchive')}
+                          onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}>
+                          <ArchiveRestore size={14} />
                         </IconButton>
-                        {archived ? (
-                          <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={t('inbox.unarchive')} title={t('inbox.unarchive')}
-                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: false }) }}>
-                            <ArchiveRestore size={14} />
-                          </IconButton>
-                        ) : (
-                          <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={t('inbox.archive')} title={t('inbox.archive')}
-                            onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}>
-                            <Archive size={14} />
-                          </IconButton>
-                        )}
-                        <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10" label={t('common:delete')} title={t('common:delete')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            confirm({
-                              title: t('inbox.deleteTitle'),
-                              message: t('inbox.deleteOneMessage'),
-                              onConfirm: () => deleteMutation.mutate(item.id),
-                            })
-                          }}>
-                          <Trash2 size={14} />
+                      ) : (
+                        <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200" label={t('inbox.archive')} title={t('inbox.archive')}
+                          onClick={(e) => { e.stopPropagation(); archiveMutation.mutate({ id: item.id, isArchived: true }) }}>
+                          <Archive size={14} />
                         </IconButton>
-                      </div>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+                      )}
+                      <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10" label={t('common:delete')} title={t('common:delete')}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          confirm({
+                            title: t('inbox.deleteTitle'),
+                            message: t('inbox.deleteOneMessage'),
+                            onConfirm: () => deleteMutation.mutate(item.id),
+                          })
+                        }}>
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </PageContainer>
       }
     />
   )

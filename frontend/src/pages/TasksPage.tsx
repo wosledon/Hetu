@@ -20,7 +20,7 @@ import type {
 import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
-import { Button, Card, IconButton, Input, Modal, PillTabs, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea } from '../components/ui'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -81,54 +81,52 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* Header */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-sm shadow-sky-500/20">
-                  {isBackground ? <ListTodo size={20} className="text-white" /> : <CalendarClock size={20} className="text-white" />}
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{headerTitle}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{headerSubtitle}</p>
-                </div>
+        <PageContainer>
+          {/* Header */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-sm shadow-sky-500/20">
+                {isBackground ? <ListTodo size={20} className="text-white" /> : <CalendarClock size={20} className="text-white" />}
               </div>
-              {isBackground && stats && (
-                <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                  <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{stats.total}</b> {t('tasks.recordCount')}</span>
-                  {(stats.queued > 0 || stats.running > 0) && (
-                    <>
-                      <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                      <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
-                        <Loader2 size={12} className="animate-spin" />
-                        {t('tasks.runningQueued', { running: stats.running, queued: stats.queued })}
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{headerTitle}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{headerSubtitle}</p>
+              </div>
             </div>
-
-            {isBackground ? (
-              <BackgroundTasksView
-                stats={stats}
-                tasks={filtered}
-                isLoading={isLoading}
-                isRefetching={isRefetching}
-                filter={filter}
-                setFilter={setFilter}
-                typeFilter={typeFilter}
-                setTypeFilter={setTypeFilter}
-                onClearCompleted={() => clearMutation.mutate()}
-                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['task-items'] })}
-                onDelete={(id) => deleteMutation.mutate(id)}
-              />
-            ) : (
-              <ScheduledTasksView />
+            {isBackground && stats && (
+              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{stats.total}</b> {t('tasks.recordCount')}</span>
+                {(stats.queued > 0 || stats.running > 0) && (
+                  <>
+                    <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                    <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                      <Loader2 size={12} className="animate-spin" />
+                      {t('tasks.runningQueued', { running: stats.running, queued: stats.queued })}
+                    </span>
+                  </>
+                )}
+              </div>
             )}
           </div>
-        </div>
+
+          {isBackground ? (
+            <BackgroundTasksView
+              stats={stats}
+              tasks={filtered}
+              isLoading={isLoading}
+              isRefetching={isRefetching}
+              filter={filter}
+              setFilter={setFilter}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              onClearCompleted={() => clearMutation.mutate()}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['task-items'] })}
+              onDelete={(id) => deleteMutation.mutate(id)}
+            />
+          ) : (
+            <ScheduledTasksView />
+          )}
+        </PageContainer>
       }
     >
       {null}

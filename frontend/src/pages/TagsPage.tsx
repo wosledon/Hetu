@@ -21,7 +21,7 @@ import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
-import { Button, IconButton, Input, Modal, PillTabs, SearchInput } from '../components/ui'
+import { Button, IconButton, Input, Modal, PageContainer, PillTabs, SearchInput } from '../components/ui'
 
 interface ContextMenuState {
   x: number
@@ -137,99 +137,97 @@ export default function TagsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* 页头：标题 + 内联统计 */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-                  <TagIcon size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('tags.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('tags.subtitle')}</p>
-                </div>
+        <PageContainer>
+          {/* 页头：标题 + 内联统计 */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
+                <TagIcon size={20} className="text-white" />
               </div>
-              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{tags.length}</b> {t('tags.statsTags')}</span>
-                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{usedCount}</b> {t('tags.statsUsed')}</span>
-                <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{totalNotes}</b> {t('tags.statsLinked')}</span>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('tags.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('tags.subtitle')}</p>
               </div>
             </div>
-
-            {/* 控制行：筛选居左，搜索 + 新建居右 */}
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <PillTabs
-                value={filter}
-                onSelect={(key) => setFilter(key as typeof filter)}
-                items={filters.map((f) => ({
-                  key: f.key,
-                  label: (
-                    <>
-                      {f.label}
-                      <span className={`text-[11px] ${filter === f.key ? 'text-blue-500' : 'text-gray-400'}`}>{f.count}</span>
-                    </>
-                  ),
-                }))}
-              />
-              <div className="relative ml-auto w-64 min-w-[180px]">
-                <SearchInput tone="blue"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t('tags.searchPlaceholder')}
-                  className="w-full"
-                />
-              </div>
-              <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
-                <Plus size={16} />
-                {t('tags.create')}
-              </Button>
+            <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{tags.length}</b> {t('tags.statsTags')}</span>
+              <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+              <span><b className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{usedCount}</b> {t('tags.statsUsed')}</span>
+              <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+              <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{totalNotes}</b> {t('tags.statsLinked')}</span>
             </div>
-
-            {/* 标签墙 */}
-            {filteredTags.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-                  <TagIcon size={36} className="opacity-50" />
-                </div>
-                <p className="text-sm font-medium">
-                  {search
-                    ? t('tags.emptyNoMatch')
-                    : filter === 'used'
-                      ? t('tags.emptyNoUsed')
-                      : filter === 'unused'
-                        ? t('tags.emptyNoUnused')
-                        : t('tags.empty')}
-                </p>
-                <p className="mt-1 text-xs">
-                  {search ? t('tags.hintNoMatch') : filter === 'unused' ? t('tags.hintAllLinked') : t('tags.hintCreate')}
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2.5">
-                  {filteredTags.map((tag) => (
-                    <TagChip
-                      key={tag.id}
-                      tag={tag}
-                      onView={() => handleViewNotes(tag)}
-                      onRename={() => setEdit({ mode: 'rename', tag })}
-                      onMerge={() => { setMergeSource(tag); setMergeTargetId('') }}
-                      onDelete={() => handleDelete(tag)}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        setMenu({ x: e.clientX, y: e.clientY, tag })
-                      }}
-                    />
-                  ))}
-                </div>
-                <p className="mt-8 text-center text-xs text-gray-300 dark:text-gray-600">{t('tags.total', { n: filteredTags.length })}</p>
-              </>
-            )}
           </div>
-        </div>
+
+          {/* 控制行：筛选居左，搜索 + 新建居右 */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <PillTabs
+              value={filter}
+              onSelect={(key) => setFilter(key as typeof filter)}
+              items={filters.map((f) => ({
+                key: f.key,
+                label: (
+                  <>
+                    {f.label}
+                    <span className={`text-[11px] ${filter === f.key ? 'text-blue-500' : 'text-gray-400'}`}>{f.count}</span>
+                  </>
+                ),
+              }))}
+            />
+            <div className="relative ml-auto w-64 min-w-[180px]">
+              <SearchInput tone="blue"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('tags.searchPlaceholder')}
+                className="w-full"
+              />
+            </div>
+            <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
+              <Plus size={16} />
+              {t('tags.create')}
+            </Button>
+          </div>
+
+          {/* 标签墙 */}
+          {filteredTags.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                <TagIcon size={36} className="opacity-50" />
+              </div>
+              <p className="text-sm font-medium">
+                {search
+                  ? t('tags.emptyNoMatch')
+                  : filter === 'used'
+                    ? t('tags.emptyNoUsed')
+                    : filter === 'unused'
+                      ? t('tags.emptyNoUnused')
+                      : t('tags.empty')}
+              </p>
+              <p className="mt-1 text-xs">
+                {search ? t('tags.hintNoMatch') : filter === 'unused' ? t('tags.hintAllLinked') : t('tags.hintCreate')}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2.5">
+                {filteredTags.map((tag) => (
+                  <TagChip
+                    key={tag.id}
+                    tag={tag}
+                    onView={() => handleViewNotes(tag)}
+                    onRename={() => setEdit({ mode: 'rename', tag })}
+                    onMerge={() => { setMergeSource(tag); setMergeTargetId('') }}
+                    onDelete={() => handleDelete(tag)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setMenu({ x: e.clientX, y: e.clientY, tag })
+                    }}
+                  />
+                ))}
+              </div>
+              <p className="mt-8 text-center text-xs text-gray-300 dark:text-gray-600">{t('tags.total', { n: filteredTags.length })}</p>
+            </>
+          )}
+        </PageContainer>
       }
     >
       {/* 新建 / 重命名对话框 */}

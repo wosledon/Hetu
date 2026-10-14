@@ -22,7 +22,7 @@ import type {
   IKanbanTask, IKanbanTaskComment, IKanbanTaskRun, IKanbanTaskRunStep,
   KanbanTaskPriority, KanbanTaskStatus,
 } from '../types'
-import { Button, Card, Textarea } from '../components/ui'
+import { Button, Card, PageContainer, Textarea } from '../components/ui'
 
 const STATUS_META: Record<KanbanTaskStatus, { labelKey: string; cls: string }> = {
   Backlog: { labelKey: 'status.backlog', cls: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
@@ -185,9 +185,9 @@ export default function KanbanTaskDetailPage() {
   if (isLoading) {
     return (
       <AppLayout showSidebar={false} mainContent={
-        <div className="flex h-full items-center justify-center text-sm text-gray-400">
+        <PageContainer variant="fill" className="items-center justify-center text-sm text-gray-400">
           <Loader2 size={16} className="mr-2 animate-spin" />{t('common:loading')}
-        </div>
+        </PageContainer>
       } />
     )
   }
@@ -195,12 +195,12 @@ export default function KanbanTaskDetailPage() {
   if (!task) {
     return (
       <AppLayout showSidebar={false} mainContent={
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-400">
+        <PageContainer variant="fill" className="flex-col items-center justify-center gap-3 text-sm text-gray-400">
           <p>{t('detail.notFound')}</p>
           <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-500 px-4 py-2 text-sm text-white hover:bg-indigo-600" onClick={() => navigate('/kanban')}>
             {t('detail.backToBoard')}
           </Button>
-        </div>
+        </PageContainer>
       } />
     )
   }
@@ -242,8 +242,7 @@ export default function KanbanTaskDetailPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      /* 注意：mainContent 位于行向 flex 容器内，根节点必须 flex-1 + min-w-0 才能撑满宽度 */
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
+      <PageContainer variant="fill" className="flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="w-full px-6 py-6 lg:px-10">
             {/* 顶部导航 */}
@@ -561,7 +560,7 @@ export default function KanbanTaskDetailPage() {
             </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     } />
   )
 }

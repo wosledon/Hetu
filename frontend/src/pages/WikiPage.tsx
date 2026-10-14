@@ -17,7 +17,7 @@ import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
-import { Button, Card, IconButton, TreeRow } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, TreeRow } from '../components/ui'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -340,7 +340,7 @@ export default function WikiPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex h-full min-w-0 flex-1 bg-transparent">
+      <PageContainer variant="fill">
         {/* 项目列表 */}
         <Card padded={false} className="flex h-full w-52 shrink-0 flex-col border-r border-transparent">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
@@ -632,7 +632,7 @@ export default function WikiPage() {
             </div>
           )}
         </div>
-      </div>
+      </PageContainer>
     } />
   )
 }

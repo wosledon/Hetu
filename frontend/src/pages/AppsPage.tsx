@@ -8,7 +8,7 @@ import AppLayout from '../components/AppLayout'
 import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
 import { isTauri, openAppWebview, openExternal } from '../utils/tauri'
-import { Button, Card, IconButton, Input, Modal } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer } from '../components/ui'
 
 /** 从 URL 取展示用主机名 */
 function hostOf(url: string): string {
@@ -152,145 +152,143 @@ export default function AppsPage() {
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <div className="flex-1 overflow-y-auto bg-transparent">
-        <div className="mx-auto max-w-6xl px-8 py-8">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300">
-            <Globe size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('apps.title')}</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t('apps.subtitle')}</p>
-          </div>
-          <Button variant="primary" tone="cyan" pill className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-cyan-700 active:scale-[0.97]" onClick={openCreate}>
-            <Plus size={16} />
-            {t('apps.add')}
-          </Button>
+      <PageContainer>
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300">
+          <Globe size={20} />
         </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('apps.title')}</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('apps.subtitle')}</p>
+        </div>
+        <Button variant="primary" tone="cyan" pill className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-cyan-700 active:scale-[0.97]" onClick={openCreate}>
+          <Plus size={16} />
+          {t('apps.add')}
+        </Button>
+      </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-24"><Loader2 size={24} className="animate-spin text-cyan-500" /></div>
-        ) : apps.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
-            <Globe size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('apps.empty')}</p>
-            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
-              {t('apps.emptyHint')}
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              {presets.slice(0, 5).map((p) => (
-                <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" key={p.url}
+      {isLoading ? (
+        <div className="flex justify-center py-24"><Loader2 size={24} className="animate-spin text-cyan-500" /></div>
+      ) : apps.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
+          <Globe size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('apps.empty')}</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
+            {t('apps.emptyHint')}
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {presets.slice(0, 5).map((p) => (
+              <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" key={p.url}
+                onClick={() => applyPreset(p)}>
+                + {p.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {apps.map((app) => (
+              <Card
+                key={app.id}
+                className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
+              >
+                <button onClick={() => void handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
+                  <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
+                  <span className="w-full">
+                    <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">{app.name}</span>
+                    <span className="block truncate text-[11px] text-gray-400">{hostOf(app.url)}</span>
+                  </span>
+                </button>
+                <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('common:edit')} onClick={() => openEdit(app)}
+                    title={t('common:edit')}
+                    aria-label={t('common:edit')}>
+                    <Pencil size={13} />
+                  </IconButton>
+                  <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800" label={t('common:delete')} onClick={() => handleDelete(app)}
+                    title={t('common:delete')}
+                    aria-label={t('common:delete')}>
+                    <Trash2 size={13} />
+                  </IconButton>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-gray-400">{t('apps.presetsTitle')}</p>
+            <div className="flex flex-wrap gap-2">
+              {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).map((p) => (
+                <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" key={p.url}
                   onClick={() => applyPreset(p)}>
                   + {p.name}
                 </Button>
               ))}
             </div>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {apps.map((app) => (
-                <Card
-                  key={app.id}
-                  className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
-                >
-                  <button onClick={() => void handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
-                    <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
-                    <span className="w-full">
-                      <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">{app.name}</span>
-                      <span className="block truncate text-[11px] text-gray-400">{hostOf(app.url)}</span>
-                    </span>
-                  </button>
-                  <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('common:edit')} onClick={() => openEdit(app)}
-                      title={t('common:edit')}
-                      aria-label={t('common:edit')}>
-                      <Pencil size={13} />
-                    </IconButton>
-                    <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800" label={t('common:delete')} onClick={() => handleDelete(app)}
-                      title={t('common:delete')}
-                      aria-label={t('common:delete')}>
-                      <Trash2 size={13} />
-                    </IconButton>
-                  </div>
-                </Card>
-              ))}
-            </div>
+        </>
+      )}
 
-            <div className="mt-8">
-              <p className="mb-2.5 text-xs font-medium uppercase tracking-wider text-gray-400">{t('apps.presetsTitle')}</p>
-              <div className="flex flex-wrap gap-2">
-                {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).map((p) => (
-                  <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-all hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" key={p.url}
-                    onClick={() => applyPreset(p)}>
-                    + {p.name}
-                  </Button>
-                ))}
+      {/* 添加 / 编辑弹窗 */}
+      {showForm && (
+        <Modal open onClose={() => setShowForm(false)} dismissible={false} className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
+                  <Globe size={16} className="text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingApp ? t('apps.editTitle') : t('apps.add')}</h3>
               </div>
+              <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
             </div>
-          </>
-        )}
-
-        {/* 添加 / 编辑弹窗 */}
-        {showForm && (
-          <Modal open onClose={() => setShowForm(false)} dismissible={false} className="overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-100 dark:bg-cyan-900/30">
-                    <Globe size={16} className="text-cyan-600 dark:text-cyan-400" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingApp ? t('apps.editTitle') : t('apps.add')}</h3>
-                </div>
-                <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:name')}</label>
+                <Input tone="cyan"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder={t('apps.namePlaceholder')}
+                  className="w-full"
+                />
               </div>
-              <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.urlLabel')}</label>
+                <Input tone="cyan"
+                  value={form.url}
+                  onChange={(e) => setForm({ ...form, url: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                  placeholder="https://chat.deepseek.com"
+                  className="w-full"
+                />
+              </div>
+              {!editingApp && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('common:name')}</label>
-                  <Input tone="cyan"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder={t('apps.namePlaceholder')}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.urlLabel')}</label>
-                  <Input tone="cyan"
-                    value={form.url}
-                    onChange={(e) => setForm({ ...form, url: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                    placeholder="https://chat.deepseek.com"
-                    className="w-full"
-                  />
-                </div>
-                {!editingApp && (
-                  <div>
-                    <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.quickPick')}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).slice(0, 6).map((p) => (
-                        <Button variant="secondary" pill surface="modal" className="rounded-full border border-gray-200 bg-white glass px-2.5 py-1 text-[11px] text-gray-600 transition-colors hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300" key={p.url}
-                          onClick={() => setForm({ name: p.name, url: p.url })}>
-                          {p.name}
-                        </Button>
-                      ))}
-                    </div>
+                  <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">{t('apps.quickPick')}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {presets.filter((p) => !apps.some((a) => normalizeUrl(a.url) === p.url)).slice(0, 6).map((p) => (
+                      <Button variant="secondary" pill surface="modal" className="rounded-full border border-gray-200 bg-white glass px-2.5 py-1 text-[11px] text-gray-600 transition-colors hover:border-cyan-300 hover:text-cyan-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300" key={p.url}
+                        onClick={() => setForm({ name: p.name, url: p.url })}>
+                        {p.name}
+                      </Button>
+                    ))}
                   </div>
-                )}
-                {formError && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-500"><AlertCircle size={12} />{formError}</p>
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => setShowForm(false)}>{t('common:cancel')}</Button>
-                <Button variant="primary" tone="cyan" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50" onClick={handleSave}
-                  disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? t('apps.saving') : editingApp ? t('common:save') : t('common:add')}
-                </Button>
-              </div>
-          </Modal>
-        )}
-        </div>
-      </div>
+                </div>
+              )}
+              {formError && (
+                <p className="flex items-center gap-1.5 text-xs text-red-500"><AlertCircle size={12} />{formError}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
+              <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => setShowForm(false)}>{t('common:cancel')}</Button>
+              <Button variant="primary" tone="cyan" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50" onClick={handleSave}
+                disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? t('apps.saving') : editingApp ? t('common:save') : t('common:add')}
+              </Button>
+            </div>
+        </Modal>
+      )}
+      </PageContainer>
     } />
   )
 }
@@ -314,8 +312,7 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      /* 注意：mainContent 位于行向 flex 容器内，根节点必须 flex-1 + min-w-0 才能撑满宽度 */
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
+      <PageContainer variant="fill" className="flex-col bg-transparent">
         {/* 工具条 */}
         <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white glass px-3 dark:border-gray-800 dark:bg-gray-900">
           <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800" onClick={onClose} title={t('apps.backToList')}>
@@ -361,7 +358,7 @@ function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
-      </div>
+      </PageContainer>
     } />
   )
 }

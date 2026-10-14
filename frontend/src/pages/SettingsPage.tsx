@@ -22,7 +22,7 @@ import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
 import type { IAppSettingsSnapshot } from '../types'
-import { Button, Card, Input, Textarea } from '../components/ui'
+import { Button, Card, Input, PageContainer, Textarea } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
@@ -220,146 +220,144 @@ export default function SettingsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl px-6 py-8">
-            {/* Page Header */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
-            </div>
+        <PageContainer>
+          {/* Page Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
+          </div>
 
-            <div className="flex gap-8">
-              {/* Sidebar Navigation */}
-              <aside className="w-60 shrink-0">
-                <Card padded={false} className="sticky top-8">
-                <SlidingPill
-                  value={activeSection}
-                  orientation="vertical"
-                  className="flex-col rounded-2xl p-1.5"
-                  pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
-                >
-                  {settingsSections.map((item) => {
-                    const Icon = item.icon
-                    const isActive = activeSection === item.key
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        data-pill-key={item.key}
-                        onClick={() => setActiveSection(item.key)}
-                        className={`group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-200 ${
-                          isActive
-                            ? ''
-                            : 'hover:bg-blue-50/60 dark:hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                          isActive
-                            ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/25'
-                            : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700 dark:bg-white/[0.06] dark:text-gray-400 dark:group-hover:bg-white/10 dark:group-hover:text-gray-300'
+          <div className="flex gap-8">
+            {/* Sidebar Navigation */}
+            <aside className="w-60 shrink-0">
+              <Card padded={false} className="sticky top-8">
+              <SlidingPill
+                value={activeSection}
+                orientation="vertical"
+                className="flex-col rounded-2xl p-1.5"
+                pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
+              >
+                {settingsSections.map((item) => {
+                  const Icon = item.icon
+                  const isActive = activeSection === item.key
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      data-pill-key={item.key}
+                      onClick={() => setActiveSection(item.key)}
+                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-200 ${
+                        isActive
+                          ? ''
+                          : 'hover:bg-blue-50/60 dark:hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/25'
+                          : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700 dark:bg-white/[0.06] dark:text-gray-400 dark:group-hover:bg-white/10 dark:group-hover:text-gray-300'
+                      }`}>
+                        <Icon size={15} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className={`flex items-center gap-1.5 text-sm font-medium ${
+                          isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
                         }`}>
-                          <Icon size={15} />
+                          {t(item.labelKey)}
+                          {item.beta && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                              {t('sections.beta')}
+                            </span>
+                          )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className={`flex items-center gap-1.5 text-sm font-medium ${
-                            isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {t(item.labelKey)}
-                            {item.beta && (
-                              <span className="rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                                {t('sections.beta')}
-                              </span>
-                            )}
-                          </div>
-                          <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
-                            {t(item.descKey)}
-                          </div>
+                        <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
+                          {t(item.descKey)}
                         </div>
-                        {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
-                      </button>
-                    )
-                  })}
-                </SlidingPill>
-                </Card>
-              </aside>
-
-              {/* Content Area */}
-              <div className="min-w-0 flex-1 animate-fade-in">
-                <Card className="p-8 shadow-sm shadow-gray-100/50 dark:bg-white/[0.03] dark:shadow-none">
-                  {activeSection === 'app' && <AppSettingsSection
-                    appName={appName}
-                    assistantName={assistantName}
-                    assistantPersona={assistantPersona}
-                    snapshot={snapshot}
-                    onAppNameChange={handleAppNameChange}
-                    onAppNameSave={handleAppNameSave}
-                    onAssistantNameChange={handleAssistantNameChange}
-                    onAssistantNameSave={handleAssistantNameSave}
-                    onAssistantPersonaChange={handleAssistantPersonaChange}
-                    onAssistantPersonaSave={handleAssistantPersonaSave}
-                    onLanguageChange={handleLanguageChange}
-                    onSettingChange={(key, value) => setSetting.mutate({ key, value })}
-                  />}
-
-                  {activeSection === 'appearance' && <AppearanceSettingsSection
-                    theme={theme}
-                    snapshot={snapshot}
-                    onThemeChange={handleThemeChange}
-                    onAccentChange={handleAccentChange}
-                    onBackgroundChange={handleBackgroundChange}
-                    onGlassChange={handleGlassChange}
-                  />}
-
-                  {activeSection === 'navigation' && <NavigationSettingsSection
-                    pinnedNavItems={pinnedNavItems}
-                    setPinnedNavItems={handlePinnedNavItemsChange}
-                    navStyle={navStyle}
-                    secondaryMenuStyle={secondaryMenuStyle}
-                    onNavStyleChange={handleNavStyleChange}
-                    onMenuStyleChange={handleMenuStyleChange}
-                    onNavigate={navigate}
-                  />}
-
-                  {activeSection === 'models' && <DefaultModelsSection
-                    snapshot={snapshot}
-                    models={allModels}
-                    onSettingChange={(key, value) => setSetting.mutate({ key, value })}
-                    onNavigate={navigate}
-                  />}
-
-                  {activeSection === 'database' && (
-                    <section className="space-y-8">
-                      <DatabaseSettings />
-                      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-                        <ExportBackupPanel />
                       </div>
-                    </section>
-                  )}
+                      {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
+                    </button>
+                  )
+                })}
+              </SlidingPill>
+              </Card>
+            </aside>
 
-                  {activeSection === 'ai' && <AiSettings />}
+            {/* Content Area */}
+            <div className="min-w-0 flex-1 animate-fade-in">
+              <Card className="p-8 shadow-sm shadow-gray-100/50 dark:bg-white/[0.03] dark:shadow-none">
+                {activeSection === 'app' && <AppSettingsSection
+                  appName={appName}
+                  assistantName={assistantName}
+                  assistantPersona={assistantPersona}
+                  snapshot={snapshot}
+                  onAppNameChange={handleAppNameChange}
+                  onAppNameSave={handleAppNameSave}
+                  onAssistantNameChange={handleAssistantNameChange}
+                  onAssistantNameSave={handleAssistantNameSave}
+                  onAssistantPersonaChange={handleAssistantPersonaChange}
+                  onAssistantPersonaSave={handleAssistantPersonaSave}
+                  onLanguageChange={handleLanguageChange}
+                  onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+                />}
 
-                  {activeSection === 'cost' && <CompressionSettings />}
-                  {activeSection === 'memory' && <DreamSettings />}
+                {activeSection === 'appearance' && <AppearanceSettingsSection
+                  theme={theme}
+                  snapshot={snapshot}
+                  onThemeChange={handleThemeChange}
+                  onAccentChange={handleAccentChange}
+                  onBackgroundChange={handleBackgroundChange}
+                  onGlassChange={handleGlassChange}
+                />}
 
-                  {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
+                {activeSection === 'navigation' && <NavigationSettingsSection
+                  pinnedNavItems={pinnedNavItems}
+                  setPinnedNavItems={handlePinnedNavItemsChange}
+                  navStyle={navStyle}
+                  secondaryMenuStyle={secondaryMenuStyle}
+                  onNavStyleChange={handleNavStyleChange}
+                  onMenuStyleChange={handleMenuStyleChange}
+                  onNavigate={navigate}
+                />}
 
-                  {activeSection === 'workspace' && (
-                    <section className="space-y-8">
-                      <WorktreeLocationSettings />
-                      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-                        <WorktreeCleanupSettings />
-                      </div>
-                    </section>
-                  )}
+                {activeSection === 'models' && <DefaultModelsSection
+                  snapshot={snapshot}
+                  models={allModels}
+                  onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+                  onNavigate={navigate}
+                />}
 
-                  {activeSection === 'mcp' && <McpServerManager />}
+                {activeSection === 'database' && (
+                  <section className="space-y-8">
+                    <DatabaseSettings />
+                    <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                      <ExportBackupPanel />
+                    </div>
+                  </section>
+                )}
 
-                  {activeSection === 'about' && <AboutSection appName={appName} />}
-                </Card>
-              </div>
+                {activeSection === 'ai' && <AiSettings />}
+
+                {activeSection === 'cost' && <CompressionSettings />}
+                {activeSection === 'memory' && <DreamSettings />}
+
+                {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
+
+                {activeSection === 'workspace' && (
+                  <section className="space-y-8">
+                    <WorktreeLocationSettings />
+                    <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                      <WorktreeCleanupSettings />
+                    </div>
+                  </section>
+                )}
+
+                {activeSection === 'mcp' && <McpServerManager />}
+
+                {activeSection === 'about' && <AboutSection appName={appName} />}
+              </Card>
             </div>
           </div>
-        </div>
+        </PageContainer>
       }
     >
       {null}

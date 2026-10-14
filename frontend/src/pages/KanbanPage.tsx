@@ -20,7 +20,7 @@ import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
   KanbanTaskStatus, KanbanTaskPriority,
 } from '../types'
-import { Button, Card, IconButton, Input, Modal, PillTabs, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -329,7 +329,7 @@ export default function KanbanPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <div className="flex h-full min-w-0 flex-col bg-transparent">
+        <PageContainer variant="fill" className="flex-col">
           {/* Header */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
             <div className="flex items-center gap-3">
@@ -680,7 +680,7 @@ export default function KanbanPage() {
               </div>
             </Modal>
           )}
-        </div>
+        </PageContainer>
       }
     />
   )

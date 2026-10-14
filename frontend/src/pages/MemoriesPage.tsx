@@ -13,7 +13,7 @@ import { useUIStore } from '../stores/uiStore'
 import i18n from '../i18n'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
-import { Button, Card, IconButton, Input, Modal, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
@@ -877,7 +877,7 @@ export default function MemoriesPage() {
       mainContent={
         view === 'sky' ? (
           /* 星空模式：整页即星图，控件浮在场景里；配色随明暗主题切换 */
-          <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ backgroundColor: pal.bg }}>
+          <PageContainer variant="fill" className="relative h-full flex-col overflow-hidden" style={{ backgroundColor: pal.bg }}>
             {/* 场景光晕：以星团为中心的一团柔光（不再在角落堆几块渐变） */}
             <div
               className="pointer-events-none absolute inset-0"
@@ -1005,312 +1005,310 @@ export default function MemoriesPage() {
             </div>
 
             {/* 悬停信息在星星旁就地弹出；点击不再弹卡，编辑/删除请切到「索引」视图 */}
-          </div>
+          </PageContainer>
         ) : (
-        <div className="flex-1 overflow-y-auto bg-transparent">
-          <div className="mx-auto max-w-6xl px-8 py-8">
-            {/* 页头 */}
-            <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-sm shadow-teal-500/20">
-                  <Atom size={20} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('memories.title')}</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('memories.subtitle')}</p>
-                </div>
+        <PageContainer>
+          {/* 页头 */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-sm shadow-teal-500/20">
+                <Atom size={20} className="text-white" />
               </div>
-              <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{pagedData?.totalCount ?? 0}</b> {t('memories.statMemories')}</span>
-                {categories.length > 0 && (
-                  <>
-                    <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
-                    <span><b className="text-sm font-semibold text-teal-600 dark:text-teal-400">{categories.length}</b> {t('memories.statCategories')}</span>
-                  </>
-                )}
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('memories.title')}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('memories.subtitle')}</p>
               </div>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
-                title={t('memories.backToSky')}>
-                <Sparkles size={14} />{t('memories.starMap')}
+            </div>
+            <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <span><b className="text-sm font-semibold text-gray-700 dark:text-gray-200">{pagedData?.totalCount ?? 0}</b> {t('memories.statMemories')}</span>
+              {categories.length > 0 && (
+                <>
+                  <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span><b className="text-sm font-semibold text-teal-600 dark:text-teal-400">{categories.length}</b> {t('memories.statCategories')}</span>
+                </>
+              )}
+            </div>
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
+              title={t('memories.backToSky')}>
+              <Sparkles size={14} />{t('memories.starMap')}
+            </Button>
+          </div>
+
+          {/* Dream 巩固面板：索引模式下与星空模式共用同一份巩固能力 */}
+          <div className="mb-4 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-violet-50/50 to-white p-4 dark:border-indigo-500/20 dark:from-indigo-950/40 dark:via-violet-950/20 dark:to-transparent">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500 dark:bg-indigo-400/15 dark:text-indigo-300">
+                <Moon size={17} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-100">{t('memories.dreamPanel')}</p>
+                <p className="mt-0.5 text-[11px] text-indigo-700/75 dark:text-indigo-300/75">
+                  {dreamConfig?.enabled
+                    ? `${t('memories.autoEnabled', { hours: dreamConfig.intervalHours })}${dreamConfig.lastRunAt ? t('memories.autoLastRun', { time: formatTime(dreamConfig.lastRunAt) }) : ''}`
+                    : t('memories.autoDisabledList')}
+                  {degradingCount > 0 && ` · ${t('memories.degrading', { n: degradingCount })}`}
+                </p>
+              </div>
+              <Button variant="primary" tone="indigo" className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
+                disabled={dreamMutation.isPending}
+                title={t('memories.dreamTitle')}>
+                {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
+                {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dreamShort')}
               </Button>
             </div>
+            {dreamMsg && (
+              <p className="mt-3 animate-fade-in rounded-lg bg-white/70 px-3 py-2 text-xs text-indigo-800 dark:bg-white/[0.05] dark:text-indigo-200">
+                {dreamMsg}
+              </p>
+            )}
+          </div>
 
-            {/* Dream 巩固面板：索引模式下与星空模式共用同一份巩固能力 */}
-            <div className="mb-4 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-violet-50/50 to-white p-4 dark:border-indigo-500/20 dark:from-indigo-950/40 dark:via-violet-950/20 dark:to-transparent">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500 dark:bg-indigo-400/15 dark:text-indigo-300">
-                  <Moon size={17} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-100">{t('memories.dreamPanel')}</p>
-                  <p className="mt-0.5 text-[11px] text-indigo-700/75 dark:text-indigo-300/75">
-                    {dreamConfig?.enabled
-                      ? `${t('memories.autoEnabled', { hours: dreamConfig.intervalHours })}${dreamConfig.lastRunAt ? t('memories.autoLastRun', { time: formatTime(dreamConfig.lastRunAt) }) : ''}`
-                      : t('memories.autoDisabledList')}
-                    {degradingCount > 0 && ` · ${t('memories.degrading', { n: degradingCount })}`}
-                  </p>
-                </div>
-                <Button variant="primary" tone="indigo" className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 py-2 text-[13px] font-medium text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
-                  disabled={dreamMutation.isPending}
-                  title={t('memories.dreamTitle')}>
-                  {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
-                  {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dreamShort')}
-                </Button>
-              </div>
-              {dreamMsg && (
-                <p className="mt-3 animate-fade-in rounded-lg bg-white/70 px-3 py-2 text-xs text-indigo-800 dark:bg-white/[0.05] dark:text-indigo-200">
-                  {dreamMsg}
-                </p>
-              )}
-            </div>
-
-            {/* 作用域分段：全局公共 / 会话私有 / 项目内 */}
-            <div className="mb-4 flex flex-wrap items-center gap-1.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {([
-                  { key: 'all' as const, label: 'memories.scopeAll', icon: Atom, count: allMemories.length },
-                  { key: 'Global' as const, label: 'memories.scopeGlobal', icon: Globe, count: scopeCounts.Global },
-                  { key: 'Session' as const, label: 'memories.scopeSession', icon: MessagesSquare, count: scopeCounts.Session },
-                  { key: 'Project' as const, label: 'memories.scopeProject', icon: FolderInput, count: scopeCounts.Project },
-                ]).map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(scopeFilter === tab.key)}`}
-                    >
-                      <Icon size={13} />
-                      {t(tab.label)}
-                      <span className="text-[11px] opacity-70">{tab.count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* 工具栏：分类筛选 + 排序 + 搜索 + 新建 */}
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => setActiveCategory(null)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
-                >
-                  {t('memories.scopeAll')}
-                  <span className="text-[11px] opacity-70">{pagedData?.totalCount ?? 0}</span>
-                </button>
-                {categories.map(([cat, count]) => (
+          {/* 作用域分段：全局公共 / 会话私有 / 项目内 */}
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {([
+                { key: 'all' as const, label: 'memories.scopeAll', icon: Atom, count: allMemories.length },
+                { key: 'Global' as const, label: 'memories.scopeGlobal', icon: Globe, count: scopeCounts.Global },
+                { key: 'Session' as const, label: 'memories.scopeSession', icon: MessagesSquare, count: scopeCounts.Session },
+                { key: 'Project' as const, label: 'memories.scopeProject', icon: FolderInput, count: scopeCounts.Project },
+              ]).map((tab) => {
+                const Icon = tab.icon
+                return (
                   <button
-                    key={cat}
-                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
+                    key={tab.key}
+                    onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(scopeFilter === tab.key)}`}
                   >
-                    {cat}
-                    <span className="text-[11px] opacity-70">{count}</span>
+                    <Icon size={13} />
+                    {t(tab.label)}
+                    <span className="text-[11px] opacity-70">{tab.count}</span>
                   </button>
-                ))}
-              </div>
-              <div className="relative min-w-[180px] max-w-xs flex-1">
-                <SearchInput tone="teal"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('memories.searchPlaceholder')}
-                  className="w-full"
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 工具栏：分类筛选 + 排序 + 搜索 + 新建 */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => setActiveCategory(null)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+              >
+                {t('memories.scopeAll')}
+                <span className="text-[11px] opacity-70">{pagedData?.totalCount ?? 0}</span>
+              </button>
+              {categories.map(([cat, count]) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
+                >
+                  {cat}
+                  <span className="text-[11px] opacity-70">{count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="relative min-w-[180px] max-w-xs flex-1">
+              <SearchInput tone="teal"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('memories.searchPlaceholder')}
+                className="w-full"
+              />
+            </div>
+            {view === 'list' && (
+              <div className="w-[7.5rem] shrink-0">
+                <Select
+                  value={sort}
+                  onChange={(v) => setSort(v as 'recent' | 'strength' | 'created')}
+                  options={[
+                    { value: 'recent', label: t('memories.sortRecent') },
+                    { value: 'strength', label: t('memories.sortStrength') },
+                    { value: 'created', label: t('memories.sortCreated') },
+                  ]}
+                  triggerClassName="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white glass px-3 py-2 text-[13px] text-gray-600 outline-none focus:border-teal-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
                 />
               </div>
-              {view === 'list' && (
-                <div className="w-[7.5rem] shrink-0">
-                  <Select
-                    value={sort}
-                    onChange={(v) => setSort(v as 'recent' | 'strength' | 'created')}
-                    options={[
-                      { value: 'recent', label: t('memories.sortRecent') },
-                      { value: 'strength', label: t('memories.sortStrength') },
-                      { value: 'created', label: t('memories.sortCreated') },
-                    ]}
-                    triggerClassName="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white glass px-3 py-2 text-[13px] text-gray-600 outline-none focus:border-teal-400 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                  />
-                </div>
-              )}
-              <button
-                onClick={() => setIsCreating(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-              >
-                <Plus size={16} />
-                {t('memories.newMemory')}
-              </button>
-            </div>
+            )}
+            <button
+              onClick={() => setIsCreating(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+            >
+              <Plus size={16} />
+              {t('memories.newMemory')}
+            </button>
+          </div>
 
-            {/* 记忆列表（列表视图：高效操作模式） */}
-            {view === 'list' && (isLoading ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+          {/* 记忆列表（列表视图：高效操作模式） */}
+          {view === 'list' && (isLoading ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+            </div>
+          ) : sortedMemories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+                <Brain size={36} className="opacity-50" />
               </div>
-            ) : sortedMemories.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-                <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
-                  <Brain size={36} className="opacity-50" />
-                </div>
-                <p className="text-sm font-medium">
-                  {searchQuery.trim()
-                    ? t('memories.emptyNoMatch')
-                    : activeCategory
-                      ? t('memories.emptyCategory')
-                      : scopeFilter !== 'all'
-                        ? t('memories.emptyScope')
-                        : t('memories.empty')}
+              <p className="text-sm font-medium">
+                {searchQuery.trim()
+                  ? t('memories.emptyNoMatch')
+                  : activeCategory
+                    ? t('memories.emptyCategory')
+                    : scopeFilter !== 'all'
+                      ? t('memories.emptyScope')
+                      : t('memories.empty')}
+              </p>
+              {!searchQuery.trim() && !activeCategory && scopeFilter === 'all' && (
+                <p className="mt-1.5 max-w-xs text-center text-xs text-gray-400 dark:text-gray-500">
+                  {t('memories.emptyHint')}
                 </p>
-                {!searchQuery.trim() && !activeCategory && scopeFilter === 'all' && (
-                  <p className="mt-1.5 max-w-xs text-center text-xs text-gray-400 dark:text-gray-500">
-                    {t('memories.emptyHint')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sortedMemories.map((memory) => {
-                  const state = stateOf(memory, decayDays, forgetDays)
-                  return (
-                  <Card
-                    key={memory.id}
-                    className={`group p-4 transition-all duration-200 hover:shadow-md ${
-                      state.key === 'dying'
-                        ? 'border-red-200/80 hover:border-red-300 dark:border-red-500/25 dark:hover:border-red-500/40'
-                        : state.key === 'fading'
-                          ? 'border-amber-200/70 hover:border-amber-300 dark:border-amber-500/20 dark:hover:border-amber-500/40'
-                          : 'hover:border-white/40 dark:hover:border-white/10'
-                    }`}
-                  >
-                    {editingId === memory.id ? (
-                      /* 编辑模式 */
-                      <div>
-                        <Textarea tone="teal"
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          rows={3}
-                          className="mb-3 w-full dark:text-gray-100"
-                        />
-                        <div className="mb-3 flex flex-wrap gap-3">
-                          <div className="min-w-[140px]">
-                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.scope')}</label>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sortedMemories.map((memory) => {
+                const state = stateOf(memory, decayDays, forgetDays)
+                return (
+                <Card
+                  key={memory.id}
+                  className={`group p-4 transition-all duration-200 hover:shadow-md ${
+                    state.key === 'dying'
+                      ? 'border-red-200/80 hover:border-red-300 dark:border-red-500/25 dark:hover:border-red-500/40'
+                      : state.key === 'fading'
+                        ? 'border-amber-200/70 hover:border-amber-300 dark:border-amber-500/20 dark:hover:border-amber-500/40'
+                        : 'hover:border-white/40 dark:hover:border-white/10'
+                  }`}
+                >
+                  {editingId === memory.id ? (
+                    /* 编辑模式 */
+                    <div>
+                      <Textarea tone="teal"
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={3}
+                        className="mb-3 w-full dark:text-gray-100"
+                      />
+                      <div className="mb-3 flex flex-wrap gap-3">
+                        <div className="min-w-[140px]">
+                          <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.scope')}</label>
+                          <Select
+                            value={editScope}
+                            onChange={(v) => {
+                              setEditScope(v as MemoryScope)
+                              if (v !== 'Project') setEditProjectId('')
+                            }}
+                            options={[
+                              { value: 'Global', label: t('memories.scopeGlobal') },
+                              ...(memory.topicId ? [{ value: 'Session', label: t('memories.scopeSessionChat') }] : []),
+                              { value: 'Project', label: t('memories.scopeProject') },
+                            ]}
+                            triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
+                          />
+                        </div>
+                        {editScope === 'Project' && (
+                          <div className="min-w-[160px] flex-1">
+                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.project')}</label>
                             <Select
-                              value={editScope}
-                              onChange={(v) => {
-                                setEditScope(v as MemoryScope)
-                                if (v !== 'Project') setEditProjectId('')
-                              }}
-                              options={[
-                                { value: 'Global', label: t('memories.scopeGlobal') },
-                                ...(memory.topicId ? [{ value: 'Session', label: t('memories.scopeSessionChat') }] : []),
-                                { value: 'Project', label: t('memories.scopeProject') },
-                              ]}
+                              value={editProjectId}
+                              onChange={setEditProjectId}
+                              placeholder={t('memories.selectProject')}
+                              options={projects.map((p) => ({ value: p.id, label: p.name }))}
                               triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
                             />
                           </div>
-                          {editScope === 'Project' && (
-                            <div className="min-w-[160px] flex-1">
-                              <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.project')}</label>
-                              <Select
-                                value={editProjectId}
-                                onChange={setEditProjectId}
-                                placeholder={t('memories.selectProject')}
-                                options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                                triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-teal-400 dark:border-gray-600 dark:bg-gray-800"
-                              />
-                            </div>
-                          )}
+                        )}
+                      </div>
+                      <div className="mb-3 flex flex-wrap gap-3">
+                        <div className="min-w-[160px] flex-1">
+                          <Input tone="teal" size="sm"
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            placeholder={t('memories.category')}
+                            className="w-full dark:text-gray-100"
+                          />
                         </div>
-                        <div className="mb-3 flex flex-wrap gap-3">
-                          <div className="min-w-[160px] flex-1">
-                            <Input tone="teal" size="sm"
-                              type="text"
-                              value={editCategory}
-                              onChange={(e) => setEditCategory(e.target.value)}
-                              placeholder={t('memories.category')}
-                              className="w-full dark:text-gray-100"
-                            />
-                          </div>
-                          <div className="w-40">
-                            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.importance', { value: editImportance.toFixed(1) })}</label>
-                            <input
-                              type="range"
-                              min={0.1}
-                              max={1}
-                              step={0.1}
-                              value={editImportance}
-                              onChange={(e) => setEditImportance(parseFloat(e.target.value))}
-                              className="w-full accent-teal-500"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" tone="gray" className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setEditingId(null)}>
-                            {t('common:cancel')}
-                          </Button>
-                          <button
-                            onClick={() => handleUpdate(memory.id)}
-                            className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
-                          >
-                            <Save size={14} />
-                            {t('common:save')}
-                          </button>
+                        <div className="w-40">
+                          <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.importance', { value: editImportance.toFixed(1) })}</label>
+                          <input
+                            type="range"
+                            min={0.1}
+                            max={1}
+                            step={0.1}
+                            value={editImportance}
+                            onChange={(e) => setEditImportance(parseFloat(e.target.value))}
+                            className="w-full accent-teal-500"
+                          />
                         </div>
                       </div>
-                    ) : (
-                      /* 查看模式：状态 + 强度 + 想起记录 */
-                      <div>
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <ScopeBadge memory={memory} />
-                          {memory.category && (
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${getCategoryColor(memory.category)}`}>
-                              <Tag size={10} />
-                              {memory.category}
-                            </span>
-                          )}
-                          <span
-                            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${state.chip}`}
-                            title={t('memories.lifecycleTitle')}
-                          >
-                            <span className={`h-1.5 w-1.5 rounded-full ${state.dot}`} />
-                            {state.label}
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" tone="gray" className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setEditingId(null)}>
+                          {t('common:cancel')}
+                        </Button>
+                        <button
+                          onClick={() => handleUpdate(memory.id)}
+                          className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
+                        >
+                          <Save size={14} />
+                          {t('common:save')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 查看模式：状态 + 强度 + 想起记录 */
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <ScopeBadge memory={memory} />
+                        {memory.category && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${getCategoryColor(memory.category)}`}>
+                            <Tag size={10} />
+                            {memory.category}
                           </span>
+                        )}
+                        <span
+                          className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${state.chip}`}
+                          title={t('memories.lifecycleTitle')}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${state.dot}`} />
+                          {state.label}
+                        </span>
+                      </div>
+                      <p className="mb-3 max-w-[68ch] text-[15px] leading-relaxed text-gray-800 dark:text-gray-200">{memory.content}</p>
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-gray-100 pt-2.5 dark:border-gray-800">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
+                          <StrengthMeter memory={memory} />
+                          <span title={t('memories.recalledTitle')}>{t('memories.recalledCount', { n: memory.accessCount })}</span>
+                          <span title={formatDateTime(memory.lastAccessedAt)}>{t('memories.lastRecalled', { time: formatTime(memory.lastAccessedAt) })}</span>
+                          <span>{memory.source === 'conversation' ? t('memories.sourceConversation') : memory.source === 'work' ? t('memories.sourceWork') : t('memories.sourceManual')}</span>
+                          {memory.score != null && (
+                            <span className="text-teal-500">{t('memories.relevance', { n: (memory.score * 100).toFixed(0) })}</span>
+                          )}
                         </div>
-                        <p className="mb-3 max-w-[68ch] text-[15px] leading-relaxed text-gray-800 dark:text-gray-200">{memory.content}</p>
-                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
-                            <StrengthMeter memory={memory} />
-                            <span title={t('memories.recalledTitle')}>{t('memories.recalledCount', { n: memory.accessCount })}</span>
-                            <span title={formatDateTime(memory.lastAccessedAt)}>{t('memories.lastRecalled', { time: formatTime(memory.lastAccessedAt) })}</span>
-                            <span>{memory.source === 'conversation' ? t('memories.sourceConversation') : memory.source === 'work' ? t('memories.sourceWork') : t('memories.sourceManual')}</span>
-                            {memory.score != null && (
-                              <span className="text-teal-500">{t('memories.relevance', { n: (memory.score * 100).toFixed(0) })}</span>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-0.5">
-                            <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300" label={t('common:edit')} onClick={() => startEdit(memory)}
-                              
-                              title={t('common:edit')}>
-                              <Pencil size={14} />
-                            </IconButton>
-                            <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-white/[0.06] dark:hover:text-red-400" label={t('common:delete')} onClick={() => {
-                                confirm({ message: t('memories.deleteConfirm'), onConfirm: () => deleteMutation.mutate(memory.id) })
-                              }}
-                              
-                              title={t('common:delete')}>
-                              <Trash2 size={14} />
-                            </IconButton>
-                          </div>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300" label={t('common:edit')} onClick={() => startEdit(memory)}
+                            
+                            title={t('common:edit')}>
+                            <Pencil size={14} />
+                          </IconButton>
+                          <IconButton variant="ghost" tone="gray" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-white/[0.06] dark:hover:text-red-400" label={t('common:delete')} onClick={() => {
+                              confirm({ message: t('memories.deleteConfirm'), onConfirm: () => deleteMutation.mutate(memory.id) })
+                            }}
+                            
+                            title={t('common:delete')}>
+                            <Trash2 size={14} />
+                          </IconButton>
                         </div>
                       </div>
-                    )}
-                  </Card>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
+                    </div>
+                  )}
+                </Card>
+                )
+              })}
+            </div>
+          ))}
+        </PageContainer>
         )
       }
     >
