@@ -197,17 +197,31 @@ public static class WorkToolPolicy
     public static bool GlobMatch(string pattern, string path)
         => GlobToRegex(pattern).IsMatch(path.Replace('\\', '/').TrimStart('/'));
 
-    /// <summary>把 glob 编译为正则（**/ 可匹配零级目录）</summary>
+    /// <summary>
+    /// glob → 正则缓存：过期判定/文件遍历会对「每文件 × 每条 gitignore 规则」反复调用，
+    /// 每次都重新 Escape + 拼接 + 编译是扫描耗时的大头（497 条规则 × 5000 文件 ≈ 500 万次构造）。
+    /// 模式来源有限（.gitignore / 用户 glob），缓存命中即免编译。
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> GlobRegexCache = new(StringComparer.Ordinal);
+
+    /// <summary>缓存上限（防御性）：规则来源有限，超限整体清空重建即可</summary>
+    private const int GlobRegexCacheMax = 4096;
+
+    /// <summary>把 glob 编译为正则（**/ 可匹配零级目录）；带缓存</summary>
     public static System.Text.RegularExpressions.Regex GlobToRegex(string pattern)
     {
         var normalized = pattern.Replace('\\', '/').TrimStart('/');
+        if (GlobRegexCache.TryGetValue(normalized, out var cached)) return cached;
+        if (GlobRegexCache.Count >= GlobRegexCacheMax) GlobRegexCache.Clear();
         var body = System.Text.RegularExpressions.Regex.Escape(normalized)
             .Replace(@"\*\*/", "(?:.*/)?")
             .Replace(@"\*\*", ".*")
             .Replace(@"\*", "[^/]*")
             .Replace(@"\?", "[^/]");
-        return new System.Text.RegularExpressions.Regex(
+        var regex = new System.Text.RegularExpressions.Regex(
             "^" + body + "$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        GlobRegexCache[normalized] = regex;
+        return regex;
     }
 }

@@ -154,14 +154,19 @@ public class WikiService : IWikiService
             .OrderByDescending(s => s.CreatedAt)
             .ToList();
 
-        // 过期判定按套件生成时间与项目文件变更比对（本地遍历 / 远端 find -newermt）
-        foreach (var set in sets)
+        // 过期判定按套件生成时间与项目文件变更比对；按项目批量（每项目只扫一次盘 / 一次远端 find）
+        foreach (var group in sets.GroupBy(s => s.ProjectId))
         {
-            if (!byId.TryGetValue(set.ProjectId, out var project)) continue;
-            var (staleCount, isStale) = await WikiContextCollector.ComputeStaleAsync(
-                project, _runnerFactory, _unitOfWork, set.CreatedAt, cancellationToken);
-            set.StaleFileCount = staleCount;
-            set.IsStale = isStale;
+            if (!byId.TryGetValue(group.Key, out var project)) continue;
+            var members = group.ToList();
+            var results = await WikiContextCollector.ComputeStaleBatchAsync(
+                project, _runnerFactory, _unitOfWork,
+                members.Select(s => s.CreatedAt).ToList(), cancellationToken);
+            for (var i = 0; i < members.Count; i++)
+            {
+                members[i].StaleFileCount = results[i].StaleFileCount;
+                members[i].IsStale = results[i].IsStale;
+            }
         }
 
         return ApiResponse<List<WikiSetDto>>.Ok(sets);

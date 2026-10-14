@@ -68,16 +68,40 @@ public static class WorkProjectRules
             var directoryOnly = body.EndsWith('/');
             if (directoryOnly) body = body.TrimEnd('/');
 
-            var matched = body.Contains('/')
-                ? WorkToolPolicy.GlobMatch(body, normalized) ||
-                  (!directoryOnly && WorkToolPolicy.GlobMatch(body + "/**", normalized))
-                : WorkToolPolicy.GlobMatch("**/" + body, normalized) ||
-                  WorkToolPolicy.GlobMatch("**/" + body + "/**", normalized);
+            var matched = body.AsSpan().IndexOfAny('*', '?') >= 0
+                ? MatchGlob(body, normalized, directoryOnly)
+                // 无通配符的字面量规则走字符串比较：gitignore 绝大多数行是字面量，
+                // 走正则等于「每文件 × 每条规则」都要编译+IsMatch，扫描大目录时是主要耗时
+                : MatchLiteral(body, normalized, directoryOnly);
 
             if (matched) ignored = !negate;
         }
 
         return ignored;
+    }
+
+    private static bool MatchGlob(string body, string path, bool directoryOnly)
+        => body.Contains('/')
+            ? WorkToolPolicy.GlobMatch(body, path) ||
+              (!directoryOnly && WorkToolPolicy.GlobMatch(body + "/**", path))
+            : WorkToolPolicy.GlobMatch("**/" + body, path) ||
+              WorkToolPolicy.GlobMatch("**/" + body + "/**", path);
+
+    /// <summary>
+    /// 字面量规则的等价匹配（与 MatchGlob 的两条展开式同语义，仅跳过正则）：
+    /// 含 '/' → 精确路径或其子路径（子路径仅非 directoryOnly 时）；
+    /// 不含 '/' → 任意层级同名，或任意层级同名目录的子路径（与原实现一致，不受 directoryOnly 约束）。
+    /// </summary>
+    private static bool MatchLiteral(string body, string path, bool directoryOnly)
+    {
+        if (body.Contains('/'))
+            return path.Equals(body, StringComparison.OrdinalIgnoreCase) ||
+                   (!directoryOnly && path.StartsWith(body + "/", StringComparison.OrdinalIgnoreCase));
+
+        return path.Equals(body, StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/" + body, StringComparison.OrdinalIgnoreCase) ||
+               path.StartsWith(body + "/", StringComparison.OrdinalIgnoreCase) ||
+               path.Contains("/" + body + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>读取 .gitignore / .hetuignore 的合并规则（按文件 mtime 缓存）</summary>

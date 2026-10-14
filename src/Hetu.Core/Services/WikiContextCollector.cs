@@ -589,72 +589,98 @@ internal static class WikiContextCollector
     #region 过期判定
 
     /// <summary>
-    /// 判定一套 Wiki 是否过期：统计生成时间之后被修改或新增的文件数。
-    /// 本地走文件系统；远端用 find -newermt，失败时按未过期处理。
+    /// 批量过期判定：同一项目多个套件只扫一次文件（本地一次枚举 / 远端一次 find），
+    /// 再按各套件生成时间分别统计——原实现每套件独立全量扫盘，7 套件要扫 7 遍目录、
+    /// 发 7 次远端 find，是 /api/wiki/sets 十几秒的根源。
+    /// 返回值与 generatedAts 一一对应；失败按未过期处理。
     /// </summary>
-    public static async Task<(int StaleFileCount, bool IsStale)> ComputeStaleAsync(
+    public static async Task<List<(int StaleFileCount, bool IsStale)>> ComputeStaleBatchAsync(
         ManagedProject project,
         IWorkCommandRunnerFactory runnerFactory,
         IUnitOfWork unitOfWork,
-        DateTimeOffset generatedAt,
+        IReadOnlyList<DateTimeOffset> generatedAts,
         CancellationToken ct)
     {
+        var zeros = Enumerable.Repeat((0, false), generatedAts.Count).ToList();
+        if (generatedAts.Count == 0) return zeros;
         try
         {
             if (project.ProjectType == "Ssh")
-                return await ComputeStaleRemoteAsync(project, runnerFactory, unitOfWork, generatedAt, ct);
+                return await ComputeStaleRemoteBatchAsync(project, runnerFactory, unitOfWork, generatedAts, ct);
 
-            if (!Directory.Exists(project.DirectoryPath)) return (0, false);
-            var threshold = generatedAt.UtcDateTime;
-            var stale = 0;
+            if (!Directory.Exists(project.DirectoryPath)) return zeros;
+
+            // 一次枚举收集所有文件写入时间，再按各阈值统计
+            var times = new List<DateTime>(4096);
             foreach (var file in EnumerateLocalFiles(project.DirectoryPath))
             {
                 try
                 {
-                    if (File.GetLastWriteTimeUtc(file) > threshold) stale++;
+                    times.Add(File.GetLastWriteTimeUtc(file));
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     // 单个文件不可读不影响整体判定
                 }
             }
-            return (stale, stale > 0);
+            return generatedAts.Select(g =>
+            {
+                var threshold = g.UtcDateTime;
+                var stale = 0;
+                foreach (var t in times)
+                    if (t > threshold) stale++;
+                return (stale, stale > 0);
+            }).ToList();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return (0, false);
+            return zeros;
         }
     }
 
-    private static async Task<(int StaleFileCount, bool IsStale)> ComputeStaleRemoteAsync(
+    private static async Task<List<(int StaleFileCount, bool IsStale)>> ComputeStaleRemoteBatchAsync(
         ManagedProject project,
         IWorkCommandRunnerFactory runnerFactory,
         IUnitOfWork unitOfWork,
-        DateTimeOffset generatedAt,
+        IReadOnlyList<DateTimeOffset> generatedAts,
         CancellationToken ct)
     {
+        var zeros = Enumerable.Repeat((0, false), generatedAts.Count).ToList();
         var workProject = await FindWorkProjectAsync(project, unitOfWork, ct);
-        if (workProject == null) return (0, false);
+        if (workProject == null) return zeros;
         var runner = runnerFactory.Create(workProject);
-        var iso = generatedAt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss");
+        // 一次 find 取最早阈值之后的全部变更（带 mtime），本地再按各套件阈值分桶
+        var earliest = generatedAts.Min(g => g);
+        var iso = earliest.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss");
         var prune = string.Join(" -o ", RemoteIgnoredDirNames.Select(n => $"-name {n}"));
-        // 只列举变更文件（不远端计数），按 .gitignore / .hetuignore 过滤后统计
-        var command = $"find . -type d \\( {prune} \\) -prune -o -type f -newermt '{iso}' -print 2>/dev/null | head -n 2000";
+        var command = $"find . -type d \\( {prune} \\) -prune -o -type f -newermt '{iso}' -printf '%T@\\t%p\\n' 2>/dev/null | head -n 5000";
         var result = await runner.RunAsync(command, ct);
-        if (result.ExitCode != 0) return (0, false);
+        if (result.ExitCode != 0) return zeros;
 
         var patterns = await ReadRemoteIgnorePatternsAsync(runner, ct);
-        var count = 0;
+        // (mtimeEpochSeconds, relativePath)：跳过忽略文件后按各阈值计数
+        var entries = new List<(double Mtime, string Relative)>();
         foreach (var raw in result.StdOut.Split('\n'))
         {
             var line = raw.Trim();
             if (line.Length == 0) continue;
-            var relative = ToRelative(runner.RootPath, line);
+            var tab = line.IndexOf('\t');
+            if (tab <= 0) continue;
+            if (!double.TryParse(line[..tab], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var mtime)) continue;
+            var relative = ToRelative(runner.RootPath, line[(tab + 1)..]);
             if (relative == null) continue;
             if (WorkProjectRules.IsIgnored(patterns, relative)) continue;
-            count++;
+            entries.Add((mtime, relative));
         }
-        return (count, count > 0);
+        return generatedAts.Select(g =>
+        {
+            var thresholdSeconds = g.ToUnixTimeMilliseconds() / 1000.0;
+            var stale = 0;
+            foreach (var (mtime, _) in entries)
+                if (mtime > thresholdSeconds) stale++;
+            return (stale, stale > 0);
+        }).ToList();
     }
 
     #endregion
