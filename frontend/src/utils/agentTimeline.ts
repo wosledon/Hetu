@@ -1,5 +1,4 @@
 import type { ToolCallEntry } from './toolRendering'
-import type { SubagentEntry } from './agentStream'
 
 /**
  * Agent 执行过程的时间线条目。对话页、编码会话、任务看板详情三端
@@ -13,41 +12,7 @@ export type AgentTimelineItem =
   | { kind: 'approval'; id: string; name: string; arguments: string }
   | { kind: 'file'; path: string; action: string }
   | { kind: 'checkpoint'; id: string; label: string; fileCount?: number }
-  | { kind: 'subagent'; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; entries?: AgentTimelineItem[] }
-
-/**
- * 派子 Agent 的 work_task 工具行与相邻的子 Agent 面板是同一件事：
- * 面板本身已经承载描述、步数与结论，再留一张「派子 agent」卡片就会出现
- * 「工具卡压在面板下面」（历史里子 Agent 先落库、工具结果后落库，顺序还会反过来）。
- */
-function dropSubagentToolRows(items: AgentTimelineItem[]): AgentTimelineItem[] {
-  return items.filter((item, index) => {
-    if (item.kind !== 'tool' || item.name !== 'work_task') return true
-    const prev = items[index - 1]
-    const next = items[index + 1]
-    return !(prev?.kind === 'subagent' || next?.kind === 'subagent')
-  })
-}
-
-/** 子 Agent 内层时间线（事件 / 落库里的 entries）→ 统一时间线条目，直接嵌套渲染 */
-export function subagentEntriesToTimeline(entries: readonly SubagentEntry[] | undefined): AgentTimelineItem[] {
-  const out: AgentTimelineItem[] = []
-  for (const entry of entries ?? []) {
-    // 后端条目用 thinking / 落库的历史用 thought，两种都要认，否则思考会被当正文渲染
-    if (entry.kind === 'thought' || entry.kind === 'thinking') out.push({ kind: 'thought', text: entry.text ?? '' })
-    else if (entry.kind === 'tool') {
-      out.push({
-        kind: 'tool',
-        name: entry.name ?? '',
-        args: entry.args ?? '{}',
-        result: entry.result,
-        isError: entry.isError,
-        running: entry.result === undefined,
-      })
-    } else out.push({ kind: 'text', text: entry.text ?? '' })
-  }
-  return out
-}
+  | { kind: 'subagent'; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
 
 /** 折叠后的展示项：两段输出之间的过程条目合并为一组，其他条目原样保留 */
 export type FoldedAgentItem =
@@ -115,7 +80,6 @@ export function fromChatTimeline(items: readonly {
   tool?: string
   steps?: number
   message?: string
-  entries?: SubagentEntry[]
 }[]): AgentTimelineItem[] {
   const result: AgentTimelineItem[] = []
 
@@ -156,13 +120,12 @@ export function fromChatTimeline(items: readonly {
           tool: item.tool,
           steps: item.steps,
           message: item.message,
-          entries: subagentEntriesToTimeline(item.entries),
         })
         break
     }
   }
 
-  return dropSubagentToolRows(result)
+  return result
 }
 
 /**
@@ -187,7 +150,6 @@ export function fromWorkStreamItems(items: readonly {
   tool?: string
   steps?: number
   message?: string
-  entries?: SubagentEntry[]
 }[]): AgentTimelineItem[] {
   const result: AgentTimelineItem[] = []
 
@@ -227,13 +189,12 @@ export function fromWorkStreamItems(items: readonly {
           tool: item.tool,
           steps: item.steps,
           message: item.message,
-          entries: subagentEntriesToTimeline(item.entries),
         })
         break
     }
   }
 
-  return dropSubagentToolRows(result)
+  return result
 }
 
 /**

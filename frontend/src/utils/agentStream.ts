@@ -13,82 +13,6 @@
 
 export const SSE_ERROR_PREFIX = '[ERROR]'
 
-/** 子 Agent 内层时间线的条目（思考 / 正文 / 工具调用），由 work_task 转发与落库 */
-export interface SubagentEntry {
-  /** thinking | text | tool */
-  kind: string
-  text?: string
-  name?: string
-  args?: string
-  result?: string
-  isError?: boolean
-}
-
-/** 子 Agent 事件（start / delta / tool / tool_result / done / error） */
-export interface SubagentEvent {
-  type: 'subagent'
-  id: string
-  description: string
-  stage: string
-  tool?: string
-  steps?: number
-  message?: string
-  /** delta 帧：thinking | text */
-  kind?: string
-  text?: string
-  /** tool 帧：调用参数（JSON 字符串） */
-  arguments?: string
-  /** tool_result 帧：输出与错误标记 */
-  result?: string
-  isError?: boolean
-  /** done / error 帧：完整内层时间线（历史回放用） */
-  entries?: SubagentEntry[]
-}
-
-/**
- * 展示用的子 Agent 阶段：start / delta / tool / tool_result 都算「进行中」，
- * 只有 done / error 才是终态——否则中间帧会把面板的 running 状态覆盖掉
- * （标题动画消失、折叠面板中途自动收起）。
- */
-export function subagentStage(stage: string): string {
-  if (stage === 'done' || stage === 'error') return stage
-  return 'running'
-}
-
-/**
- * 把一条子 Agent 事件并入内层时间线：
- * 思考 / 正文增量按序合并成同一条，工具调用先行占位（等待结果），
- * done / error 时用后端回传的完整时间线覆盖。
- */
-export function mergeSubagentEntries(entries: SubagentEntry[], event: SubagentEvent): SubagentEntry[] {
-  const next = [...entries]
-  if (event.stage === 'delta' && event.text) {
-    const kind = event.kind === 'thinking' ? 'thinking' : 'text'
-    const last = next[next.length - 1]
-    if (last && last.kind === kind) next[next.length - 1] = { ...last, text: (last.text ?? '') + event.text }
-    else next.push({ kind, text: event.text })
-    return next
-  }
-  if (event.stage === 'tool' && event.tool) {
-    next.push({ kind: 'tool', name: event.tool, args: event.arguments ?? '{}' })
-    return next
-  }
-  if (event.stage === 'tool_result' && event.tool) {
-    for (let i = next.length - 1; i >= 0; i--) {
-      const entry = next[i]
-      if (entry.kind === 'tool' && entry.name === event.tool && entry.result === undefined) {
-        next[i] = { ...entry, result: event.result ?? '', isError: event.isError === true }
-        break
-      }
-    }
-    return next
-  }
-  if ((event.stage === 'done' || event.stage === 'error') && event.entries && event.entries.length > 0) {
-    return event.entries
-  }
-  return next
-}
-
 /** 一帧 Agent 事件。字段按事件类型可选，解析后即规范化（不再有 undefined 字符串）。 */
 export type AgentEvent =
   | { type: 'content'; text: string }
@@ -102,7 +26,7 @@ export type AgentEvent =
   | { type: 'usage'; promptTokens: number; completionTokens: number; cachedTokens: number; totalTokens: number; latencyMs: number }
   | { type: 'file_change'; path: string; action: string }
   | { type: 'checkpoint'; id: string; label: string; fileCount: number }
-  | { type: 'subagent'; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; kind?: string; text?: string; arguments?: string; result?: string; isError?: boolean; entries?: SubagentEntry[] }
+  | { type: 'subagent'; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
   | { type: 'search_results'; results: unknown[] }
   | { type: 'knowledge_results'; results: unknown[] }
   | { type: 'memory_results'; results: unknown[] }
@@ -135,25 +59,6 @@ function bool(value: unknown, fallback = false): boolean {
 
 function arr(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
-}
-
-/** 解析子 Agent 内层时间线（落库 / done 帧回传的 entries） */
-function subagentEntries(value: unknown): SubagentEntry[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const out: SubagentEntry[] = []
-  for (const item of value) {
-    if (!item || typeof item !== 'object') continue
-    const entry = item as Record<string, unknown>
-    out.push({
-      kind: str(entry.kind, 'text'),
-      text: typeof entry.text === 'string' ? entry.text : undefined,
-      name: typeof entry.name === 'string' ? entry.name : undefined,
-      args: typeof entry.args === 'string' ? entry.args : undefined,
-      result: typeof entry.result === 'string' ? entry.result : undefined,
-      isError: entry.isError === true,
-    })
-  }
-  return out.length > 0 ? out : undefined
 }
 
 /**
@@ -253,12 +158,6 @@ export function parseAgentFrame(data: string): ParseResult {
           tool: typeof raw.tool === 'string' ? raw.tool : undefined,
           steps: typeof raw.steps === 'number' ? raw.steps : undefined,
           message: typeof raw.message === 'string' ? raw.message : undefined,
-          kind: typeof raw.kind === 'string' ? raw.kind : undefined,
-          text: typeof raw.text === 'string' ? raw.text : undefined,
-          arguments: typeof raw.arguments === 'string' ? raw.arguments : undefined,
-          result: typeof raw.result === 'string' ? raw.result : undefined,
-          isError: raw.isError === true,
-          entries: subagentEntries(raw.entries),
         },
       }
     case 'search_results':
