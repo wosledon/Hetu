@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useInteractionStore } from './interactionStore'
-import { EMPTY_USAGE, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentEvent } from '../utils/agentStream'
+import { EMPTY_USAGE, parseAgentFrame, type AgentUsage } from '../utils/agentStream'
 
 export interface StreamingToolCall {
   id: string
@@ -43,8 +43,6 @@ export interface TimelineItem {
   tool?: string
   steps?: number
   message?: string
-  /** subagent：内层时间线（思考 / 正文 / 工具调用） */
-  entries?: SubagentEntry[]
 }
 
 export interface SearchResult {
@@ -310,26 +308,17 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
               fileCount: (chunk.fileCount as number) || 0,
             }]
             break
-          case 'subagent': {
-            const subagentId = chunk.id as string
-            const idx = cur.timeline.findIndex((item) => item.kind === 'subagent' && item.id === subagentId)
-            const base = idx >= 0 ? cur.timeline[idx] : { kind: 'subagent' as const, entries: [] as SubagentEntry[] }
-            const merged = {
-              ...base,
-              kind: 'subagent' as const,
-              id: subagentId,
-              description: (chunk.description as string) || base.description || '',
-              stage: subagentStage((chunk.stage as string) || base.stage || 'done'),
-              tool: (chunk.tool as string | undefined) ?? base.tool,
-              steps: (chunk.steps as number | undefined) ?? base.steps,
-              message: (chunk.message as string | undefined) ?? base.message,
-              entries: mergeSubagentEntries(base.entries ?? [], chunk as unknown as SubagentEvent),
-            }
-            next.timeline = idx >= 0
-              ? cur.timeline.map((item, i) => (i === idx ? merged : item))
-              : [...cur.timeline, merged]
+          case 'subagent':
+            next.timeline = [...cur.timeline, {
+              kind: 'subagent',
+              id: chunk.id as string,
+              description: chunk.description as string,
+              stage: chunk.stage as string,
+              tool: chunk.tool as string | undefined,
+              steps: chunk.steps as number | undefined,
+              message: chunk.message as string | undefined,
+            }]
             break
-          }
           case 'notice':
             // 上下文提示（自动压缩等）：挂在流状态上，由会话区渲染成提示条
             next.notice = String(chunk.text ?? '')
