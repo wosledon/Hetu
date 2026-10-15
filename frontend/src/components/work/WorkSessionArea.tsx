@@ -21,7 +21,7 @@ import { uiLocale } from '../../utils/locale'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
-import { formatTokens, parseAgentFrame, type AgentUsage } from '../../utils/agentStream'
+import { formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentEvent } from '../../utils/agentStream'
 import ChatToolCallRow from '../ChatToolCallRow'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
@@ -29,7 +29,7 @@ import AgentTimeline from '../agent/AgentTimeline'
 import AgentThoughtBlock from '../agent/AgentThoughtBlock'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
-import AgentSubAgentRow from '../agent/AgentSubAgentRow'
+import AgentSubAgentPanel from '../agent/AgentSubAgentPanel'
 import AgentInputBox from '../agent/AgentInputBox'
 import AgentModelPicker from '../agent/AgentModelPicker'
 import AgentPicker from '../agent/AgentPicker'
@@ -95,7 +95,7 @@ type StreamItem =
   | { kind: 'tool'; seq: number; id: string; name: string; arguments: string; result?: string }
   | { kind: 'file'; seq: number; path: string; action: string }
   | { kind: 'checkpoint'; seq: number; id: string; label: string; fileCount: number }
-  | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
+  | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] }
   | { kind: 'approval'; seq: number; id: string; name: string; arguments: string }
 
 type WorkStreamHandlers = {
@@ -108,7 +108,7 @@ type WorkStreamHandlers = {
   /** 交互型工具（question / todo / plan）：统一进共享 interactionStore，由输入框上方抽屉渲染 */
   onInteraction: (evt: Record<string, unknown>) => void
   onCheckpoint: (cp: { id: string; label: string; fileCount: number }) => void
-  onSubAgent: (sa: { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }) => void
+  onSubAgent: (sa: { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] }) => void
   onUsage: (usage: UsageView) => void
   /** 上下文提示（自动压缩等），显示在输入框上方 */
   onNotice: (text: string) => void
@@ -666,9 +666,19 @@ export default function WorkSessionArea({
       const id = parseSubagentId(m)
       if (id) lastOfSubagent.set(id, m.id)
     }
-    return sorted.filter((m) => {
+    const deduped = sorted.filter((m) => {
       const id = parseSubagentId(m)
       return !id || lastOfSubagent.get(id) === m.id
+    })
+    // 派子 Agent 的 work_task 工具行与子 Agent 面板是同一件事：有面板就不显示工具卡
+    // （历史里子 Agent 先落库、工具结果后落库，留着会变成「工具卡压在面板下面」）
+    const isWorkTaskRow = (m: IWorkMessage): boolean => {
+      if (m.type !== 'tool') return false
+      try { return (JSON.parse(m.metadata ?? '{}') as { name?: string }).name === 'work_task' } catch { return false }
+    }
+    return deduped.filter((m, i) => {
+      if (!isWorkTaskRow(m)) return true
+      return !(deduped[i - 1]?.type === 'subagent' || deduped[i + 1]?.type === 'subagent')
     })
   }, [messages])
 
@@ -1009,11 +1019,24 @@ export default function WorkSessionArea({
       onSubAgent: (sa) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'subagent' && x.id === sa.id)
         if (idx >= 0) {
+          const current = prev[idx] as Extract<StreamItem, { kind: 'subagent' }>
           const next = [...prev]
-          next[idx] = { ...next[idx], ...sa } as StreamItem
+          next[idx] = {
+            ...current,
+            ...sa,
+            description: sa.description || current.description,
+            stage: subagentStage(sa.stage),
+            entries: mergeSubagentEntries(current.entries ?? [], sa as SubagentEvent),
+          } as StreamItem
           return next
         }
-        return [...prev, { kind: 'subagent', seq: seqRef.current++, ...sa } as StreamItem]
+        return [...prev, {
+          kind: 'subagent',
+          seq: seqRef.current++,
+          ...sa,
+          stage: subagentStage(sa.stage),
+          entries: mergeSubagentEntries([], sa as SubagentEvent),
+        } as StreamItem]
       }),
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
@@ -1930,9 +1953,20 @@ function ProcessMessageRow({ message, onOpenFilePath, onRunCommand }: {
       />
     )
   }
-  let meta: { stage: string; tool?: string; steps?: number; message?: string } = { stage: 'done' }
+  let meta: { stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] } = { stage: 'done' }
   try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-  return <AgentSubAgentRow description={message.content} stage={meta.stage} tool={meta.tool} steps={meta.steps} message={meta.message} />
+  return (
+    <AgentSubAgentPanel
+      description={message.content}
+      stage={meta.stage}
+      tool={meta.tool}
+      steps={meta.steps}
+      message={meta.message}
+      entries={meta.entries}
+      onOpenPath={onOpenFilePath}
+      onRunCommand={onRunCommand}
+    />
+  )
 }
 
 const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
