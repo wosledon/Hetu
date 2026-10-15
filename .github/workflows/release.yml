@@ -172,6 +172,22 @@ jobs:
             echo "Hetu ${{ github.ref_name }}" > notes.md
           fi
           if [ ! -s notes.md ]; then echo "Hetu ${{ github.ref_name }}" > notes.md; fi
+
+          # generate-notes 只列 PR（带 PR 关联的提交）。直接推 main 的提交不会出现，
+          # notes 里就只剩一行 Full Changelog；此时用 compare 接口补一段提交记录。
+          if ! grep -q "What's Changed" notes.md; then
+            prev=$(gh api "repos/${{ github.repository }}/releases?per_page=1" --jq '.[0].tag_name // empty' 2>/dev/null || true)
+            if [ -n "$prev" ]; then
+              echo "无 PR：用 compare $prev...${{ github.ref_name }} 补提交记录"
+              {
+                echo
+                echo "### Commits"
+                gh api "repos/${{ github.repository }}/compare/$prev...${{ github.ref_name }}" \
+                  --jq '.commits[] | "- " + (.commit.message | split("\n")[0]) + " (" + .sha[0:7] + ")"' | head -n 50 || true
+              } >> notes.md
+            fi
+          fi
+
           head -c 400 notes.md
 
       - name: Generate updater manifests
