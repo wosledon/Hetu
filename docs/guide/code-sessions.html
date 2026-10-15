@@ -161,7 +161,7 @@
 
   <rect class="box" x="616" y="228" width="248" height="56" rx="9"/>
   <text class="label" x="630" y="252">PR 面板</text>
-  <text class="sub" x="630" y="270">gh / glab：查看与创建</text>
+  <text class="sub" x="630" y="270">gh / glab：查看 / 创建 / 合并</text>
 
   <rect class="box-accent" x="16" y="140" width="150" height="66" rx="9"/>
   <text class="label" x="30" y="166">自动清理</text>
@@ -205,7 +205,7 @@
           <tr><td>创建 / 切换</td><td><code>git worktree add</code>、<code>git checkout</code>；选远程引用时自动建本地跟踪分支</td></tr>
           <tr><td>提交</td><td><code>git add</code>（支持部分暂存）+ <code>git commit</code>，作者信息取仓库配置</td></tr>
           <tr><td>拉取 / 推送</td><td><code>git pull --ff-only</code> / <code>git push</code>，结果与冲突信息回到界面</td></tr>
-          <tr><td>PR / MR</td><td>GitHub 走 <code>gh pr view|list|create</code>（创建用 <code>--body-file -</code> 传正文），GitLab 走 <code>glab mr view|list|create</code></td></tr>
+          <tr><td>PR / MR</td><td>GitHub 走 <code>gh pr view|checks|list|create|merge|ready|close|reopen</code>（创建用 <code>--body-file -</code> 传正文），GitLab 走 <code>glab mr view|list|create|merge|update</code>；审查意见与失败日志走 <code>gh api</code></td></tr>
           <tr><td>终端</td><td>Windows 用 ConPTY、Unix 用 <code>script</code> 包装成 PTY，交互式程序正常工作</td></tr>
         </tbody>
       </table></div><h2>七个工作面板</h2>
@@ -216,7 +216,7 @@
           <tr><td>更改</td><td>本会话产生的文件改动清单，逐行 Diff（新增 / 删除 / 修改）与单文件回滚</td></tr>
           <tr><td>检查点</td><td>任务开始前的文件快照列表，可整体还原工作区到某个检查点</td></tr>
           <tr><td>Git</td><td>当前分支与工作区状态、逐文件 Diff、暂存（含部分暂存）并提交</td></tr>
-          <tr><td>PR</td><td>按 <code>origin</code> 远端自动选 <code>gh</code>（GitHub）或 <code>glab</code>（GitLab）：当前分支 PR 状态、开放 PR 列表、创建表单（标题/描述/目标分支/草稿）；未安装时给出对应平台安装命令；分支未推送时提前提示</td></tr>
+          <tr><td>PR</td><td>按 <code>origin</code> 远端自动选 <code>gh</code>（GitHub）或 <code>glab</code>（GitLab）：当前分支 PR 状态（变更量、CI 检查、审查结论、合并门禁）、开放 PR 列表、创建表单（标题/描述/目标分支/草稿），以及转为草稿 / 标记可审查 / 合并（可选 squash·merge·rebase 与删源分支）/ 关闭 / 重开。有检查在跑或合并状态未知时自动轮询；「交给 Agent 修」把未通过的检查、审查意见与失败日志拼成任务说明插进会话输入框；未安装 CLI 时给出安装命令；分支未推送时提前提示；Agent 侧有 <code>work_pr</code>（查状态与反馈）与 <code>work_pr_action</code>（创建 / 合并 / 关闭），当前分支的 PR 摘要（编号、门禁、审查结论）也会随 git 状态一起注入会话提示词</td></tr>
           <tr><td>浏览器</td><td>内嵌浏览器：地址栏、前进后退、刷新、常用链接（本地 dev 服务、API 文档、GitHub）</td></tr>
           <tr><td>终端</td><td>真实 PTY（Windows 走 ConPTY，Unix 用 <code>script</code> 包装），<code>vim</code> / <code>htop</code> 等交互程序可用；SSH 项目在 PTY 内跑 <code>ssh -tt</code></td></tr>
         </tbody>

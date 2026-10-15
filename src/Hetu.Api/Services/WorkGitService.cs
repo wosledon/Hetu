@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Work;
 using Hetu.Shared.Work;
@@ -15,10 +13,12 @@ public class WorkGitService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<Hetu.Core.Entities.WorkProject, IWorkCommandRunner> _runnerFactory;
+    private readonly ILocalizer _localizer;
 
-    public WorkGitService(IServiceScopeFactory scopeFactory, Func<Hetu.Core.Entities.WorkProject, IWorkCommandRunner>? runnerFactory = null)
+    public WorkGitService(IServiceScopeFactory scopeFactory, ILocalizer localizer, Func<Hetu.Core.Entities.WorkProject, IWorkCommandRunner>? runnerFactory = null)
     {
         _scopeFactory = scopeFactory;
+        _localizer = localizer;
         _runnerFactory = runnerFactory ?? (p => p.ConnectionType == "Ssh"
             ? new SshCommandRunner(p, _ => null)
             : new LocalCommandRunner(p.RootPath));
@@ -200,239 +200,82 @@ public class WorkGitService
     /// <summary>
     /// PR / MR 状态：从远端地址判断托管平台（GitHub → gh，GitLab → glab），
     /// CLI 未安装时回传安装命令引导用户安装，已安装时查当前分支的 PR。
+    /// 命令行与 JSON 解析统一在 <see cref="WorkPrClient"/>，与 Agent 的 work_pr 工具共用一份实现。
     /// </summary>
     public async Task<WorkPrStatusDto> GetPrStatusAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
-        var status = new WorkPrStatusDto();
         var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
-        if (runner == null) return status;
-
-        var (branchCode, branchOutput) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
-        if (branchCode != 0) return status; // 非 git 仓库
-        status.IsRepo = true;
-        status.Branch = branchOutput.Trim();
-
-        var (remoteCode, remoteOutput) = await RunGitAsync(runner, "remote get-url origin", cancellationToken: cancellationToken);
-        if (remoteCode != 0 || string.IsNullOrWhiteSpace(remoteOutput))
-        {
-            status.Message = "no-remote";
-            return status;
-        }
-        status.RemoteUrl = remoteOutput.Trim();
-
-        var host = ParseRemoteHost(status.RemoteUrl);
-        var isGitLab = host != null && host.Contains("gitlab", StringComparison.OrdinalIgnoreCase);
-        var isGitHub = host != null && host.Contains("github", StringComparison.OrdinalIgnoreCase);
-        if (!isGitLab && !isGitHub)
-        {
-            status.Message = "unsupported-host";
-            return status;
-        }
-        status.Host = isGitLab ? "gitlab" : "github";
-        status.Tool = isGitLab ? "glab" : "gh";
-        status.InstallUrl = isGitLab ? "https://gitlab.com/gitlab-org/cli" : "https://cli.github.com";
-
-        var (toolCode, _) = await RunToolAsync(runner, $"{status.Tool} --version", cancellationToken: cancellationToken);
-        status.ToolInstalled = toolCode == 0;
-        if (!status.ToolInstalled)
-        {
-            status.InstallHint = InstallHint(status.Tool!);
-            return status;
-        }
-
-        // 默认目标分支：origin/HEAD → origin/main|master → 当前分支
-        var target = await ResolveIntegrationRefAsync(runner, cancellationToken);
-        status.BaseBranch = string.IsNullOrWhiteSpace(target) ? status.Branch : target;
-
-        // 分支是否已推送到远端（没推送时远端还没有这个分支，也就谈不上 PR）
-        var (upstreamCode, upstreamOut) = await RunGitAsync(runner, $"config --get branch.{status.Branch}.remote", cancellationToken: cancellationToken);
-        status.BranchPushed = upstreamCode == 0 && !string.IsNullOrWhiteSpace(upstreamOut);
-
-        var viewArgs = isGitLab
-            ? "mr view --output json"
-            : "pr view --json number,title,url,state,isDraft,baseRefName,headRefName";
-        var (viewCode, viewOutput) = await RunToolAsync(runner, $"{status.Tool} {viewArgs}", cancellationToken: cancellationToken);
-        if (viewCode != 0)
-        {
-            status.Message = FirstLine(viewOutput);
-        }
-        else
-        {
-            status.Pr = ParsePr(status.Host!, viewOutput);
-        }
-
-        // 开放中的 PR / MR：让「当前 PR」有对照，查不到也不影响主流程
-        var listArgs = isGitLab
-            ? "mr list --opened --output json"
-            : "pr list --state open --limit 10 --json number,title,url,state,isDraft,baseRefName,headRefName";
-        var (listCode, listOutput) = await RunToolAsync(runner, $"{status.Tool} {listArgs}", cancellationToken: cancellationToken);
-        if (listCode == 0) status.OpenPrs = ParsePrList(status.Host!, listOutput);
-        return status;
+        return runner == null ? new WorkPrStatusDto() : await WorkPrClient.ForRunner(runner).GetStatusAsync(cancellationToken);
     }
 
     /// <summary>创建 PR / MR（目标分支留空用远端默认分支），成功后回传刷新后的状态</summary>
     public async Task<WorkPrCommandResultDto> CreatePrAsync(Guid projectId, CreateWorkPrRequest request, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {
-        var status = await GetPrStatusAsync(projectId, sessionId, cancellationToken);
-        if (!status.IsRepo) return new WorkPrCommandResultDto { Success = false, Output = "当前目录不是 git 仓库", Status = status };
-        if (status.Tool == null) return new WorkPrCommandResultDto { Success = false, Output = "远端不是 GitHub / GitLab，暂不支持创建 PR", Status = status };
-        if (!status.ToolInstalled) return new WorkPrCommandResultDto { Success = false, Output = $"{status.Tool} 未安装：{status.InstallHint}", Status = status };
-        if (string.IsNullOrWhiteSpace(request.Title)) return new WorkPrCommandResultDto { Success = false, Output = "标题不能为空", Status = status };
+        var client = await ResolvePrClientAsync(projectId, sessionId, cancellationToken);
+        if (client == null) return Failed(_localizer.T("work.projectNotFound"), new WorkPrStatusDto());
 
+        var status = await client.GetStatusAsync(cancellationToken);
+        var blocked = GuardStatus(status, requirePr: false);
+        if (blocked != null) return Failed(blocked, status);
+        if (string.IsNullOrWhiteSpace(request.Title)) return Failed(_localizer.T("work.prTitleRequired"), status);
+        return await client.CreateAsync(request, status, cancellationToken);
+    }
+
+    /// <summary>PR 操作：转正式 / 转草稿 / 合并 / 关闭 / 重开（作用于当前分支的 PR），成功后回传刷新后的状态</summary>
+    public async Task<WorkPrCommandResultDto> RunPrActionAsync(Guid projectId, WorkPrActionRequest request, Guid? sessionId = null, CancellationToken cancellationToken = default)
+    {
+        var client = await ResolvePrClientAsync(projectId, sessionId, cancellationToken);
+        if (client == null) return Failed(_localizer.T("work.projectNotFound"), new WorkPrStatusDto());
+
+        var action = (request.Action ?? string.Empty).Trim().ToLowerInvariant();
+        if (action is not ("ready" or "draft" or "merge" or "close" or "reopen"))
+            return Failed(_localizer.T("work.prUnknownAction", request.Action ?? string.Empty), new WorkPrStatusDto());
+
+        var status = await client.GetStatusAsync(cancellationToken);
+        var blocked = GuardStatus(status, requirePr: true);
+        if (blocked != null) return Failed(blocked, status);
+        return await client.RunActionAsync(request, status, cancellationToken);
+    }
+
+    /// <summary>PR 待处理反馈：失败 / 进行中的 CI 检查 + 审查意见 + 失败日志，供「交给 Agent 修」</summary>
+    public async Task<WorkPrFeedbackDto> GetPrFeedbackAsync(Guid projectId, Guid? sessionId = null, CancellationToken cancellationToken = default)
+    {
+        var feedback = new WorkPrFeedbackDto();
+        var client = await ResolvePrClientAsync(projectId, sessionId, cancellationToken);
+        if (client == null)
+        {
+            feedback.Message = _localizer.T("work.projectNotFound");
+            return feedback;
+        }
+
+        var status = await client.GetStatusAsync(cancellationToken);
+        if (status.Pr == null)
+        {
+            feedback.Message = GuardStatus(status, requirePr: true) ?? status.Message;
+            return feedback;
+        }
+        return await client.GetFeedbackAsync(status, cancellationToken);
+    }
+
+    /// <summary>解析项目执行器并包装成 PR 客户端；项目不存在 / 目录不可用时返回 null</summary>
+    private async Task<WorkPrClient?> ResolvePrClientAsync(Guid projectId, Guid? sessionId, CancellationToken cancellationToken)
+    {
         var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
-        if (runner == null) return new WorkPrCommandResultDto { Success = false, Output = "项目不存在", Status = status };
-
-        var baseBranch = string.IsNullOrWhiteSpace(request.BaseBranch) ? status.BaseBranch : request.BaseBranch!.Trim();
-        var args = status.Tool == "gitlab"
-            ? $"mr create --title {ShellQuote(request.Title)} --target-branch {ShellQuote(baseBranch ?? "")} --description {ShellQuote(request.Body ?? string.Empty)} --yes"
-                + (request.Draft ? " --draft" : string.Empty)
-            : $"pr create --title {ShellQuote(request.Title)} --base {ShellQuote(baseBranch ?? "")} --body-file -"
-                + (request.Draft ? " --draft" : string.Empty);
-
-        var (code, output) = await RunToolAsync(
-            runner, $"{status.Tool} {args}", status.Tool == "gh" ? request.Body ?? string.Empty : null, cancellationToken);
-        var refreshed = await GetPrStatusAsync(projectId, sessionId, cancellationToken);
-        return new WorkPrCommandResultDto { Success = code == 0, Output = output.Trim(), Status = refreshed };
+        return runner == null ? null : WorkPrClient.ForRunner(runner);
     }
 
-    /// <summary>远端地址解析出主机名（支持 https://host/... 与 git@host:owner/repo.git）</summary>
-    private static string? ParseRemoteHost(string remoteUrl)
+    /// <summary>状态守卫：返回非 null 表示当前不能执行 PR 操作</summary>
+    private string? GuardStatus(WorkPrStatusDto status, bool requirePr)
     {
-        var url = remoteUrl.Trim();
-        var at = url.IndexOf('@');
-        if (at >= 0)
-        {
-            var rest = url[(at + 1)..];
-            var colon = rest.IndexOf(':');
-            var slash = rest.IndexOf('/');
-            var end = colon >= 0 && (slash < 0 || colon < slash) ? colon : slash;
-            if (end > 0) return rest[..end];
-        }
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
+        if (!status.IsRepo) return _localizer.T("work.prNotRepo");
+        if (status.Tool == null) return _localizer.T("work.prUnsupportedHost");
+        if (!status.ToolInstalled) return _localizer.T("work.prToolMissing", status.Tool, status.InstallHint ?? string.Empty);
+        if (requirePr && status.Pr == null) return _localizer.T("work.prMissing");
+        return null;
     }
 
-    /// <summary>当前系统的 CLI 安装命令（引导用户安装）</summary>
-    private static string InstallHint(string tool)
-    {
-        if (OperatingSystem.IsWindows()) return tool == "gh" ? "winget install --id GitHub.cli" : "scoop install glab";
-        if (OperatingSystem.IsMacOS()) return $"brew install {tool}";
-        return $"sudo apt install {tool}";
-    }
-
-    /// <summary>解析 gh / glab 的 JSON 数组输出（开放中的 PR 列表）</summary>
-    private static List<WorkPrInfoDto> ParsePrList(string host, string json)
-    {
-        var list = new List<WorkPrInfoDto>();
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
-            foreach (var item in doc.RootElement.EnumerateArray())
-            {
-                var pr = ParsePrElement(host, item);
-                if (pr != null && pr.Number > 0) list.Add(pr);
-            }
-        }
-        catch (JsonException)
-        {
-            // 列表解析失败就当没有，不影响主流程
-        }
-        return list;
-    }
-
-    /// <summary>解析 gh / glab 的 JSON 输出</summary>
-    private static WorkPrInfoDto? ParsePr(string host, string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return ParsePrElement(host, doc.RootElement);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static WorkPrInfoDto? ParsePrElement(string host, JsonElement root)
-    {
-        if (root.ValueKind != JsonValueKind.Object) return null;
-        string? text(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-        bool flag(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
-        int number(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetInt32() : 0;
-        if (host == "gitlab")
-        {
-            return new WorkPrInfoDto
-            {
-                Number = number("iid"),
-                Title = text("title") ?? string.Empty,
-                Url = text("web_url") ?? string.Empty,
-                State = text("state") ?? string.Empty,
-                IsDraft = flag("draft") || flag("work_in_progress"),
-                BaseBranch = text("target_branch"),
-                HeadBranch = text("source_branch"),
-            };
-        }
-        return new WorkPrInfoDto
-        {
-            Number = number("number"),
-            Title = text("title") ?? string.Empty,
-            Url = text("url") ?? string.Empty,
-            State = text("state") ?? string.Empty,
-            IsDraft = flag("isDraft"),
-            BaseBranch = text("baseRefName"),
-            HeadBranch = text("headRefName"),
-        };
-    }
-
-    /// <summary>为本机 shell（PowerShell / bash）转义参数</summary>
-    private static string ShellQuote(string value)
-        => OperatingSystem.IsWindows()
-            ? $"'{value.Replace("'", "''")}'"
-            : $"'{value.Replace("'", "'\\''")}'";
-
-    /// <summary>执行 gh / glab 这类非 git 命令（给网络留出更长超时）</summary>
-    private async Task<(int ExitCode, string Output)> RunToolAsync(
-        IWorkCommandRunner runner, string command, string? stdin = null, CancellationToken cancellationToken = default)
-    {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var timeout = TimeSpan.FromMinutes(2);
-        cts.CancelAfter(timeout);
-        try
-        {
-            var result = await runner.RunAsync(command, stdin, cts.Token, timeout);
-            return (result.ExitCode, result.Combined);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return (-1, "命令超时（网络较慢时请在终端里手动执行）");
-        }
-    }
-
-    /// <summary>默认目标分支：origin/HEAD → origin/main|master → 当前分支（去掉 remote 前缀）</summary>
-    private async Task<string?> ResolveIntegrationRefAsync(IWorkCommandRunner runner, CancellationToken cancellationToken)
-    {
-        var (headCode, head) = await RunGitAsync(runner, "symbolic-ref --short refs/remotes/origin/HEAD", cancellationToken: cancellationToken);
-        if (headCode == 0 && !string.IsNullOrWhiteSpace(head)) return StripRemote(head.Trim());
-
-        foreach (var candidate in new[] { "origin/main", "origin/master" })
-        {
-            var (code, _) = await RunGitAsync(runner, $"rev-parse --verify --quiet {candidate}", cancellationToken: cancellationToken);
-            if (code == 0) return StripRemote(candidate);
-        }
-
-        var (branchCode, branch) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
-        return branchCode == 0 ? branch.Trim() : null;
-    }
-
-    private static string StripRemote(string reference)
-    {
-        var slash = reference.IndexOf('/');
-        return slash > 0 ? reference[(slash + 1)..] : reference;
-    }
-
-    private static string? FirstLine(string? output)
-        => output?.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+    private static WorkPrCommandResultDto Failed(string output, WorkPrStatusDto status)
+        => new() { Success = false, Output = output, Status = status };
 
     public async Task<WorkGitFileContentDto?> GetFileContentAsync(Guid projectId, string path, Guid? sessionId = null, CancellationToken cancellationToken = default)
     {

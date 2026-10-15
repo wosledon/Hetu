@@ -81,6 +81,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, WorkDeleteFileTool>();
         services.AddScoped<IToolExecutor, WorkMoveFileTool>();
         services.AddScoped<IToolExecutor, WorkGitTool>();
+        services.AddScoped<IToolExecutor, WorkPrTool>();
+        services.AddScoped<IToolExecutor, WorkPrActionTool>();
         services.AddScoped<IToolExecutor, WorkTaskTool>();
         services.AddScoped<IToolExecutor, WorkDiagnosticsTool>();
         services.AddScoped<IToolExecutor, WorkUseSkillTool>();

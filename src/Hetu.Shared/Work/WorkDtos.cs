@@ -496,6 +496,65 @@ public class WorkPrInfoDto
     public bool IsDraft { get; set; }
     public string? BaseBranch { get; set; }
     public string? HeadBranch { get; set; }
+    /// <summary>能否合并：MERGEABLE / CONFLICTING / UNKNOWN</summary>
+    public string? Mergeable { get; set; }
+    /// <summary>合并门禁：CLEAN / DIRTY / BLOCKED / BEHIND / UNSTABLE / HAS_HOOKS / UNKNOWN</summary>
+    public string? MergeStateStatus { get; set; }
+    /// <summary>审查结论：APPROVED / CHANGES_REQUESTED / REVIEW_REQUIRED（空表示还没人审查）</summary>
+    public string? ReviewDecision { get; set; }
+    public int Additions { get; set; }
+    public int Deletions { get; set; }
+    public int ChangedFiles { get; set; }
+    /// <summary>CI 检查明细（gh pr checks / GitLab pipeline）</summary>
+    public List<WorkPrCheckDto> Checks { get; set; } = [];
+}
+
+/// <summary>PR 的一条 CI 检查</summary>
+public class WorkPrCheckDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Workflow { get; set; }
+    /// <summary>原始状态（SUCCESS / FAILURE / PENDING ...）</summary>
+    public string State { get; set; } = string.Empty;
+    /// <summary>归并桶：pass / fail / pending / skipping / cancel（前端按它分组与配色）</summary>
+    public string Bucket { get; set; } = string.Empty;
+    /// <summary>详情链接（失败时用于跳转日志）</summary>
+    public string? Link { get; set; }
+}
+
+/// <summary>PR 上的一条审查意见或评论</summary>
+public class WorkPrCommentDto
+{
+    public string Author { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    /// <summary>行内审查意见所在文件</summary>
+    public string? Path { get; set; }
+    public int? Line { get; set; }
+    /// <summary>review（行内意见）/ review-summary（审查结论）/ comment（普通评论）</summary>
+    public string Kind { get; set; } = "comment";
+    public string? CreatedAt { get; set; }
+}
+
+/// <summary>PR 待处理反馈：CI 失败 + 审查意见 + 失败日志，供「交给 Agent 修」生成任务说明</summary>
+public class WorkPrFeedbackDto
+{
+    public bool HasPr { get; set; }
+    public int Number { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string? Mergeable { get; set; }
+    public string? MergeStateStatus { get; set; }
+    public string? ReviewDecision { get; set; }
+    public int Additions { get; set; }
+    public int Deletions { get; set; }
+    public int ChangedFiles { get; set; }
+    /// <summary>失败 / 进行中 / 取消的检查</summary>
+    public List<WorkPrCheckDto> Checks { get; set; } = [];
+    public List<WorkPrCommentDto> Comments { get; set; } = [];
+    /// <summary>失败检查的运行日志摘录（截断）</summary>
+    public string? LogExcerpt { get; set; }
+    /// <summary>补充信息（没有 PR / 抓取失败时的原始输出）</summary>
+    public string? Message { get; set; }
 }
 
 /// <summary>创建 PR / MR</summary>
@@ -506,6 +565,16 @@ public class CreateWorkPrRequest
     /// <summary>目标分支；留空用远端默认分支</summary>
     public string? BaseBranch { get; set; }
     public bool Draft { get; set; }
+}
+
+/// <summary>PR 操作：ready（转正式）/ draft（转草稿）/ merge / close / reopen</summary>
+public class WorkPrActionRequest
+{
+    public string Action { get; set; } = string.Empty;
+    /// <summary>merge 的合并方式：merge | squash | rebase（默认 merge）</summary>
+    public string? MergeMethod { get; set; }
+    /// <summary>合并后删除源分支</summary>
+    public bool DeleteBranch { get; set; }
 }
 
 /// <summary>PR 操作结果（含刷新后的状态）</summary>

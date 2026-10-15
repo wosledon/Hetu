@@ -252,7 +252,7 @@ public static class HetuServiceCollectionExtensions
         {
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
             var protector = sp.GetRequiredService<IDataProtectionProvider>().CreateProtector("Hetu.Ssh");
-            return new WorkGitService(scopeFactory, project => project.ConnectionType == "Ssh"
+            return new WorkGitService(scopeFactory, sp.GetRequiredService<ILocalizer>(), project => project.ConnectionType == "Ssh"
                 ? new SshCommandRunner(project, v => string.IsNullOrEmpty(v) ? null : System.Text.Encoding.UTF8.GetString(protector.Unprotect(Convert.FromBase64String(v))))
                 : new LocalCommandRunner(project.RootPath));
         });

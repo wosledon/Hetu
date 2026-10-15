@@ -68,7 +68,7 @@ Chat and coding sessions live in one workspace: a session/topic tree on the left
 - **Projects**: local directories or **SSH remotes**, organized in groups.
 - **Two workspace modes**: work on the **current branch**, or give the session an **isolated worktree** (defaults to `parent-of-repo/.hetu-worktrees/<repo>/<worktree>`, configurable root; finished worktrees are auto-cleaned by idle threshold).
 - **Branches**: local + remote branches (checking out a remote ref creates a local tracking branch), a persistent workspace/branch badge next to the title, and one-button Git sync (pull / push / refresh chosen from state).
-- **Work panel**: `Files` (browser + built-in editor) / `Changes` (line diff and rollback) / `Checkpoints` (pre-task snapshots, restorable) / `Git` (stage, commit, diff) / `PR` (auto-selects `gh` or `glab`: current-branch PR, open PR list, one-click create; gives platform-specific install hints when missing) / `Browser` (embedded preview) / `Terminal` (real PTY — vim/htop work).
+- **Work panel**: `Files` (browser + built-in editor) / `Changes` (line diff and rollback) / `Checkpoints` (pre-task snapshots, restorable) / `Git` (stage, commit, diff) / `PR` (auto-selects `gh` or `glab`: status with CI checks / review / merge gate, open PR list, one-click create, draft·ready·merge·close actions, and one-click hand-off of failing checks + review comments to the agent; gives platform-specific install hints when missing; the PR state is also injected into the session context and exposed as `work_pr` / `work_pr_action` tools) / `Browser` (embedded preview) / `Terminal` (real PTY — vim/htop work).
 - **Title as status**: the session title carries the workspace, branch and PR badges.
 
 ### 🧠 Knowledge base

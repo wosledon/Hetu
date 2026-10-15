@@ -301,6 +301,17 @@ export interface IWorkGitCommandResult {
   output: string;
 }
 
+/** PR / MR 的一条 CI 检查 */
+export interface IWorkPrCheck {
+  name: string;
+  workflow?: string;
+  /** 原始状态（SUCCESS / FAILURE / PENDING ...） */
+  state: string;
+  /** 归并桶：pass / fail / pending / skipping / cancel */
+  bucket: string;
+  link?: string;
+}
+
 /** PR / MR 概要（gh / glab 查询结果） */
 export interface IWorkPrInfo {
   number: number;
@@ -310,6 +321,52 @@ export interface IWorkPrInfo {
   isDraft: boolean;
   baseBranch?: string;
   headBranch?: string;
+  /** MERGEABLE / CONFLICTING / UNKNOWN */
+  mergeable?: string;
+  /** CLEAN / DIRTY / BLOCKED / BEHIND / UNSTABLE / HAS_HOOKS / UNKNOWN */
+  mergeStateStatus?: string;
+  /** APPROVED / CHANGES_REQUESTED / REVIEW_REQUIRED */
+  reviewDecision?: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  checks: IWorkPrCheck[];
+}
+
+/** PR 上的一条审查意见或评论 */
+export interface IWorkPrComment {
+  author: string;
+  body: string;
+  path?: string;
+  line?: number;
+  /** review（行内意见）/ review-summary（审查结论）/ comment（普通评论） */
+  kind: string;
+  createdAt?: string;
+}
+
+/** PR 待处理反馈：CI 失败 + 审查意见 + 失败日志，用于「交给 Agent 修」 */
+export interface IWorkPrFeedback {
+  hasPr: boolean;
+  number: number;
+  title: string;
+  url: string;
+  mergeable?: string;
+  mergeStateStatus?: string;
+  reviewDecision?: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  checks: IWorkPrCheck[];
+  comments: IWorkPrComment[];
+  logExcerpt?: string;
+  message?: string;
+}
+
+/** PR 操作：ready / draft / merge / close / reopen */
+export interface IWorkPrActionRequest {
+  action: 'ready' | 'draft' | 'merge' | 'close' | 'reopen';
+  mergeMethod?: 'merge' | 'squash' | 'rebase';
+  deleteBranch?: boolean;
 }
 
 /** PR / MR 状态：按远端自动选 gh（GitHub）或 glab（GitLab） */

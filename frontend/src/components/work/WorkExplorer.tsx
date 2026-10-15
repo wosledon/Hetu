@@ -38,6 +38,8 @@ interface WorkExplorerProps {
   insertRequest?: { text: string; path?: string; nonce: number } | null
   /** 外部注入的终端命令请求（对话区"在终端运行"） */
   commandRequest?: { command: string; nonce: number } | null
+  /** 把 PR 反馈交给会话里的 Agent（PR 面板「交给 Agent 修」→ 插进输入框） */
+  onHandoffToAgent?: (text: string) => void
 }
 
 interface TreeNode extends IWorkFileEntry {
@@ -81,7 +83,7 @@ interface OpenTab {
   checkpoint?: IWorkCheckpointDiff
 }
 
-export default function WorkExplorer({ projectId, sessionId, sessionTitle, panelRequest, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, sessionTitle, panelRequest, onActiveFileChange, openFileRequest, onAddSelectionContext, onHandoffToAgent, insertRequest, commandRequest }: WorkExplorerProps) {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -94,6 +96,8 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
   const [activePanel, setActivePanel] = useState<{ type: 'feature' | 'doc'; key: string }>({ type: 'feature', key: 'guide' })
   const [featureTabs, setFeatureTabs] = useState<FeatureTab[]>([{ key: 'guide', label: t(FEATURE_LABEL_KEYS.guide) }])
   const activeFeature: FeatureKind | null = activePanel.type === 'feature' ? (activePanel.key as FeatureKind) : null
+  // PR / Git 不会往右侧文档区放内容：没有已打开的标签页时占满整宽，避免右侧只剩空白占位
+  const fullWidthFeature = (activeFeature === 'pr' || activeFeature === 'git') && tabs.length === 0
 
   /** 打开/激活一个功能标签页（文件/更改/检查点/Git/浏览器/终端） */
   const activateFeature = (key: FeatureKind) => {
@@ -754,7 +758,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
           ) : (
       <div className="flex min-w-0 flex-1">
       {/* 左侧栏：当前功能的列表/树，宽度可拖拽调整 */}
-      <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
+      <div className={fullWidthFeature ? 'flex min-w-0 flex-1 flex-col' : 'flex shrink-0 flex-col'} style={fullWidthFeature ? undefined : { width: listWidth }}>
         {activeFeature === 'changes' ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {changes.length === 0 && (
@@ -843,7 +847,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
             ))}
           </div>
         ) : activeFeature === 'pr' ? (
-          <WorkPrPanel projectId={projectId} sessionId={sessionId} sessionTitle={sessionTitle} />
+          <WorkPrPanel projectId={projectId} sessionId={sessionId} sessionTitle={sessionTitle} onHandoffToAgent={onHandoffToAgent} />
         ) : activeFeature === 'git' ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-gray-100 px-2 py-1.5 dark:border-gray-800">
@@ -1002,6 +1006,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
       </div>
 
       {/* 分栏拖拽手柄：视觉上只有 1px，命中区域 7px */}
+      {!fullWidthFeature && (<>
       <div
         onMouseDown={onListDragStart}
         className="group relative w-px shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-blue-500"
@@ -1114,6 +1119,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
           </div>
         )}
       </div>
+      </>)}
       </div>
       )}
     </div>

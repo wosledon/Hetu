@@ -193,5 +193,13 @@
   "toolParam.work_delete_file.path": "相对项目根的文件路径",
   "toolParam.work_move_file.from": "源文件相对路径",
   "toolParam.work_move_file.to": "目标相对路径",
+  "toolParam.work_pr.view": "status=状态与检查概览（默认）；feedback=未通过的检查 + 审查意见 + 失败日志摘录",
+  "toolParam.work_pr_action.action": "要执行的操作：create / merge / ready / draft / close / reopen",
+  "toolParam.work_pr_action.title": "action=create 时的 PR 标题（必填）",
+  "toolParam.work_pr_action.body": "action=create 时的 PR 描述（可选）",
+  "toolParam.work_pr_action.base_branch": "action=create 时的目标分支，留空用远端默认分支",
+  "toolParam.work_pr_action.draft": "action=create 时是否创建为草稿",
+  "toolParam.work_pr_action.merge_method": "action=merge 时的合并方式，默认 merge",
+  "toolParam.work_pr_action.delete_branch": "action=merge 时是否在合并后删除源分支",
   "toolParam.work_git.args": "git 子命令及参数，如 \"diff --stat\"、\"log --oneline -10\""
 }
