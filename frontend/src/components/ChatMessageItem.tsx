@@ -5,6 +5,7 @@ import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatToolCallRow from './ChatToolCallRow'
 import ToolCallGroup from './ToolCallGroup'
+import AgentThoughtBlock from './agent/AgentThoughtBlock'
 import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
@@ -136,7 +137,7 @@ export default memo(function ChatMessageItem({
         {/* Copilot 式瀑布流：无聊天气泡。用户消息右浮动（头像在右）；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
         {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
         {/* 用户气泡套用全局 Card 材质；AI 回复没有气泡，用 before:hidden 退掉表面只留透明 div */}
-        <Card padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'w-fit max-w-[85%] px-4 py-2.5' : 'w-full bg-transparent before:hidden'}`}>
+        <Card padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'glass-bubble w-fit max-w-[85%] px-4 py-2.5' : 'w-full bg-transparent before:hidden'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <Textarea tone="blue" glass
@@ -161,7 +162,7 @@ export default memo(function ChatMessageItem({
             <>
               {message.role === 'assistant' && message.thinkingContent && !segments.some((s) => s.kind === 'thought') && (
                 <div className="mb-3">
-                  <ChatToolCallRow name="" args={message.thinkingContent} text={message.thinkingContent} label={t('shared.thinking')} />
+                  <AgentThoughtBlock text={message.thinkingContent} />
                 </div>
               )}
               {/* 瀑布流时间线：思考/工具调用与文本按发生顺序穿插（新格式） */}
@@ -173,7 +174,7 @@ export default memo(function ChatMessageItem({
                       // 单条过程：工具调用或思考，都直接用统一的行样式
                       if (entry.items.length === 1) {
                         return only.kind === 'thought'
-                          ? <ChatToolCallRow key={i} name="" args={only.text ?? ''} text={only.text ?? ''} label={t('shared.thinking')} />
+                          ? <AgentThoughtBlock key={i} text={only.text ?? ''} />
                           : (
                             <ChatToolCallRow
                               key={i}
@@ -184,12 +185,21 @@ export default memo(function ChatMessageItem({
                             />
                           )
                       }
-                      return <ToolCallGroup key={i} items={entry.items} />
+                      return <ToolCallGroup key={i} items={entry.items} renderItem={(item) => (item.kind === 'thought'
+                        ? <AgentThoughtBlock text={item.text ?? ''} />
+                        : (
+                          <ChatToolCallRow
+                            name={item.name}
+                            args={item.args}
+                            result={item.result}
+                            isError={item.isError}
+                          />
+                        ))} />
                     }
                     const seg = entry.item
                     if (seg.kind === 'thought') {
                       return (
-                        <ChatToolCallRow key={i} name="" args={seg.text} text={seg.text} label={t('shared.thinking')} />
+                        <AgentThoughtBlock key={i} text={seg.text} />
                       )
                     }
                     return (

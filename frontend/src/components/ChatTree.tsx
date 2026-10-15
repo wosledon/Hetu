@@ -1,7 +1,6 @@
 import { confirm } from './confirm'
 import { forwardRef, useImperativeHandle, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createPortal } from 'react-dom'
 import {
   MessageSquare,
   Plus,
@@ -12,13 +11,11 @@ import {
   PenTool,
   Folder,
   Pencil,
-  Check,
-  X,
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
 import MainChatEntry from './MainChatEntry'
-import { Button, Card, IconButton, Input, TreeRow } from './ui'
+import { Card, IconButton, Input, TreeRow } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -66,8 +63,6 @@ interface ChatTreeProps {
   onStartDraftTopic?: (group: IChatGroup) => void
 }
 
-interface TopicMenuState { x: number; y: number; topic: IChatTopic }
-
 function GroupNode({
   group,
   search,
@@ -75,7 +70,7 @@ function GroupNode({
   selectedTopicId,
   onSelectGroup,
   onSelectTopic,
-  onOpenTopicMenu,
+  onDeleteTopic,
   onStartDraftTopic,
 }: {
   group: IChatGroup
@@ -84,7 +79,7 @@ function GroupNode({
   selectedTopicId?: string
   onSelectGroup: (group: IChatGroup) => void
   onSelectTopic: (topic: IChatTopic) => void
-  onOpenTopicMenu: (e: React.MouseEvent, topic: IChatTopic) => void
+  onDeleteTopic?: (topicId: string) => void
   /** 新建话题：只放草稿占位（第一条消息才落库） */
   onStartDraftTopic?: (group: IChatGroup) => void
 }) {
@@ -119,6 +114,31 @@ function GroupNode({
     },
   })
 
+  // 话题的重命名 / 删除挂在行上（悬停显示），不再走右键菜单
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+
+  const deleteTopic = useMutation({
+    mutationFn: chatTopicService.delete,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+      onDeleteTopic?.(id)
+    },
+  })
+
+  const renameTopic = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => chatTopicService.update(id, { title }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+      setRenamingId(null)
+    },
+  })
+
+  const submitRename = () => {
+    if (renamingId && renameText.trim()) renameTopic.mutate({ id: renamingId, title: renameText.trim() })
+    else setRenamingId(null)
+  }
+
   return (
     <div>
       <TreeRow
@@ -133,12 +153,6 @@ function GroupNode({
         )}
         label={group.name}
         onClick={() => { onSelectGroup(group); setExpanded(true) }}
-        actions={
-          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('tree.newTopic')} onClick={(e) => { e.stopPropagation(); setExpanded(true); if (onStartDraftTopic) onStartDraftTopic(group); else createTopic.mutate({ groupId: group.id, title: '' }) }}
-            title={t('tree.newTopic')}>
-            <Plus size={13} />
-          </IconButton>
-        }
       />
 
       {expanded && (
@@ -152,16 +166,52 @@ function GroupNode({
                 indentExtra
                 selected={active}
                 onClick={() => { onSelectGroup(group); onSelectTopic(topic) }}
-                onContextMenu={(e) => { e.preventDefault(); onOpenTopicMenu(e, topic) }}
                 icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
-                label={topic.title || t('tree.newTopicFallback')}
+                label={renamingId === topic.id ? (
+                  <Input
+                    autoFocus
+                    value={renameText}
+                    onChange={(e) => setRenameText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenamingId(null) }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
+                  />
+                ) : (topic.title || t('tree.newTopicFallback'))}
                 labelClassName="text-gray-600 dark:text-gray-300"
+                actions={renamingId !== topic.id && (
+                  <>
+                    <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('common:rename')} onClick={(e) => { e.stopPropagation(); setRenamingId(topic.id); setRenameText(topic.title) }}
+                      title={t('common:rename')}
+                      aria-label={t('common:rename')}>
+                      <Pencil size={10} />
+                    </IconButton>
+                    <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700" label={t('common:delete')} onClick={(e) => { e.stopPropagation(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topic.id) }) }}
+                      disabled={deleteTopic.isPending}
+                      title={t('common:delete')}
+                      aria-label={t('common:delete')}>
+                      <Trash2 size={10} />
+                    </IconButton>
+                  </>
+                )}
               />
             )
           })}
           {filtered.length === 0 && (
             <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: `${8 + 14 + 14}px` }}>{t('tree.empty')}</div>
           )}
+          {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}
+          <TreeRow
+            depth={1}
+            indentExtra
+            icon={<Plus size={12} className="shrink-0" />}
+            label={t('tree.newTopic')}
+            labelClassName="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+            onClick={() => {
+              setExpanded(true)
+              if (onStartDraftTopic) onStartDraftTopic(group)
+              else createTopic.mutate({ groupId: group.id, title: '' })
+            }}
+          />
         </div>
       )}
     </div>
@@ -179,9 +229,6 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
 }, ref) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('chat')
-  const [topicMenu, setTopicMenu] = useState<TopicMenuState | null>(null)
-  const [renamingId, setRenamingId] = useState<string | null>(null)
-  const [renameText, setRenameText] = useState('')
   const [isAddingGroup, setIsAddingGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
 
@@ -194,8 +241,6 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
 
   const keyword = search.trim().toLowerCase()
   const filteredGroups = groups.filter((g) => !keyword || g.name.toLowerCase().includes(keyword))
-
-  const closeTopicMenu = () => setTopicMenu(null)
 
   const createGroup = useMutation({
     mutationFn: chatGroupService.create,
@@ -210,29 +255,6 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
     const trimmed = groupName.trim()
     if (trimmed) createGroup.mutate({ name: trimmed })
     else { setIsAddingGroup(false); setGroupName('') }
-  }
-
-  const deleteTopic = useMutation({
-    mutationFn: chatTopicService.delete,
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-      onDeleteTopic?.(id)
-      closeTopicMenu()
-    },
-  })
-
-  const renameTopic = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => chatTopicService.update(id, { title }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-      setRenamingId(null)
-      closeTopicMenu()
-    },
-  })
-
-  const submitRename = () => {
-    if (renamingId && renameText.trim()) renameTopic.mutate({ id: renamingId, title: renameText.trim() })
-    else setRenamingId(null)
   }
 
   return (
@@ -272,7 +294,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
             selectedTopicId={selectedTopicId}
             onSelectGroup={onSelectGroup}
             onSelectTopic={onSelectTopic}
-            onOpenTopicMenu={(e, topic) => setTopicMenu({ x: e.clientX, y: e.clientY, topic })}
+            onDeleteTopic={onDeleteTopic}
             onStartDraftTopic={onStartDraftTopic}
           />
         ))}
@@ -281,43 +303,6 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
         )}
       </div>
 
-      {topicMenu && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={closeTopicMenu} onContextMenu={(e) => { e.preventDefault(); closeTopicMenu() }} />
-          <div
-            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
-            style={{ left: Math.min(topicMenu.x, window.innerWidth - 170), top: Math.min(topicMenu.y, window.innerHeight - 140) }}
-          >
-            {renamingId === topicMenu.topic.id ? (
-              <div className="flex items-center gap-1 px-2 py-1">
-                <Input
-                  autoFocus
-                  value={renameText}
-                  onChange={(e) => setRenameText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') setRenamingId(null) }}
-                  className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-1 text-xs outline-none dark:bg-gray-900"
-                />
-                <Button variant="link" tone="emerald" className="p-1 text-emerald-500" onClick={submitRename}><Check size={13} /></Button>
-                <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400"><X size={13} /></button>
-              </div>
-            ) : (
-              <button
-                onClick={() => { setRenamingId(topicMenu.topic.id); setRenameText(topicMenu.topic.title) }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                <Pencil size={13} />
-                {t('common:rename')}
-              </button>
-            )}
-            <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeTopicMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topicMenu.topic.id) }) }}>
-              <Trash2 size={13} />
-              {t('common:delete')}
-            </Button>
-          </div>
-        </>,
-        document.body
-      )}
     </Card>
   )
 })

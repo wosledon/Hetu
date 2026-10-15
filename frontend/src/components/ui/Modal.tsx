@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '../../utils/cn'
 
 export interface ModalProps {
@@ -41,7 +42,9 @@ export default function Modal({ open, onClose, size = 'md', scroll = false, dism
 
   if (!open) return null
 
-  return (
+  // 必须 portal 到 body：调用方可能在 glass 卡片（isolation: isolate）里渲染本组件，
+  // 那样 fixed 遮罩会被困在祖先栈上下文里，被后面渲染的兄弟面板（如 Code 会话区）盖住。
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={dismissible ? onClose : undefined}
@@ -60,6 +63,7 @@ export default function Modal({ open, onClose, size = 'md', scroll = false, dism
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

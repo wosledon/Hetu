@@ -595,6 +595,8 @@ function ProjectNode({
   const [setting, setSetting] = useState(false)
   const [name, setName] = useState(project.name)
   const color = resolveColor(project)
+  // 子级会话被选中时父级不再高亮：选中态只落在真正选中的那一行
+  const projectSelected = selectedProjectId === project.id && !selectedSessionId
 
   return (
     <div>
@@ -602,7 +604,7 @@ function ProjectNode({
         expandable={!flat}
         expanded={expanded}
         onToggle={onToggle}
-        selected={selectedProjectId === project.id}
+        selected={projectSelected}
         icon={(
           <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
             {expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
