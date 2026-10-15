@@ -124,6 +124,8 @@
   "toolParam.create_notebook.parentId": "上级笔记本 ID（可选，创建子分类时使用）",
   "toolParam.set_note_tags.noteId": "笔记 ID",
   "toolParam.set_note_tags.tagIds": "标签 ID 列表（来自 list_tags）；空数组表示清空该笔记的标签",
+  "toolParam.open_panel.panel": "要唤起的面板：browser=内置浏览器, pr=Pull Request, git=版本控制, terminal=终端, changes=文件更改, checkpoints=检查点",
+  "toolParam.open_panel.url": "panel=browser 时要打开的网址（可选，不传则显示起始页）",
   "toolParam.plan.title": "计划标题（一句话概括要做什么）",
   "toolParam.plan.summary": "背景与目标说明（可选）",
   "toolParam.plan.steps": "按执行顺序排列的步骤列表",

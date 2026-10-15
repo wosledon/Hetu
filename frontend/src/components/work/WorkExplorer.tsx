@@ -26,6 +26,8 @@ interface WorkExplorerProps {
   sessionId?: string
   /** 当前会话标题（PR 创建表单预填用） */
   sessionTitle?: string
+  /** 智能体唤起面板请求（SignalR open_panel）：激活对应标签，browser 带 url 时直接导航 */
+  panelRequest?: { panel: string; url?: string; nonce: number } | null
   /** 当前打开的文件路径变化（供对话区显示引用 chip） */
   onActiveFileChange?: (path: string | null) => void
   /** 打开指定文件请求（来自对话区点击路径） */
@@ -58,6 +60,10 @@ const FEATURE_LABEL_KEYS: Record<FeatureKind, string> = {
   terminal: 'explorer.tabs.terminal',
 }
 
+function isFeatureKind(value: string): value is FeatureKind {
+  return value in FEATURE_LABEL_KEYS
+}
+
 const GIT_STATUS_META: Record<string, { labelKey: string; cls: string }> = {
   M: { labelKey: 'explorer.gitStatus.modify', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   A: { labelKey: 'explorer.gitStatus.add', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
@@ -75,7 +81,7 @@ interface OpenTab {
   checkpoint?: IWorkCheckpointDiff
 }
 
-export default function WorkExplorer({ projectId, sessionId, sessionTitle, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
+export default function WorkExplorer({ projectId, sessionId, sessionTitle, panelRequest, onActiveFileChange, openFileRequest, onAddSelectionContext, insertRequest, commandRequest }: WorkExplorerProps) {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -94,6 +100,21 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, onAct
     setFeatureTabs((prev) => (prev.some((tab) => tab.key === key) ? prev : [...prev, { key, label: t(FEATURE_LABEL_KEYS[key]) }]))
     setActivePanel({ type: 'feature', key })
   }
+
+  // 智能体唤起面板（SignalR open_panel，外部通道）：异步应用到界面并切到对应标签，
+  // browser 带 url 时让内置浏览器直接导航
+  useEffect(() => {
+    if (!panelRequest || !projectId) return
+    const { panel, url } = panelRequest
+    if (!isFeatureKind(panel)) return
+    const timer = setTimeout(() => {
+      activateFeature(panel)
+      if (panel === 'browser' && url) setBrowserUrl(url)
+    }, 0)
+    return () => clearTimeout(timer)
+    // 与 openFileRequest 等外部请求消费一致，deps 只跟请求对象
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelRequest, projectId])
 
   /** 关闭功能标签页；关闭后回到新标签页 */
   const closeFeature = (key: FeatureKind) => {

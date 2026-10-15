@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, TodoTool>();
         services.AddScoped<IToolExecutor, PlanTool>();
         services.AddScoped<IToolExecutor, LoadToolsTool>();
+        services.AddScoped<IToolExecutor, OpenPanelTool>();
         services.AddScoped<IToolExecutor, RunCommandTool>();
         services.AddScoped<IToolExecutor, CreateScheduledTaskTool>();
         services.AddScoped<IToolExecutor, ListScheduledTasksTool>();

@@ -52,6 +52,10 @@ public static class HetuServiceCollectionExtensions
         services.AddHttpClient();
         services.AddMemoryCache();
 
+        // 后端主动触发前端的 SignalR 通道（uiAction 推送，不依赖 SSE 请求流）
+        services.AddSignalR();
+        services.AddSingleton<IUiPushService, SignalRUiPushService>();
+
         return services;
     }
 

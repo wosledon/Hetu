@@ -6,6 +6,7 @@ import { queryClient } from './utils/queryClient'
 import { useTheme } from './utils/theme'
 import App from './App'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import { startUiSignalR } from './services/signalrService'
 import './i18n'
 import './index.css'
 import 'katex/dist/katex.min.css'
@@ -18,6 +19,9 @@ window.addEventListener('error', (e) => {
     e.preventDefault()
   }
 }, true)
+
+// 后端主动推送通道（SignalR）：连接后可被智能体唤起面板等事件触发
+void startUiSignalR()
 window.addEventListener('unhandledrejection', (e) => {
   if (e.reason?.message === roLoopMsg) e.preventDefault()
 })

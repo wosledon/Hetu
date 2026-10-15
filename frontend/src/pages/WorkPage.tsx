@@ -12,6 +12,7 @@ import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
+import { onUiAction } from '../services/signalrService'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
 import { Card, PageContainer, SearchInput } from '../components/ui'
@@ -225,7 +226,19 @@ export default function WorkPage() {
   // 工作面板默认关闭：只在项目会话中按需从会话头部打开，不常驻右侧
   const [rightCollapsed, setRightCollapsed] = useState(true)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
+  // 智能体唤起面板请求（SignalR open_panel）：nonce 保证重复唤起同一面板也会触发
+  const [panelRequest, setPanelRequest] = useState<{ panel: string; url?: string; nonce: number } | null>(null)
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  // 后端主动推的 open_panel：切到会话视图、展开工作面板，再由 WorkExplorer 激活对应标签
+  useEffect(() => onUiAction('open_panel', (payload) => {
+    const panel = typeof payload.panel === 'string' ? payload.panel : ''
+    if (!panel) return
+    const url = typeof payload.url === 'string' ? payload.url : undefined
+    setView('code')
+    setRightCollapsed(false)
+    setPanelRequest((prev) => ({ panel, url, nonce: (prev?.nonce ?? 0) + 1 }))
+  }), [])
 
   const { data: projects = [] } = useQuery({
     queryKey: ['workProjects'],
@@ -489,6 +502,7 @@ export default function WorkPage() {
                       projectId={selectedProject?.id}
                       sessionId={selectedSession?.id}
     sessionTitle={selectedSession?.title}
+    panelRequest={panelRequest}
                       onActiveFileChange={setActiveFilePath}
                       openFileRequest={openFileRequest}
                       onAddSelectionContext={addSelectionContext}

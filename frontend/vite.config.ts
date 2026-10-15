@@ -39,6 +39,12 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // SignalR：后端主动推 UI 动作（打开面板等），需要转发 WebSocket 升级
+      '/hubs': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      },
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
@@ -68,6 +74,12 @@ export default defineConfig({
       },
       '/api/work-terminal': {
         target: 'ws://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      },
+      // SignalR：后端主动推 UI 动作（打开面板等），需要转发 WebSocket 升级
+      '/hubs': {
+        target: 'http://localhost:5000',
         changeOrigin: true,
         ws: true,
       },

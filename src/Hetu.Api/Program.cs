@@ -1,12 +1,15 @@
 using Hetu.Api.Extensions;
 using Hetu.Api.Hosting;
+using Hetu.Api.Hubs;
 using Hetu.Api.Seeding;
 using Hetu.Api.Services;
+using Hetu.Core.Interfaces;
 using Hetu.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
+using System.Text.Json;
 
 var webRoot = WebRootLocator.Locate();
 
@@ -57,6 +60,23 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.UseWebSockets();
 app.MapControllers();
+// 后端主动触发前端的 SignalR 通道（必须在 SPA fallback 之前注册）
+app.MapHub<UiHub>("/hubs/ui");
+
+if (app.Environment.IsDevelopment())
+{
+    // 联调用：模拟后端主动推 UI 动作（如智能体 open_panel），无需跑模型即可验证前端处理
+    app.MapPost("/api/debug/ui-action", async (IUiPushService ui, JsonElement body) =>
+    {
+        var type = body.TryGetProperty("type", out var typeNode) ? typeNode.GetString() : null;
+        if (string.IsNullOrWhiteSpace(type)) return Results.BadRequest(new { error = "type is required" });
+        var payload = body.TryGetProperty("payload", out var payloadNode) && payloadNode.ValueKind != JsonValueKind.Undefined
+            ? (object?)payloadNode
+            : null;
+        await ui.PublishAsync(type, payload);
+        return Results.Ok(new { ok = true });
+    });
+}
 
 // 健康检查端点：供桌面外壳 (Tauri shell) 轮询确认就绪
 app.MapGet("/api/health", () => Results.Json(new
