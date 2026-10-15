@@ -58,10 +58,6 @@ public class OpenAiLlmProvider : ILLMProvider
 
         // Accumulate tool calls across stream chunks
         var toolCallAccumulators = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
-
-        // 思考→正文兜底切换的标记：一旦判定模型把答复写进了 reasoning_content，
-        // 后续 reasoning 帧全部按正文转发（详见下方 Content / thinking 处的注释）
-        var reasoningTurnedToAnswer = false;
         OpenAiUsage? lastUsage = null;
 
         while (!cancellationToken.IsCancellationRequested)
@@ -101,26 +97,14 @@ public class OpenAiLlmProvider : ILLMProvider
             // return reasoning and content in the SAME chunk, so they must not be mutually
             // exclusive (an else-if here would drop the content whenever reasoning is present).
             //
-            // 思考转正文的兜底（FallbackReasoningToContent=true，聊天默认开）：部分推理模型/
-            // 中转在思考结束后不守约定，把正式答复继续写进 reasoning_content（整轮 content 为空，
-            // 正文全混在思考里）。检测到正文章节特征（Markdown 标题/有序列表等）时从该点起切换为
-            // 正文，单向不可逆——符合"先思考后作答"。文档生成等批量场景须关闭：模型在思考里
-            // 起草文档很常见（草稿标题、mermaid 骨架都会命中特征），误切会把整段思考混进正文。
+            // reasoning_content 一律按思考上报：曾经按「正文章节特征」做流内兜底切换
+            // （命中 Markdown 标题/列表即把后续推理当正文），但推理里同样会边想边列要点，
+            // 实测 stepfun 在「This tells me:\n- The current branch…」处被误判，整段推理漏进正文。
+            // 需要正文的中转应在服务端把答复写进 content；确实只写 reasoning 的中转，
+            // 其内容会留在思考块里，由调用方（如 KanbanTaskExecutor）在流结束后自行取舍。
             if (!string.IsNullOrEmpty(reasoning))
             {
-                if (options.FallbackReasoningToContent)
-                {
-                    if (!reasoningTurnedToAnswer && !string.IsNullOrEmpty(content))
-                    {
-                        // 本帧同时带正文：说明模型遵守约定，不做兜底切换
-                        reasoningTurnedToAnswer = true;
-                    }
-                    if (!reasoningTurnedToAnswer && LooksLikeAnswerStart(reasoning))
-                    {
-                        reasoningTurnedToAnswer = true;
-                    }
-                }
-                yield return $"{{\"type\":\"{(reasoningTurnedToAnswer ? "content" : "thinking")}\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
+                yield return $"{{\"type\":\"thinking\",\"text\":{JsonSerializer.Serialize(reasoning)}}}";
             }
             if (!string.IsNullOrEmpty(content))
             {
@@ -192,31 +176,6 @@ public class OpenAiLlmProvider : ILLMProvider
         {
             yield return JsonSerializer.Serialize(new { type = "usage", usage = ToUsage(lastUsage) }, JsonOptionsOut);
         }
-    }
-
-    /// <summary>
-    /// 判断一段 reasoning delta 是否已经是正文章节的开头（思考→正文兜底切换用）。
-    /// 部分推理模型/中转在思考结束后不守约定，把正式答复继续写进 reasoning_content，
-    /// 整轮 content 为空、正文全混在思考里。命中这些特征即从该点起按正文转发。
-    /// 只认「Markdown 结构」与「以下是/下面」这类正文引导语；「好的」「让我」「Now/Let me」
-    /// 是思考流的经典开场白，认它会让整段思考漏进正文（曾把「好的，现在整理成最终的
-    /// Markdown…」整段写进 Wiki），一律不认。
-    /// </summary>
-    private static bool LooksLikeAnswerStart(string text)
-    {
-        var t = text.TrimStart();
-        return t.StartsWith("## ", StringComparison.Ordinal)
-            || t.StartsWith("### ", StringComparison.Ordinal)
-            || t.StartsWith("#### ", StringComparison.Ordinal)
-            || t.StartsWith("# ", StringComparison.Ordinal)
-            || t.StartsWith("**", StringComparison.Ordinal)
-            || t.StartsWith("1. ", StringComparison.Ordinal)
-            || t.StartsWith("- ", StringComparison.Ordinal)
-            || t.StartsWith("> ", StringComparison.Ordinal)
-            || t.StartsWith("```", StringComparison.Ordinal)
-            || t.StartsWith("|", StringComparison.Ordinal)
-            || t.StartsWith("以下是", StringComparison.Ordinal)
-            || t.StartsWith("下面", StringComparison.Ordinal);
     }
 
     /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>
