@@ -161,7 +161,7 @@
 
   <rect class="box" x="616" y="228" width="248" height="56" rx="9"/>
   <text class="label" x="630" y="252">PR panel</text>
-  <text class="sub" x="630" y="270">gh / glab: view and create</text>
+  <text class="sub" x="630" y="270">gh / glab: view, create, merge</text>
 
   <rect class="box-accent" x="16" y="140" width="150" height="66" rx="9"/>
   <text class="label" x="30" y="166">Automatic cleanup</text>
@@ -205,7 +205,7 @@
           <tr><td>Create / checkout</td><td><code>git worktree add</code>, <code>git checkout</code>; picking a remote ref creates a local tracking branch</td></tr>
           <tr><td>Commit</td><td><code>git add</code> (partial staging supported) plus <code>git commit</code>; author comes from repo config</td></tr>
           <tr><td>Pull / push</td><td><code>git pull --ff-only</code> / <code>git push</code>, with results and conflicts surfaced in the UI</td></tr>
-          <tr><td>PR / MR</td><td>GitHub via <code>gh pr view|list|create</code> (body sent through <code>--body-file -</code>), GitLab via <code>glab mr view|list|create</code></td></tr>
+          <tr><td>PR / MR</td><td>GitHub via <code>gh pr view|checks|list|create|merge|ready|close|reopen</code> (body sent through <code>--body-file -</code>), GitLab via <code>glab mr view|list|create|merge|update</code>; review comments and failure logs come from <code>gh api</code></td></tr>
           <tr><td>Terminal</td><td>ConPTY on Windows, <code>script</code> on Unix, so interactive programs work</td></tr>
         </tbody>
       </table></div><h2>The seven panels</h2>
@@ -216,7 +216,7 @@
           <tr><td>Changes</td><td>Files changed during this session with line-level diffs (add / remove / modify) and per-file rollback</td></tr>
           <tr><td>Checkpoints</td><td>Snapshots taken before each task; restore the whole workspace to a checkpoint</td></tr>
           <tr><td>Git</td><td>Branch and working-tree state, per-file diff, staging (including partial) and commit</td></tr>
-          <tr><td>PR</td><td>Detects <code>gh</code> (GitHub) or <code>glab</code> (GitLab) from the <code>origin</code> remote: current-branch PR status, open PR list, create form (title / description / base branch / draft); prints platform install hints when the CLI is missing; warns when the branch is not pushed yet</td></tr>
+          <tr><td>PR</td><td>Detects <code>gh</code> (GitHub) or <code>glab</code> (GitLab) from the <code>origin</code> remote: current-branch PR status (diff size, CI checks, review decision, merge gate), open PR list, create form (title / description / base branch / draft), plus convert to draft / mark ready / merge (squash·merge·rebase, optional source-branch deletion) / close / reopen. Polls while checks are running or the merge state is unknown; "Hand off to Agent" turns failing checks, review comments and failure logs into a task inserted into the session input; prints platform install hints when the CLI is missing; warns when the branch is not pushed yet; on the agent side <code>work_pr</code> (status / feedback) and <code>work_pr_action</code> (create / merge / close) cover the same ground, and the PR summary (number, merge gate, review decision) is injected into the session prompt together with the git state</td></tr>
           <tr><td>Browser</td><td>Embedded browser with address bar, back / forward, reload and quick links (local dev server, API docs, GitHub)</td></tr>
           <tr><td>Terminal</td><td>A real PTY (ConPTY on Windows, <code>script</code> on Unix) so <code>vim</code> / <code>htop</code> work; SSH projects run <code>ssh -tt</code> inside the PTY</td></tr>
         </tbody>

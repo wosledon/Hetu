@@ -194,5 +194,13 @@
   "toolParam.work_delete_file.path": "File path relative to the project root",
   "toolParam.work_move_file.from": "Source file relative path",
   "toolParam.work_move_file.to": "Target relative path",
+  "toolParam.work_pr.view": "status = state and check overview (default); feedback = failing checks + review comments + failure log excerpt",
+  "toolParam.work_pr_action.action": "Action to run: create / merge / ready / draft / close / reopen",
+  "toolParam.work_pr_action.title": "PR title for action=create (required)",
+  "toolParam.work_pr_action.body": "PR description for action=create (optional)",
+  "toolParam.work_pr_action.base_branch": "Base branch for action=create; empty uses the remote default branch",
+  "toolParam.work_pr_action.draft": "Create the PR as a draft when action=create",
+  "toolParam.work_pr_action.merge_method": "Merge method for action=merge; defaults to merge",
+  "toolParam.work_pr_action.delete_branch": "Delete the source branch after merging when action=merge",
   "toolParam.work_git.args": "Git subcommand and arguments, e.g. \"diff --stat\", \"log --oneline -10\""
 }

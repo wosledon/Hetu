@@ -281,6 +281,17 @@ body {
   display: none;
 }
 
+/* 关闭亚克力时，靠材质立起来的气泡会白底落白底、连边都看不见：
+   只给气泡（显式 border-transparent + 依赖材质的发言气泡）补一条极浅描边。
+   回答卡片是内容，不加边框——它本身已经 before:hidden 退掉材质，不需要框。 */
+:root[data-glass='off'] .glass-bubble {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+:root[data-glass='off'].dark .glass-bubble {
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
 /* 自身可滚动的容器（模态主体等）：伪元素会随内容滚走，材质直接落在宿主上 */
 :root[data-glass='on'] .glass.overflow-y-auto,
 :root[data-glass='on'] .glass.overflow-x-auto,

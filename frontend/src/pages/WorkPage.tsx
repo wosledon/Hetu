@@ -228,6 +228,8 @@ export default function WorkPage() {
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
   // 智能体唤起面板请求（SignalR open_panel）：nonce 保证重复唤起同一面板也会触发
   const [panelRequest, setPanelRequest] = useState<{ panel: string; url?: string; nonce: number } | null>(null)
+  // PR 面板「交给 Agent 修」：把收集到的反馈插进会话输入框（nonce 保证多次交接都生效）
+  const [agentPromptRequest, setAgentPromptRequest] = useState<{ text: string; nonce: number } | null>(null)
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
 
   // 后端主动推的 open_panel：切到会话视图、展开工作面板，再由 WorkExplorer 激活对应标签
@@ -311,6 +313,7 @@ export default function WorkPage() {
   const addSelectionContext = (path: string, text: string) =>
     setPendingContext({ kind: 'selection', path, text, nonce: Date.now() })
   const requestInsertText = (text: string) => setInsertRequest({ text, path: undefined, nonce: Date.now() })
+  const handoffToAgent = (text: string) => setAgentPromptRequest({ text, nonce: Date.now() })
 
   // 拖拽调整右侧面板宽度
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -480,6 +483,7 @@ export default function WorkPage() {
                 activeFilePath={activeFilePath}
                 onClearActiveFile={() => setActiveFilePath(null)}
                 pendingContext={pendingContext}
+                agentPromptRequest={agentPromptRequest}
                 onOpenFilePath={requestOpenFile}
                 onRunCommand={requestRunCommand}
                 onInsertCode={requestInsertText}
@@ -506,6 +510,7 @@ export default function WorkPage() {
                       onActiveFileChange={setActiveFilePath}
                       openFileRequest={openFileRequest}
                       onAddSelectionContext={addSelectionContext}
+                      onHandoffToAgent={handoffToAgent}
                       insertRequest={insertRequest}
                       commandRequest={terminalCommandRequest}
                     />

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Check, Loader2, Play, Terminal, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
-import { IconButton } from './ui'
 
 export interface ChatToolCallRowProps {
   name: string
@@ -69,17 +68,27 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-      <div className="flex items-center gap-2 px-2.5 py-1.5">
-        <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" label={open ? t('tool.collapseDetails') : t('tool.expandDetails')} onClick={() => setOpen(!open)}
-          aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}>
+      {/* 整行可点展开；内联图标用小尺寸按钮（不用 IconButton：它最小 28px，会把行撑到 44px） */}
+      <div
+        onClick={() => setOpen(!open)}
+        className="flex cursor-pointer items-center gap-2 px-2 py-1 text-left"
+      >
+        <button
+          type="button"
+          aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
+          title={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
+          className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+        >
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-        </IconButton>
+        </button>
         <Icon size={11} className={`shrink-0 ${isText || name !== 'run_command' ? 'text-gray-400' : 'text-emerald-500'}`} />
         <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{rowLabel}</span>
         {summary && (
           onOpenPath && isFileTarget(name) ? (
             <button
-              onClick={() => onOpenPath(summary)}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenPath(summary) }}
               title={t('tool.openInEditor')}
               className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
             >
@@ -91,20 +100,24 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         )}
         {!summary && <span className="flex-1" />}
         {canRun && (
-          <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700" label={t('tool.runInTerminal')} onClick={() => onRunCommand?.(summary ?? '')}
+          <button
+            type="button"
+            aria-label={t('tool.runInTerminal')}
             title={t('tool.runInTerminal')}
-            aria-label={t('tool.runInTerminal')}>
+            onClick={(e) => { e.stopPropagation(); onRunCommand?.(summary ?? '') }}
+            className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
+          >
             <Play size={11} />
-          </IconButton>
+          </button>
         )}
-        {!isText && (
-          running
-            ? <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />
-            : done
-              ? isError
-                ? <X size={11} className="ml-auto shrink-0 text-red-500" />
-                : <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
-              : <Play size={11} className="ml-auto shrink-0 text-gray-300 dark:text-gray-600" />
+        {running ? (
+          <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />
+        ) : !isText && (
+          done
+            ? isError
+              ? <X size={11} className="ml-auto shrink-0 text-red-500" />
+              : <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
+            : <Play size={11} className="ml-auto shrink-0 text-gray-300 dark:text-gray-600" />
         )}
       </div>
       {open && (

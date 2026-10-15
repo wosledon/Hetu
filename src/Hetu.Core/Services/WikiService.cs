@@ -551,7 +551,7 @@ public class WikiService : IWikiService
         // 关闭流内思考→正文切换：模型必在思考里起草（草稿标题/图表骨架都会命中启发式），
         // 误切会把整段自言自语混进正文（「对，这个能清楚表达关系」「等下，再调整下细节」…）。
         // 思考与正文分开收集，流结束后取舍：正文通道有内容就用正文，否则从思考里抢救并激进清洗。
-        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken, fallbackReasoningToContent: false);
+        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken);
         await RecordWikiUsageAsync(initialPrompt, inputTokens, preview, projectId, first, cancellationToken);
         var full = PickBody(first);
         var finish = first.Finish;
@@ -566,7 +566,7 @@ public class WikiService : IWikiService
             try
             {
                 var continuePrompt = BuildContinuePrompt(full);
-                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken, fallbackReasoningToContent: false);
+                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken);
                 // 续写不再经过压缩管道：输入 = 压缩后 = 实际发送
                 await RecordWikiUsageAsync(continuePrompt, LlmTokenEstimator.Estimate(continuePrompt), null, projectId, result, cancellationToken);
                 more = PickBody(result);
@@ -768,7 +768,7 @@ public class WikiService : IWikiService
         {
             var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
             // 同正文生成：关流内思考切换，JSON 被写进思考通道时从思考里取
-            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken, fallbackReasoningToContent: false);
+            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken);
             await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
             plans = ParseOutline(planResult.ContentOrThinking());
 
@@ -786,7 +786,7 @@ public class WikiService : IWikiService
                     【上次的回复】
                     {rawOutline}
                     """;
-                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken, fallbackReasoningToContent: false);
+                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken);
                 await RecordWikiUsageAsync(repairPrompt, LlmTokenEstimator.Estimate(repairPrompt), null, project.Id, retry, cancellationToken);
                 plans = ParseOutline(retry.ContentOrThinking());
                 if (plans.Count == 0)

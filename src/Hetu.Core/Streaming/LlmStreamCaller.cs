@@ -30,8 +30,7 @@ public static class LlmStreamCaller
         string prompt,
         string? systemPrompt,
         int? maxTokens,
-        CancellationToken cancellationToken,
-        bool fallbackReasoningToContent = true)
+        CancellationToken cancellationToken)
     {
         var parser = new LlmStreamParser();
         var content = new StringBuilder();
@@ -48,7 +47,6 @@ public static class LlmStreamCaller
                 SystemPrompt = systemPrompt,
                 MaxTokens = maxTokens,
                 Stream = true,
-                FallbackReasoningToContent = fallbackReasoningToContent,
             },
             cancellationToken))
         {

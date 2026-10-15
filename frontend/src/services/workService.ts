@@ -26,6 +26,8 @@ import type {
   IWorkPrStatus,
   ICreateWorkPrRequest,
   IWorkPrCommandResult,
+  IWorkPrFeedback,
+  IWorkPrActionRequest,
   IWorkBranchList,
   IWorkOpenApp,
   IWorkCopilotAssets,
@@ -232,6 +234,12 @@ export const workGitService = {
   /** 创建 PR / MR */
   createPr: (projectId: string, data: ICreateWorkPrRequest, sessionId?: string) =>
     post<IWorkPrCommandResult>(`/work-projects/${projectId}/git/pr${sessionId ? `?session=${sessionId}` : ''}`, data),
+  /** PR 待处理反馈（CI 失败 / 审查意见 / 失败日志），用于「交给 Agent 修」 */
+  prFeedback: (projectId: string, sessionId?: string) =>
+    get<IWorkPrFeedback>(`/work-projects/${projectId}/git/pr/feedback`, { session: sessionId || undefined }),
+  /** PR 操作：ready / draft / merge / close / reopen */
+  prAction: (projectId: string, data: IWorkPrActionRequest, sessionId?: string) =>
+    post<IWorkPrCommandResult>(`/work-projects/${projectId}/git/pr/action${sessionId ? `?session=${sessionId}` : ''}`, data),
 };
 
 export const workFileService = {

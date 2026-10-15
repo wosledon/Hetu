@@ -334,6 +334,11 @@ public class WorkStreamController : ControllerBase
         if (!string.IsNullOrWhiteSpace(gitContext))
             systemPromptParts.Add($"\n版本控制状态：\n{gitContext}");
 
+        // 当前分支的 PR 摘要：让 Code 会话感知编号 / 门禁 / 审查结论（带 45s 缓存）
+        var prContext = await WorkProjectRules.BuildPrContextAsync(root, runner, ct);
+        if (!string.IsNullOrWhiteSpace(prContext))
+            systemPromptParts.Add($"\n{prContext}");
+
         var options = new ChatOptions
         {
             // ModelId 留空：provider 创建时已注入正确的模型名

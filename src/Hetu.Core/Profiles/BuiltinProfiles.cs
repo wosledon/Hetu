@@ -37,6 +37,7 @@ public static class BuiltinProfiles
         "work_list_dir", "work_read_file", "work_glob", "work_grep", "work_git",
         "work_apply_patch", "work_write_file", "work_delete_file", "work_move_file",
         "work_run_command", "work_diagnostics", "work_semantic_search", "work_task", "work_skill",
+        "work_pr", "work_pr_action",
         "open_panel",
     ];
 
@@ -62,6 +63,8 @@ public static class BuiltinProfiles
         // 基础代码工作
         "work_list_dir", "work_read_file", "work_glob", "work_grep",
         "work_apply_patch", "work_write_file", "work_run_command",
+        // PR / MR 状态：会话需要「感知」门禁与审查结论时直接查，不必自己拼 gh 命令
+        "work_pr",
         // 界面联动：主动唤起浏览器 / PR / 终端等面板给用户看
         "open_panel",
         // 项目记忆检索：Code 会话经常需要回忆项目约定/技术栈（注入之外按需主动检索）

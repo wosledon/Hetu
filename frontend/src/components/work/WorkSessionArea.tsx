@@ -69,6 +69,8 @@ interface WorkSessionAreaProps {
   onClearActiveFile?: () => void
   /** 外部注入的上下文（如编辑器选中代码） */
   pendingContext?: { kind: 'selection'; path: string; text: string; nonce: number } | null
+  /** PR 面板「交给 Agent 修」交接的任务说明：插进输入框等用户确认发送 */
+  agentPromptRequest?: { text: string; nonce: number } | null
   /** 点击路径 → 在探索器打开文件 */
   onOpenFilePath?: (path: string) => void
   /** 把命令送到内置终端执行 */
@@ -196,6 +198,7 @@ export default function WorkSessionArea({
   activeFilePath,
   onClearActiveFile,
   pendingContext,
+  agentPromptRequest,
   onOpenFilePath,
   onRunCommand,
   onInsertCode,
@@ -481,6 +484,14 @@ export default function WorkSessionArea({
       { id: `sel-${pendingContext.nonce}`, kind: 'selection', label: pendingContext.path, text: pendingContext.text },
     ])
   }, [pendingContext])
+
+  // PR 反馈交接：把任务说明插进输入框（追加而非覆盖，用户可能已经写了一部分）
+  const lastPromptNonce = useRef(0)
+  useEffect(() => {
+    if (!agentPromptRequest || agentPromptRequest.nonce === lastPromptNonce.current) return
+    lastPromptNonce.current = agentPromptRequest.nonce
+    setInput((prev) => (prev.trim().length > 0 ? `${prev.trimEnd()}\n\n${agentPromptRequest.text}` : agentPromptRequest.text))
+  }, [agentPromptRequest])
 
   /** 粘贴：图片转附件 chip（非视觉模型会带感叹号划掉）；绝对路径转为引用 chip（不放回输入框） */
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1325,7 +1336,7 @@ export default function WorkSessionArea({
                 <User size={15} />
               </div>
               <div className="flex max-w-[85%] flex-col items-end">
-                <Card padded={false} className="px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
+                <Card padded={false} className="glass-bubble px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
                   <UserMessageContent content={pendingUser} />
                 </Card>
               </div>
@@ -1839,7 +1850,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
             />
           </Card>
         ) : (
-          <Card padded={false} className="px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
+          <Card padded={false} className="glass-bubble px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
             <UserMessageContent content={message.content} />
           </Card>
         )}

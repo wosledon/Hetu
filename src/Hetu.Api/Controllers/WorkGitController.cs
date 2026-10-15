@@ -82,6 +82,21 @@ public class WorkGitController : ControllerBase
             : ApiResponse<WorkPrCommandResultDto>.Fail(result.Output);
     }
 
+    /// <summary>PR 待处理反馈：失败的 CI 检查 + 审查意见 + 失败日志，供「交给 Agent 修」</summary>
+    [HttpGet("pr/feedback")]
+    public async Task<ApiResponse<WorkPrFeedbackDto>> GetPrFeedback(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
+        => ApiResponse<WorkPrFeedbackDto>.Ok(await _gitService.GetPrFeedbackAsync(id, session, cancellationToken));
+
+    /// <summary>PR 操作：ready / draft / merge / close / reopen</summary>
+    [HttpPost("pr/action")]
+    public async Task<ApiResponse<WorkPrCommandResultDto>> RunPrAction(Guid id, [FromBody] WorkPrActionRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)
+    {
+        var result = await _gitService.RunPrActionAsync(id, request ?? new WorkPrActionRequest(), session, cancellationToken);
+        return result.Success
+            ? ApiResponse<WorkPrCommandResultDto>.Ok(result)
+            : ApiResponse<WorkPrCommandResultDto>.Fail(result.Output);
+    }
+
     /// <summary>提交选中的文件（git add 指定路径 + commit）</summary>
     [HttpPost("commit")]
     public async Task<ApiResponse<WorkGitCommitResultDto>> Commit(Guid id, [FromBody] WorkGitCommitRequest request, [FromQuery] Guid? session, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using Hetu.Core.Services.Work;
 
 namespace Hetu.Core.Services.Tools;
 
@@ -245,6 +246,51 @@ public static class WorkProjectRules
               (lines.Count > 20 ? $"\n…（其余 {lines.Count - 20} 项省略）" : string.Empty);
 
         return $"当前分支: {branch.Trim()}\n工作区状态: {summary}";
+    }
+
+    /// <summary>
+    /// PR 摘要缓存：每个目录 45 秒内只查一次（system prompt 每轮都要拼，gh 调用不该拖慢对话）。
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, (DateTimeOffset At, string? Text)> PrSummaryCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly TimeSpan PrSummaryTtl = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    /// 采集当前分支的 PR / MR 摘要（编号、状态、变更量、门禁、审查结论），让会话「感知」PR 状态。
+    /// 非 git 仓库、远端不支持或 gh / glab 不可用时返回空串，不影响主流程。
+    /// </summary>
+    public static async Task<string> BuildPrContextAsync(string root, IWorkCommandRunner? runner, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return string.Empty;
+        var commandRunner = runner
+            ?? (Directory.Exists(root) ? new LocalCommandRunner(root) : null);
+        if (commandRunner == null) return string.Empty;
+
+        if (PrSummaryCache.TryGetValue(commandRunner.RootPath, out var cached)
+            && DateTimeOffset.UtcNow - cached.At < PrSummaryTtl)
+        {
+            return cached.Text ?? string.Empty;
+        }
+
+        string? text;
+        try
+        {
+            text = await WorkPrClient.ForRunner(commandRunner).GetSummaryAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 查询失败不该拖垮一轮对话：按「没有 PR 信息」继续
+            text = null;
+        }
+
+        PrSummaryCache[commandRunner.RootPath] = (DateTimeOffset.UtcNow, text);
+        if (PrSummaryCache.Count > 32)
+        {
+            foreach (var entry in PrSummaryCache.Where(e => DateTimeOffset.UtcNow - e.Value.At > TimeSpan.FromMinutes(5)).ToList())
+                PrSummaryCache.TryRemove(entry.Key, out _);
+        }
+        return text ?? string.Empty;
     }
 
     private static async Task<string?> RunGitAsync(string root, string arguments, CancellationToken cancellationToken)
