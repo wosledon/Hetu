@@ -524,17 +524,20 @@ body {
   border-color: rgba(255,255,255,0.08) !important;
 }
 
+/* 代码块底色：亮色用纯白、暗色比页面底色略亮一档，让代码块从正文里「浮」出来
+   （原先亮色 #f8f9fc / 暗色 #0d1117 都与页面底色几乎一致，只剩一道 4%~6% 的边线，
+   看起来像版面上挖了个黑洞） */
 .wmde-markdown pre {
-  background: rgb(248 249 252) !important;
+  background: #ffffff !important;
   border-radius: 10px !important;
-  border: 1px solid rgba(0,0,0,0.04) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
   overflow-x: auto !important;
   padding: 1em !important;
 }
 
 .wmde-markdown.dark pre {
-  background: rgb(13 17 23) !important;
-  border-color: rgba(255,255,255,0.06) !important;
+  background: #161b27 !important;
+  border-color: rgba(255,255,255,0.10) !important;
 }
 
 .wmde-markdown code {
@@ -544,7 +547,11 @@ body {
   font-size: 0.88em !important;
 }
 
-.wmde-markdown pre code {
+/* 暗色下 .wmde-markdown.dark code 与 .wmde-markdown pre code 特异性相同（各 2 类 1 元素），
+   单写前者会因位置在后而覆盖 pre code 的 transparent，把整个代码块内容糊成一个灰方块。
+   这里补 .dark 变体把特异性抬到 3 类，保证代码块内联背景始终透明。 */
+.wmde-markdown pre code,
+.wmde-markdown.dark pre code {
   background: transparent !important;
   padding: 0 !important;
   border-radius: 0 !important;
@@ -1466,6 +1473,78 @@ body {
   color: rgba(107, 114, 128, 0.8);
   pointer-events: none;
 }
+
+/* ─── 代码块语法高亮（highlight.js token，明/暗两套配色） ─── */
+
+/* 亮色：GitHub Light 的 token 色，压在浅灰底上 */
+.wmde-markdown pre .hljs-comment,
+.wmde-markdown pre .hljs-quote { color: #6e7781; font-style: italic; }
+.wmde-markdown pre .hljs-keyword,
+.wmde-markdown pre .hljs-selector-tag,
+.wmde-markdown pre .hljs-literal,
+.wmde-markdown pre .hljs-doctag,
+.wmde-markdown pre .hljs-type { color: #cf222e; }
+.wmde-markdown pre .hljs-string,
+.wmde-markdown pre .hljs-regexp,
+.wmde-markdown pre .hljs-addition,
+.wmde-markdown pre .hljs-attribute,
+.wmde-markdown pre .hljs-meta .hljs-string { color: #0a3069; }
+.wmde-markdown pre .hljs-number,
+.wmde-markdown pre .hljs-symbol,
+.wmde-markdown pre .hljs-bullet,
+.wmde-markdown pre .hljs-variable,
+.wmde-markdown pre .hljs-template-variable { color: #0550ae; }
+.wmde-markdown pre .hljs-title,
+.wmde-markdown pre .hljs-section,
+.wmde-markdown pre .hljs-name,
+.wmde-markdown pre .hljs-selector-id,
+.wmde-markdown pre .hljs-selector-class { color: #8250df; }
+.wmde-markdown pre .hljs-built_in,
+.wmde-markdown pre .hljs-class .hljs-title,
+.wmde-markdown pre .hljs-title.class_ { color: #953800; }
+.wmde-markdown pre .hljs-attr,
+.wmde-markdown pre .hljs-property,
+.wmde-markdown pre .hljs-params { color: #24292f; }
+.wmde-markdown pre .hljs-subst,
+.wmde-markdown pre .hljs-meta { color: #57606a; }
+.wmde-markdown pre .hljs-deletion { color: #82071e; background: #ffebe9; }
+.wmde-markdown pre .hljs-emphasis { font-style: italic; }
+.wmde-markdown pre .hljs-strong { font-weight: 600; }
+
+/* 暗色：GitHub Dark 的 token 色，压在深底上 */
+.wmde-markdown.dark pre .hljs-comment,
+.wmde-markdown.dark pre .hljs-quote { color: #8b949e; font-style: italic; }
+.wmde-markdown.dark pre .hljs-keyword,
+.wmde-markdown.dark pre .hljs-selector-tag,
+.wmde-markdown.dark pre .hljs-literal,
+.wmde-markdown.dark pre .hljs-doctag,
+.wmde-markdown.dark pre .hljs-type { color: #ff7b72; }
+.wmde-markdown.dark pre .hljs-string,
+.wmde-markdown.dark pre .hljs-regexp,
+.wmde-markdown.dark pre .hljs-addition,
+.wmde-markdown.dark pre .hljs-attribute,
+.wmde-markdown.dark pre .hljs-meta .hljs-string { color: #a5d6ff; }
+.wmde-markdown.dark pre .hljs-number,
+.wmde-markdown.dark pre .hljs-symbol,
+.wmde-markdown.dark pre .hljs-bullet,
+.wmde-markdown.dark pre .hljs-variable,
+.wmde-markdown.dark pre .hljs-template-variable { color: #79c0ff; }
+.wmde-markdown.dark pre .hljs-title,
+.wmde-markdown.dark pre .hljs-section,
+.wmde-markdown.dark pre .hljs-name,
+.wmde-markdown.dark pre .hljs-selector-id,
+.wmde-markdown.dark pre .hljs-selector-class { color: #d2a8ff; }
+.wmde-markdown.dark pre .hljs-built_in,
+.wmde-markdown.dark pre .hljs-class .hljs-title,
+.wmde-markdown.dark pre .hljs-title.class_ { color: #ffa657; }
+.wmde-markdown.dark pre .hljs-attr,
+.wmde-markdown.dark pre .hljs-property,
+.wmde-markdown.dark pre .hljs-params { color: #c9d1d9; }
+.wmde-markdown.dark pre .hljs-subst,
+.wmde-markdown.dark pre .hljs-meta { color: #8b949e; }
+.wmde-markdown.dark pre .hljs-deletion { color: #ffdcd7; background: rgba(248, 81, 73, 0.15); }
+.wmde-markdown.dark pre .hljs-emphasis { font-style: italic; }
+.wmde-markdown.dark pre .hljs-strong { font-weight: 600; }
 
 /* 段落间距：编辑器与预览保持一致（0.6em 合计），列表保持紧凑 */
 .wmde-markdown p {
