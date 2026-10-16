@@ -93,7 +93,6 @@ export default {
     newTopic: 'New topic',
     newTopicFallback: 'New topic',
     groupNamePlaceholder: 'Group name',
-    empty: 'Empty',
     noGroups: 'No conversation groups yet',
     deleteConfirm: 'Delete this topic?',
   },

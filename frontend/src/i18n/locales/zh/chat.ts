@@ -93,7 +93,6 @@ export default {
     newTopic: '新建话题',
     newTopicFallback: '新话题',
     groupNamePlaceholder: '会话组名称',
-    empty: '空',
     noGroups: '暂无会话组',
     deleteConfirm: '确定删除这个话题吗？',
   },

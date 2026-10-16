@@ -196,9 +196,7 @@ function GroupNode({
               />
             )
           })}
-          {filtered.length === 0 && (
-            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: `${8 + 14 + 14}px` }}>{t('tree.empty')}</div>
-          )}
+          {/* 空组不占位：下面的「新建话题」行已经说明该组还没有话题 */}
           {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}
           <TreeRow
             depth={1}
