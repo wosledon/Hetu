@@ -851,8 +851,18 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   }
 
   // 树形：项目下挂会议话列表，单栏展示（合并侧栏固定用此形态；搜索/新建由一级菜单提供）
+  // embedded：已被外层卡片（Code 页左栏）包住，不再自带卡片材质，否则是一张卡套一张卡
+  if (embedded) {
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col">
+        {createDialog}
+        <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
+      </div>
+    )
+  }
+
   return (
-    <Card padded={false} className={`flex flex-col ${embedded ? 'min-h-0 w-full flex-1' : 'w-60 shrink-0 border-r'}`}>
+    <Card padded={false} className="flex w-60 shrink-0 flex-col border-r">
       {createDialog}
       <div className="flex-1 overflow-y-auto p-2">
         {projectList}

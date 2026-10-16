@@ -257,52 +257,60 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
     else { setIsAddingGroup(false); setGroupName('') }
   }
 
-  return (
-    <Card padded={false} className={`flex flex-col ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r'}`}>
-      <div className="flex-1 overflow-y-auto p-2">
-        {mainChat && !hideMainChat && (
-          <>
-            <div className="mb-1.5">
-              <MainChatEntry mainChat={mainChat} selected={selectedMain} onSelect={onSelectMain} />
-            </div>
-            <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
-          </>
-        )}
-        {isAddingGroup && (
-          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
-            <Folder size={14} className="shrink-0 text-blue-500" />
-            <Input
-              autoFocus
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateGroup()
-                if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
-              }}
-              onBlur={handleCreateGroup}
-              placeholder={t('tree.groupNamePlaceholder')}
-              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
-            />
+  const treeBody = (
+    <div className="flex-1 overflow-y-auto p-2">
+      {mainChat && !hideMainChat && (
+        <>
+          <div className="mb-1.5">
+            <MainChatEntry mainChat={mainChat} selected={selectedMain} onSelect={onSelectMain} />
           </div>
-        )}
-        {filteredGroups.map((group) => (
-          <GroupNode
-            key={group.id}
-            group={group}
-            search={search}
-            selectedGroupId={selectedGroupId}
-            selectedTopicId={selectedTopicId}
-            onSelectGroup={onSelectGroup}
-            onSelectTopic={onSelectTopic}
-            onDeleteTopic={onDeleteTopic}
-            onStartDraftTopic={onStartDraftTopic}
+          <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
+        </>
+      )}
+      {isAddingGroup && (
+        <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
+          <Folder size={14} className="shrink-0 text-blue-500" />
+          <Input
+            autoFocus
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreateGroup()
+              if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
+            }}
+            onBlur={handleCreateGroup}
+            placeholder={t('tree.groupNamePlaceholder')}
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
           />
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="py-8 text-center text-xs text-gray-400">{t('tree.noGroups')}</div>
-        )}
-      </div>
+        </div>
+      )}
+      {filteredGroups.map((group) => (
+        <GroupNode
+          key={group.id}
+          group={group}
+          search={search}
+          selectedGroupId={selectedGroupId}
+          selectedTopicId={selectedTopicId}
+          onSelectGroup={onSelectGroup}
+          onSelectTopic={onSelectTopic}
+          onDeleteTopic={onDeleteTopic}
+          onStartDraftTopic={onStartDraftTopic}
+        />
+      ))}
+      {filteredGroups.length === 0 && (
+        <div className="py-8 text-center text-xs text-gray-400">{t('tree.noGroups')}</div>
+      )}
+    </div>
+  )
 
+  // embedded：已被外层卡片（Code 页左栏）包住，不再自带卡片材质，否则是一张卡套一张卡
+  if (embedded) {
+    return <div className="flex min-h-0 w-full flex-1 flex-col">{treeBody}</div>
+  }
+
+  return (
+    <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
+      {treeBody}
     </Card>
   )
 })
