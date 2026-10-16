@@ -191,7 +191,6 @@ function GroupNode({
               <TreeRow
                 key={topic.id}
                 depth={1}
-                indentExtra
                 selected={active}
                 onClick={() => { onSelectGroup(group); onSelectTopic(topic) }}
                 icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
@@ -228,7 +227,6 @@ function GroupNode({
           {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}
           <TreeRow
             depth={1}
-            indentExtra
             icon={<Plus size={12} className="shrink-0" />}
             label={t('tree.newTopic')}
             labelClassName="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"

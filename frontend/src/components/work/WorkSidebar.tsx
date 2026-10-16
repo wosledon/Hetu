@@ -1,9 +1,11 @@
-import { useState, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
+import { useDismissOnOutside } from '../../hooks/useDismissOnOutside'
 import Select from '../Select'
 import { Button, Card, IconButton, Input, Modal, PillTabs, TreeRow } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
@@ -481,11 +483,11 @@ function SessionList({
     })
   }
 
-  const pad = indent ? { paddingLeft: `${8 + 14 + 14}px` } : undefined
+  const pad = indent ? { paddingLeft: `${8 + 14}px` } : undefined
 
   return (
     <div>
-      {actionError && (        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={indent ? { marginLeft: `${8 + 14 + 14}px` } : undefined}>
+      {actionError && (        <div className="mx-1 mb-1 rounded bg-red-50 px-2 py-1 text-[10px] text-red-500 dark:bg-red-950/30 dark:text-red-400" style={indent ? { marginLeft: `${8 + 14}px` } : undefined}>
           {actionError}
         </div>
       )}
@@ -495,7 +497,6 @@ function SessionList({
           <TreeRow
             key={session.id}
             depth={indent ? 1 : 0}
-            indentExtra={indent}
             selected={active}
             onClick={() => { onSelectProject(project); onSelectSession(session) }}
             icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
@@ -537,7 +538,7 @@ function SessionList({
         </div>
       )}
       {sessions.length === 0 && !sessionQuery ? (
-        <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '32px' } : undefined}>
+        <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '22px' } : undefined}>
           <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
           <span className="text-[11px] text-gray-400">{t('sidebar.noSessions')}</span>
           <Button variant="link" tone="gray" className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400" onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}>
@@ -548,7 +549,6 @@ function SessionList({
         sessions.length > 0 && (
           <TreeRow
             depth={indent ? 1 : 0}
-            indentExtra={indent}
             icon={<Plus size={12} className="shrink-0" />}
             label={t('sidebar.newSession')}
             labelClassName="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
@@ -594,6 +594,10 @@ function ProjectNode({
   const [renaming, setRenaming] = useState(false)
   const [setting, setSetting] = useState(false)
   const [name, setName] = useState(project.name)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
   const color = resolveColor(project)
   // 子级会话被选中时父级不再高亮：选中态只落在真正选中的那一行
   const projectSelected = selectedProjectId === project.id && !selectedSessionId
@@ -617,25 +621,47 @@ function ProjectNode({
             SSH
           </span>
         )}
-        actions={(
-          <>
-            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.projectSettings')} onClick={(e) => { e.stopPropagation(); setSetting(true) }}
-              title={t('sidebar.projectSettings')}>
-              <Settings size={11} />
-            </IconButton>
-            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameProject')} onClick={(e) => { e.stopPropagation(); setRenaming(true); setName(project.name) }}
-              title={t('sidebar.renameProject')}
-              aria-label={t('sidebar.renameProject')}>
-              <Pencil size={11} />
-            </IconButton>
-            <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('sidebar.deleteProject')} onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id) }}
-              title={t('sidebar.deleteProject')}
-              aria-label={t('sidebar.deleteProject')}>
-              <Trash2 size={11} />
-            </IconButton>
-          </>
-        )}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
       />
+
+      {/* 项目操作收进右键菜单：行内只留选中与展开，悬停不再挤出一排按钮 */}
+      {menu && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 188),
+            top: Math.min(menu.y, window.innerHeight - 168),
+            zIndex: 50,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { closeMenu(); setSetting(true) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <Settings size={14} />
+            {t('sidebar.projectSettings')}
+          </button>
+          <button
+            onClick={() => { closeMenu(); setName(project.name); setRenaming(true) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <Pencil size={14} />
+            {t('sidebar.renameProject')}
+          </button>
+          <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+          <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); onDeleteProject(project.id) }}>
+            <Trash2 size={14} />
+            {t('sidebar.deleteProject')}
+          </Button>
+        </div>,
+        document.body
+      )}
 
       {setting && <WorkProjectSettings project={project} onClose={() => setSetting(false)} />}
 
