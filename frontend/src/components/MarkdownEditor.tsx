@@ -911,15 +911,19 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               <NoteToc items={tocItems} activeIndex={activeHeading} onSelect={scrollToHeading} />
             )}
           </div>
-          <div className="flex min-h-0 min-w-0">
+          <div className="flex min-h-0 min-w-0 flex-col">
+            {/* 常驻格式工具条：dock 在正文上方、不随正文滚动。
+                放在滚动区里吸顶会盖住正文（文字从工具条下面滑过去），故改为独立一行 */}
+            {(viewMode === 'edit' || viewMode === 'split') && (
+              <div className="shrink-0 border-b border-gray-100 bg-transparent py-1.5 dark:border-gray-800/50">
+                <div className={`flex flex-wrap items-center gap-0.5 px-2 ${viewMode === 'split' ? '' : 'mx-auto max-w-3xl'}`}>
+                  {formatToolbarContent}
+                </div>
+              </div>
+            )}
+            <div className="flex min-h-0 min-w-0 flex-1">
         {(viewMode === 'edit' || viewMode === 'split') && (
-          <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-transparent`}>
-            {/* 常驻格式工具条：与正文同一居中限宽（px-8），避免比正文多缩进一格
-                吸顶条必须不透明：glass-soft 只有 ~8% 底色，滚动时正文会透上来 */}
-            <Card padded={false} className="sticky top-0 z-10 mx-auto flex max-w-3xl flex-wrap items-center gap-0.5 px-1 py-1.5 [--glass-bg:#ffffff] dark:[--glass-bg:#10141f]">
-              {formatToolbarContent}
-            </Card>
-
+          <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} min-h-0 overflow-y-auto bg-transparent`}>
             <div className="mx-auto w-full max-w-3xl px-8 py-5">
               <MilkdownEditor
                 key={noteId}
@@ -1092,6 +1096,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             </div>
           </div>
         )}
+            </div>
           </div>
         </div>
 
