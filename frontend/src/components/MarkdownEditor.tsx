@@ -48,6 +48,8 @@ import { useNotebooks } from '../hooks/useNotebooks'
 import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
+import NoteToc from './NoteToc'
+import { parseNoteHeadings } from '../utils/noteToc'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
 import { noteService } from '../services/noteService'
 import { noteVersionService } from '../services/noteVersionService'
@@ -61,6 +63,9 @@ import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea } fr
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
 const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
+
+/** 目录留白槽最小宽度：NoteToc 的 w-52（208px）+ 与正文的间距 */
+const TOC_GUTTER_MIN = 220
 
 function aiActionPreset(action: string): string {
   return AI_PRESET_ACTIONS.includes(action) ? i18n.t(`notes:editor.aiPresets.${action}`) : ''
@@ -183,6 +188,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const editScrollRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const syncingScroll = useRef(false)
+  // 左侧导航目录：默认展开，可从工具条收起；activeHeading 跟随滚动高亮
+  const [tocVisible, setTocVisible] = useState(true)
+  const [activeHeading, setActiveHeading] = useState(0)
+  // 目录放进居中正文左侧的留白槽：槽宽不够时不渲染，避免压住正文
+  const tocGutterRef = useRef<HTMLDivElement>(null)
+  const [tocGutterWide, setTocGutterWide] = useState(false)
 
   // ── 模型选择 ──
   const { data: allModels = [] } = useQuery({
@@ -384,10 +395,40 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     }
   }, [inlineAiLoading, inlineAiResult])
 
+  /**
+   * 导航目录：按滚动位置推断当前所在章节（最后一个越过视口上沿的标题）。
+   * 编辑区有吸顶工具条，阈值多留一节，避免标题刚露出就被算作当前章节。
+   */
+  const updateActiveHeading = useCallback((pane: HTMLDivElement) => {
+    const headings = pane.querySelectorAll('h1,h2,h3,h4,h5,h6')
+    if (headings.length === 0) return
+    const threshold = pane.getBoundingClientRect().top + (pane === editScrollRef.current ? 56 : 16)
+    let active = 0
+    for (let i = 0; i < headings.length; i++) {
+      if (headings[i].getBoundingClientRect().top <= threshold) active = i
+      else break
+    }
+    setActiveHeading((prev) => (prev === active ? prev : active))
+  }, [])
+
+  /** 导航目录点击：把可见的两栏都滚到对应标题（分栏下按比例同步落点不准，各自滚更齐） */
+  const scrollToHeading = useCallback((index: number) => {
+    for (const pane of [editScrollRef.current, previewScrollRef.current]) {
+      if (!pane) continue
+      const target = pane.querySelectorAll('h1,h2,h3,h4,h5,h6')[index]
+      if (!target) continue
+      const offset = pane === editScrollRef.current ? 52 : 8
+      const top = target.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - offset
+      pane.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    }
+  }, [])
+
   // 分栏模式：编辑区与预览区滚动同步（按滚动比例，避免循环触发）
   const handleEditScroll = useCallback(() => {
-    if (syncingScroll.current) return
     const edit = editScrollRef.current
+    // 目录高亮要先算：单栏模式下没有对端 pane，不能放在同步逻辑后面
+    if (edit) updateActiveHeading(edit)
+    if (syncingScroll.current) return
     const preview = previewScrollRef.current
     if (!edit || !preview) return
     const editMax = edit.scrollHeight - edit.clientHeight
@@ -396,12 +437,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     syncingScroll.current = true
     preview.scrollTop = (edit.scrollTop / editMax) * previewMax
     requestAnimationFrame(() => { syncingScroll.current = false })
-  }, [])
+  }, [updateActiveHeading])
 
   const handlePreviewScroll = useCallback(() => {
+    const preview = previewScrollRef.current
+    if (preview) updateActiveHeading(preview)
     if (syncingScroll.current) return
     const edit = editScrollRef.current
-    const preview = previewScrollRef.current
     if (!edit || !preview) return
     const editMax = edit.scrollHeight - edit.clientHeight
     const previewMax = preview.scrollHeight - preview.clientHeight
@@ -409,7 +451,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     syncingScroll.current = true
     edit.scrollTop = (preview.scrollTop / previewMax) * editMax
     requestAnimationFrame(() => { syncingScroll.current = false })
-  }, [])
+  }, [updateActiveHeading])
 
   // 工具栏命令统一入口：避免在渲染期读取 ref
   const runFormat = useCallback((fn: (md: MilkdownEditorHandle) => void) => {
@@ -499,7 +541,22 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     setAssistantLoading(false)
     setShowAssistant(false)
     setAiSelection('')
+    setActiveHeading(0)
   }
+
+  const tocItems = useMemo(() => parseNoteHeadings(content), [content])
+
+  // 目录留白槽宽度变化（打开笔记、切视图、开侧栏、改窗口）时重算是否放得下目录。
+  // 未选中笔记时正文区整个不渲染（留白槽也不在），所以要跟着 noteId 重挂观察
+  useEffect(() => {
+    const el = tocGutterRef.current
+    if (!el) return
+    const check = () => setTocGutterWide(el.clientWidth >= TOC_GUTTER_MIN)
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [noteId])
 
   const notebookPath = useMemo(() => {
     if (!note?.notebookId || !notebooks.length) return t('note.uncategorized')
@@ -639,6 +696,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{t('common:saved')}</span>
             )}
           </span>
+          {tocItems.length > 0 && tocGutterWide && (
+            <button
+              onClick={() => setTocVisible((v) => !v)}
+              className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${tocVisible ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
+              title={t('editor.toc')}
+            >
+              <List size={15} />
+            </button>
+          )}
           <button
             onClick={() => setShowVersions(!showVersions)}
             className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showVersions ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
@@ -670,15 +736,16 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       </div>
 
+      {/* 标题与元信息：与正文同一居中限宽，宽屏下不拉成一整行 */}
       <div className="border-b border-gray-100 bg-transparent px-8 pb-3 pt-4 dark:border-gray-800/50">
         <input
           type="text"
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
           placeholder={t('editor.titlePlaceholder')}
-          className="w-full border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
+          className="mx-auto block w-full max-w-3xl border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
         />
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
+        <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Calendar size={11} />
             {new Date(note!.createdAt).toLocaleDateString(uiLocale())}
@@ -758,7 +825,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             </span>
           )}
         </div>
-        <div className="mt-2">
+        <div className="mx-auto mt-2 max-w-3xl">
           <TagInput noteId={note!.id} tags={note!.tags} />
         </div>
       </div>
@@ -829,16 +896,31 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden bg-transparent">
+      {/* 正文列整体居中：目录放进居中正文左侧的留白槽，挨着正文而不挤压它；
+          分栏时中心列放宽到两倍阅读宽，两个子栏各自仍是阅读宽 */}
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-transparent">
+        <div
+          className={`grid min-h-0 min-w-0 flex-1 ${
+            viewMode === 'split'
+              ? 'grid-cols-[minmax(0,1fr)_minmax(0,96rem)_minmax(0,1fr)]'
+              : 'grid-cols-[minmax(0,1fr)_minmax(0,48rem)_minmax(0,1fr)]'
+          }`}
+        >
+          <div ref={tocGutterRef} className="flex min-w-0 justify-end overflow-hidden">
+            {tocVisible && tocItems.length > 0 && tocGutterWide && (
+              <NoteToc items={tocItems} activeIndex={activeHeading} onSelect={scrollToHeading} />
+            )}
+          </div>
+          <div className="flex min-h-0 min-w-0">
         {(viewMode === 'edit' || viewMode === 'split') && (
           <div ref={editScrollRef} onScroll={handleEditScroll} className={`relative ${viewMode === 'split' ? 'flex-1' : 'w-full'} overflow-y-auto bg-transparent`}>
-            {/* 常驻格式工具条：与正文同一缩进（px-8），避免比正文多缩进一格
+            {/* 常驻格式工具条：与正文同一居中限宽（px-8），避免比正文多缩进一格
                 吸顶条必须不透明：glass-soft 只有 ~8% 底色，滚动时正文会透上来 */}
-            <Card padded={false} className="sticky top-0 z-10 mx-8 flex flex-wrap items-center gap-0.5 px-1 py-1.5 [--glass-bg:#ffffff] dark:[--glass-bg:#10141f]">
+            <Card padded={false} className="sticky top-0 z-10 mx-auto flex max-w-3xl flex-wrap items-center gap-0.5 px-1 py-1.5 [--glass-bg:#ffffff] dark:[--glass-bg:#10141f]">
               {formatToolbarContent}
             </Card>
 
-            <div className="px-8 py-5">
+            <div className="mx-auto w-full max-w-3xl px-8 py-5">
               <MilkdownEditor
                 key={noteId}
                 ref={milkdownRef}
@@ -1003,11 +1085,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         )}
         {(viewMode === 'preview' || viewMode === 'split') && (
           <div ref={previewScrollRef} onScroll={handlePreviewScroll} className={`${viewMode === 'split' ? 'flex-1 border-l border-gray-100 dark:border-gray-800/50' : 'w-full'} overflow-y-auto bg-transparent px-8 py-6`}>
-            <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
-              <ThemedMarkdown source={content} />
+            <div className="mx-auto w-full max-w-3xl">
+              <div className="markdown-preview prose prose-sm max-w-none dark:prose-invert">
+                <ThemedMarkdown source={content} />
+              </div>
             </div>
           </div>
         )}
+          </div>
+        </div>
 
         {showAssistant && (
           <div className="animate-slide-in-right flex w-80 flex-col border-l border-indigo-200 bg-white glass dark:border-indigo-900/30 dark:bg-gray-900">
