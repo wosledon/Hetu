@@ -434,6 +434,11 @@ function SessionList({
   const [actionError, setActionError] = useState('')
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const [sessionName, setSessionName] = useState('')
+  // 会话的重命名 / 删除挂在右键菜单上（与项目行一致），行内只留选中态
+  const [menu, setMenu] = useState<{ x: number; y: number; sessionId: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['workSessions', project.id, sessionQuery],
@@ -484,6 +489,7 @@ function SessionList({
   }
 
   const pad = indent ? { paddingLeft: `${8 + 14}px` } : undefined
+  const menuSession = sessions.find((item) => item.id === menu?.sessionId)
 
   return (
     <div>
@@ -514,24 +520,44 @@ function SessionList({
               />
             ) : (session.title || t('sidebar.newSession'))}
             labelClassName="text-gray-600 dark:text-gray-300"
-            actions={renamingSessionId !== session.id && (
-              <>
-                <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('sidebar.renameSession')} onClick={(e) => { e.stopPropagation(); setRenamingSessionId(session.id); setSessionName(session.title || '') }}
-                  title={t('sidebar.renameSession')}
-                  aria-label={t('sidebar.renameSession')}>
-                  <Pencil size={10} />
-                </IconButton>
-                <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700" label={t('sidebar.deleteSession')} onClick={(e) => { e.stopPropagation(); handleDeleteSession(session) }}
-                  disabled={deleteSessionMutation.isPending}
-                  title={t('sidebar.deleteSession')}
-                  aria-label={t('sidebar.deleteSession')}>
-                  <Trash2 size={10} />
-                </IconButton>
-              </>
-            )}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setMenu({ x: e.clientX, y: e.clientY, sessionId: session.id })
+            }}
           />
         )
       })}
+
+      {/* 会话操作收进右键菜单：与项目行一致，行内只留选中态 */}
+      {menu && menuSession && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed min-w-[152px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 172),
+            top: Math.min(menu.y, window.innerHeight - 132),
+            zIndex: 50,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { closeMenu(); setRenamingSessionId(menuSession.id); setSessionName(menuSession.title || '') }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <Pencil size={14} />
+            {t('sidebar.renameSession')}
+          </button>
+          <button
+            onClick={() => { closeMenu(); handleDeleteSession(menuSession) }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+          >
+            <Trash2 size={14} />
+            {t('sidebar.deleteSession')}
+          </button>
+        </div>,
+        document.body
+      )}
       {sessions.length === 0 && sessionQuery && (
         <div className="py-0.5 text-[11px] text-gray-400" style={pad}>
           {t('sidebar.noMatchingSessions')}

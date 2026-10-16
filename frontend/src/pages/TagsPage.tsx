@@ -106,7 +106,7 @@ export default function TagsPage() {
 
   const handleViewNotes = (tag: ITag) => {
     setSelectedTagId(tag.id)
-    navigate('/')
+    navigate('/notes')
   }
 
   const usedCount = tags.filter((t) => (t.noteCount ?? 0) > 0).length

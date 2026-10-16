@@ -909,12 +909,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           >
             <Search size={15} />
           </button>
-          <IconButton variant="ghost" tone="gray" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('messageArea.forkTopic')} onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
-            disabled={messages.length === 0}
-            
-            title={t('messageArea.forkTopic')}>
-            <GitBranch size={15} />
-          </IconButton>
+          {/* 分支话题：主对话是全局唯一对话，不拆分支 */}
+          {!topic.isMain && (
+            <IconButton variant="ghost" tone="gray" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('messageArea.forkTopic')} onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
+              disabled={messages.length === 0}
+
+              title={t('messageArea.forkTopic')}>
+              <GitBranch size={15} />
+            </IconButton>
+          )}
           <Button variant="ghost" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20" onClick={() => setShowOrganizeOptions(!showOrganizeOptions)}
             disabled={isOrganizing || isStreaming || messages.length === 0}>
             <FileText size={14} />

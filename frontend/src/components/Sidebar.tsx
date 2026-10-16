@@ -122,7 +122,7 @@ function NotebookTreeItem({
         labelClassName={isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
         onClick={() => {
           setSelectedNotebookId(notebook.id)
-          navigate('/')
+          navigate('/notes')
         }}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -294,7 +294,7 @@ export default function Sidebar() {
             labelClassName={isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
             onClick={() => {
               setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
-              navigate('/')
+              navigate('/notes')
             }}
           />
           {/* 其他笔记本 */}
@@ -311,7 +311,7 @@ export default function Sidebar() {
             onClick={() => {
               setSelectedNotebookId(undefined)
               setSelectedTagId(undefined)
-              navigate('/')
+              navigate('/notes')
             }}
             className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:text-blue-500"
             title={t('sidebar.viewAllNotes')}

@@ -1,4 +1,5 @@
 export default {
+  mainChat: 'Main Chat',
   notes: 'Notes',
   code: 'Code',
   projects: 'Projects',

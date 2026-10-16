@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench } from 'lucide-react'
+import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench, MessageSquare } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
@@ -22,7 +22,8 @@ interface AppLayoutProps {
 }
 
 const fixedNavItems = [
-  { path: '/', labelKey: 'nav:notes', icon: BookOpen },
+  { path: '/', labelKey: 'nav:mainChat', icon: MessageSquare },
+  { path: '/notes', labelKey: 'nav:notes', icon: BookOpen },
   { path: '/code', labelKey: 'nav:code', icon: Code },
   { path: '/projects', labelKey: 'nav:projects', icon: FolderInput },
   { path: '/kanban', labelKey: 'nav:kanban', icon: SquareKanban },
