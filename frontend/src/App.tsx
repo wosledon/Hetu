@@ -11,6 +11,7 @@ import i18n, { applyLanguage } from './i18n'
 import { ACCENT_PRESETS, BACKGROUND_PRESETS } from './utils/appearance'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
+const MainChatPage = lazy(() => import('./pages/MainChatPage'))
 const TagsPage = lazy(() => import('./pages/TagsPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
@@ -156,7 +157,8 @@ function App() {
       )}
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-        <Route path="/" element={<NotesPage />} />
+        <Route path="/" element={<MainChatPage />} />
+        <Route path="/notes" element={<NotesPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/chat" element={<Navigate to="/code" replace />} />
         <Route path="/work" element={<Navigate to="/code" replace />} />

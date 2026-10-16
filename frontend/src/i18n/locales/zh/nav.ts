@@ -1,4 +1,5 @@
 export default {
+  mainChat: '主对话',
   notes: '笔记',
   code: 'Code',
   projects: '项目',

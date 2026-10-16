@@ -153,7 +153,7 @@ function NotebookNode({
           ? <FolderOpen size={15} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />
           : <Folder size={15} className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`} />)}
         label={notebook.name}
-        onDoubleClick={() => navigate('/')}
+        onDoubleClick={() => navigate('/notes')}
         onClick={() => { setSelectedNotebookId(notebook.id); setExpanded((v) => !v); onSelectNotebook?.() }}
         actions={
           <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-500 dark:text-gray-600 dark:hover:bg-gray-700" label={t('common:create')} onClick={(e) => {

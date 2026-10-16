@@ -6,7 +6,6 @@ import { ChevronDown, FolderInput, MessageSquare, Plus, Search } from 'lucide-re
 import AppLayout from '../components/AppLayout'
 import ChatTree, { type ChatTreeHandle } from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
-import MainChatEntry from '../components/MainChatEntry'
 import WorkSidebar, { type WorkSidebarHandle } from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
@@ -17,7 +16,7 @@ import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
 import { Card, PageContainer, SearchInput } from '../components/ui'
 
-/** 合并后的会话页：左栏一级菜单「主对话 / 会话 / 项目」，右侧共用同一套聊天区（Code 会话叠加项目能力） */
+/** 合并后的会话页：左栏一级菜单「会话 / 项目」，右侧共用同一套聊天区（Code 会话叠加项目能力）；主对话已单独成页 */
 type CodeView = 'chat' | 'code'
 
 const DEFAULT_RIGHT_WIDTH = 560
@@ -140,22 +139,16 @@ export default function WorkPage() {
   }, [sections])
 
   // —— 对话：分组/话题选择（原对话页）——
-  // undefined 表示跟随默认选择（主对话或首个分组/话题），null 表示显式清空
+  // undefined 表示跟随默认选择（首个分组/话题），null 表示显式清空
   const [groupChoice, setGroupChoice] = useState<IChatGroup | null | undefined>(undefined)
   const [topicChoice, setTopicChoice] = useState<IChatTopic | null | undefined>(undefined)
-
-  // 主对话（全局主对话组 + 唯一主话题）
-  const { data: mainChat } = useQuery({
-    queryKey: ['chatMain'],
-    queryFn: chatGroupService.getMain,
-  })
 
   const { data: groups = [] } = useQuery({
     queryKey: ['chatGroups'],
     queryFn: chatGroupService.getAll,
   })
 
-  const activeGroup = groupChoice ?? mainChat?.group ?? groups[0] ?? null
+  const activeGroup = groupChoice ?? groups[0] ?? null
 
   const { data: topics = [] } = useQuery({
     queryKey: ['chatTopics', activeGroup?.id],
@@ -163,19 +156,9 @@ export default function WorkPage() {
     enabled: !!activeGroup,
   })
 
-  // 主对话分组默认选中唯一的主话题，普通分组默认选中第一个话题
-  const defaultTopic = mainChat && activeGroup?.id === mainChat.group.id ? mainChat.topic : topics[0] ?? null
+  // 普通分组默认选中第一个话题（主对话已单独成页，不在这里回落）
+  const defaultTopic = topics[0] ?? null
   const activeTopic = topicChoice === undefined ? defaultTopic : topicChoice
-  const selectedMain = mainChat != null && activeTopic?.id === mainChat.topic.id
-
-  const handleSelectMain = useCallback(() => {
-    if (!mainChat) return
-    setGroupChoice(mainChat.group)
-    setTopicChoice(mainChat.topic)
-    setView('chat')
-    setSections((prev) => (prev.chat ? prev : { ...prev, chat: true }))
-    setSearchParams(new URLSearchParams(), { replace: true })
-  }, [mainChat, setSearchParams])
 
   const handleSelectGroup = useCallback((group: IChatGroup) => {
     setGroupChoice(group)
@@ -370,18 +353,8 @@ export default function WorkPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill">
-          {/* 左栏一级菜单：主对话（置顶） / 会话（会话组） / 项目（项目与会话） */}
+          {/* 左栏一级菜单：会话（会话组） / 项目（项目与会话）；主对话已提到左侧固定菜单 */}
           <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
-            {/* 一级：主对话 */}
-            <div className="shrink-0 p-2">
-              <MainChatEntry
-                variant="row"
-                mainChat={mainChat}
-                selected={view === 'chat' && selectedMain}
-                onSelect={handleSelectMain}
-              />
-            </div>
-
             {/* 一级：会话（展开为会话组树） */}
             <SectionHeader
               icon={MessageSquare}
@@ -406,16 +379,13 @@ export default function WorkPage() {
                   embedded
                   hideMainChat
                   search={chatSearch}
-                  mainChat={mainChat}
-                  selectedMain={view === 'chat' && selectedMain}
                   selectedGroupId={view === 'chat' ? activeGroup?.id : undefined}
                   selectedTopicId={view === 'chat' ? activeTopic?.id : undefined}
                   onSelectGroup={handleSelectGroup}
                   onSelectTopic={handleSelectTopic}
-                  onSelectMain={handleSelectMain}
                   onDeleteTopic={handleDeleteTopic}
                   onDeleteGroup={(groupId) => {
-                    // 删的正是当前正在看的组：选择权交回默认（主对话 / 首个分组），
+                    // 删的正是当前正在看的组：选择权交回默认（首个分组），
                     // 否则会话区还停在已删除的组上
                     if (activeGroup?.id === groupId) {
                       setGroupChoice(undefined)
