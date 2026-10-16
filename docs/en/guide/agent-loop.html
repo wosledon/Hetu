@@ -155,7 +155,7 @@
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>Structured event passthrough: SSE writes frames verbatim, non-streaming callers may ignore it</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>Callback when a steer is accepted</td></tr>
           <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>Post-processing hook (code sessions persist the tool timeline here)</td></tr>
-          <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions additionally persist <code>subagent</code> events for replay</td></tr>
+          <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions persist only the terminal <code>subagent</code> frame (with the inner timeline <code>entries</code>) for replay</td></tr>
         </tbody>
       </table></div>
 

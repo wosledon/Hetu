@@ -125,7 +125,7 @@
           <tr><td><code>usage</code></td><td><code>promptTokens / completionTokens / cachedTokens / totalTokens / latencyMs</code></td><td>用量徽标</td></tr>
           <tr><td><code>file_change</code></td><td><code>path / action</code></td><td>本会话文件改动</td></tr>
           <tr><td><code>checkpoint</code></td><td><code>id / label / fileCount</code></td><td>检查点记录</td></tr>
-          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code></td><td>子代理进度（编码会话会额外落库以便回放）</td></tr>
+          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code>；过程帧另带 <code>kind / text</code>（思考与正文增量）、<code>arguments / result / isError</code>（内层工具调用与输出）、<code>entries</code>（终态帧回传的完整内层时间线）</td><td>子代理进度：每个子 Agent 在界面上折叠成一个工具块，展开后是它的内层时间线；编码会话只落终态帧（含 <code>entries</code>）供回放</td></tr>
           <tr><td><code>search_results</code> / <code>knowledge_results</code> / <code>memory_results</code></td><td><code>results[]</code></td><td>联网 / 知识库 / 记忆命中列表</td></tr>
           <tr><td><code>notice</code></td><td><code>kind / text</code></td><td>系统提示（如上下文已压缩、工作树创建失败）</td></tr>
           <tr><td><code>steering</code></td><td><code>text</code></td><td>运行中引导被接受</td></tr>
@@ -142,7 +142,7 @@
         <thead><tr><th>维度</th><th>对话页</th><th>编码会话</th></tr></thead>
         <tbody>
           <tr><td>错误帧</td><td>直接渲染</td><td>重新拼回 <code>[ERROR]</code> 前缀后交给统一解析器</td></tr>
-          <tr><td><code>subagent</code></td><td>不特别处理</td><td>额外落库，用于历史回放</td></tr>
+          <tr><td><code>subagent</code></td><td>不特别处理</td><td>只落终态帧（含 <code>entries</code>），用于历史回放</td></tr>
           <tr><td>检索类结果</td><td>渲染命中列表</td><td>当前未在时间线展示（解析器里是 no-op）</td></tr>
           <tr><td><code>done</code></td><td>由调用方补齐</td><td>循环结束后显式补一帧</td></tr>
         </tbody>

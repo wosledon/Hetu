@@ -49,10 +49,15 @@ export default {
     openInEditor: '在编辑器中打开',
   },
   subagent: {
+    label: '子 Agent',
     running: '进行中',
     done: '完成',
     error: '失败',
     steps: '{{n}} 步',
+    expand: '展开子 Agent 过程',
+    collapse: '折叠子 Agent 过程',
+    waiting: '等待子 Agent 输出…',
+    empty: '这次子 Agent 没有过程输出',
   },
   approval: {
     needConfirm: '需要确认：{{name}}',

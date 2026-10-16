@@ -125,7 +125,7 @@
           <tr><td><code>usage</code></td><td><code>promptTokens / completionTokens / cachedTokens / totalTokens / latencyMs</code></td><td>Usage badge</td></tr>
           <tr><td><code>file_change</code></td><td><code>path / action</code></td><td>Files changed in this session</td></tr>
           <tr><td><code>checkpoint</code></td><td><code>id / label / fileCount</code></td><td>Checkpoint recorded</td></tr>
-          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code></td><td>Sub-agent progress (code sessions persist it for replay)</td></tr>
+          <tr><td><code>subagent</code></td><td><code>id / description / stage / tool / steps / message</code>; progress frames also carry <code>kind / text</code> (thinking and content deltas), <code>arguments / result / isError</code> (inner tool calls and output), and <code>entries</code> (full inner timeline on the terminal frame)</td><td>Sub-agent progress: each sub-agent collapses into one tool block that expands into its inner timeline; code sessions persist only the terminal frame (with <code>entries</code>) for replay</td></tr>
           <tr><td><code>search_results</code> / <code>knowledge_results</code> / <code>memory_results</code></td><td><code>results[]</code></td><td>Web / knowledge / memory hit lists</td></tr>
           <tr><td><code>notice</code></td><td><code>kind / text</code></td><td>System notices (context compacted, worktree creation failed …)</td></tr>
           <tr><td><code>steering</code></td><td><code>text</code></td><td>A steer was accepted</td></tr>
@@ -142,7 +142,7 @@
         <thead><tr><th>Aspect</th><th>Chat</th><th>Code session</th></tr></thead>
         <tbody>
           <tr><td>Error frames</td><td>Rendered directly</td><td><code>[ERROR]</code> prefix is re-applied before the shared parser</td></tr>
-          <tr><td><code>subagent</code></td><td>Not special-cased</td><td>Also persisted for replay</td></tr>
+          <tr><td><code>subagent</code></td><td>Not special-cased</td><td>Only the terminal frame (with <code>entries</code>) is persisted, for replay</td></tr>
           <tr><td>Retrieval results</td><td>Rendered as hit lists</td><td>Not shown on the timeline today (no-op in the dispatcher)</td></tr>
           <tr><td><code>done</code></td><td>Appended by the caller</td><td>Explicitly appended after the loop</td></tr>
         </tbody>

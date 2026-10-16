@@ -131,6 +131,26 @@ public class WorkTaskTool : IToolExecutor
             var exhaustedIterations = true;
             var timedOut = false;
 
+            // 内层时间线（思考 / 正文 / 工具调用）：边跑边推给界面，结束后随 done 事件回传供历史回放
+            var entries = new List<SubagentEntry>();
+            var entriesBudget = 24000;
+
+            void AppendText(string kind, string text)
+            {
+                if (string.IsNullOrEmpty(text) || entriesBudget <= 0) return;
+                var last = entries.Count > 0 ? entries[^1] : null;
+                if (last != null && last.Kind == kind && last.Name.Length == 0)
+                {
+                    var room = Math.Min(text.Length, entriesBudget);
+                    last.Text += text[..room];
+                    entriesBudget -= room;
+                    return;
+                }
+                var entry = new SubagentEntry { Kind = kind, Text = text[..Math.Min(text.Length, entriesBudget)] };
+                entriesBudget -= entry.Text.Length;
+                entries.Add(entry);
+            }
+
             // 内层循环使用独立超时，超时后仍把已得到的部分结论交回主 Agent
             using var subCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             subCts.CancelAfter(OverallTimeout);
@@ -140,7 +160,13 @@ public class WorkTaskTool : IToolExecutor
             {
                 for (var iter = 0; iter < MaxIterations; iter++)
                 {
-                    var (content, toolCalls) = await ConsumeStreamAsync(provider, messages, options, subToken);
+                    var (content, toolCalls) = await ConsumeStreamAsync(
+                        provider, messages, options, subToken,
+                        (kind, text) =>
+                        {
+                            AppendText(kind, text);
+                            return EmitAsync(new { type = "subagent", stage = "delta", id = subAgentId, kind, text });
+                        });
                     answer.Append(content);
 
                     if (toolCalls == null || toolCalls.Count == 0)
@@ -154,7 +180,9 @@ public class WorkTaskTool : IToolExecutor
                     foreach (var call in toolCalls)
                     {
                         steps++;
-                        await EmitAsync(new { type = "subagent", stage = "tool", id = subAgentId, description, tool = call.Name });
+                        var toolEntry = new SubagentEntry { Kind = "tool", Name = call.Name, Arguments = Truncate(call.Arguments, 600) };
+                        entries.Add(toolEntry);
+                        await EmitAsync(new { type = "subagent", stage = "tool", id = subAgentId, description, tool = call.Name, arguments = toolEntry.Arguments, state = "running" });
 
                         var executor = Registry.GetExecutor(call.Name);
                         ToolExecutionResult result;
@@ -176,6 +204,18 @@ public class WorkTaskTool : IToolExecutor
                         }
 
                         var payload = result.IsError ? $"Error: {result.Content}" : Truncate(result.Content, 6000);
+                        toolEntry.Result = result.Content;
+                        toolEntry.IsError = result.IsError;
+                        await EmitAsync(new
+                        {
+                            type = "subagent",
+                            stage = "tool_result",
+                            id = subAgentId,
+                            tool = call.Name,
+                            result = result.IsError ? $"Error: {result.Content}" : Truncate(result.Content, 6000),
+                            isError = result.IsError,
+                        });
+
                         messages.Add(new LlmChatMessage { Role = "tool", ToolCallId = call.Id, Content = payload });
                     }
                 }
@@ -185,7 +225,7 @@ public class WorkTaskTool : IToolExecutor
                 timedOut = true;
             }
 
-            await EmitAsync(new { type = "subagent", stage = "done", id = subAgentId, description, steps });
+            await EmitAsync(new { type = "subagent", stage = "done", id = subAgentId, description, steps, entries });
 
             var summary = answer.ToString().Trim();
             if (string.IsNullOrWhiteSpace(summary))
@@ -215,19 +255,42 @@ public class WorkTaskTool : IToolExecutor
         }
     }
 
+    /// <summary>子 Agent 内层时间线条目（推给界面 + 随 done 事件回传供历史回放）</summary>
+    private sealed class SubagentEntry
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("kind")]
+        public string Kind { get; set; } = "text";
+
+        [System.Text.Json.Serialization.JsonPropertyName("text")]
+        public string Text { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("args")]
+        public string Arguments { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("result")]
+        public string? Result { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("isError")]
+        public bool IsError { get; set; }
+    }
+
     private Task EmitAsync(object payload)
         => _context.WriteEventAsync?.Invoke(payload) ?? Task.CompletedTask;
 
     private static string Truncate(string text, int max)
         => text.Length <= max ? text : text[..max] + $"\n…（已截断，共 {text.Length} 字符）";
 
-    /// <summary>消费 LLM 流：非 JSON 增量按正文累积，结构化 tool_calls 单独取出</summary>
-    /// <summary>消费 LLM 流：结构化 content 增量取 text，tool_calls 单独取出，其余结构化事件忽略</summary>
+    /// <summary>消费 LLM 流：结构化 content 增量取 text，tool_calls 单独取出，其余结构化事件忽略；
+    /// <paramref name="onDelta"/> 收到思考 / 正文增量（用于把内层过程实时推给界面）。</summary>
     private static async Task<(string content, List<LlmToolCall>? toolCalls)> ConsumeStreamAsync(
         ILLMProvider provider,
         List<LlmChatMessage> messages,
         ChatOptions options,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<string, string, Task>? onDelta = null)
     {
         var sb = new StringBuilder();
         List<LlmToolCall>? toolCalls = null;
@@ -242,14 +305,22 @@ public class WorkTaskTool : IToolExecutor
                     && root.TryGetProperty("type", out var typeEl)
                     && typeEl.ValueKind == JsonValueKind.String)
                 {
-                    if (typeEl.GetString() == "tool_calls")
+                    var frameType = typeEl.GetString();
+                    if (frameType == "tool_calls")
                     {
                         if (root.TryGetProperty("toolCalls", out var arr))
                             toolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(arr.GetRawText(), JsonDefaults.CamelCase);
                     }
-                    else if (typeEl.GetString() == "content" && root.TryGetProperty("text", out var textEl))
+                    else if (frameType == "content" && root.TryGetProperty("text", out var textEl))
                     {
-                        sb.Append(textEl.GetString());
+                        var text = textEl.GetString() ?? string.Empty;
+                        sb.Append(text);
+                        if (onDelta != null && text.Length > 0) await onDelta("text", text);
+                    }
+                    else if (frameType == "thinking" && root.TryGetProperty("text", out var thinkEl))
+                    {
+                        var text = thinkEl.GetString() ?? string.Empty;
+                        if (onDelta != null && text.Length > 0) await onDelta("thinking", text);
                     }
                     continue;
                 }
@@ -257,6 +328,7 @@ public class WorkTaskTool : IToolExecutor
             catch (JsonException) { /* 非 JSON 增量，按正文处理 */ }
 
             sb.Append(delta);
+            if (onDelta != null && delta.Length > 0) await onDelta("text", delta);
         }
 
         return (sb.ToString(), toolCalls);

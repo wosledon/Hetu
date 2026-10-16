@@ -6,7 +6,7 @@ import AgentApprovalCard from './AgentApprovalCard'
 import AgentThoughtBlock from './AgentThoughtBlock'
 import AgentFileChangeRow from './AgentFileChangeRow'
 import AgentCheckpointRow from './AgentCheckpointRow'
-import AgentSubAgentRow from './AgentSubAgentRow'
+import AgentSubAgentPanel from './AgentSubAgentPanel'
 import { foldAgentTimeline, type AgentTimelineItem } from '../../utils/agentTimeline'
 
 export interface AgentTimelineProps {
@@ -146,12 +146,16 @@ export default function AgentTimeline({
           case 'subagent':
             return (
               <div key={`o${i}`} className="mb-2">
-                <AgentSubAgentRow
+                <AgentSubAgentPanel
                   description={item.description}
                   stage={item.stage}
                   tool={item.tool}
                   steps={item.steps}
                   message={item.message}
+                  entries={item.entries}
+                  onOpenPath={onOpenPath}
+                  onRunCommand={onRunCommand}
+                  onInsertCode={onInsertCode}
                 />
               </div>
             )

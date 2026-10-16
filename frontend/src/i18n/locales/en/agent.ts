@@ -49,10 +49,15 @@ export default {
     openInEditor: 'Open in editor',
   },
   subagent: {
+    label: 'Sub-agent',
     running: 'Running',
     done: 'Completed',
     error: 'Failed',
     steps: '{{n}} steps',
+    expand: 'Expand sub-agent steps',
+    collapse: 'Collapse sub-agent steps',
+    waiting: 'Waiting for the sub-agent…',
+    empty: 'The sub-agent produced no steps this time',
   },
   approval: {
     needConfirm: 'Approval required: {{name}}',
