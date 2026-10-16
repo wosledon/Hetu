@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { settingService } from './services/settingService'
+import { onUiAction } from './services/signalrService'
 import { useUIStore } from './stores/uiStore'
 import { useUpdateStore } from './stores/updateStore'
 import { updateService } from './services/updateService'
@@ -44,8 +45,52 @@ function RouteFallback() {
   )
 }
 
+/** uiAction notify 的全局通知样式（success / error / info 三档） */
+const TOAST_STYLES: Record<'success' | 'error' | 'info', string> = {
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/90 dark:text-emerald-200',
+  error: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/90 dark:text-rose-200',
+  info: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/90 dark:text-blue-200',
+}
+
 function App() {
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation()
+  // 后端主动推的 notify：全局轻量通知（如后台任务完成/失败），5 秒后自动消失
+  const [toast, setToast] = useState<{ text: string; level: 'success' | 'error' | 'info' } | null>(null)
+
+  // 后端主动推的 navigate：跳转应用页面（路由由工具侧映射，这里只拦非法站内路径）
+  useEffect(() => onUiAction('navigate', (payload) => {
+    const path = typeof payload.path === 'string' ? payload.path : ''
+    if (!path.startsWith('/') || path.startsWith('//') || path === location.pathname) return
+    navigate(path)
+  }), [navigate, location.pathname])
+
+  useEffect(() => onUiAction('notify', (payload) => {
+    const kind = typeof payload.kind === 'string' ? payload.kind : ''
+    const title = typeof payload.title === 'string' ? payload.title : ''
+    let text: string
+    let level: 'success' | 'error' | 'info'
+    if (kind === 'background_task') {
+      const failed = payload.status === 'failed'
+      text = failed
+        ? t('notifyTaskFailed', { title, error: typeof payload.error === 'string' ? payload.error : '' })
+        : t('notifyTaskCompleted', { title })
+      level = failed ? 'error' : 'success'
+    } else {
+      text = typeof payload.message === 'string' && payload.message ? payload.message : title
+      level = payload.level === 'error' ? 'error' : payload.level === 'success' ? 'success' : 'info'
+    }
+    if (!text) return
+    setToast({ text, level })
+  }), [t])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [toast])
 
   // 后端返回的文案（工具说明、用量来源等）随语言变化：切换语言时让已缓存的查询重新拉取
   useEffect(() => {
@@ -93,8 +138,24 @@ function App() {
   }, [])
 
   return (
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
+    <>
+      {toast && (
+        <div role="status" className={`fixed right-4 top-4 z-[100] max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${TOAST_STYLES[toast.level]}`}>
+          <div className="flex items-start gap-3">
+            <span className="min-w-0 flex-1 break-words">{toast.text}</span>
+            <button
+              type="button"
+              aria-label={t('close')}
+              onClick={() => setToast(null)}
+              className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
         <Route path="/" element={<NotesPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/chat" element={<Navigate to="/code" replace />} />
@@ -123,8 +184,9 @@ function App() {
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/share/:shareCode" element={<SharedNotePage />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   )
 }
 

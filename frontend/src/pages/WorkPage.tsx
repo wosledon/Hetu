@@ -227,19 +227,22 @@ export default function WorkPage() {
   const [rightCollapsed, setRightCollapsed] = useState(true)
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH)
   // 智能体唤起面板请求（SignalR open_panel）：nonce 保证重复唤起同一面板也会触发
-  const [panelRequest, setPanelRequest] = useState<{ panel: string; url?: string; nonce: number } | null>(null)
+  const [panelRequest, setPanelRequest] = useState<{ panel: string; url?: string; path?: string; nonce: number } | null>(null)
   // PR 面板「交给 Agent 修」：把收集到的反馈插进会话输入框（nonce 保证多次交接都生效）
   const [agentPromptRequest, setAgentPromptRequest] = useState<{ text: string; nonce: number } | null>(null)
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null)
 
-  // 后端主动推的 open_panel：切到会话视图、展开工作面板，再由 WorkExplorer 激活对应标签
+  // 后端主动推的 open_panel：切到会话视图、展开工作面板，再由 WorkExplorer 激活对应标签；
+  // files 带 path 时改走打开文件请求，让编辑器直接展示该文件
   useEffect(() => onUiAction('open_panel', (payload) => {
     const panel = typeof payload.panel === 'string' ? payload.panel : ''
     if (!panel) return
     const url = typeof payload.url === 'string' ? payload.url : undefined
+    const path = typeof payload.path === 'string' ? payload.path : undefined
     setView('code')
     setRightCollapsed(false)
-    setPanelRequest((prev) => ({ panel, url, nonce: (prev?.nonce ?? 0) + 1 }))
+    setPanelRequest((prev) => ({ panel, url, path, nonce: (prev?.nonce ?? 0) + 1 }))
+    if (panel === 'files' && path) setOpenFileRequest((prev) => ({ path, nonce: (prev?.nonce ?? 0) + 1 }))
   }), [])
 
   const { data: projects = [] } = useQuery({

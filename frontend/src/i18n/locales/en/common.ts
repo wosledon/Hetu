@@ -22,6 +22,8 @@ export default {
   loading: 'Loading…',
   loadingFailed: 'Failed to load',
   requestFailed: 'Request failed',
+  notifyTaskCompleted: 'Background task completed: {{title}}',
+  notifyTaskFailed: 'Background task failed: {{title}} ({{error}})',
   empty: 'No data yet',
   none: 'None',
   all: 'All',

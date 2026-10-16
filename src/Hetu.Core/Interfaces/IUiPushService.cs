@@ -6,6 +6,6 @@ namespace Hetu.Core.Interfaces;
 /// </summary>
 public interface IUiPushService
 {
-    /// <summary>广播一个 UI 动作：type 为动作名（如 open_panel），payload 为附加数据</summary>
+    /// <summary>广播一个 UI 动作：type 为动作名（open_panel=唤起工作台面板 / navigate=跳转应用页面 / notify=全局通知），payload 为附加数据</summary>
     Task PublishAsync(string type, object? payload, CancellationToken cancellationToken = default);
 }
