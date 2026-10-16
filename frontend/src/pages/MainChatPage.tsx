@@ -16,6 +16,7 @@ export default function MainChatPage() {
 
   return (
     <AppLayout
+      showSidebar={false}
       mainContent={
         isLoading || !mainChat ? (
           <div className="flex flex-1 items-center justify-center">
