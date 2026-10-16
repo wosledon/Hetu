@@ -34,6 +34,8 @@ export interface TreeRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onCl
   label: ReactNode
   labelClassName?: string
   truncateLabel?: boolean
+  /** 标签下方的副标题（如项目描述），单行截断 */
+  subtitle?: ReactNode
   /** 标签后的常显内容（计数、徽标、勾选框等） */
   badge?: ReactNode
   /** 行尾悬停才显示的操作按钮组 */
@@ -55,6 +57,7 @@ export default function TreeRow({
   label,
   labelClassName,
   truncateLabel = true,
+  subtitle,
   badge,
   actions,
   className,
@@ -88,15 +91,17 @@ export default function TreeRow({
         <span className={cn('shrink-0', size === 'sm' ? 'w-[11px]' : 'w-3.5')} />
       )}
       {typeof icon === 'function' ? icon(selected) : icon}
-      <span className={cn(
-        'min-w-0 flex-1',
-        size === 'sm' ? 'text-[12px]' : 'text-[13px]',
-        truncateLabel && 'truncate',
-        selected ? SELECTED_TEXT[tone] : 'text-gray-700 dark:text-gray-200',
-        labelClassName,
-      )}
-      >
-        {label}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className={cn(
+          size === 'sm' ? 'text-[12px]' : 'text-[13px]',
+          truncateLabel && 'truncate',
+          selected ? SELECTED_TEXT[tone] : 'text-gray-700 dark:text-gray-200',
+          labelClassName,
+        )}
+        >
+          {label}
+        </span>
+        {subtitle ? <span className="truncate text-[11px] leading-tight text-gray-400 dark:text-gray-500">{subtitle}</span> : null}
       </span>
       {badge}
       {actions && (

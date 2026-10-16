@@ -5,6 +5,10 @@ import type { AccentKey, BackgroundKey } from '../utils/appearance';
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
 type NavStyle = 'top' | 'vertical';
+/** 项目树分组依据：分类 / 项目分组 / 连接方式 / 不分组 */
+export type ProjectGroupBy = 'category' | 'group' | 'connection' | 'none';
+/** 项目树排序依据：手动排序 / 名称 / 更新时间 / 会话数 */
+export type ProjectSortBy = 'manual' | 'name' | 'updated' | 'sessions';
 
 interface UIState {
   appName: string;
@@ -19,6 +23,10 @@ interface UIState {
   glass: boolean;
   sidebarCollapsed: boolean;
   secondaryMenuStyle: SecondaryMenuStyle;
+  /** Code 页项目树的分组方式 */
+  projectGroupBy: ProjectGroupBy;
+  /** Code 页项目树的排序方式 */
+  projectSortBy: ProjectSortBy;
   navStyle: NavStyle;
   selectedNotebookId?: string;
   selectedTagId?: string;
@@ -34,6 +42,8 @@ interface UIState {
   setGlass: (glass: boolean) => void;
   toggleSidebar: () => void;
   setSecondaryMenuStyle: (style: SecondaryMenuStyle) => void;
+  setProjectGroupBy: (groupBy: ProjectGroupBy) => void;
+  setProjectSortBy: (sortBy: ProjectSortBy) => void;
   setNavStyle: (style: NavStyle) => void;
   setSelectedNotebookId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
@@ -54,6 +64,8 @@ export const useUIStore = create<UIState>()(
       glass: true,
       sidebarCollapsed: false,
       secondaryMenuStyle: 'flat',
+      projectGroupBy: 'category',
+      projectSortBy: 'manual',
       navStyle: 'top',
       selectedNotebookId: undefined,
       selectedTagId: undefined,
@@ -69,6 +81,8 @@ export const useUIStore = create<UIState>()(
       setGlass: (glass) => set({ glass }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSecondaryMenuStyle: (style) => set({ secondaryMenuStyle: style }),
+      setProjectGroupBy: (groupBy) => set({ projectGroupBy: groupBy }),
+      setProjectSortBy: (sortBy) => set({ projectSortBy: sortBy }),
       setNavStyle: (style) => set({ navStyle: style }),
       setSelectedNotebookId: (id) => set({ selectedNotebookId: id, selectedTagId: undefined }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNotebookId: undefined }),
@@ -78,7 +92,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 5,
+      version: 6,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -98,6 +112,7 @@ export const useUIStore = create<UIState>()(
             state.pinnedNavItems = state.pinnedNavItems.map((p) => (p === '/work' ? '/code' : p))
           }
         }
+        // v6：新增项目树分组/排序偏好，旧状态缺字段，走默认值
         return state as Partial<UIState>
       },
       partialize: (state) => ({
@@ -108,6 +123,8 @@ export const useUIStore = create<UIState>()(
         accent: state.accent,
         background: state.background,
         sidebarCollapsed: state.sidebarCollapsed,        secondaryMenuStyle: state.secondaryMenuStyle,
+        projectGroupBy: state.projectGroupBy,
+        projectSortBy: state.projectSortBy,
         navStyle: state.navStyle,
         pinnedNavItems: state.pinnedNavItems,
         glass: state.glass,
