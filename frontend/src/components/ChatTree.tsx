@@ -53,6 +53,8 @@ interface ChatTreeProps {
   onSelectTopic: (topic: IChatTopic) => void
   onSelectMain?: () => void
   onDeleteTopic?: (topicId: string) => void
+  /** 删除会话组：组内话题会级联删除，父级借此清理停在已删组上的选择 */
+  onDeleteGroup?: (groupId: string) => void
   /** 嵌在合并侧栏里：不占固定宽度、不画右边框 */
   embedded?: boolean
   /** 搜索词由一级菜单输入框提供 */
@@ -71,6 +73,7 @@ function GroupNode({
   onSelectGroup,
   onSelectTopic,
   onDeleteTopic,
+  onDeleteGroup,
   onStartDraftTopic,
 }: {
   group: IChatGroup
@@ -80,6 +83,8 @@ function GroupNode({
   onSelectGroup: (group: IChatGroup) => void
   onSelectTopic: (topic: IChatTopic) => void
   onDeleteTopic?: (topicId: string) => void
+  /** 删除会话组：组内话题会级联删除，父级借此清理停在已删组上的选择 */
+  onDeleteGroup?: (groupId: string) => void
   /** 新建话题：只放草稿占位（第一条消息才落库） */
   onStartDraftTopic?: (group: IChatGroup) => void
 }) {
@@ -111,6 +116,16 @@ function GroupNode({
       queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
       onSelectGroup(group)
       onSelectTopic(newTopic)
+    },
+  })
+
+  // 删组会级联删掉组内话题与消息（EF 侧 Cascade），确认文案里要说清
+  const deleteGroup = useMutation({
+    mutationFn: chatGroupService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatGroups'] })
+      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+      onDeleteGroup?.(group.id)
     },
   })
 
@@ -153,6 +168,19 @@ function GroupNode({
         )}
         label={group.name}
         onClick={() => { onSelectGroup(group); setExpanded(true) }}
+        actions={
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('tree.deleteGroup')} onClick={(e) => {
+            e.stopPropagation()
+            confirm({
+              message: t('tree.deleteGroupConfirm', { name: group.name }),
+              onConfirm: () => deleteGroup.mutate(group.id),
+            })
+          }}
+            title={t('tree.deleteGroup')}
+            aria-label={t('tree.deleteGroup')}>
+            <Trash2 size={11} />
+          </IconButton>
+        }
       />
 
       {expanded && (
@@ -223,7 +251,7 @@ export interface ChatTreeHandle {
 
 const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain,
-  onDeleteTopic, embedded, search = '', hideMainChat, onStartDraftTopic,
+  onDeleteTopic, onDeleteGroup, embedded, search = '', hideMainChat, onStartDraftTopic,
 }, ref) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('chat')
@@ -292,6 +320,7 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
           onSelectGroup={onSelectGroup}
           onSelectTopic={onSelectTopic}
           onDeleteTopic={onDeleteTopic}
+          onDeleteGroup={onDeleteGroup}
           onStartDraftTopic={onStartDraftTopic}
         />
       ))}

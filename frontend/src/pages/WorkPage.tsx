@@ -414,6 +414,14 @@ export default function WorkPage() {
                   onSelectTopic={handleSelectTopic}
                   onSelectMain={handleSelectMain}
                   onDeleteTopic={handleDeleteTopic}
+                  onDeleteGroup={(groupId) => {
+                    // 删的正是当前正在看的组：选择权交回默认（主对话 / 首个分组），
+                    // 否则会话区还停在已删除的组上
+                    if (activeGroup?.id === groupId) {
+                      setGroupChoice(undefined)
+                      setTopicChoice(undefined)
+                    }
+                  }}
                   onStartDraftTopic={handleStartDraftTopic}
                 />
               </div>

@@ -93,6 +93,8 @@ export default {
     newTopic: '新建话题',
     newTopicFallback: '新话题',
     groupNamePlaceholder: '会话组名称',
+    deleteGroup: '删除会话组',
+    deleteGroupConfirm: '确定删除会话组「{{name}}」吗？其中的所有话题将一并删除。',
     noGroups: '暂无会话组',
     deleteConfirm: '确定删除这个话题吗？',
   },

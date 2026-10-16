@@ -93,6 +93,8 @@ export default {
     newTopic: 'New topic',
     newTopicFallback: 'New topic',
     groupNamePlaceholder: 'Group name',
+    deleteGroup: 'Delete group',
+    deleteGroupConfirm: 'Delete group "{{name}}"? All of its topics will be removed too.',
     noGroups: 'No conversation groups yet',
     deleteConfirm: 'Delete this topic?',
   },
