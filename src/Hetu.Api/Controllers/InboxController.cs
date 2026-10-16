@@ -21,15 +21,15 @@ public class InboxController : ControllerBase
 
     /// <summary>分页查询通知（archived=false 未归档；category 为空查全部）</summary>
     [HttpGet]
-    public async Task<ApiResponse<List<InboxNotificationDto>>> Get(
+    public async Task<ApiResponse<PagedResult<InboxNotificationDto>>> Get(
         [FromQuery] bool archived = false,
         [FromQuery] string? category = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
+        [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
         var items = await _inboxService.GetAsync(category, archived, page, pageSize, ct);
-        return ApiResponse<List<InboxNotificationDto>>.Ok(items);
+        return ApiResponse<PagedResult<InboxNotificationDto>>.Ok(items);
     }
 
     /// <summary>分类聚合（含未读数，用于筛选栏）</summary>

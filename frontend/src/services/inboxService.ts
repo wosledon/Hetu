@@ -4,11 +4,12 @@ import type {
   IInboxCategory,
   ICreateInboxNotificationRequest,
   InboxBatchAction,
+  IPagedResult,
 } from '../types'
 
 export const inboxService = {
   getAll: (params: { archived?: boolean; category?: string; page?: number; pageSize?: number } = {}) =>
-    get<IInboxNotification[]>('/inbox', params),
+    get<IPagedResult<IInboxNotification>>('/inbox', params),
   getCategories: (archived = false) =>
     get<IInboxCategory[]>('/inbox/categories', { archived }),
   getUnreadCount: () => get<number>('/inbox/unread-count'),

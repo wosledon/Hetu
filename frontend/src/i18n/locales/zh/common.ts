@@ -63,6 +63,12 @@ export default {
   languageHint: '切换后立即生效，并会同步到后端提示与 AI 回复语言。',
   selectAll: '全选',
   total: '共 {{count}} 条',
+  pagination: {
+    pageInfo: '第 {{page}} / {{totalPages}} 页',
+    totalCount: '共 {{count}} 条',
+    prev: '上一页',
+    next: '下一页',
+  },
   itemCount: '{{count}} 条',
   charCount: '{{count}} 字符',
   dayCount: '{{count}} 天',

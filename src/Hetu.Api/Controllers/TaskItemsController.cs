@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
@@ -19,21 +20,34 @@ public class TaskItemsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ApiResponse<List<TaskItemDto>>> GetAll([FromQuery] string? type, [FromQuery] int? status, CancellationToken ct)
+    public async Task<ApiResponse<PagedResult<TaskItemDto>>> GetAll(
+        [FromQuery] string? type,
+        [FromQuery] int? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
     {
         // 过滤条件下推到数据库，避免全表加载
         var typeFilter = string.IsNullOrEmpty(type) ? null : type.ToLowerInvariant();
-        // 排序 + 取前 200 条在数据库完成（SQLite 下由仓储投影排序键定序），不再把整张任务表读进内存
+        Expression<Func<TaskItem, bool>> predicate =
+            t => (typeFilter == null || t.TaskType.ToLower() == typeFilter) && (status == null || t.Status == status);
+        // 排序 + 取页在数据库完成（SQLite 下由仓储投影排序键定序），不再把整张任务表读进内存
         var items = await _unitOfWork.TaskItems.GetPagedByDateAsync(
-            t => (typeFilter == null || t.TaskType.ToLower() == typeFilter) && (status == null || t.Status == status),
+            predicate,
             t => t.CreatedAt,
             descending: true,
-            skip: 0,
-            take: 200,
+            skip: (Math.Max(page, 1) - 1) * pageSize,
+            take: pageSize,
             ct);
+        var total = await _unitOfWork.TaskItems.CountAsync(predicate, ct);
 
-        var dtos = items.Select(MapToDto).ToList();
-        return ApiResponse<List<TaskItemDto>>.Ok(dtos);
+        return ApiResponse<PagedResult<TaskItemDto>>.Ok(new PagedResult<TaskItemDto>
+        {
+            Items = items.Select(MapToDto).ToList(),
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize,
+        });
     }
 
     [HttpGet("stats")]
