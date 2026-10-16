@@ -641,6 +641,7 @@ function ProjectNode({
           </div>
         )}
         label={project.name}
+        subtitle={project.description?.trim() || undefined}
         onClick={() => { onSelectProject(project); if (!flat) onToggle() }}
         badge={project.connectionType === 'Ssh' && (
           <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-900/40 dark:text-violet-300" title={`SSH：${project.sshUser ?? ''}${project.sshUser ? '@' : ''}${project.sshHost}:${project.sshPort}`}>
@@ -758,18 +759,51 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   const keyword = search.trim().toLowerCase()
   const filtered = projects.filter((p) => !keyword || p.name.toLowerCase().includes(keyword))
 
-  // 按分类分节展示：分类取自关联的项目管理条目，未分类的归到「未分类」
-  const sections = filtered.reduce<Array<[string, IWorkProject[]]>>((acc, p) => {
-    const name = p.category?.trim() || ''
-    const last = acc[acc.length - 1]
-    if (last && last[0] === name) last[1].push(p)
-    else acc.push([name, [p]])
-    return acc
-  }, [])
-  sections.sort((a, b) =>
-    (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0) ||
-    b[1].length - a[1].length ||
-    a[0].localeCompare(b[0]))
+  const projectGroupBy = useUIStore((state) => state.projectGroupBy)
+  const projectSortBy = useUIStore((state) => state.projectSortBy)
+
+  // 排序：先于分组，保证每个分组内部顺序一致
+  const sorted = [...filtered].sort((a, b) => {
+    switch (projectSortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name)
+      case 'updated':
+        return b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name)
+      case 'sessions':
+        return b.sessionCount - a.sessionCount || a.name.localeCompare(b.name)
+      default:
+        return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+    }
+  })
+
+  // 分组键：空字符串表示「未归类」，与未分类/未分组同义
+  const groupKeyOf = (p: IWorkProject): string => {
+    if (projectGroupBy === 'group') return p.groupName?.trim() || ''
+    if (projectGroupBy === 'connection') return p.connectionType === 'Ssh' ? 'ssh' : 'local'
+    return p.category?.trim() || ''
+  }
+
+  // 按键聚合成节：排序可能把同组项目打散，不能用「连续相同键」切片；节内顺序沿用排序结果
+  const sections: Array<[string, IWorkProject[]]> = (() => {
+    if (projectGroupBy === 'none') return [['', sorted]]
+    const buckets = new Map<string, IWorkProject[]>()
+    for (const p of sorted) {
+      const key = groupKeyOf(p)
+      const bucket = buckets.get(key)
+      if (bucket) bucket.push(p)
+      else buckets.set(key, [p])
+    }
+    return [...buckets.entries()].sort((a, b) =>
+      (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0) ||
+      a[0].localeCompare(b[0]))
+  })()
+
+  const sectionLabel = (key: string): string => {
+    if (key === 'ssh') return 'SSH'
+    if (key === 'local') return t('sidebar.localProject')
+    return key || t('sidebar.uncategorized')
+  }
+
 
   const deleteProject = useMutation({
     mutationFn: workProjectService.delete,
@@ -819,11 +853,11 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
 
   const projectList = (
     <>
-      {sections.map(([category, items]) => (
-        <div key={category} className="mb-1">
-          {sections.length > 1 && (
+      {sections.map(([key, items]) => (
+        <div key={key || '__none__'} className="mb-1">
+          {projectGroupBy !== 'none' && sections.length > 1 && (
             <div className="flex items-center gap-1.5 px-2 py-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{category || t('sidebar.uncategorized')}</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{sectionLabel(key)}</span>
               <span className="text-[10px] text-gray-300 dark:text-gray-600">{items.length}</span>
             </div>
           )}
