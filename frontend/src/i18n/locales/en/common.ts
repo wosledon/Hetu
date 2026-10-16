@@ -63,6 +63,12 @@ export default {
   languageHint: 'Takes effect immediately, and also drives backend messages and AI reply language.',
   selectAll: 'Select all',
   total: '{{count}} total',
+  pagination: {
+    pageInfo: 'Page {{page}} of {{totalPages}}',
+    totalCount: '{{count}} total',
+    prev: 'Previous',
+    next: 'Next',
+  },
   itemCount: '{{count}} items',
   charCount: '{{count}} characters',
   dayCount: '{{count}} days',

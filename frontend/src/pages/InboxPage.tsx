@@ -23,7 +23,10 @@ import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
-import { Button, Card, IconButton, PageContainer, PillTabs } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, Pagination, PillTabs } from '../components/ui'
+
+/** 收件箱每页条数 */
+const INBOX_PAGE_SIZE = 20
 
 const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> = {
   Info: { icon: Info, className: 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' },
@@ -63,6 +66,7 @@ export default function InboxPage() {
   const queryClient = useQueryClient()
   const [archived, setArchived] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
 
   const invalidate = () => {
@@ -70,9 +74,10 @@ export default function InboxPage() {
     setSelected([])
   }
 
-  const { data: notifications, isLoading } = useQuery({
-    queryKey: ['inbox', 'list', archived, category],
-    queryFn: () => inboxService.getAll({ archived, category: category ?? undefined }),
+  const { data: inboxPage, isLoading, isPlaceholderData } = useQuery({
+    queryKey: ['inbox', 'list', archived, category, page],
+    queryFn: () => inboxService.getAll({ archived, category: category ?? undefined, page, pageSize: INBOX_PAGE_SIZE }),
+    placeholderData: (prev) => prev,
   })
 
   const { data: categories } = useQuery({
@@ -107,9 +112,13 @@ export default function InboxPage() {
     onSuccess: invalidate,
   })
 
-  const items = notifications ?? []
+  const items = inboxPage?.items ?? []
   const selectedSet = new Set(selected)
   const allSelected = items.length > 0 && items.every((n) => selectedSet.has(n.id))
+
+  // 归档 / 分类切换时回到第一页
+  const switchTab = (nextArchived: boolean) => { setArchived(nextArchived); setCategory(null); setSelected([]); setPage(1) }
+  const switchCategory = (next: string | null) => { setCategory(next); setSelected([]); setPage(1) }
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -177,9 +186,7 @@ export default function InboxPage() {
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <PillTabs
               value={archived ? 'archived' : 'inbox'}
-              onSelect={(key) => {
-                if (key === 'inbox') { setArchived(false); setSelected([]) } else { setArchived(true); setCategory(null); setSelected([]) }
-              }}
+              onSelect={(key) => switchTab(key === 'archived')}
               items={[
                 { key: 'inbox', label: t('inbox.tabInbox') },
                 { key: 'archived', label: t('inbox.tabArchived') },
@@ -188,7 +195,7 @@ export default function InboxPage() {
 
             <div className="flex flex-wrap items-center gap-1.5">
               <button
-                onClick={() => { setCategory(null); setSelected([]) }}
+                onClick={() => switchCategory(null)}
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   category === null
                     ? 'bg-blue-500 text-white'
@@ -200,7 +207,7 @@ export default function InboxPage() {
               {(categories ?? []).map((c) => (
                 <button
                   key={c.category}
-                  onClick={() => { setCategory(c.category); setSelected([]) }}
+                  onClick={() => switchCategory(c.category)}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                     category === c.category
                       ? 'bg-blue-500 text-white'
@@ -353,6 +360,14 @@ export default function InboxPage() {
               })}
             </div>
           )}
+          <Pagination
+            className="mt-4"
+            page={page}
+            totalCount={inboxPage?.totalCount ?? 0}
+            totalPages={inboxPage?.totalPages ?? 1}
+            onPageChange={setPage}
+            isPlaceholderData={isPlaceholderData}
+          />
         </PageContainer>
       }
     />

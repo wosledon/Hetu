@@ -20,7 +20,7 @@ import type {
 import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
-import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, Pagination, PillTabs, Textarea } from '../components/ui'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -38,19 +38,33 @@ const TYPE_MAP: Record<string, { labelKey: string; icon: typeof Cpu; color: stri
 
 type FilterStatus = 'all' | '0' | '1' | '2' | '3'
 
+/** 后台任务每页条数 */
+const TASK_PAGE_SIZE = 20
+
 export default function TasksPage({ mode }: { mode: TasksMode }) {
   const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [typeFilter, setTypeFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
 
-  const { data: tasks = [], isLoading, isRefetching } = useQuery({
-    queryKey: ['task-items', typeFilter],
-    queryFn: () => taskService.getAll(typeFilter ? { type: typeFilter } : undefined),
+  const statusParam = filter === 'all' ? undefined : Number(filter)
+  const { data: taskPage, isLoading, isRefetching, isPlaceholderData } = useQuery({
+    queryKey: ['task-items', typeFilter, statusParam, page],
+    queryFn: () => taskService.getAll({
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(statusParam !== undefined ? { status: statusParam } : {}),
+      page,
+      pageSize: TASK_PAGE_SIZE,
+    }),
     // 仅在有排队/运行中任务时轮询，空闲时停止
     refetchInterval: (query) =>
-      query.state.data?.some((t) => t.status === 0 || t.status === 1) ? 3000 : false,
+      query.state.data?.items.some((t) => t.status === 0 || t.status === 1) ? 3000 : false,
+    placeholderData: (prev) => prev,
   })
+  const tasks = taskPage?.items ?? []
+  // 筛选条件变化时回到第一页，否则可能停在不存在的页码上
+  const withPageReset = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
 
   const { data: stats } = useQuery({
     queryKey: ['task-items', 'stats'],
@@ -70,8 +84,6 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
     mutationFn: (id: string) => taskService.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task-items'] }),
   })
-
-  const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === Number(filter))
 
   const isBackground = mode === 'background'
   const headerTitle = isBackground ? t('tasks.backgroundTitle') : t('tasks.scheduledTitle')
@@ -112,13 +124,18 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
           {isBackground ? (
             <BackgroundTasksView
               stats={stats}
-              tasks={filtered}
+              tasks={tasks}
+              totalCount={taskPage?.totalCount ?? 0}
+              totalPages={taskPage?.totalPages ?? 1}
+              page={page}
+              onPageChange={setPage}
+              isPlaceholderData={isPlaceholderData}
               isLoading={isLoading}
               isRefetching={isRefetching}
               filter={filter}
-              setFilter={setFilter}
+              setFilter={withPageReset(setFilter)}
               typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter}
+              setTypeFilter={withPageReset(setTypeFilter)}
               onClearCompleted={() => clearMutation.mutate()}
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ['task-items'] })}
               onDelete={(id) => deleteMutation.mutate(id)}
@@ -139,6 +156,11 @@ export default function TasksPage({ mode }: { mode: TasksMode }) {
 interface BackgroundTasksViewProps {
   stats: ITaskStats | undefined
   tasks: ITaskItem[]
+  totalCount: number
+  totalPages: number
+  page: number
+  onPageChange: (page: number) => void
+  isPlaceholderData: boolean
   isLoading: boolean
   isRefetching: boolean
   filter: FilterStatus
@@ -153,6 +175,11 @@ interface BackgroundTasksViewProps {
 function BackgroundTasksView({
   stats,
   tasks,
+  totalCount,
+  totalPages,
+  page,
+  onPageChange,
+  isPlaceholderData,
   isLoading,
   isRefetching,
   filter,
@@ -221,11 +248,21 @@ function BackgroundTasksView({
       ) : tasks.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} onDelete={() => onDelete(task.id)} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-2">
+            {tasks.map((task) => (
+              <TaskRow key={task.id} task={task} onDelete={() => onDelete(task.id)} />
+            ))}
+          </div>
+          <Pagination
+            className="mt-4"
+            page={page}
+            totalCount={totalCount}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            isPlaceholderData={isPlaceholderData}
+          />
+        </>
       )}
     </>
   )

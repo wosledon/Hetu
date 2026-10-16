@@ -316,14 +316,14 @@ public class ListInboxItemsTool : IToolExecutor
                 // 参数非法时用默认值
             }
 
-            var items = await _inboxService.GetAsync(category, archived, 1, limit, cancellationToken);
+            var result = await _inboxService.GetAsync(category, archived, 1, limit, cancellationToken);
             var unread = await _inboxService.GetUnreadCountAsync(cancellationToken);
 
             return ToolExecutionResult.Success(ToolJson.Serialize(new
             {
                 unreadCount = unread,
-                total = items.Count,
-                items = items.Select(n => new
+                total = result.TotalCount,
+                items = result.Items.Select(n => new
                 {
                     id = n.Id,
                     category = n.Category,

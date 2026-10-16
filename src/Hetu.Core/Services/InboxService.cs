@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
@@ -20,19 +21,25 @@ public class InboxService
         _localizer = localizer;
     }
 
-    /// <summary>分页查询通知（按最近更新倒序）</summary>
-    public async Task<List<InboxNotificationDto>> GetAsync(
-        string? category, bool archived, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    /// <summary>分页查询通知（按最近更新倒序）；过滤、计数、取页都在数据库完成</summary>
+    public async Task<PagedResult<InboxNotificationDto>> GetAsync(
+        string? category, bool archived, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
-        var items = await _unitOfWork.InboxNotifications.FindAsync(
-            n => n.IsArchived == archived && (category == null || n.Category == category), ct);
+        Expression<Func<InboxNotification, bool>> predicate =
+            n => n.IsArchived == archived && (category == null || n.Category == category);
 
-        return items
-            .OrderByDescending(n => n.UpdatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(MapToDto)
-            .ToList();
+        var items = await _unitOfWork.InboxNotifications.GetPagedByDateAsync(
+            predicate, n => n.UpdatedAt, descending: true,
+            skip: (page - 1) * pageSize, take: pageSize, ct);
+        var total = await _unitOfWork.InboxNotifications.CountAsync(predicate, ct);
+
+        return new PagedResult<InboxNotificationDto>
+        {
+            Items = items.Select(MapToDto).ToList(),
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize,
+        };
     }
 
     /// <summary>分类聚合（含未读数）</summary>
