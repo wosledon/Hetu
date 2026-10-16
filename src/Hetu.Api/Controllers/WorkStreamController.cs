@@ -748,13 +748,23 @@ public class WorkStreamController : ControllerBase
                 return;
 
             var description = json.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "";
+            var stage = json.TryGetProperty("stage", out var s) ? s.GetString() : null;
+
+            // 只落终态：start / delta / tool / tool_result 逐帧写库一轮上千条，
+            // 运行期由 SSE 驱动界面；历史回放只需要 done / error 这一条（含完整内层时间线）
+            if (stage != "done" && stage != "error") return;
+
             var metadata = JsonSerializer.Serialize(new
             {
                 id = json.TryGetProperty("id", out var idEl) ? idEl.GetString() : null,
-                stage = json.TryGetProperty("stage", out var s) ? s.GetString() : null,
+                stage,
                 tool = json.TryGetProperty("tool", out var t) ? t.GetString() : null,
                 steps = json.TryGetProperty("steps", out var st) && st.TryGetInt32(out var steps) ? steps : (int?)null,
                 message = json.TryGetProperty("message", out var m) ? m.GetString() : null,
+                // 子 Agent 内层时间线（思考 / 正文 / 工具调用）：随 done 事件回传，供历史回放折叠面板
+                entries = json.TryGetProperty("entries", out var entriesEl) && entriesEl.ValueKind == JsonValueKind.Array
+                    ? entriesEl
+                    : (JsonElement?)null,
             });
             await _sessionService.AddMessageAsync(
                 sessionId, "assistant", Truncate(description), "subagent", metadata,

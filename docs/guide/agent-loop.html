@@ -155,7 +155,7 @@
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>结构化事件直通口：SSE 端原样写帧，非流式端可以忽略</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>引导被接受时的事件回调</td></tr>
           <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>工具结果落库 / 后处理挂钩（编码会话用它记录时间线）</td></tr>
-          <tr><td>调用方职责</td><td>保存消息、写用量（<code>ILlmUsageRecorder</code>）、追加 <code>done</code> 帧；编码会话还会把 <code>subagent</code> 事件落库以便回放</td></tr>
+          <tr><td>调用方职责</td><td>保存消息、写用量（<code>ILlmUsageRecorder</code>）、追加 <code>done</code> 帧；编码会话只把 <code>subagent</code> 终态帧（含内层时间线 <code>entries</code>）落库以便回放</td></tr>
         </tbody>
       </table></div>
 

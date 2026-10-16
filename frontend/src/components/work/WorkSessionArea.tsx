@@ -21,7 +21,7 @@ import { uiLocale } from '../../utils/locale'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
-import { formatTokens, parseAgentFrame, type AgentUsage } from '../../utils/agentStream'
+import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ChatToolCallRow from '../ChatToolCallRow'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
@@ -29,7 +29,7 @@ import AgentTimeline from '../agent/AgentTimeline'
 import AgentThoughtBlock from '../agent/AgentThoughtBlock'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
-import AgentSubAgentRow from '../agent/AgentSubAgentRow'
+import AgentSubAgentPanel from '../agent/AgentSubAgentPanel'
 import AgentInputBox from '../agent/AgentInputBox'
 import AgentModelPicker from '../agent/AgentModelPicker'
 import AgentPicker from '../agent/AgentPicker'
@@ -45,7 +45,7 @@ import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
-import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { fromWorkStreamItems, subagentEntriesToTimeline } from '../../utils/agentTimeline'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
@@ -95,7 +95,7 @@ type StreamItem =
   | { kind: 'tool'; seq: number; id: string; name: string; arguments: string; result?: string }
   | { kind: 'file'; seq: number; path: string; action: string }
   | { kind: 'checkpoint'; seq: number; id: string; label: string; fileCount: number }
-  | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }
+  | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] }
   | { kind: 'approval'; seq: number; id: string; name: string; arguments: string }
 
 type WorkStreamHandlers = {
@@ -108,7 +108,7 @@ type WorkStreamHandlers = {
   /** 交互型工具（question / todo / plan）：统一进共享 interactionStore，由输入框上方抽屉渲染 */
   onInteraction: (evt: Record<string, unknown>) => void
   onCheckpoint: (cp: { id: string; label: string; fileCount: number }) => void
-  onSubAgent: (sa: { id: string; description: string; stage: string; tool?: string; steps?: number; message?: string }) => void
+  onSubAgent: (sa: SubagentFrame) => void
   onUsage: (usage: UsageView) => void
   /** 上下文提示（自动压缩等），显示在输入框上方 */
   onNotice: (text: string) => void
@@ -666,10 +666,33 @@ export default function WorkSessionArea({
       const id = parseSubagentId(m)
       if (id) lastOfSubagent.set(id, m.id)
     }
-    return sorted.filter((m) => {
+    const deduped = sorted.filter((m) => {
       const id = parseSubagentId(m)
       return !id || lastOfSubagent.get(id) === m.id
     })
+    // 派子 Agent 的 work_task 工具行与子 Agent 面板是同一件事：有面板就不显示工具卡
+    // （历史里子 Agent 先落库、工具结果后落库，留着会变成「工具卡压在面板下面」；
+    // 并行派多个子 Agent 时是「subagent × N 后紧跟 tool × N」的连排，丢弃状态向前传播）
+    const isWorkTaskRow = (m: IWorkMessage): boolean => {
+      if (m.type !== 'tool') return false
+      try { return (JSON.parse(m.metadata ?? '{}') as { name?: string }).name === 'work_task' } catch { return false }
+    }
+    const visible: IWorkMessage[] = []
+    let prevDroppedWorkTask = false
+    for (let i = 0; i < deduped.length; i++) {
+      const m = deduped[i]
+      if (isWorkTaskRow(m)) {
+        const drop: boolean = prevDroppedWorkTask
+          || deduped[i - 1]?.type === 'subagent'
+          || deduped[i + 1]?.type === 'subagent'
+        prevDroppedWorkTask = drop
+        if (drop) continue
+      } else {
+        prevDroppedWorkTask = false
+      }
+      visible.push(m)
+    }
+    return visible
   }, [messages])
 
   // 长会话：默认只展示最近一轮，更早的折叠
@@ -965,6 +988,27 @@ export default function WorkSessionArea({
 
     const controller = new AbortController()
     streamRef.current = controller
+    // 子 Agent 过程帧合批：一次运行有数百个 delta 帧，逐帧 setState 会反复重建内层时间线，
+    // 把渲染拖垮（内容铺成长竖列、折叠卡片缺失）；按 ~100ms 合批后再进 state
+    const coalescer = createSubagentCoalescer((sa) => setStreamItems((prev) => {
+      const idx = prev.findIndex((x) => x.kind === 'subagent' && x.id === sa.id)
+      const current = idx >= 0 ? (prev[idx] as Extract<StreamItem, { kind: 'subagent' }>) : undefined
+      const merged: Extract<StreamItem, { kind: 'subagent' }> = {
+        kind: 'subagent',
+        seq: current?.seq ?? seqRef.current++,
+        id: sa.id,
+        description: sa.description || current?.description || '',
+        stage: subagentStage(sa.stage),
+        tool: sa.tool ?? current?.tool,
+        steps: sa.steps ?? current?.steps,
+        message: sa.message ?? current?.message,
+        entries: mergeSubagentEntries(current?.entries ?? [], sa),
+      }
+      if (idx < 0) return [...prev, merged]
+      const next = [...prev]
+      next[idx] = merged
+      return next
+    }))
    const handlers: WorkStreamHandlers = {
       onContent: (text) => setStreamItems((prev) => {
         const last = prev[prev.length - 1]
@@ -1006,15 +1050,7 @@ export default function WorkSessionArea({
       ]),
       onInteraction: (evt) => useInteractionStore.getState().applyChunk(session.id, evt),
       onCheckpoint: (cp) => setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem]),
-      onSubAgent: (sa) => setStreamItems((prev) => {
-        const idx = prev.findIndex((x) => x.kind === 'subagent' && x.id === sa.id)
-        if (idx >= 0) {
-          const next = [...prev]
-          next[idx] = { ...next[idx], ...sa } as StreamItem
-          return next
-        }
-        return [...prev, { kind: 'subagent', seq: seqRef.current++, ...sa } as StreamItem]
-      }),
+      onSubAgent: coalescer.push,
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
     }
@@ -1054,6 +1090,8 @@ export default function WorkSessionArea({
     } finally {
       streamRef.current = null
       setIsStreaming(false)
+      // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一段内层过程
+      coalescer.flush()
       // 等消息列表回读（后端已落库）后再清空本轮输出，避免完成后正文瞬间消失
       void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: ['workMessages', activeId] }),
@@ -1930,9 +1968,20 @@ function ProcessMessageRow({ message, onOpenFilePath, onRunCommand }: {
       />
     )
   }
-  let meta: { stage: string; tool?: string; steps?: number; message?: string } = { stage: 'done' }
+  let meta: { stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] } = { stage: 'done' }
   try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-  return <AgentSubAgentRow description={message.content} stage={meta.stage} tool={meta.tool} steps={meta.steps} message={meta.message} />
+  return (
+    <AgentSubAgentPanel
+      description={message.content}
+      stage={meta.stage}
+      tool={meta.tool}
+      steps={meta.steps}
+      message={meta.message}
+      entries={subagentEntriesToTimeline(meta.entries)}
+      onOpenPath={onOpenFilePath}
+      onRunCommand={onRunCommand}
+    />
+  )
 }
 
 const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
