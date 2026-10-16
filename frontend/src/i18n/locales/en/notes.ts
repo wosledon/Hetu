@@ -127,7 +127,7 @@ export default {
     processing: 'Processing...',
     indexFailed: 'Failed to build index',
     extractHint: 'Extract knowledge graph entities and relations from this note',
-    extracting: 'Adding...',
+    extracting: 'Extracting...',
     extract: 'Extract graph',
     queued: 'Added to background tasks',
     alreadyQueued: 'A graph task for this note is still running',

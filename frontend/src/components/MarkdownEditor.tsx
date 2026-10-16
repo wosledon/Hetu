@@ -57,6 +57,7 @@ import { noteAiService } from '../services/noteAiService'
 import { shareService } from '../services/shareService'
 import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
+import { taskService } from '../services/taskService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
 import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea } from './ui'
@@ -273,7 +274,24 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     [embeddingStatuses, note?.id]
   )
 
-  const isIndexing = currentEmbedding?.hasRunningTask ?? false
+  // 索引与图谱提取都是「入队即返回」，按钮 loading 只能轮询任务表得到。
+  // 与 embeddingStatuses 同一套路：点击后 invalidate 立即回一次，之后仅在有任务在跑时轮询。
+  // 刚入队的任务排在最新一页，取前 20 条足够覆盖。
+  const { data: noteTaskTypes = [] } = useQuery({
+    queryKey: ['noteTasks', note?.id],
+    queryFn: async () => {
+      const page = await taskService.getAll({ page: 1, pageSize: 20 })
+      return page.items
+        .filter((t) => t.entityId === note?.id && (t.status === 0 || t.status === 1))
+        .map((t) => t.taskType)
+    },
+    enabled: !!note,
+    refetchInterval: (query) => (query.state.data?.length ?? 0) > 0 ? 2000 : false,
+  })
+
+  const isIndexing = noteTaskTypes.some((type) =>
+    type === 'GenerateEmbedding' || type === 'GenerateKnowledgeItemEmbedding')
+  const isExtractingGraph = noteTaskTypes.includes('GraphExtract')
 
   const [indexError, setIndexError] = useState<string | null>(null)
 
@@ -282,10 +300,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     onSuccess: () => {
       setIndexError(null)
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
+      queryClient.invalidateQueries({ queryKey: ['noteTasks', note!.id] })
     },
     onError: (err: Error) => {
       setIndexError(err.message || t('editor.indexFailed'))
       queryClient.invalidateQueries({ queryKey: ['embeddingStatuses'] })
+      queryClient.invalidateQueries({ queryKey: ['noteTasks', note!.id] })
       setTimeout(() => setIndexError(null), 5000)
     },
   })
@@ -301,10 +321,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           ? { text: t('editor.queued'), ok: true }
           : { text: t('editor.alreadyQueued'), ok: false }
       )
+      queryClient.invalidateQueries({ queryKey: ['noteTasks', note!.id] })
       setTimeout(() => setExtractNotice(null), 5000)
     },
     onError: (err: Error) => {
       setExtractNotice({ text: err.message || t('editor.queueFailed'), ok: false })
+      queryClient.invalidateQueries({ queryKey: ['noteTasks', note!.id] })
       setTimeout(() => setExtractNotice(null), 5000)
     },
   })
@@ -802,15 +824,15 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   : t('editor.generateIndex')}
           </Button>
           <Button variant="secondary" className="flex items-center gap-1 rounded-md border border-gray-200 bg-white glass px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400" onClick={() => extractGraph.mutate()}
-            disabled={extractGraph.isPending}
+            disabled={extractGraph.isPending || isExtractingGraph}
             
             title={t('editor.extractHint')}>
-            {extractGraph.isPending ? (
+            {isExtractingGraph || extractGraph.isPending ? (
               <Loader2 size={11} className="animate-spin" />
             ) : (
               <Network size={11} />
             )}
-            {extractGraph.isPending ? t('editor.extracting') : t('editor.extract')}
+            {isExtractingGraph || extractGraph.isPending ? t('editor.extracting') : t('editor.extract')}
           </Button>
           {extractNotice && (
             <span
