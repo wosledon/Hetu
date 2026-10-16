@@ -95,6 +95,7 @@ export default {
   editor: {
     placeholder: '开始编写...',
     titlePlaceholder: '笔记标题',
+    toc: '目录',
     emptyHint: '选择或创建一个笔记开始编写',
     emptySubHint: '支持 Markdown 语法 · AI 辅助写作 · 历史版本',
     viewSplit: '分栏',

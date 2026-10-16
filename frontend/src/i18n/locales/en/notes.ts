@@ -95,6 +95,7 @@ export default {
   editor: {
     placeholder: 'Start writing...',
     titlePlaceholder: 'Note title',
+    toc: 'Contents',
     emptyHint: 'Select or create a note to start writing',
     emptySubHint: 'Markdown support · AI-assisted writing · Version history',
     viewSplit: 'Split',
