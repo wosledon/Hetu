@@ -127,7 +127,7 @@ export default {
     processing: '处理中...',
     indexFailed: '生成索引失败',
     extractHint: '从当前笔记提取知识图谱实体与关系',
-    extracting: '加入中...',
+    extracting: '提取中...',
     extract: '提取图谱',
     queued: '已加入后台任务',
     alreadyQueued: '已有的图谱任务仍在进行中',
