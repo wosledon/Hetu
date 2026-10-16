@@ -11,6 +11,7 @@ import { useUIStore } from '../stores/uiStore'
 import { mermaidConfig } from '../utils/mermaidTheme'
 import MermaidDiagram from './MermaidDiagram'
 import { Button } from './ui'
+import { highlightCode } from '../utils/highlight'
 
 /** 从 React 节点中提取纯文本 */
 function extractText(node: React.ReactNode): string {
@@ -29,6 +30,9 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
   const codeEl = (Array.isArray(children) ? children[0] : children) as { props?: { className?: string } } | null
   const className = codeEl?.props?.className ?? ''
   const text = extractText(children)
+  const language = className.replace(/language-/, '') || 'text'
+  // 语法高亮：未命中语言时 highlightCode 返回转义原文，按纯文本渲染
+  const highlighted = useMemo(() => highlightCode(text, language), [text, language])
 
   if (className.includes('mermaid')) {
     // 图表已由 React 渲染为 SVG；未渲染成功时保留代码块原文
@@ -37,8 +41,6 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
       ? <MermaidDiagram svg={diagramSvg} />
       : <pre className="mermaid">{text}</pre>
   }
-
-  const language = className.replace(/language-/, '') || 'text'
 
   const copy = () => {
     navigator.clipboard.writeText(text)
@@ -49,7 +51,9 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
 
   return (
     <div className="group/code relative">
-      <pre className="overflow-x-auto">{children}</pre>
+      <pre className="overflow-x-auto">
+        <code className={`language-${language}${highlighted.matched ? ' hljs' : ''}`} dangerouslySetInnerHTML={{ __html: highlighted.html }} />
+      </pre>
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-white/90 p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100 dark:bg-gray-900/90">
         <span className="code-lang">{language}</span>
         <Button variant="ghost" tone="gray" className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" onClick={copy}
