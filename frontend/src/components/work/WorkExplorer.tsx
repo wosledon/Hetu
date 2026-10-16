@@ -26,8 +26,8 @@ interface WorkExplorerProps {
   sessionId?: string
   /** 当前会话标题（PR 创建表单预填用） */
   sessionTitle?: string
-  /** 智能体唤起面板请求（SignalR open_panel）：激活对应标签，browser 带 url 时直接导航 */
-  panelRequest?: { panel: string; url?: string; nonce: number } | null
+  /** 智能体唤起面板请求（SignalR open_panel）：激活对应标签，browser 带 url 导航，files 带 path 打开文件 */
+  panelRequest?: { panel: string; url?: string; path?: string; nonce: number } | null
   /** 当前打开的文件路径变化（供对话区显示引用 chip） */
   onActiveFileChange?: (path: string | null) => void
   /** 打开指定文件请求（来自对话区点击路径） */
@@ -109,10 +109,11 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
   // browser 带 url 时让内置浏览器直接导航
   useEffect(() => {
     if (!panelRequest || !projectId) return
-    const { panel, url } = panelRequest
+    const { panel, url, path } = panelRequest
     if (!isFeatureKind(panel)) return
     const timer = setTimeout(() => {
-      activateFeature(panel)
+      // files 带 path 时由 openFileRequest 打开编辑器标签，这里不再抢焦点
+      if (!(panel === 'files' && path)) activateFeature(panel)
       if (panel === 'browser' && url) setBrowserUrl(url)
     }, 0)
     return () => clearTimeout(timer)

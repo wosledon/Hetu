@@ -65,7 +65,7 @@ app.MapHub<UiHub>("/hubs/ui");
 
 if (app.Environment.IsDevelopment())
 {
-    // 联调用：模拟后端主动推 UI 动作（如智能体 open_panel），无需跑模型即可验证前端处理
+    // 联调用：模拟后端主动推 UI 动作（open_panel / navigate / notify），无需跑模型即可验证前端处理
     app.MapPost("/api/debug/ui-action", async (IUiPushService ui, JsonElement body) =>
     {
         var type = body.TryGetProperty("type", out var typeNode) ? typeNode.GetString() : null;

@@ -22,6 +22,8 @@ export default {
   loading: '加载中…',
   loadingFailed: '加载失败',
   requestFailed: '请求失败',
+  notifyTaskCompleted: '后台任务完成：{{title}}',
+  notifyTaskFailed: '后台任务失败：{{title}}（{{error}}）',
   empty: '暂无数据',
   none: '无',
   all: '全部',

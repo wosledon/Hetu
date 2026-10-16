@@ -23,15 +23,18 @@ public class BackgroundTaskProcessor : BackgroundService
     private readonly IBackgroundTaskQueue _taskQueue;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BackgroundTaskProcessor> _logger;
+    private readonly IUiPushService _uiPush;
 
     public BackgroundTaskProcessor(
         IBackgroundTaskQueue taskQueue,
         IServiceScopeFactory scopeFactory,
-        ILogger<BackgroundTaskProcessor> logger)
+        ILogger<BackgroundTaskProcessor> logger,
+        IUiPushService uiPush)
     {
         _taskQueue = taskQueue;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _uiPush = uiPush;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -119,6 +122,25 @@ public class BackgroundTaskProcessor : BackgroundService
                 }
 
                 _taskQueue.MarkFinished(item.Type, item.EntityId);
+            }
+
+            // 任务落定（完成/失败）后推全局 notify：用户在任意页面都能看到后台结果
+            if (record.Status is 2 or 3)
+            {
+                try
+                {
+                    await _uiPush.PublishAsync("notify", new
+                    {
+                        kind = "background_task",
+                        status = record.Status == 2 ? "completed" : "failed",
+                        title = record.EntityTitle ?? record.TaskType,
+                        error = record.ErrorMessage,
+                    }, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "后台任务 {TaskType}({EntityId}) 的完成通知推送失败", item.Type, item.EntityId);
+                }
             }
         }
 
