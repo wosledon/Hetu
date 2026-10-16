@@ -1,5 +1,6 @@
 import { confirm } from './confirm'
-import { forwardRef, useImperativeHandle, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   MessageSquare,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import MainChatEntry from './MainChatEntry'
 import { Card, IconButton, Input, TreeRow } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
@@ -129,9 +131,14 @@ function GroupNode({
     },
   })
 
-  // 话题的重命名 / 删除挂在行上（悬停显示），不再走右键菜单
+  // 话题的重命名 / 删除挂在右键菜单上（与项目行一致），行内只留选中态
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
+  const [menu, setMenu] = useState<{ x: number; y: number; topicId: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
+  const menuTopic = filtered.find((item) => item.id === menu?.topicId)
 
   const deleteTopic = useMutation({
     mutationFn: chatTopicService.delete,
@@ -205,24 +212,45 @@ function GroupNode({
                   />
                 ) : (topic.title || t('tree.newTopicFallback'))}
                 labelClassName="text-gray-600 dark:text-gray-300"
-                actions={renamingId !== topic.id && (
-                  <>
-                    <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" label={t('common:rename')} onClick={(e) => { e.stopPropagation(); setRenamingId(topic.id); setRenameText(topic.title) }}
-                      title={t('common:rename')}
-                      aria-label={t('common:rename')}>
-                      <Pencil size={10} />
-                    </IconButton>
-                    <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 dark:hover:bg-gray-700" label={t('common:delete')} onClick={(e) => { e.stopPropagation(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(topic.id) }) }}
-                      disabled={deleteTopic.isPending}
-                      title={t('common:delete')}
-                      aria-label={t('common:delete')}>
-                      <Trash2 size={10} />
-                    </IconButton>
-                  </>
-                )}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setMenu({ x: e.clientX, y: e.clientY, topicId: topic.id })
+                }}
               />
             )
           })}
+
+          {/* 话题操作收进右键菜单：与项目行一致，行内只留选中态 */}
+          {menu && menuTopic && createPortal(
+            <div
+              ref={menuRef}
+              className="fixed min-w-[152px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
+              style={{
+                left: Math.min(menu.x, window.innerWidth - 172),
+                top: Math.min(menu.y, window.innerHeight - 132),
+                zIndex: 50,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => { closeMenu(); setRenamingId(menuTopic.id); setRenameText(menuTopic.title) }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <Pencil size={14} />
+                {t('common:rename')}
+              </button>
+              <button
+                onClick={() => { closeMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(menuTopic.id) }) }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+              >
+                <Trash2 size={14} />
+                {t('common:delete')}
+              </button>
+            </div>,
+            document.body
+          )}
+
           {/* 空组不占位：下面的「新建话题」行已经说明该组还没有话题 */}
           {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}
           <TreeRow
