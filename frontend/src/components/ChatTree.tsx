@@ -53,6 +53,8 @@ interface ChatTreeProps {
   onSelectTopic: (topic: IChatTopic) => void
   onSelectMain?: () => void
   onDeleteTopic?: (topicId: string) => void
+  /** 删除会话组：组内话题会级联删除，父级借此清理停在已删组上的选择 */
+  onDeleteGroup?: (groupId: string) => void
   /** 嵌在合并侧栏里：不占固定宽度、不画右边框 */
   embedded?: boolean
   /** 搜索词由一级菜单输入框提供 */
@@ -71,6 +73,7 @@ function GroupNode({
   onSelectGroup,
   onSelectTopic,
   onDeleteTopic,
+  onDeleteGroup,
   onStartDraftTopic,
 }: {
   group: IChatGroup
@@ -80,6 +83,8 @@ function GroupNode({
   onSelectGroup: (group: IChatGroup) => void
   onSelectTopic: (topic: IChatTopic) => void
   onDeleteTopic?: (topicId: string) => void
+  /** 删除会话组：组内话题会级联删除，父级借此清理停在已删组上的选择 */
+  onDeleteGroup?: (groupId: string) => void
   /** 新建话题：只放草稿占位（第一条消息才落库） */
   onStartDraftTopic?: (group: IChatGroup) => void
 }) {
@@ -111,6 +116,16 @@ function GroupNode({
       queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
       onSelectGroup(group)
       onSelectTopic(newTopic)
+    },
+  })
+
+  // 删组会级联删掉组内话题与消息（EF 侧 Cascade），确认文案里要说清
+  const deleteGroup = useMutation({
+    mutationFn: chatGroupService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatGroups'] })
+      queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
+      onDeleteGroup?.(group.id)
     },
   })
 
@@ -153,6 +168,19 @@ function GroupNode({
         )}
         label={group.name}
         onClick={() => { onSelectGroup(group); setExpanded(true) }}
+        actions={
+          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" label={t('tree.deleteGroup')} onClick={(e) => {
+            e.stopPropagation()
+            confirm({
+              message: t('tree.deleteGroupConfirm', { name: group.name }),
+              onConfirm: () => deleteGroup.mutate(group.id),
+            })
+          }}
+            title={t('tree.deleteGroup')}
+            aria-label={t('tree.deleteGroup')}>
+            <Trash2 size={11} />
+          </IconButton>
+        }
       />
 
       {expanded && (
@@ -163,7 +191,6 @@ function GroupNode({
               <TreeRow
                 key={topic.id}
                 depth={1}
-                indentExtra
                 selected={active}
                 onClick={() => { onSelectGroup(group); onSelectTopic(topic) }}
                 icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
@@ -196,13 +223,10 @@ function GroupNode({
               />
             )
           })}
-          {filtered.length === 0 && (
-            <div className="py-1 text-[11px] text-gray-300 dark:text-gray-600" style={{ paddingLeft: `${8 + 14 + 14}px` }}>{t('tree.empty')}</div>
-          )}
+          {/* 空组不占位：下面的「新建话题」行已经说明该组还没有话题 */}
           {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}
           <TreeRow
             depth={1}
-            indentExtra
             icon={<Plus size={12} className="shrink-0" />}
             label={t('tree.newTopic')}
             labelClassName="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
@@ -225,7 +249,7 @@ export interface ChatTreeHandle {
 
 const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
   mainChat, selectedMain, selectedGroupId, selectedTopicId, onSelectGroup, onSelectTopic, onSelectMain,
-  onDeleteTopic, embedded, search = '', hideMainChat, onStartDraftTopic,
+  onDeleteTopic, onDeleteGroup, embedded, search = '', hideMainChat, onStartDraftTopic,
 }, ref) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('chat')
@@ -257,52 +281,61 @@ const ChatTree = forwardRef<ChatTreeHandle, ChatTreeProps>(function ChatTree({
     else { setIsAddingGroup(false); setGroupName('') }
   }
 
-  return (
-    <Card padded={false} className={`flex flex-col ${embedded ? 'min-h-0 w-full flex-1' : 'w-64 shrink-0 border-r'}`}>
-      <div className="flex-1 overflow-y-auto p-2">
-        {mainChat && !hideMainChat && (
-          <>
-            <div className="mb-1.5">
-              <MainChatEntry mainChat={mainChat} selected={selectedMain} onSelect={onSelectMain} />
-            </div>
-            <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
-          </>
-        )}
-        {isAddingGroup && (
-          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
-            <Folder size={14} className="shrink-0 text-blue-500" />
-            <Input
-              autoFocus
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateGroup()
-                if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
-              }}
-              onBlur={handleCreateGroup}
-              placeholder={t('tree.groupNamePlaceholder')}
-              className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
-            />
+  const treeBody = (
+    <div className="flex-1 overflow-y-auto p-2">
+      {mainChat && !hideMainChat && (
+        <>
+          <div className="mb-1.5">
+            <MainChatEntry mainChat={mainChat} selected={selectedMain} onSelect={onSelectMain} />
           </div>
-        )}
-        {filteredGroups.map((group) => (
-          <GroupNode
-            key={group.id}
-            group={group}
-            search={search}
-            selectedGroupId={selectedGroupId}
-            selectedTopicId={selectedTopicId}
-            onSelectGroup={onSelectGroup}
-            onSelectTopic={onSelectTopic}
-            onDeleteTopic={onDeleteTopic}
-            onStartDraftTopic={onStartDraftTopic}
+          <div className="my-1.5 border-t border-gray-200 dark:border-gray-800" />
+        </>
+      )}
+      {isAddingGroup && (
+        <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5">
+          <Folder size={14} className="shrink-0 text-blue-500" />
+          <Input
+            autoFocus
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreateGroup()
+              if (e.key === 'Escape') { setIsAddingGroup(false); setGroupName('') }
+            }}
+            onBlur={handleCreateGroup}
+            placeholder={t('tree.groupNamePlaceholder')}
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
           />
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="py-8 text-center text-xs text-gray-400">{t('tree.noGroups')}</div>
-        )}
-      </div>
+        </div>
+      )}
+      {filteredGroups.map((group) => (
+        <GroupNode
+          key={group.id}
+          group={group}
+          search={search}
+          selectedGroupId={selectedGroupId}
+          selectedTopicId={selectedTopicId}
+          onSelectGroup={onSelectGroup}
+          onSelectTopic={onSelectTopic}
+          onDeleteTopic={onDeleteTopic}
+          onDeleteGroup={onDeleteGroup}
+          onStartDraftTopic={onStartDraftTopic}
+        />
+      ))}
+      {filteredGroups.length === 0 && (
+        <div className="py-8 text-center text-xs text-gray-400">{t('tree.noGroups')}</div>
+      )}
+    </div>
+  )
 
+  // embedded：已被外层卡片（Code 页左栏）包住，不再自带卡片材质，否则是一张卡套一张卡
+  if (embedded) {
+    return <div className="flex min-h-0 w-full flex-1 flex-col">{treeBody}</div>
+  }
+
+  return (
+    <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
+      {treeBody}
     </Card>
   )
 })
