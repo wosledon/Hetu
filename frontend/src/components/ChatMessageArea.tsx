@@ -1201,7 +1201,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div ref={messagesEndRef} />
       </div>
 
-      <div className={`border-t border-gray-100 bg-transparent px-6 py-4 dark:border-gray-800 dark:bg-transparent ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
+      {/* 输入区：不画分隔线（Code 会话的输入区也没有，两边保持一致） */}
+      <div className={`bg-transparent px-6 py-4 dark:bg-transparent ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
         {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
         {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
