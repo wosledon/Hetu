@@ -674,12 +674,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   )
 
   return (
-    <PageContainer variant="fill" className="flex-col bg-white dark:bg-gray-900 glass">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
+    <PageContainer variant="fill" className="flex-col bg-white pt-2 dark:bg-gray-900 glass">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
         <PillTabs
           value={viewMode}
           onSelect={(key) => setViewMode(key as typeof viewMode)}
-          className="gap-0.5 rounded-xl"
+          className="gap-0.5 rounded-xl p-0.5"
           items={[
             { key: 'preview', label: <><Eye size={13} />{t('common:preview')}</> },
             { key: 'edit', label: <><Edit3 size={13} />{t('common:edit')}</> },
