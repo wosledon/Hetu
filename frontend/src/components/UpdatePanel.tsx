@@ -89,7 +89,7 @@ export default function UpdatePanel() {
   return createPortal(
     <>
       <div className="fixed inset-0 z-[99998] bg-black/40 backdrop-blur-sm" onClick={closePanel} />
-      <div className="fixed left-1/2 top-1/2 z-[99999] flex max-h-[88vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900 glass">
+      <div className="fixed left-1/2 top-1/2 z-[99999] flex max-h-[88vh] w-[min(94vw,46rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900 glass glass-float">
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
             {status === 'available' ? <Download size={18} /> : status === 'installed' ? <CheckCircle2 size={18} /> : <RefreshCw size={18} />}

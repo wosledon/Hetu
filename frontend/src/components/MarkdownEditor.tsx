@@ -972,7 +972,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
             {showInlineAi && inlineCoords && (
               <div
-                className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white glass shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
+                className="animate-fade-in absolute z-20 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-indigo-200 bg-white glass glass-float shadow-xl shadow-indigo-500/10 dark:border-indigo-900/50 dark:bg-gray-900"
                 style={{ top: inlineCoords.top, left: inlineCoords.left }}
               >                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 dark:border-gray-800">
                   <div className="flex items-center gap-1.5">
