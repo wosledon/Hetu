@@ -47,6 +47,7 @@ import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { fromWorkStreamItems, subagentEntriesToTimeline } from '../../utils/agentTimeline'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
+import { workStreamRuns } from '../../utils/workStreamRuns'
 import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
@@ -213,7 +214,9 @@ export default function WorkSessionArea({
   const [input, setInput] = useState(() => inputDraftCache.get(sessionKey)?.input ?? '')
   /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
   const [pastedBlock, setPastedBlock] = useState(() => inputDraftCache.get(sessionKey)?.pastedBlock ?? '')
-  const [isStreaming, setIsStreaming] = useState(false)
+  // 切走页面期间流仍在跑（见 workStreamRuns）：重挂载时按登记恢复运行态，
+  // 否则回到 /code 看到「空闲」且不轮询，用户以为会话断了
+  const [isStreaming, setIsStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
@@ -265,7 +268,19 @@ export default function WorkSessionArea({
     queryKey: ['workMessages', session?.id],
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
     enabled: !!session?.id,
+    // 有流在跑（含切走页面期间从 workStreamRuns 恢复的运行态）时轮询回读：
+    // 组件卸载过，streamItems 拿不回来，只能靠消息落库看到进度
+    refetchInterval: isStreaming ? 2000 : false,
   })
+
+  // 任务面板回填：todo 工具调用是落库的，但交互状态只在 SSE 存活期间累积。
+  // 切走再回来 / 刷新后 store 里没有这份会话的 todos，抽屉就空了——按历史重放补回来。
+  // 已有 state 时跳过（本轮流式事件是最新状态，不能被旧历史覆盖）。
+  useEffect(() => {
+    if (!session || messages.length === 0) return
+    if (useInteractionStore.getState().streams[session.id]) return
+    useInteractionStore.getState().rehydrate(session.id, messages)
+  }, [session, messages])
 
   // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
   useEffect(() => {
@@ -555,7 +570,7 @@ export default function WorkSessionArea({
   // 本会话内一旦发过消息（含连续重发）就展示全部，避免回复到达后旧消息被突然折起来；
   // 用户也可点「展开更早」手动展开（showOlder）。
   const [showOlder, setShowOlder] = useState(false)
-  const [sentThisVisit, setSentThisVisit] = useState(false)
+  const [sentThisVisit, setSentThisVisit] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
 
   // 未手动切换过模型时，跟随会话上保存的模型
   const selectedModelId =
@@ -988,6 +1003,8 @@ export default function WorkSessionArea({
 
     const controller = new AbortController()
     streamRef.current = controller
+    // 登记到模块级：组件卸载（切走页面）后依然能认出这个会话还在跑
+    workStreamRuns.register(activeId, controller)
     // 子 Agent 过程帧合批：一次运行有数百个 delta 帧，逐帧 setState 会反复重建内层时间线，
     // 把渲染拖垮（内容铺成长竖列、折叠卡片缺失）；按 ~100ms 合批后再进 state
     const coalescer = createSubagentCoalescer((sa) => setStreamItems((prev) => {
@@ -1089,6 +1106,7 @@ export default function WorkSessionArea({
       }
     } finally {
       streamRef.current = null
+      workStreamRuns.unregister(activeId)
       setIsStreaming(false)
       // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一段内层过程
       coalescer.flush()
@@ -1590,7 +1608,7 @@ export default function WorkSessionArea({
           ) : undefined}
           placeholder={t('session.inputPlaceholder')}
           streaming={isStreaming}
-          onStop={() => streamRef.current?.abort()}
+          onStop={() => workStreamRuns.cancel(session?.id ?? '')}
           canSubmit={!!session && (!!input.trim() || !!pastedBlock || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
           block={pastedBlock}
           onBlockChange={setPastedBlock}

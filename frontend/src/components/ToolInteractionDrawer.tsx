@@ -111,7 +111,10 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
   }, [questions, plan, todos, t])
 
   const pendingPlan = plan && !plan.decided
-  const visible = questions.length > 0 || !!pendingPlan || (streaming && todos.length > 0)
+  // todo 分区不再只跟着 streaming：切走页面再回来时流已断（后端循环也随请求取消），
+  // 但任务清单是落过库的，只要还有未完成项就该继续显示，全部完成后自动收起
+  const todosPending = todos.length > 0 && (streaming || todos.some((t) => t.status !== 'completed'))
+  const visible = questions.length > 0 || !!pendingPlan || todosPending
 
   const priorityTab: InteractionTab | null = questions.length > 0 ? 'question' : pendingPlan ? 'plan' : todos.length > 0 ? 'todo' : null
 
