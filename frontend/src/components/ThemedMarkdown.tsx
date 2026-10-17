@@ -81,6 +81,22 @@ async function loadMermaid(isDark: boolean) {
   return mod.default
 }
 
+/**
+ * KaTeX 的 CSS（约 51 kB，含 20 个 font-face）只为公式服务：绝大多数笔记 / 消息 /
+ * Wiki 页面根本没有公式，原先在 main.tsx 静态引入等于每个页面都为它付费。
+ * 这里检测到 `$` 才加载，与 mermaid 同一套路。
+ *
+ * 注意：只懒加载 CSS，不懒加载 rehype-katex 插件本身——动态 import 该插件会让
+ * unified 拿到含 undefined 子节点的树（`Cannot use 'in' operator ... in undefined`），
+ * 公式渲染直接抛错。JS 仍随 ThemedMarkdown 一起加载。
+ */
+let katexCssLoaded = false
+function loadKatexCss() {
+  if (katexCssLoaded) return
+  katexCssLoaded = true
+  void import('katex/dist/katex.min.css')
+}
+
 /** 图表代码的稳定标识：同一段代码复用同一渲染结果，主题切换时按此键重渲染 */
 function mermaidId(code: string): string {
   let hash = 0
@@ -212,6 +228,12 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
   const [viewerSrc, setViewerSrc] = useState<string | null>(null)
   /** 已渲染图表：代码标识 -> SVG 字符串（由 React 渲染，不再直接改动 DOM） */
   const [diagrams, setDiagrams] = useState<Record<string, string>>({})
+  /** 正文是否可能含公式：`$` 是必要条件。用于门禁 katex 插件与按需加载其 CSS */
+  const hasMath = useMemo(() => source.includes('$'), [source])
+
+  useEffect(() => {
+    if (hasMath) loadKatexCss()
+  }, [hasMath])
 
   // 从正文提取 mermaid 代码块（含未闭合围栏的截断内容），做语法修复后供渲染使用
   const mermaidBlocks = useMemo(() => {
@@ -285,12 +307,18 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
 
   // CJK 标签宽度修正已由 MermaidDiagram 自行处理（它自己持有 SVG，且需在字体加载后重算）
 
+  // rehype 插件列表：无公式的文档不带 katex，省掉一次全树 visitor 遍历
+  const rehypePlugins = useMemo(
+    () => (hasMath ? [rehypeRaw, rehypeKatex] : [rehypeRaw]),
+    [hasMath],
+  )
+
   return (
     <div ref={containerRef} className={`wmde-markdown ${isDark ? 'dark' : ''} ${className ?? ''}`}>
       <MarkdownErrorBoundary>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeRaw, rehypeKatex]}
+          rehypePlugins={rehypePlugins}
           components={{
             pre: ({ children }) => (
               <CodeBlockWithActions

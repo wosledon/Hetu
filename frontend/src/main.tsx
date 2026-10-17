@@ -9,7 +9,8 @@ import { ConfirmProvider } from './components/ConfirmDialog'
 import { startUiSignalR } from './services/signalrService'
 import './i18n'
 import './index.css'
-import 'katex/dist/katex.min.css'
+// KaTeX 的 CSS（约 51 kB + 20 个 font-face）原先在这里静态引入，等于每个页面都为
+// 极少出现的公式付费。改成由 ThemedMarkdown 在检测到公式时按需加载。
 
 // 抑制 ResizeObserver 循环告警（ReactFlow/dagre 等布局组件触发的良性警告）
 const roLoopMsg = 'ResizeObserver loop completed with undelivered notifications.'
