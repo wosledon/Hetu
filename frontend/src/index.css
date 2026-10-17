@@ -3,50 +3,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ===== 自定义字体：FiraCode ===== */
-@font-face {
-  font-family: 'Fira Code';
-  src: url('./fonts/FiraCode-Light.ttf') format('truetype');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
+/*
+ * 只保留 Regular 一个字重：全应用唯一用到等宽字体的地方是 Milkdown 代码块
+ * （.hetu-milkdown-root .milkdown-code-block .cm-editor .cm-scroller），
+ * 且没有指定 font-weight；CodeMirror 的高亮样式与主题也都不设粗体
+ * （@codemirror/* 里搜到的 font-weight 只是 CSS 属性名清单）。
+ * 其余 5 个字重从未被下载，却要占约 1.4 MB 安装包，故一并删掉。
+ * :root 上设了 font-synthesis: none，万一将来有粗体代码也只会退回 Regular，不会合成假粗体。
+ */
 @font-face {
   font-family: 'Fira Code';
   src: url('./fonts/FiraCode-Regular.ttf') format('truetype');
   font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Fira Code';
-  src: url('./fonts/FiraCode-Medium.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Fira Code';
-  src: url('./fonts/FiraCode-Retina.ttf') format('truetype');
-  font-weight: 450;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Fira Code';
-  src: url('./fonts/FiraCode-SemiBold.ttf') format('truetype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Fira Code';
-  src: url('./fonts/FiraCode-Bold.ttf') format('truetype');
-  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }

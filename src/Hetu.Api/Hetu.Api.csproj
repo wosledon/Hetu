@@ -10,10 +10,15 @@
          前端「关于」页通过 GET /api/system/version 读取此处 -->
     <Version>0.3.17</Version>
     <!--
-      关掉 .NET SDK 的静态资源预压缩：它会给 wwwroot 里每个 js/css 生成 .br 和 .gz 副本
-      （约 5 MB）。而本应用用的是 UseStaticFiles()（物理文件提供程序），并不做预压缩协商——
-      实测直接请求 .br 返回 404，压缩是由 UseResponseCompression() 在运行时做的。
-      这些副本纯粹是安装包里的死重量。
+      关掉 .NET SDK 的静态资源预压缩（EnableDefaultCompressedItems，.NET 9+ 默认 true）。
+
+      本应用用 UseStaticFiles()（物理文件提供程序），不做预压缩协商——实测直接请求
+      .br 返回 404，压缩由 UseResponseCompression() 运行时完成。
+
+      CI 是全新检出、src/Hetu.Api/wwwroot 尚不存在，静态资源发现阶段扫不到文件，
+      本来就不会生成副本（实测 v0.3.16 / v0.3.17 的 deb 里 .br/.gz 数量均为 0）。
+      但本地若有残留的 wwwroot，发现阶段会扫到并按每个 js/css 生成 .br + .gz，
+      publish 产物凭空多出约 10 MB。这个属性就是防这个坑的。
     -->
     <EnableDefaultCompressedItems>false</EnableDefaultCompressedItems>
     <!--
@@ -22,8 +27,10 @@
       实测 16 核机器上线程 41 → 21，已提交内存 100.8 → 75.9 MB（−25%）。
     -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
-    <!-- 发布产物不带 pdb：安装包里只用单文件 exe，pdb 留在 artifacts 不会进包；
-         Serilog 的异常堆栈仍可用（只是没有行号） -->
+    <!--
+      发布产物不带 pdb：单文件 bundle 会把 pdb 一起打进去（约 1.7 MB），
+      而安装包里只用这个 exe。Serilog 的异常堆栈仍可用，只是没有行号。
+    -->
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
@@ -71,6 +78,15 @@
       <_FrontendDistFiles Include="$(FrontendDistDir)\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(_FrontendDistFiles)" DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <!--
+      注意：这里只拷贝不清理。dist 里的 js/css 带内容哈希，旧 chunk 不会被同名覆盖，
+      反复构建会让 src/Hetu.Api/wwwroot 堆积孤儿文件（实测攒过 126 个、7.22 MB，
+      并随 publish 产物进本地打的安装包）。
+      不能简单在这里删：MSBuild 在评估阶段就 glob 了 wwwroot\**\*.* 作为 Content，
+      执行期删文件会让 item spec 失效，DefineStaticWebAssets 直接报错（已试过）。
+      CI 是全新检出、wwwroot 从零开始，不受影响；本地打包前手动清一次即可：
+        Remove-Item -Recurse -Force src/Hetu.Api/wwwroot
+    -->
   </Target>
 
   <!-- 让构建出来的 wwwroot 在 publish 时随产物一起发布。
