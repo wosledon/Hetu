@@ -2,7 +2,6 @@ import { confirm } from './confirm'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Folder,
@@ -20,7 +19,7 @@ import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INote, INotebook } from '../types'
-import { Button, Card, IconButton, Input, SearchInput, TreeRow } from './ui'
+import { Button, Card, ContextMenu, IconButton, Input, SearchInput, TreeRow } from './ui'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -33,7 +32,6 @@ interface LeafMenuState {
   x: number
   y: number
   note: INote
-  showMove?: boolean
 }
 
 interface AddMenuState {
@@ -49,30 +47,26 @@ function AddMenu({ menu, onAddNotebook, onAddNote, onClose }: {
   onClose: () => void
 }) {
   const { t } = useTranslation('notes')
-  return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9998]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div
-        className="fixed z-[9999] min-w-[140px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
-        style={{ left: Math.min(menu.x, window.innerWidth - 160), top: Math.min(menu.y, window.innerHeight - 120) }}
-      >
-        <button
-          onClick={() => { onClose(); onAddNotebook() }}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-        >
-          <FolderPlus size={13} />
-          {t('notebook.new')}
-        </button>
-        <button
-          onClick={() => { onClose(); onAddNote() }}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-        >
-          <FileText size={13} />
-          {t('note.newNote')}
-        </button>
-      </div>
-    </>,
-    document.body
+  return (
+    <ContextMenu
+      anchor={menu}
+      onClose={onClose}
+      minWidth={140}
+      items={[
+        {
+          key: 'notebook',
+          label: t('notebook.new'),
+          icon: <FolderPlus size={13} />,
+          onSelect: onAddNotebook,
+        },
+        {
+          key: 'note',
+          label: t('note.newNote'),
+          icon: <FileText size={13} />,
+          onSelect: onAddNote,
+        },
+      ]}
+    />
   )
 }
 
@@ -434,57 +428,55 @@ export default function NotesTree({ selectedNoteId, onSelectNote, onSelectNotebo
         ))}
       </div>
 
-      {leafMenu && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={closeLeafMenu} onContextMenu={(e) => { e.preventDefault(); closeLeafMenu() }} />
-          <div
-            className="fixed z-[9999] min-w-[150px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
-            style={{ left: Math.min(leafMenu.x, window.innerWidth - 170), top: Math.min(leafMenu.y, window.innerHeight - 180) }}
-          >
-            <button
-              onClick={() => { togglePin.mutate({ id: leafMenu.note.id, isPinned: !leafMenu.note.isPinned }) }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-              <Pin size={13} />
-              {leafMenu.note.isPinned ? t('list.unpin') : t('list.pin')}
-            </button>
-            <button
-              onClick={() => { toggleFavorite.mutate({ id: leafMenu.note.id, isFavorite: !leafMenu.note.isFavorite }) }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-              <Star size={13} />
-              {leafMenu.note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
-            </button>
-            <button
-              onClick={() => setLeafMenu(prev => prev ? { ...prev, showMove: !prev.showMove } : null)}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-              <FolderPlus size={13} />
-              {t('tree.moveTo')}
-            </button>
-            {leafMenu.showMove && (
-              <div className="max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
-                <Button variant="ghost" tone="gray" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined })}>
-                  <Inbox size={12} />
-                  {t('note.uncategorized')}
-                </Button>
-                {notebooks.map(nb => (
-                  <Button variant="ghost" tone="gray" size="sm" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" key={nb.id}
-                    onClick={() => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id })}>
-                    <Folder size={12} />
-                    {nb.name}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-            <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { setLeafMenu(null); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }) }}>
-              <Trash2 size={13} />
-              {t('common:delete')}
-            </Button>
-          </div>
-        </>,
-        document.body
+      {leafMenu && (
+        <ContextMenu
+          anchor={leafMenu}
+          onClose={closeLeafMenu}
+          minWidth={150}
+          items={[
+            {
+              key: 'pin',
+              label: leafMenu.note.isPinned ? t('list.unpin') : t('list.pin'),
+              icon: <Pin size={13} />,
+              onSelect: () => togglePin.mutate({ id: leafMenu.note.id, isPinned: !leafMenu.note.isPinned }),
+            },
+            {
+              key: 'favorite',
+              label: leafMenu.note.isFavorite ? t('list.unfavorite') : t('list.favorite'),
+              icon: <Star size={13} />,
+              onSelect: () => toggleFavorite.mutate({ id: leafMenu.note.id, isFavorite: !leafMenu.note.isFavorite }),
+            },
+            {
+              key: 'move',
+              label: t('tree.moveTo'),
+              icon: <FolderPlus size={13} />,
+              items: [
+                {
+                  key: 'move-none',
+                  label: t('note.uncategorized'),
+                  icon: <Inbox size={12} />,
+                  checked: !leafMenu.note.notebookId,
+                  onSelect: () => moveNote.mutate({ id: leafMenu.note.id, notebookId: undefined }),
+                },
+                ...notebooks.map((nb) => ({
+                  key: `move-${nb.id}`,
+                  label: nb.name,
+                  icon: <Folder size={12} />,
+                  checked: leafMenu.note.notebookId === nb.id,
+                  onSelect: () => moveNote.mutate({ id: leafMenu.note.id, notebookId: nb.id }),
+                })),
+              ],
+            },
+            { kind: 'separator' },
+            {
+              key: 'delete',
+              label: t('common:delete'),
+              icon: <Trash2 size={13} />,
+              danger: true,
+              onSelect: () => confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteNote.mutate(leafMenu.note.id) }),
+            },
+          ]}
+        />
       )}
     </Card>
   )
