@@ -54,7 +54,7 @@ export default function Modal({ open, onClose, size = 'md', scroll = false, dism
         aria-modal="true"
         aria-label={label}
         className={cn(
-          'w-full rounded-2xl bg-white shadow-2xl dark:bg-gray-800 glass',
+          'w-full rounded-2xl bg-white shadow-2xl glass glass-float dark:bg-gray-800',
           SIZES[size],
           scroll && 'max-h-[85vh] overflow-y-auto',
           className,

@@ -61,7 +61,7 @@ const EDGE_PADDING = 8
 const BASE_Z_INDEX = 60
 
 const PANEL_CLASS =
-  'fixed overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800'
+  'fixed overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass glass-float dark:border-gray-700 dark:bg-gray-800'
 
 const rowClass = (opts: { active: boolean; danger: boolean; disabled: boolean }) =>
   cn(

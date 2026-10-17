@@ -449,7 +449,7 @@ export default function ProjectsPage() {
                               {menuFor === project.id && (
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
                                     <Button variant="ghost" tone="gray" className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => moveToGroup(project, null)}>
                                       {t('page.ungrouped')}

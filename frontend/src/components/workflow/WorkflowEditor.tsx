@@ -184,7 +184,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
           {showMeta && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMeta(false)} />
-              <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
+              <div className="absolute left-0 top-full z-50 mt-1 w-72 space-y-2 rounded-xl border border-gray-200 bg-white glass glass-float p-3 shadow-lg dark:border-white/[0.08] dark:bg-gray-800">
                 <div>
                   <label className="mb-1 block text-[11px] text-gray-400">{t('common:name')}</label>
                   <Input tone="blue" size="sm"
