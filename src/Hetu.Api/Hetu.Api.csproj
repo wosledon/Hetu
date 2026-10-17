@@ -9,6 +9,22 @@
     <!-- 产品版本：与桌面壳 shell/hetu-desktop/src-tauri/tauri.conf.json 的 version 保持一致，
          前端「关于」页通过 GET /api/system/version 读取此处 -->
     <Version>0.3.16</Version>
+    <!--
+      关掉 .NET SDK 的静态资源预压缩：它会给 wwwroot 里每个 js/css 生成 .br 和 .gz 副本
+      （约 5 MB）。而本应用用的是 UseStaticFiles()（物理文件提供程序），并不做预压缩协商——
+      实测直接请求 .br 返回 404，压缩是由 UseResponseCompression() 在运行时做的。
+      这些副本纯粹是安装包里的死重量。
+    -->
+    <EnableDefaultCompressedItems>false</EnableDefaultCompressedItems>
+    <!--
+      桌面 sidecar 用工作站 GC：Web SDK 默认打开 Server GC（每个逻辑核心一套 GC 堆 + GC 线程），
+      那是给多核服务器调的。本后端是跟着桌面壳起的单用户进程，Server GC 只增加开销——
+      实测 16 核机器上线程 41 → 21，已提交内存 100.8 → 75.9 MB（−25%）。
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <!-- 发布产物不带 pdb：安装包里只用单文件 exe，pdb 留在 artifacts 不会进包；
+         Serilog 的异常堆栈仍可用（只是没有行号） -->
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
