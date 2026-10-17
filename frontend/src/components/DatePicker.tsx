@@ -123,7 +123,7 @@ export default function DatePicker({
         <div
           ref={panelRef}
           style={panelStyle}
-          className="z-[9999] w-[260px] rounded-xl border border-gray-200 bg-white glass p-3 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
+          className="z-[9999] w-[260px] rounded-xl border border-gray-200 bg-white glass glass-float p-3 shadow-lg shadow-black/5 dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
         >
           <div className="mb-2 flex items-center justify-between">
             <IconButton variant="ghost" tone="gray" className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('ui:datePicker.prevMonth')} type="button"

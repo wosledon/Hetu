@@ -495,7 +495,7 @@ export default function WikiPage() {
                 {modelPickerOpen && createPortal(
                   <>
                     <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
-                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${

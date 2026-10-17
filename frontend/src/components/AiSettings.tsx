@@ -465,7 +465,7 @@ function ProviderForm({
             placeholder={t('ai.catalogProviderPlaceholder')}
           />
           {!catalogProvider && catalogQuery.trim().length >= 2 && (catalogLoading || catalogResults.length > 0) && (
-            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white glass p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white glass glass-float p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#12151f]">
               {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">{t('ai.searchingProviders')}</p>}
               {!catalogLoading &&
                 catalogResults.map((p) => (

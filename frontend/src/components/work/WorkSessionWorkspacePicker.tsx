@@ -105,7 +105,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           </button>
 
           {menu === 'mode' && (
-            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-xl border border-gray-200 bg-white glass p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
               <button
                 onClick={() => apply.mutate({ useWorktree: false })}
                 disabled={busy || !useWorktree}
@@ -157,7 +157,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           </button>
 
           {menu === 'branch' && (
-            <div className="absolute bottom-full right-0 z-50 mb-1.5 w-60 rounded-xl border border-gray-200 bg-white glass p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <div className="absolute bottom-full right-0 z-50 mb-1.5 w-60 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
               <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                 {useWorktree ? t('workspace.baseBranchTitle') : t('workspace.branchCheckoutTitle')}
               </p>
