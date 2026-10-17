@@ -188,6 +188,12 @@ interface InteractionStore {
   /** streamKey：对话页为 topicId，编码页为 workSessionId（同时作为 answer/plan 接口的 sessionId） */
   streams: Record<string, InteractionState>
   applyChunk: (streamKey: string, chunk: RawChunk) => void
+  /**
+   * 从历史消息回填任务面板。todo 工具调用是落库的（metadata.arguments 即入参），
+   * 但交互状态只在 SSE 存活期间累积——切去别的页面再回来（或刷新）模块级 store 虽在，
+   * 抽屉的 todo 分区却被 streaming 门禁挡着，用户看到的就是「todo 面板没了」。
+   */
+  rehydrate: (streamKey: string, messages: Array<{ type: string; metadata?: string | null }>) => void
   answer: (streamKey: string, questionId: string, value: string) => void
   setQuestionIndex: (streamKey: string, idx: number) => void
   submitAnswers: (streamKey: string) => Promise<void>
@@ -215,13 +221,30 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
       return next === cur ? st : { streams: { ...st.streams, [streamKey]: next } }
     }),
 
+  // 回填任务面板：按时间顺序重放历史里的 todo 工具调用，语义与 applyChunk 的 todo 分支一致
+  // （整份 todos 快照替换；create / update / complete 增量合并），最后一条即为当前状态
+  rehydrate: (streamKey, messages) =>
+    set((st) => {
+      const cur = st.streams[streamKey] ?? emptyInteraction()
+      let next = cur
+      for (const message of messages) {
+        if (message.type !== 'tool') continue
+        let meta: { name?: string; arguments?: string }
+        try { meta = JSON.parse(message.metadata ?? '{}') } catch { continue }
+        if (meta.name !== 'todo' || !meta.arguments) continue
+        let args: RawChunk
+        try { args = JSON.parse(meta.arguments) as RawChunk } catch { continue }
+        next = applyInteractionChunk(next, { type: 'todo', data: args })
+      }
+      return next === cur ? st : { streams: { ...st.streams, [streamKey]: next } }
+    }),
+
   answer: (streamKey, questionId, value) =>
     set((st) => ({
       streams: patch(st.streams, streamKey, {
         questionAnswers: { ...(st.streams[streamKey]?.questionAnswers ?? {}), [questionId]: value },
       }),
     })),
-
   setQuestionIndex: (streamKey, idx) =>
     set((st) => ({ streams: patch(st.streams, streamKey, { questionIndex: idx }) })),
 

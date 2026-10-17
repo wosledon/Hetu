@@ -12,7 +12,7 @@ import WorkSidebar, { type WorkSidebarHandle } from '../components/work/WorkSide
 import WorkSessionArea from '../components/work/WorkSessionArea'
 import WorkExplorer from '../components/work/WorkExplorer'
 import { chatGroupService, chatTopicService } from '../services/chatService'
-import { workProjectService } from '../services/workService'
+import { workProjectService, workSessionService } from '../services/workService'
 import { onUiAction } from '../services/signalrService'
 import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import type { IChatGroup, IChatTopic } from '../types'
@@ -29,6 +29,30 @@ const MIN_RIGHT_WIDTH = 320
 const MAX_RIGHT_WIDTH = 1200
 /** 一级菜单「会话 / 项目」展开状态（主对话始终为一级入口） */
 const SECTIONS_STORAGE_KEY = 'hetu:code-sidebar-sections'
+
+/**
+ * 最近打开的编码会话（projectId + sessionId）。
+ * URL 参数只在带参访问时有效——点导航栏「Code」进去的是裸 /code，参数丢了会话还是回不来。
+ * sessionStorage 按标签页保存，覆盖「切走再回来」与「刷新」，关掉标签页即忘。
+ */
+const LAST_SESSION_KEY = 'hetu:code-last-session'
+
+const readLastSession = (): { projectId?: string; sessionId?: string } => {
+  try {
+    const raw = sessionStorage.getItem(LAST_SESSION_KEY)
+    const parsed = raw ? (JSON.parse(raw) as { projectId?: string; sessionId?: string }) : {}
+    return typeof parsed.sessionId === 'string' && parsed.sessionId ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const writeLastSession = (projectId?: string, sessionId?: string) => {
+  try {
+    if (projectId && sessionId) sessionStorage.setItem(LAST_SESSION_KEY, JSON.stringify({ projectId, sessionId }))
+    else sessionStorage.removeItem(LAST_SESSION_KEY)
+  } catch { /* 隐私模式下 sessionStorage 不可写，忽略 */ }
+}
 
 interface SidebarSections {
   chat: boolean
@@ -263,8 +287,11 @@ export default function WorkPage() {
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  // 最近一次打开的编码会话：URL 参数优先，裸 /code 时用它兜底
+  const [lastSession] = useState(readLastSession)
   // 右侧聊天区当前绑定的是对话话题还是项目会话
-  const [view, setView] = useState<CodeView>(searchParams.get('project') ? 'code' : 'chat')
+  const [view, setView] = useState<CodeView>(() =>
+    (searchParams.get('project') ?? lastSession.projectId) ? 'code' : 'chat')
 
   // 一级菜单展开状态：主对话始终可见，会话 / 项目可折叠
   const [sections, setSections] = useState<SidebarSections>(loadSections)
@@ -341,7 +368,10 @@ export default function WorkPage() {
 
   // —— 项目：项目/会话选择（原 Code 页）——
   const [preferredProject, setPreferredProject] = useState<IWorkProject | null>(null)
-  const [selectedSession, setSelectedSession] = useState<IWorkSession | null>(null)
+  // 显式选中的会话；为空时回落到 URL 上的 session id（切走再回来 / 刷新都能回到同一处）。
+  // 用派生而非 effect 回填：effect 里 setState 会多一次渲染，也容易和用户操作打架
+  const [chosenSession, setChosenSession] = useState<IWorkSession | null>(null)
+  const setSelectedSession = setChosenSession
   // 跨组件联动：当前打开文件 / 打开文件请求 / 终端命令请求 / 对话上下文注入 / 编辑器插入请求
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [openFileRequest, setOpenFileRequest] = useState<{ path: string; nonce: number } | null>(null)
@@ -375,17 +405,38 @@ export default function WorkPage() {
     queryFn: workProjectService.getAll,
   })
 
+  // 会话选择只放在组件 state 里：切去别的页面再回来 WorkPage 重挂载，chosenSession 丢光，
+  // 用户回到 /code 看到的是空页面（「会话就断了」）。URL 参数优先，其次 sessionStorage 里
+  // 最近打开的会话（点导航栏「Code」进来是裸 /code，没有参数）。
+  const sessionParam = searchParams.get('session') ?? lastSession.sessionId ?? null
+  const projectParam = searchParams.get('project') ?? lastSession.projectId ?? null
+
   // 未显式选择时默认使用第一个项目
-  const selectedProject = preferredProject ?? projects.find((p) => p.id === searchParams.get('project')) ?? projects[0] ?? null
+  const selectedProject = preferredProject ?? projects.find((p) => p.id === projectParam) ?? projects[0] ?? null
+
+  const { data: paramSession } = useQuery({
+    queryKey: ['workSession', sessionParam],
+    queryFn: () => workSessionService.getById(sessionParam!),
+    enabled: !!sessionParam && chosenSession?.id !== sessionParam,
+  })
+  const selectedSession = chosenSession ?? paramSession ?? null
+
+  /** 同步 URL 上的 project / session，并记进 sessionStorage：刷新与「切走再回来」都回到同一处 */
+  const syncSelectionToUrl = (projectId?: string, sessionId?: string) => {
+    writeLastSession(projectId, sessionId)
+    const params = new URLSearchParams(searchParams)
+    if (projectId) params.set('project', projectId)
+    if (sessionId) params.set('session', sessionId)
+    else params.delete('session')
+    setSearchParams(params, { replace: true })
+  }
 
   const handleSelectProject = (project: IWorkProject) => {
     setPreferredProject(project)
     setSelectedSession((prev) => (prev?.projectId === project.id ? prev : null))
     setView('code')
     setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
-    const params = new URLSearchParams(searchParams)
-    params.set('project', project.id)
-    setSearchParams(params, { replace: true })
+    syncSelectionToUrl(project.id, undefined)
   }
 
   const handleSelectSession = (session: IWorkSession) => {
@@ -393,6 +444,7 @@ export default function WorkPage() {
     setView('code')
     setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
     queryClient.invalidateQueries({ queryKey: ['workSessions', session.projectId] })
+    syncSelectionToUrl(session.projectId, session.id)
   }
 
   const handleSessionUpdated = (session: IWorkSession) => {
@@ -405,6 +457,8 @@ export default function WorkPage() {
     setSelectedSession(session)
     setView('code')
     setSections((prev) => (prev.project ? prev : { ...prev, project: true }))
+    // 草稿会话落库后补上 URL：此前 id 为空写不进去
+    syncSelectionToUrl(session.projectId, session.id)
   }
 
   /**
@@ -566,7 +620,10 @@ export default function WorkPage() {
                     if (selectedSession?.projectId === projectId) setSelectedSession(null)
                   }}
                   onSessionDeleted={(sessionId) => {
-                    if (selectedSession?.id === sessionId) setSelectedSession(null)
+                    if (selectedSession?.id === sessionId) {
+                      setSelectedSession(null)
+                      syncSelectionToUrl(undefined, undefined)
+                    }
                   }}
                 />
               </div>
