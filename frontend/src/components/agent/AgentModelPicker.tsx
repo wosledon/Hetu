@@ -232,7 +232,7 @@ export default function AgentModelPicker({
           {/* 一张卡片：左侧供应商纵列 + 右侧搜索与模型列表 */}
           <div
             ref={modelCardRef}
-            className="flex overflow-hidden rounded-xl bg-white glass shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
+            className="flex overflow-hidden rounded-xl bg-white glass glass-float shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
           >
             <div className="flex w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 py-1 dark:border-gray-700">
               {tabs.map((p) => {
