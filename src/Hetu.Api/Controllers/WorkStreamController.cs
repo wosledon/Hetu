@@ -43,6 +43,7 @@ public class WorkStreamController : ControllerBase
     private readonly ILogger<WorkStreamController> _logger;
     private readonly ILocalizer _localizer;
     private readonly AgentSteeringHub _steering;
+    private readonly WorkRunRegistry _runs;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -62,7 +63,8 @@ public class WorkStreamController : ControllerBase
         IMemoryService memoryService,
         ILogger<WorkStreamController> logger,
         ILocalizer localizer,
-        AgentSteeringHub steering)
+        AgentSteeringHub steering,
+        WorkRunRegistry runs)
     {
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
@@ -82,6 +84,7 @@ public class WorkStreamController : ControllerBase
         _logger = logger;
         _localizer = localizer;
         _steering = steering;
+        _runs = runs;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -108,9 +111,75 @@ public class WorkStreamController : ControllerBase
     [HttpPost("{sessionId:guid}/stream")]
     public async Task Stream(Guid sessionId, [FromBody] SendWorkMessageRequest request, CancellationToken ct = default)
     {
+        // 该会话已有运行：说明客户端刷新/重连后又入了一次站（或重复提交）。
+        // 直接挂载到已有运行上——重放缓冲区 + 接收实时事件，不重复起一轮。
+        var active = _runs.Get(sessionId);
+        if (active != null)
+        {
+            Response.StartSseStream();
+            var attach = new SseStreamWriter(Response, ct);
+            await active.Buffer.AttachAsync(data => attach.WriteRawAsync(data), ct);
+            return;
+        }
+
+        var run = _runs.GetOrStart(sessionId);
+        try
+        {
+            await StreamCoreAsync(sessionId, request, run);
+        }
+        finally
+        {
+            _runs.Remove(sessionId, run);
+        }
+    }
+
+    /// <summary>运行状态：供前端在挂载时判断「这个会话还有一轮在跑，但我不知道」（刷新后）</summary>
+    [HttpGet("{sessionId:guid}/run-status")]
+    public ApiResponse<WorkRunStatusDto> RunStatus(Guid sessionId)
+    {
+        var run = _runs.Get(sessionId);
+        return ApiResponse<WorkRunStatusDto>.Ok(new WorkRunStatusDto
+        {
+            Active = run != null,
+            BufferedEvents = run?.Buffer.Count ?? 0,
+        });
+    }
+
+    /// <summary>
+    /// 停止正在运行的会话。刷新 / 重连后发起流的那一方已经不在这个页面里了，
+    /// 前端的 AbortController 只能断开自己的挂载——必须有个服务端入口取消循环本身。
+    /// </summary>
+    [HttpPost("{sessionId:guid}/stop")]
+    public ApiResponse StopRun(Guid sessionId)
+    {
+        _runs.Get(sessionId)?.Cancel();
+        return ApiResponse.Ok();
+    }
+
+    /// <summary>
+    /// 挂载到正在运行的会话上（不发起新一轮）：先重放缓冲区，再持续接收实时事件。
+    /// 刷新页面 / 切回标签页后前端靠这个把中断的过程补回来。
+    /// </summary>
+    [HttpGet("{sessionId:guid}/stream")]
+    public async Task AttachStream(Guid sessionId, CancellationToken ct = default)
+    {
+        var run = _runs.Get(sessionId);
+        if (run == null) return;
+
+        Response.StartSseStream();
+        var writer = new SseStreamWriter(Response, ct);
+        await run.Buffer.AttachAsync(data => writer.WriteRawAsync(data), ct);
+    }
+
+    private async Task StreamCoreAsync(Guid sessionId, SendWorkMessageRequest request, WorkRun run)
+    {
+        // 运行的所有权归 run：客户端断开（刷新 / 地址栏跳转 / 网络抖动）只解除本次挂载，
+        // 循环继续跑完并照常落库。原先这里直接用请求的 ct，一端断开整轮就废了。
+        var ct = run.Token;
+
         Response.StartSseStream();
 
-        var writer = new SseStreamWriter(Response, ct);
+        var writer = new SseStreamWriter(Response, ct, run.Buffer);
         // 运行中引导：本轮执行期间允许用户插话，由 Agent 循环在迭代边界注入
         var steeringKey = $"work:{sessionId}";
         using var steeringRegistration = _steering.Register(steeringKey);
@@ -1044,4 +1113,12 @@ public class WorkStreamController : ControllerBase
             return null;
         }
     }
+}
+
+public class WorkRunStatusDto
+{
+    /// <summary>该会话是否还有一轮在跑</summary>
+    public bool Active { get; set; }
+    /// <summary>已缓冲的事件条数：用于判断重连能补回多少过程</summary>
+    public int BufferedEvents { get; set; }
 }

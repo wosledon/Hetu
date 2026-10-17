@@ -69,6 +69,17 @@ export const workSessionService = {
   update: (id: string, data: IUpdateWorkSessionRequest) => put<IWorkSession>(`/work-sessions/${id}`, data),
   delete: (id: string) => del<void>(`/work-sessions/${id}`),
   getMessages: (id: string) => get<IWorkMessage[]>(`/work-sessions/${id}/messages`),
+  /**
+   * 运行状态：刷新页面后本地登记已清空，靠它判断「这个会话还有一轮在跑，但我不知道」。
+   * 后端把循环生命周期与 HTTP 请求解耦了，断开连接不会中止运行。
+   */
+  getRunStatus: (id: string) =>
+    get<{ active: boolean; bufferedEvents: number }>(`/work-sessions/${id}/run-status`),
+  /**
+   * 停止正在运行的会话。刷新 / 重连后发起流的那一方已不在这个页面里，
+   * 前端的 AbortController 只能断开自己的挂载，取消循环本身得走服务端。
+   */
+  stop: (id: string) => post<void>(`/work-sessions/${id}/stop`),
   /** 运行中引导：把这条消息注入正在执行的回复（injected=false 表示当前没有在跑的回复） */
   steer: (id: string, content: string) =>
     post<{ injected: boolean }>(`/work-sessions/${id}/steer`, { content }),

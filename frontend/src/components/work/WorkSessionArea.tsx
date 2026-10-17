@@ -216,7 +216,9 @@ export default function WorkSessionArea({
   const [pastedBlock, setPastedBlock] = useState(() => inputDraftCache.get(sessionKey)?.pastedBlock ?? '')
   // 切走页面期间流仍在跑（见 workStreamRuns）：重挂载时按登记恢复运行态，
   // 否则回到 /code 看到「空闲」且不轮询，用户以为会话断了
-  const [isStreaming, setIsStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
+  // 本组件起的那轮流式状态。刷新后恢复的运行态不在这里——见下面的 runStatus 查询，
+  // 两者合并成 isStreaming，别让用户回来看到「空闲」的空会话
+  const [localStreaming, setLocalStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
@@ -264,11 +266,25 @@ export default function WorkSessionArea({
     if (project) createSession.mutate({ projectId: project.id, title: '' })
   }, [onStartDraft, project, createSession])
 
+  // 刷新后重连：本地登记已清空，但后端可能还有一轮在跑——循环的生命周期与 HTTP 请求
+  // 无关（WorkRunRegistry），断开连接不等于中止。轮询运行状态，active 就挂载上去，
+  // 并靠下面的消息轮询把进度补上。SPA 切走页面不走这里：登记还在，useState 初始值已恢复。
+  // 运行态由 isStreaming 派生，这里只负责挂载/摘除，不 setState。
+  const { data: runStatus } = useQuery({
+    queryKey: ['workRunStatus', session?.id],
+    queryFn: () => workSessionService.getRunStatus(session!.id),
+    enabled: !!session?.id && !localStreaming,
+    refetchInterval: (query) => (query.state.data?.active ? 2000 : false),
+  })
+
+  // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流
+  const isStreaming = localStreaming || (runStatus?.active ?? false)
+
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['workMessages', session?.id],
     queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
     enabled: !!session?.id,
-    // 有流在跑（含切走页面期间从 workStreamRuns 恢复的运行态）时轮询回读：
+    // 有流在跑（含切走页面期间恢复的运行态）时轮询回读：
     // 组件卸载过，streamItems 拿不回来，只能靠消息落库看到进度
     refetchInterval: isStreaming ? 2000 : false,
   })
@@ -281,6 +297,18 @@ export default function WorkSessionArea({
     if (useInteractionStore.getState().streams[session.id]) return
     useInteractionStore.getState().rehydrate(session.id, messages)
   }, [session, messages])
+
+  useEffect(() => {
+    if (!session?.id || localStreaming || !runStatus?.active) return
+    if (workStreamRuns.isRunning(session.id)) return
+    const sessionId = session.id
+    return workStreamRuns.attach(sessionId, () => {
+      // 运行结束：重新拉状态与消息，把最终结果刷出来
+      queryClient.invalidateQueries({ queryKey: ['workRunStatus', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['workMessages', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['workSessions'] })
+    })
+  }, [session?.id, localStreaming, runStatus?.active, queryClient])
 
   // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
   useEffect(() => {
@@ -990,7 +1018,7 @@ export default function WorkSessionArea({
     }
 
     const activeId = active.id
-    setIsStreaming(true)
+    setLocalStreaming(true)
     // 本会话内发过消息：旧回合不再自动折叠（见 visibleMessages 处注释）
     setSentThisVisit(true)
     if (persistUserMessage)
@@ -1003,8 +1031,12 @@ export default function WorkSessionArea({
 
     const controller = new AbortController()
     streamRef.current = controller
-    // 登记到模块级：组件卸载（切走页面）后依然能认出这个会话还在跑
-    workStreamRuns.register(activeId, controller)
+    // 登记到模块级：组件卸载（切走页面 / 刷新）后依然能认出这个会话还在跑
+    workStreamRuns.register(activeId, controller, () => {
+      // 后端运行已结束（模块级泵收到 done）：同步掉本地运行态
+      setLocalStreaming(false)
+      setSentThisVisit(false)
+    })
     // 子 Agent 过程帧合批：一次运行有数百个 delta 帧，逐帧 setState 会反复重建内层时间线，
     // 把渲染拖垮（内容铺成长竖列、折叠卡片缺失）；按 ~100ms 合批后再进 state
     const coalescer = createSubagentCoalescer((sa) => setStreamItems((prev) => {
@@ -1107,7 +1139,7 @@ export default function WorkSessionArea({
     } finally {
       streamRef.current = null
       workStreamRuns.unregister(activeId)
-      setIsStreaming(false)
+      setLocalStreaming(false)
       // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一段内层过程
       coalescer.flush()
       // 等消息列表回读（后端已落库）后再清空本轮输出，避免完成后正文瞬间消失
@@ -1608,7 +1640,14 @@ export default function WorkSessionArea({
           ) : undefined}
           placeholder={t('session.inputPlaceholder')}
           streaming={isStreaming}
-          onStop={() => workStreamRuns.cancel(session?.id ?? '')}
+          onStop={() => {
+            const id = session?.id
+            if (!id) return
+            // 先断本地挂载（本页起的那一流 / 重连挂上的那条），再通知服务端取消循环本身——
+            // 刷新后发起流的那一方已不在这个页面里，光 abort 是停不掉后端的
+            workStreamRuns.cancel(id)
+            void workSessionService.stop(id).catch(() => {})
+          }}
           canSubmit={!!session && (!!input.trim() || !!pastedBlock || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
