@@ -19,7 +19,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
-import { Button, Card, IconButton, Input, SearchInput, TreeRow } from '../ui'
+import { Button, Card, ContextMenu, IconButton, Input, SearchInput, TreeRow } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -615,17 +615,8 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
     setActivePanel({ type: 'feature', key: 'guide' })
   }
 
-  // 标签页右键菜单：点击别处或按 Esc 关闭
-  useEffect(() => {
-    if (!tabMenu) return
-    const close = () => setTabMenu(null)
-    window.addEventListener('mousedown', close)
-    window.addEventListener('keydown', close)
-    return () => {
-      window.removeEventListener('mousedown', close)
-      window.removeEventListener('keydown', close)
-    }
-  }, [tabMenu])
+  // 标签页右键菜单：关闭交给 ContextMenu（外点 / Esc / 边界翻转都收在组件里）
+  const closeTabMenu = useCallback(() => setTabMenu(null), [])
 
   // 功能列表与文档区之间的拖拽分栏
   const onListDragStart = useCallback((e: React.MouseEvent) => {
@@ -1129,42 +1120,37 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
 
   {/* 标签页右键菜单 */}
   {tabMenu && (
-    <div
-      className="fixed z-50 min-w-[128px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-      style={{ left: tabMenu.x, top: tabMenu.y }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <button
-        onClick={() => {
-          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
-          else closeDocTab(tabMenu.key)
-          setTabMenu(null)
-        }}
-        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        {t('common:close')}
-      </button>
-      <button
-        onClick={() => {
-          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
-          else closeOtherDocTabs(tabMenu.key)
-          setTabMenu(null)
-        }}
-        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        {t('explorer.closeOthers')}
-      </button>
-      <button
-        onClick={() => {
-          if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
-          else closeAllDocTabs()
-          setTabMenu(null)
-        }}
-        className="flex w-full items-center px-3 py-1.5 text-left text-[12px] text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-      >
-        {t('explorer.closeAll')}
-      </button>
-    </div>
+    <ContextMenu
+      anchor={tabMenu}
+      onClose={closeTabMenu}
+      minWidth={128}
+      items={[
+        {
+          key: 'close',
+          label: t('common:close'),
+          onSelect: () => {
+            if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+            else closeDocTab(tabMenu.key)
+          },
+        },
+        {
+          key: 'close-others',
+          label: t('explorer.closeOthers'),
+          onSelect: () => {
+            if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+            else closeOtherDocTabs(tabMenu.key)
+          },
+        },
+        {
+          key: 'close-all',
+          label: t('explorer.closeAll'),
+          onSelect: () => {
+            if (tabMenu.kind === 'feature') closeFeature(tabMenu.key as FeatureKind)
+            else closeAllDocTabs()
+          },
+        },
+      ]}
+    />
   )}
     </>
   )

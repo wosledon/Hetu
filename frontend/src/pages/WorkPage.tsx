@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowDownUp, Check, ChevronDown, ChevronRight, FolderInput, FolderTree, MessageSquare, Plus, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, FolderInput, FolderTree, MessageSquare, Plus, Search, SlidersHorizontal } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ChatTree, { type ChatTreeHandle } from '../components/ChatTree'
 import ChatMessageArea from '../components/ChatMessageArea'
@@ -14,10 +13,9 @@ import WorkExplorer from '../components/work/WorkExplorer'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { workProjectService, workSessionService } from '../services/workService'
 import { onUiAction } from '../services/signalrService'
-import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
-import { Card, PageContainer, SearchInput } from '../components/ui'
+import { Card, ContextMenu, PageContainer, SearchInput } from '../components/ui'
 import { useUIStore } from '../stores/uiStore'
 import type { ProjectGroupBy, ProjectSortBy } from '../stores/uiStore'
 
@@ -70,36 +68,15 @@ const loadSections = (): SidebarSections => {
   }
 }
 
-const MENU_PANEL_CLS =
-  'fixed z-50 min-w-[196px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800'
-const MENU_ROW_CLS =
-  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700'
-/** 子菜单默认宽 160px：定位时据此决定向左还是向右翻转 */
-const SUBMENU_WIDTH = 160
-
-/** 子菜单锚点：右侧空间不够时翻到左边，顶部越界时上移 */
-function placeSubmenu(anchor: DOMRect, width: number): { left: number; top: number } {
-  const left = anchor.right + 4 + width > window.innerWidth - 8
-    ? anchor.left - width - 4
-    : anchor.right + 4
-  return { left: Math.max(8, left), top: Math.max(8, anchor.top - 4) }
-}
-
 /**
  * 项目节的视图选择器：占住一级菜单行上原来搜索按钮的位置。
  * 一级菜单向右展开，内含搜索框；「分组方式 / 排序方式」各自再向右展开二级菜单（带当前值提示）。
  */
 function ProjectViewMenu({ search, onSearchChange }: { search: string; onSearchChange: (value: string) => void }) {
   const { t } = useTranslation('work')
-  const [open, setOpen] = useState(false)
-  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null)
-  const [sub, setSub] = useState<'group' | 'sort' | null>(null)
-  const [subPos, setSubPos] = useState<{ left: number; top: number } | null>(null)
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
+  const close = useCallback(() => setAnchor(null), [])
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const subRef = useRef<HTMLDivElement>(null)
-  const close = useCallback(() => { setOpen(false); setSub(null) }, [])
-  useDismissOnOutside(open, close, [triggerRef, menuRef, subRef])
 
   const groupBy = useUIStore((state) => state.projectGroupBy)
   const sortBy = useUIStore((state) => state.projectSortBy)
@@ -123,82 +100,64 @@ function ProjectViewMenu({ search, onSearchChange }: { search: string; onSearchC
 
   const openPanel = () => {
     const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect) setAnchor(placeSubmenu(rect, 196))
-    setOpen(true)
-  }
-
-  /** 悬停即展开二级菜单（与右键菜单的子菜单行为一致），点击同样可触发 */
-  const openSub = (kind: 'group' | 'sort') => (e: React.MouseEvent<HTMLButtonElement>) => {
-    setSubPos(placeSubmenu(e.currentTarget.getBoundingClientRect(), SUBMENU_WIDTH))
-    setSub(kind)
-  }
-
-  const subOptions = sub === 'group' ? groupOptions : sortOptions
-  const subCurrent = sub === 'group' ? groupBy : sortBy
-  const pickSub = (value: string) => {
-    if (sub === 'group') setGroupBy(value as ProjectGroupBy)
-    else setSortBy(value as ProjectSortBy)
-    close()
+    if (rect) setAnchor({ x: rect.left, y: rect.bottom + 4 })
   }
 
   return (
     <>
       <button
         ref={triggerRef}
-        onClick={() => (open ? close() : openPanel())}
+        onClick={() => (anchor ? close() : openPanel())}
         title={t('page.projectView')}
         aria-label={t('page.projectView')}
-        aria-expanded={open}
+        aria-expanded={!!anchor}
         className={`shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${
-          open || search ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : ''
+          anchor || search ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : ''
         }`}
       >
         <SlidersHorizontal size={15} />
       </button>
-      {open && anchor && createPortal(
-        <div
-          ref={menuRef}
-          className={MENU_PANEL_CLS}
-          style={{ left: anchor.left, top: anchor.top }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-2.5 pb-2 pt-2">
-            <SearchInput
-              size="sm"
-              autoFocus
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t('page.searchProjectsPlaceholder')}
-              className="w-full"
-            />
-          </div>
-          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-          <button className={MENU_ROW_CLS} onMouseEnter={openSub('group')} onClick={openSub('group')}>
-            <FolderTree size={14} className="shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 truncate">{t('page.groupBy')}</span>
-            <span className="shrink-0 text-[11px] text-gray-400">{groupLabel}</span>
-            <ChevronRight size={13} className="shrink-0 text-gray-400" />
-          </button>
-          <button className={MENU_ROW_CLS} onMouseEnter={openSub('sort')} onClick={openSub('sort')}>
-            <ArrowDownUp size={14} className="shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 truncate">{t('page.sortBy')}</span>
-            <span className="shrink-0 text-[11px] text-gray-400">{sortLabel}</span>
-            <ChevronRight size={13} className="shrink-0 text-gray-400" />
-          </button>
-        </div>,
-        document.body
-      )}
-      {open && sub && subPos && createPortal(
-        <div ref={subRef} className={MENU_PANEL_CLS} style={{ left: subPos.left, top: subPos.top, minWidth: SUBMENU_WIDTH }}>
-          {subOptions.map(([value, label]) => (
-            <button key={value} className={MENU_ROW_CLS} onClick={() => pickSub(value)}>
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-              {subCurrent === value && <Check size={13} className="shrink-0 text-blue-500 dark:text-blue-400" />}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
+      <ContextMenu
+        anchor={anchor}
+        onClose={close}
+        minWidth={196}
+        header={
+          <SearchInput
+            size="sm"
+            autoFocus
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('page.searchProjectsPlaceholder')}
+            className="w-full"
+          />
+        }
+        items={[
+          {
+            key: 'group',
+            label: t('page.groupBy'),
+            icon: <FolderTree size={14} className="shrink-0 text-gray-400" />,
+            hint: groupLabel,
+            items: groupOptions.map(([value, label]) => ({
+              key: value,
+              label,
+              checked: groupBy === value,
+              onSelect: () => setGroupBy(value),
+            })),
+          },
+          {
+            key: 'sort',
+            label: t('page.sortBy'),
+            icon: <ArrowDownUp size={14} className="shrink-0 text-gray-400" />,
+            hint: sortLabel,
+            items: sortOptions.map(([value, label]) => ({
+              key: value,
+              label,
+              checked: sortBy === value,
+              onSelect: () => setSortBy(value),
+            })),
+          },
+        ]}
+      />
     </>
   )
 }

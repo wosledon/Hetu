@@ -1,6 +1,5 @@
 import { confirm } from './confirm'
-import { useState, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -13,12 +12,11 @@ import {
   FileText,
 } from 'lucide-react'
 import { useNotebooks } from '../hooks/useNotebooks'
-import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
 import type { INotebook } from '../types'
-import { Button, Input, TreeRow } from './ui'
+import { ContextMenu, Input, TreeRow } from './ui'
 
 function NotebookTreeItem({
   notebook,
@@ -58,11 +56,8 @@ function NotebookTreeItem({
   })
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   const closeMenu = useCallback(() => setMenu(null), [])
-
-  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const handleRename = () => {
     const trimmed = draftName.trim()
@@ -160,38 +155,33 @@ function NotebookTreeItem({
           <NotebookTreeItem key={child.id} notebook={child} level={level + 1} />
         ))}
 
-      {menu && createPortal(
-        <div
-          ref={menuRef}
-          className="fixed min-w-[160px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
-          style={{
-            left: Math.min(menu.x, window.innerWidth - 180),
-            top: Math.min(menu.y, window.innerHeight - 160),
-            zIndex: 50,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => { closeMenu(); setIsExpanded(true); setIsAddingChild(true) }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            <Plus size={14} />
-            {t('notebook.newChild')}
-          </button>
-          <button
-            onClick={() => { closeMenu(); setDraftName(notebook.name); setIsRenaming(true) }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            <Pencil size={14} />
-            {t('common:rename')}
-          </button>
-          <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-          <Button variant="ghost" tone="red" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); handleDelete() }}>
-            <Trash2 size={14} />
-            {t('common:delete')}
-          </Button>
-        </div>,
-        document.body
+      {menu && (
+        <ContextMenu
+          anchor={menu}
+          onClose={closeMenu}
+          items={[
+            {
+              key: 'add-child',
+              label: t('notebook.newChild'),
+              icon: <Plus size={14} />,
+              onSelect: () => { setIsExpanded(true); setIsAddingChild(true) },
+            },
+            {
+              key: 'rename',
+              label: t('common:rename'),
+              icon: <Pencil size={14} />,
+              onSelect: () => { setDraftName(notebook.name); setIsRenaming(true) },
+            },
+            { kind: 'separator' },
+            {
+              key: 'delete',
+              label: t('common:delete'),
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onSelect: handleDelete,
+            },
+          ]}
+        />
       )}
     </div>
   )

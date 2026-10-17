@@ -1,6 +1,5 @@
 import { confirm } from './confirm'
-import { forwardRef, useImperativeHandle, useRef, useCallback, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { forwardRef, useImperativeHandle, useCallback, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   MessageSquare,
@@ -15,9 +14,8 @@ import {
 } from 'lucide-react'
 import { chatGroupService, chatTopicService } from '../services/chatService'
 import { useTranslation } from 'react-i18next'
-import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import MainChatEntry from './MainChatEntry'
-import { Card, IconButton, Input, TreeRow } from './ui'
+import { Card, ContextMenu, IconButton, Input, TreeRow } from './ui'
 import type { IChatGroup, IChatTopic, IMainChat } from '../types'
 
 const GROUP_COLORS = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'orange', 'teal'] as const
@@ -135,9 +133,7 @@ function GroupNode({
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
   const [menu, setMenu] = useState<{ x: number; y: number; topicId: string } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
-  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
   const menuTopic = filtered.find((item) => item.id === menu?.topicId)
 
   const deleteTopic = useMutation({
@@ -222,34 +218,25 @@ function GroupNode({
           })}
 
           {/* 话题操作收进右键菜单：与项目行一致，行内只留选中态 */}
-          {menu && menuTopic && createPortal(
-            <div
-              ref={menuRef}
-              className="fixed min-w-[152px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl glass dark:border-gray-700 dark:bg-gray-800"
-              style={{
-                left: Math.min(menu.x, window.innerWidth - 172),
-                top: Math.min(menu.y, window.innerHeight - 132),
-                zIndex: 50,
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => { closeMenu(); setRenamingId(menuTopic.id); setRenameText(menuTopic.title) }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                <Pencil size={14} />
-                {t('common:rename')}
-              </button>
-              <button
-                onClick={() => { closeMenu(); confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(menuTopic.id) }) }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-              >
-                <Trash2 size={14} />
-                {t('common:delete')}
-              </button>
-            </div>,
-            document.body
-          )}
+          <ContextMenu
+            anchor={menu}
+            onClose={closeMenu}
+            items={[
+              {
+                key: 'rename',
+                label: t('common:rename'),
+                icon: <Pencil size={14} />,
+                onSelect: () => { setRenamingId(menuTopic!.id); setRenameText(menuTopic!.title) },
+              },
+              {
+                key: 'delete',
+                label: t('common:delete'),
+                icon: <Trash2 size={14} />,
+                danger: true,
+                onSelect: () => confirm({ message: t('tree.deleteConfirm'), onConfirm: () => deleteTopic.mutate(menuTopic!.id) }),
+              },
+            ]}
+          />
 
           {/* 空组不占位：下面的「新建话题」行已经说明该组还没有话题 */}
           {/* 与 Code 的「新会话」一致：新建入口放在列表下面，不占组行右侧 */}

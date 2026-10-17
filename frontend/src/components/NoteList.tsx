@@ -1,18 +1,16 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { FolderInput, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { useNotebooks } from '../hooks/useNotebooks'
-import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote, INotebook } from '../types'
-import { Button, Card, IconButton, SearchInput } from './ui'
+import { Card, ContextMenu, IconButton, SearchInput } from './ui'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -39,7 +37,6 @@ export default function NoteList({
   const { t } = useTranslation('notes')
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [containerHeight, setContainerHeight] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
@@ -138,8 +135,6 @@ export default function NoteList({
   }
 
   const closeMenu = useCallback(() => setMenu(null), [])
-
-  useDismissOnOutside(menu !== null, closeMenu, [menuRef])
 
   const handleScroll = useCallback(() => {
     if (scrollRef.current) setScrollTop(scrollRef.current.scrollTop)
@@ -339,59 +334,54 @@ export default function NoteList({
       </div>
 
       {/* 右键操作菜单 */}
-      {menu && createPortal(
-        <div
-          ref={menuRef}
-          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-100 bg-white glass py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
-          style={{
-            left: Math.min(menu.x, window.innerWidth - 188),
-            top: Math.min(menu.y, window.innerHeight - 260),
-            zIndex: 50,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => { closeMenu(); togglePin.mutate({ id: menu.note.id, isPinned: !menu.note.isPinned }) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            <Pin size={14} className={menu.note.isPinned ? 'text-blue-500' : 'text-gray-400'} />
-            {menu.note.isPinned ? t('list.unpin') : t('list.pin')}
-          </button>
-          <button
-            onClick={() => { closeMenu(); toggleFavorite.mutate({ id: menu.note.id, isFavorite: !menu.note.isFavorite }) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            <Star size={14} className={menu.note.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-400'} />
-            {menu.note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-gray-400">{t('list.moveToNotebook')}</div>
-          <div className="max-h-44 overflow-y-auto">
-            <button
-              onClick={() => { closeMenu(); moveNote.mutate({ id: menu.note.id, notebookId: undefined }) }}
-              className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${!menu.note.notebookId ? 'text-blue-600 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
-            >
-              <FolderInput size={14} className="text-gray-400" />
-              {t('list.noNotebook')}
-            </button>
-            {notebookOptions.map((nb) => (
-              <button
-                key={nb.id}
-                onClick={() => { closeMenu(); moveNote.mutate({ id: menu.note.id, notebookId: nb.id }) }}
-                className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${menu.note.notebookId === nb.id ? 'text-blue-600 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
-              >
-                <FolderInput size={14} className="text-gray-400" />
-                <span className="truncate">{nb.name}</span>
-              </button>
-            ))}
-          </div>
-          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <Button variant="ghost" tone="red" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); deleteNote.mutate(menu.note.id) }}>
-            <Trash2 size={14} />
-            {t('common:delete')}
-          </Button>
-        </div>,
-        document.body
+      {menu && (
+        <ContextMenu
+          anchor={menu}
+          onClose={closeMenu}
+          minWidth={180}
+          items={[
+            {
+              key: 'pin',
+              label: menu.note.isPinned ? t('list.unpin') : t('list.pin'),
+              icon: <Pin size={14} className={menu.note.isPinned ? 'text-blue-500' : 'text-gray-400'} />,
+              onSelect: () => togglePin.mutate({ id: menu.note.id, isPinned: !menu.note.isPinned }),
+            },
+            {
+              key: 'favorite',
+              label: menu.note.isFavorite ? t('list.unfavorite') : t('list.favorite'),
+              icon: <Star size={14} className={menu.note.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-400'} />,
+              onSelect: () => toggleFavorite.mutate({ id: menu.note.id, isFavorite: !menu.note.isFavorite }),
+            },
+            { kind: 'separator' },
+            {
+              key: 'move',
+              label: t('list.moveToNotebook'),
+              icon: <FolderInput size={14} className="text-gray-400" />,
+              items: [
+                {
+                  key: 'move-none',
+                  label: t('list.noNotebook'),
+                  checked: !menu.note.notebookId,
+                  onSelect: () => moveNote.mutate({ id: menu.note.id, notebookId: undefined }),
+                },
+                ...notebookOptions.map((nb) => ({
+                  key: `move-${nb.id}`,
+                  label: nb.name,
+                  checked: menu.note.notebookId === nb.id,
+                  onSelect: () => moveNote.mutate({ id: menu.note.id, notebookId: nb.id }),
+                })),
+              ],
+            },
+            { kind: 'separator' },
+            {
+              key: 'delete',
+              label: t('common:delete'),
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onSelect: () => deleteNote.mutate(menu.note.id),
+            },
+          ]}
+        />
       )}
     </Card>
   )
