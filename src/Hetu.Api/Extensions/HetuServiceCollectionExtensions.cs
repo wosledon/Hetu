@@ -236,6 +236,8 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<AgentLoopService>();
         // 运行中引导：所有端共享同一份内存队列（单例）
         services.AddSingleton<Hetu.Core.Services.AgentSteeringHub>();
+        // 编码会话运行注册表：循环生命周期与 HTTP 请求解耦，客户端断开不影响运行（单例）
+        services.AddSingleton<Hetu.Api.Streaming.WorkRunRegistry>();
         // 对话会话的实时权限模式：会话进行中切换审批档位立即生效（单例）
         services.AddSingleton<Hetu.Core.Services.AgentPermissionModeHub>();
         services.AddScoped<IWorkProjectService, WorkProjectService>();

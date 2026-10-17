@@ -6,7 +6,6 @@ using Hetu.Core.Streaming;
 using Hetu.Core.Utilities;
 
 namespace Hetu.Api.Streaming;
-
 /// <summary>
 /// SSE streaming helper that handles chunk emission, thinking tag parsing,
 /// and structured JSON event writing for the chat stream.
@@ -15,17 +14,32 @@ public class SseStreamWriter
 {
     private readonly HttpResponse _response;
     private readonly CancellationToken _cancellationToken;
+    /// <summary>运行期事件缓冲区：非空时每次写入都留一份，供客户端重连后重放</summary>
+    private readonly SseEventBuffer? _buffer;
 
-    public SseStreamWriter(HttpResponse response, CancellationToken cancellationToken)
+    public SseStreamWriter(HttpResponse response, CancellationToken cancellationToken, SseEventBuffer? buffer = null)
     {
         _response = response;
         _cancellationToken = cancellationToken;
+        _buffer = buffer;
     }
 
     public async Task WriteEventAsync(string data)
     {
-        await _response.WriteAsync($"data: {data}\n\n", _cancellationToken);
-        await _response.Body.FlushAsync(_cancellationToken);
+        _buffer?.Publish(data);
+        // 客户端已断开时写入会抛（请求被中止 / 连接重置）：这里只丢掉这次推送，
+        // 不往上抛—— Agent 循环的所有权在 WorkRunRegistry，不该被单个连接的死活带着走
+        if (_response.HasStarted)
+        {
+            try
+            {
+                await _response.WriteAsync($"data: {data}\n\n", _cancellationToken);
+                await _response.Body.FlushAsync(_cancellationToken);
+            }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+        }
     }
 
     /// <summary>
@@ -41,14 +55,43 @@ public class SseStreamWriter
             sb.Append("data: ").Append(line).Append('\n');
         }
         sb.Append('\n');
-        await _response.WriteAsync(sb.ToString(), _cancellationToken);
-        await _response.Body.FlushAsync(_cancellationToken);
+        _buffer?.Publish(sb.ToString(0, sb.Length - 1));
+        if (_response.HasStarted)
+        {
+            try
+            {
+                await _response.WriteAsync(sb.ToString(), _cancellationToken);
+                await _response.Body.FlushAsync(_cancellationToken);
+            }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+        }
     }
 
     public Task WriteJsonAsync(object payload)
         => WriteEventAsync(JsonSerializer.Serialize(payload, JsonDefaults.CamelCase));
 
     public Task WriteErrorAsync(string message) => WriteEventAsync($"[ERROR] {message}");
+
+    /// <summary>
+    /// 原样写出一个已格式化的事件（重放缓冲区用）：缓冲区里存的就是一整条 SSE data 块，
+    /// 不能再套一层协议头。
+    /// </summary>
+    public async Task WriteRawAsync(string data)
+    {
+        if (_response.HasStarted)
+        {
+            try
+            {
+                await _response.WriteAsync(data.EndsWith("\n\n") ? data : $"data: {data}\n\n", _cancellationToken);
+                await _response.Body.FlushAsync(_cancellationToken);
+            }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+        }
+    }
 
     public Task WriteDebugAsync(string text) => WriteJsonAsync(new { type = "debug", text });
 }
