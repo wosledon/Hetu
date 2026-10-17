@@ -406,7 +406,7 @@ const MilkdownEditorInner = forwardRef<MilkdownEditorHandle, MilkdownEditorProps
           ctx.update(mermaidConfigCtx.key, (config) => ({
             ...config,
             startOnLoad: false,
-            securityLevel: 'loose',
+            securityLevel: 'loose' as const,
           }))
         })
         .config(nord)
