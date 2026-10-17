@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- 产品版本：与桌面壳 shell/hetu-desktop/src-tauri/tauri.conf.json 的 version 保持一致，
          前端「关于」页通过 GET /api/system/version 读取此处 -->
-    <Version>0.3.16</Version>
+    <Version>0.3.17</Version>
     <!--
       关掉 .NET SDK 的静态资源预压缩：它会给 wwwroot 里每个 js/css 生成 .br 和 .gz 副本
       （约 5 MB）。而本应用用的是 UseStaticFiles()（物理文件提供程序），并不做预压缩协商——
