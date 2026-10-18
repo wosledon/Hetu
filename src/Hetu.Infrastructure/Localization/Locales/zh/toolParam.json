@@ -125,7 +125,7 @@
   "toolParam.set_note_tags.noteId": "笔记 ID",
   "toolParam.set_note_tags.tagIds": "标签 ID 列表（来自 list_tags）；空数组表示清空该笔记的标签",
   "toolParam.open_panel.panel": "要唤起的工作台面板（与 page 二选一）：browser=内置浏览器, pr=Pull Request, git=版本控制, terminal=终端, changes=文件更改, checkpoints=检查点, files=文件树",
-  "toolParam.open_panel.page": "要跳转的应用页面（与 panel 二选一）：notes=笔记, tags=标签, code=Code 会话, graph=知识图谱, knowledge=知识库, kanban=任务看板, tasks=后台任务, projects=项目, wiki=Wiki, memories=记忆, models=模型, agents=智能体, skills=技能, workflows=工作流, usage=用量, inbox=收件箱, apps=应用, tools=工具, proxy=代理, trash=回收站, settings=设置",
+  "toolParam.open_panel.page": "要跳转的应用页面（与 panel 二选一）：notes=笔记, tags=标签, code=Code 会话, graph=知识图谱, knowledge=知识库, kanban=任务看板, tasks=后台任务, projects=项目, wiki=Wiki, memories=记忆, models=模型, agents=智能体, skills=技能, workflows=工作流, usage=用量, inbox=收件箱, tools=工具, proxy=代理, trash=回收站, settings=设置",
   "toolParam.open_panel.url": "panel=browser 时要打开的网址（可选，不传则显示起始页；无协议时按 https 处理）",
   "toolParam.open_panel.path": "panel=files 时要在编辑器中打开的项目内相对路径（可选，不传则只显示文件树）",
   "toolParam.plan.title": "计划标题（一句话概括要做什么）",

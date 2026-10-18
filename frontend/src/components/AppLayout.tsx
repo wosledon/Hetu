@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, AppWindow, FolderInput, SquareKanban, Inbox, Wrench, MessageSquare } from 'lucide-react'
+import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, FolderInput, SquareKanban, Inbox, Wrench, MessageSquare } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
@@ -41,7 +41,6 @@ const allConfigurableItems = [
   { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
   { path: '/memories', labelKey: 'nav:memories', icon: Atom },
   { path: '/models', labelKey: 'nav:models', icon: Cpu },
-  { path: '/apps', labelKey: 'nav:apps', icon: AppWindow },
   { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
 ] as const
 

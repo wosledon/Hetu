@@ -32,7 +32,6 @@ public class OpenPanelTool : IToolExecutor
         ["workflows"] = "/workflows",
         ["usage"] = "/usage",
         ["inbox"] = "/inbox",
-        ["apps"] = "/apps",
         ["tools"] = "/tools",
         ["proxy"] = "/proxy",
         ["trash"] = "/trash",
@@ -60,7 +59,7 @@ public class OpenPanelTool : IToolExecutor
             },
             "page": {
                 "type": "string",
-                "enum": ["notes", "tags", "code", "graph", "knowledge", "kanban", "tasks", "projects", "wiki", "memories", "models", "agents", "skills", "workflows", "usage", "inbox", "apps", "tools", "proxy", "trash", "settings"],
+                "enum": ["notes", "tags", "code", "graph", "knowledge", "kanban", "tasks", "projects", "wiki", "memories", "models", "agents", "skills", "workflows", "usage", "inbox", "tools", "proxy", "trash", "settings"],
                 "description": "要跳转的应用页面（与 panel 二选一）：notes=笔记, graph=知识图谱, knowledge=知识库, kanban=任务看板, tasks=后台任务, inbox=收件箱, settings=设置 等"
             },
             "url": { "type": "string", "description": "panel=browser 时要打开的网址（可选，不传则显示起始页；无协议时按 https 处理）" },

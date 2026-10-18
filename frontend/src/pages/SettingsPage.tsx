@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -76,7 +76,6 @@ const configurableNavItems = [
   { path: '/tasks/scheduled', labelKey: 'navigation.items.scheduledTasks', icon: CalendarClock },
   { path: '/memories', labelKey: 'navigation.items.memories', icon: Atom },
   { path: '/models', labelKey: 'navigation.items.models', icon: Cpu },
-  { path: '/apps', labelKey: 'navigation.items.apps', icon: AppWindow },
   { path: '/workflows', labelKey: 'navigation.items.workflows', icon: GitBranch },
 ]
 

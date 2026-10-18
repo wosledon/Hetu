@@ -15,7 +15,6 @@ export default {
   tasksScheduled: 'Scheduled Tasks',
   memories: 'Memories',
   models: 'Models',
-  apps: 'Apps',
   workflows: 'Workflows',
   proxy: 'Proxy',
   usage: 'Usage',
