@@ -1,5 +1,5 @@
 import i18n from '../i18n'
-import { get, put, post } from './api'
+import { get, put } from './api'
 
 export interface IWebApp {
   id: string
@@ -48,8 +48,6 @@ export const appsService = {
     }
   },
   saveAll: (apps: IWebApp[]) => put<void>('/settings', { key: KEY, value: JSON.stringify(apps) }),
-  /** 探测站点是否允许 iframe 内嵌（后端代读响应头） */
-  checkEmbed: (url: string) => post<{ embeddable: boolean; reason: string }>('/apps/check-embed', { url }),
   /** 站点图标地址（后端解析 link rel=icon 并缓存；失败时前端回退字母头像） */
   faviconUrl: (url: string) => `/api/apps/favicon?url=${encodeURIComponent(url)}`,
 }

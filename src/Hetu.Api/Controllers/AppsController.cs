@@ -1,26 +1,16 @@
-using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
-using Hetu.Core.Interfaces;
-using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hetu.Api.Controllers;
 
 /// <summary>
-/// 网页应用辅助能力：探测目标站点是否允许被 iframe 内嵌
-/// （大模型网页普遍返回 CSP frame-ancestors 'none' / X-Frame-Options，前端无法跨域读取响应头，需后端代探）。
+/// 网页应用辅助能力：抓取站点图标（浏览器无法跨域读取目标站点的 favicon 声明，需后端代取）。
+/// 网页本身由桌面壳交给系统浏览器以应用模式打开，不再经过 iframe，因此不再探测内嵌响应头。
 /// </summary>
 [ApiController]
 [Route("api/apps")]
 public class AppsController : ControllerBase
 {
-    private readonly ILocalizer _localizer;
-
-    public AppsController(ILocalizer localizer)
-    {
-        _localizer = localizer;
-    }
-
     private const string BrowserUA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -35,76 +25,10 @@ public class AppsController : ControllerBase
 
     static AppsController()
     {
-        // 必须带真实浏览器 UA：部分站点（如 DeepSeek）对非浏览器客户端下发不含 CSP 的变体页面，
-        // 用裸 UA 探测会误判为"可内嵌"。
+        // 带真实浏览器 UA：部分站点对非浏览器客户端返回不同的页面（图标声明也会缺）。
         Http.DefaultRequestHeaders.UserAgent.ParseAdd(BrowserUA);
         Http.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
         Http.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-    }
-
-    public record CheckEmbedRequest(string? Url);
-
-    public record CheckEmbedResult(bool Embeddable, string Reason);
-
-    /// <summary>探测 URL 是否允许被内嵌；同时给出最终跳转后的地址</summary>
-    [HttpPost("check-embed")]
-    public async Task<ApiResponse<CheckEmbedResult>> CheckEmbed([FromBody] CheckEmbedRequest request, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(request.Url))
-            return ApiResponse<CheckEmbedResult>.Fail(_localizer.T("apps.urlRequired"));
-        if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-            return ApiResponse<CheckEmbedResult>.Fail(_localizer.T("apps.invalidUrl"));
-
-        try
-        {
-            using var response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
-            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? request.Url;
-
-            var xfo = HeaderValue(response, "X-Frame-Options");
-            if (!string.IsNullOrWhiteSpace(xfo) &&
-                !xfo.Contains("allow-all", StringComparison.OrdinalIgnoreCase))
-            {
-                return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.xfoBlocked", xfo)));
-            }
-
-            var csp = HeaderValue(response, "Content-Security-Policy");
-            if (!string.IsNullOrWhiteSpace(csp))
-            {
-                var ancestors = ExtractFrameAncestors(csp);
-                if (ancestors != null && !ancestors.Contains('*') && !ancestors.Contains("http:", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.cspBlocked", ancestors.Trim())));
-                }
-            }
-
-            return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(true, finalUrl));
-        }
-        catch (Exception ex)
-        {
-            // 探测失败（超时/403 反爬等）时保守按不可内嵌处理，避免用户在 iframe 里撞到拒绝连接
-            return ApiResponse<CheckEmbedResult>.Ok(new CheckEmbedResult(false, _localizer.T("apps.embedUnknown", ex.Message)));
-        }
-    }
-
-    /// <summary>响应头可能落在 Headers 或 Content.Headers（.NET 对非标准头的归属不一致），两处都查</summary>
-    private static string? HeaderValue(HttpResponseMessage response, string name)
-    {
-        if (response.Headers.TryGetValues(name, out var values))
-            return string.Join(',', values);
-        if (response.Content.Headers.TryGetValues(name, out values))
-            return string.Join(',', values);
-        return null;
-    }
-
-    /// <summary>从 CSP 里取 frame-ancestors 指令内容；不存在返回 null</summary>
-    private static string? ExtractFrameAncestors(string csp)
-    {
-        foreach (var directive in csp.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (directive.StartsWith("frame-ancestors", StringComparison.OrdinalIgnoreCase))
-                return directive["frame-ancestors".Length..];
-        }
-        return null;
     }
 
     /* ─────────────── 站点图标 ─────────────── */

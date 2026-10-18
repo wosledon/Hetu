@@ -1,10 +1,4 @@
 {
-  "apps.urlRequired": "缺少 URL",
-  "apps.invalidUrl": "URL 不合法",
-  "apps.xfoBlocked": "站点返回 X-Frame-Options: {0}，禁止内嵌",
-  "apps.cspBlocked": "站点 CSP frame-ancestors 禁止内嵌（{0}）",
-  "apps.embedUnknown": "无法确认是否可内嵌（{0}），改用应用窗口打开",
-
   "chat.topicNotFound": "话题不存在",
   "chat.questionNotFound": "未找到对应的提问请求",
   "chat.approvalNotFound": "未找到对应的审批请求",

@@ -1,10 +1,4 @@
 {
-  "apps.urlRequired": "URL is required",
-  "apps.invalidUrl": "Invalid URL",
-  "apps.xfoBlocked": "Site returned X-Frame-Options: {0}, embedding is blocked",
-  "apps.cspBlocked": "Site CSP frame-ancestors blocks embedding ({0})",
-  "apps.embedUnknown": "Unable to confirm whether embedding is allowed ({0}), opening in an app window instead",
-
   "chat.topicNotFound": "Topic not found",
   "chat.questionNotFound": "No matching question request found",
   "chat.approvalNotFound": "No matching approval request found",

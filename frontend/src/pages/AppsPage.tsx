@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, AppWindow, ArrowLeft, ExternalLink, Globe, Loader2, Pencil, Plus, RefreshCw, Trash2, X,
+  AlertCircle, Globe, Info, Loader2, Pencil, Plus, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { appsService, normalizeUrl, getWebAppPresets } from '../services/appsService'
 import type { IWebApp } from '../services/appsService'
-import { isTauri, openAppWebview, openExternal } from '../utils/tauri'
+import { isTauri, openAppWindow, openExternal } from '../utils/tauri'
 import { Button, Card, IconButton, Input, Modal, PageContainer } from '../components/ui'
 
 /** 从 URL 取展示用主机名 */
@@ -57,11 +57,14 @@ function avatarClass(name: string): string {
 export default function AppsPage() {
   const { t } = useTranslation('settings')
   const queryClient = useQueryClient()
-  const [openedApp, setOpenedApp] = useState<IWebApp | null>(null)
+  const desktop = isTauri()
   const [editingApp, setEditingApp] = useState<IWebApp | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', url: '' })
   const [formError, setFormError] = useState('')
+  /** 内置 WebView 打开时的提醒（桌面壳里找不到 Chromium 浏览器才会走到） */
+  const [webviewNotice, setWebviewNotice] = useState<{ name: string; url: string } | null>(null)
+  const [openError, setOpenError] = useState('')
   const presets = getWebAppPresets()
 
   const { data: apps = [], isLoading } = useQuery({
@@ -110,7 +113,6 @@ export default function AppsPage() {
 
   const handleDelete = (app: IWebApp) => {
     saveMutation.mutate(apps.filter((a) => a.id !== app.id))
-    if (openedApp?.id === app.id) setOpenedApp(null)
   }
 
   const applyPreset = (preset: { name: string; url: string }) => {
@@ -119,36 +121,31 @@ export default function AppsPage() {
   }
 
   /**
-   * 打开应用：
-   * - 先探测站点是否允许内嵌（大模型网页多为 CSP frame-ancestors 'none'，iframe 必被拒绝）
-   * - 可内嵌 → 页内 iframe 视图；不可内嵌 → 桌面壳用应用内独立窗口，浏览器用系统新窗口
+   * 桌面壳：交给壳侧开独立窗口。
+   * 优先系统 Chromium 浏览器的应用模式（真实内核，登录可用），没有浏览器时才退回内置 WebView。
+   * 浏览器：卡片本身就是 <a target="_blank">，点击直接由浏览器打开，不会走到这里。
    */
-  const handleOpen = async (app: IWebApp) => {
+  const handleOpen = (app: IWebApp) => {
     const url = normalizeUrl(app.url)
-    try {
-      const probe = await appsService.checkEmbed(url)
-      if (probe?.embeddable) {
-        setOpenedApp(app)
-        return
-      }
-    } catch { /* 探测失败按不可内嵌处理 */ }
-    if (isTauri()) {
-      await openAppWebview(url, app.name)
-      return
-    }
-    openExternal(url)
+    if (!url) return
+    setOpenError('')
+    void openAppWindow(url, app.name)
+      .then((mode) => {
+        if (mode === 'webview') setWebviewNotice({ name: app.name, url })
+        else if (mode === 'failed') setOpenError(t('apps.openFailed'))
+      })
+      .catch(() => setOpenError(t('apps.openFailed')))
   }
 
-  /* ───────── 打开应用：全屏内嵌浏览器 ───────── */
-
-  if (openedApp) {
-    return (
-      <EmbeddedAppView
-        app={openedApp}
-        onClose={() => setOpenedApp(null)}
-      />
-    )
-  }
+  const cardBody = (app: IWebApp) => (
+    <>
+      <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
+      <span className="w-full">
+        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">{app.name}</span>
+        <span className="block truncate text-[11px] text-gray-400">{hostOf(app.url)}</span>
+      </span>
+    </>
+  )
 
   return (
     <AppLayout showSidebar={false} mainContent={
@@ -167,13 +164,39 @@ export default function AppsPage() {
         </Button>
       </div>
 
+      {/* 打开方式说明：先讲清预期，避免把「登录不了」当成故障 */}
+      <div className="mb-5 flex items-start gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/60 px-4 py-3 text-[12px] leading-relaxed text-cyan-800 dark:border-cyan-800/40 dark:bg-cyan-950/20 dark:text-cyan-200">
+        <Info size={14} className="mt-0.5 shrink-0" />
+        <span className="min-w-0 flex-1">{desktop ? t('apps.windowHintDesktop') : t('apps.windowHintBrowser')}</span>
+      </div>
+
+      {webviewNotice && (
+        <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1">{t('apps.webviewFallback', { name: webviewNotice.name })}</span>
+          <Button variant="primary" tone="amber" className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-amber-700" onClick={() => openExternal(webviewNotice.url)}>
+            {t('apps.openInBrowser')}
+          </Button>
+          <IconButton variant="ghost" tone="gray" className="shrink-0 rounded-md p-1 text-amber-700 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/30" label={t('common:close')} onClick={() => setWebviewNotice(null)}>
+            <X size={13} />
+          </IconButton>
+        </div>
+      )}
+
+      {openError && (
+        <div className="mb-5 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700 dark:border-red-800/50 dark:bg-red-950/30 dark:text-red-300">
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1">{openError}</span>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-24"><Loader2 size={24} className="animate-spin text-cyan-500" /></div>
       ) : apps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
           <Globe size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('apps.empty')}</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-gray-400">
+          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-gray-400">
             {t('apps.emptyHint')}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -193,14 +216,21 @@ export default function AppsPage() {
                 key={app.id}
                 className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
               >
-                <button onClick={() => void handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
-                  <AppIcon name={app.name} url={app.url} className="h-10 w-10" />
-                  <span className="w-full">
-                    <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">{app.name}</span>
-                    <span className="block truncate text-[11px] text-gray-400">{hostOf(app.url)}</span>
-                  </span>
-                </button>
-                <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                {desktop ? (
+                  <button type="button" onClick={() => handleOpen(app)} className="flex flex-col items-start gap-2.5 text-left">
+                    {cardBody(app)}
+                  </button>
+                ) : (
+                  <a
+                    href={normalizeUrl(app.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-start gap-2.5 text-left"
+                  >
+                    {cardBody(app)}
+                  </a>
+                )}
+                <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                   <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('common:edit')} onClick={() => openEdit(app)}
                     title={t('common:edit')}
                     aria-label={t('common:edit')}>
@@ -240,7 +270,7 @@ export default function AppsPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingApp ? t('apps.editTitle') : t('apps.add')}</h3>
               </div>
-              <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={18} /></button>
+              <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={t('common:close')}><X size={18} /></button>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
@@ -288,76 +318,6 @@ export default function AppsPage() {
             </div>
         </Modal>
       )}
-      </PageContainer>
-    } />
-  )
-}
-
-/** 内嵌浏览器视图（纯浏览器模式）：工具条 + iframe + 拒绝连接提示 */
-function EmbeddedAppView({ app, onClose }: { app: IWebApp; onClose: () => void }) {
-  const { t } = useTranslation('settings')
-  const [frameKey, setFrameKey] = useState(0)
-  // 超时按「当前 frame + url」记录，切换后自动失效（派生值，避免 effect 里同步 setState 重置）
-  const [timedOutKey, setTimedOutKey] = useState<string | null>(null)
-  const url = normalizeUrl(app.url)
-  const currentKey = `${frameKey}|${url}`
-  const timedOut = timedOutKey === currentKey
-
-  // iframe 被 X-Frame-Options / CSP 拒绝时不会抛错，只会停留空白；
-  // 4 秒仍无加载完成即提示用户改用其他打开方式。
-  useEffect(() => {
-    const timer = window.setTimeout(() => setTimedOutKey(currentKey), 4000)
-    return () => window.clearTimeout(timer)
-  }, [currentKey])
-
-  return (
-    <AppLayout showSidebar={false} mainContent={
-      <PageContainer variant="fill" className="flex-col bg-transparent">
-        {/* 工具条 */}
-        <div className="flex h-11 shrink-0 items-center gap-1 border-b border-gray-200 bg-white glass px-3 dark:border-gray-800 dark:bg-gray-900">
-          <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800" onClick={onClose} title={t('apps.backToList')}>
-            <ArrowLeft size={14} />
-            {t('apps.backLabel')}
-          </Button>
-          <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setFrameKey((k) => k + 1)} title={t('common:refresh')}>
-            <RefreshCw size={14} />
-          </Button>
-          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => void openAppWebview(url, app.name)} title={t('apps.openInAppWindow')}>
-            <AppWindow size={14} />
-          </Button>
-          <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => openExternal(url)} title={t('apps.openInBrowser')}>
-            <ExternalLink size={14} />
-          </Button>
-          <div className="mx-1 flex min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
-            <Globe size={12} className="shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 truncate text-[12px] text-gray-600 dark:text-gray-300">{url}</span>
-          </div>
-          <span className="shrink-0 text-[12px] font-medium text-gray-500 dark:text-gray-400">{app.name}</span>
-        </div>
-
-        {/* 提示条：4 秒未加载完成时说明内嵌被拒绝 */}
-        {timedOut && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
-            <AlertCircle size={13} className="shrink-0" />
-            <span className="min-w-0 flex-1">{t('apps.embedBlocked')}</span>
-            <Button variant="primary" tone="amber" className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[12px] font-medium text-white hover:bg-amber-700" onClick={() => void openAppWebview(url, app.name)}>
-              {t('apps.openAppWindow')}
-            </Button>
-          </div>
-        )}
-
-        {/* 网页 */}
-        <div className="min-h-0 flex-1 bg-white dark:bg-[#0c0f1a]">
-          <iframe
-            key={frameKey}
-            src={url}
-            title={app.name}
-            className="h-full w-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
       </PageContainer>
     } />
   )
