@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppWindow, BookOpen, Code, GitBranch, Layers, MessageSquare, RefreshCw, ShieldCheck, Star } from 'lucide-react'
+import { BookOpen, Code, GitBranch, Layers, MessageSquare, RefreshCw, ShieldCheck, Star } from 'lucide-react'
 import { systemService } from '../services/systemService'
 import { updateService } from '../services/updateService'
 import { useUpdateStore } from '../stores/updateStore'
@@ -14,7 +14,6 @@ const ABOUT_FEATURES = [
   { icon: Code, labelKey: 'about.features.code.label', descKey: 'about.features.code.desc' },
   { icon: GitBranch, labelKey: 'about.features.workflows.label', descKey: 'about.features.workflows.desc' },
   { icon: Layers, labelKey: 'about.features.skills.label', descKey: 'about.features.skills.desc' },
-  { icon: AppWindow, labelKey: 'about.features.apps.label', descKey: 'about.features.apps.desc' },
 ]
 
 const ABOUT_STACK = [

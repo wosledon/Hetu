@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Extensions &amp; MCP · Hetu</title>
-<meta name="description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls, embedded apps.">
+<meta name="description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/extensions.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/extensions.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/extensions.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Extensions &amp; MCP · Hetu">
-<meta property="og:description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls, embedded apps.">
+<meta property="og:description" content="Extensions in detail: agents (presets, tool allowlists, per-tool approval, import/export), skills (built-in, custom, on-disk), built-in tools, MCP configuration and calls.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/extensions.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -138,20 +138,7 @@ Review the selected code in this order:
   "systemPrompt": "Report only real defects, each with a minimal reproduction and a fix.",
   "allowedTools": ["read_file", "search_code", "run_command"],
   "toolPolicies": { "run_command": "ask", "update_note": "silent" }
-}</code></pre></div><h2>Apps (dedicated window)</h2>
-      <p>Entry: <code>/apps</code>. Register frequently used pages as “apps” and open them in one click instead of digging through browser tabs. The “Popular models” row adds DeepSeek, Tongyi Qianwen, Kimi, Doubao, ChatGPT, Claude, Gemini and others in one click.</p>
-      <p>Chat sites almost always refuse to be embedded via <code>X-Frame-Options</code> / CSP <code>frame-ancestors</code>, and Google sign-in rejects embedded WebViews outright. Hetu therefore drops the iframe preview and hands the page to the Chromium browser installed on the machine, opened in app mode.</p>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Item</th><th>Details</th></tr></thead>
-        <tbody>
-          <tr><td>Registration</td><td>Name plus URL (a local service such as <code>http://localhost:5174</code>, or any site); presets add popular models in one click</td></tr>
-          <tr><td>Opening</td><td>On desktop, Edge / Chrome / Brave / Chromium open a <code>--app</code> window: no address bar or tabs, so it still feels built in</td></tr>
-          <tr><td>Sign-in</td><td>One profile per site (<code>&lt;data dir&gt;/apps/&lt;host&gt;-&lt;hash&gt;</code>); cookies and sessions persist across restarts without touching your everyday browser</td></tr>
-          <tr><td>Fallback</td><td>With no Chromium browser installed, Hetu falls back to the built-in WebView window and suggests the system browser (Google sign-in usually only works in a real browser)</td></tr>
-          <tr><td>Browser mode</td><td>When running from source or in a browser, a click opens a new tab and your browser manages the session</td></tr>
-        </tbody>
-      </table></div>
-    <div class="docs-pager"><a href="organize.html">← Kanban & automation</a><a href="models.html">Models & usage →</a></div>
+}</code></pre></div><div class="docs-pager"><a href="organize.html">← Kanban & automation</a><a href="models.html">Models & usage →</a></div>
     </div>
   </div>
 </main>

@@ -32,7 +32,6 @@ const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'))
 const ProxyPage = lazy(() => import('./pages/ProxyPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
 const InboxPage = lazy(() => import('./pages/InboxPage'))
-const AppsPage = lazy(() => import('./pages/AppsPage'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
@@ -162,6 +161,8 @@ function App() {
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/chat" element={<Navigate to="/code" replace />} />
         <Route path="/work" element={<Navigate to="/code" replace />} />
+        {/* 应用页已移除：旧书签与文档链接回落到首页 */}
+        <Route path="/apps" element={<Navigate to="/" replace />} />
         <Route path="/code" element={<WorkPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/skills" element={<SkillsPage />} />
@@ -181,7 +182,6 @@ function App() {
         <Route path="/proxy" element={<ProxyPage />} />
         <Route path="/usage" element={<UsagePage />} />
         <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/apps" element={<AppsPage />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />

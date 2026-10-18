@@ -85,7 +85,7 @@ pwsh ./scripts/start.ps1     # Windows
 | **Knowledge** | Chunking and embeddings for notes/files/URLs, index coverage, semantic search playground, knowledge graph, project Wiki generation — Wiki pages are projected into the knowledge base and graph | [Knowledge base](docs/guide/knowledge.html) · [Graph & Wiki](docs/guide/graph-wiki.html) |
 | **Memory** | Global/session/project scopes, recall scoring, memory graph, Dream consolidation (merge, decay, forget) | [Memories & Dream](docs/guide/memories.html) |
 | **Automation** | Kanban tasks executed by agents, visual workflows, background and Cron jobs, inbox notifications | [Kanban & automation](docs/guide/organize.html) |
-| **Extensibility** | Agent presets with tool allowlists, skills (`/skill-name`), built-in tool toggles, MCP servers, and web apps opened in dedicated browser windows | [Extensions & MCP](docs/guide/extensions.html) |
+| **Extensibility** | Agent presets with tool allowlists, skills (`/skill-name`), built-in tool toggles and MCP servers | [Extensions & MCP](docs/guide/extensions.html) |
 | **Models & cost** | Multiple providers, per-scenario defaults, OpenAI/Anthropic-compatible proxy, token and cost analytics, compression pipeline | [Models & usage](docs/guide/models.html) |
 
 ## Screenshots
@@ -185,7 +185,7 @@ Hetu/
 └── AGENTS.md                                     # Implementation conventions
 ```
 
-Main routes (`frontend/src/App.tsx`): `/` notes · `/code` agent workspace · `/projects` · `/knowledge-base` · `/graph` · `/wiki` · `/memories` · `/kanban` · `/workflows` · `/tasks/background` · `/tasks/scheduled` · `/agents` · `/skills` · `/tools` · `/models` · `/proxy` · `/usage` · `/inbox` · `/apps` · `/tags` · `/trash` · `/settings` · `/share/:code`.
+Main routes (`frontend/src/App.tsx`): `/` notes · `/code` agent workspace · `/projects` · `/knowledge-base` · `/graph` · `/wiki` · `/memories` · `/kanban` · `/workflows` · `/tasks/background` · `/tasks/scheduled` · `/agents` · `/skills` · `/tools` · `/models` · `/proxy` · `/usage` · `/inbox` · `/tags` · `/trash` · `/settings` · `/share/:code`.
 
 </details>
 

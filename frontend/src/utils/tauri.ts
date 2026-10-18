@@ -28,54 +28,6 @@ export function isTauriAclError(message?: string): boolean {
   return !!message && /not allowed by ACL|not allowed/i.test(message)
 }
 
-/**
- * 打开应用内嵌网页窗口。
- * - 桌面壳：创建/聚焦独立 WebViewWindow（不受 X-Frame-Options 限制）
- * - 浏览器：退回系统新窗口
- */
-export async function openAppWebview(url: string, title: string): Promise<'webview' | 'external'> {
-  if (!isTauri()) {
-    window.open(url, '_blank', 'noopener')
-    return 'external'
-  }
-  try {
-    // 命令成功时返回 null（Rust 的 Result<(), _>），不能用返回值判断成败
-    await tauriInvoke('open_app_webview', { url, title })
-    return 'webview'
-  } catch {
-    return 'external'
-  }
-}
-
-/**
- * 打开网页应用（新的统一入口）。
- * - 桌面壳：优先系统 Chromium 浏览器的应用模式窗口：真实浏览器内核，
- *   Google 等站点不会像对待嵌入式 WebView 那样拒绝登录；每个站点独立配置目录，
- *   Cookie 跨重启保留。没有 Chromium 浏览器时退回内置 WebView 窗口。
- * - 浏览器：同步打开新标签页；调用方应在点击事件里直接调用，避免被弹窗拦截。
- */
-export async function openAppWindow(url: string, title: string): Promise<'browser' | 'webview' | 'system' | 'failed'> {
-  if (!isTauri()) {
-    window.open(url, '_blank', 'noopener,noreferrer')
-    return 'system'
-  }
-  try {
-    const mode = await tauriInvoke<string>('open_app_window', { url, title })
-    if (mode === 'browser' || mode === 'webview') return mode
-  } catch { /* 老版本壳没有该命令，退回 open_app_webview */ }
-  try {
-    await tauriInvoke('open_app_webview', { url, title })
-    return 'webview'
-  } catch { /* 两条命令都不可用 */ }
-  try {
-    // open_external 成功时同样返回 null，以「是否抛错」判断
-    await tauriInvoke('open_external', { url })
-    return 'system'
-  } catch {
-    return 'failed'
-  }
-}
-
 /** 壳命令等待上限：IPC 无响应时不能让点击变成"没反应" */
 const SHELL_OPEN_TIMEOUT_MS = 1500
 
@@ -83,7 +35,7 @@ const SHELL_OPEN_TIMEOUT_MS = 1500
  * 用系统默认浏览器打开外链。
  * - 桌面壳：webview 会拦掉 window.open / <a target="_blank">，必须走壳侧命令
  * - 浏览器：直接新标签页
- * 壳命令不可用或超时（老版本壳、IPC 降级）时退回应用内窗口，至少点得开。
+ * 壳命令不可用时退回 window.open（Tauri 里可能被拦截，但至少尝试过）。
  */
 export function openExternal(url: string): void {
   if (!isTauri()) {
@@ -97,9 +49,6 @@ export function openExternal(url: string): void {
         window.setTimeout(() => resolve(false), SHELL_OPEN_TIMEOUT_MS)
       }),
     ]).catch(() => false)
-    if (opened) return
-    // 壳命令没响应：退回应用内窗口（open_app_webview 这条命令更早就有）
-    const fallback = await openAppWebview(url, url)
-    if (fallback === 'external') window.open(url, '_blank', 'noopener')
+    if (!opened) window.open(url, '_blank', 'noopener')
   })()
 }
