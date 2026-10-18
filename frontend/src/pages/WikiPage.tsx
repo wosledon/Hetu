@@ -273,6 +273,8 @@ export default function WikiPage() {
 
   const busy = activeJob != null && (activeJob.status === 0 || activeJob.status === 1)
   const generating = busy || generateMutation.isPending
+  // 旧数据或自动同步失败：整套页面都还没有知识库投影时给出提示
+  const setNeedsSync = !!selectedSet && pagesOfSet.length > 0 && pagesOfSet.every((p) => !p.knowledgeItemId)
 
   const selectProject = (project: IManagedProject | null) => {
     const params = new URLSearchParams(searchParams)
@@ -599,6 +601,21 @@ export default function WikiPage() {
               {toast.ok ? <Check size={13} /> : <AlertCircle size={13} />}
               <span className="min-w-0 flex-1">{toast.text}</span>
               <button onClick={() => setToast(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5"><X size={12} /></button>
+            </div>
+          )}
+
+          {/* 旧数据提示：整套页面还没有知识库投影 */}
+          {setNeedsSync && (
+            <div className="flex shrink-0 items-center gap-2 bg-amber-50 px-6 py-2 text-[12px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle size={13} />
+              <span className="min-w-0 flex-1">{t('wiki.notSyncedHint')}</span>
+              <button
+                onClick={() => selectedSet && syncMutation.mutate(selectedSet.setId)}
+                disabled={syncMutation.isPending}
+                className="shrink-0 rounded-full border border-amber-300 px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/30"
+              >
+                {t('wiki.sync')}
+              </button>
             </div>
           )}
 

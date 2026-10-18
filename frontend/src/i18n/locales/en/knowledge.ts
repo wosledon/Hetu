@@ -38,6 +38,7 @@ export default {
     syncNoEmbedding: 'No embedding model configured, indexing not queued',
     syncNoGraph: 'No available model, graph extraction not queued',
     inKnowledgeBase: 'In knowledge base',
+    notSyncedHint: 'This Wiki set is not in the knowledge base or graph yet — use “Sync knowledge & graph” to add it.',
     inKnowledgeBaseTitle: 'This page is projected into the knowledge base; check its index status on the Knowledge base page',
     modelPickerTitle: 'Choose the model used for generation',
     defaultModel: 'Default model',
