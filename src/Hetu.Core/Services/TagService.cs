@@ -82,19 +82,21 @@ public class TagService : ITagService
         var target = await _unitOfWork.Tags.GetByIdAsync(request.TargetTagId, cancellationToken);
         if (target == null) return ApiResponse.Fail(_localizer.T("tag.targetNotFound"));
 
-        foreach (var sourceId in request.SourceTagIds)
-        {
-            if (sourceId == request.TargetTagId) continue;
+        var sourceIds = request.SourceTagIds.Where(id => id != request.TargetTagId).Distinct().ToList();
+        var noteIdsByTag = await _unitOfWork.Notes.GetNoteIdsByTagsAsync(sourceIds, cancellationToken);
+        var sources = (await _unitOfWork.Tags.FindAsync(t => sourceIds.Contains(t.Id), cancellationToken))
+            .ToDictionary(t => t.Id);
 
-            var noteIds = await _unitOfWork.Notes.GetNoteIdsByTagAsync(sourceId, cancellationToken);
+        foreach (var sourceId in sourceIds)
+        {
+            var noteIds = noteIdsByTag.GetValueOrDefault(sourceId, []);
             if (noteIds.Count > 0)
             {
                 await _unitOfWork.Notes.AddTagToNotesAsync(request.TargetTagId, noteIds, cancellationToken);
                 await _unitOfWork.Notes.RemoveTagFromNotesAsync(sourceId, noteIds, cancellationToken);
             }
 
-            var source = await _unitOfWork.Tags.GetByIdAsync(sourceId, cancellationToken);
-            if (source != null)
+            if (sources.TryGetValue(sourceId, out var source))
             {
                 await _unitOfWork.Tags.DeleteAsync(source, cancellationToken);
             }

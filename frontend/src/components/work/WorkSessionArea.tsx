@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   ChevronDown, Loader2,
 
@@ -246,6 +246,7 @@ export default function WorkSessionArea({
   const [contextNotice, setContextNotice] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
   const seqRef = useRef(0)
@@ -282,14 +283,20 @@ export default function WorkSessionArea({
   // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流
   const isStreaming = localStreaming || (runStatus?.active ?? false)
 
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ['workMessages', session?.id],
-    queryFn: () => (session ? workSessionService.getMessages(session.id) : Promise.resolve([])),
+  // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
+  const [messagePageSize, setMessagePageSize] = useState(200)
+  const { data: messagePage, isLoading: messagesLoading } = useQuery({
+    queryKey: ['workMessages', session?.id, messagePageSize],
+    queryFn: () => (session ? workSessionService.getMessagesPage(session.id, 1, messagePageSize) : Promise.resolve(null)),
     enabled: !!session?.id,
+    // 扩大窗口时保留上一页，避免列表短暂清空、滚动位置丢失
+    placeholderData: keepPreviousData,
     // 有流在跑（含切走页面期间恢复的运行态）时轮询回读：
     // 组件卸载过，streamItems 拿不回来，只能靠消息落库看到进度
     refetchInterval: isStreaming ? 2000 : false,
   })
+  const messages = useMemo(() => messagePage?.items ?? [], [messagePage])
+  const totalMessages = messagePage?.totalCount ?? 0
 
   // 任务面板回填：todo 工具调用是落库的，但交互状态只在 SSE 存活期间累积。
   // 切走再回来 / 刷新后 store 里没有这份会话的 todos，抽屉就空了——按历史重放补回来。
@@ -683,6 +690,14 @@ export default function WorkSessionArea({
   }
 
   useEffect(() => {
+    // 加载更早消息时保持视口位置：新内容追加在顶部，按高度差补偿 scrollTop
+    const restore = loadingOlderRef.current
+    const container = scrollRef.current
+    if (restore && container) {
+      container.scrollTop = restore.scrollTop + (container.scrollHeight - restore.scrollHeight)
+      loadingOlderRef.current = null
+      return
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamItems])
 
@@ -754,6 +769,12 @@ export default function WorkSessionArea({
     [showOlder, sentThisVisit, lastUserIndex, orderedMessages],
   )
   const olderCount = showOlder || sentThisVisit || lastUserIndex <= 0 ? 0 : lastUserIndex
+  const unloadedCount = Math.max(0, totalMessages - messages.length)
+  const loadEarlierMessages = () => {
+    const container = scrollRef.current
+    if (container) loadingOlderRef.current = { scrollHeight: container.scrollHeight, scrollTop: container.scrollTop }
+    setMessagePageSize((size) => Math.min(totalMessages, size + 200))
+  }
   const railItems = useMemo(
     () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
     [visibleMessages],
@@ -1392,7 +1413,11 @@ export default function WorkSessionArea({
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
-          {olderCount > 0 && (
+          {unloadedCount > 0 ? (
+            <Button variant="secondary" pill className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={loadEarlierMessages}>
+              <ChevronDown size={11} />{t('session.loadEarlier', { count: unloadedCount })}
+            </Button>
+          ) : olderCount > 0 && (
             <Button variant="secondary" pill className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={() => setShowOlder(true)}>
               <ChevronDown size={11} />{t('session.expandOlder', { count: olderCount })}
             </Button>

@@ -216,6 +216,21 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
         return ids;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, List<Guid>>> GetNoteIdsByTagsAsync(IEnumerable<Guid> tagIds, CancellationToken cancellationToken = default)
+    {
+        var ids = tagIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, List<Guid>>();
+
+        var rows = await Context.NoteTags
+            .AsNoTracking()
+            .Where(nt => ids.Contains(nt.TagId))
+            .Select(nt => new { nt.TagId, nt.NoteId })
+            .ToListAsync(cancellationToken);
+        return rows
+            .GroupBy(r => r.TagId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.NoteId).ToList());
+    }
+
     public async Task AddTagToNotesAsync(Guid tagId, IEnumerable<Guid> noteIds, CancellationToken cancellationToken = default)
     {
         var existing = await Context.NoteTags

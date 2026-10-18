@@ -129,44 +129,70 @@ public class WorkGitService
         var runner = await ResolveRunnerAsync(projectId, sessionId, cancellationToken);
         if (runner == null) return status;
 
-        var (branchCode, branchOutput) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
-        if (branchCode != 0) return status; // 非 git 仓库或 git 不可用
+        // 一次 git status 同时拿到分支/上游/领先落后与文件变更：大仓库上省掉两次全量扫描
+        var (code, output) = await RunGitAsync(runner, "status --porcelain --branch", cancellationToken: cancellationToken);
+        if (code != 0) return status; // 非 git 仓库或 git 不可用
         status.IsRepo = true;
-        status.Branch = branchOutput.Trim();
 
-        var (_, porcelain) = await RunGitAsync(runner, "status --porcelain", cancellationToken: cancellationToken);
-        foreach (var line in porcelain.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var raw in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var trimmed = line.TrimEnd('\r');
-            if (trimmed.Length < 4) continue;
-            var code = trimmed[..2].Trim();
-            var path = trimmed[3..].Trim();
+            var line = raw.TrimEnd('\r');
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                ParseBranchHeader(line[3..], status);
+                continue;
+            }
+            if (line.Length < 4) continue;
+            var fileCode = line[..2].Trim();
+            var path = line[3..].Trim();
             // 重命名 "old -> new" 取新路径
             var arrow = path.IndexOf(" -> ", StringComparison.Ordinal);
             if (arrow >= 0) path = path[(arrow + 4)..];
-            status.Files.Add(new WorkGitFileStatusDto { Path = path, Status = code.Length == 0 ? "??" : code });
+            status.Files.Add(new WorkGitFileStatusDto { Path = path, Status = fileCode.Length == 0 ? "??" : fileCode });
         }
+        return status;
+    }
 
-        // 上游与领先/落后：porcelain=v2 的 branch.* 头信息（不用 @{u}，避免 PowerShell 把 @{} 当哈希表解析）
-        var (_, v2) = await RunGitAsync(runner, "status --porcelain=v2 --branch", cancellationToken: cancellationToken);
-        foreach (var line in v2.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+    /// <summary>解析 `git status --branch` 的 `## main...origin/main [ahead 1, behind 2]` 头</summary>
+    private static void ParseBranchHeader(string header, WorkGitStatusDto status)
+    {
+        var bracket = header.LastIndexOf(" [", StringComparison.Ordinal);
+        if (bracket >= 0 && header.EndsWith("]", StringComparison.Ordinal))
         {
-            var trimmed = line.TrimEnd('\r');
-            if (trimmed.StartsWith("# branch.upstream ", StringComparison.Ordinal))
+            var counters = header[(bracket + 2)..^1];
+            header = header[..bracket];
+            foreach (var part in counters.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                status.Upstream = trimmed["# branch.upstream ".Length..].Trim();
-            }
-            else if (trimmed.StartsWith("# branch.ab ", StringComparison.Ordinal))
-            {
-                var parts = trimmed["# branch.ab ".Length..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 2 && parts[0].StartsWith('+') && parts[1].StartsWith('-'))
+                var bits = part.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (bits.Length == 2 && int.TryParse(bits[1], out var count))
                 {
-                    if (int.TryParse(parts[0][1..], out var ahead)) status.Ahead = ahead;
-                    if (int.TryParse(parts[1][1..], out var behind)) status.Behind = behind;
+                    if (bits[0] == "ahead") status.Ahead = count;
+                    else if (bits[0] == "behind") status.Behind = count;
                 }
             }
         }
-        return status;
+
+        const string noCommits = "No commits yet on ";
+        if (header.StartsWith(noCommits, StringComparison.Ordinal))
+        {
+            status.Branch = header[noCommits.Length..];
+            return;
+        }
+        if (header.StartsWith("HEAD (no branch)", StringComparison.Ordinal))
+        {
+            status.Branch = "HEAD";
+            return;
+        }
+        var dots = header.IndexOf("...", StringComparison.Ordinal);
+        if (dots >= 0)
+        {
+            status.Branch = header[..dots];
+            status.Upstream = header[(dots + 3)..];
+        }
+        else
+        {
+            status.Branch = header;
+        }
     }
 
     /// <summary>拉取：只允许快进（--ff-only），避免在用户仓库里自动产生合并提交</summary>

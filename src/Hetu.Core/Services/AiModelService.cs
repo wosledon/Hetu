@@ -44,25 +44,25 @@ public class AiModelService : IAiModelService
         var providerIds = valid.Select(r => r.ProviderId).Distinct().ToArray();
         var purposes = valid.Select(r => NormalizePurpose(r.Purpose)).Distinct().ToArray();
 
-        foreach (var providerId in providerIds)
-        {
-            if (await _unitOfWork.AiProviders.GetByIdAsync(providerId, cancellationToken) == null)
-                return ApiResponse<List<AiModelDto>>.Fail(_localizer.T("model.providerNotFound"));
-        }
+        var existingProviderIds = (await _unitOfWork.AiProviders.FindAsync(
+            p => providerIds.Contains(p.Id), cancellationToken)).Select(p => p.Id).ToHashSet();
+        if (providerIds.Any(id => !existingProviderIds.Contains(id)))
+            return ApiResponse<List<AiModelDto>>.Fail(_localizer.T("model.providerNotFound"));
 
         var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var providerId in providerIds)
-        {
-            var providerModels = await _unitOfWork.AiModels.GetByProviderAsync(providerId, cancellationToken);
-            foreach (var model in providerModels) existing.Add($"{providerId:N}/{model.ModelId}");
-        }
+        var providerModels = await _unitOfWork.AiModels.FindAsync(
+            m => providerIds.Contains(m.ProviderId), cancellationToken);
+        foreach (var model in providerModels) existing.Add($"{model.ProviderId:N}/{model.ModelId}");
 
         // 批量导入时若该用途下还没有任何模型，自动把首条设为默认，避免用户后续逐个设置
+        var defaultPurposes = (await _unitOfWork.AiModels.FindAsync(
+            m => purposes.Contains(m.Purpose) && m.IsDefault, cancellationToken))
+            .Select(m => m.Purpose)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var needsDefault = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var purpose in purposes)
         {
-            if (await _unitOfWork.AiModels.GetDefaultByPurposeAsync(purpose, cancellationToken) == null)
-                needsDefault.Add(purpose);
+            if (!defaultPurposes.Contains(purpose)) needsDefault.Add(purpose);
         }
 
         var created = new List<AiModelDto>();

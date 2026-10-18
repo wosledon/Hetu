@@ -194,9 +194,11 @@ public class AgentLoopService
         var names = new List<string>();
         if (mcpServerIds is null || mcpServerIds.Count == 0) return names;
 
+        var servers = (await _unitOfWork.McpServers.FindAsync(
+            s => mcpServerIds.Contains(s.Id), ct)).ToDictionary(s => s.Id);
         foreach (var serverId in mcpServerIds)
         {
-            var server = await _unitOfWork.McpServers.GetByIdAsync(serverId, ct);
+            var server = servers.GetValueOrDefault(serverId);
             if (server == null || !server.IsEnabled || server.Type != "stdio")
             {
                 _logger.LogWarning("跳过 MCP 服务器 {ServerId}：不存在/已禁用/非 stdio", serverId);

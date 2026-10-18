@@ -527,6 +527,28 @@ public class WorkSessionService : IWorkSessionService
         return ApiResponse<List<WorkMessageDto>>.Ok(messages.OrderBy(m => m.CreatedAt).Select(Map).ToList());
     }
 
+    public async Task<ApiResponse<PagedResult<WorkMessageDto>>> GetMessagesPageAsync(Guid sessionId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 500);
+        var total = await _unitOfWork.WorkMessages.CountAsync(m => m.SessionId == sessionId, cancellationToken);
+        var messages = await _unitOfWork.WorkMessages.GetPagedByDateAsync(
+            m => m.SessionId == sessionId,
+            m => m.CreatedAt,
+            descending: true,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            cancellationToken);
+        messages.Reverse();
+        return ApiResponse<PagedResult<WorkMessageDto>>.Ok(new PagedResult<WorkMessageDto>
+        {
+            Items = messages.Select(Map).ToList(),
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
+        });
+    }
+
     public async Task<List<WorkFileChangeDto>> GetFileChangesAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
         var changes = await _unitOfWork.WorkFileChanges.FindAsync(c => c.SessionId == sessionId, cancellationToken);

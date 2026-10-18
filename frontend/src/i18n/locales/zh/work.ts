@@ -281,6 +281,7 @@ export default {
     turnCount: '{{count}} 轮',
     exportMarkdown: '导出会话为 Markdown',
     expandOlder: '展开更早的 {{count}} 条消息',
+    loadEarlier: '加载更早的 {{count}} 条消息',
     thinking: '思考中...',
     planHint: '计划模式只做只读调研；确认计划后切换到执行模式落地。',
     executePlan: '按计划执行',

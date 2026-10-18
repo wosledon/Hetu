@@ -86,6 +86,12 @@ public class ChatMessagesController : ControllerBase
     public Task<ApiResponse<List<ChatMessageDto>>> GetByTopic(Guid topicId, CancellationToken ct)
         => _chatMessageService.GetByTopicAsync(topicId, ct);
 
+    /// <summary>按页读取话题消息：第 1 页为最新一页，items 按时间正序返回</summary>
+    [HttpGet("topic/{topicId:guid}/page")]
+    public Task<ApiResponse<PagedResult<ChatMessageDto>>> GetByTopicPage(
+        Guid topicId, [FromQuery] int page = 1, [FromQuery] int pageSize = 100, CancellationToken ct = default)
+        => _chatMessageService.GetByTopicPageAsync(topicId, page, pageSize, ct);
+
     [HttpGet("search")]
     public Task<ApiResponse<List<ChatMessageSearchResultDto>>> Search(
         [FromQuery] string keyword, [FromQuery] Guid? topicId = null,
