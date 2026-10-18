@@ -215,10 +215,11 @@ dotnet ef migrations add <Name> --project src/Hetu.Infrastructure.PostgresMigrat
 
 ## 测试与验证
 
-- 目前**没有自动化测试工程**（`Hetu.slnx` 只有 5 个源码项目）。当前验证方式：Release 构建 0 告警 → `eslint` / `tsc` →
-  起后端跑 `scripts/test-api.sh` 与针对性 `curl` → 浏览器实测关键流程。
-- 新增核心业务逻辑（分页、聚合、压缩管道、Agent 循环等纯逻辑）时，优先新建 xUnit 测试工程
-  （约定：`src/Hetu.Core.Tests`、xUnit + NSubstitute、命名 `方法名_场景_预期结果`，覆盖率目标核心逻辑 > 80%）。
+- 测试工程在 `src/Hetu.Core.Tests`（xUnit + NSubstitute）：`dotnet test src/Hetu.Core.Tests/Hetu.Core.Tests.csproj`。
+  当前验证方式：Release 构建 0 告警 → 测试 → `eslint` / `tsc` → 起后端跑 `scripts/test-api.sh` 与针对性 `curl`
+  → 浏览器实测关键流程。
+- 新增核心业务逻辑（分页、聚合、压缩管道、Agent 循环等纯逻辑）时同步补测试
+  （约定：xUnit + NSubstitute、命名 `方法名_场景_预期结果`，覆盖率目标核心逻辑 > 80%）。
 
 ## 提交与分支
 
