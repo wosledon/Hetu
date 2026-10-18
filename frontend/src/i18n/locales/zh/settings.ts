@@ -274,13 +274,61 @@ export default {
     createServer: '新增 Server',
     configPlaceholder: '连接配置 JSON：{ "command": "...", "args": [], "env": {} }',
     empty: '暂无 MCP Server',
-    emptyHint: '点击上方按钮新增',
+    emptyHint: '从上方常用预设选择一个，或点击「自定义添加」',
     discoverTools: '发现工具',
     toolsOf: '{{name}} 的工具',
     loadingTools: '加载工具中...',
     callPrompt: '调用 {{name}}，请输入 JSON 参数：',
     callFailed: '调用失败：{{error}}',
     unknownError: '未知错误',
+    configuredCount: '已配置 {{count}} 个服务',
+    customAdd: '自定义添加',
+    presetTitle: '常用 MCP',
+    presetHint: '添加后请把 <path> / <token> 替换为实际值',
+    placeholderRequired: '请先把配置里的 <path> / <token> 替换为实际值',
+    addPreset: '添加',
+    added: '已添加',
+    configured: '已配置',
+  },
+  mcpPresets: {
+    requires: {
+      node: '需要 Node.js',
+      uv: '需要 uv',
+      path: '需要路径',
+      token: '需要 Token',
+    },
+    filesystem: {
+      name: '文件系统',
+      desc: '读写指定目录下的文件，适合让 Agent 访问本地项目或资料目录。',
+    },
+    git: {
+      name: 'Git',
+      desc: '查看仓库状态、提交历史与差异，适合本地 Git 项目。',
+    },
+    fetch: {
+      name: '网页抓取',
+      desc: '抓取网页并转换为 Markdown，适合查阅在线文档。',
+    },
+    memory: {
+      name: '持久记忆',
+      desc: '基于知识图谱的持久记忆，跨会话保存实体与关系。',
+    },
+    sequentialThinking: {
+      name: '分步推理',
+      desc: '把复杂问题拆成可反思的步骤，适合规划与排查。',
+    },
+    playwright: {
+      name: '浏览器自动化',
+      desc: '打开页面、点击、截图并读取内容，适合端到端验证。',
+    },
+    github: {
+      name: 'GitHub',
+      desc: '读取仓库、Issue、PR 与代码搜索（需要 GitHub Token）。',
+    },
+    context7: {
+      name: 'Context7 文档',
+      desc: '检索最新版库文档与代码示例，减少过时 API 的误用。',
+    },
   },
   metrics: {
     messages: '消息数',

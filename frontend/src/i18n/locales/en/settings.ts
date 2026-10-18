@@ -274,13 +274,61 @@ export default {
     createServer: 'New server',
     configPlaceholder: 'Connection config JSON: { "command": "...", "args": [], "env": {} }',
     empty: 'No MCP servers yet',
-    emptyHint: 'Use the button above to add one',
+    emptyHint: 'Pick a preset above, or click “Add custom”',
     discoverTools: 'Discover tools',
     toolsOf: '{{name}} tools',
     loadingTools: 'Loading tools...',
     callPrompt: 'Calling {{name}} — enter JSON arguments:',
     callFailed: 'Call failed: {{error}}',
     unknownError: 'Unknown error',
+    configuredCount: '{{count}} services configured',
+    customAdd: 'Add custom',
+    presetTitle: 'Common MCP presets',
+    presetHint: 'Replace <path> / <token> with real values after adding',
+    placeholderRequired: 'Replace <path> / <token> in the config with real values first',
+    addPreset: 'Add',
+    added: 'Added',
+    configured: 'Configured',
+  },
+  mcpPresets: {
+    requires: {
+      node: 'Node.js',
+      uv: 'uv',
+      path: 'Path',
+      token: 'Token',
+    },
+    filesystem: {
+      name: 'Filesystem',
+      desc: 'Read and write files under a chosen directory so the agent can access local projects or documents.',
+    },
+    git: {
+      name: 'Git',
+      desc: 'Inspect repository status, commit history, and diffs for local Git projects.',
+    },
+    fetch: {
+      name: 'Fetch',
+      desc: 'Fetch web pages and convert them to Markdown for reading online documentation.',
+    },
+    memory: {
+      name: 'Memory',
+      desc: 'Persistent knowledge-graph memory that keeps entities and relations across sessions.',
+    },
+    sequentialThinking: {
+      name: 'Sequential thinking',
+      desc: 'Break complex problems into reflective steps, useful for planning and debugging.',
+    },
+    playwright: {
+      name: 'Playwright',
+      desc: 'Browser automation: open pages, click, take screenshots, and read content for end-to-end checks.',
+    },
+    github: {
+      name: 'GitHub',
+      desc: 'Read repositories, issues, pull requests, and search code (requires a GitHub token).',
+    },
+    context7: {
+      name: 'Context7 docs',
+      desc: 'Look up up-to-date library documentation and code examples to avoid stale APIs.',
+    },
   },
   metrics: {
     messages: 'Messages',

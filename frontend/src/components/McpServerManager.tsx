@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Edit2, Check, X, Wrench, RefreshCw, Loader2 } from 'lucide-react'
+import {
+  BookOpen, Brain, Check, Edit2, FolderOpen, GitBranch, GitPullRequest, Globe,
+  ListChecks, Loader2, Play, Plus, RefreshCw, Trash2, Wrench, X,
+} from 'lucide-react'
 import { mcpService } from '../services/mcpService'
+import { MCP_PRESETS, type McpPreset } from '../utils/mcpPresets'
 import Select from './Select'
 import type { IMcpServer, IMcpTool } from '../types'
 import { Button, Card, IconButton, Input, Textarea } from './ui'
@@ -17,15 +21,28 @@ const defaultConfig = JSON.stringify(
   2
 )
 
-export default function McpServerManager() {
+const PRESET_ICONS: Record<string, typeof Wrench> = {
+  filesystem: FolderOpen,
+  git: GitBranch,
+  fetch: Globe,
+  memory: Brain,
+  'sequential-thinking': ListChecks,
+  playwright: Play,
+  github: GitPullRequest,
+  context7: BookOpen,
+}
+
+export default function McpServerManager({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('settings')
+  const formRef = useRef<HTMLDivElement>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedServer, setSelectedServer] = useState<IMcpServer | null>(null)
   const [tools, setTools] = useState<IMcpTool[]>([])
   const [isLoadingTools, setIsLoadingTools] = useState(false)
   const [toolResult, setToolResult] = useState<{ toolName: string; content: string; isError: boolean } | null>(null)
+  const [formError, setFormError] = useState('')
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -89,6 +106,12 @@ export default function McpServerManager() {
 
   const handleSave = () => {
     if (!form.name.trim() || !form.connectionConfig.trim()) return
+    if (/<path>|<token>/i.test(form.connectionConfig)) {
+      setFormError(t('mcp.placeholderRequired'))
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    setFormError('')
     const data = { ...form }
     if (editingId) {
       updateMutation.mutate({ id: editingId, data })
@@ -100,6 +123,21 @@ export default function McpServerManager() {
         connectionConfig: form.connectionConfig,
       })
     }
+  }
+
+  const applyPreset = (preset: McpPreset) => {
+    setEditingId(null)
+    setForm({
+      name: t(preset.nameKey),
+      description: t(preset.descKey),
+      type: 'stdio',
+      connectionConfig: preset.connectionConfig,
+      isEnabled: true,
+      sortOrder: 0,
+    })
+    setIsCreating(true)
+    setFormError('')
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
   const handleListTools = async (server: IMcpServer) => {
@@ -137,27 +175,40 @@ export default function McpServerManager() {
 
   return (
     <section className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm shadow-violet-500/25">
-            <Wrench size={16} />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('mcp.title')}</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t('mcp.subtitle')}</p>
-          </div>
+      {/* Header / toolbar */}
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            {t('mcp.configuredCount', { count: servers.length })}
+          </p>
+          {!isCreating && !editingId && (
+            <Button variant="primary" tone="blue" size="sm" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-blue-600" onClick={() => { resetForm(); setIsCreating(true) }}>
+              <Plus size={14} /> {t('mcp.customAdd')}
+            </Button>
+          )}
         </div>
-        {!isCreating && !editingId && (
-          <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md active:scale-[0.98]" onClick={() => setIsCreating(true)}>
-            <Plus size={15} /> {t('mcp.add')}
-          </Button>
-        )}
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 text-white shadow-sm shadow-slate-500/20">
+              <Wrench size={16} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('mcp.title')}</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('mcp.subtitle')}</p>
+            </div>
+          </div>
+          {!isCreating && !editingId && (
+            <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md active:scale-[0.98]" onClick={() => { resetForm(); setIsCreating(true) }}>
+              <Plus size={15} /> {t('mcp.add')}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Form */}
       {(isCreating || editingId) && (
-        <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
+        <div ref={formRef} className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
           <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
             {editingId ? t('mcp.editServer') : t('mcp.createServer')}
           </h3>
@@ -185,9 +236,12 @@ export default function McpServerManager() {
             <Textarea tone="blue" size="lg" glass
               placeholder={t('mcp.configPlaceholder')}
               value={form.connectionConfig}
-              onChange={(e) => setForm({ ...form, connectionConfig: e.target.value })}
+              onChange={(e) => { setForm({ ...form, connectionConfig: e.target.value }); if (formError) setFormError('') }}
               className="h-32 w-full resize-none font-mono"
             />
+            {formError && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">{formError}</p>
+            )}
             {editingId && (
               <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
                 <input
@@ -212,6 +266,60 @@ export default function McpServerManager() {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 常用 MCP 预设 */}
+      <div>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('mcp.presetTitle')}</h3>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('mcp.presetHint')}</span>
+        </div>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          {MCP_PRESETS.map((preset) => {
+            const Icon = PRESET_ICONS[preset.id] ?? Wrench
+            const added = servers.some((server) => server.name === t(preset.nameKey))
+            return (
+              <Card key={preset.id} className="p-3.5 transition-colors hover:border-white/40 dark:hover:border-white/10">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    <Icon size={14} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">{t(preset.nameKey)}</span>
+                      {preset.requires.map((req) => (
+                        <span
+                          key={req}
+                          className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                            req === 'path' || req === 'token'
+                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400'
+                              : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
+                          }`}
+                        >
+                          {t(`mcpPresets.requires.${req}`)}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{t(preset.descKey)}</p>
+                  </div>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between gap-2">
+                  <code className="min-w-0 truncate text-[10px] text-gray-400 dark:text-gray-500" title={preset.binary}>{preset.binary}</code>
+                  <Button variant="secondary" size="sm" disabled={added} className="shrink-0 rounded-lg px-2 py-1 text-[11px]" onClick={() => applyPreset(preset)}>
+                    {added ? <Check size={12} /> : <Plus size={12} />} {added ? t('mcp.added') : t('mcp.addPreset')}
+                  </Button>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      {servers.length > 0 && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('mcp.configured')}</h3>
+          <span className="text-[10px] tabular-nums text-gray-400">{servers.length}</span>
         </div>
       )}
 

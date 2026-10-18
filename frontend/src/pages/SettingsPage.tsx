@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Wrench, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
+import { Bot, Database, Settings, Trash2, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AppWindow, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +11,6 @@ import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
 import ExportBackupPanel from '../components/ExportBackupPanel'
 import DatabaseSettings from '../components/DatabaseSettings'
-import McpServerManager from '../components/McpServerManager'
 import CompressionSettings from '../components/CompressionSettings'
 import DreamSettings from '../components/DreamSettings'
 import WorktreeCleanupSettings from '../components/WorktreeCleanupSettings'
@@ -25,7 +24,7 @@ import type { IAppSettingsSnapshot } from '../types'
 import { Button, Card, Input, PageContainer, Textarea } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
-type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'mcp' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
+type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
   { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
@@ -35,7 +34,6 @@ const settingsSections = [
   { key: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
   { key: 'cost', labelKey: 'sections.cost', descKey: 'sections.costDesc', icon: Coins },
   { key: 'memory', labelKey: 'sections.memory', descKey: 'sections.memoryDesc', icon: Brain },
-  { key: 'mcp', labelKey: 'sections.mcp', descKey: 'sections.mcpDesc', icon: Wrench },
   { key: 'database', labelKey: 'sections.database', descKey: 'sections.databaseDesc', icon: Database },
   { key: 'trash', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
   { key: 'workspace', labelKey: 'sections.workspace', descKey: 'sections.workspaceDesc', icon: FolderGit2 },
@@ -350,8 +348,6 @@ export default function SettingsPage() {
                     </div>
                   </section>
                 )}
-
-                {activeSection === 'mcp' && <McpServerManager />}
 
                 {activeSection === 'about' && <AboutSection appName={appName} />}
               </Card>
