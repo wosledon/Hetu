@@ -38,6 +38,7 @@ export default {
     syncNoEmbedding: '未配置 Embedding 模型，索引未入队',
     syncNoGraph: '未配置可用模型，图谱抽取未入队',
     inKnowledgeBase: '已入知识库',
+    notSyncedHint: '这套 Wiki 还没有进入知识库与知识图谱，点「同步知识与图谱」补齐。',
     inKnowledgeBaseTitle: '该页已写入知识库，可在「知识库」页查看索引状态',
     modelPickerTitle: '选择生成所用模型',
     defaultModel: '默认模型',
