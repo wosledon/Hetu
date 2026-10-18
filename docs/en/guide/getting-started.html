@@ -1,11 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-root="../../">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131210" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
 <title>Getting started · Hetu</title>
-<meta name="description" content="Install Hetu: desktop installers (fat/slim), running from source, desktop dev mode; first provider, models, defaults and knowledge indexing; data directory locations.">
-<meta name="theme-color" content="#4f46e5">
+<meta name="description" content="Install Hetu: desktop installers (fat/slim), running from source and desktop development mode; first-time provider, model, default-model and knowledge-base setup; data directory locations.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/getting-started.html">
@@ -13,113 +16,101 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Getting started · Hetu">
-<meta property="og:description" content="Install Hetu: desktop installers (fat/slim), running from source, desktop dev mode; first provider, models, defaults and knowledge indexing; data directory locations.">
+<meta property="og:description" content="Install Hetu, configure a provider and model, and write your first note.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/getting-started.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://api.github.com">
+<link rel="preconnect" href="https://abacus.jasoncameron.dev">
 <link rel="stylesheet" href="../../assets/site.css">
 <script defer src="../../assets/site.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-header">
-  <div class="wrap">
-    <a class="brand" href="../index.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5v8.5"/><path d="M11 8.5v8.5"/><path d="M5 12.5h13"/><path d="M15.5 5.5v9.5q0 1.5 1.5 1.5h1.5"/></svg>
-      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html" aria-label="Hetu home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span>
+      <span class="brand-text">Hetu<small>LOCAL FIRST</small></span>
     </a>
-    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
-    <nav class="site-nav" aria-label="Main navigation">
-      <a href="../index.html">Home</a>
-      <a href="index.html" aria-current="page">Docs</a>
-      <a href="architecture.html">Architecture</a>
-      <a href="getting-started.html">Download</a>
-      <a href="faq.html">FAQ</a>
-    </nav>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation" aria-controls="site-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <nav class="site-nav" id="site-nav" aria-label="Main navigation"><a href="../../index.html">Home</a><a href="index.html">Docs</a><a href="architecture.html">Architecture</a><a href="getting-started.html" aria-current="page">Start</a><a href="faq.html">FAQ</a><a class="nav-lang" href="../../guide/getting-started.html" hreflang="zh-CN">中文</a></nav>
     <div class="header-actions">
-      <span class="lang" role="group" aria-label="Language">
-        <a href="#" aria-current="true">EN</a>
-        <a href="../../guide/getting-started.html" title="中文版本">中文</a>
-      </span>
-      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
-      </button>
-      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
-        Download <span data-latest-version>v0.3.8</span>
-      </a>
+      <button class="search-btn" data-search-open type="button" aria-label="Search docs" title="Search docs (Ctrl K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd data-search-kbd>Ctrl K</kbd></button>
+      <span class="lang" role="group" aria-label="Language"><a href="#" aria-current="true">EN</a><a href="../../guide/getting-started.html" hreflang="zh-CN" title="中文版本">中文</a></span>
+      <button class="icon-btn theme-toggle" data-theme-toggle type="button" aria-label="Toggle theme" title="Toggle theme"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></button>
+      <a class="btn btn-primary header-cta" href="https://github.com/wosledon/Hetu/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg><span class="header-cta-label">Download</span> <span data-latest-version>v0.3.18</span></a>
     </div>
   </div>
+  <div class="read-progress" data-progress aria-hidden="true"></div>
 </header>
 <main id="main">
   <div class="wrap docs">
-  <aside class="docs-side">
-    <h2>On this site</h2>
-    <ol>
-      <li><a href="index.html">Docs index</a></li>
-      <li><a href="getting-started.html" aria-current="page">Getting started</a></li>
-      <li><a href="notes.html">Notes</a></li>
-      <li><a href="workspace.html">Agent workspace</a></li>
-      <li><a href="code-sessions.html">Code sessions</a></li>
-      <li><a href="knowledge.html">Knowledge base</a></li>
-      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
-      <li><a href="memories.html">Memories & Dream</a></li>
-      <li><a href="organize.html">Kanban & automation</a></li>
-      <li><a href="extensions.html">Extensions & MCP</a></li>
-      <li><a href="models.html">Models & usage</a></li>
-      <li><a href="theme.html">Theme &amp; appearance</a></li>
-      <li><a href="desktop.html">Desktop app</a></li>
-      <li><a href="data.html">Data & security</a></li>
-      <li><a href="architecture.html">Architecture</a></li>
-      <li><a href="faq.html">FAQ</a></li>
-      <li><a href="dev.html">Development</a></li>
-    </ol>
-    <h2>Internals</h2>
-    <ol>
-      <li><a href="compression.html">Compression pipeline</a></li>
-      <li><a href="agent-loop.html">Agent loop</a></li>
-      <li><a href="permissions.html">Permission modes & approvals</a></li>
-      <li><a href="context.html">Context & auto compaction</a></li>
-      <li><a href="sse.html">SSE event protocol</a></li>
-      <li><a href="chunking.html">Chunking & vector index</a></li>
-      <li><a href="retrieval.html">Semantic retrieval</a></li>
-      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
-      <li><a href="wiki-generation.html">Wiki generation</a></li>
-      <li><a href="memory-recall.html">Memory write & recall</a></li>
-      <li><a href="dream.html">Dream consolidation</a></li>
-      <li><a href="kanban.html">Task board & automation</a></li>
-      <li><a href="workflows.html">Workflow engine</a></li>
-      <li><a href="background-tasks.html">Background & scheduled tasks</a></li>
-      <li><a href="inbox.html">Inbox & notifications</a></li>
-    </ol>
-  </aside>
+    <aside class="docs-side">
+  <button class="side-search" data-search-open type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd>/</kbd></button>
+  <nav class="side-nav" aria-label="Documentation navigation">
+    <details class="side-group" open><summary>Start</summary><ul><li><a href="index.html">Documentation</a></li><li><a href="getting-started.html" aria-current="page">Getting started</a></li></ul></details><details class="side-group" open><summary>Use</summary><ul><li><a href="notes.html">Notes</a></li><li><a href="workspace.html">Agent workspace</a></li><li><a href="code-sessions.html">Code sessions</a></li><li><a href="knowledge.html">Knowledge base</a></li><li><a href="graph-wiki.html">Graph & Wiki</a></li><li><a href="memories.html">Memories & Dream</a></li><li><a href="organize.html">Kanban & automation</a></li><li><a href="extensions.html">Extensions & MCP</a></li><li><a href="models.html">Models & usage</a></li><li><a href="theme.html">Theme & appearance</a></li></ul></details><details class="side-group" open><summary>Platform</summary><ul><li><a href="desktop.html">Desktop app</a></li><li><a href="data.html">Data & security</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="faq.html">FAQ</a></li><li><a href="dev.html">Development</a></li></ul></details><details class="side-group" open><summary>Deep dives</summary><ul><li><a href="agent-loop.html">Agent loop</a></li><li><a href="permissions.html">Permission modes & approvals</a></li><li><a href="context.html">Context & auto compaction</a></li><li><a href="compression.html">Compression pipeline</a></li><li><a href="sse.html">SSE event protocol</a></li><li><a href="chunking.html">Chunking & vector index</a></li><li><a href="retrieval.html">Semantic retrieval</a></li><li><a href="graph-extraction.html">Knowledge graph extraction</a></li><li><a href="wiki-generation.html">Wiki generation</a></li><li><a href="memory-recall.html">Memory write & recall</a></li><li><a href="dream.html">Dream consolidation</a></li><li><a href="kanban.html">Task board & automation</a></li><li><a href="workflows.html">Workflow engine</a></li><li><a href="background-tasks.html">Background & scheduled tasks</a></li><li><a href="inbox.html">Inbox & notifications</a></li></ul></details>
+  </nav>
+</aside>
+    <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Getting started</h1>
-      <p class="lede">Three ways in: desktop installer (least setup), from source (if you want to change code), or desktop dev mode (when working on the Rust shell or sidecar).</p>
+      <p class="lede">Three paths: install the desktop app, run from source, or use desktop development mode. First-time setup takes about five minutes.</p>
 
-      <h2>1. Desktop installer</h2>
+      <div class="note">
+        Recommended first run: <strong>install → add a provider → add a model → set defaults → write a note and generate an index</strong>. If you only want to look around, open the Code page right after installing.
+      </div>
+
+      <h2>0. What you need</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Channel</th><th>Windows artifact</th><th>Runtime and size</th></tr></thead>
+        <thead><tr><th>Scenario</th><th>Requirements</th></tr></thead>
         <tbody>
-          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Bundles the .NET 10 runtime, ready after install, ~100 MB+</td></tr>
-          <tr><td><code>slim</code></td><td><code>Hetu.Slim._x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Requires the .NET 10 runtime, smaller download</td></tr>
-          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>AppImage needs <code>chmod +x</code></td></tr>
+          <tr><td>Desktop (fat)</td><td>Windows 10/11 x64 or a mainstream Linux distribution; no .NET install required</td></tr>
+          <tr><td>Desktop (slim)</td><td>Same, plus the .NET 10 runtime installed on the system</td></tr>
+          <tr><td>From source</td><td>.NET SDK 10.0+, Node.js 20+, Git</td></tr>
+          <tr><td>A model</td><td>An OpenAI-compatible or Anthropic API key; a local inference server also works</td></tr>
         </tbody>
       </table></div>
-      <div class="note">The two channels are independent update streams: a <code>slim</code> install only receives <code>latest-slim.json</code> and never gets overwritten by the fat build.</div>
-      <p>Closing the window minimizes to the tray by default (the backend keeps running, background jobs continue). Quit from the tray menu. This can be turned off in <strong>Settings → App</strong>.</p>
 
-      <h2>2. From source</h2>
+      <h2>1. Install the desktop app</h2>
+      <p>Download from <a href="https://github.com/wosledon/Hetu/releases/latest">GitHub Releases</a>:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Channel</th><th>Artifact</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>fat</code></td><td><code>Hetu_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Bundles the .NET 10 runtime; larger, works immediately</td></tr>
+          <tr><td><code>slim</code></td><td><code>Hetu (Slim)_x.y.z_x64-setup.exe</code> / <code>.msi</code></td><td>Requires the system .NET 10 runtime; smaller</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> / <code>.deb</code></td><td>Run <code>chmod +x</code> on the AppImage</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note">
+        <code>fat</code> and <code>slim</code> are independent update channels: a <code>slim</code> install only receives <code>slim</code> updates and will not be replaced by <code>fat</code>.
+      </div>
+      <p>Closing the main window minimises to the tray by default, and the backend plus background jobs keep running. Use “Quit Hetu” in the tray menu to exit; this behaviour can be changed in <strong>Settings → App settings</strong>.</p>
+
+      <h2>2. First-time configuration</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Step</th><th>Where</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Add a provider</td><td>Models → Add provider</td><td>Choose OpenAI-compatible or Anthropic; enter the base URL and API key</td></tr>
+          <tr><td>Add a model</td><td>Model list under the provider</td><td>Purpose is <code>chat</code>, <code>embedding</code> or <code>completion</code></td></tr>
+          <tr><td>Set defaults</td><td>Settings → Default models</td><td>Per scenario: chat, coding, Wiki, graph, organisation, note AI, query rewrite</td></tr>
+          <tr><td>Feed knowledge</td><td>Knowledge base</td><td>Add a URL or upload a file; in a note, use “Generate index” in the editor toolbar</td></tr>
+          <tr><td>Try it</td><td>Code page</td><td>Turn on the “Knowledge base” toggle above the input to cite retrieved results</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note note--warn">
+        Anthropic has no public embedding endpoint; choose an OpenAI-compatible provider for the <code>embedding</code> purpose. Vector dimensions must match the model (<code>Embedding:Dimensions</code>, default 1536) or writes will fail.
+      </div>
+
+      <h2>3. Run from source</h2>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>git clone https://github.com/wosledon/Hetu
 cd Hetu
 
-pwsh ./scripts/start.ps1        # Windows: starts backend + frontend
+pwsh ./scripts/start.ps1        # Windows: start frontend and backend
 ./scripts/start.sh              # Linux / macOS
 
-# or separately
+# Or start them separately
 dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
 cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5174</code></pre></div>
       <div class="table-wrap"><table>
@@ -128,75 +119,94 @@ cd frontend &amp;&amp; npm install &amp;&amp; npm run dev   # http://localhost:5
           <tr><td><code>http://localhost:5174</code></td><td>Frontend UI</td></tr>
           <tr><td><code>http://localhost:5000/api</code></td><td>Backend API</td></tr>
           <tr><td><code>http://localhost:5000/scalar/v1</code></td><td>API reference (Scalar)</td></tr>
-          <tr><td><code>http://localhost:5000/api/health</code></td><td>Health check used by the desktop shell</td></tr>
+          <tr><td><code>http://localhost:5000/api/health</code></td><td>Health check; the desktop shell uses it to detect readiness</td></tr>
         </tbody>
       </table></div>
+      <p>Confirm the backend is up:</p>
+      <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>curl http://localhost:5000/api/health</code></pre></div>
 
-      <h2>3. Desktop dev mode</h2>
-      <p>Runs dotnet + vite + tauri in parallel — useful when changing the Rust shell, the tray or the updater:</p>
+      <h2>4. Desktop development mode</h2>
+      <p>When changing the Rust shell, tray, updater or sidecar integration, desktop development mode starts dotnet, Vite and Tauri together:</p>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>pwsh ./scripts/desktop-dev.ps1</code></pre></div>
-      <p>If port 5000 already has a backend running, the shell reuses it instead of starting another one.</p>
+      <p>If port 5000 already has a backend during development, Tauri reuses it instead of conflicting with your own <code>dotnet run</code>.</p>
 
-      <h2>First configuration</h2>
+      <h2>5. Where data lives</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Step</th><th>Where</th><th>Notes</th></tr></thead>
+        <thead><tr><th>Mode</th><th>Location</th></tr></thead>
         <tbody>
-          <tr><td>Add a provider</td><td>Models → add provider</td><td>Protocol: OpenAI-compatible or Anthropic; set Base URL and API key (local inference servers work too)</td></tr>
-          <tr><td>Add models</td><td>Under that provider</td><td>Purpose: <code>chat</code> / <code>embedding</code> / <code>completion</code></td></tr>
-          <tr><td>Set defaults</td><td>Settings → Default models</td><td>Per scenario: chat, code, Wiki, graph, organize, note AI, query rewrite</td></tr>
-          <tr><td>Feed knowledge</td><td>Knowledge base</td><td>Add URLs or upload files; for notes use “Generate index” in the editor toolbar</td></tr>
-          <tr><td>Try it</td><td>Code page</td><td>Toggle “Knowledge base” above the input to inject retrieval results</td></tr>
+          <tr><td>Desktop (Windows)</td><td><code>%LOCALAPPDATA%\Hetu</code>: <code>hetu.db</code> and WAL, plus <code>logs/</code></td></tr>
+          <tr><td>From source</td><td>Set by <code>HETU_DATA_DIR</code>; defaults to <code>hetu.db</code> in the working directory</td></tr>
+          <tr><td>Backup / migration</td><td>Quit the app and copy the whole directory; the database and logs live together</td></tr>
         </tbody>
       </table></div>
-      <div class="note note--warn">Anthropic has no public embedding API — use an OpenAI-compatible provider for the <code>embedding</code> purpose. Vector dimensions must match the model (<code>Embedding:Dimensions</code>, default 1536).</div>
 
-      <h2>Where data lives</h2>
+      <h2>Troubleshooting</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>How you run it</th><th>Location</th></tr></thead>
+        <thead><tr><th>Symptom</th><th>Check first</th></tr></thead>
         <tbody>
-          <tr><td>Desktop (Windows)</td><td><code>%LOCALAPPDATA%\Hetu</code>: <code>hetu.db</code> (+ WAL) and <code>logs/</code></td></tr>
-          <tr><td>From source</td><td>Whatever <code>HETU_DATA_DIR</code> points at; otherwise <code>hetu.db</code> in the working directory</td></tr>
+          <tr><td>Frontend will not open</td><td>Whether port 5174 is taken; whether Vite exited with an error</td></tr>
+          <tr><td>API 500 / connection refused</td><td>Whether <code>/api/health</code> responds; whether another process owns port 5000</td></tr>
+          <tr><td>Indexing stalls</td><td>Index progress in the knowledge base, embedding model availability and dimension match</td></tr>
+          <tr><td>Installer says a file is in use</td><td>Quit Hetu from the tray; a leftover <code>Hetu.Api.exe</code> can lock <code>vec0.dll</code></td></tr>
         </tbody>
       </table></div>
+      <p>More errors and remedies are in the <a href="faq.html">FAQ</a>; for internals start at <a href="architecture.html">Architecture</a>.</p>
 
       <h2>Next</h2>
       <ul>
-        <li>Let it change code for you: <a href="code-sessions.html">Code sessions</a>.</li>
-        <li>Turn documents into searchable knowledge: <a href="knowledge.html">Knowledge base</a>, <a href="graph-wiki.html">Graph &amp; Wiki</a>.</li>
-        <li>Keep cost visible: <a href="models.html">Models &amp; usage</a>.</li>
+        <li>Let it change code: <a href="code-sessions.html">Code sessions</a> (worktrees, permission modes, seven panels, PRs).</li>
+        <li>Turn material into searchable content: <a href="knowledge.html">Knowledge base</a>, <a href="graph-wiki.html">Graph &amp; Wiki</a>.</li>
+        <li>Control cost: <a href="models.html">Models &amp; usage</a>.</li>
       </ul>
-    <div class="docs-pager"><a href="index.html">← Docs index</a><a href="notes.html">Notes →</a></div>
+
+      <div class="docs-pager"><a href="index.html">← Documentation</a><a href="notes.html">Notes →</a></div>
     </div>
   </div>
 </main>
 <footer class="site-footer">
-  <div class="wrap">
-    <span>© 2026 Hetu Contributors · Apache-2.0</span>
-    <nav aria-label="Footer navigation">
-      <a href="index.html">Docs</a>
-      <a href="https://github.com/wosledon/Hetu">GitHub</a>
-      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
-      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
-      <a href="dev.html">Development</a>
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span><span class="brand-text">Hetu<small>LOCAL FIRST</small></span></a>
+      <p>A local-first AI knowledge and agent workspace. Notes, conversations and coding sessions share one local database.</p>
+    </div>
+    <nav class="footer-col" aria-label="Product">
+      <h2>Product</h2>
+      <a href="notes.html">Notes</a>
+      <a href="workspace.html">Agent workspace</a>
+      <a href="code-sessions.html">Code sessions</a>
+      <a href="knowledge.html">Knowledge base</a>
     </nav>
-    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
-    <span class="visit-counter" data-visit-counter title="Anonymous visitor and page-view counts, no cookies."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Page views</span> <b data-visit-views>–</b></span></span>
+    <nav class="footer-col" aria-label="Resources">
+      <h2>Resources</h2>
+      <a href="index.html">Documentation</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="faq.html">FAQ</a>
+      <a href="dev.html">Development</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+    </nav>
+    <nav class="footer-col" aria-label="Get Hetu">
+      <h2>Get Hetu</h2>
+      <a href="https://github.com/wosledon/Hetu/releases/latest">Latest release</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Changelog</a>
+      <a href="https://github.com/wosledon/Hetu">Source repository</a>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <span class="visit-counter" data-visit-counter title="Anonymous counts only: no cookies, just visitors and page views."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Views</span> <b data-visit-views>–</b></span></span>
   </div>
 </footer>
 <div class="lightbox" data-lightbox aria-hidden="true">
-  <button class="lightbox-close" data-lightbox-close aria-label="Close">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-  </button>
+  <button class="lightbox-close" data-lightbox-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   <img alt="">
   <span class="lightbox-caption"></span>
 </div>
+<div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search documentation" aria-hidden="true">
+  <div class="search-panel">
+    <div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" name="q" data-search-input placeholder="Search titles, features or settings…" autocomplete="off" spellcheck="false" aria-label="Search documentation"><button class="search-close" data-search-close type="button" aria-label="Close search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><kbd>Esc</kbd></div>
+    <div class="search-results" data-search-results></div>
+    <div class="search-foot"><span>↑↓ to select</span><span>Enter to open</span><span>Esc to close</span><span class="sr-only" data-search-status aria-live="polite"></span></div>
+  </div>
+</div>
 </body>
 </html>
-
-
-
-
-
-
-
-
