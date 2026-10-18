@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -1397,18 +1397,27 @@ export default function WorkSessionArea({
               <ChevronDown size={11} />{t('session.expandOlder', { count: olderCount })}
             </Button>
           )}
+          {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
           {foldedHistory.map((entry, i) => {
             if (entry.kind === 'tool') {
               const only = entry.items[0]
-              return entry.items.length === 1
-                ? <Fragment key={only.id ?? i}>{renderProcessEntry(only)}</Fragment>
-                : <ToolCallGroup key={only.id ?? i} items={entry.items} renderItem={renderProcessEntry} />
+              return (
+                <div key={only.id ?? i} className="[content-visibility:auto] [contain-intrinsic-size:auto_80px]">
+                  {entry.items.length === 1
+                    ? renderProcessEntry(only)
+                    : <ToolCallGroup items={entry.items} renderItem={renderProcessEntry} />}
+                </div>
+              )
             }
             const msg = entry.item
             return isProcessMessage(msg)
-              ? <ProcessMessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
+              ? (
+                <div key={msg.id} className="[content-visibility:auto] [contain-intrinsic-size:auto_80px]">
+                  <ProcessMessageRow message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
+                </div>
+              )
               : (
-                <div key={msg.id} data-message-anchor={msg.id} className="scroll-mt-4">
+                <div key={msg.id} data-message-anchor={msg.id} className="scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
                 <MessageRow
                   message={msg}
                   onOpenFilePath={onOpenFilePath}
