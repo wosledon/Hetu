@@ -218,6 +218,10 @@ export default {
   toolsPage: {
     title: '内置工具',
     subtitle: '共 {{n}} 个内置工具 · 对话与 Code 共用同一套能力，区别只是 Code 会挂载项目上下文',
+    catalogTab: '工具目录',
+    mcpTab: 'MCP 服务',
+    mcpTitle: 'MCP 服务',
+    mcpSubtitle: '连接外部工具与数据源 · 已配置 {{n}} 个服务',
     searchPlaceholder: '搜索工具名、说明或使用约定...',
     noToolsMatch: '没有匹配的工具',
     parametersAndGuidelines: '参数与使用约定',

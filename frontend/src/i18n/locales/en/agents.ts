@@ -218,6 +218,10 @@ export default {
   toolsPage: {
     title: 'Built-in tools',
     subtitle: '{{n}} built-in tools in total · Chat and Code share the same capabilities; Code additionally mounts the project context',
+    catalogTab: 'Tool catalog',
+    mcpTab: 'MCP servers',
+    mcpTitle: 'MCP servers',
+    mcpSubtitle: 'Connect external tools and data sources · {{n}} configured',
     searchPlaceholder: 'Search tool name, description or usage guideline...',
     noToolsMatch: 'No matching tools',
     parametersAndGuidelines: 'Parameters and usage guidelines',

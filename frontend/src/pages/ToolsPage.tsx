@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
+import McpServerManager from '../components/McpServerManager'
 import { toolService, type IToolCatalogItem } from '../services/toolService'
+import { mcpService } from '../services/mcpService'
 import { renderToolGroup } from '../utils/toolRendering'
-import { ChevronDown, ChevronRight, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plug, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
 import { Button, Card, PageContainer, SearchInput } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
@@ -103,6 +105,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
 
 export default function ToolsPage() {
   const { t } = useTranslation('agents')
+  const [tab, setTab] = useState<'catalog' | 'mcp'>('catalog')
   const [keyword, setKeyword] = useState('')
   const [group, setGroup] = useState('')
   const [profile, setProfile] = useState('')
@@ -111,6 +114,12 @@ export default function ToolsPage() {
     queryKey: ['toolCatalog'],
     queryFn: toolService.getAll,
     staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: mcpServers = [] } = useQuery({
+    queryKey: ['mcpServers'],
+    queryFn: mcpService.getAll,
+    staleTime: 30 * 1000,
   })
 
   const groups = useMemo(
@@ -137,16 +146,38 @@ export default function ToolsPage() {
         <PageContainer>
       <div className="mb-5 flex items-start gap-3">
         <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 shadow-sm shadow-slate-500/20">
-          <Terminal size={20} className="text-white" />
+          {tab === 'catalog' ? <Terminal size={20} className="text-white" /> : <Plug size={20} className="text-white" />}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('toolsPage.title')}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {tab === 'catalog' ? t('toolsPage.title') : t('toolsPage.mcpTitle')}
+          </h1>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {t('toolsPage.subtitle', { n: tools.length })}
+            {tab === 'catalog'
+              ? t('toolsPage.subtitle', { n: tools.length })
+              : t('toolsPage.mcpSubtitle', { n: mcpServers.length })}
           </p>
         </div>
       </div>
 
+      <div className="mb-4 inline-flex items-center gap-0.5 rounded-xl bg-gray-100 p-0.5 dark:bg-gray-800/70">
+        <button
+          onClick={() => setTab('catalog')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${tab === 'catalog' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+        >
+          <Wrench size={13} /> {t('toolsPage.catalogTab')}
+        </button>
+        <button
+          onClick={() => setTab('mcp')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${tab === 'mcp' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+        >
+          <Plug size={13} /> {t('toolsPage.mcpTab')}
+          {mcpServers.length > 0 && <span className="tabular-nums opacity-60">{mcpServers.length}</span>}
+        </button>
+      </div>
+
+      {tab === 'catalog' ? (
+      <>
       <div className="mb-4 flex flex-col gap-3">
         <SearchInput tone="blue" size="sm"
           value={keyword}
@@ -197,6 +228,10 @@ export default function ToolsPage() {
         <div className="flex flex-col gap-2.5">
           {filtered.map((t) => <ToolCard key={t.name} tool={t} />)}
         </div>
+      )}
+      </>
+      ) : (
+        <McpServerManager embedded />
       )}
         </PageContainer>
       }
