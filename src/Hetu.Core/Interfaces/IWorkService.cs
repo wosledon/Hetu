@@ -27,6 +27,8 @@ public interface IWorkSessionService
     Task<ApiResponse<string?>> EnsureWorktreeAsync(Guid sessionId, string? userMessage, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<WorkMessageDto>>> GetMessagesAsync(Guid sessionId, CancellationToken cancellationToken = default);
+    /// <summary>按页读取会话消息（第 1 页为最新一页，返回时按时间正序排列）</summary>
+    Task<ApiResponse<PagedResult<WorkMessageDto>>> GetMessagesPageAsync(Guid sessionId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<List<WorkFileChangeDto>> GetFileChangesAsync(Guid sessionId, CancellationToken cancellationToken = default);
 
     /// <summary>追加消息；传入 <paramref name="usage"/> 时同时记录本条 Token 消耗并累加到会话统计</summary>

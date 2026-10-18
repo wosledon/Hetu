@@ -7,6 +7,8 @@ namespace Hetu.Core.Interfaces;
 public interface IChatMessageService
 {
     Task<ApiResponse<List<ChatMessageDto>>> GetByTopicAsync(Guid topicId, CancellationToken cancellationToken = default);
+    /// <summary>按页读取话题消息（第 1 页为最新一页，返回时按时间正序排列）</summary>
+    Task<ApiResponse<PagedResult<ChatMessageDto>>> GetByTopicPageAsync(Guid topicId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<ApiResponse<ChatMessageDto>> CreateUserMessageAsync(Guid topicId, string content, CancellationToken cancellationToken = default);
     Task<ApiResponse<ChatMessageDto>> UpdateAsync(Guid id, UpdateChatMessageRequest request, CancellationToken cancellationToken = default);
     Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default);

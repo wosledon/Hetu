@@ -25,6 +25,7 @@ public interface INoteRepository : IRepository<Note>
     Task HardDeleteAsync(Note note, CancellationToken cancellationToken = default);
     Task SetTagsAsync(Guid noteId, IEnumerable<Guid> tagIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Guid>> GetNoteIdsByTagAsync(Guid tagId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, List<Guid>>> GetNoteIdsByTagsAsync(IEnumerable<Guid> tagIds, CancellationToken cancellationToken = default);
     Task AddTagToNotesAsync(Guid tagId, IEnumerable<Guid> noteIds, CancellationToken cancellationToken = default);
     Task RemoveTagFromNotesAsync(Guid tagId, IEnumerable<Guid> noteIds, CancellationToken cancellationToken = default);
     Task<NoteEmbedding?> GetEmbeddingAsync(Guid noteId, CancellationToken cancellationToken = default);

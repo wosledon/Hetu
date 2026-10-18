@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Bot, FileText, Search, GitBranch, Check, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
@@ -208,13 +208,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const isInitialLoadRef = useRef(true)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
 
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ['chatMessages', topic?.id],
-    queryFn: () => (topic ? chatMessageService.getByTopic(topic.id) : Promise.resolve([])),
+  // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
+  const [messagePageSize, setMessagePageSize] = useState(100)
+  const { data: messagePage, isLoading: messagesLoading } = useQuery({
+    queryKey: ['chatMessages', topic?.id, messagePageSize],
+    queryFn: () => (topic ? chatMessageService.getByTopicPage(topic.id, 1, messagePageSize) : Promise.resolve(null)),
     // 草稿话题还没落库（id 为空）：不查消息
     enabled: !!topic?.id,
+    // 扩大窗口时保留上一页，避免列表短暂清空、滚动位置丢失
+    placeholderData: keepPreviousData,
   })
+  const messages = useMemo(() => messagePage?.items ?? [], [messagePage])
+  const totalMessages = messagePage?.totalCount ?? 0
 
   const notebooks = useNotebooks()
 
@@ -354,6 +361,14 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   // 首次加载消息后直接滚到底部（无动画），后续新消息平滑滚动
   useEffect(() => {
     if (messagesLoading) return
+    // 加载更早消息时保持视口位置：新内容追加在顶部，按高度差补偿 scrollTop
+    const restore = loadingOlderRef.current
+    const container = scrollRef.current
+    if (restore && container) {
+      container.scrollTop = restore.scrollTop + (container.scrollHeight - restore.scrollHeight)
+      loadingOlderRef.current = null
+      return
+    }
     if (isInitialLoadRef.current && messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
       isInitialLoadRef.current = false
@@ -874,6 +889,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     [messages],
   )
 
+  const loadEarlierMessages = () => {
+    const container = scrollRef.current
+    if (container) loadingOlderRef.current = { scrollHeight: container.scrollHeight, scrollTop: container.scrollTop }
+    setMessagePageSize((size) => Math.min(totalMessages, size + 100))
+  }
+
   if (!topic) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -1039,6 +1060,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-5">
           {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
+          {totalMessages > messages.length && (
+            <div className="flex justify-center">
+              <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={loadEarlierMessages}>
+                <ChevronDown size={11} />{t('messageArea.loadEarlier', { count: totalMessages - messages.length })}
+              </Button>
+            </div>
+          )}
           {messages.map((message) => (
             <div key={message.id} data-message-anchor={message.id} className="scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
             <ChatMessageItem

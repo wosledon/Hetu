@@ -143,6 +143,7 @@
   "toolParam.delete_project.id": "项目 ID",
   "toolParam.list_work_projects.keyword": "按名称过滤（可选）",
   "toolParam.read_note.noteId": "笔记 ID",
+  "toolParam.run_command.command": "要执行的命令",
   "toolParam.run_command.args": "命令参数（可选）",
   "toolParam.run_command.workingDir": "工作目录（可选）",
   "toolParam.search_graph.query": "搜索关键词",

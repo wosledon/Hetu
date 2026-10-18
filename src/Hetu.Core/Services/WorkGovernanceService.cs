@@ -371,9 +371,9 @@ public class WorkCheckpointService : IWorkCheckpointService
         var stale = checkpoints.OrderByDescending(c => c.CreatedAt).Skip(keep).ToList();
         if (stale.Count == 0) return;
 
-        var files = await _unitOfWork.WorkCheckpointFiles.GetAllAsync(cancellationToken);
         var staleIds = stale.Select(c => c.Id).ToHashSet();
-        foreach (var file in files.Where(f => staleIds.Contains(f.CheckpointId)))
+        var files = await _unitOfWork.WorkCheckpointFiles.FindAsync(f => staleIds.Contains(f.CheckpointId), cancellationToken);
+        foreach (var file in files)
             await _unitOfWork.WorkCheckpointFiles.DeleteAsync(file, cancellationToken);
         foreach (var checkpoint in stale)
             await _unitOfWork.WorkCheckpoints.DeleteAsync(checkpoint, cancellationToken);

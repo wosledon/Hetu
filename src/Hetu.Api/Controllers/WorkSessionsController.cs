@@ -66,6 +66,12 @@ public class WorkSessionsController : ControllerBase
     public Task<ApiResponse<List<WorkMessageDto>>> GetMessages(Guid id, CancellationToken cancellationToken)
         => _sessionService.GetMessagesAsync(id, cancellationToken);
 
+    /// <summary>按页读取会话消息：第 1 页为最新一页，items 按时间正序返回</summary>
+    [HttpGet("{id:guid}/messages/page")]
+    public Task<ApiResponse<PagedResult<WorkMessageDto>>> GetMessagesPage(
+        Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 200, CancellationToken cancellationToken = default)
+        => _sessionService.GetMessagesPageAsync(id, page, pageSize, cancellationToken);
+
     [HttpGet("{id:guid}/file-changes")]
     public async Task<ApiResponse<List<WorkFileChangeDto>>> GetFileChanges(Guid id, CancellationToken cancellationToken)
     {

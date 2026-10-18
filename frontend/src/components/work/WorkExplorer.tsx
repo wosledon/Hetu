@@ -166,7 +166,10 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
     queryKey: ['workGitStatus', projectId, sessionId],
     queryFn: () => workGitService.status(projectId!, sessionId),
     enabled: !!projectId && activeFeature === 'git',
-    refetchInterval: !!projectId && activeFeature === 'git' ? 5000 : false,
+    // 失败后退避到 30 秒，避免慢仓库/不可达远端每 5 秒重试一次
+    refetchInterval: (query) => (!projectId || activeFeature !== 'git'
+      ? false
+      : query.state.status === 'error' ? 30000 : 5000),
   })
   const [gitSelected, setGitSelected] = useState<Set<string>>(new Set())
   const [gitCommitMessage, setGitCommitMessage] = useState('')

@@ -1,5 +1,6 @@
 import { get, post, put, del } from './api';
 import type { IContextUsage, ICompactContextRequest, ICompactContextResult } from '../types/context';
+import type { IPagedResult } from '../types';
 import type {
   IWorkProject,
   IWorkSession,
@@ -69,6 +70,9 @@ export const workSessionService = {
   update: (id: string, data: IUpdateWorkSessionRequest) => put<IWorkSession>(`/work-sessions/${id}`, data),
   delete: (id: string) => del<void>(`/work-sessions/${id}`),
   getMessages: (id: string) => get<IWorkMessage[]>(`/work-sessions/${id}/messages`),
+  /** 第 1 页为最新一页，items 按时间正序返回 */
+  getMessagesPage: (id: string, page = 1, pageSize = 200) =>
+    get<IPagedResult<IWorkMessage>>(`/work-sessions/${id}/messages/page`, { page, pageSize }),
   /**
    * 运行状态：刷新页面后本地登记已清空，靠它判断「这个会话还有一轮在跑，但我不知道」。
    * 后端把循环生命周期与 HTTP 请求解耦了，断开连接不会中止运行。

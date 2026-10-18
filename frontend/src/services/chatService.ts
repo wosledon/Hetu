@@ -1,5 +1,5 @@
 import { get, post, put, del } from './api';
-import type { IChatGroup, IChatTopic, IChatMessage, IMainChat } from '../types';
+import type { IChatGroup, IChatTopic, IChatMessage, IMainChat, IPagedResult } from '../types';
 import type { IContextUsage, ICompactContextRequest, ICompactContextResult } from '../types/context';
 
 // Re-export prompt preset types and service from dedicated module
@@ -120,6 +120,9 @@ export interface ChatMessageSearchResult {
 
 export const chatMessageService = {
   getByTopic: (topicId: string) => get<IChatMessage[]>(`/chat-messages/topic/${topicId}`),
+  /** 第 1 页为最新一页，items 按时间正序返回 */
+  getByTopicPage: (topicId: string, page = 1, pageSize = 100) =>
+    get<IPagedResult<IChatMessage>>(`/chat-messages/topic/${topicId}/page`, { page, pageSize }),
   send: (topicId: string, data: SendMessageRequest) => post<IChatMessage>(`/chat-messages/topic/${topicId}`, data),
   update: (id: string, data: UpdateChatMessageRequest) => put<IChatMessage>(`/chat-messages/${id}`, data),
   delete: (id: string) => del<void>(`/chat-messages/${id}`),

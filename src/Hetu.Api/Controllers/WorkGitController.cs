@@ -21,8 +21,8 @@ public class WorkGitController : ControllerBase
 
     /// <summary>仓库状态：当前分支与未提交变更列表</summary>
     [HttpGet("status")]
-    public Task<ApiResponse<WorkGitStatusDto>> GetStatus(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
-        => _gitService.GetStatusAsync(id, session, cancellationToken).ContinueWith(t => ApiResponse<WorkGitStatusDto>.Ok(t.Result), cancellationToken);
+    public async Task<ApiResponse<WorkGitStatusDto>> GetStatus(Guid id, [FromQuery] Guid? session, CancellationToken cancellationToken)
+        => ApiResponse<WorkGitStatusDto>.Ok(await _gitService.GetStatusAsync(id, session, cancellationToken));
 
     /// <summary>本地分支列表 + 当前分支（Code 会话的分支/工作树选择器用）</summary>
     [HttpGet("branches")]

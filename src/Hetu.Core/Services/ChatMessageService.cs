@@ -22,6 +22,28 @@ public class ChatMessageService : IChatMessageService
         return ApiResponse<List<ChatMessageDto>>.Ok(messages.OrderBy(m => m.CreatedAt).Select(Map).ToList());
     }
 
+    public async Task<ApiResponse<PagedResult<ChatMessageDto>>> GetByTopicPageAsync(Guid topicId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 500);
+        var total = await _unitOfWork.ChatMessages.CountAsync(m => m.TopicId == topicId, cancellationToken);
+        var messages = await _unitOfWork.ChatMessages.GetPagedByDateAsync(
+            m => m.TopicId == topicId,
+            m => m.CreatedAt,
+            descending: true,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            cancellationToken);
+        messages.Reverse();
+        return ApiResponse<PagedResult<ChatMessageDto>>.Ok(new PagedResult<ChatMessageDto>
+        {
+            Items = messages.Select(Map).ToList(),
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
+        });
+    }
+
     public async Task<ApiResponse<ChatMessageDto>> CreateUserMessageAsync(Guid topicId, string content, CancellationToken cancellationToken = default)
     {
         var topic = await _unitOfWork.ChatTopics.GetByIdAsync(topicId, cancellationToken);
@@ -161,12 +183,11 @@ public class ChatMessageService : IChatMessageService
 
         var lowerKeyword = keyword.ToLowerInvariant();
 
-        // 关键字过滤下推到数据库，避免全表加载后在内存过滤
-        IReadOnlyList<ChatMessage> messages;
+        // 关键字过滤与条数限制下推到数据库：只取最近 50 条命中，避免加载全部匹配项
+        System.Linq.Expressions.Expression<Func<ChatMessage, bool>> predicate;
         if (topicId.HasValue)
         {
-            messages = await _unitOfWork.ChatMessages.FindAsync(
-                m => m.TopicId == topicId.Value && m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
+            predicate = m => m.TopicId == topicId.Value && m.Content.ToLower().Contains(lowerKeyword);
         }
         else if (groupId.HasValue)
         {
@@ -176,16 +197,15 @@ public class ChatMessageService : IChatMessageService
             if (groupTopicIds.Count == 0)
                 return ApiResponse<List<ChatMessageSearchResultDto>>.Ok([]);
 
-            messages = await _unitOfWork.ChatMessages.FindAsync(
-                m => groupTopicIds.Contains(m.TopicId) && m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
+            predicate = m => groupTopicIds.Contains(m.TopicId) && m.Content.ToLower().Contains(lowerKeyword);
         }
         else
         {
-            messages = await _unitOfWork.ChatMessages.FindAsync(
-                m => m.Content.ToLower().Contains(lowerKeyword), cancellationToken);
+            predicate = m => m.Content.ToLower().Contains(lowerKeyword);
         }
 
-        var hits = messages.OrderByDescending(m => m.CreatedAt).Take(50).ToList();
+        var hits = await _unitOfWork.ChatMessages.GetPagedByDateAsync(
+            predicate, m => m.CreatedAt, descending: true, skip: 0, take: 50, cancellationToken);
 
         // 只为命中的消息加载所属话题标题
         var hitTopicIds = hits.Select(m => m.TopicId).Distinct().ToList();

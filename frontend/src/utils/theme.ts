@@ -28,7 +28,8 @@ export function useTheme() {
 
     // 桌面壳：把主题设置交给壳持久化。启动屏与应用不同 origin，拿不到这里的
     // localStorage，下次启动只能靠壳侧那份值才能正确铺底。
-    if (isTauri()) void tauriInvoke('set_ui_theme', { theme });
+    // 非 Hetu 的 Tauri 宿主可能拒绝该命令：前端主题已生效，忽略持久化失败即可。
+    if (isTauri()) void tauriInvoke('set_ui_theme', { theme }).catch(() => undefined);
 
     if (theme !== 'system') {
       return;
