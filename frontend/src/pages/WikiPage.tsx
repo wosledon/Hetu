@@ -380,12 +380,103 @@ export default function WikiPage() {
     [models],
   )
   const chosenModelName = chatModels.find((m) => m.id === chosenModelId)?.displayName
+  const headerTitle = selectedProject ? t('wiki.projectTitle', { name: selectedProject.name }) : t('wiki.title')
 
   return (
     <AppLayout showSidebar={false} mainContent={
-      <PageContainer variant="fill">
+      <PageContainer variant="fill" className="flex-col">
+        {/* 页头 */}
+        <div className="shrink-0 border-b border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
+                <BookText size={20} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-xl" title={headerTitle}>
+                  {headerTitle}
+                </h1>
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {t('wiki.headerSubtitle', { n: visibleSets.length })}
+                  {selectedSet && t('wiki.headerCurrentPages', { n: selectedSet.pageCount })}
+                  {selectedSet?.isStale && t('wiki.headerStale')}
+                </p>
+              </div>
+            </div>
+            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end md:w-auto md:flex-nowrap">
+              {selectedSet && (
+                <IconButton variant="secondary" size="md" className="rounded-full" label={t('wiki.syncTitle')} onClick={() => syncMutation.mutate(selectedSet.setId)}
+                  disabled={syncMutation.isPending}>
+                  {syncMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Database size={15} />}
+                </IconButton>
+              )}
+              {selectedSet && (
+                <IconButton variant="secondary" size="md" className="rounded-full" label={t('wiki.exportTitle')} onClick={() => exportMutation.mutate(selectedSet.setId)}
+                  disabled={exportMutation.isPending}>
+                  {exportMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                </IconButton>
+              )}
+              {selectedSet && <span className="mx-0.5 hidden h-5 w-px shrink-0 bg-gray-200 dark:bg-gray-700 md:block" aria-hidden="true" />}
+
+              {/* 生成模型选择 */}
+              <div className="relative">
+                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
+                  title={t('wiki.modelPickerTitle')}>
+                  <Cpu size={14} />
+                  <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
+                </Button>
+                {modelPickerOpen && createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
+                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                      <button
+                        onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
+                        className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                          !chosenModelId
+                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
+                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {t('wiki.defaultModelCompletion')}
+                      </button>
+                      {chatModels.map((model) => (
+                        <button
+                          key={model.id}
+                          onClick={() => { setChosenModelId(model.id); setModelPickerOpen(false) }}
+                          className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                            chosenModelId === model.id
+                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
+                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1 truncate" title={model.displayName}>
+                            {model.displayName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>,
+                  document.body
+                )}
+              </div>
+
+              <span className="mx-0.5 hidden h-5 w-px shrink-0 bg-gray-200 dark:bg-gray-700 md:block" aria-hidden="true" />
+              <Button variant="primary" tone="emerald" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
+                disabled={!selectedProject || generating}
+                title={
+                  !selectedProject
+                    ? t('wiki.selectProjectFirst')
+                    : t('wiki.generateTitle')
+                }>
+                {generating ? <Loader2 size={15} className="animate-spin" /> : <BookText size={15} />}
+                {generating ? t('wiki.generating') : t('wiki.generate')}
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-1">
         {/* 项目列表 */}
-        <Card padded={false} className="flex h-full w-52 shrink-0 flex-col border-r border-transparent">
+        <Card padded={false} className="hidden h-full w-44 shrink-0 flex-col border-r border-transparent md:flex xl:w-52">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -436,7 +527,7 @@ export default function WikiPage() {
         </Card>
 
         {/* Wiki 套件与页面 */}
-        <Card padded={false} className="flex h-full w-56 shrink-0 flex-col border-r border-transparent">
+        <Card padded={false} className="flex h-full w-48 shrink-0 flex-col border-r border-transparent xl:w-56">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
@@ -503,93 +594,6 @@ export default function WikiPage() {
           </div>
         </Card>
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
-              <BookText size={20} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {selectedProject ? t('wiki.projectTitle', { name: selectedProject.name }) : t('wiki.title')}
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t('wiki.headerSubtitle', { n: visibleSets.length })}
-                {selectedSet && t('wiki.headerCurrentPages', { n: selectedSet.pageCount })}
-                {selectedSet?.isStale && t('wiki.headerStale')}
-              </p>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              {selectedSet && (
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => syncMutation.mutate(selectedSet.setId)}
-                  disabled={syncMutation.isPending}
-                  title={t('wiki.syncTitle')}>
-                  {syncMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
-                  {t('wiki.sync')}
-                </Button>
-              )}
-              {selectedSet && (
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => exportMutation.mutate(selectedSet.setId)}
-                  disabled={exportMutation.isPending}
-                  title={t('wiki.exportTitle')}>
-                  {exportMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                  {t('common:export')}
-                </Button>
-              )}
-
-              {/* 生成模型选择 */}
-              <div className="relative">
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
-                  title={t('wiki.modelPickerTitle')}>
-                  <Cpu size={14} />
-                  <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
-                </Button>
-                {modelPickerOpen && createPortal(
-                  <>
-                    <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
-                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                      <button
-                        onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
-                        className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
-                          !chosenModelId
-                            ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
-                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {t('wiki.defaultModelCompletion')}
-                      </button>
-                      {chatModels.map((model) => (
-                        <button
-                          key={model.id}
-                          onClick={() => { setChosenModelId(model.id); setModelPickerOpen(false) }}
-                          className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
-                            chosenModelId === model.id
-                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
-                              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          <span className="min-w-0 flex-1 truncate" title={model.displayName}>
-                            {model.displayName}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </>,
-                  document.body
-                )}
-              </div>
-
-              <Button variant="primary" tone="emerald" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
-                disabled={!selectedProject || generating}
-                title={
-                  !selectedProject
-                    ? t('wiki.selectProjectFirst')
-                    : t('wiki.generateTitle')
-                }>
-                {generating ? <Loader2 size={15} className="animate-spin" /> : <BookText size={15} />}
-                {generating ? t('wiki.generating') : t('wiki.generate')}
-              </Button>
-            </div>
-          </div>
 
           {/* 提示条 */}
           {toast && (
@@ -703,6 +707,7 @@ export default function WikiPage() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </PageContainer>
     } />
