@@ -1,5 +1,7 @@
 mod backend;
 
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -131,9 +133,50 @@ fn set_ui_theme(app: AppHandle, theme: String) -> Result<(), String> {
 /// 用真实子窗口加载则不受该限制。已打开过的应用仅聚焦，不重复开窗。
 #[tauri::command]
 async fn open_app_webview<R: Runtime>(app: AppHandle<R>, url: String, title: String) -> Result<(), String> {
+    let parsed: url::Url = url.parse().map_err(|e| format!("invalid url: {e}"))?;
+    let window_title = window_title(&parsed, &title);
+    create_app_webview(&app, parsed, &window_title)
+}
+
+/// 打开网页应用的统一入口。
+///
+/// 优先用系统里已安装的 Chromium 浏览器（Edge / Chrome / Brave / Chromium）以「应用模式」
+/// 开一个独立窗口，并使用应用自己的配置目录：
+/// - 真实浏览器内核，Google 等站点不会像对待 WebView 那样拒绝登录；
+/// - 每个站点独立 Cookie，登录一次长期有效，不和日常浏览器互相干扰；
+/// - 没有地址栏与标签页，观感仍然像一个内置应用。
+///
+/// 系统没有 Chromium 浏览器时退回 Tauri 自带 WebView 窗口，并在前端提示可改用系统浏览器。
+#[tauri::command]
+async fn open_app_window<R: Runtime>(app: AppHandle<R>, url: String, title: String) -> Result<String, String> {
+    let parsed: url::Url = url.parse().map_err(|e| format!("invalid url: {e}"))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err(format!("unsupported url scheme: {}", parsed.scheme()));
+    }
+    let window_title = window_title(&parsed, &title);
+
+    match spawn_browser_app_window(&app, &parsed) {
+        Ok(()) => Ok("browser".to_string()),
+        Err(err) => {
+            tracing::warn!(target: "hetu::shell", "browser app window unavailable, falling back to webview: {err}");
+            create_app_webview(&app, parsed, &window_title)?;
+            Ok("webview".to_string())
+        }
+    }
+}
+
+fn window_title(parsed: &url::Url, title: &str) -> String {
+    if title.trim().is_empty() {
+        parsed.host_str().unwrap_or("应用").to_string()
+    } else {
+        title.trim().to_string()
+    }
+}
+
+/// 创建（或聚焦）Tauri WebView 应用窗口。OAuth 弹窗交给默认实现，避免登录按钮无反应。
+fn create_app_webview<R: Runtime>(app: &AppHandle<R>, parsed: url::Url, title: &str) -> Result<(), String> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
 
-    let parsed: url::Url = url.parse().map_err(|e| format!("invalid url: {e}"))?;
     let label = format!("app-{:x}", stable_hash(parsed.as_str()));
 
     if let Some(existing) = app.get_webview_window(&label) {
@@ -142,14 +185,139 @@ async fn open_app_webview<R: Runtime>(app: AppHandle<R>, url: String, title: Str
         return Ok(());
     }
 
-    let window_title = if title.trim().is_empty() { parsed.host_str().unwrap_or("应用").to_string() } else { title.trim().to_string() };
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
-        .title(&window_title)
+    WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
+        .title(title)
         .inner_size(1200.0, 860.0)
         .min_inner_size(720.0, 480.0)
+        // 独立数据目录：登录状态与主界面隔离，并跨重启保留（macOS 不支持，忽略即可）
+        .data_directory(app_data_dir(app).join("apps").join("webview"))
+        // 第三方登录普遍通过 window.open 弹窗完成；不接管会被直接吞掉
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Allow)
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 数据目录：优先复用后端注入的 HETU_DATA_DIR，保证应用配置与数据库在同一处。
+fn app_data_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
+    if let Some(handle) = app.try_state::<Arc<BackendHandle>>() {
+        return handle.data_dir.clone();
+    }
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::env::temp_dir())
+}
+
+/// 用 Chromium 浏览器的应用模式打开独立窗口；找不到浏览器时返回错误，由调用方回退。
+fn spawn_browser_app_window<R: Runtime>(app: &AppHandle<R>, parsed: &url::Url) -> Result<(), String> {
+    let browser = find_chromium_browser().ok_or_else(|| "no chromium-based browser found".to_string())?;
+
+    let host = parsed.host_str().unwrap_or("app");
+    let profile = app_data_dir(app)
+        .join("apps")
+        .join(format!("{}-{:x}", sanitize_component(host), stable_hash(host)));
+    std::fs::create_dir_all(&profile).map_err(|e| format!("create profile dir failed: {e}"))?;
+
+    let mut command = std::process::Command::new(&browser);
+    command
+        .arg(format!("--app={parsed}"))
+        .arg(format!("--user-data-dir={}", profile.display()))
+        .args([
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-search-engine-choice-screen",
+            "--window-size=1200,860",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // 不弹控制台窗口，避免启动应用时黑框闪一下
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    command
+        .spawn()
+        .map_err(|e| format!("launch {} failed: {e}", browser.display()))?;
+    tracing::info!(target: "hetu::shell", "opened app window via {} for {parsed}", browser.display());
+    Ok(())
+}
+
+/// 主机名转成安全的目录名（保留字母数字与 . - _，其余替换为 -）
+fn sanitize_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') { c } else { '-' })
+        .take(64)
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
+fn find_chromium_browser() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for base in ["ProgramFiles", "ProgramFiles(x86)", "LocalAppData"] {
+        if let Some(root) = std::env::var_os(base) {
+            let root = PathBuf::from(root);
+            candidates.push(root.join(r"Microsoft\Edge\Application\msedge.exe"));
+            candidates.push(root.join(r"Google\Chrome\Application\chrome.exe"));
+            candidates.push(root.join(r"BraveSoftware\Brave-Browser\Application\brave.exe"));
+        }
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(target_os = "macos")]
+fn find_chromium_browser() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect();
+    // 用户目录下的安装（无需管理员权限）
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home).join("Applications");
+        candidates.push(home.join("Google Chrome.app/Contents/MacOS/Google Chrome"));
+        candidates.push(home.join("Microsoft Edge.app/Contents/MacOS/Microsoft Edge"));
+        candidates.push(home.join("Brave Browser.app/Contents/MacOS/Brave Browser"));
+        candidates.push(home.join("Chromium.app/Contents/MacOS/Chromium"));
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(target_os = "linux")]
+fn find_chromium_browser() -> Option<PathBuf> {
+    let names = [
+        "microsoft-edge",
+        "microsoft-edge-stable",
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "brave-browser",
+    ];
+    let path_var = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path_var) {
+        for name in names {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn find_chromium_browser() -> Option<PathBuf> {
+    None
 }
 
 /// 稳定字符串哈希（FxHash 风格），用于把 URL 映射为窗口 label。
@@ -179,6 +347,7 @@ pub fn run() {
             get_ui_theme,
             set_ui_theme,
             open_app_webview,
+            open_app_window,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

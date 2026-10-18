@@ -105,6 +105,14 @@
       <h3>PR panel says gh / glab is missing</h3>
       <p>PR support reuses the local GitHub / GitLab CLI. The panel prints the platform install command (for example <code>winget install --id GitHub.cli</code>); refresh after installing.</p>
 
+      <h2>Apps and web sign-in</h2>
+      <h3>An app will not open or cannot sign in</h3>
+      <p>Chat sites generally refuse to be embedded via <code>X-Frame-Options</code> / CSP <code>frame-ancestors</code>, and Google sign-in rejects WebView outright. Hetu now hands the page to the Edge / Chrome installed on the machine and opens it in app mode; if that still fails, use “Open in system browser” on the same page to confirm the network and account work, then check whether security software is blocking the default browser.</p>
+      <h3>Where sign-in state lives</h3>
+      <p>On desktop each site gets its own browser profile: <code>&lt;data dir&gt;/apps/&lt;host&gt;-&lt;hash&gt;</code> (<code>%LOCALAPPDATA%\Hetu\apps</code> on Windows). Delete that folder to sign out of the site; removing all of them does not touch Hetu's own data.</p>
+      <h3>No Edge / Chrome installed</h3>
+      <p>Hetu falls back to the built-in Tauri WebView window and suggests the system browser in a banner. On Linux install <code>chromium</code>, <code>google-chrome</code> or <code>microsoft-edge</code> and reopen the app to use a real browser engine.</p>
+
       <h2>Updates</h2>
       <h3><code>Could not fetch a valid release JSON from the remote</code></h3>
       <p>The updater manifest could not be fetched. Upgrade to the latest build; if it persists, open <code>https://github.com/wosledon/Hetu/releases/latest/download/latest.json</code> (slim channel: <code>latest-slim.json</code>) in a browser to confirm reachability, then check connectivity to the mirrors (<code>ghproxy.net</code> and friends).</p>
@@ -157,7 +165,7 @@
   <button class="lightbox-close" data-lightbox-close aria-label="Close">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search documentation" aria-hidden="true">

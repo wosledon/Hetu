@@ -138,14 +138,17 @@ description: 按固定清单审查改动
   "systemPrompt": "只指出真实缺陷，附最小复现与修复建议。",
   "allowedTools": ["read_file", "search_code", "run_command"],
   "toolPolicies": { "run_command": "ask", "update_note": "silent" }
-}</code></pre></div><h2>应用（内嵌浏览器）</h2>
-      <p>入口：<code>/apps</code>。把常用网页登记为「应用」，用应用内浏览器打开，避免来回切窗口。</p>
+}</code></pre></div><h2>应用（独立窗口打开）</h2>
+      <p>入口：<code>/apps</code>。把常用网页登记为「应用」，一键打开，不用在浏览器里翻标签页；可以从下方「常用大模型」一键添加 DeepSeek、通义千问、Kimi、豆包、ChatGPT、Claude、Gemini 等预设。</p>
+      <p>各家大模型网页普遍用 <code>X-Frame-Options</code> / CSP <code>frame-ancestors</code> 禁止被 iframe 内嵌，Google 账号登录还会直接拒绝嵌入式 WebView。因此 Hetu 不再做内嵌预览，而是把网页交给系统里已安装的 Chromium 浏览器，以「应用模式」打开独立窗口。</p>
       <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>登记</td><td>名称 + URL（本地服务如 <code>http://localhost:5174</code> 或外站）</td></tr>
-          <tr><td>打开</td><td>应用内嵌视图，带地址栏、前进后退、刷新与常用链接</td></tr>
-          <tr><td>超时提示</td><td>目标站点用 <code>X-Frame-Options</code> / CSP 拒绝内嵌时，4 秒后提示改用系统浏览器打开</td></tr>
+          <tr><td>登记</td><td>名称 + URL（本地服务如 <code>http://localhost:5174</code> 或外站），可从常用大模型一键添加</td></tr>
+          <tr><td>打开方式</td><td>桌面版优先用 Edge / Chrome / Brave / Chromium 的 <code>--app</code> 窗口：没有地址栏与标签页，观感与内置应用一致</td></tr>
+          <tr><td>登录状态</td><td>每个站点一个独立配置目录（<code>&lt;数据目录&gt;/apps/&lt;host&gt;-&lt;hash&gt;</code>），Cookie 与登录跨重启保留，且不影响日常浏览器</td></tr>
+          <tr><td>回退</td><td>系统没有 Chromium 浏览器时退回内置 WebView 窗口，并提示改用系统浏览器打开（Google 账号登录通常只能在真实浏览器完成）</td></tr>
+          <tr><td>浏览器模式</td><td>源码运行或浏览器访问时，点击卡片直接在新标签页打开，由浏览器管理登录状态</td></tr>
         </tbody>
       </table></div>
     <div class="docs-pager"><a href="organize.html">← 看板与自动化</a><a href="models.html">模型与用量 →</a></div>
@@ -189,7 +192,7 @@ description: 按固定清单审查改动
   <button class="lightbox-close" data-lightbox-close aria-label="关闭">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="搜索文档" aria-hidden="true">

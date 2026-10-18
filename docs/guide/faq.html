@@ -105,6 +105,14 @@
       <h3>PR 面板提示找不到 gh / glab</h3>
       <p>PR 功能复用本机的 GitHub CLI / GitLab CLI；面板会按平台给出安装命令（例如 <code>winget install --id GitHub.cli</code>），装完点刷新。</p>
 
+      <h2>应用与网页登录</h2>
+      <h3>应用里的网页打不开或登录不了</h3>
+      <p>各家大模型网页普遍用 <code>X-Frame-Options</code> / CSP <code>frame-ancestors</code> 禁止内嵌，Google 账号还会直接拒绝 WebView 登录。Hetu 已改为把网页交给系统里的 Edge / Chrome 以「应用模式」打开独立窗口；如果仍然失败，先用同一页面的「在系统浏览器打开」确认网络与账号本身正常，再检查默认浏览器是否被安全软件拦截。</p>
+      <h3>登录状态存在哪里</h3>
+      <p>桌面版每个站点一个独立浏览器配置目录：<code>&lt;数据目录&gt;/apps/&lt;host&gt;-&lt;hash&gt;</code>（Windows 默认在 <code>%LOCALAPPDATA%\Hetu\apps</code>）。删除对应目录即可退出该站点的登录；不需要时也可以整个删掉，不影响 Hetu 自己的数据。</p>
+      <h3>系统里没有 Edge / Chrome</h3>
+      <p>会退回 Tauri 内置 WebView 窗口，页面顶部会提示改用系统浏览器。Linux 上可以安装 <code>chromium</code>、<code>google-chrome</code> 或 <code>microsoft-edge</code>，重开应用即可用真实浏览器内核。</p>
+
       <h2>更新</h2>
       <h3>报 <code>Could not fetch a valid release JSON from the remote</code></h3>
       <p>更新清单没取到。请升级到最新版；仍失败时用浏览器打开 <code>https://github.com/wosledon/Hetu/releases/latest/download/latest.json</code>（slim 渠道换成 <code>latest-slim.json</code>）确认可访问，再检查网络对镜像（<code>ghproxy.net</code> 等）的连通性。</p>
@@ -157,7 +165,7 @@
   <button class="lightbox-close" data-lightbox-close aria-label="关闭">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="搜索文档" aria-hidden="true">
