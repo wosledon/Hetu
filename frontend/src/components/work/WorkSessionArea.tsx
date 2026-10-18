@@ -747,10 +747,12 @@ export default function WorkSessionArea({
     }
     return -1
   }, [orderedMessages])
-  const visibleMessages =
-    showOlder || sentThisVisit || lastUserIndex <= 0
+  const visibleMessages = useMemo(
+    () => (showOlder || sentThisVisit || lastUserIndex <= 0
       ? orderedMessages
-      : orderedMessages.slice(lastUserIndex)
+      : orderedMessages.slice(lastUserIndex)),
+    [showOlder, sentThisVisit, lastUserIndex, orderedMessages],
+  )
   const olderCount = showOlder || sentThisVisit || lastUserIndex <= 0 ? 0 : lastUserIndex
   const railItems = useMemo(
     () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
