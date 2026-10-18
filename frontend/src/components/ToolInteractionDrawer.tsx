@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Check,
   ChevronDown,
   ChevronRight,
-  CircleCheckBig,
-  Circle,
   ClipboardList,
   HelpCircle,
   ListChecks,
@@ -25,41 +24,54 @@ interface ToolInteractionDrawerProps {
   streaming?: boolean
 }
 
-/** 单个待办步骤 */
+/** 单个待办步骤：圆圈编号 + 进行中/完成状态，描述另起一行 */
 function TodoRow({ todo, index }: { todo: InteractionTodo; index: number }) {
   const isCompleted = todo.status === 'completed'
   const isInProgress = todo.status === 'in-progress'
+  const rowRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (isInProgress) rowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [isInProgress])
+
   return (
-    <li className="flex items-start gap-2.5 text-xs">
-      <span className="mt-0.5 flex-shrink-0">
-        {isCompleted ? (
-          <CircleCheckBig size={14} className="text-emerald-500" />
-        ) : isInProgress ? (
-          <Loader2 size={14} className="animate-spin text-sky-500" />
-        ) : (
-          <Circle size={14} className="text-gray-300 dark:text-gray-600" />
-        )}
-      </span>
-      <span className={`flex-1 leading-relaxed ${
-        isCompleted
-          ? 'text-gray-400 line-through dark:text-gray-500'
+    <li ref={rowRef} className="relative flex items-start gap-3">
+      <span
+        className={`relative z-10 mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums transition-colors ${
+          isCompleted
+            ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
+            : isInProgress
+              ? 'border-sky-400 bg-sky-50 text-sky-600 ring-4 ring-sky-500/10 dark:border-sky-600 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-400/10'
+              : 'border-gray-200 bg-white text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500'
+        }`}
+      >
+        {isCompleted
+          ? <Check size={11} strokeWidth={3} />
           : isInProgress
-            ? 'font-medium text-sky-700 dark:text-sky-300'
-            : 'text-gray-600 dark:text-gray-400'
-      }`}>
-        {todo.title}
-        {todo.description && (
-          <span className="ml-1.5 text-[10px] text-gray-400 dark:text-gray-500">{todo.description}</span>
+            ? <Loader2 size={11} className="animate-spin" />
+            : index + 1}
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className={`text-[12px] font-medium leading-5 ${
+          isCompleted
+            ? 'text-gray-400 line-through dark:text-gray-500'
+            : isInProgress
+              ? 'text-sky-700 dark:text-sky-300'
+              : 'text-gray-700 dark:text-gray-200'
+        }`}>
+          {todo.title}
+        </div>
+        {todo.description && !isCompleted && (
+          <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+            {todo.description}
+          </div>
         )}
-      </span>
-      <span className="flex-shrink-0 text-[10px] tabular-nums text-gray-300 dark:text-gray-600">
-        {String(index + 1).padStart(2, '0')}
-      </span>
+      </div>
     </li>
   )
 }
 
-/** 工作计划面板：进度条 + 步骤列表（标题/计数已在抽屉头部展示，这里不再重复一层“额头”） */
+/** 工作计划面板：进度条 + 编号时间线（标题/计数已在抽屉头部展示） */
 function TodoSection({ todos }: { todos: InteractionTodo[] }) {
   const total = todos.length
   const completed = todos.filter(t => t.status === 'completed').length
@@ -68,17 +80,30 @@ function TodoSection({ todos }: { todos: InteractionTodo[] }) {
 
   return (
     <div className="px-4 py-3">
-      <div className="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            allDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-sky-400 to-indigo-500'
-          }`}
-          style={{ width: `${percent}%` }}
-        />
+      <div className="mb-3 flex items-center gap-2.5">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/70">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              allDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-sky-400 via-sky-500 to-indigo-500'
+            }`}
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        <span className={`w-9 text-right text-[10px] font-semibold tabular-nums ${
+          allDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'
+        }`}>
+          {percent}%
+        </span>
       </div>
-      <ul className="mt-3 space-y-2">
+      <ol className="relative space-y-3">
+        {todos.length > 1 && (
+          <span
+            aria-hidden
+            className="absolute bottom-3 left-[11px] top-3 w-px bg-gradient-to-b from-sky-200 via-gray-200 to-transparent dark:from-sky-800 dark:via-gray-700"
+          />
+        )}
         {todos.map((t, idx) => <TodoRow key={t.id} todo={t} index={idx} />)}
-      </ul>
+      </ol>
     </div>
   )
 }
@@ -142,33 +167,43 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
   const active = selectedTab && tabs.some(t => t.key === selectedTab) ? selectedTab : tabs[0]?.key
   const activeMeta = tabs.find(t => t.key === active)
 
-  const summary = active === 'plan'
-    ? plan && `${plan.title || t('interaction.executionPlan')} · ${t('interaction.steps', { count: plan.steps.length })}${plan.decided === 'approved' ? t('interaction.approved') : plan.decided === 'rejected' ? t('interaction.rejected') : t('interaction.pendingConfirm')}`
+  const todoCompleted = todos.filter(todo => todo.status === 'completed').length
+  const todoPercent = todos.length === 0 ? 0 : Math.round((todoCompleted / todos.length) * 100)
+  const answerCount = questions.filter(q => state.questionAnswers[q.id]).length
+
+  const title = active === 'plan'
+    ? (plan?.title || t('interaction.executionPlan'))
     : active === 'todo'
-      ? `${t('interaction.workPlan')} · ${todos.filter(todo => todo.status === 'completed').length}/${todos.length}${todos.length > 0 && todos.every(todo => todo.status === 'completed') ? t('interaction.allCompleted') : ''}`
+      ? t('interaction.workPlan')
       : t('interaction.answering')
+
+  const meta = active === 'plan'
+    ? `${plan ? t('interaction.steps', { count: plan.steps.length }) : ''}${plan?.decided === 'approved' ? t('interaction.approved') : plan?.decided === 'rejected' ? t('interaction.rejected') : t('interaction.pendingConfirm')}`
+    : active === 'todo'
+      ? `${todoCompleted}/${todos.length} · ${todoPercent}%${todos.length > 0 && todoCompleted === todos.length ? t('interaction.allCompleted') : ''}`
+      : `${answerCount}/${questions.length}`
 
   return (
     <div className="mb-2 animate-drawer-up">
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 shadow-lg shadow-gray-900/5 ring-1 ring-black/[0.02] backdrop-blur-md dark:border-gray-700/80 dark:bg-gray-800/95 dark:shadow-black/20">
-        {/* 抽屉把手 */}
-        <div className="flex justify-center pt-2">
-          <span className="h-1 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
-        </div>
-
+      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 shadow-xl shadow-gray-900/[0.04] ring-1 ring-black/[0.02] backdrop-blur-md dark:border-gray-700/80 dark:bg-gray-800/95 dark:shadow-black/20">
         {/* Header：标题 + 分区切换 + 折叠 */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ring-1 ${
             active === 'plan'
-              ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400'
+              ? 'bg-teal-100 text-teal-600 ring-teal-200/60 dark:bg-teal-900/50 dark:text-teal-400 dark:ring-teal-800/50'
               : active === 'todo'
-                ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400'
-                : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400'
+                ? 'bg-sky-100 text-sky-600 ring-sky-200/60 dark:bg-sky-900/50 dark:text-sky-400 dark:ring-sky-800/50'
+                : 'bg-indigo-100 text-indigo-600 ring-indigo-200/60 dark:bg-indigo-900/50 dark:text-indigo-400 dark:ring-indigo-800/50'
           }`}>
-            {activeMeta ? <activeMeta.icon size={14} /> : <HelpCircle size={14} />}
+            {activeMeta ? <activeMeta.icon size={15} /> : <HelpCircle size={15} />}
           </div>
-          <div className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-700 dark:text-gray-200">
-            {summary}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-semibold text-gray-800 dark:text-gray-100">
+              {title}
+            </div>
+            <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-gray-500">
+              {meta}
+            </div>
           </div>
 
           {/* 分区切换 */}
@@ -202,7 +237,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
 
         {/* Body */}
         {!collapsed && (
-          <div className="max-h-[min(40vh,320px)] overflow-y-auto border-t border-gray-100 dark:border-gray-700/60">
+          <div className="max-h-[min(42vh,340px)] overflow-y-auto border-t border-gray-100 dark:border-gray-700/60">
             {active === 'question' && questions.length > 0 && (
               <QuestionFlow
                 questions={questions}

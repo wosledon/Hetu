@@ -28,18 +28,18 @@ public class SseStreamWriter
     {
         _buffer?.Publish(data);
         // 客户端已断开时写入会抛（请求被中止 / 连接重置）：这里只丢掉这次推送，
-        // 不往上抛—— Agent 循环的所有权在 WorkRunRegistry，不该被单个连接的死活带着走
-        if (_response.HasStarted)
+        // 不往上抛—— Agent 循环的所有权在 WorkRunRegistry，不该被单个连接的死活带着走。
+        // 注意不能用 HasStarted 判断：响应要等第一次写入才会 start，先判断会导致永远不写。
+        if (_response.HttpContext.RequestAborted.IsCancellationRequested) return;
+        try
         {
-            try
-            {
-                await _response.WriteAsync($"data: {data}\n\n", _cancellationToken);
-                await _response.Body.FlushAsync(_cancellationToken);
-            }
-            catch (OperationCanceledException) { }
-            catch (IOException) { }
-            catch (ObjectDisposedException) { }
+            await _response.WriteAsync($"data: {data}\n\n", _cancellationToken);
+            await _response.Body.FlushAsync(_cancellationToken);
         }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     /// <summary>
@@ -56,17 +56,16 @@ public class SseStreamWriter
         }
         sb.Append('\n');
         _buffer?.Publish(sb.ToString(0, sb.Length - 1));
-        if (_response.HasStarted)
+        if (_response.HttpContext.RequestAborted.IsCancellationRequested) return;
+        try
         {
-            try
-            {
-                await _response.WriteAsync(sb.ToString(), _cancellationToken);
-                await _response.Body.FlushAsync(_cancellationToken);
-            }
-            catch (OperationCanceledException) { }
-            catch (IOException) { }
-            catch (ObjectDisposedException) { }
+            await _response.WriteAsync(sb.ToString(), _cancellationToken);
+            await _response.Body.FlushAsync(_cancellationToken);
         }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     public Task WriteJsonAsync(object payload)
@@ -80,17 +79,16 @@ public class SseStreamWriter
     /// </summary>
     public async Task WriteRawAsync(string data)
     {
-        if (_response.HasStarted)
+        if (_response.HttpContext.RequestAborted.IsCancellationRequested) return;
+        try
         {
-            try
-            {
-                await _response.WriteAsync(data.EndsWith("\n\n") ? data : $"data: {data}\n\n", _cancellationToken);
-                await _response.Body.FlushAsync(_cancellationToken);
-            }
-            catch (OperationCanceledException) { }
-            catch (IOException) { }
-            catch (ObjectDisposedException) { }
+            await _response.WriteAsync(data.EndsWith("\n\n") ? data : $"data: {data}\n\n", _cancellationToken);
+            await _response.Body.FlushAsync(_cancellationToken);
         }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) { }
     }
 
     public Task WriteDebugAsync(string text) => WriteJsonAsync(new { type = "debug", text });
