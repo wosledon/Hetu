@@ -1,300 +1,230 @@
-# Hetu 河图
+<p align="center">
+  <img src="docs/screenshots/02-code.png" alt="Hetu Code 会话：左侧会话树、中间对话与工具调用、右侧工作面板" width="920">
+</p>
 
-> 本地优先的 AI 知识与 Agent 工作台 — 笔记、对话与编码会话在同一处沉淀为可检索、可连接的知识。
+<h1 align="center">Hetu 河图</h1>
 
-[English](./README.md) | 简体中文
+<p align="center">
+  <strong>本地优先的 AI 知识与 Agent 工作台。</strong><br>
+  笔记、对话与编码会话，共用一份本地数据库。
+</p>
 
-🌐 官网与文档（GitHub Pages）：<https://wosledon.github.io/Hetu/>
+<p align="center">
+  <a href="https://github.com/wosledon/Hetu/releases/latest"><img src="https://img.shields.io/github/v/release/wosledon/Hetu?sort=semver&label=release" alt="最新版本"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 许可证"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512bd4" alt=".NET 10">
+  <img src="https://img.shields.io/badge/React-19-61dafb" alt="React 19">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4a5568" alt="Windows 与 Linux">
+</p>
 
-Hetu（河图）是一个**本地优先**的知识与 Agent 工作台：Markdown 笔记、对话、编码会话共用一套存储，向下由向量索引、知识图谱、长期记忆与任务/工作流把内容串成一张活的网络。所有数据与模型调用都在你自己的机器上，不需要账号，也不上传内容。
-
-- **双引擎**：`笔记`（写）与 `Agent 工作台`（问、做）用同一套知识底座，笔记可以随时被检索、索引、抽取图谱。
-- **能动手**：Code 会话直接在你的仓库里工作 —— 独立工作树、分支、Git 同步、文件/终端/浏览器面板、PR 创建，全部对话驱动。
-- **可组合**：MCP 工具、技能、智能体、工作流、看板任务都围绕同一个 Agent 循环。
-- **本地优先**：SQLite + `sqlite-vec` 开箱即用，也可切到 PostgreSQL + `pgvector`。
-
-## 🖼️ 界面一览
-
-| 笔记 | Agent 工作台（对话 + Code） |
-| --- | --- |
-| ![笔记](docs/screenshots/01-notes.png) | ![Agent 工作台](docs/screenshots/02-code.png) |
-
-| 知识库 | 知识图谱 |
-| --- | --- |
-| ![知识库](docs/screenshots/03-knowledge-base.png) | ![知识图谱](docs/screenshots/04-graph.png) |
-
-| 记忆（含 Dream 巩固） | Wiki 生成 |
-| --- | --- |
-| ![记忆](docs/screenshots/05-memories.png) | ![Wiki](docs/screenshots/07-wiki.png) |
-
-| 任务看板 | 用量统计 |
-| --- | --- |
-| ![任务看板](docs/screenshots/06-kanban.png) | ![用量统计](docs/screenshots/09-usage.png) |
-
-| 项目（本地 / SSH） | 后台任务 |
-| --- | --- |
-| ![项目](docs/screenshots/11-projects.png) | ![后台任务](docs/screenshots/08-tasks.png) |
+<p align="center">
+  <a href="https://wosledon.github.io/Hetu/">官网</a> ·
+  <a href="https://wosledon.github.io/Hetu/guide/">文档</a> ·
+  <a href="https://github.com/wosledon/Hetu/releases/latest">下载</a> ·
+  <a href="./README.md">English</a>
+</p>
 
 ---
 
-## ✨ 功能
+Hetu（河图）是一个带本地后端的桌面应用：写 Markdown 笔记，让 Agent 把问题想清楚，再让 Code 会话直接修改真实仓库。三者读写同一份 SQLite（或 PostgreSQL）数据，检索索引、知识图谱、Wiki 与长期记忆都从同一批材料里生长出来。没有账号、没有遥测、不上传内容——模型请求只发往你自己配置的供应商。
 
-### 📝 笔记
+## 为什么是 Hetu
 
-- **所见即所得 Markdown**（Milkdown）+ **CodeMirror 源码视图**，编辑 / 预览 / 分屏三种模式。
-- **AI 写作**：选中文本可直接润色 / 翻译 / 精简 / 扩写 / 解释 / 自定义；整篇笔记有 AI 助手面板，可**按次指定模型**（不受默认模型限制）。
-- **笔记内 AI 动作**：生成索引、提取知识图谱、添加标签、生成流程图。
-- **无限层级笔记本**（含「未分类」）、**标签**（配色 / 重命名 / 合并 / 侧栏筛选）。
-- **3 秒自动保存** + 保存状态指示；**历史版本**自动快照，可预览、对比、一键还原。
-- **分享链接**（永久 / 24 小时 / 3 天）带访问计数，公开只读页 `/share/:code`。
-- **回收站**（软删除）与 **Markdown 导出 / 数据库备份**。
+- **一份知识底座，而不是三个割裂的工具。** 笔记、对话、代码改动、记忆与任务写进同一个数据库；检索索引和 Agent 看到的是同一份上下文，不用再把聊天记录复制来复制去。
+- **真的能动手。** Code 会话拥有独立工作树、真实 PTY 终端、逐行 Diff、检查点回滚、Git 提交，以及通过 `gh`/`glab` 创建和操作 Pull Request。
+- **默认留在本地。** 不需要账号，也没有云端副本。API Key 加密落库，数据保存在用户数据目录，网络访问只限于你明确启用的供应商与 MCP 服务器。
+- **可组合，而不是一个大而全的封闭体。** MCP 服务器、技能、智能体预设、工作流与看板任务，都围绕同一个 Agent 循环工作。
 
-### 🤖 Agent 工作台（`/code`）
+## 快速开始
 
-对话与编码会话在同一个工作台里，左侧是会话/话题树，右侧是消息流。
+### 1. 安装桌面版（推荐）
 
-- **会话与话题**：分组管理话题，每个话题独立模型、系统提示、上下文与历史；消息可复制 / 编辑 / 删除，话题可**分叉**探索。
-- **SSE 流式**：`delta`、思考过程、联网搜索结果、知识库命中、记忆命中、工具调用/结果、交互式提问、实时待办清单、检查点、审批请求。
-- **深度思考**开关与推理强度（低 / 中 / 高），思考轨迹可折叠。
-- **输入框工具带**：联网搜索 · 知识库 · 记忆 · 权限模式 · 模型 · 智能体 · 技能（`/` 唤起）。
-- **权限模式五档**：`计划` / `只读` / `询问` / `自动` / `绕过`；Code 会话另有**运行模式**：交互式逐步确认 / Autopilot 托管执行。
-- **发送队列与运行中引导**：回复进行中继续输入会排队（可编辑/删除/直接发送），也可点「引导」把新指令立刻插进当前这一轮。
-- **附件与长文本**：图片、文件、粘贴的超长文本折叠块。
-- **整理成笔记**：把话题蒸馏成 Markdown 笔记（摘要 / 详细 / 问答 / 自定义提示），带流式预览与笔记本选择。
-- **上下文占用**环形指示 + 自动压缩记录。
+从 [GitHub Releases](https://github.com/wosledon/Hetu/releases/latest) 下载：
 
-### 🧑‍💻 Code 会话
+| 渠道 | Windows | Linux | 依赖 |
+| --- | --- | --- | --- |
+| `fat` | `Hetu_x.y.z_x64-setup.exe` / `Hetu_x.y.z_x64_en-US.msi` | `Hetu_x.y.z_amd64.AppImage` / `.deb` | 无需额外安装，自带 .NET 10 运行时 |
+| `slim` | `Hetu.Slim._x.y.z_x64-setup.exe` / `Hetu.Slim._x.y.z_x64_en-US.msi` | `Hetu.Slim._x.y.z_amd64.AppImage` / `.deb` | 系统需已安装 .NET 10 运行时 |
 
-- **项目**：本地目录或 **SSH 远程**仓库，支持分组管理。
-- **工作区两种模式**：直接在**当前分支**工作，或为本次会话创建**独立工作树**（默认统一放在仓库父目录的 `.hetu-worktrees/<仓库>/<工作树>`，可在设置里改根目录；已完成的工作树可按空闲阈值自动清理）。
-- **分支**：本地 + 远程分支选择（选远程会建本地跟踪分支），标题旁常驻工作区/分支标识，git 同步用一个按钮完成（拉取/推送/刷新按状态自动决定）。
-- **工作面板**：`文件`（浏览器 + 内置编辑器）/ `更改`（逐行 Diff 与回滚）/ `检查点`（任务前快照，可整体还原）/ `Git`（暂存、提交、Diff）/ `PR`（按远端自动选用 `gh` 或 `glab`：当前分支 PR 的 CI 检查 / 审查结论 / 合并门禁、开放 PR 列表、一键创建、草稿·可审查·合并·关闭操作，以及把失败检查与审查意见一键交给 Agent；未安装时给出对应平台的安装命令；PR 状态还会随版本控制状态注入会话上下文，并有 <code>work_pr</code> / <code>work_pr_action</code> 工具供 Agent 查询与操作）/ `浏览器`（内嵌预览本地服务与网页）/ `终端`（真实 PTY，支持 vim/htop 等交互程序）。
-- **标题即状态**：会话标题旁显示工作区、分支与 PR 徽标。
+两个渠道独立更新，互不覆盖。关闭主窗口后 Hetu 会留在托盘，后端与后台任务继续运行；要真正退出请用托盘菜单里的 **退出 Hetu**。
 
-### 🧠 知识库
+### 2. 或者从源码运行
 
-- 把**笔记 / 文件 / 网址**统一分块、向量化，`概览` / `索引管理` / `搜索测试` 三个页签。
-- 实时索引进度（未索引项自动轮询）、每项分块数与重新索引、覆盖率与维度信息。
-- 内置**语义搜索实验台**：可调 Top-K、命中片段高亮，用来验证检索质量。
-- 向量存本地 `sqlite-vec`，或 PostgreSQL 的 `pgvector`。
+需要 **.NET SDK 10+**、**Node.js 20+** 与 Git。
 
-### 🕸️ 知识图谱
+```bash
+git clone https://github.com/wosledon/Hetu
+cd Hetu
 
-- 力导向可视化，支持缩放、平移、搜索、重置布局，实体类型（概念 / 技术 / 项目 / 人物 / 组织 / 自定义）配色区分。
-- 关系类型：属于、相关、依赖、包含、对比、自定义。
-- **AI 抽取**：从任意笔记提取实体与关系并去重合并；点实体可看关联笔记并跳回编辑器。
+pwsh ./scripts/start.ps1     # Windows
+./scripts/start.sh           # Linux / macOS
+```
 
-### 📚 Wiki 生成
+| 服务 | 地址 |
+| --- | --- |
+| 前端 | <http://localhost:5174> |
+| 接口 | <http://localhost:5000/api> |
+| 接口文档（Scalar） | <http://localhost:5000/scalar/v1> |
+| 健康检查 | <http://localhost:5000/api/health> |
 
-- 选定项目 → AI 依据项目资料（读 README、目录、代码片段，可叠加语义检索）生成**一套 Wiki**：模块页 + 项目总览。
-- 按套件分组展示，带生成时间、页数与「有更新」提示；后台任务里能看到每次生成的状态与耗时。
+### 3. 首次配置
 
-### 🧬 记忆与 Dream
+1. **大模型 → 新增供应商**：选择 OpenAI 兼容或 Anthropic，填入 Base URL 与 API Key。
+2. **设置 → 默认模型**：按场景指定默认模型（对话、编码、Wiki、图谱、笔记）。
+3. **笔记 → 生成索引**，让内容进入知识库；打开 **Code** 选择仓库即可开始会话。
 
-- 长期记忆库：内容、类别（偏好 / 身份 / 工作 / 习惯 / 知识…）、重要性星级，支持搜索与作用域筛选（全局 / 会话 / 项目）。
-- **记忆图**可视化关联；`Dream` 巩固：按 `衰退天数 / 遗忘天数` 定期合并、衰减、遗忘过期记忆。
-- 对话中通过「记忆」开关与 `search_memory` 工具自动召回。
+> Anthropic 没有公开的 Embedding 接口，`embedding` 用途请选 OpenAI 兼容供应商。向量维度（`Embedding:Dimensions`，默认 1536）必须与模型一致。
 
-### 🗂️ 任务看板 / 工作流 / 后台任务
+## 功能一览
 
-- **任务看板**：进行中 / 审核中 / 已阻塞 / 已完成 / 已归档五列，任务可指派智能体并**由 Agent 执行**，记录运行步骤、评论与产物。
-- **工作流**：可视化编排 Agent 多步骤流程（节点、启停、执行记录）。
-- **后台任务 / 定时任务**：嵌入生成、图谱抽取、Wiki 生成等任务的状态、耗时、失败原因，可清理与删除；支持 Cron 定时任务。
-- **收件箱**：统一通知中心，导航栏带未读角标。
+| 模块 | 你能得到什么 | 文档 |
+| --- | --- | --- |
+| **笔记** | Milkdown 所见即所得 + CodeMirror 源码视图、选区 AI 动作、历史版本、分享链接、回收站、Markdown 导出 | [笔记](docs/guide/notes.html) |
+| **Agent 工作台** | 会话与话题、SSE 流式输出、工具审批、五档权限模式、发送队列、运行中引导、整理成笔记 | [Agent 工作台](docs/guide/workspace.html) |
+| **Code 会话** | 本地或 SSH 项目、独立工作树、分支同步、文件/更改/检查点/Git/PR/浏览器/终端七个面板 | [Code 会话](docs/guide/code-sessions.html) |
+| **知识** | 笔记/文件/网址的分块与向量化、索引覆盖率、语义搜索实验台、知识图谱、按项目生成 Wiki | [知识库](docs/guide/knowledge.html) · [图谱与 Wiki](docs/guide/graph-wiki.html) |
+| **记忆** | 全局/会话/项目作用域、召回打分、记忆图、Dream 巩固（合并、衰减、遗忘） | [记忆与 Dream](docs/guide/memories.html) |
+| **自动化** | 由 Agent 执行的任务看板、可视化工作流、后台与 Cron 定时任务、收件箱通知 | [看板与自动化](docs/guide/organize.html) |
+| **扩展** | 带工具白名单的智能体预设、技能（`/技能名`）、内置工具开关、MCP 服务器 | [扩展与集成](docs/guide/extensions.html) |
+| **模型与成本** | 多供应商、按场景默认模型、OpenAI/Anthropic 兼容代理、Token 与成本统计、压缩管道 | [模型与用量](docs/guide/models.html) |
 
-### 🧩 智能体 / 技能 / 工具 / MCP
+## 界面
 
-- **智能体**：系统提示预设，带分类、搜索、**工具白名单**与**逐工具审批策略**，支持 JSON 导入导出。
-- **技能**：内置技能（翻译 / 总结 / 解释 / 润色）+ 自定义技能（提示模板 + 系统提示）；也可从磁盘目录加载 Markdown / JSON 技能文件。对话里用 `/技能名` 直接调用。
-- **工具**：内置工具（笔记读写与搜索、联网搜索、记忆/图谱检索、待办、命令执行、文件操作等）可按需启停。
-- **MCP**：管理 Model Context Protocol 服务器（`stdio` 已完整支持，`sse` 可配置），自动 `tools/list` 发现并 `tools/call` 调用，发现的工具直接进入对话工具面。
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="笔记页：笔记本树、笔记列表与编辑器" width="420"><br><sub><b>笔记</b> — 笔记本、标签与 AI 动作</sub></td>
+    <td width="33%"><img src="docs/screenshots/04-graph.png" alt="知识图谱：实体与关系" width="420"><br><sub><b>知识图谱</b> — 实体与关系</sub></td>
+    <td width="33%"><img src="docs/screenshots/07-wiki.png" alt="按项目生成的 Wiki 套件" width="420"><br><sub><b>Wiki</b> — 生成项目文档</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/03-knowledge-base.png" alt="知识库：索引覆盖率与搜索" width="420"><br><sub><b>知识库</b> — 索引覆盖率与检索</sub></td>
+    <td><img src="docs/screenshots/05-memories.png" alt="长期记忆与 Dream 巩固" width="420"><br><sub><b>记忆</b> — 作用域与 Dream</sub></td>
+    <td><img src="docs/screenshots/06-kanban.png" alt="由 Agent 执行任务的看板" width="420"><br><sub><b>任务看板</b> — Agent 执行任务</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/09-usage.png" alt="Token 用量、延迟与成本统计" width="420"><br><sub><b>用量</b> — Token、延迟与成本</sub></td>
+    <td><img src="docs/screenshots/11-projects.png" alt="本地与 SSH 项目" width="420"><br><sub><b>项目</b> — 本地与 SSH 仓库</sub></td>
+    <td><img src="docs/screenshots/10-settings.png" alt="设置：模型、供应商、数据与工作区" width="420"><br><sub><b>设置</b> — 模型、数据与工作区</sub></td>
+  </tr>
+</table>
 
-### ⚙️ 模型 / 代理 / 用量
+<details>
+<summary><b>更多截图</b>（主题外观、后台任务）</summary>
+<br>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/12-appearance.png" alt="主题与外观设置" width="520"><br><sub><b>外观</b> — 主题配色与强调色</sub></td>
+    <td width="50%"><img src="docs/screenshots/13-appearance-material.png" alt="亚克力材质实验" width="520"><br><sub><b>材质</b> — 亚克力画布（Beta）</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/08-tasks.png" alt="后台任务监控" width="520"><br><sub><b>后台任务</b> — 状态、耗时与失败原因</sub></td>
+    <td><img src="docs/screenshots/02-code.png" alt="Code 会话工作面板" width="520"><br><sub><b>Code 会话</b> — 对话与工作面板</sub></td>
+  </tr>
+</table>
+</details>
 
-- **模型与供应商**：OpenAI 兼容与 Anthropic 协议，API Key 加密存储；**默认模型按场景分配**（对话 / 编码 / Wiki / 图谱 / 整理 / 笔记 AI…）。
-- **代理服务**：把已配置的模型以 OpenAI / Anthropic 兼容接口暴露给外部客户端（例如把编辑器指向 Hetu）。
-- **用量统计**：Token / 缓存 / 压缩前后、平均延迟、活跃天数、按模型与来源的分布、周×时与年×日热力图。
-- **压缩管道**：上下文压缩策略与节省 Token 统计。
+## 架构
 
-### ⚙️ 设置
-
-应用与助手信息、导航菜单与样式、默认模型、供应商、成本控制、记忆、MCP Server、数据与备份、工作区（工作树根目录与自动清理）、关于。
-
-![设置](docs/screenshots/10-settings.png)
-
-### 🖥️ 桌面应用（Tauri 2，可选）
-
-- 原生窗口 + **系统托盘**（关闭默认最小化到托盘，可设置），后端作为 **sidecar** 自动拉起并等待 `/api/health`。
-- **自动更新**：GitHub 主源 + 三个加速镜像回退，双渠道（`fat` 自带 .NET 运行时 / `slim` 需系统 .NET 10）。
-- 数据目录由外壳通过 `HETU_DATA_DIR` 注入（SQLite 与日志都在用户数据目录）。
-
-### 🔐 隐私与存储
-
-- 100% 本地运行，无需账号；API Key 用 ASP.NET DataProtection 加密（Windows 走 DPAPI）。
-- 向量：本地 `sqlite-vec`，或 PostgreSQL `pgvector`；两种数据库都能跑同一套功能。
-
----
-
-## 🧱 技术栈
+```mermaid
+flowchart LR
+  Shell["Tauri 2 外壳"] --> UI["React 19 前端"]
+  Browser["浏览器（开发）"] --> UI
+  UI <-->|"REST + SSE"| API["ASP.NET Core 10 API"]
+  API --> Services["Hetu.Core 服务<br/>Agent 循环 · 检索 · 图谱 · Wiki · 记忆"]
+  Services --> Repos["EF Core 仓储"]
+  Repos --> DB[("SQLite + sqlite-vec<br/>PostgreSQL + pgvector")]
+  Services -.-> Providers["模型供应商"]
+  Services -.-> MCP["MCP 服务器（stdio）"]
+  Services -.-> Git["Git · gh / glab · PTY"]
+```
 
 | 层 | 技术 |
 | --- | --- |
-| 后端 | ASP.NET Core 10 · EF Core 10 · Serilog · Scalar（OpenAPI 文档 `/scalar/v1`） |
-| 存储 | SQLite（默认，`sqlite-vec`）/ PostgreSQL 16+（`pgvector`） |
+| 后端 | ASP.NET Core 10 · EF Core 10 · Serilog · Scalar（OpenAPI） |
+| 存储 | SQLite + `sqlite-vec`（默认）· PostgreSQL 16+ + `pgvector` |
 | 前端 | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · react-router 7 |
-| 状态 | Zustand（客户端）+ TanStack Query（服务端） |
-| 编辑器 | Milkdown（WYSIWYG）/ CodeMirror（代码与源码）/ xterm.js（终端）/ react-markdown + KaTeX + Mermaid + DOMPurify |
-| 可视化 | ECharts · XYFlow + dagre（图谱与工作流） |
-| AI | OpenAI 兼容 & Anthropic 协议 · Embedding · SSE 流式 · MCP（JSON-RPC 2.0） |
+| 状态 | Zustand（客户端）· TanStack Query（服务端） |
+| 编辑与可视化 | Milkdown · CodeMirror · xterm.js · react-markdown + KaTeX + Mermaid · ECharts · XYFlow + dagre |
+| AI | OpenAI 兼容与 Anthropic 协议 · Embedding · SSE · MCP（JSON-RPC 2.0） |
 | 桌面 | Tauri 2（Rust 外壳 + sidecar 后端 + 自动更新） |
 | 国际化 | i18next（简体中文 / English） |
 
-## 📂 目录结构
+## 开发
+
+```bash
+# 后端：Release 构建，期望 0 告警
+dotnet build src/Hetu.Api/Hetu.Api.csproj -c Release -v q
+
+# 核心逻辑测试（xUnit + NSubstitute）
+dotnet test src/Hetu.Core.Tests/Hetu.Core.Tests.csproj
+
+# 前端：Lint、类型检查与生产构建
+cd frontend
+npx eslint .
+npm run build
+```
+
+本项目**对告警零容忍**：不允许 `#pragma warning disable`、`SuppressMessage`、`eslint-disable` 或 `@ts-ignore`，只能修根因。分层、命名、SQLite 限制与提交格式见 [`AGENTS.md`](./AGENTS.md)。
+
+<details>
+<summary><b>目录结构与路由</b></summary>
 
 ```
 Hetu/
 ├── src/
-│   ├── Hetu.Api/                                 # Web API + 后台任务宿主
-│   ├── Hetu.Core/                                # 领域实体、服务、仓储接口
+│   ├── Hetu.Api/                                 # API 宿主、SSE 流、后台 Worker
+│   ├── Hetu.Core/                                # 实体、领域服务、仓储接口
+│   ├── Hetu.Core.Tests/                          # xUnit + NSubstitute 测试
 │   ├── Hetu.Infrastructure/                      # EF Core、AI Provider、MCP、sqlite-vec
-│   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL 迁移
-│   └── Hetu.Shared/                              # DTO 与共享模型
-├── frontend/                                     # React + Vite 应用
-├── shell/hetu-desktop/                           # Tauri 2 桌面外壳（Rust + 打包脚本）
-├── scripts/                                      # 启动 / 打包 / 发版 / 冒烟测试脚本
-├── docs/                                         # PRD、截图
+│   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL 迁移与模型快照
+│   └── Hetu.Shared/                              # 前后端共享 DTO
+├── frontend/                                     # React + Vite 前端
+├── shell/hetu-desktop/                           # Tauri 2 外壳、托盘、更新器、NSIS 钩子
+├── scripts/                                      # start / desktop-dev / publish / release / 冒烟测试
+├── docs/                                         # GitHub Pages 官网、PRD 与截图
 └── AGENTS.md                                     # 实现约定
 ```
 
-### 路由一览（`frontend/src/App.tsx`）
+主要路由（`frontend/src/App.tsx`）：`/` 笔记 · `/code` Agent 工作台 · `/projects` · `/knowledge-base` · `/graph` · `/wiki` · `/memories` · `/kanban` · `/workflows` · `/tasks/background` · `/tasks/scheduled` · `/agents` · `/skills` · `/tools` · `/models` · `/proxy` · `/usage` · `/inbox` · `/apps` · `/tags` · `/trash` · `/settings` · `/share/:code`。
 
-| 路由 | 页面 | 说明 |
-| --- | --- | --- |
-| `/` | 笔记 | 笔记本树 + 笔记列表 + 编辑器 |
-| `/code` | Agent 工作台 | 对话与 Code 会话（`/chat`、`/work` 重定向到这里） |
-| `/projects` | 项目 | 本地 / SSH 项目与分组 |
-| `/kanban`、`/kanban/:taskId` | 任务看板 | 看板与任务详情（运行步骤、评论） |
-| `/wiki` | Wiki | 生成套件与页面 |
-| `/knowledge-base` | 知识库 | 概览 / 索引管理 / 搜索测试 |
-| `/graph` | 知识图谱 | 实体与关系可视化 |
-| `/memories` | 记忆 | 记忆库、记忆图与 Dream |
-| `/tasks/background`、`/tasks/scheduled` | 后台任务 / 定时任务 | 任务监控与 Cron |
-| `/workflows` | 工作流 | 可视化编排 Agent |
-| `/agents`、`/skills`、`/tools` | 智能体 / 技能 / 工具 | 提示预设、技能与工具管理 |
-| `/models` | 大模型 | 供应商与模型 |
-| `/proxy` | 代理服务 | OpenAI / Anthropic 兼容入口 |
-| `/usage` | 用量统计 | 用量与成本 |
-| `/inbox` | 收件箱 | 通知中心 |
-| `/apps` | 应用 | 内嵌网页应用 |
-| `/tags`、`/trash` | 标签 / 回收站 | 标签管理、软删除笔记 |
-| `/settings` | 设置 | 应用 / 导航 / 模型 / 供应商 / 成本 / 记忆 / MCP / 数据备份 / 工作区 / 关于 |
-| `/share/:code` | 分享 | 公开只读笔记页 |
+</details>
 
-## 🚀 快速开始
-
-### 环境要求
-
-- .NET SDK **10.0+**
-- Node.js **20+**
-- （可选）PostgreSQL **16+** 并安装 `pgvector`
-
-### 一键启动
+<details>
+<summary><b>PostgreSQL 与桌面打包</b></summary>
 
 ```bash
-# Linux / macOS / Git Bash
-./scripts/start.sh
-
-# PowerShell
-.\scripts\start.ps1
-```
-
-### 手动启动
-
-```bash
-# 后端（默认 http://localhost:5000）
-dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
-
-# 前端（默认 http://localhost:5174）
-cd frontend
-npm install
-npm run dev
-```
-
-打开 <http://localhost:5174>，API 在 <http://localhost:5000/api>，接口文档 <http://localhost:5000/scalar/v1>。
-
-### 桌面应用（Tauri 2）
-
-```bash
-# 开发（并行起 dotnet + vite + tauri）
-pwsh ./scripts/desktop-dev.ps1
-
-# 打包（先出 sidecar，再出安装包）
-pwsh ./scripts/publish-backend.ps1 -Mode SelfContained -Rid win-x64      # fat：自带运行时
-pwsh ./scripts/publish-backend.ps1 -Mode FrameworkDependent -Rid win-x64 # slim：需 .NET 10
-cd shell/hetu-desktop
-npm run tauri:build -- --config src-tauri/tauri.slim.conf.json
-```
-
-## ⚙️ 配置模型
-
-1. 打开应用 → **大模型**（或 设置 → 供应商配置）：新增供应商（OpenAI 兼容 / Anthropic），填 Base URL 与 API Key。
-2. 在供应商下新增模型，指定用途 `chat` / `embedding` / `completion`。
-3. 设置 → **默认模型** 按场景指定默认（对话 / 编码 / Wiki / 图谱 / 整理 / 笔记 AI）。
-
-> API Key 加密存储；模型调用只从本机发出。
-
-## 🗄️ 切换到 PostgreSQL
-
-```bash
+# 切换到 PostgreSQL（需要 pgvector）
 export DatabaseProvider=Postgresql
-export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;Password=..."
 
-# 应用迁移（表结构变化时才需要）
+# 应用迁移
 dotnet ef database update \
   --project src/Hetu.Infrastructure.PostgresMigrations \
   --startup-project src/Hetu.Api
 ```
 
-向量维度由 `Embedding:Dimensions` 控制（默认 `1536`），必须与所选 Embedding 模型一致。
-
-## 🧪 构建与验证
-
 ```bash
-# 后端（整个解决方案，要求 0 告警）
-dotnet build Hetu.slnx
+# 桌面开发模式：并行启动 dotnet + Vite + Tauri
+pwsh ./scripts/desktop-dev.ps1
 
-# 前端：类型检查 + 生产构建 / 静态检查
-cd frontend
-npm run build
-npm run lint
-
-# API 冒烟测试（需先启动后端）
-./scripts/test-api.sh
+# 先发布 sidecar，再构建安装包
+pwsh ./scripts/publish-backend.ps1 -Mode SelfContained -Rid win-x64
+cd shell/hetu-desktop
+npm run tauri:build:fat    # slim 渠道用 tauri:build:slim
 ```
 
-本项目对**告警零容忍**：不允许 `#pragma warning disable`、`eslint-disable`、`SuppressMessage` 之类的抑制，只能修根因。详见 [`AGENTS.md`](./AGENTS.md)。
+</details>
 
-## 📦 发版
+## 当前限制
 
-```bash
-# 1) 同步两处版本号：shell/hetu-desktop/src-tauri/tauri.conf.json 与 src/Hetu.Api/Hetu.Api.csproj
-# 2) 合并到 main 后打 tag 并推送，触发 Release Build
-pwsh ./scripts/tag-release.ps1 -Version 0.3.3
-```
+- **MCP**：`stdio` 已完整支持；`sse` 可配置，但尚未接通。
+- **笔记搜索**：目前使用 `LIKE`，计划升级到 FTS5 / `tsvector`。
+- **Embedding**：Anthropic 没有公开的 Embedding 接口，请使用 OpenAI 兼容供应商。
+- **测试**：核心逻辑已有 xUnit + NSubstitute 覆盖；界面通过构建、Lint 与真实浏览器验证。
 
-CI 会构建 `fat` / `slim` 两个渠道的 Windows（NSIS/MSI）与 Linux（AppImage/deb）安装包，生成自动更新清单
-（`latest.json` / `latest-slim.json` + 三个镜像变体）并创建 GitHub Release；缺少任一渠道清单时发布会直接失败。
+## 参与贡献
 
-## ⚠️ 已知限制
-
-- 尚未引入自动化测试工程（当前验证方式：构建 + `eslint`/`tsc` + API 冒烟 + 浏览器实测）。
-- MCP 仅 `stdio` 完整可用，`sse` 可配置但未接线。
-- 笔记全文检索基于 `LIKE`，FTS5 / `tsvector` 还在计划中。
-- Anthropic 未提供公开 Embedding 接口，`embedding` 用途请选 OpenAI 兼容供应商。
-
-## 🤝 参与贡献
-
-欢迎提 Issue 与 PR。动手前请先看 [`AGENTS.md`](./AGENTS.md)（分层、命名、提交格式、验证方式与告警约定）。
+欢迎提交 Issue 与 PR。改代码前请先读 [`AGENTS.md`](./AGENTS.md)，其中写明了分层约定、告警策略与验证清单。
 
 ```
 <type>(<scope>): <subject>
@@ -303,6 +233,6 @@ CI 会构建 `fat` / `slim` 两个渠道的 Windows（NSIS/MSI）与 Linux（App
 # scope: api | ui | db | ai | work | desktop | config
 ```
 
-## 📜 许可证
+## 许可证
 
 [Apache License 2.0](./LICENSE)
