@@ -16,11 +16,11 @@ public class SearchNotesTool : IToolExecutor
     }
 
     public string Name => "search_notes";
-    public string Description => "搜索笔记（全文+语义搜索）";
+    public string Description => "搜索笔记与知识库内容（全文 + 语义，含文件、网址与项目 Wiki）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
 
     public ToolRisk Risk => ToolRisk.Read;
-    public string? UsageGuideline => "用户问题涉及其个人笔记内容时，优先调用本工具检索后再作答，禁止仅凭记忆回答用户的私有笔记。";
+    public string? UsageGuideline => "用户问题涉及个人笔记、已收录资料或项目 Wiki 时，优先调用本工具检索后再作答，禁止仅凭记忆回答用户的私有内容。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

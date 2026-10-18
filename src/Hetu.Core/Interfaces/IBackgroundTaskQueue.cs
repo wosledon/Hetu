@@ -11,7 +11,9 @@ public enum BackgroundTaskType
     /// <summary>看板任务自动执行（智能体 / 工作流）</summary>
     KanbanTaskExecute,
     /// <summary>项目 Wiki 生成（规划分页 + 多页 LLM 撰写）</summary>
-    WikiGenerate
+    WikiGenerate,
+    /// <summary>从项目 Wiki 页面抽取知识图谱（来源记为 Wiki 页面）</summary>
+    WikiGraphExtract
 }
 
 /// <summary>

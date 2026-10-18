@@ -29,6 +29,11 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
             .AsNoTracking()
             .FirstOrDefaultAsync(k => k.NoteId == noteId, cancellationToken);
 
+    public Task<KnowledgeItem?> GetByWikiDocumentIdAsync(Guid wikiDocumentId, CancellationToken cancellationToken = default)
+        => DbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(k => k.WikiDocumentId == wikiDocumentId, cancellationToken);
+
     public Task<KnowledgeItem?> GetByIdWithChunksAsync(Guid id, CancellationToken cancellationToken = default)
         => DbSet
             .AsNoTracking()

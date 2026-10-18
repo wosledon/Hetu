@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
-  AlertCircle, BookText, Check, Cpu, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
+  AlertCircle, BookText, Check, Cpu, Database, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ThemedMarkdown from '../components/ThemedMarkdown'
@@ -42,6 +42,7 @@ export default function WikiPage() {
   const confirm = useConfirm()
   const [searchParams, setSearchParams] = useSearchParams()
   const projectParam = searchParams.get('project')
+  const docParam = searchParams.get('doc')
   const autoGenerate = searchParams.get('generate') === '1'
 
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
@@ -152,7 +153,16 @@ export default function WikiPage() {
     [sets, projectParam],
   )
 
-  const selectedSet = visibleSets.find((s) => s.setId === selectedSetId) ?? visibleSets[0] ?? null
+  // 从图谱 / 知识库带 doc= 跳转进来：直接定位到该页所属套件与页面
+  const linkedDoc = useMemo(
+    () => (docParam ? allDocs.find((d) => d.id === docParam) ?? null : null),
+    [allDocs, docParam],
+  )
+
+  const selectedSet = visibleSets.find((s) => s.setId === selectedSetId)
+    ?? (linkedDoc ? visibleSets.find((s) => s.setId === linkedDoc.setId) : null)
+    ?? visibleSets[0]
+    ?? null
   const pagesOfSet = useMemo(
     () =>
       allDocs
@@ -160,7 +170,10 @@ export default function WikiPage() {
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [allDocs, selectedSet],
   )
-  const selectedDoc = pagesOfSet.find((p) => p.id === selectedDocId) ?? pagesOfSet[0] ?? null
+  const selectedDoc = (linkedDoc && linkedDoc.setId === selectedSet?.setId ? linkedDoc : null)
+    ?? pagesOfSet.find((p) => p.id === selectedDocId)
+    ?? pagesOfSet[0]
+    ?? null
 
   const showToast = (ok: boolean, text: string) => {
     setToast({ ok, text })
@@ -227,6 +240,25 @@ export default function WikiPage() {
     onError: (e: Error) => showToast(false, e.message || t('wiki.exportFailed')),
   })
 
+  // 手动把整套 Wiki 同步到知识库与知识图谱（生成时已自动同步，失败或旧数据可再点一次）
+  const syncMutation = useMutation({
+    mutationFn: (setId: string) => wikiService.syncSet(setId),
+    onSuccess: (result) => {
+      invalidateWiki()
+      const missing = [
+        !result.embeddingConfigured ? t('wiki.syncNoEmbedding') : '',
+        !result.graphConfigured ? t('wiki.syncNoGraph') : '',
+      ].filter(Boolean).join(' · ')
+      const text = t('wiki.syncDone', {
+        pages: result.pages,
+        index: result.queuedIndexTasks,
+        graph: result.queuedGraphTasks,
+      })
+      showToast(true, missing ? `${text} · ${missing}` : text)
+    },
+    onError: (e: Error) => showToast(false, e.message || t('wiki.syncFailed')),
+  })
+
   // 从项目页带 generate=1 跳转进来：自动入队一次生成，并清掉 URL 参数
   useEffect(() => {
     if (!autoGenerate || autoGenerateHandled.current || !projectParam) return
@@ -253,9 +285,18 @@ export default function WikiPage() {
   const selectSet = (setId: string, projectId: string) => {
     setSelectedSetId(setId)
     setSelectedDocId(null)
-    if (!projectParam && projectId) {
+    const params = new URLSearchParams(searchParams)
+    params.delete('doc')
+    if (!projectParam && projectId) params.set('project', projectId)
+    setSearchParams(params, { replace: true })
+  }
+
+  /** 选页面时清掉 doc 深链，避免它继续覆盖用户的选择 */
+  const selectDoc = (docId: string) => {
+    setSelectedDocId(docId)
+    if (searchParams.has('doc')) {
       const params = new URLSearchParams(searchParams)
-      params.set('project', projectId)
+      params.delete('doc')
       setSearchParams(params, { replace: true })
     }
   }
@@ -267,7 +308,7 @@ export default function WikiPage() {
       size="sm"
       tone="emerald"
       selected={page.id === selectedDoc?.id}
-      onClick={() => setSelectedDocId(page.id)}
+      onClick={() => selectDoc(page.id)}
       label={(
         <>
           {page.sortOrder === 0 ? '★ ' : ''}{page.title}
@@ -477,6 +518,14 @@ export default function WikiPage() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               {selectedSet && (
+                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => syncMutation.mutate(selectedSet.setId)}
+                  disabled={syncMutation.isPending}
+                  title={t('wiki.syncTitle')}>
+                  {syncMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
+                  {t('wiki.sync')}
+                </Button>
+              )}
+              {selectedSet && (
                 <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => exportMutation.mutate(selectedSet.setId)}
                   disabled={exportMutation.isPending}
                   title={t('wiki.exportTitle')}>
@@ -595,6 +644,12 @@ export default function WikiPage() {
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>
+                    {selectedDoc.knowledgeItemId && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300" title={t('wiki.inKnowledgeBaseTitle')}>
+                        <Database size={10} />
+                        {t('wiki.inKnowledgeBase')}
+                      </span>
+                    )}
                     <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-emerald-500 dark:hover:bg-gray-800" label={t('wiki.regenerateTitle')} onClick={() => { setRegeneratingId(selectedDoc.id); regenerateMutation.mutate(selectedDoc.id) }}
                       disabled={regeneratingId === selectedDoc.id}
                       title={t('wiki.regenerateTitle')}>

@@ -235,6 +235,7 @@ public class KnowledgeItemsController : ControllerBase
         FileSize = item.FileSize,
         MimeType = item.MimeType,
         NoteId = item.NoteId,
+        WikiDocumentId = item.WikiDocumentId,
         CreatedAt = item.CreatedAt,
         UpdatedAt = item.UpdatedAt,
     };
@@ -266,6 +267,8 @@ public class KnowledgeItemDto
     public long? FileSize { get; set; }
     public string? MimeType { get; set; }
     public Guid? NoteId { get; set; }
+    /// <summary>Wiki 类型知识项对应的 Wiki 页面 ID</summary>
+    public Guid? WikiDocumentId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

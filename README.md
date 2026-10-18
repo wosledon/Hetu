@@ -82,7 +82,7 @@ pwsh ./scripts/start.ps1     # Windows
 | **Notes** | WYSIWYG (Milkdown) + source (CodeMirror) views, selection AI actions, version history, share links, trash, Markdown export | [Notes](docs/guide/notes.html) |
 | **Agent workspace** | Sessions and topics, SSE streaming, tool approvals, five permission modes, send queue, mid-run steering, distill to note | [Workspace](docs/guide/workspace.html) |
 | **Code sessions** | Local or SSH projects, isolated worktrees, branch sync, files/changes/checkpoints/Git/PR/browser/terminal panels | [Code sessions](docs/guide/code-sessions.html) |
-| **Knowledge** | Chunking and embeddings for notes/files/URLs, index coverage, semantic search playground, knowledge graph, project Wiki generation | [Knowledge base](docs/guide/knowledge.html) · [Graph & Wiki](docs/guide/graph-wiki.html) |
+| **Knowledge** | Chunking and embeddings for notes/files/URLs, index coverage, semantic search playground, knowledge graph, project Wiki generation — Wiki pages are projected into the knowledge base and graph | [Knowledge base](docs/guide/knowledge.html) · [Graph & Wiki](docs/guide/graph-wiki.html) |
 | **Memory** | Global/session/project scopes, recall scoring, memory graph, Dream consolidation (merge, decay, forget) | [Memories & Dream](docs/guide/memories.html) |
 | **Automation** | Kanban tasks executed by agents, visual workflows, background and Cron jobs, inbox notifications | [Kanban & automation](docs/guide/organize.html) |
 | **Extensibility** | Agent presets with tool allowlists, skills (`/skill-name`), built-in tool toggles, MCP servers | [Extensions & MCP](docs/guide/extensions.html) |

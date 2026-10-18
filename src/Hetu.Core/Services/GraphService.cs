@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
@@ -185,6 +186,34 @@ public class GraphService : IGraphService
             sourceNotes = notes.Select(n => new GraphSourceNoteDto { NoteId = n.Id, Title = n.Title }).ToList();
         }
 
+        // Batch-fetch source Wiki pages (with project names for display)
+        var sourceWikiIds = relationDtos
+            .Where(r => r.SourceWikiDocumentId.HasValue)
+            .Select(r => r.SourceWikiDocumentId!.Value)
+            .Distinct()
+            .ToList();
+        var sourceWikiDocuments = new List<GraphSourceWikiDto>();
+        if (sourceWikiIds.Count > 0)
+        {
+            var wikiDocs = await _unitOfWork.WikiDocuments.FindAsync(d => sourceWikiIds.Contains(d.Id), cancellationToken);
+            if (wikiDocs.Count > 0)
+            {
+                var projectIds = wikiDocs.Select(d => d.ProjectId).Distinct().ToList();
+                var projects = await _unitOfWork.ManagedProjects.FindAsync(p => projectIds.Contains(p.Id), cancellationToken);
+                var projectNames = projects.ToDictionary(p => p.Id, p => p.Name);
+                sourceWikiDocuments = wikiDocs
+                    .Select(d => new GraphSourceWikiDto
+                    {
+                        WikiDocumentId = d.Id,
+                        ProjectId = d.ProjectId,
+                        SetId = d.SetId,
+                        Title = d.Title,
+                        ProjectName = projectNames.GetValueOrDefault(d.ProjectId) ?? string.Empty,
+                    })
+                    .ToList();
+            }
+        }
+
         return ApiResponse<GraphEntityDetailDto>.Ok(new GraphEntityDetailDto
         {
             Id = entity.Id,
@@ -194,6 +223,7 @@ public class GraphService : IGraphService
             Metadata = entity.Metadata,
             Relations = relationDtos,
             SourceNotes = sourceNotes,
+            SourceWikiDocuments = sourceWikiDocuments,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         });
@@ -309,13 +339,35 @@ public class GraphService : IGraphService
         var note = await _unitOfWork.Notes.GetByIdAsync(noteId, cancellationToken);
         if (note == null) return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("note.notFound"));
 
+        return await ExtractAsync(note.Title, note.Content, noteId, null, noteId, cancellationToken);
+    }
+
+    public async Task<ApiResponse<ExtractGraphResultDto>> ExtractFromWikiAsync(Guid wikiDocumentId, CancellationToken cancellationToken = default)
+    {
+        var document = await _unitOfWork.WikiDocuments.GetByIdAsync(wikiDocumentId, cancellationToken);
+        if (document == null) return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("wiki.docNotFound"));
+
+        return await ExtractAsync(document.Title, document.Content, null, document.Id, document.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// 单轮抽取的公共实现：笔记与 Wiki 页面只是来源不同，压缩、提示词、用量记录与落库完全一致。
+    /// </summary>
+    private async Task<ApiResponse<ExtractGraphResultDto>> ExtractAsync(
+        string title,
+        string rawContent,
+        Guid? sourceNoteId,
+        Guid? sourceWikiDocumentId,
+        Guid refId,
+        CancellationToken cancellationToken)
+    {
         var provider = await _llmProviderFactory.CreateScenarioProviderAsync("Graph", cancellationToken)
                        ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null)
             return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));
 
-        // 单轮提取：只过算法压缩（跳过 LLM 摘要），不截断——长笔记靠压缩瘦身，避免提取不全
-        var content = await _compression.CompressAlgorithmicAsync(note.Content, cancellationToken);
+        // 单轮提取：只过算法压缩（跳过 LLM 摘要），不截断——长文靠压缩瘦身，避免提取不全
+        var content = await _compression.CompressAlgorithmicAsync(rawContent, cancellationToken);
         var jsonExample = $$"""
             {
               "entities": [
@@ -327,9 +379,9 @@ public class GraphService : IGraphService
             }
             """;
         var prompt = $$"""
-            请从以下笔记内容中提取关键实体和它们之间的关系。
+            请从以下文档内容中提取关键实体和它们之间的关系。
 
-            标题：{{note.Title}}
+            标题：{{title}}
 
             内容：
             {{content}}
@@ -350,20 +402,20 @@ public class GraphService : IGraphService
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Graph,
             callResult.Usage,
-            refId: noteId,
-            // 输入=压缩前估算（实际发送 + 被压缩的笔记内容增量），压缩后=实际发送 prompt
+            refId: refId,
+            // 输入=压缩前估算（实际发送 + 被压缩的内容增量），压缩后=实际发送 prompt
             inputTokens: LlmTokenEstimator.Estimate(prompt)
-                + LlmTokenEstimator.Estimate(note.Content) - LlmTokenEstimator.Estimate(content),
+                + LlmTokenEstimator.Estimate(rawContent) - LlmTokenEstimator.Estimate(content),
             compressedTokens: LlmTokenEstimator.Estimate(prompt),
             latencyMs: (int)callResult.ElapsedMs,
-            contentPreview: note.Title,
+            contentPreview: title,
             ct: cancellationToken);
 
         var extracted = ParseExtractionResult(callResult.Content);
         if (extracted == null)
             return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.parseFailed"));
 
-        var result = await ApplyExtractionResultAsync(extracted, noteId, cancellationToken);
+        var result = await ApplyExtractionResultAsync(extracted, sourceNoteId, sourceWikiDocumentId, cancellationToken);
         InvalidateGraphCache();
 
         return ApiResponse<ExtractGraphResultDto>.Ok(result);
@@ -410,7 +462,11 @@ public class GraphService : IGraphService
     public Task<ApiResponse<List<string>>> GetRelationTypesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(ApiResponse<List<string>>.Ok([.. RelationTypes, CustomType]));
 
-    private async Task<ExtractGraphResultDto> ApplyExtractionResultAsync(ExtractionResult extracted, Guid noteId, CancellationToken cancellationToken)
+    private async Task<ExtractGraphResultDto> ApplyExtractionResultAsync(
+        ExtractionResult extracted,
+        Guid? sourceNoteId,
+        Guid? sourceWikiDocumentId,
+        CancellationToken cancellationToken)
     {
         var result = new ExtractGraphResultDto();
         var allEntities = await _unitOfWork.GraphEntities.GetAllAsync(cancellationToken);
@@ -486,7 +542,8 @@ public class GraphService : IGraphService
                 RelationType = NormalizeRelationType(r.Relation),
                 Description = r.Description,
                 Confidence = 0.8,
-                SourceNoteId = noteId,
+                SourceNoteId = sourceNoteId,
+                SourceWikiDocumentId = sourceWikiDocumentId,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
@@ -547,29 +604,49 @@ public class GraphService : IGraphService
         Description = relation.Description,
         Confidence = relation.Confidence,
         SourceNoteId = relation.SourceNoteId,
+        SourceWikiDocumentId = relation.SourceWikiDocumentId,
         CreatedAt = relation.CreatedAt
     };
 
     private static string EntityName(IReadOnlyDictionary<Guid, GraphEntity> entities, Guid id) =>
         entities.TryGetValue(id, out var entity) ? entity.Name : string.Empty;
 
-    public async Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default)
+    public Task CleanUpByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default)
+        => CleanUpRelationsAsync(r => r.SourceNoteId == noteId, cancellationToken);
+
+    /// <summary>删除 Wiki 页面（或整套 Wiki）时清理它们抽取出的关系与随之孤立的实体</summary>
+    public Task CleanUpByWikiDocumentIdsAsync(IReadOnlyCollection<Guid> wikiDocumentIds, CancellationToken cancellationToken = default)
     {
-        // 1. 找到该笔记提取的所有关系（包括已软删除的）
-        var noteRelations = await _unitOfWork.GraphRelations
-            .FindAsync(r => r.SourceNoteId == noteId, cancellationToken);
+        if (wikiDocumentIds.Count == 0) return Task.CompletedTask; // 没有来源则无需清理
+        var ids = wikiDocumentIds.ToHashSet();
+        return CleanUpRelationsAsync(
+            r => r.SourceWikiDocumentId != null && ids.Contains(r.SourceWikiDocumentId.Value),
+            cancellationToken);
+    }
+
+    private async Task CleanUpRelationsAsync(
+        Expression<Func<GraphRelation, bool>> sourceFilter,
+        CancellationToken cancellationToken)
+    {
+        // 1. 找到该来源抽取的所有关系（包括已软删除的）
+        var sourceRelations = await _unitOfWork.GraphRelations
+            .FindAsync(sourceFilter, cancellationToken);
 
         // 2. 软删除这些关系
-        foreach (var rel in noteRelations)
+        foreach (var rel in sourceRelations)
         {
             rel.IsDeleted = true;
             rel.DeletedAt = DateTimeOffset.UtcNow;
             await _unitOfWork.GraphRelations.UpdateAsync(rel, cancellationToken);
         }
 
+        // 先落库再判断孤立实体：后续查询走 AsNoTracking，未提交的软删除在数据库里仍算「有效关系」
+        if (sourceRelations.Count > 0)
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         // 3. 收集涉及的实体 ID，检查是否变成孤立实体
         var involvedEntityIds = new HashSet<Guid>();
-        foreach (var rel in noteRelations)
+        foreach (var rel in sourceRelations)
         {
             involvedEntityIds.Add(rel.SourceEntityId);
             involvedEntityIds.Add(rel.TargetEntityId);
@@ -606,7 +683,7 @@ public class GraphService : IGraphService
             await _unitOfWork.GraphEntities.DeleteAsync(orphan, cancellationToken);
         }
 
-        if (noteRelations.Count == 0 && orphans.Count == 0) return;
+        if (sourceRelations.Count == 0 && orphans.Count == 0) return;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         InvalidateGraphCache();

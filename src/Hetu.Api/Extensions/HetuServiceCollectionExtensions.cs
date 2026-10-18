@@ -123,6 +123,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<ILLMProviderFactory, LlmProviderFactory>();
         services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
         services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();
+        services.AddScoped<IWikiKnowledgeSyncService, WikiKnowledgeSyncService>();
         services.AddScoped<IChunkService, ChunkService>();
         services.AddScoped<ISemanticSearchService, SemanticSearchService>();
         services.AddScoped<INoteVersionService, NoteVersionService>();

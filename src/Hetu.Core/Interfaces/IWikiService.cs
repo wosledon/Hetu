@@ -38,4 +38,7 @@ public interface IWikiService
 
     /// <summary>导出一套 Wiki 为 zip（每页一个 Markdown + 目录索引）</summary>
     Task<ApiResponse<byte[]>> ExportSetAsync(Guid setId, CancellationToken cancellationToken = default);
+
+    /// <summary>把一套 Wiki 同步到知识库与知识图谱（手动补齐，自动同步失败时使用）</summary>
+    Task<ApiResponse<WikiSyncResultDto>> SyncSetAsync(Guid setId, CancellationToken cancellationToken = default);
 }

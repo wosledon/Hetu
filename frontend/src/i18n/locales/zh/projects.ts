@@ -253,6 +253,8 @@ export default {
     allTypes: '全部类型',
     typeEmbedding: 'Embedding 生成',
     typeGraphExtract: '知识图谱提取',
+    typeWikiGraphExtract: 'Wiki 知识图谱提取',
+    typeWikiGenerate: 'Wiki 生成',
     clearCompleted: '清除已完成',
     emptyTitle: '暂无后台任务',
     emptyHint: '编辑笔记时会自动生成 Embedding 和提取知识图谱',

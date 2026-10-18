@@ -54,6 +54,7 @@ public class WikiService : IWikiService
     private readonly CompressionPipelineService _compression;
     private readonly ILocalizer _localizer;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IWikiKnowledgeSyncService _knowledgeSync;
 
     public WikiService(
         IUnitOfWork unitOfWork,
@@ -65,7 +66,8 @@ public class WikiService : IWikiService
         ILogger<WikiService> logger,
         CompressionPipelineService compression,
         ILocalizer localizer,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IWikiKnowledgeSyncService knowledgeSync)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
@@ -77,6 +79,7 @@ public class WikiService : IWikiService
         _compression = compression;
         _localizer = localizer;
         _scopeFactory = scopeFactory;
+        _knowledgeSync = knowledgeSync;
     }
 
     /// <summary>单页生成按作用域解析的服务：并行生成时每页一份，避免共用同一个 DbContext</summary>
@@ -118,6 +121,13 @@ public class WikiService : IWikiService
         var docs = await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken);
         var projects = await _unitOfWork.ManagedProjects.GetAllAsync(cancellationToken);
         var projectNames = projects.ToDictionary(p => p.Id, p => p.Name);
+        // Wiki 页面在知识库里的投影（按页面 ID 索引），用于展示「已入知识库」
+        var knowledgeItems = await _unitOfWork.KnowledgeItems.FindAsync(
+            k => k.Type == KnowledgeItemType.Wiki, cancellationToken);
+        var knowledgeItemIds = knowledgeItems
+            .Where(k => k.WikiDocumentId.HasValue)
+            .GroupBy(k => k.WikiDocumentId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Id);
         var query = docs.AsEnumerable();
         if (projectId is Guid pid) query = query.Where(d => d.ProjectId == pid);
         // 按套件聚合：新套件在前，套件内按排序（总览在前）
@@ -125,7 +135,10 @@ public class WikiService : IWikiService
             .GroupBy(d => d.SetId)
             .OrderByDescending(g => g.Max(d => d.CreatedAt))
             .SelectMany(g => g.OrderBy(d => d.SortOrder))
-            .Select(d => Map(d, projectNames.GetValueOrDefault(d.ProjectId) ?? string.Empty))
+            .Select(d => Map(
+                d,
+                projectNames.GetValueOrDefault(d.ProjectId) ?? string.Empty,
+                knowledgeItemIds.TryGetValue(d.Id, out var knowledgeItemId) ? knowledgeItemId : null))
             .ToList());
     }
 
@@ -177,7 +190,8 @@ public class WikiService : IWikiService
         var doc = await _unitOfWork.WikiDocuments.GetByIdAsync(id, cancellationToken);
         if (doc == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.docNotFound"));
         var project = await _unitOfWork.ManagedProjects.GetByIdAsync(doc.ProjectId, cancellationToken);
-        return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project?.Name ?? string.Empty));
+        var knowledgeItem = await _unitOfWork.KnowledgeItems.GetByWikiDocumentIdAsync(doc.Id, cancellationToken);
+        return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project?.Name ?? string.Empty, knowledgeItem?.Id));
     }
 
     public async Task<ApiResponse<List<WikiGenerationJobDto>>> GetJobsAsync(Guid? projectId, CancellationToken cancellationToken = default)
@@ -412,6 +426,23 @@ public class WikiService : IWikiService
         job.UpdatedAt = job.CompletedAt.Value;
         await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 生成完成即接入知识与 Agent 体系：写入知识库投影，并按可用模型入队索引与图谱抽取。
+        // 同步失败不应让整套 Wiki 显示为生成失败，只记录日志并由用户手动「同步」补齐。
+        try
+        {
+            var allPages = new List<WikiDocument>(modulePages.Count + 1) { overview };
+            allPages.AddRange(modulePages);
+            await _knowledgeSync.SyncSetAsync(allPages, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Wiki 套件 {SetId} 同步到知识库/图谱失败", setId);
+        }
     }
 
     /// <summary>生成单页并按需重试；彻底失败返回空串</summary>
@@ -678,13 +709,25 @@ public class WikiService : IWikiService
         doc.UpdatedAt = DateTimeOffset.UtcNow;
         await _unitOfWork.WikiDocuments.UpdateAsync(doc, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project.Name));
+
+        // 重生成后的正文要覆盖知识库投影并重新入队索引 / 图谱抽取
+        await _knowledgeSync.SyncAsync(doc, cancellationToken);
+        var knowledgeItemId = await ResolveKnowledgeItemIdAsync(doc.Id, cancellationToken);
+        return ApiResponse<WikiDocumentDto>.Ok(Map(doc, project.Name, knowledgeItemId));
     }
+
+    /// <summary>取 Wiki 页面已同步的知识项 ID（用于单页详情的「已入知识库」标识）</summary>
+    private async Task<Guid?> ResolveKnowledgeItemIdAsync(Guid wikiDocumentId, CancellationToken cancellationToken)
+        => (await _unitOfWork.KnowledgeItems.GetByWikiDocumentIdAsync(wikiDocumentId, cancellationToken))?.Id;
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var doc = await _unitOfWork.WikiDocuments.GetByIdAsync(id, cancellationToken);
         if (doc == null) return ApiResponse.Fail(_localizer.T("wiki.docNotFound"));
+
+        // 先清理知识库投影与关系，再删除页面本身
+        await _knowledgeSync.RemoveAsync(doc.Id, cancellationToken);
+
         await _unitOfWork.WikiDocuments.DeleteAsync(doc, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -696,10 +739,25 @@ public class WikiService : IWikiService
             .Where(d => d.SetId == setId)
             .ToList();
         if (docs.Count == 0) return ApiResponse.Fail(_localizer.T("wiki.setNotFound"));
+
+        await _knowledgeSync.RemoveSetAsync(docs.Select(d => d.Id).ToList(), cancellationToken);
+
         foreach (var doc in docs)
             await _unitOfWork.WikiDocuments.DeleteAsync(doc, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse<WikiSyncResultDto>> SyncSetAsync(Guid setId, CancellationToken cancellationToken = default)
+    {
+        var docs = (await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken))
+            .Where(d => d.SetId == setId)
+            .OrderBy(d => d.SortOrder)
+            .ToList();
+        if (docs.Count == 0) return ApiResponse<WikiSyncResultDto>.Fail(_localizer.T("wiki.setNotFound"));
+
+        var result = await _knowledgeSync.SyncSetAsync(docs, cancellationToken);
+        return ApiResponse<WikiSyncResultDto>.Ok(result);
     }
 
     public async Task<ApiResponse<byte[]>> ExportSetAsync(Guid setId, CancellationToken cancellationToken = default)
@@ -1178,7 +1236,7 @@ public class WikiService : IWikiService
 
     #region 映射
 
-    private static WikiDocumentDto Map(WikiDocument doc, string projectName) => new()
+    private static WikiDocumentDto Map(WikiDocument doc, string projectName, Guid? knowledgeItemId = null) => new()
     {
         Id = doc.Id,
         ProjectId = doc.ProjectId,
@@ -1189,6 +1247,7 @@ public class WikiService : IWikiService
         Chapter = doc.Chapter,
         Brief = doc.Brief,
         Content = doc.Content,
+        KnowledgeItemId = knowledgeItemId,
         CreatedAt = doc.CreatedAt,
         UpdatedAt = doc.UpdatedAt,
     };

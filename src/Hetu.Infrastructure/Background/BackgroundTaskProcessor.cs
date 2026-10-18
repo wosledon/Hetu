@@ -272,6 +272,13 @@ public class BackgroundTaskProcessor : BackgroundService
                 await wikiService.RunGenerationAsync(item.EntityId, wikiModelId, ct);
                 break;
 
+            case BackgroundTaskType.WikiGraphExtract:
+                var wikiGraphService = sp.GetRequiredService<IGraphService>();
+                var wikiGraphResult = await wikiGraphService.ExtractFromWikiAsync(item.EntityId, ct);
+                if (!wikiGraphResult.Success)
+                    throw new InvalidOperationException(wikiGraphResult.Error);
+                break;
+
             default:
                 _logger.LogWarning("未知的后台任务类型: {Type}", item.Type);
                 break;

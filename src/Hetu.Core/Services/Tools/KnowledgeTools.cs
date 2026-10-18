@@ -3,7 +3,7 @@ using Hetu.Core.Interfaces;
 
 namespace Hetu.Core.Services.Tools;
 
-/// <summary>知识库工具：浏览已收录的知识项（笔记/文件/网址）。</summary>
+/// <summary>知识库工具：浏览已收录的知识项（笔记/文件/网址/Wiki 页面）。</summary>
 public class ListKnowledgeItemsTool : IToolExecutor
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -11,7 +11,7 @@ public class ListKnowledgeItemsTool : IToolExecutor
     public ListKnowledgeItemsTool(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
 
     public string Name => "list_knowledge_items";
-    public string Description => "浏览知识库中已收录的内容（笔记、文件、网址）";
+    public string Description => "浏览知识库中已收录的内容（笔记、文件、网址、Wiki 页面）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
     public ToolRisk Risk => ToolRisk.Read;
     public string? UsageGuideline => "用户问「知识库里有什么 / 收录了哪些资料」时调用；需要检索具体内容时改用 search_notes 或 search_graph。";
@@ -20,7 +20,7 @@ public class ListKnowledgeItemsTool : IToolExecutor
     {
         "type": "object",
         "properties": {
-            "type": { "type": "string", "enum": ["Note", "File", "Url"], "description": "按类型过滤（可选）" },
+            "type": { "type": "string", "enum": ["Note", "File", "Url", "Wiki"], "description": "按类型过滤（可选）" },
             "limit": { "type": "integer", "description": "返回条数，默认 20，最大 50" }
         }
     }

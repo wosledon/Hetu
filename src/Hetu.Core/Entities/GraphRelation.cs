@@ -14,6 +14,9 @@ public class GraphRelation : BaseEntity
 
     public Guid? SourceNoteId { get; set; }
 
+    /// <summary>来源 Wiki 页面 ID（从项目 Wiki 抽取时有值）</summary>
+    public Guid? SourceWikiDocumentId { get; set; }
+
     public bool IsDeleted { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
 }
