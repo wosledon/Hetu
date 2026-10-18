@@ -15,6 +15,9 @@ export default {
   messageArea: {
     selectTopic: '选择一个话题开始对话',
     messagesCount: '{{count}} 条消息',
+    railLabel: '会话导航',
+    railJumpTo: '跳转到此消息',
+    railYou: '你',
     clearMain: '清空主对话',
     clearConfirm: '确定清空主对话的所有消息吗？清空后不可恢复，后续对话将从头开始。',
     forkTopic: '分支话题',

@@ -11,6 +11,7 @@ import { aiModelService, aiProviderService } from '../services/aiProviderService
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatMessageItem from './ChatMessageItem'
+import ConversationRail from './ConversationRail'
 import Select from './Select'
 
 import AgentApprovalCard from './agent/AgentApprovalCard'
@@ -206,6 +207,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   // 跟踪消息加载状态：首次加载无动画滚到底部
   const isInitialLoadRef = useRef(true)
   const containerRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chatMessages', topic?.id],
@@ -867,6 +869,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     }
   }
 
+  const railItems = useMemo(
+    () => messages.filter((message) => message.role === 'user').map((message) => ({ id: message.id, content: message.content })),
+    [messages],
+  )
+
   if (!topic) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -1027,11 +1034,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
-      <div className={emptyChat ? 'hidden' : 'flex-1 overflow-y-auto px-6 py-6'}>
+      {!emptyChat && (
+      <div className="relative flex min-h-0 flex-1">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-5">
           {messages.map((message) => (
+            <div key={message.id} data-message-anchor={message.id} className="scroll-mt-4">
             <ChatMessageItem
-              key={message.id}
               message={message}
               isEditing={editingMessageId === message.id}
               editingContent={editingMessageId === message.id ? editingContent : ''}
@@ -1044,6 +1053,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               onDelete={deleteMessage}
               onEditContentChange={setEditingContent}
             />
+            </div>
           ))}
         {/* Pending user message (shown until the message sent at/after stream start is persisted) */}
         {/* 与流式回复同在 space-y-5 容器内：否则流式期间回复会贴着用户气泡（完成后进入容器才恢复间距） */}
@@ -1199,7 +1209,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         )}
 
         <div ref={messagesEndRef} />
+        </div>
+        <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
+      )}
 
       {/* 输入区：不画分隔线（Code 会话的输入区也没有，两边保持一致） */}
       <div className={`bg-transparent px-6 py-4 dark:bg-transparent ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>

@@ -15,6 +15,9 @@ export default {
   messageArea: {
     selectTopic: 'Select a conversation to start chatting',
     messagesCount: '{{count}} messages',
+    railLabel: 'Conversation navigation',
+    railJumpTo: 'Jump to this message',
+    railYou: 'You',
     clearMain: 'Clear main conversation',
     clearConfirm: 'Clear all messages in the main conversation? This cannot be undone and the conversation will start over.',
     forkTopic: 'Branch conversation',
