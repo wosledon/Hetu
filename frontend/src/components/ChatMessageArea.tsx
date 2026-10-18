@@ -1038,8 +1038,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-5">
+          {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
           {messages.map((message) => (
-            <div key={message.id} data-message-anchor={message.id} className="scroll-mt-4">
+            <div key={message.id} data-message-anchor={message.id} className="scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
             <ChatMessageItem
               message={message}
               isEditing={editingMessageId === message.id}

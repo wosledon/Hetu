@@ -72,8 +72,13 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
         if (top === undefined) continue
         next.push({ id: item.id, content: item.content, top, percent: Math.min(98, Math.max(2, (top / maxScroll) * 100)) })
       }
-      anchorsRef.current = next
-      setMarks(next)
+      const prev = anchorsRef.current
+      const unchanged = prev.length === next.length
+        && next.every((mark, index) => mark.id === prev[index].id && Math.abs(mark.top - prev[index].top) < 0.5)
+      if (!unchanged) {
+        anchorsRef.current = next
+        setMarks(next)
+      }
       updateActive()
     })
   }, [items, scrollRef, updateActive])
@@ -106,22 +111,26 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
 
   return (
     <nav
-      className="pointer-events-none absolute right-3 top-1/2 z-10 h-[min(60vh,420px)] w-4 -translate-y-1/2 select-none opacity-80 transition-opacity hover:opacity-100"
+      className="pointer-events-none absolute right-1 top-1/2 z-10 h-[min(60vh,420px)] w-3 -translate-y-1/2 select-none opacity-80 transition-opacity hover:opacity-100"
       aria-label={t('messageArea.railLabel')}
     >
       <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200/80 dark:bg-gray-700/60" />
       {marks.map((mark) => {
         const active = mark.id === activeId
+        const snippet = previewText(mark.content)
+        const jumpLabel = snippet
+          ? `${t('messageArea.railJumpTo')}: ${snippet.slice(0, 24)}`
+          : t('messageArea.railJumpTo')
         return (
           <button
             key={mark.id}
             type="button"
-            title={t('messageArea.railJumpTo')}
-            aria-label={t('messageArea.railJumpTo')}
+            aria-label={jumpLabel}
             aria-current={active ? 'true' : undefined}
             onClick={() => {
               const anchor = scrollRef.current?.querySelector<HTMLElement>(`[data-message-anchor="${mark.id}"]`)
-              anchor?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+              anchor?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
             }}
             onMouseEnter={() => setHoveredId(mark.id)}
             onMouseLeave={() => setHoveredId((prev) => (prev === mark.id ? null : prev))}
@@ -141,7 +150,7 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
                   {t('messageArea.railYou')}
                 </div>
                 <p className="line-clamp-3 text-[11px] leading-4 text-gray-600 dark:text-gray-300">
-                  {previewText(mark.content) || '…'}
+                  {snippet || '…'}
                 </p>
               </div>
             )}
