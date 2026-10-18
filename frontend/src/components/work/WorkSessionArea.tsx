@@ -23,6 +23,7 @@ import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRe
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ChatToolCallRow from '../ChatToolCallRow'
+import ConversationRail from '../ConversationRail'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
 import AgentTimeline from '../agent/AgentTimeline'
@@ -244,6 +245,7 @@ export default function WorkSessionArea({
   const [compacting, setCompacting] = useState(false)
   const [contextNotice, setContextNotice] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
   const seqRef = useRef(0)
@@ -750,6 +752,10 @@ export default function WorkSessionArea({
       ? orderedMessages
       : orderedMessages.slice(lastUserIndex)
   const olderCount = showOlder || sentThisVisit || lastUserIndex <= 0 ? 0 : lastUserIndex
+  const railItems = useMemo(
+    () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
+    [visibleMessages],
+  )
   // 历史消息同样折叠：两段输出之间的思考/工具调用合并为一组（与流式渲染、任务详情页一致）
   const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
   const renderProcessEntry = (item: ToolCallEntry) =>
@@ -1380,7 +1386,9 @@ export default function WorkSessionArea({
       </div>
 
       {/* 消息区：瀑布流；空会话时不占位，起步引导随输入框一起居中 */}
-      <div className={emptyConversation ? 'hidden' : 'flex-1 overflow-y-auto overflow-x-hidden'}>
+      {!emptyConversation && (
+      <div className="relative flex min-h-0 flex-1">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
           {olderCount > 0 && (
             <Button variant="secondary" pill className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={() => setShowOlder(true)}>
@@ -1398,8 +1406,8 @@ export default function WorkSessionArea({
             return isProcessMessage(msg)
               ? <ProcessMessageRow key={msg.id} message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
               : (
+                <div key={msg.id} data-message-anchor={msg.id} className="scroll-mt-4">
                 <MessageRow
-                  key={msg.id}
                   message={msg}
                   onOpenFilePath={onOpenFilePath}
                   onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
@@ -1414,6 +1422,7 @@ export default function WorkSessionArea({
                   onDelete={deleteMessage}
                   onEditContentChange={setEditingContent}
                 />
+                </div>
               )
           })}
 
@@ -1509,7 +1518,10 @@ export default function WorkSessionArea({
 
           <div ref={messagesEndRef} />
         </div>
+        </div>
+        <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
+      )}
 
       {/* 输入区：空会话时整块居中（起步引导作为 aboveInput 一起居中） */}
       <div className={emptyConversation ? 'flex min-h-0 flex-1 flex-col justify-center pb-24' : 'contents'}>
