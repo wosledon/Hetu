@@ -111,10 +111,9 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
 
   return (
     <nav
-      className="pointer-events-none absolute right-1 top-1/2 z-10 h-[min(60vh,420px)] w-3 -translate-y-1/2 select-none opacity-80 transition-opacity hover:opacity-100"
+      className="pointer-events-none absolute right-4 top-1/2 z-10 h-[min(60vh,420px)] w-4 -translate-y-1/2 select-none opacity-70 transition-opacity hover:opacity-100"
       aria-label={t('messageArea.railLabel')}
     >
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200/80 dark:bg-gray-700/60" />
       {marks.map((mark) => {
         const active = mark.id === activeId
         const snippet = previewText(mark.content)
@@ -140,8 +139,8 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
             <span
               className={`rounded-full transition-all duration-200 ${
                 active
-                  ? 'h-1.5 w-1.5 bg-blue-500 ring-2 ring-blue-500/20 dark:bg-blue-400 dark:ring-blue-400/20'
-                  : 'h-1 w-1 bg-gray-300 group-hover:h-1.5 group-hover:w-1.5 group-hover:bg-gray-400 dark:bg-gray-600 dark:group-hover:bg-gray-500'
+                  ? 'h-[3px] w-4 bg-gray-700 dark:bg-gray-200'
+                  : 'h-[2px] w-2.5 bg-gray-300 group-hover:w-4 group-hover:bg-gray-400 dark:bg-gray-600 dark:group-hover:bg-gray-500'
               }`}
             />
             {hoveredId === mark.id && (
