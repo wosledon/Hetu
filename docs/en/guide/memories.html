@@ -1,11 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-root="../../">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131210" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
 <title>Memories &amp; Dream · Hetu</title>
 <meta name="description" content="Memories and Dream in detail: memory fields and scopes, recall triggers, memory graph, consolidation parameters and practical advice.">
-<meta name="theme-color" content="#4f46e5">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/memories.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/memories.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/memories.html">
@@ -18,84 +21,39 @@
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://api.github.com">
+<link rel="preconnect" href="https://abacus.jasoncameron.dev">
 <link rel="stylesheet" href="../../assets/site.css">
 <script defer src="../../assets/site.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-header">
-  <div class="wrap">
-    <a class="brand" href="../index.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8.5v8.5"/><path d="M11 8.5v8.5"/><path d="M5 12.5h13"/><path d="M15.5 5.5v9.5q0 1.5 1.5 1.5h1.5"/></svg>
-      <span>Hetu<small>Local-first AI knowledge workspace</small></span>
+  <div class="wrap header-inner">
+    <a class="brand" href="../../index.html" aria-label="Hetu home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span>
+      <span class="brand-text">Hetu<small>LOCAL FIRST</small></span>
     </a>
-    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
-    <nav class="site-nav" aria-label="Main navigation">
-      <a href="../index.html">Home</a>
-      <a href="index.html" aria-current="page">Docs</a>
-      <a href="architecture.html">Architecture</a>
-      <a href="getting-started.html">Download</a>
-      <a href="faq.html">FAQ</a>
-    </nav>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation" aria-controls="site-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <nav class="site-nav" id="site-nav" aria-label="Main navigation"><a href="../../index.html">Home</a><a href="index.html" aria-current="page">Docs</a><a href="architecture.html">Architecture</a><a href="getting-started.html">Start</a><a href="faq.html">FAQ</a><a class="nav-lang" href="../../guide/memories.html" hreflang="zh-CN">中文</a></nav>
     <div class="header-actions">
-      <span class="lang" role="group" aria-label="Language">
-        <a href="#" aria-current="true">EN</a>
-        <a href="../../guide/memories.html" title="中文版本">中文</a>
-      </span>
-      <button class="icon-btn" data-theme-toggle aria-label="Toggle theme">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg>
-      </button>
-      <a class="btn btn-primary" href="https://github.com/wosledon/Hetu/releases/latest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
-        Download <span data-latest-version>v0.3.8</span>
-      </a>
+      <button class="search-btn" data-search-open type="button" aria-label="Search docs" title="Search docs (Ctrl K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd data-search-kbd>Ctrl K</kbd></button>
+      <span class="lang" role="group" aria-label="Language"><a href="#" aria-current="true">EN</a><a href="../../guide/memories.html" hreflang="zh-CN" title="中文版本">中文</a></span>
+      <button class="icon-btn theme-toggle" data-theme-toggle type="button" aria-label="Toggle theme" title="Toggle theme"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></button>
+      <a class="btn btn-primary header-cta" href="https://github.com/wosledon/Hetu/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg><span class="header-cta-label">Download</span> <span data-latest-version>v0.3.18</span></a>
     </div>
   </div>
+  <div class="read-progress" data-progress aria-hidden="true"></div>
 </header>
 <main id="main">
   <div class="wrap docs">
   <aside class="docs-side">
-    <h2>On this site</h2>
-    <ol>
-      <li><a href="index.html">Docs index</a></li>
-      <li><a href="getting-started.html">Getting started</a></li>
-      <li><a href="notes.html">Notes</a></li>
-      <li><a href="workspace.html">Agent workspace</a></li>
-      <li><a href="code-sessions.html">Code sessions</a></li>
-      <li><a href="knowledge.html">Knowledge base</a></li>
-      <li><a href="graph-wiki.html">Graph & Wiki</a></li>
-      <li><a href="memories.html" aria-current="page">Memories & Dream</a></li>
-      <li><a href="organize.html">Kanban & automation</a></li>
-      <li><a href="extensions.html">Extensions & MCP</a></li>
-      <li><a href="models.html">Models & usage</a></li>
-      <li><a href="theme.html">Theme &amp; appearance</a></li>
-      <li><a href="desktop.html">Desktop app</a></li>
-      <li><a href="data.html">Data & security</a></li>
-      <li><a href="architecture.html">Architecture</a></li>
-      <li><a href="faq.html">FAQ</a></li>
-      <li><a href="dev.html">Development</a></li>
-    </ol>
-    <h2>Internals</h2>
-    <ol>
-      <li><a href="compression.html">Compression pipeline</a></li>
-      <li><a href="agent-loop.html">Agent loop</a></li>
-      <li><a href="permissions.html">Permission modes & approvals</a></li>
-      <li><a href="context.html">Context & auto compaction</a></li>
-      <li><a href="sse.html">SSE event protocol</a></li>
-      <li><a href="chunking.html">Chunking & vector index</a></li>
-      <li><a href="retrieval.html">Semantic retrieval</a></li>
-      <li><a href="graph-extraction.html">Knowledge graph extraction</a></li>
-      <li><a href="wiki-generation.html">Wiki generation</a></li>
-      <li><a href="memory-recall.html">Memory write & recall</a></li>
-      <li><a href="dream.html">Dream consolidation</a></li>
-      <li><a href="kanban.html">Task board & automation</a></li>
-      <li><a href="workflows.html">Workflow engine</a></li>
-      <li><a href="background-tasks.html">Background & scheduled tasks</a></li>
-      <li><a href="inbox.html">Inbox & notifications</a></li>
-    </ol>
-  </aside>
+  <button class="side-search" data-search-open type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd>/</kbd></button>
+  <nav class="side-nav" aria-label="Documentation navigation">
+    <details class="side-group" open><summary>Start</summary><ul><li><a href="index.html">Documentation</a></li><li><a href="getting-started.html">Getting started</a></li></ul></details><details class="side-group" open><summary>Use</summary><ul><li><a href="notes.html">Notes</a></li><li><a href="workspace.html">Agent workspace</a></li><li><a href="code-sessions.html">Code sessions</a></li><li><a href="knowledge.html">Knowledge base</a></li><li><a href="graph-wiki.html">Graph & Wiki</a></li><li><a href="memories.html" aria-current="page">Memories & Dream</a></li><li><a href="organize.html">Kanban & automation</a></li><li><a href="extensions.html">Extensions & MCP</a></li><li><a href="models.html">Models & usage</a></li><li><a href="theme.html">Theme & appearance</a></li></ul></details><details class="side-group" open><summary>Platform</summary><ul><li><a href="desktop.html">Desktop app</a></li><li><a href="data.html">Data & security</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="faq.html">FAQ</a></li><li><a href="dev.html">Development</a></li></ul></details><details class="side-group" open><summary>Deep dives</summary><ul><li><a href="agent-loop.html">Agent loop</a></li><li><a href="permissions.html">Permission modes & approvals</a></li><li><a href="context.html">Context & auto compaction</a></li><li><a href="compression.html">Compression pipeline</a></li><li><a href="sse.html">SSE event protocol</a></li><li><a href="chunking.html">Chunking & vector index</a></li><li><a href="retrieval.html">Semantic retrieval</a></li><li><a href="graph-extraction.html">Knowledge graph extraction</a></li><li><a href="wiki-generation.html">Wiki generation</a></li><li><a href="memory-recall.html">Memory write & recall</a></li><li><a href="dream.html">Dream consolidation</a></li><li><a href="kanban.html">Task board & automation</a></li><li><a href="workflows.html">Workflow engine</a></li><li><a href="background-tasks.html">Background & scheduled tasks</a></li><li><a href="inbox.html">Inbox & notifications</a></li></ul></details>
+  </nav>
+</aside>
+    <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Memories &amp; Dream</h1>
       <p class="lede">Memories carry context across sessions: preferences, identity, working habits, stable facts. Entry: <strong>Memories</strong> (route <code>/memories</code>).</p>
@@ -124,7 +82,7 @@
         <li>Visualizes memories by association, making duplicates and contradictions visible.</li>
         <li>Filter by scope (all / global / session / project); hover for content.</li>
       </ul>
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img class="shot" src="../../screenshots/05-memories.png" alt="Memories page: memory graph, scope filters and Dream consolidation"></div>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../../screenshots/05-memories.png" alt="Memories page: memory graph, scope filters and Dream consolidation"></div>
       <span class="shot-hint">Click for full size</span>
 
       <h2>Dream consolidation</h2>
@@ -150,17 +108,36 @@
   </div>
 </main>
 <footer class="site-footer">
-  <div class="wrap">
-    <span>© 2026 Hetu Contributors · Apache-2.0</span>
-    <nav aria-label="Footer navigation">
-      <a href="index.html">Docs</a>
-      <a href="https://github.com/wosledon/Hetu">GitHub</a>
-      <a href="https://github.com/wosledon/Hetu/releases">Releases</a>
-      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
-      <a href="dev.html">Development</a>
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span><span class="brand-text">Hetu<small>LOCAL FIRST</small></span></a>
+      <p>A local-first AI knowledge and agent workspace. Notes, conversations and coding sessions share one local database.</p>
+    </div>
+    <nav class="footer-col" aria-label="Product">
+      <h2>Product</h2>
+      <a href="notes.html">Notes</a>
+      <a href="workspace.html">Agent workspace</a>
+      <a href="code-sessions.html">Code sessions</a>
+      <a href="knowledge.html">Knowledge base</a>
     </nav>
-    <span class="spacer">Notes, chat and coding sessions on one local stack</span>
-    <span class="visit-counter" data-visit-counter title="Anonymous visitor and page-view counts, no cookies."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Page views</span> <b data-visit-views>–</b></span></span>
+    <nav class="footer-col" aria-label="Resources">
+      <h2>Resources</h2>
+      <a href="index.html">Documentation</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="faq.html">FAQ</a>
+      <a href="dev.html">Development</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
+    </nav>
+    <nav class="footer-col" aria-label="Get Hetu">
+      <h2>Get Hetu</h2>
+      <a href="https://github.com/wosledon/Hetu/releases/latest">Latest release</a>
+      <a href="https://github.com/wosledon/Hetu/releases">Changelog</a>
+      <a href="https://github.com/wosledon/Hetu">Source repository</a>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <span class="visit-counter" data-visit-counter title="Anonymous counts only: no cookies, just visitors and page views."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Views</span> <b data-visit-views>–</b></span></span>
   </div>
 </footer>
 <div class="lightbox" data-lightbox aria-hidden="true">
@@ -169,6 +146,13 @@
   </button>
   <img alt="">
   <span class="lightbox-caption"></span>
+</div>
+<div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search documentation" aria-hidden="true">
+  <div class="search-panel">
+    <div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" name="q" data-search-input placeholder="Search titles, features or settings…" autocomplete="off" spellcheck="false" aria-label="Search documentation"><button class="search-close" data-search-close type="button" aria-label="Close search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><kbd>Esc</kbd></div>
+    <div class="search-results" data-search-results></div>
+    <div class="search-foot"><span>↑↓ to select</span><span>Enter to open</span><span>Esc to close</span><span class="sr-only" data-search-status aria-live="polite"></span></div>
+  </div>
 </div>
 </body>
 </html>
