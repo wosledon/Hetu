@@ -1,300 +1,230 @@
-# Hetu
+<p align="center">
+  <img src="docs/screenshots/02-code.png" alt="Hetu Code session: session tree, agent conversation with tool calls, and work panels" width="920">
+</p>
 
-> A local-first AI knowledge & agent workspace — notes, conversations and coding sessions that settle into one searchable, connected knowledge base.
+<h1 align="center">Hetu 河图</h1>
 
-[简体中文](./README.zh-CN.md) | English
+<p align="center">
+  <strong>A local-first AI knowledge &amp; agent workspace.</strong><br>
+  Notes, conversations and coding sessions on one local database.
+</p>
 
-🌐 官网与文档（GitHub Pages）：<https://wosledon.github.io/Hetu/>
+<p align="center">
+  <a href="https://github.com/wosledon/Hetu/releases/latest"><img src="https://img.shields.io/github/v/release/wosledon/Hetu?sort=semver&label=release" alt="Latest release"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0 license"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512bd4" alt=".NET 10">
+  <img src="https://img.shields.io/badge/React-19-61dafb" alt="React 19">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4a5568" alt="Windows and Linux">
+</p>
 
-Hetu is a **local-first** knowledge and agent workspace: Markdown notes, chat and coding sessions share one store, and a vector index, knowledge graph, long-term memory plus tasks/workflows tie everything into a living network. All data and model calls stay on your machine — no account, no uploads.
-
-- **Two engines**: `Notes` (write) and the `Agent workspace` (ask & do) sit on the same knowledge base, so any note can be searched, indexed or turned into graph entities on demand.
-- **It actually works on your code**: Code sessions run inside your repositories — isolated worktrees, branches, Git sync, file/terminal/browser panels and PR creation, all conversation-driven.
-- **Composable**: MCP tools, skills, agents, workflows and kanban tasks all plug into the same agent loop.
-- **Local-first**: SQLite + `sqlite-vec` out of the box, or PostgreSQL + `pgvector`.
-
-## 🖼️ Gallery
-
-| Notes | Agent workspace (chat + Code) |
-| --- | --- |
-| ![Notes](docs/screenshots/01-notes.png) | ![Agent workspace](docs/screenshots/02-code.png) |
-
-| Knowledge base | Knowledge graph |
-| --- | --- |
-| ![Knowledge base](docs/screenshots/03-knowledge-base.png) | ![Knowledge graph](docs/screenshots/04-graph.png) |
-
-| Memories (with Dream) | Wiki generation |
-| --- | --- |
-| ![Memories](docs/screenshots/05-memories.png) | ![Wiki](docs/screenshots/07-wiki.png) |
-
-| Kanban board | Usage & cost |
-| --- | --- |
-| ![Kanban](docs/screenshots/06-kanban.png) | ![Usage](docs/screenshots/09-usage.png) |
-
-| Projects (local / SSH) | Background tasks |
-| --- | --- |
-| ![Projects](docs/screenshots/11-projects.png) | ![Background tasks](docs/screenshots/08-tasks.png) |
+<p align="center">
+  <a href="https://wosledon.github.io/Hetu/en/">Website</a> ·
+  <a href="https://wosledon.github.io/Hetu/en/guide/">Documentation</a> ·
+  <a href="https://github.com/wosledon/Hetu/releases/latest">Download</a> ·
+  <a href="./README.zh-CN.md">简体中文</a>
+</p>
 
 ---
 
-## ✨ Features
+Hetu is a desktop app with a local backend: write Markdown notes, ask an agent to work through a problem, and let Code sessions edit a real repository. All of it reads and writes the same SQLite database (or PostgreSQL), so retrieval, the knowledge graph, Wiki and long-term memory grow from the same material. No account, no telemetry, no uploads — model calls only go to the providers you configure.
 
-### 📝 Notes
+## Why Hetu
 
-- **WYSIWYG Markdown** (Milkdown) plus a **CodeMirror source view** — edit / preview / split modes.
-- **AI writing**: select text to polish / translate / condense / expand / explain / custom-prompt; a whole-note assistant panel with **per-call model selection**.
-- **In-note AI actions**: generate index, extract knowledge graph, add tags, render flowcharts.
-- **Infinitely nested notebooks** (including "Uncategorized"), **tags** with colors, rename, merge and sidebar filtering.
-- **3-second autosave** with save indicators; **version history** snapshotted on update, with preview, diff and one-click restore.
-- **Share links** (permanent / 24h / 3-day) with view counters and a public read-only page at `/share/:code`.
-- **Trash** (soft delete) plus **Markdown export / database backup**.
+- **One knowledge base, not three tools.** Notes, conversations, code changes, memories and tasks live in one database. The retrieval index and the agent see the same context instead of a copy-pasted transcript.
+- **An agent that can actually work.** Code sessions get an isolated worktree, a real PTY terminal, line-by-line diffs, checkpoint rollback, Git, and pull requests through `gh`/`glab`.
+- **Local by default.** No account and no cloud copy. API keys are encrypted at rest, data stays in your user data directory, and network access is limited to the providers and MCP servers you enable.
+- **Composable, not monolithic.** MCP servers, skills, agent presets, workflows and kanban tasks all plug into the same agent loop.
 
-### 🤖 Agent workspace (`/code`)
+## Quick start
 
-Chat and coding sessions live in one workspace: a session/topic tree on the left, the message stream on the right.
+### 1. Install the desktop app (recommended)
 
-- **Sessions & topics**: grouped topics, each with its own model, system prompt, context window and history; messages can be copied / edited / deleted and topics **forked** for branching exploration.
-- **SSE streaming** with rich events: `delta`, thinking traces, web-search results, knowledge-base and memory hits, tool calls/results, interactive questions, live to-dos, checkpoints and approval requests.
-- **Deep thinking** toggle with reasoning effort (low / medium / high) and a collapsible thinking trace.
-- **Input toolbelt**: web search · knowledge base · memory · permission mode · model · agent · skills (type `/` to invoke).
-- **Five permission modes**: `plan` / `readonly` / `ask` / `auto` / `bypass`. Code sessions additionally have a **run mode**: interactive step-by-step or Autopilot.
-- **Queue & steering**: messages sent while a reply is streaming are queued (edit / delete / send now), and "steer" injects new instructions into the running turn immediately.
-- **Attachments & long text**: images, files, and collapsed blocks for pasted logs/JSON.
-- **Distill to note**: turn a topic into a Markdown note (summary / detailed / Q&A / custom prompt) with streaming preview and notebook picker.
-- **Context usage** ring with automatic compression records.
+Download from [GitHub Releases](https://github.com/wosledon/Hetu/releases/latest):
 
-### 🧑‍💻 Code sessions
+| Channel | Windows | Linux | Requires |
+| --- | --- | --- | --- |
+| `fat` | `Hetu_x.y.z_x64-setup.exe` / `Hetu_x.y.z_x64_en-US.msi` | `Hetu_x.y.z_amd64.AppImage` / `.deb` | Nothing extra — bundles the .NET 10 runtime |
+| `slim` | `Hetu.Slim._x.y.z_x64-setup.exe` / `Hetu.Slim._x.y.z_x64_en-US.msi` | `Hetu.Slim._x.y.z_amd64.AppImage` / `.deb` | .NET 10 runtime installed on the system |
 
-- **Projects**: local directories or **SSH remotes**, organized in groups.
-- **Two workspace modes**: work on the **current branch**, or give the session an **isolated worktree** (defaults to `parent-of-repo/.hetu-worktrees/<repo>/<worktree>`, configurable root; finished worktrees are auto-cleaned by idle threshold).
-- **Branches**: local + remote branches (checking out a remote ref creates a local tracking branch), a persistent workspace/branch badge next to the title, and one-button Git sync (pull / push / refresh chosen from state).
-- **Work panel**: `Files` (browser + built-in editor) / `Changes` (line diff and rollback) / `Checkpoints` (pre-task snapshots, restorable) / `Git` (stage, commit, diff) / `PR` (auto-selects `gh` or `glab`: status with CI checks / review / merge gate, open PR list, one-click create, draft·ready·merge·close actions, and one-click hand-off of failing checks + review comments to the agent; gives platform-specific install hints when missing; the PR state is also injected into the session context and exposed as `work_pr` / `work_pr_action` tools) / `Browser` (embedded preview) / `Terminal` (real PTY — vim/htop work).
-- **Title as status**: the session title carries the workspace, branch and PR badges.
+The channels update independently. Closing the window keeps Hetu in the tray with the backend and background jobs running; use **Quit Hetu** in the tray menu to exit.
 
-### 🧠 Knowledge base
+### 2. Or run from source
 
-- Chunk and embed **notes / files / URLs** with three tabs: `Overview`, `Index management`, `Search test`.
-- Live indexing progress (auto-polling while items remain unindexed), per-item chunk counts and re-index actions, coverage and dimensions.
-- Built-in **semantic search playground** with adjustable Top-K and highlighted chunk previews.
-- Vectors live in local `sqlite-vec`, or PostgreSQL `pgvector`.
+Requires **.NET SDK 10+**, **Node.js 20+** and Git.
 
-### 🕸️ Knowledge graph
+```bash
+git clone https://github.com/wosledon/Hetu
+cd Hetu
 
-- Force-directed visualization with zoom, pan, search and layout reset; entity types (concept / technology / project / person / organization / custom) with distinct colors.
-- Relation types: belongs-to, related-to, depends-on, contains, compared-with, custom.
-- **AI extraction** from any note with merge/dedup; click an entity to see linked notes and jump back to the editor.
+pwsh ./scripts/start.ps1     # Windows
+./scripts/start.sh           # Linux / macOS
+```
 
-### 📚 Wiki generation
+| Service | URL |
+| --- | --- |
+| Frontend | <http://localhost:5174> |
+| API | <http://localhost:5000/api> |
+| API reference (Scalar) | <http://localhost:5000/scalar/v1> |
+| Health check | <http://localhost:5000/api/health> |
 
-- Pick a project and let AI generate a **Wiki suite** from its material (README, directory structure, code snippets, optionally semantic search): module pages plus a project overview.
-- Suites are grouped with generation time, page count and an "updated" hint; each run is visible in background tasks with status and duration.
+### 3. First-run setup
 
-### 🧬 Memories & Dream
+1. **Models → Add provider** — OpenAI-compatible or Anthropic, with base URL and API key.
+2. **Settings → Default models** — pick per-scenario defaults (chat, coding, Wiki, graph, notes).
+3. **Notes → Generate index** to make content searchable; **Code** to open a repository and start a session.
 
-- Long-term memory store: content, category (preference / identity / work / habit / knowledge …), importance stars, search and scope filters (global / session / project).
-- **Memory graph** visualization; `Dream` consolidation periodically merges, decays and forgets memories based on decay/forget days.
-- Recalled in chat through the **Memory** toggle and the `search_memory` tool.
+> Anthropic has no public embedding endpoint — choose an OpenAI-compatible provider for the `embedding` purpose. Vector dimensions (`Embedding:Dimensions`, default 1536) must match the model.
 
-### 🗂️ Kanban / Workflows / Tasks
+## What's inside
 
-- **Kanban board**: in-progress / review / blocked / done / archived columns; tasks can be assigned to agents and **executed by them**, recording run steps, comments and artifacts.
-- **Workflows**: visually orchestrate multi-step agent flows (nodes, enable/disable, run history).
-- **Background & scheduled tasks**: status, duration and failure reasons for embedding generation, graph extraction, Wiki generation, etc.; Cron-scheduled jobs included.
-- **Inbox**: notification center with an unread badge in the navigation.
+| Area | What you get | Guide |
+| --- | --- | --- |
+| **Notes** | WYSIWYG (Milkdown) + source (CodeMirror) views, selection AI actions, version history, share links, trash, Markdown export | [Notes](docs/guide/notes.html) |
+| **Agent workspace** | Sessions and topics, SSE streaming, tool approvals, five permission modes, send queue, mid-run steering, distill to note | [Workspace](docs/guide/workspace.html) |
+| **Code sessions** | Local or SSH projects, isolated worktrees, branch sync, files/changes/checkpoints/Git/PR/browser/terminal panels | [Code sessions](docs/guide/code-sessions.html) |
+| **Knowledge** | Chunking and embeddings for notes/files/URLs, index coverage, semantic search playground, knowledge graph, project Wiki generation | [Knowledge base](docs/guide/knowledge.html) · [Graph & Wiki](docs/guide/graph-wiki.html) |
+| **Memory** | Global/session/project scopes, recall scoring, memory graph, Dream consolidation (merge, decay, forget) | [Memories & Dream](docs/guide/memories.html) |
+| **Automation** | Kanban tasks executed by agents, visual workflows, background and Cron jobs, inbox notifications | [Kanban & automation](docs/guide/organize.html) |
+| **Extensibility** | Agent presets with tool allowlists, skills (`/skill-name`), built-in tool toggles, MCP servers | [Extensions & MCP](docs/guide/extensions.html) |
+| **Models & cost** | Multiple providers, per-scenario defaults, OpenAI/Anthropic-compatible proxy, token and cost analytics, compression pipeline | [Models & usage](docs/guide/models.html) |
 
-### 🧩 Agents / Skills / Tools / MCP
+## Screenshots
 
-- **Agents**: system-prompt presets with categories, search, an explicit **tool whitelist** and **per-tool approval policy**; JSON import/export.
-- **Skills**: built-in skills (translate / summarize / explain / polish) plus custom ones (prompt template + system prompt); Markdown / JSON skill files can also be loaded from disk directories. Invoke from chat with `/skill-name`.
-- **Tools**: built-in tools (note read/write/search, web search, memory & graph search, todos, command execution, file operations …) individually toggleable.
-- **MCP**: manage Model Context Protocol servers (`stdio` fully supported, `sse` configurable), auto-discover tools via `tools/list` and invoke them via `tools/call` — they join the chat toolbelt.
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="Notes: notebook tree, note list and editor" width="420"><br><sub><b>Notes</b> — notebooks, tags and AI actions</sub></td>
+    <td width="33%"><img src="docs/screenshots/04-graph.png" alt="Knowledge graph of entities and relations" width="420"><br><sub><b>Knowledge graph</b> — entities and relations</sub></td>
+    <td width="33%"><img src="docs/screenshots/07-wiki.png" alt="Generated project Wiki suites" width="420"><br><sub><b>Wiki</b> — generated project documentation</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/03-knowledge-base.png" alt="Knowledge base index coverage and search" width="420"><br><sub><b>Knowledge base</b> — index coverage and search</sub></td>
+    <td><img src="docs/screenshots/05-memories.png" alt="Long-term memories and Dream consolidation" width="420"><br><sub><b>Memories</b> — scopes and Dream</sub></td>
+    <td><img src="docs/screenshots/06-kanban.png" alt="Kanban board with agent-executed tasks" width="420"><br><sub><b>Kanban</b> — tasks executed by agents</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/09-usage.png" alt="Token usage, latency and cost analytics" width="420"><br><sub><b>Usage</b> — tokens, latency and cost</sub></td>
+    <td><img src="docs/screenshots/11-projects.png" alt="Local and SSH projects" width="420"><br><sub><b>Projects</b> — local and SSH repositories</sub></td>
+    <td><img src="docs/screenshots/10-settings.png" alt="Settings: models, providers, data and workspace" width="420"><br><sub><b>Settings</b> — models, data, workspace</sub></td>
+  </tr>
+</table>
 
-### ⚙️ Models / Proxy / Usage
+<details>
+<summary><b>More screenshots</b> (theme and appearance, background tasks)</summary>
+<br>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/12-appearance.png" alt="Theme and appearance settings" width="520"><br><sub><b>Appearance</b> — accent palettes and theme</sub></td>
+    <td width="50%"><img src="docs/screenshots/13-appearance-material.png" alt="Acrylic material experiment" width="520"><br><sub><b>Material</b> — acrylic canvas (Beta)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/08-tasks.png" alt="Background task monitor" width="520"><br><sub><b>Background tasks</b> — status, duration, failures</sub></td>
+    <td><img src="docs/screenshots/02-code.png" alt="Code session panels" width="520"><br><sub><b>Code session</b> — conversation and work panels</sub></td>
+  </tr>
+</table>
+</details>
 
-- **Models & providers**: OpenAI-compatible and Anthropic protocols with encrypted API keys, plus **per-scenario default models** (chat / code / Wiki / graph / organize / note AI …).
-- **Proxy service**: expose configured models through OpenAI- / Anthropic-compatible endpoints for external clients (point your editor at Hetu).
-- **Usage**: tokens, cached tokens, compression before/after, average latency, active days, distribution by model and source, week×hour and year×day heatmaps.
-- **Compression pipeline**: context compression policy with saved-token accounting.
+## Architecture
 
-### ⚙️ Settings
-
-App & assistant identity, navigation menu and style, default models, providers, cost control, memory, MCP servers, data & backup, workspace (worktree root + auto-cleanup) and about.
-
-![Settings](docs/screenshots/10-settings.png)
-
-### 🖥️ Desktop app (Tauri 2, optional)
-
-- Native window with **system tray** (close-to-tray by default, configurable); the backend is launched as a **sidecar** and readiness is polled via `/api/health`.
-- **Auto-update**: GitHub primary endpoint with three mirror fallbacks, two channels (`fat` bundles the .NET runtime, `slim` needs system .NET 10).
-- The data directory is injected by the shell through `HETU_DATA_DIR` (SQLite and logs live in the OS user data dir).
-
-### 🔐 Privacy & storage
-
-- Runs 100% locally, no account required; API keys encrypted with ASP.NET DataProtection (DPAPI on Windows).
-- Vectors in local `sqlite-vec` or PostgreSQL `pgvector`; both databases support the same feature set.
-
----
-
-## 🧱 Tech Stack
+```mermaid
+flowchart LR
+  Shell["Tauri 2 shell"] --> UI["React 19 UI"]
+  Browser["Browser (dev)"] --> UI
+  UI <-->|"REST + SSE"| API["ASP.NET Core 10 API"]
+  API --> Services["Hetu.Core services<br/>agent loop · retrieval · graph · Wiki · memory"]
+  Services --> Repos["EF Core repositories"]
+  Repos --> DB[("SQLite + sqlite-vec<br/>PostgreSQL + pgvector")]
+  Services -.-> Providers["Model providers"]
+  Services -.-> MCP["MCP servers (stdio)"]
+  Services -.-> Git["Git · gh / glab · PTY"]
+```
 
 | Layer | Stack |
 | --- | --- |
-| Backend | ASP.NET Core 10 · EF Core 10 · Serilog · Scalar (OpenAPI at `/scalar/v1`) |
-| Storage | SQLite (default, `sqlite-vec`) / PostgreSQL 16+ (`pgvector`) |
+| Backend | ASP.NET Core 10 · EF Core 10 · Serilog · Scalar (OpenAPI) |
+| Storage | SQLite + `sqlite-vec` (default) · PostgreSQL 16+ + `pgvector` |
 | Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · react-router 7 |
-| State | Zustand (client) + TanStack Query (server) |
-| Editors | Milkdown (WYSIWYG) / CodeMirror / xterm.js / react-markdown + KaTeX + Mermaid + DOMPurify |
-| Visuals | ECharts · XYFlow + dagre (graph & workflow) |
-| AI | OpenAI-compatible & Anthropic protocols · embeddings · SSE streaming · MCP (JSON-RPC 2.0) |
+| State | Zustand (client) · TanStack Query (server) |
+| Editors & visuals | Milkdown · CodeMirror · xterm.js · react-markdown + KaTeX + Mermaid · ECharts · XYFlow + dagre |
+| AI | OpenAI-compatible & Anthropic protocols · embeddings · SSE · MCP (JSON-RPC 2.0) |
 | Desktop | Tauri 2 (Rust shell + sidecar backend + updater) |
 | i18n | i18next (简体中文 / English) |
 
-## 📂 Project Structure
+## Development
+
+```bash
+# Backend: Release build, expected to finish with zero warnings
+dotnet build src/Hetu.Api/Hetu.Api.csproj -c Release -v q
+
+# Core tests (xUnit + NSubstitute)
+dotnet test src/Hetu.Core.Tests/Hetu.Core.Tests.csproj
+
+# Frontend: lint, type-check and production build
+cd frontend
+npx eslint .
+npm run build
+```
+
+This project is **warning-intolerant**: no `#pragma warning disable`, `SuppressMessage`, `eslint-disable` or `@ts-ignore`. Fix the root cause. Layering, naming, SQLite quirks and commit conventions are documented in [`AGENTS.md`](./AGENTS.md).
+
+<details>
+<summary><b>Project layout and routes</b></summary>
 
 ```
 Hetu/
 ├── src/
-│   ├── Hetu.Api/                                 # Web API host + background workers
-│   ├── Hetu.Core/                                # Domain entities, services, repository interfaces
+│   ├── Hetu.Api/                                 # API host, SSE streams, background workers
+│   ├── Hetu.Core/                                # Entities, services, repository interfaces
+│   ├── Hetu.Core.Tests/                          # xUnit + NSubstitute tests
 │   ├── Hetu.Infrastructure/                      # EF Core, AI providers, MCP, sqlite-vec
-│   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL migrations
-│   └── Hetu.Shared/                              # DTOs and shared models
+│   ├── Hetu.Infrastructure.PostgresMigrations/   # PostgreSQL migrations and model snapshots
+│   └── Hetu.Shared/                              # DTOs shared with the frontend
 ├── frontend/                                     # React + Vite app
-├── shell/hetu-desktop/                           # Tauri 2 desktop shell (Rust + bundling)
-├── scripts/                                      # start / publish / release / smoke-test scripts
-├── docs/                                         # PRD and screenshots
+├── shell/hetu-desktop/                           # Tauri 2 shell, tray, updater, NSIS hooks
+├── scripts/                                      # start / desktop-dev / publish / release / smoke tests
+├── docs/                                         # GitHub Pages site, PRD and screenshots
 └── AGENTS.md                                     # Implementation conventions
 ```
 
-### Routes (`frontend/src/App.tsx`)
+Main routes (`frontend/src/App.tsx`): `/` notes · `/code` agent workspace · `/projects` · `/knowledge-base` · `/graph` · `/wiki` · `/memories` · `/kanban` · `/workflows` · `/tasks/background` · `/tasks/scheduled` · `/agents` · `/skills` · `/tools` · `/models` · `/proxy` · `/usage` · `/inbox` · `/apps` · `/tags` · `/trash` · `/settings` · `/share/:code`.
 
-| Route | Page | What it does |
-| --- | --- | --- |
-| `/` | Notes | Notebook tree + note list + editor |
-| `/code` | Agent workspace | Chat and Code sessions (`/chat` and `/work` redirect here) |
-| `/projects` | Projects | Local / SSH projects and groups |
-| `/kanban`, `/kanban/:taskId` | Kanban | Board and task detail (run steps, comments) |
-| `/wiki` | Wiki | Generated suites and pages |
-| `/knowledge-base` | Knowledge base | Overview / index management / search test |
-| `/graph` | Knowledge graph | Entity & relation visualization |
-| `/memories` | Memories | Memory store, memory graph and Dream |
-| `/tasks/background`, `/tasks/scheduled` | Tasks | Background job monitor and Cron jobs |
-| `/workflows` | Workflows | Visual agent orchestration |
-| `/agents`, `/skills`, `/tools` | Agents / Skills / Tools | Prompt presets, skills and tool management |
-| `/models` | Models | Providers and models |
-| `/proxy` | Proxy | OpenAI / Anthropic-compatible endpoint |
-| `/usage` | Usage | Token usage and cost |
-| `/inbox` | Inbox | Notification center |
-| `/apps` | Apps | Embedded web apps |
-| `/tags`, `/trash` | Tags / Trash | Tag management, soft-deleted notes |
-| `/settings` | Settings | App / navigation / models / providers / cost / memory / MCP / backup / workspace / about |
-| `/share/:code` | Shared note | Public read-only note |
+</details>
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- .NET SDK **10.0+**
-- Node.js **20+**
-- (Optional) PostgreSQL **16+** with the `pgvector` extension
-
-### One-shot launch
+<details>
+<summary><b>PostgreSQL and desktop packaging</b></summary>
 
 ```bash
-# Linux / macOS / Git Bash
-./scripts/start.sh
-
-# PowerShell
-.\scripts\start.ps1
-```
-
-### Run manually
-
-```bash
-# Backend (defaults to http://localhost:5000)
-dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
-
-# Frontend (defaults to http://localhost:5174)
-cd frontend
-npm install
-npm run dev
-```
-
-Open <http://localhost:5174>; the API lives at <http://localhost:5000/api> and its docs at <http://localhost:5000/scalar/v1>.
-
-### Desktop app (Tauri 2)
-
-```bash
-# Development (dotnet + vite + tauri in parallel)
-pwsh ./scripts/desktop-dev.ps1
-
-# Package (sidecar first, then the installer)
-pwsh ./scripts/publish-backend.ps1 -Mode SelfContained -Rid win-x64      # fat: bundles the runtime
-pwsh ./scripts/publish-backend.ps1 -Mode FrameworkDependent -Rid win-x64 # slim: needs .NET 10
-cd shell/hetu-desktop
-npm run tauri:build -- --config src-tauri/tauri.slim.conf.json
-```
-
-## ⚙️ Configure AI Providers
-
-1. Open **Models** (or Settings → Providers) and add a provider (OpenAI-compatible / Anthropic) with Base URL and API key.
-2. Add models under it and set each `purpose` to `chat`, `embedding` or `completion`.
-3. In Settings → **Default models**, pick defaults per scenario (chat / code / Wiki / graph / organize / note AI).
-
-> API keys are encrypted at rest; model calls originate from your machine only.
-
-## 🗄️ Switching to PostgreSQL
-
-```bash
+# Switch the backend to PostgreSQL (pgvector required)
 export DatabaseProvider=Postgresql
-export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;******"
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=hetu;Username=postgres;Password=..."
 
-# Apply migrations (only when the schema changes)
+# Apply migrations
 dotnet ef database update \
   --project src/Hetu.Infrastructure.PostgresMigrations \
   --startup-project src/Hetu.Api
 ```
 
-Vector dimensions are controlled by `Embedding:Dimensions` (default `1536`) and must match your embedding model.
-
-## 🧪 Build & Verify
-
 ```bash
-# Backend (whole solution, expected to build with ZERO warnings)
-dotnet build Hetu.slnx
+# Desktop development: dotnet + Vite + Tauri
+pwsh ./scripts/desktop-dev.ps1
 
-# Frontend: type-check + production build / lint
-cd frontend
-npm run build
-npm run lint
-
-# API smoke tests (backend must be running)
-./scripts/test-api.sh
+# Package a sidecar first, then build the installer
+pwsh ./scripts/publish-backend.ps1 -Mode SelfContained -Rid win-x64
+cd shell/hetu-desktop
+npm run tauri:build:fat    # or tauri:build:slim for the slim channel
 ```
 
-This project is **warning-intolerant**: no `#pragma warning disable`, no `eslint-disable`, no `SuppressMessage` — fix the root cause instead. See [`AGENTS.md`](./AGENTS.md).
+</details>
 
-## 📦 Releasing
+## Status and limitations
 
-```bash
-# 1) Bump the version in two places: shell/hetu-desktop/src-tauri/tauri.conf.json and src/Hetu.Api/Hetu.Api.csproj
-# 2) After merging to main, tag and push to trigger Release Build
-pwsh ./scripts/tag-release.ps1 -Version 0.3.3
-```
+- **MCP:** `stdio` is fully wired; `sse` is configurable but not connected.
+- **Note search:** uses `LIKE`; an FTS5 / `tsvector` upgrade is planned.
+- **Embeddings:** Anthropic exposes no public embedding API — use an OpenAI-compatible provider.
+- **Testing:** core logic has xUnit + NSubstitute coverage; UI verification is build + lint + real browser checks.
 
-CI builds Windows (NSIS/MSI) and Linux (AppImage/deb) installers for both the `fat` and `slim` channels, generates the updater manifests
-(`latest.json` / `latest-slim.json` plus three mirror variants) and creates the GitHub Release — and it fails loudly if any channel manifest is missing.
+## Contributing
 
-## ⚠️ Known Limitations
-
-- No automated test project yet (verification today: builds + `eslint`/`tsc` + API smoke tests + real browser checks).
-- MCP: only `stdio` is fully wired; `sse` is configurable but not connected.
-- Full-text note search uses `LIKE`; an FTS5 / `tsvector` upgrade is planned.
-- Anthropic exposes no public embedding API — pick an OpenAI-compatible provider for the `embedding` purpose.
-
-## 🤝 Contributing
-
-Issues and PRs are welcome. Please read [`AGENTS.md`](./AGENTS.md) first (layering, naming, commit format, verification and the warning policy).
+Issues and pull requests are welcome. Read [`AGENTS.md`](./AGENTS.md) before changing code; it covers layering, the warning policy and the verification checklist.
 
 ```
 <type>(<scope>): <subject>
@@ -303,6 +233,6 @@ Issues and PRs are welcome. Please read [`AGENTS.md`](./AGENTS.md) first (layeri
 # scope: api | ui | db | ai | work | desktop | config
 ```
 
-## 📜 License
+## License
 
 [Apache License 2.0](./LICENSE)
