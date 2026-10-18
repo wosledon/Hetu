@@ -264,6 +264,8 @@ export interface IGraphRelation {
   description?: string;
   confidence: number;
   sourceNoteId?: string;
+  /** 从项目 Wiki 抽取时的来源页面 ID */
+  sourceWikiDocumentId?: string;
   createdAt: string;
 }
 
@@ -280,6 +282,8 @@ export interface IGraphEntityDetail {
   metadata?: string;
   relations: IGraphRelation[];
   sourceNotes: { noteId: string; title: string }[];
+  /** 通过这些关系关联的项目 Wiki 页面 */
+  sourceWikiDocuments: { wikiDocumentId: string; projectId: string; setId: string; title: string; projectName: string }[];
   createdAt: string;
   updatedAt: string;
 }

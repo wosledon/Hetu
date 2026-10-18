@@ -13,6 +13,8 @@ export interface IWikiDocument {
   /** 规划阶段确定的内容要点 */
   brief?: string
   content: string
+  /** 同步到知识库后的知识项 ID（未同步时为空） */
+  knowledgeItemId?: string
   createdAt: string
   updatedAt: string
 }
@@ -38,6 +40,16 @@ export interface IWikiSetPage {
   sortOrder: number
   /** 所属章节（父子级结构中的父级） */
   chapter?: string
+}
+
+/** Wiki 页面同步到知识库与知识图谱的结果 */
+export interface IWikiSyncResult {
+  pages: number
+  createdItems: number
+  queuedIndexTasks: number
+  queuedGraphTasks: number
+  embeddingConfigured: boolean
+  graphConfigured: boolean
 }
 
 /** Wiki 生成任务进度：0=排队中 1=生成中 2=已完成 3=失败 */

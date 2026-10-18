@@ -82,7 +82,7 @@ pwsh ./scripts/start.ps1     # Windows
 | **笔记** | Milkdown 所见即所得 + CodeMirror 源码视图、选区 AI 动作、历史版本、分享链接、回收站、Markdown 导出 | [笔记](docs/guide/notes.html) |
 | **Agent 工作台** | 会话与话题、SSE 流式输出、工具审批、五档权限模式、发送队列、运行中引导、整理成笔记 | [Agent 工作台](docs/guide/workspace.html) |
 | **Code 会话** | 本地或 SSH 项目、独立工作树、分支同步、文件/更改/检查点/Git/PR/浏览器/终端七个面板 | [Code 会话](docs/guide/code-sessions.html) |
-| **知识** | 笔记/文件/网址的分块与向量化、索引覆盖率、语义搜索实验台、知识图谱、按项目生成 Wiki | [知识库](docs/guide/knowledge.html) · [图谱与 Wiki](docs/guide/graph-wiki.html) |
+| **知识** | 笔记/文件/网址的分块与向量化、索引覆盖率、语义搜索实验台、知识图谱、按项目生成 Wiki；Wiki 页面会自动进入知识库与图谱 | [知识库](docs/guide/knowledge.html) · [图谱与 Wiki](docs/guide/graph-wiki.html) |
 | **记忆** | 全局/会话/项目作用域、召回打分、记忆图、Dream 巩固（合并、衰减、遗忘） | [记忆与 Dream](docs/guide/memories.html) |
 | **自动化** | 由 Agent 执行的任务看板、可视化工作流、后台与 Cron 定时任务、收件箱通知 | [看板与自动化](docs/guide/organize.html) |
 | **扩展** | 带工具白名单的智能体预设、技能（`/技能名`）、内置工具开关、MCP 服务器 | [扩展与集成](docs/guide/extensions.html) |

@@ -65,6 +65,11 @@ public class WikiController : ControllerBase
         return File(result.Data, "application/zip", $"wiki-{setId:N}.zip");
     }
 
+    /// <summary>把一套 Wiki 同步到知识库与知识图谱（写入投影并入队索引 / 抽取任务）</summary>
+    [HttpPost("sets/{setId:guid}/sync")]
+    public Task<ApiResponse<WikiSyncResultDto>> SyncSet(Guid setId, CancellationToken cancellationToken)
+        => _wikiService.SyncSetAsync(setId, cancellationToken);
+
     [HttpDelete("{id:guid}")]
     public Task<ApiResponse> Delete(Guid id, CancellationToken cancellationToken)
         => _wikiService.DeleteAsync(id, cancellationToken);

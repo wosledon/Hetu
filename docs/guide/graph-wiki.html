@@ -93,7 +93,7 @@
         <tbody>
           <tr><td>缩放 / 平移</td><td>滚轮缩放、拖拽平移；提供重置视图按钮</td></tr>
           <tr><td>搜索</td><td>按实体名过滤高亮；侧栏可按类型筛选</td></tr>
-          <tr><td>查看详情</td><td>点实体看它的关系列表与来源笔记，可直接跳回编辑器</td></tr>
+          <tr><td>查看详情</td><td>点实体看它的关系列表、来源笔记与来源 Wiki 页面，可直接跳回编辑器或 Wiki 页</td></tr>
           <tr><td>统计</td><td>顶部显示实体总数与关系总数，以及各类型计数</td></tr>
         </tbody>
       </table></div>
@@ -128,6 +128,16 @@
       </ul>
       <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../screenshots/07-wiki.png" alt="Wiki 页：按套件分组的生成结果与章节"></div>
       <span class="shot-hint">点图看原图</span>
+
+      <h2>Wiki 与知识库 / 图谱的联动</h2>
+      <p>Wiki 页面生成后会自动接入知识与 Agent 体系，不需要再手动复制：</p>
+      <ul>
+        <li><strong>知识库投影</strong>：每个页面写入一条 <code>Wiki</code> 类型知识项，正文进入分块与向量索引；知识库「索引管理」可直接筛选 Wiki。</li>
+        <li><strong>自动任务</strong>：生成或重生成后，按可用模型入队 <code>GenerateKnowledgeItemEmbedding</code> 与 <code>WikiGraphExtract</code>；未配置对应模型时只写入投影，不产生失败任务。</li>
+        <li><strong>图谱来源</strong>：从 Wiki 抽取的关系记录 <code>SourceWikiDocumentId</code>，实体详情会同时列出「来源笔记」与「来源 Wiki 页面」，可直接跳回该页。</li>
+        <li><strong>手动补齐</strong>：套件页头的「同步知识与图谱」会重新写入投影，并为整套页面入队索引 / 抽取，适合旧数据或自动同步失败的情况。</li>
+        <li><strong>清理</strong>：删除页面、整套 Wiki 或所在项目时，会一并清理知识项、分块与关系，不留孤儿数据。</li>
+      </ul>
     <div class="docs-pager"><a href="knowledge.html">← 知识库</a><a href="memories.html">记忆与 Dream →</a></div>
     </div>
   </div>
@@ -169,7 +179,7 @@
   <button class="lightbox-close" data-lightbox-close aria-label="关闭">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="搜索文档" aria-hidden="true">

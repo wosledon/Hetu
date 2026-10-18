@@ -118,8 +118,27 @@ public class WikiDocumentDto
     public string? Brief { get; set; }
     /// <summary>Markdown 正文</summary>
     public string Content { get; set; } = string.Empty;
+    /// <summary>同步到知识库后的知识项 ID（未同步时为空）</summary>
+    public Guid? KnowledgeItemId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>Wiki 页面同步到知识库与知识图谱的结果</summary>
+public class WikiSyncResultDto
+{
+    /// <summary>本次同步的页面数</summary>
+    public int Pages { get; set; }
+    /// <summary>新建的知识项数</summary>
+    public int CreatedItems { get; set; }
+    /// <summary>已入队的索引任务数</summary>
+    public int QueuedIndexTasks { get; set; }
+    /// <summary>已入队的图谱抽取任务数</summary>
+    public int QueuedGraphTasks { get; set; }
+    /// <summary>是否配置了 Embedding 模型</summary>
+    public bool EmbeddingConfigured { get; set; }
+    /// <summary>是否配置了可用于图谱抽取的模型</summary>
+    public bool GraphConfigured { get; set; }
 }
 
 /// <summary>Wiki 套件（一次生成的总览 + 主题页），含过期状态</summary>

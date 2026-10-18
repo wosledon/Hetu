@@ -253,6 +253,8 @@ export default {
     allTypes: 'All types',
     typeEmbedding: 'Embedding generation',
     typeGraphExtract: 'Knowledge graph extraction',
+    typeWikiGraphExtract: 'Wiki graph extraction',
+    typeWikiGenerate: 'Wiki generation',
     clearCompleted: 'Clear completed',
     emptyTitle: 'No background tasks yet',
     emptyHint: 'Embeddings are generated and knowledge graphs extracted automatically when you edit notes',

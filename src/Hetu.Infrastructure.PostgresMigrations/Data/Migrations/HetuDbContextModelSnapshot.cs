@@ -389,6 +389,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<Guid?>("SourceNoteId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SourceWikiDocumentId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("TargetEntityId")
                         .HasColumnType("uuid");
 
@@ -400,6 +403,8 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("SourceEntityId");
+
+                    b.HasIndex("SourceWikiDocumentId");
 
                     b.HasIndex("TargetEntityId");
 
@@ -768,6 +773,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("WikiDocumentId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
@@ -777,6 +785,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasIndex("Type");
 
                     b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("WikiDocumentId")
+                        .IsUnique();
 
                     b.ToTable("KnowledgeItems");
                 });

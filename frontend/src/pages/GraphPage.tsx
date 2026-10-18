@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Network,
@@ -18,6 +19,7 @@ import {
   Loader2,
   Check,
   FolderOpen,
+  BookText,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 // 笔记预览用的 Markdown 渲染链（react-markdown + katex + mermaid 等）非常重，
@@ -886,6 +888,7 @@ function useCanvasRenderer(
 
 export default function GraphPage() {
   const { t } = useTranslation('knowledge')
+  const navigate = useNavigate()
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [entitySearch, setEntitySearch] = useState('')
@@ -1263,6 +1266,17 @@ export default function GraphPage() {
             <div className="space-y-1">{entityDetail.sourceNotes.map(n => (
               <div key={n.noteId} onClick={() => handleOpenNotePreview(n.noteId, n.title)} className="cursor-pointer truncate rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-400">
                 • {n.title}
+              </div>
+            ))}</div>
+          </div>
+        )}
+        {entityDetail.sourceWikiDocuments?.length > 0 && (
+          <div className="mb-4">
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">{t('graph.sourceWiki', { n: entityDetail.sourceWikiDocuments.length })}</h4>
+            <div className="space-y-1">{entityDetail.sourceWikiDocuments.map(w => (
+              <div key={w.wikiDocumentId} onClick={() => navigate(`/wiki?doc=${w.wikiDocumentId}`)} className="flex cursor-pointer items-center gap-1.5 truncate rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400">
+                <BookText size={12} className="shrink-0" />
+                <span className="truncate">{w.projectName ? `${w.projectName} · ` : ''}{w.title}</span>
               </div>
             ))}</div>
           </div>

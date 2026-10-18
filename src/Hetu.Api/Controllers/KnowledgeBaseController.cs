@@ -63,6 +63,7 @@ public class KnowledgeBaseController : ControllerBase
             NoteCount = counts.GetValueOrDefault(KnowledgeItemType.Note),
             FileCount = counts.GetValueOrDefault(KnowledgeItemType.File),
             UrlCount = counts.GetValueOrDefault(KnowledgeItemType.Url),
+            WikiCount = counts.GetValueOrDefault(KnowledgeItemType.Wiki),
             HasEmbeddingProvider = provider != null,
             Dimensions = provider?.Dimensions ?? 0,
             RunningTaskCount = runningTaskCount,
@@ -115,6 +116,7 @@ public class KnowledgeBaseController : ControllerBase
                 FileName = k.FileName,
                 FileSize = k.FileSize,
                 NoteId = k.NoteId,
+                WikiDocumentId = k.WikiDocumentId,
                 UpdatedAt = k.UpdatedAt,
                 HasEmbedding = summary != null,
                 EmbeddingModel = summary?.Model,
@@ -236,6 +238,8 @@ public class KnowledgeBaseStatusDto
     public int NoteCount { get; set; }
     public int FileCount { get; set; }
     public int UrlCount { get; set; }
+    /// <summary>项目 Wiki 页面（自动同步）数量</summary>
+    public int WikiCount { get; set; }
     public bool HasEmbeddingProvider { get; set; }
     public int Dimensions { get; set; }
     /// <summary>正在运行的后台任务数（Queued + Running）</summary>
@@ -251,6 +255,8 @@ public class KnowledgeItemEmbeddingStatusDto
     public string? FileName { get; set; }
     public long? FileSize { get; set; }
     public Guid? NoteId { get; set; }
+    /// <summary>Wiki 类型知识项对应的 Wiki 页面 ID</summary>
+    public Guid? WikiDocumentId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public bool HasEmbedding { get; set; }
     public string? EmbeddingModel { get; set; }

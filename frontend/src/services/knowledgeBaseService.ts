@@ -11,6 +11,8 @@ export interface IKnowledgeBaseStatus {
   noteCount: number;
   fileCount: number;
   urlCount: number;
+  /** 项目 Wiki 页面（自动同步）数量 */
+  wikiCount: number;
   hasEmbeddingProvider: boolean;
   dimensions: number;
   /** 正在运行的后台任务数（Queued + Running） */
@@ -21,12 +23,14 @@ export interface IKnowledgeBaseStatus {
 
 export interface IKnowledgeItemEmbeddingStatus {
   id: string;
-  type: 'note' | 'file' | 'url';
+  type: 'note' | 'file' | 'url' | 'wiki';
   title: string;
   sourceUrl: string | null;
   fileName: string | null;
   fileSize: number | null;
   noteId: string | null;
+  /** Wiki 类型知识项对应的 Wiki 页面 ID */
+  wikiDocumentId: string | null;
   updatedAt: string;
   hasEmbedding: boolean;
   embeddingModel: string | null;
@@ -65,7 +69,7 @@ export interface INoteChunk {
 
 export interface IKnowledgeItem {
   id: string;
-  type: 'note' | 'file' | 'url';
+  type: 'note' | 'file' | 'url' | 'wiki';
   title: string;
   content: string;
   sourceUrl: string | null;
@@ -73,6 +77,8 @@ export interface IKnowledgeItem {
   fileSize: number | null;
   mimeType: string | null;
   noteId: string | null;
+  /** Wiki 类型知识项对应的 Wiki 页面 ID */
+  wikiDocumentId: string | null;
   createdAt: string;
   updatedAt: string;
 }

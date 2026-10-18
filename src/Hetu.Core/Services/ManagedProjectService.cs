@@ -15,11 +15,17 @@ public class ManagedProjectService : IManagedProjectService
     private readonly IUnitOfWork _unitOfWork;
     private readonly Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? _dataProtection;
     private readonly ILocalizer _localizer;
+    private readonly IWikiKnowledgeSyncService _wikiKnowledgeSync;
 
-    public ManagedProjectService(IUnitOfWork unitOfWork, ILocalizer localizer, Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
+    public ManagedProjectService(
+        IUnitOfWork unitOfWork,
+        ILocalizer localizer,
+        IWikiKnowledgeSyncService wikiKnowledgeSync,
+        Microsoft.AspNetCore.DataProtection.IDataProtectionProvider? dataProtection = null)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
+        _wikiKnowledgeSync = wikiKnowledgeSync;
         _dataProtection = dataProtection;
     }
 
@@ -135,6 +141,15 @@ public class ManagedProjectService : IManagedProjectService
             work.ManagedProjectId = null;
             await _unitOfWork.WorkProjects.UpdateAsync(work, cancellationToken);
         }
+
+        // 项目删除会级联删除 Wiki 页面：先把它们在知识库/图谱里的投影清理掉，避免留下孤儿知识项
+        var wikiDocuments = await _unitOfWork.WikiDocuments.FindAsync(d => d.ProjectId == id, cancellationToken);
+        if (wikiDocuments.Count > 0)
+        {
+            await _wikiKnowledgeSync.RemoveSetAsync(
+                wikiDocuments.Select(d => d.Id).ToList(), cancellationToken);
+        }
+
         await _unitOfWork.ManagedProjects.DeleteAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();

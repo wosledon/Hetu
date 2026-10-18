@@ -11,6 +11,8 @@ public enum KnowledgeItemType
     File = 1,
     /// <summary>用户添加的网址</summary>
     Url = 2,
+    /// <summary>项目 Wiki 页面（自动同步，只读投影）</summary>
+    Wiki = 3,
 }
 
 /// <summary>
@@ -45,6 +47,10 @@ public class KnowledgeItem : BaseEntity
     /// <summary>关联的笔记 ID（仅笔记类型有值）</summary>
     public Guid? NoteId { get; set; }
     public Note? Note { get; set; }
+
+    // ── Wiki 类关联 ──
+    /// <summary>关联的 Wiki 页面 ID（仅 Wiki 类型有值）</summary>
+    public Guid? WikiDocumentId { get; set; }
 
     /// <summary>软删除标记</summary>
     public bool IsDeleted { get; set; }

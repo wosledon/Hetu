@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Knowledge base · Hetu</title>
-<meta name="description" content="Knowledge base in detail: three sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
+<meta name="description" content="Knowledge base in detail: four sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/knowledge.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Knowledge base · Hetu">
-<meta property="og:description" content="Knowledge base in detail: three sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
+<meta property="og:description" content="Knowledge base in detail: four sources, chunking and embedding pipeline, overview/index management/search test, how retrieval is used, dimensions and performance notes.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -103,6 +103,7 @@
           <tr><td>Notes</td><td>“Generate index” in the editor toolbar, or the batch action on the knowledge base page</td><td>Chunked along Markdown structure</td></tr>
           <tr><td>Files</td><td>Upload on the knowledge base page</td><td>File name, size and MIME are stored; text is extracted then chunked</td></tr>
           <tr><td>URLs</td><td>Paste a URL</td><td>Page text (and title) is fetched, then chunked</td></tr>
+          <tr><td>Wiki</td><td>Collected automatically when a project Wiki is generated or regenerated; or use “Sync knowledge &amp; graph” on the Wiki page</td><td>Read-only projection: page updates overwrite it, and deleting the page or project cleans it up</td></tr>
         </tbody>
       </table></div>
 
@@ -118,7 +119,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Tab</th><th>Content</th></tr></thead>
         <tbody>
-          <tr><td>Overview</td><td>Total items, indexed items, coverage, vector dimensions, split by type (notes / files / URLs), running task count</td></tr>
+          <tr><td>Overview</td><td>Total items, indexed items, coverage, vector dimensions, split by type (notes / files / URLs / Wiki), running task count</td></tr>
           <tr><td>Index management</td><td>Per-item status: chunk count, model, dimensions, last indexed time, whether a task is running; re-index one item or batch-generate indexes for everything unindexed</td></tr>
           <tr><td>Search test</td><td>Run a query against the vector index, adjust Top-K, inspect highlighted chunks — the fastest way to judge index quality</td></tr>
         </tbody>
@@ -199,7 +200,7 @@
   <button class="lightbox-close" data-lightbox-close aria-label="Close">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search documentation" aria-hidden="true">

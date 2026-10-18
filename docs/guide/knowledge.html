@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>知识库 · Hetu</title>
-<meta name="description" content="知识库详解：三种来源、分块与向量索引管线、概览/索引管理/搜索测试、检索注入方式、维度配置与性能实现。">
+<meta name="description" content="知识库详解：四种来源、分块与向量索引管线、概览/索引管理/搜索测试、检索注入方式、维度配置与性能实现。">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/guide/knowledge.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/knowledge.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/knowledge.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="知识库 · Hetu">
-<meta property="og:description" content="知识库详解：三种来源、分块与向量索引管线、概览/索引管理/搜索测试、检索注入方式、维度配置与性能实现。">
+<meta property="og:description" content="知识库详解：四种来源、分块与向量索引管线、概览/索引管理/搜索测试、检索注入方式、维度配置与性能实现。">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/guide/knowledge.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -96,13 +96,14 @@
   <path class="flow-dashed" d="M764 144 V206" marker-end="url(#a-pipe-kb)"/>
 </svg><figcaption>索引管线与检索出口：分块 → 向量化 → 写向量表与元数据；对话、搜索测试、Wiki 与模型工具都从同一份向量里召回。</figcaption>
 </figure>
-<h2>三种来源</h2>
+<h2>四种来源</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>来源</th><th>添加方式</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>笔记</td><td>编辑器顶部「生成索引」，或知识库批量补索引</td><td>按 Markdown 结构分块</td></tr>
           <tr><td>文件</td><td>知识库页上传</td><td>记录文件名、大小、MIME，正文抽取后分块</td></tr>
           <tr><td>网址</td><td>知识库页填入 URL</td><td>抓取网页正文（含标题）后分块</td></tr>
+          <tr><td>Wiki</td><td>生成或重生成项目 Wiki 时自动收录；也可在 Wiki 页点「同步知识与图谱」</td><td>只读投影：页面更新会覆盖，删除页面/项目时一并清理</td></tr>
         </tbody>
       </table></div>
 
@@ -118,7 +119,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>页签</th><th>内容</th></tr></thead>
         <tbody>
-          <tr><td>概览</td><td>知识项总数、已索引数、覆盖率、向量维度、按类型（笔记 / 文件 / 网址）分布、运行中任务数</td></tr>
+          <tr><td>概览</td><td>知识项总数、已索引数、覆盖率、向量维度、按类型（笔记 / 文件 / 网址 / Wiki）分布、运行中任务数</td></tr>
           <tr><td>索引管理</td><td>逐项状态：分块数、模型、维度、最近索引时间、是否有运行中任务；单项重新索引与「批量生成索引」（只处理未索引项）</td></tr>
           <tr><td>搜索测试</td><td>输入查询直接看向量召回结果，可调 Top-K，命中片段高亮——用来验证索引质量</td></tr>
         </tbody>
@@ -199,7 +200,7 @@
   <button class="lightbox-close" data-lightbox-close aria-label="关闭">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img alt="">
+  <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
   <span class="lightbox-caption"></span>
 </div>
 <div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="搜索文档" aria-hidden="true">

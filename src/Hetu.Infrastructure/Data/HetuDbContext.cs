@@ -291,6 +291,7 @@ public class HetuDbContext : DbContext
                 .WithMany(e => e.IncomingRelations)
                 .HasForeignKey(e => e.TargetEntityId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.SourceWikiDocumentId);
             entity.HasIndex(e => e.SourceEntityId);
             entity.HasIndex(e => e.TargetEntityId);
             entity.HasIndex(e => e.IsDeleted);
@@ -440,6 +441,8 @@ public class HetuDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.Type);
             entity.HasIndex(e => e.NoteId);
+            // 一个 Wiki 页面只允许一个知识库投影；NULL 不参与唯一约束（SQLite / PostgreSQL 均允许多个 NULL）
+            entity.HasIndex(e => e.WikiDocumentId).IsUnique();
             entity.HasIndex(e => e.IsDeleted);
             entity.HasIndex(e => e.UpdatedAt);
             entity.HasQueryFilter(e => !e.IsDeleted);

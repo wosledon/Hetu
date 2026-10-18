@@ -10,6 +10,9 @@ public interface IKnowledgeItemRepository : IRepository<KnowledgeItem>
     /// <summary>通过关联笔记 ID 获取知识项</summary>
     Task<KnowledgeItem?> GetByNoteIdAsync(Guid noteId, CancellationToken cancellationToken = default);
 
+    /// <summary>通过关联 Wiki 页面 ID 获取知识项</summary>
+    Task<KnowledgeItem?> GetByWikiDocumentIdAsync(Guid wikiDocumentId, CancellationToken cancellationToken = default);
+
     /// <summary>获取包含分块的知识项</summary>
     Task<KnowledgeItem?> GetByIdWithChunksAsync(Guid id, CancellationToken cancellationToken = default);
 

@@ -23,6 +23,8 @@ public class GraphRelationDto
     public string? Description { get; set; }
     public double Confidence { get; set; }
     public Guid? SourceNoteId { get; set; }
+    /// <summary>来源 Wiki 页面 ID（从 Wiki 抽取的关系有值）</summary>
+    public Guid? SourceWikiDocumentId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 
@@ -41,6 +43,8 @@ public class GraphEntityDetailDto
     public string? Metadata { get; set; }
     public List<GraphRelationDto> Relations { get; set; } = [];
     public List<GraphSourceNoteDto> SourceNotes { get; set; } = [];
+    /// <summary>通过这些关系关联的项目 Wiki 页面</summary>
+    public List<GraphSourceWikiDto> SourceWikiDocuments { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -49,6 +53,15 @@ public class GraphSourceNoteDto
 {
     public Guid NoteId { get; set; }
     public string Title { get; set; } = string.Empty;
+}
+
+public class GraphSourceWikiDto
+{
+    public Guid WikiDocumentId { get; set; }
+    public Guid ProjectId { get; set; }
+    public Guid SetId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
 }
 
 public class CreateGraphEntityRequest

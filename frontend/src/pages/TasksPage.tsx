@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle,
   ListTodo, RefreshCw, Cpu, Network, CalendarClock, Plus, Sparkles,
-  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare,
+  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare, BookText,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
@@ -33,7 +33,10 @@ const STATUS_MAP: Record<number, { labelKey: string; color: string; bg: string; 
 
 const TYPE_MAP: Record<string, { labelKey: string; icon: typeof Cpu; color: string }> = {
   GenerateEmbedding: { labelKey: 'tasks.typeEmbedding', icon: Cpu, color: 'text-indigo-500' },
+  GenerateKnowledgeItemEmbedding: { labelKey: 'tasks.typeEmbedding', icon: Cpu, color: 'text-indigo-500' },
   GraphExtract: { labelKey: 'tasks.typeGraphExtract', icon: Network, color: 'text-violet-500' },
+  WikiGenerate: { labelKey: 'tasks.typeWikiGenerate', icon: BookText, color: 'text-emerald-500' },
+  WikiGraphExtract: { labelKey: 'tasks.typeWikiGraphExtract', icon: Network, color: 'text-violet-500' },
 }
 
 type FilterStatus = 'all' | '0' | '1' | '2' | '3'

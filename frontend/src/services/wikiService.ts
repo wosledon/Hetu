@@ -1,5 +1,5 @@
 import api, { get, post, del } from './api'
-import type { IWikiDocument, IWikiSet, IWikiGenerationJob } from '../types/wiki'
+import type { IWikiDocument, IWikiSet, IWikiGenerationJob, IWikiSyncResult } from '../types/wiki'
 
 export const wikiService = {
   getAll: (projectId?: string) =>
@@ -19,6 +19,8 @@ export const wikiService = {
   /** 导出一套 Wiki 为 zip */
   exportSet: (setId: string) =>
     api.get<Blob>(`/wiki/sets/${setId}/export`, { responseType: 'blob' }).then((response) => response.data),
+  /** 把一套 Wiki 同步到知识库与知识图谱（写入投影并入队索引 / 抽取任务） */
+  syncSet: (setId: string) => post<IWikiSyncResult>(`/wiki/sets/${setId}/sync`),
   delete: (id: string) => del<void>(`/wiki/${id}`),
   /** 删除一整套 Wiki（该次生成的所有页面） */
   deleteSet: (setId: string) => del<void>(`/wiki/sets/${setId}`),

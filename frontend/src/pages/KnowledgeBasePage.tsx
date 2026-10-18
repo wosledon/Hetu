@@ -1,5 +1,6 @@
 import { confirm } from '../components/confirm'
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -23,6 +24,7 @@ import {
   Globe,
   Plus,
   Trash2,
+  BookText,
 } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
@@ -48,7 +50,7 @@ import type {
 import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
-type ManageFilter = 'all' | 'note' | 'file' | 'url'
+type ManageFilter = 'all' | 'note' | 'file' | 'url' | 'wiki'
 
 const tabs: { key: TabKey; label: string; icon: typeof Database }[] = [
   { key: 'overview', label: 'kb.tabOverview', icon: BarChart3 },
@@ -61,10 +63,12 @@ const typeFilters: { key: ManageFilter; label: string; icon: typeof FileText }[]
   { key: 'note', label: 'kb.typeNote', icon: FileText },
   { key: 'file', label: 'kb.typeFile', icon: Upload },
   { key: 'url', label: 'kb.typeUrl', icon: Globe },
+  { key: 'wiki', label: 'kb.typeWiki', icon: BookText },
 ]
 
 export default function KnowledgeBasePage() {
   const { t } = useTranslation('knowledge')
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [manageFilter, setManageFilter] = useState<ManageFilter>('all')
@@ -211,6 +215,7 @@ export default function KnowledgeBasePage() {
       case 'note': return <FileText size={14} />
       case 'file': return <Upload size={14} />
       case 'url': return <Globe size={14} />
+      case 'wiki': return <BookText size={14} />
       default: return <Database size={14} />
     }
   }
@@ -220,6 +225,7 @@ export default function KnowledgeBasePage() {
       note: { label: t('kb.typeNote'), className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
       file: { label: t('kb.typeFile'), className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
       url: { label: t('kb.typeUrl'), className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+      wiki: { label: t('kb.typeWiki'), className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
     }
     const c = config[type as keyof typeof config] || { label: type, className: 'bg-gray-100 text-gray-600' }
     return (
@@ -335,11 +341,12 @@ export default function KnowledgeBasePage() {
                 </div>
 
                 {/* 关键指标 */}
-                <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-5 dark:border-gray-800">
+                <div className="mt-6 grid grid-cols-2 gap-2 border-t border-gray-100 pt-5 sm:grid-cols-3 lg:grid-cols-6 dark:border-gray-800">
                   <MetricPill icon={<Layers size={13} />} color="blue" label={t('kb.metricTotal')} value={status?.totalItems ?? '-'} loading={statusLoading} />
                   <MetricPill icon={<FileText size={13} />} color="indigo" label={t('kb.typeNote')} value={status?.noteCount ?? '-'} loading={statusLoading} />
                   <MetricPill icon={<Upload size={13} />} color="green" label={t('kb.typeFile')} value={status?.fileCount ?? '-'} loading={statusLoading} />
                   <MetricPill icon={<Globe size={13} />} color="purple" label={t('kb.typeUrl')} value={status?.urlCount ?? '-'} loading={statusLoading} />
+                  <MetricPill icon={<BookText size={13} />} color="green" label={t('kb.typeWiki')} value={status?.wikiCount ?? '-'} loading={statusLoading} />
                   <MetricPill icon={<AlertCircle size={13} />} color="amber" label={t('kb.notIndexed')} value={status?.unindexedItems ?? '-'} loading={statusLoading} />
                 </div>
 
@@ -453,9 +460,19 @@ export default function KnowledgeBasePage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {getTypeBadge(item.type)}
-                          <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {item.title || t('kb.untitled')}
-                          </p>
+                          {item.wikiDocumentId ? (
+                            <button
+                              onClick={() => navigate(`/wiki?doc=${item.wikiDocumentId}`)}
+                              className="min-w-0 truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
+                              title={t('kb.openWikiPage')}
+                            >
+                              {item.title || t('kb.untitled')}
+                            </button>
+                          ) : (
+                            <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {item.title || t('kb.untitled')}
+                            </p>
+                          )}
                         </div>
                         <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                           {item.hasRunningTask

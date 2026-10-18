@@ -62,6 +62,11 @@ public class GraphController : ControllerBase
     public Task<ApiResponse<ExtractGraphResultDto>> ExtractFromNote(Guid noteId, CancellationToken cancellationToken)
         => _graphService.ExtractFromNoteAsync(noteId, cancellationToken);
 
+    /// <summary>从项目 Wiki 页面抽取实体与关系（来源记为 Wiki 页面）</summary>
+    [HttpPost("extract/wiki/{wikiDocumentId:guid}")]
+    public Task<ApiResponse<ExtractGraphResultDto>> ExtractFromWiki(Guid wikiDocumentId, CancellationToken cancellationToken)
+        => _graphService.ExtractFromWikiAsync(wikiDocumentId, cancellationToken);
+
     [HttpPost("extract/batch")]
     public async Task<ApiResponse<List<ExtractGraphResultDto>>> BatchExtract([FromBody] BatchExtractGraphRequest request, CancellationToken cancellationToken)
     {

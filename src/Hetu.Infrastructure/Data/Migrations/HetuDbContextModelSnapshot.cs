@@ -382,6 +382,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<Guid?>("SourceNoteId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("SourceWikiDocumentId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("TargetEntityId")
                         .HasColumnType("TEXT");
 
@@ -393,6 +396,8 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("SourceEntityId");
+
+                    b.HasIndex("SourceWikiDocumentId");
 
                     b.HasIndex("TargetEntityId");
 
@@ -761,6 +766,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("WikiDocumentId")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
@@ -770,6 +778,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.HasIndex("Type");
 
                     b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("WikiDocumentId")
+                        .IsUnique();
 
                     b.ToTable("KnowledgeItems");
                 });
