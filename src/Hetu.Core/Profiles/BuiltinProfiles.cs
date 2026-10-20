@@ -12,7 +12,7 @@ public static class BuiltinProfiles
         "search_notes", "read_note", "create_note", "update_note",
         "list_notes", "delete_note", "move_note",
         "list_note_versions", "restore_note_version",
-        "list_notebooks", "create_notebook", "list_tags", "set_note_tags",
+        "list_tags", "set_note_tags",
         "list_knowledge_items",
         "search_memory", "create_memory", "list_memories", "delete_memory",
         "search_graph", "search_web", "ask_question", "todo", "plan", "run_command",
@@ -50,8 +50,8 @@ public static class BuiltinProfiles
     [
         // 交互编排
         "ask_question", "todo", "plan", "load_tools",
-        // 本职基础：笔记检索/读写（含创建时需要的笔记本 ID）、记忆检索
-        "search_notes", "read_note", "list_notes", "create_note", "update_note", "list_notebooks",
+        // 本职基础：笔记检索/读写、记忆检索
+        "search_notes", "read_note", "list_notes", "create_note", "update_note",
         "search_memory",
     ];
 
@@ -231,7 +231,7 @@ public static class BuiltinProfiles
             """,
         AllowedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "search_notes", "read_note", "list_notes", "list_notebooks", "list_tags",
+            "search_notes", "read_note", "list_notes", "list_tags",
             "list_knowledge_items", "list_note_versions",
             "search_graph", "search_web", "ask_question", "todo", "plan",
             "search_memory", "list_memories", "list_skills",

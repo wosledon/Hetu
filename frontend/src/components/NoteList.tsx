@@ -1,16 +1,16 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FolderInput, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
+import { CornerLeftUp, FileText, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
-import { useNotebooks } from '../hooks/useNotebooks'
 import { useUIStore } from '../stores/uiStore'
 import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
-import type { INote, INotebook } from '../types'
+import type { INote } from '../types'
 import { Card, ContextMenu, IconButton, SearchInput } from './ui'
+import EmojiPicker from './EmojiPicker'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -42,15 +42,13 @@ export default function NoteList({
   const [searchTerm, setSearchTerm] = useState('')
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const hasValidHeight = useRef(false)
-  const DEFAULT_NOTEBOOK_ID = 'default'
-  const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
+  const selectedNoteParentId = useUIStore((state) => state.selectedNoteParentId)
   const selectedTagId = useUIStore((state) => state.selectedTagId)
   const { data, isLoading } = useQuery({
-    queryKey: ['notes', { selectedNotebookId, selectedTagId, includeDeleted }],
+    queryKey: ['notes', { selectedNoteParentId, selectedTagId, includeDeleted }],
     queryFn: () =>
       noteService.getList({
-        notebookId: selectedNotebookId === DEFAULT_NOTEBOOK_ID ? undefined : selectedNotebookId,
-        filterNoNotebook: selectedNotebookId === DEFAULT_NOTEBOOK_ID,
+        parentId: selectedNoteParentId,
         tagId: selectedTagId,
         includeDeleted,
         page: 1,
@@ -58,12 +56,15 @@ export default function NoteList({
       }),
   })
 
-  const notebooks = useNotebooks(!includeDeleted)
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['notes'] })
+    queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
+  }
 
   const createNote = useMutation({
     mutationFn: noteService.create,
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      invalidate()
       // 新建后直接打开编辑器，给用户即时反馈
       if (created) onSelectNote?.(created)
     },
@@ -72,20 +73,20 @@ export default function NoteList({
   const deleteNote = useMutation({
     mutationFn: noteService.delete,
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      invalidate()
       onDeleteNote?.(id)
     },
   })
 
   const restoreNote = useMutation({
     mutationFn: noteService.restore,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: invalidate,
   })
 
   const hardDeleteNote = useMutation({
     mutationFn: noteService.hardDelete,
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      invalidate()
       onDeleteNote?.(id)
     },
   })
@@ -93,19 +94,24 @@ export default function NoteList({
   const toggleFavorite = useMutation({
     mutationFn: ({ id, isFavorite }: { id: string; isFavorite: boolean }) =>
       noteService.update(id, { isFavorite }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: invalidate,
   })
 
   const togglePin = useMutation({
     mutationFn: ({ id, isPinned }: { id: string; isPinned: boolean }) =>
       noteService.update(id, { isPinned }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+    onSuccess: invalidate,
   })
 
-  const moveNote = useMutation({
-    mutationFn: ({ id, notebookId }: { id: string; notebookId?: string }) =>
-      noteService.move(id, { notebookId }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notes'] }) },
+  const setIcon = useMutation({
+    mutationFn: ({ id, icon }: { id: string; icon: string }) =>
+      noteService.update(id, { icon }),
+    onSuccess: invalidate,
+  })
+
+  const moveToRoot = useMutation({
+    mutationFn: (id: string) => noteService.move(id, { parentId: undefined }),
+    onSuccess: invalidate,
   })
 
   const notes = useMemo(() => {
@@ -116,21 +122,12 @@ export default function NoteList({
       `${note.title} ${note.content}`.toLowerCase().includes(keyword)
     )
   }, [data?.items, searchTerm])
-  const notebookOptions = useMemo(() => {
-    const flatten = (items: INotebook[], depth = 0): { id: string; name: string }[] =>
-      items.flatMap((notebook) => [
-        { id: notebook.id, name: `${'　'.repeat(depth)}${notebook.name}` },
-        ...flatten(notebook.children ?? [], depth + 1),
-      ])
-    return flatten(notebooks)
-  }, [notebooks])
 
   const handleCreate = () => {
     createNote.mutate({
       title: '',
       content: '',
-      // 「默认」是未筛选哨兵值，不能下发给后端（会被当作 GUID 解析失败）
-      notebookId: selectedNotebookId === DEFAULT_NOTEBOOK_ID ? undefined : selectedNotebookId,
+      parentId: selectedNoteParentId,
     })
   }
 
@@ -199,8 +196,8 @@ export default function NoteList({
       <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            {selectedNotebookId
-              ? t('list.titleNotebook')
+            {selectedNoteParentId
+              ? t('list.titleChildren')
               : selectedTagId
                 ? t('list.titleTag')
                 : includeDeleted
@@ -265,7 +262,18 @@ export default function NoteList({
                     }`}
                   >
                     <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <h3 className={`line-clamp-1 flex-1 text-[13px] leading-snug ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{note.title || t('note.untitled')}</h3>
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        {/* 笔记图标：emoji 或默认笔记图标，点击更换 */}
+                        <EmojiPicker
+                          value={note.icon}
+                          onChange={(icon) => setIcon.mutate({ id: note.id, icon })}
+                        >
+                          {note.icon
+                            ? <span className="text-[15px] leading-none">{note.icon}</span>
+                            : <FileText size={14} className="shrink-0 text-gray-400" />}
+                        </EmojiPicker>
+                        <h3 className={`line-clamp-1 flex-1 text-[13px] leading-snug ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-200' : 'font-medium text-gray-700 dark:text-gray-200'}`}>{note.title || t('note.untitled')}</h3>
+                      </div>
                       <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>
@@ -352,25 +360,11 @@ export default function NoteList({
               icon: <Star size={14} className={menu.note.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-400'} />,
               onSelect: () => toggleFavorite.mutate({ id: menu.note.id, isFavorite: !menu.note.isFavorite }),
             },
-            { kind: 'separator' },
             {
-              key: 'move',
-              label: t('list.moveToNotebook'),
-              icon: <FolderInput size={14} className="text-gray-400" />,
-              items: [
-                {
-                  key: 'move-none',
-                  label: t('list.noNotebook'),
-                  checked: !menu.note.notebookId,
-                  onSelect: () => moveNote.mutate({ id: menu.note.id, notebookId: undefined }),
-                },
-                ...notebookOptions.map((nb) => ({
-                  key: `move-${nb.id}`,
-                  label: nb.name,
-                  checked: menu.note.notebookId === nb.id,
-                  onSelect: () => moveNote.mutate({ id: menu.note.id, notebookId: nb.id }),
-                })),
-              ],
+              key: 'move-root',
+              label: t('list.moveToRoot'),
+              icon: <CornerLeftUp size={14} className="text-gray-400" />,
+              onSelect: () => moveToRoot.mutate(menu.note.id),
             },
             { kind: 'separator' },
             {

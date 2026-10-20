@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Notes · Hetu</title>
-<meta name="description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, notebooks and tags, version history, share links, trash, export and shortcuts.">
+<meta name="description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, nested notes and tags, version history, share links, trash, export and shortcuts.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/notes.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Notes · Hetu">
-<meta property="og:description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, notebooks and tags, version history, share links, trash, export and shortcuts.">
+<meta property="og:description" content="Notes in detail: WYSIWYG and source views, selection AI actions, in-note actions, nested notes and tags, version history, share links, trash, export and shortcuts.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/notes.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -56,7 +56,7 @@
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Notes</h1>
-      <p class="lede">Entry point: <strong>Notes</strong> in the left navigation (route <code>/</code>). Three columns: notebook tree, note list, editor.</p>
+      <p class="lede">Entry point: <strong>Notes</strong> in the left navigation (route <code>/</code>). Three columns: nested notes tree, note list, editor.</p>
 
       <h2>Editor</h2>
       <div class="table-wrap"><table>
@@ -77,11 +77,12 @@
         <li><strong>In-note actions</strong>: buttons in the editor toolbar — generate knowledge-base index, extract knowledge graph, generate tags, generate a flowchart (Mermaid block). Each runs as a background task and writes results back.</li>
       </ul>
 
-      <h2>Notebooks and tags</h2>
+      <h2>Nested notes and tags</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Feature</th><th>Behaviour</th></tr></thead>
         <tbody>
-          <tr><td>Notebooks</td><td>Unlimited nesting; create, rename, delete via the tree context menu; unfiled notes land in “Uncategorized”</td></tr>
+          <tr><td>Nested notes</td><td>Unlimited nesting: any note can hold child notes — create a sub-note from the row''s plus button or context menu, rename by double-clicking, drag into place via the “Move to root” action; deleting a parent moves the whole subtree to the trash</td></tr>
+          <tr><td>Note icons</td><td>Every note shows a unified note icon; click it to pick an emoji (searchable), or reset to the default</td></tr>
           <tr><td>Tags</td><td>Managed on the Tags page (<code>/tags</code>): colors, rename, merge; the note list can filter by tag</td></tr>
           <tr><td>Pin / favorite</td><td>Pinned notes sort first, then by last update — ordering happens in the database so paging stays stable</td></tr>
           <tr><td>Search</td><td>Search box above the list matches title and content</td></tr>

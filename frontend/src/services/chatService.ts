@@ -29,8 +29,6 @@ export interface UpdateChatTopicRequest {
   modelId?: string;
   customSystemPrompt?: string;
   noteSyncStatus?: string;
-  isAutoOrganizeEnabled?: boolean;
-  autoOrganizeNotebookId?: string;
 }
 
 export interface SendMessageRequest {
@@ -58,7 +56,7 @@ export interface SendMessageRequest {
   permissionMode?: string;
   /** 是否启用工具调用（Agent Loop） */
   enableTools?: boolean;
-  /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */
+  /** 输入框 @ 引用的内容（type: note | tag | knowledge） */
   mentions?: { type: string; id: string }[];
   /** 会话级上下文上限（token），空 = 模型支持的上限 */
   contextWindow?: number;
@@ -72,12 +70,6 @@ export interface IWebSearchResult {
 
 export interface UpdateChatMessageRequest {
   content: string;
-}
-
-export interface OrganizeTopicRequest {
-  notebookId?: string;
-  style?: 'summary' | 'detailed' | 'qna' | 'custom';
-  customPrompt?: string;
 }
 
 export const chatGroupService = {
@@ -100,12 +92,6 @@ export const chatTopicService = {
     const params = branchMessageId ? `?branchMessageId=${branchMessageId}` : '';
     return post<IChatTopic>(`/chat-topics/${id}/fork${params}`);
   },
-  organize: (id: string, data: OrganizeTopicRequest): Promise<Response> =>
-    fetch(`/api/chat-topics/${id}/organize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify(data),
-    }),
 };
 
 export interface ChatMessageSearchResult {

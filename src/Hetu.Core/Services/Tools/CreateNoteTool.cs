@@ -24,7 +24,8 @@ public class CreateNoteTool : IToolExecutor
         "properties": {
             "title": { "type": "string", "description": "笔记标题" },
             "content": { "type": "string", "description": "笔记内容" },
-            "notebookId": { "type": "string", "description": "所属笔记本 ID（可选）" }
+            "parentId": { "type": "string", "description": "父级笔记 ID（可选，创建子笔记时使用）" },
+            "icon": { "type": "string", "description": "笔记图标（emoji，可选）" }
         },
         "required": ["title", "content"]
     }
@@ -51,8 +52,10 @@ public class CreateNoteTool : IToolExecutor
                 Content = content
             };
 
-            if (root.TryGetProperty("notebookId", out var nbProp) && Guid.TryParse(nbProp.GetString(), out var nbId))
-                request.NotebookId = nbId;
+            if (root.TryGetProperty("parentId", out var parentProp) && Guid.TryParse(parentProp.GetString(), out var parentId))
+                request.ParentId = parentId;
+            if (root.TryGetProperty("icon", out var iconProp))
+                request.Icon = iconProp.GetString();
 
             var result = await _noteService.CreateAsync(request, cancellationToken);
             if (!result.Success || result.Data == null)

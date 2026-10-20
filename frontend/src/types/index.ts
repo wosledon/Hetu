@@ -17,21 +17,16 @@ export interface IPagedRequest {
   pageSize?: number;
 }
 
-export interface INotebook {
-  id: string;
-  parentId?: string;
-  name: string;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-  children: INotebook[];
-}
-
 export interface INote {
   id: string;
-  notebookId?: string;
+  /** 父笔记 Id；为空表示根级笔记 */
+  parentId?: string;
   title: string;
   content: string;
+  /** 笔记图标（emoji）；为空使用默认笔记图标 */
+  icon?: string;
+  /** 直接子笔记数量；树据此决定是否显示展开箭头 */
+  childCount?: number;
   isDeleted: boolean;
   isFavorite: boolean;
   isPinned: boolean;
@@ -72,7 +67,6 @@ export interface IAppSettingsSnapshot {
   defaultEmbeddingModelId?: string;
   defaultWikiModelId?: string;
   defaultGraphModelId?: string;
-  defaultOrganizeModelId?: string;
   defaultNoteAiModelId?: string;
   contextWindowSize?: number;
   pinnedNavItems: string;
@@ -134,8 +128,6 @@ export interface IChatTopic {
   modelId?: string;
   customSystemPrompt?: string;
   noteSyncStatus: 'pending' | 'synced' | 'outdated';
-  isAutoOrganizeEnabled: boolean;
-  autoOrganizeNotebookId?: string;
   isMain?: boolean;
   createdAt: string;
   updatedAt: string;

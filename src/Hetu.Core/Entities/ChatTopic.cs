@@ -21,8 +21,6 @@ public class ChatTopic : BaseEntity
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
     public NoteSyncStatus NoteSyncStatus { get; set; } = NoteSyncStatus.Pending;
-    public bool IsAutoOrganizeEnabled { get; set; }
-    public Guid? AutoOrganizeNotebookId { get; set; }
     public Guid? ParentTopicId { get; set; }
     public Guid? BranchMessageId { get; set; }
     /// <summary>是否为主对话话题（主对话组内唯一的全局聊天话题）</summary>

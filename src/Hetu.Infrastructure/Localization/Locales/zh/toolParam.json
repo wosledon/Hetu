@@ -17,7 +17,6 @@
   "toolParam.create_memory.projectId": "scope=Project 时的受管项目 ID（见 list_projects）",
   "toolParam.create_note.title": "笔记标题",
   "toolParam.create_note.content": "笔记内容",
-  "toolParam.create_note.notebookId": "所属笔记本 ID（可选）",
   "toolParam.create_scheduled_task.name": "任务名称，简明描述任务目的",
   "toolParam.create_scheduled_task.taskKind": "Skill=执行指定技能, AiTask=自定义指令让大模型执行, GraphRebuild=重建知识图谱, EmbeddingRegenerate=重建向量索引",
   "toolParam.create_scheduled_task.targetId": "目标技能 ID（仅 taskKind=Skill 时需要）",
@@ -111,7 +110,6 @@
   "toolParam.list_scheduled_tasks.enabledOnly": "仅看已启用任务，默认 false",
   "toolParam.delete_scheduled_task.taskId": "要删除的任务 ID",
   "toolParam.list_skills.keyword": "按名称或描述过滤（可选）",
-  "toolParam.list_notes.notebookId": "限定笔记本 ID（可选）",
   "toolParam.list_notes.tagId": "限定标签 ID（可选）",
   "toolParam.list_notes.favoritesOnly": "仅看收藏，默认 false",
   "toolParam.list_notes.limit": "返回条数，默认 20，最大 50",
@@ -119,9 +117,6 @@
   "toolParam.list_note_versions.noteId": "笔记 ID",
   "toolParam.restore_note_version.versionId": "要恢复的版本 ID（来自 list_note_versions）",
   "toolParam.move_note.noteId": "要移动的笔记 ID",
-  "toolParam.move_note.notebookId": "目标笔记本 ID；留空表示移出笔记本（未分类）",
-  "toolParam.create_notebook.name": "笔记本名称",
-  "toolParam.create_notebook.parentId": "上级笔记本 ID（可选，创建子分类时使用）",
   "toolParam.set_note_tags.noteId": "笔记 ID",
   "toolParam.set_note_tags.tagIds": "标签 ID 列表（来自 list_tags）；空数组表示清空该笔记的标签",
   "toolParam.open_panel.panel": "要唤起的工作台面板（与 page 二选一）：browser=内置浏览器, pr=Pull Request, git=版本控制, terminal=终端, changes=文件更改, checkpoints=检查点, files=文件树",
@@ -204,5 +199,9 @@
   "toolParam.work_pr_action.draft": "action=create 时是否创建为草稿",
   "toolParam.work_pr_action.merge_method": "action=merge 时的合并方式，默认 merge",
   "toolParam.work_pr_action.delete_branch": "action=merge 时是否在合并后删除源分支",
-  "toolParam.work_git.args": "git 子命令及参数，如 \"diff --stat\"、\"log --oneline -10\""
+  "toolParam.work_git.args": "git 子命令及参数，如 \"diff --stat\"、\"log --oneline -10\"",
+  "toolParam.create_note.parentId": "父级笔记 ID（可选，创建子笔记时使用）",
+  "toolParam.create_note.icon": "笔记图标（emoji，可选）",
+  "toolParam.list_notes.parentId": "限定父级笔记 ID（可选，列出其子笔记）",
+  "toolParam.move_note.parentId": "目标父级笔记 ID；留空表示移到根级"
 }

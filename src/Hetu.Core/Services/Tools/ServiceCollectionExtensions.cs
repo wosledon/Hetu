@@ -16,8 +16,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, MoveNoteTool>();
         services.AddScoped<IToolExecutor, ListNoteVersionsTool>();
         services.AddScoped<IToolExecutor, RestoreNoteVersionTool>();
-        services.AddScoped<IToolExecutor, ListNotebooksTool>();
-        services.AddScoped<IToolExecutor, CreateNotebookTool>();
         services.AddScoped<IToolExecutor, ListTagsTool>();
         services.AddScoped<IToolExecutor, SetNoteTagsTool>();
         services.AddScoped<IToolExecutor, ListKnowledgeItemsTool>();

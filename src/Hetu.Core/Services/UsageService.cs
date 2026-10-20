@@ -32,7 +32,6 @@ public class UsageService
         LlmUsageSources.Workflow => _localizer.T("usage.sourceWorkflow"),
         LlmUsageSources.Wiki => _localizer.T("usage.sourceWiki"),
         LlmUsageSources.NoteAi => _localizer.T("usage.sourceNoteAi"),
-        LlmUsageSources.Organize => _localizer.T("usage.sourceOrganize"),
         LlmUsageSources.Skill => _localizer.T("usage.sourceSkill"),
         LlmUsageSources.Graph => _localizer.T("usage.sourceGraph"),
         LlmUsageSources.Search => _localizer.T("usage.sourceSearch"),

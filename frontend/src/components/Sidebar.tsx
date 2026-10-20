@@ -1,206 +1,17 @@
-import { confirm } from './confirm'
-import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-  Trash2,
-  Plus,
-  Pencil,
-  Folder,
-  FolderOpen,
-  FileText,
-} from 'lucide-react'
-import { useNotebooks } from '../hooks/useNotebooks'
+import { FileText } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
-import { notebookService } from '../services/notebookService'
 import { noteService } from '../services/noteService'
-import type { INotebook } from '../types'
-import { ContextMenu, Input, TreeRow } from './ui'
+import NotesTree from './NotesTree'
 
-function NotebookTreeItem({
-  notebook,
-  level,
-}: {
-  notebook: INotebook
-  level: number
-}) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { t } = useTranslation('notes')
-  const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
-  const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
-  const isSelected = selectedNotebookId === notebook.id
-  const [isExpanded, setIsExpanded] = useState(true)
-  const [isRenaming, setIsRenaming] = useState(false)
-  const [draftName, setDraftName] = useState(notebook.name)
-  const [isAddingChild, setIsAddingChild] = useState(false)
-  const [childName, setChildName] = useState('')
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      notebookService.update(id, { name, parentId: notebook.parentId, sortOrder: notebook.sortOrder }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-  })
-
-  const createMutation = useMutation({
-    mutationFn: ({ parentId, name }: { parentId?: string; name: string }) =>
-      notebookService.create({ parentId, name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => notebookService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-    onError: (err: Error) => alert(err.message || t('notebook.deleteFailed')),
-  })
-
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-
-  const closeMenu = useCallback(() => setMenu(null), [])
-
-  const handleRename = () => {
-    const trimmed = draftName.trim()
-    if (trimmed && trimmed !== notebook.name) {
-      updateMutation.mutate({ id: notebook.id, name: trimmed })
-    }
-    setIsRenaming(false)
-    setDraftName(notebook.name)
-  }
-
-  const handleCreateChild = () => {
-    const trimmed = childName.trim()
-    if (trimmed) {
-      createMutation.mutate({ parentId: notebook.id, name: trimmed })
-    }
-    setIsAddingChild(false)
-    setChildName('')
-    setIsExpanded(true)
-  }
-
-  const handleDelete = () => {
-    confirm({ message: t('notebook.deleteConfirm', { name: notebook.name }), onConfirm: () => deleteMutation.mutate(notebook.id) })
-  }
-
-  return (
-    <div className="group">
-      <TreeRow
-        depth={level}
-        expandable={notebook.children.length > 0}
-        expanded={isExpanded}
-        onToggle={() => setIsExpanded((v) => !v)}
-        className={`note-card mb-1 rounded-xl border px-3 py-2.5 transition-all ${
-          isSelected
-            ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
-            : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
-        }`}
-        icon={isSelected && !isRenaming
-          ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
-          : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-        label={isRenaming ? (
-          <input
-            autoFocus
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleRename()
-              if (e.key === 'Escape') {
-                setIsRenaming(false)
-                setDraftName(notebook.name)
-              }
-            }}
-            onBlur={handleRename}
-            onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-sm outline-none dark:bg-gray-800"
-          />
-        ) : notebook.name}
-        labelClassName={isSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
-        onClick={() => {
-          setSelectedNotebookId(notebook.id)
-          navigate('/notes')
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setMenu({ x: e.clientX, y: e.clientY })
-        }}
-      />
-
-      {isAddingChild && (
-        <div
-          className="flex items-center gap-1 px-2 py-1"
-          style={{ paddingLeft: `${8 + (level + 1) * 14 + 14}px` }}
-        >
-          <Folder size={14} className="text-gray-500" />
-          <input
-            autoFocus
-            value={childName}
-            onChange={(e) => setChildName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreateChild()
-              if (e.key === 'Escape') {
-                setIsAddingChild(false)
-                setChildName('')
-              }
-            }}
-            onBlur={handleCreateChild}
-            placeholder={t('notebook.namePlaceholder')}
-            className="flex-1 min-w-0 text-sm px-1 py-0.5 bg-white dark:bg-gray-800 border border-indigo-300 rounded outline-none"
-          />
-        </div>
-      )}
-
-      {isExpanded &&
-        notebook.children.map((child) => (
-          <NotebookTreeItem key={child.id} notebook={child} level={level + 1} />
-        ))}
-
-      {menu && (
-        <ContextMenu
-          anchor={menu}
-          onClose={closeMenu}
-          items={[
-            {
-              key: 'add-child',
-              label: t('notebook.newChild'),
-              icon: <Plus size={14} />,
-              onSelect: () => { setIsExpanded(true); setIsAddingChild(true) },
-            },
-            {
-              key: 'rename',
-              label: t('common:rename'),
-              icon: <Pencil size={14} />,
-              onSelect: () => { setDraftName(notebook.name); setIsRenaming(true) },
-            },
-            { kind: 'separator' },
-            {
-              key: 'delete',
-              label: t('common:delete'),
-              icon: <Trash2 size={14} />,
-              danger: true,
-              onSelect: handleDelete,
-            },
-          ]}
-        />
-      )}
-    </div>
-  )
-}
-
+/**
+ * 全局次级侧栏：嵌套笔记树。点击笔记打开编辑器并把列表切到其子笔记，
+ * 与 NotesPage 内的 NotesTree（折叠模式）共用同一组件与选中状态。
+ */
 export default function Sidebar() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { t } = useTranslation('notes')
-  const selectedNotebookId = useUIStore((state) => state.selectedNotebookId)
-  const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
-  const setSelectedTagId = useUIStore((state) => state.setSelectedTagId)
-  const [isAddingRoot, setIsAddingRoot] = useState(false)
-  const [rootName, setRootName] = useState('')
-
-  const DEFAULT_NOTEBOOK_ID = 'default'
-  const isDefaultSelected = selectedNotebookId === DEFAULT_NOTEBOOK_ID
-
-  const notebooks = useNotebooks()
+  const setSelectedNoteId = useUIStore((s) => s.setSelectedNoteId)
 
   const { data: notesPaged } = useQuery({
     queryKey: ['notes', 'sidebar-stats'],
@@ -209,110 +20,19 @@ export default function Sidebar() {
   })
   const totalNotes = notesPaged?.totalCount ?? 0
 
-  // 递归统计所有笔记本数量（含子笔记本）
-  const countNotebooks = (items: INotebook[]): number =>
-    items.reduce((sum, n) => sum + 1 + countNotebooks(n.children), 0)
-  const totalNotebooks = countNotebooks(notebooks)
-
-  const createNotebookMutation = useMutation({
-    mutationFn: (name: string) => notebookService.create({ name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notebooks'] }),
-  })
-
-  const handleCreateRoot = () => {
-    const trimmed = rootName.trim()
-    if (trimmed) {
-      createNotebookMutation.mutate(trimmed)
-    }
-    setIsAddingRoot(false)
-    setRootName('')
-  }
-
-
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-transparent bg-white/80 dark:bg-gray-900/50 glass glass-soft">
-      <div className="flex min-h-0 flex-1 flex-col p-4">
-        <div className="mb-3 flex shrink-0 items-center justify-between">
-          <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            {t('notebook.label')}
-            <span className="font-normal normal-case tracking-normal text-gray-300 dark:text-gray-600">{totalNotebooks}</span>
-          </h2>
-        </div>
-        <div className="notebook-tree flex-1 space-y-0.5 overflow-y-auto">
-          {/* 新建笔记本放在列表第一行：列表再长也不用滚到底就能加 */}
-          {isAddingRoot ? (
-            <div className="mb-1 flex items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 dark:border-gray-700">
-              <Folder size={14} className="shrink-0 text-blue-500" />
-              <Input tone="blue"
-                autoFocus
-                value={rootName}
-                onChange={(e) => setRootName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateRoot()
-                  if (e.key === 'Escape') {
-                    setIsAddingRoot(false)
-                    setRootName('')
-                  }
-                }}
-                onBlur={handleCreateRoot}
-                placeholder={t('notebook.namePlaceholder')}
-                className="min-w-0 flex-1"
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAddingRoot(true)}
-              className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] text-gray-400 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-blue-500/50 dark:hover:text-blue-300"
-            >
-              {/* 与笔记本行同一套前导占位（展开箭头位），图标和文字才能对齐 */}
-              <span className="w-4 shrink-0" />
-              <Plus size={14} className="shrink-0" />
-              {t('notebook.new')}
-            </button>
-          )}
-          {/* 未分类 - 始终排在新建行之后 */}
-          <TreeRow
-            className={`note-card mb-1 rounded-xl border px-3 py-2.5 transition-all ${
-              isDefaultSelected
-                ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
-                : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
-            }`}
-            icon={isDefaultSelected
-              ? <FolderOpen size={14} className="shrink-0 text-blue-500" />
-              : <Folder size={14} className="shrink-0 text-gray-400 transition-colors group-hover:text-gray-500 dark:text-gray-500" />}
-            label={t('note.uncategorized')}
-            labelClassName={isDefaultSelected ? 'font-medium text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}
-            onClick={() => {
-              setSelectedNotebookId(DEFAULT_NOTEBOOK_ID)
-              navigate('/notes')
-            }}
-          />
-          {/* 其他笔记本 */}
-          {notebooks.map((notebook) => (
-            <NotebookTreeItem key={notebook.id} notebook={notebook} level={0} />
-          ))}
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <NotesTree
+          className="w-full border-r-0 bg-transparent dark:bg-transparent"
+          onSelectNote={(note) => setSelectedNoteId(note.id)}
+        />
       </div>
-
-      {/* 底部统计：紧凑单行，避免大数字卡片与整体风格冲突 */}
       <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 dark:border-gray-800/50">
         <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
-          <button
-            onClick={() => {
-              setSelectedNotebookId(undefined)
-              setSelectedTagId(undefined)
-              navigate('/notes')
-            }}
-            className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:text-blue-500"
-            title={t('sidebar.viewAllNotes')}
-          >
+          <span className="flex items-center gap-1">
             <FileText size={11} />
             {t('sidebar.notesCount', { n: totalNotes })}
-          </button>
-          <span className="h-2.5 w-px bg-gray-200 dark:bg-gray-700" />
-          <span className="flex items-center gap-1">
-            <Folder size={11} />
-            {t('sidebar.notebooksCount', { n: totalNotebooks })}
           </span>
         </div>
       </div>

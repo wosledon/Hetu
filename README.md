@@ -92,7 +92,7 @@ pwsh ./scripts/start.ps1     # Windows
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="Notes: notebook tree, note list and editor" width="420"><br><sub><b>Notes</b> — notebooks, tags and AI actions</sub></td>
+    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="Notes: nested notes tree, note list and editor" width="420"><br><sub><b>Notes</b> — nested notes, tags and AI actions</sub></td>
     <td width="33%"><img src="docs/screenshots/04-graph.png" alt="Knowledge graph of entities and relations" width="420"><br><sub><b>Knowledge graph</b> — entities and relations</sub></td>
     <td width="33%"><img src="docs/screenshots/07-wiki.png" alt="Generated project Wiki suites" width="420"><br><sub><b>Wiki</b> — generated project documentation</sub></td>
   </tr>

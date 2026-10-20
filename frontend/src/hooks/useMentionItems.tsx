@@ -1,25 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AtSign, Library, NotebookPen, Tag } from 'lucide-react'
+import { AtSign, Library, Tag } from 'lucide-react'
 import i18n from '../i18n'
 import { searchService } from '../services/searchService'
 import { noteService } from '../services/noteService'
 import { tagService } from '../services/tagService'
 import { knowledgeItemService } from '../services/knowledgeBaseService'
-import { useNotebooks } from './useNotebooks'
 import type { InputCommandItem } from '../components/InputCommandMenu'
-import type { INotebook } from '../types'
-
-const flattenNotebooks = (list: INotebook[]): INotebook[] =>
-  list.flatMap((nb) => [nb, ...flattenNotebooks(nb.children ?? [])])
 
 /**
- * 输入框 @ 引用候选项（笔记 / 笔记本 / 标签 / 知识库），对话与 Code 会话共用。
+ * 输入框 @ 引用候选项（笔记 / 标签 / 知识库），对话与 Code 会话共用。
  * query 为 null 表示浮层未打开，不触发检索。
  */
 export function useMentionItems(query: string | null): InputCommandItem[] {
   const [noteCandidates, setNoteCandidates] = useState<{ id: string; title: string }[]>([])
-  const notebooks = useNotebooks()
 
   const { data: tags = [] } = useQuery({
     queryKey: ['tags'],
@@ -64,18 +58,6 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
       })
     }
 
-    for (const nb of flattenNotebooks(notebooks)) {
-      if (q && !nb.name.toLowerCase().includes(q)) continue
-      items.push({
-        key: `notebook:${nb.id}`,
-        label: nb.name,
-        description: i18n.t('agent:mention.notebook'),
-        icon: <NotebookPen size={14} className="text-blue-500" />,
-        tag: i18n.t('agent:mention.notebook'),
-        tagClass: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-      })
-    }
-
     for (const t of tags as Array<{ id: string; name: string; noteCount?: number }>) {
       if (q && !t.name.toLowerCase().includes(q)) continue
       items.push({
@@ -101,5 +83,5 @@ export function useMentionItems(query: string | null): InputCommandItem[] {
     }
 
     return items.slice(0, 20)
-  }, [query, noteCandidates, notebooks, tags, knowledgeItems])
+  }, [query, noteCandidates, tags, knowledgeItems])
 }

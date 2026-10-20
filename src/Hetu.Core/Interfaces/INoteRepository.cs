@@ -5,19 +5,32 @@ namespace Hetu.Core.Interfaces;
 public interface INoteRepository : IRepository<Note>
 {
     Task<Note?> GetByIdWithTagsAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, bool filterNoNotebook = false, CancellationToken cancellationToken = default);
+
+    /// <summary>批量取直接子笔记数量（仅未删除），供列表/树判断是否可展开</summary>
+    Task<Dictionary<Guid, int>> GetChildCountsAsync(IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken = default);
+
+    /// <summary>按父级/标签/回收站过滤取笔记（含标签，内存排序）</summary>
+    Task<IReadOnlyList<Note>> GetListAsync(Guid? parentId = null, bool filterRoot = false, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 分页取笔记（数据库 OFFSET/FETCH + SQL COUNT），避免把全部笔记读进内存。
     /// 排序固定为「置顶优先，其次最近更新」，保证分页稳定。
     /// </summary>
     Task<(IReadOnlyList<Note> Items, int Total)> GetPagedAsync(
-        Guid? notebookId, Guid? tagId, bool includeDeleted, bool filterNoNotebook,
+        Guid? parentId, bool filterRoot, Guid? tagId, bool includeDeleted,
         int skip, int take, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Note>> GetByNotebookAsync(Guid notebookId, bool includeDeleted = false, CancellationToken cancellationToken = default);
-    Task UnassignNotebookAsync(Guid notebookId, CancellationToken cancellationToken = default);
+
+    /// <summary>取直接子笔记（嵌套笔记树按需展开）</summary>
+    Task<IReadOnlyList<Note>> GetChildrenAsync(Guid parentId, bool includeDeleted = false, CancellationToken cancellationToken = default);
+
+    /// <summary>取某笔记的全部后代（含多级），用于删除/移动时的级联处理</summary>
+    Task<IReadOnlyList<Note>> GetDescendantsAsync(Guid id, bool includeDeleted = false, CancellationToken cancellationToken = default);
+
+    /// <summary>根级笔记（ParentId 为空）</summary>
+    Task<IReadOnlyList<Note>> GetRootNotesAsync(bool includeDeleted = false, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Note>> GetByTagAsync(Guid tagId, bool includeDeleted = false, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Note>> SearchAsync(string keyword, Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Note>> SearchAsync(string keyword, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetDeletedAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Note>> GetOldDeletedAsync(DateTimeOffset cutoff, CancellationToken cancellationToken = default);
     Task SoftDeleteAsync(Note note, CancellationToken cancellationToken = default);

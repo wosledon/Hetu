@@ -45,8 +45,6 @@ public class ChatTopicDto
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
     public string NoteSyncStatus { get; set; } = "pending";
-    public bool IsAutoOrganizeEnabled { get; set; }
-    public Guid? AutoOrganizeNotebookId { get; set; }
     public bool IsMain { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -66,8 +64,6 @@ public class UpdateChatTopicRequest
     public Guid? ModelId { get; set; }
     public string? CustomSystemPrompt { get; set; }
     public string? NoteSyncStatus { get; set; }
-    public bool? IsAutoOrganizeEnabled { get; set; }
-    public Guid? AutoOrganizeNotebookId { get; set; }
 }
 
 public class ChatMessageDto
@@ -156,7 +152,7 @@ public class SetPermissionModeRequest
     public string? Mode { get; set; }
 }
 
-/// <summary>@ 引用：type 取值 note | notebook | tag | knowledge</summary>
+/// <summary>@ 引用：type 取值 note | tag | knowledge</summary>
 public class ChatMentionRef
 {
     public string Type { get; set; } = string.Empty;
@@ -202,19 +198,6 @@ public class PlanDecisionRequest
 public class UpdateChatMessageRequest
 {
     public string Content { get; set; } = string.Empty;
-}
-
-public class OrganizeTopicRequest
-{
-    public Guid? NotebookId { get; set; }
-    public string Style { get; set; } = "summary";
-    public string? CustomPrompt { get; set; }
-}
-
-public class OrganizeTopicResult
-{
-    public Guid NoteId { get; set; }
-    public string Title { get; set; } = string.Empty;
 }
 
 public class PromptPresetDto

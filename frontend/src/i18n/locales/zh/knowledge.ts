@@ -133,7 +133,6 @@ export default {
     noMatchingNotes: '未找到匹配的笔记',
     noNotes: '暂无笔记',
     ungrouped: '未分组',
-    unknownNotebook: '未知笔记本',
     untitledNote: '未命名笔记',
     noContent: '无内容',
     resultDelta: '+{{entities}} 实体 +{{relations}} 关系',

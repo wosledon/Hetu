@@ -3,7 +3,6 @@ import type { INoteSearchResult, IPagedResult } from '../types';
 
 export interface SearchNotesRequest {
   keyword: string;
-  notebookId?: string;
   tagId?: string;
   includeDeleted?: boolean;
   page?: number;

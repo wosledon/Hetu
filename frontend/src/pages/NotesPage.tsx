@@ -1,34 +1,39 @@
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import NoteList from '../components/NoteList'
 import NotesTree from '../components/NotesTree'
 import MarkdownEditor from '../components/MarkdownEditor'
 import { useUIStore } from '../stores/uiStore'
-import type { INote } from '../types'
+import { noteService } from '../services/noteService'
 
 export default function NotesPage() {
-  const [selectedNote, setSelectedNote] = useState<INote | null>(null)
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
-  const setSelectedNotebookId = useUIStore((state) => state.setSelectedNotebookId)
+  const selectedNoteId = useUIStore((state) => state.selectedNoteId)
+  const setSelectedNoteId = useUIStore((state) => state.setSelectedNoteId)
   const collapsed = secondaryMenuStyle === 'collapsed'
+
+  // 选中笔记由 store 持有（侧栏树与列表共用），详情按需拉取
+  const { data: selectedNote } = useQuery({
+    queryKey: ['note', selectedNoteId],
+    queryFn: () => noteService.getById(selectedNoteId!),
+    enabled: !!selectedNoteId,
+  })
 
   return (
     <AppLayout
       showSidebar={!collapsed}
-      mainContent={<MarkdownEditor note={selectedNote} />}
+      mainContent={<MarkdownEditor note={selectedNote ?? null} />}
     >
       {collapsed ? (
         <NotesTree
-          selectedNoteId={selectedNote?.id}
-          onSelectNote={(note) => setSelectedNote(note)}
-          onSelectNotebook={() => setSelectedNote(null)}
-          onClearNotebook={() => setSelectedNotebookId(undefined)}
+          selectedNoteId={selectedNoteId}
+          onSelectNote={(note) => setSelectedNoteId(note.id)}
         />
       ) : (
         <NoteList
-          onSelectNote={(note) => setSelectedNote(note)}
-          onDeleteNote={(id) => { if (selectedNote?.id === id) setSelectedNote(null) }}
-          selectedNoteId={selectedNote?.id}
+          onSelectNote={(note) => setSelectedNoteId(note.id)}
+          onDeleteNote={(id) => { if (selectedNoteId === id) setSelectedNoteId(undefined) }}
+          selectedNoteId={selectedNoteId}
         />
       )}
     </AppLayout>

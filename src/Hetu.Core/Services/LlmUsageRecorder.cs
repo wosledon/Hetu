@@ -13,7 +13,6 @@ public static class LlmUsageSources
     public const string Workflow = "workflow";
     public const string Wiki = "wiki";
     public const string NoteAi = "note-ai";
-    public const string Organize = "organize";
     public const string Skill = "skill";
     public const string Graph = "graph";
     public const string Search = "search";

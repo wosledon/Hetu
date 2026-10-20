@@ -269,9 +269,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("AutoOrganizeNotebookId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("BranchMessageId")
                         .HasColumnType("uuid");
 
@@ -289,9 +286,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsAutoOrganizeEnabled")
-                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsMain")
                         .HasColumnType("boolean");
@@ -1089,6 +1083,10 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Icon")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -1098,7 +1096,7 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid?>("NotebookId")
+                    b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Title")
@@ -1113,7 +1111,7 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.HasIndex("NotebookId");
+                    b.HasIndex("ParentId");
 
                     b.HasIndex("UpdatedAt");
 
@@ -1265,36 +1263,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.HasIndex("NoteId");
 
                     b.ToTable("NoteVersions");
-                });
-
-            modelBuilder.Entity("Hetu.Core.Entities.Notebook", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.ToTable("Notebooks");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.ProjectGroup", b =>
@@ -2479,12 +2447,12 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
             modelBuilder.Entity("Hetu.Core.Entities.Note", b =>
                 {
-                    b.HasOne("Hetu.Core.Entities.Notebook", "Notebook")
-                        .WithMany("Notes")
-                        .HasForeignKey("NotebookId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.HasOne("Hetu.Core.Entities.Note", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Notebook");
+                    b.Navigation("Parent");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.NoteChunk", b =>
@@ -2544,16 +2512,6 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Note");
-                });
-
-            modelBuilder.Entity("Hetu.Core.Entities.Notebook", b =>
-                {
-                    b.HasOne("Hetu.Core.Entities.Notebook", "Parent")
-                        .WithMany("Children")
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Parent");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.ShareLink", b =>
@@ -2658,16 +2616,11 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
 
             modelBuilder.Entity("Hetu.Core.Entities.Note", b =>
                 {
+                    b.Navigation("Children");
+
                     b.Navigation("KnowledgeItems");
 
                     b.Navigation("NoteTags");
-                });
-
-            modelBuilder.Entity("Hetu.Core.Entities.Notebook", b =>
-                {
-                    b.Navigation("Children");
-
-                    b.Navigation("Notes");
                 });
 
             modelBuilder.Entity("Hetu.Core.Entities.ProjectGroup", b =>

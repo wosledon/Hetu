@@ -136,7 +136,6 @@ export default {
   mention: {
     untitled: '(Untitled)',
     note: 'Note',
-    notebook: 'Notebook',
     tag: 'Tag',
     knowledgeBase: 'Knowledge base',
     tagDetail: 'Tag · {{n}} notes',

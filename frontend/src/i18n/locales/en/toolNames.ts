@@ -9,8 +9,6 @@ export default {
   move_note: 'Move note',
   list_note_versions: 'Version history',
   restore_note_version: 'Restore version',
-  list_notebooks: 'List notebooks',
-  create_notebook: 'Create notebook',
   list_tags: 'List tags',
   set_note_tags: 'Set tags',
   list_knowledge_items: 'List knowledge items',

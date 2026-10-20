@@ -14,7 +14,6 @@ export function renderToolName(name: string): string {
 const TOOL_GROUP_KEYS: Record<string, string> = {
   通用: 'general',
   笔记: 'notes',
-  笔记本: 'notebooks',
   标签: 'tags',
   知识库: 'knowledge',
   知识图谱: 'graph',

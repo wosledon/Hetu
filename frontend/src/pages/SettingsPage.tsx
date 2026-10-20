@@ -930,13 +930,6 @@ function DefaultModelsSection({
           onChange={(v) => onSettingChange('DefaultGraphModelId', v)}
         />
         <DefaultModelSelect
-          label={t('models.organize')}
-          description={t('models.organizeDesc')}
-          value={snapshot?.defaultOrganizeModelId || ''}
-          models={chatModels}
-          onChange={(v) => onSettingChange('DefaultOrganizeModelId', v)}
-        />
-        <DefaultModelSelect
           label={t('models.noteAi')}
           description={t('models.noteAiDesc')}
           value={snapshot?.defaultNoteAiModelId || ''}

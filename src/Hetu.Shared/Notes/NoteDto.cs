@@ -3,9 +3,14 @@ namespace Hetu.Shared.Notes;
 public class NoteDto
 {
     public Guid Id { get; set; }
-    public Guid? NotebookId { get; set; }
+    /// <summary>父笔记 Id；为空表示根级笔记</summary>
+    public Guid? ParentId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    /// <summary>笔记图标（emoji）；为空使用默认笔记图标</summary>
+    public string? Icon { get; set; }
+    /// <summary>直接子笔记数量（不含已删除）；树据此决定是否显示展开箭头</summary>
+    public int ChildCount { get; set; }
     public bool IsDeleted { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsPinned { get; set; }
@@ -17,23 +22,30 @@ public class NoteDto
 
 public class CreateNoteRequest
 {
-    public Guid? NotebookId { get; set; }
+    /// <summary>父笔记 Id；为空表示根级笔记</summary>
+    public Guid? ParentId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    /// <summary>笔记图标（emoji）</summary>
+    public string? Icon { get; set; }
 }
 
 public class UpdateNoteRequest
 {
     public string? Title { get; set; }
     public string? Content { get; set; }
-    public Guid? NotebookId { get; set; }
+    /// <summary>移动到指定父笔记下（仅在传值时生效，用于创建时指定父级）</summary>
+    public Guid? ParentId { get; set; }
+    /// <summary>笔记图标（emoji）；传空串清除图标</summary>
+    public string? Icon { get; set; }
     public bool? IsFavorite { get; set; }
     public bool? IsPinned { get; set; }
 }
 
 public class MoveNoteRequest
 {
-    public Guid? NotebookId { get; set; }
+    /// <summary>目标父笔记 Id；为空表示移到根级</summary>
+    public Guid? ParentId { get; set; }
 }
 
 public class NoteVersionDto

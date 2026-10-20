@@ -12,16 +12,16 @@ public class ListNotesTool : IToolExecutor
     public ListNotesTool(INoteService noteService) => _noteService = noteService;
 
     public string Name => "list_notes";
-    public string Description => "按条件浏览笔记列表（可按笔记本、标签、收藏筛选，或按关键词排序），返回标题与摘要";
+    public string Description => "按条件浏览笔记列表（可按父级笔记、标签、收藏筛选），返回标题与摘要";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Bypass;
     public ToolRisk Risk => ToolRisk.Read;
-    public string? UsageGuideline => "用户说「我有哪些笔记 / 最近写了什么 / 某笔记本下有什么」时调用；已知标题关键词时优先 search_notes。";
+    public string? UsageGuideline => "用户说「我有哪些笔记 / 最近写了什么 / 某篇笔记下面有什么」时调用；已知标题关键词时优先 search_notes。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
         "type": "object",
         "properties": {
-            "notebookId": { "type": "string", "description": "限定笔记本 ID（可选）" },
+            "parentId": { "type": "string", "description": "限定父级笔记 ID（可选，列出其子笔记）" },
             "tagId": { "type": "string", "description": "限定标签 ID（可选）" },
             "favoritesOnly": { "type": "boolean", "description": "仅看收藏，默认 false" },
             "limit": { "type": "integer", "description": "返回条数，默认 20，最大 50" }
@@ -43,8 +43,8 @@ public class ListNotesTool : IToolExecutor
                 Page = 1,
                 PageSize = root.TryGetProperty("limit", out var l) ? Math.Clamp(l.GetInt32(), 1, 50) : 20
             };
-            if (root.TryGetProperty("notebookId", out var nb) && Guid.TryParse(nb.GetString(), out var nbId))
-                request.NotebookId = nbId;
+            if (root.TryGetProperty("parentId", out var parent) && Guid.TryParse(parent.GetString(), out var parentId))
+                request.ParentId = parentId;
             if (root.TryGetProperty("tagId", out var tg) && Guid.TryParse(tg.GetString(), out var tagId))
                 request.TagId = tagId;
             var favoritesOnly = root.TryGetProperty("favoritesOnly", out var f) && f.GetBoolean();
@@ -234,25 +234,23 @@ public class RestoreNoteVersionTool : IToolExecutor
 public class MoveNoteTool : IToolExecutor
 {
     private readonly INoteService _noteService;
-    private readonly INotebookService _notebookService;
 
-    public MoveNoteTool(INoteService noteService, INotebookService notebookService)
+    public MoveNoteTool(INoteService noteService)
     {
         _noteService = noteService;
-        _notebookService = notebookService;
     }
 
     public string Name => "move_note";
-    public string Description => "把笔记移动到指定笔记本（或移出笔记本）";
+    public string Description => "把笔记移动到指定父级笔记下（或移到根级）";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
-    public string? UsageGuideline => "用户要求整理笔记、把某篇笔记归类到某笔记本时调用；notebookId 留空表示移出笔记本。";
+    public string? UsageGuideline => "用户要求整理笔记、把某篇笔记归到另一篇下面时调用；parentId 留空表示移到根级。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {
         "type": "object",
         "properties": {
             "noteId": { "type": "string", "description": "要移动的笔记 ID" },
-            "notebookId": { "type": "string", "description": "目标笔记本 ID；留空表示移出笔记本（未分类）" }
+            "parentId": { "type": "string", "description": "目标父级笔记 ID；留空表示移到根级" }
         },
         "required": ["noteId"]
     }
@@ -271,22 +269,19 @@ public class MoveNoteTool : IToolExecutor
             if (!Guid.TryParse(noteIdStr, out var noteId))
                 return ToolExecutionResult.Error("无效的笔记 ID");
 
-            Guid? notebookId = null;
-            if (root.TryGetProperty("notebookId", out var nb) && !string.IsNullOrWhiteSpace(nb.GetString()))
+            Guid? parentId = null;
+            if (root.TryGetProperty("parentId", out var parent) && !string.IsNullOrWhiteSpace(parent.GetString()))
             {
-                if (!Guid.TryParse(nb.GetString(), out var parsed))
-                    return ToolExecutionResult.Error("无效的笔记本 ID");
-                var nbResult = await _notebookService.GetByIdAsync(parsed, cancellationToken);
-                if (!nbResult.Success || nbResult.Data == null)
-                    return ToolExecutionResult.Error("目标笔记本不存在");
-                notebookId = parsed;
+                if (!Guid.TryParse(parent.GetString(), out var parsed))
+                    return ToolExecutionResult.Error("无效的父级笔记 ID");
+                parentId = parsed;
             }
 
-            var result = await _noteService.MoveAsync(noteId, new MoveNoteRequest { NotebookId = notebookId }, cancellationToken);
+            var result = await _noteService.MoveAsync(noteId, new MoveNoteRequest { ParentId = parentId }, cancellationToken);
             if (!result.Success)
                 return ToolExecutionResult.Error(result.Error ?? "移动笔记失败");
 
-            return ToolExecutionResult.Success(JsonSerializer.Serialize(new { id = noteId, notebookId }));
+            return ToolExecutionResult.Success(JsonSerializer.Serialize(new { id = noteId, parentId }));
         }
         catch (Exception ex)
         {
