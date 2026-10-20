@@ -101,7 +101,7 @@ function NoteNode({
     <div>
       <TreeRow
         depth={depth}
-        expandable
+        expandable={(note.childCount ?? 0) > 0}
         expanded={expanded}
         onToggle={() => setExpanded((v) => !v)}
         selected={active}
@@ -168,14 +168,6 @@ function NoteNode({
               onOpenLeafMenu={onOpenLeafMenu}
             />
           ))}
-          {children.length === 0 && (
-            <div
-              className="py-1 pr-2 text-[11px] text-gray-300 dark:text-gray-600"
-              style={{ paddingLeft: `${8 + (depth + 1) * 14 + 14}px` }}
-            >
-              {t('tree.noChildren')}
-            </div>
-          )}
         </div>
       )}
     </div>

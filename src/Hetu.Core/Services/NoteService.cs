@@ -39,9 +39,12 @@ public class NoteService : INoteService
             take: pageSize,
             cancellationToken);
 
+        var items = notes.Select(Map).ToList();
+        await FillChildCountsAsync(items, cancellationToken);
+
         return ApiResponse<PagedResult<NoteDto>>.Ok(new PagedResult<NoteDto>
         {
-            Items = notes.Select(Map).ToList(),
+            Items = items,
             TotalCount = total,
             Page = page,
             PageSize = pageSize
@@ -52,7 +55,19 @@ public class NoteService : INoteService
     {
         var note = await _unitOfWork.Notes.GetByIdWithTagsAsync(id, cancellationToken);
         if (note == null) return ApiResponse<NoteDto>.Fail(_localizer.T("note.notFound"));
-        return ApiResponse<NoteDto>.Ok(Map(note));
+        var dto = Map(note);
+        await FillChildCountsAsync([dto], cancellationToken);
+        return ApiResponse<NoteDto>.Ok(dto);
+    }
+
+    /// <summary>批量填充子笔记数量：一次分组查询，避免逐条 COUNT（N+1）</summary>
+    private async Task FillChildCountsAsync(List<NoteDto> items, CancellationToken cancellationToken)
+    {
+        if (items.Count == 0) return;
+        var counts = await _unitOfWork.Notes.GetChildCountsAsync(
+            items.Select(i => i.Id).ToList(), cancellationToken);
+        foreach (var item in items)
+            item.ChildCount = counts.GetValueOrDefault(item.Id);
     }
 
     public async Task<ApiResponse<NoteDto>> CreateAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)

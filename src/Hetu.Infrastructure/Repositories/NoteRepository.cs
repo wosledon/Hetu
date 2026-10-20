@@ -23,6 +23,20 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ThenInclude(nt => nt.Tag)
             .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
+    public async Task<Dictionary<Guid, int>> GetChildCountsAsync(IReadOnlyCollection<Guid> parentIds, CancellationToken cancellationToken = default)
+    {
+        if (parentIds.Count == 0) return new Dictionary<Guid, int>();
+
+        var ids = parentIds.ToList();
+        var rows = await DbSet.AsNoTracking()
+            .Where(n => n.ParentId != null && ids.Contains(n.ParentId.Value))
+            .GroupBy(n => n.ParentId!.Value)
+            .Select(g => new { ParentId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.ParentId, r => r.Count);
+    }
+
     public async Task<IReadOnlyList<Note>> GetListAsync(Guid? parentId = null, bool filterRoot = false, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default)
         => (await GetPagedAsync(parentId, filterRoot, tagId, includeDeleted, 0, int.MaxValue, cancellationToken)).Items;
 

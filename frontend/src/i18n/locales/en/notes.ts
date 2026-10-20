@@ -35,7 +35,6 @@ export default {
     searchPlaceholder: 'Search...',
     newNote: 'New note',
     newChild: 'New sub-note',
-    noChildren: 'No child notes',
     empty: 'No notes yet — click "New note" above to start',
     moveToRoot: 'Move to root',
     deleteConfirm: 'Delete this note? Its child notes will move to the trash too.',

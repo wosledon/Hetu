@@ -25,6 +25,8 @@ export interface INote {
   content: string;
   /** 笔记图标（emoji）；为空使用默认笔记图标 */
   icon?: string;
+  /** 直接子笔记数量；树据此决定是否显示展开箭头 */
+  childCount?: number;
   isDeleted: boolean;
   isFavorite: boolean;
   isPinned: boolean;

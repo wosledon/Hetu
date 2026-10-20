@@ -35,7 +35,6 @@ export default {
     searchPlaceholder: '搜索...',
     newNote: '新建笔记',
     newChild: '新建子笔记',
-    noChildren: '暂无子笔记',
     empty: '暂无笔记，点击上方「新建笔记」开始',
     moveToRoot: '移到根级',
     deleteConfirm: '确定删除这条笔记吗？其子笔记会一起进入回收站。',
