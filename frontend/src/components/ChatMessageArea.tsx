@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, GitBranch, Check, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { workProjectService } from '../services/workService'
@@ -12,7 +12,6 @@ import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatMessageItem from './ChatMessageItem'
 import ConversationRail from './ConversationRail'
-import Select from './Select'
 
 import AgentApprovalCard from './agent/AgentApprovalCard'
 import AgentUsageBadge from './agent/AgentUsageBadge'
@@ -31,7 +30,6 @@ import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import { type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
-import { useNotebooks } from '../hooks/useNotebooks'
 import { reasoningEffortDefault } from '../utils/agentReasoning'
 import { useMentionItems } from '../hooks/useMentionItems'
 import { useWorkflowRun } from '../hooks/useWorkflowRun'
@@ -39,8 +37,8 @@ import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
-import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse'
-import type { IChatTopic, IPromptPreset, INotebook, IChatGroup, ISkill } from '../types'
+import { consumeSseStream } from '../utils/sse'
+import type { IChatTopic, IPromptPreset, IChatGroup, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
 
 interface ChatMessageAreaProps {
@@ -51,48 +49,6 @@ interface ChatMessageAreaProps {
   projectId?: string
 }
 
-
-function findNotebookName(notebooks: INotebook[], id: string): string {
-  for (const nb of notebooks) {
-    if (nb.id === id) return nb.name
-    if (nb.children) {
-      const found = findNotebookName(nb.children, id)
-      if (found) return found
-    }
-  }
-  return i18n.t('chat:shared.defaultNotebook')
-}
-
-function renderNotebookTree(
-  notebooks: INotebook[],
-  depth: number,
-  selectedId: string,
-  onSelect: (id: string, name: string) => void
-): React.ReactNode[] {
-  const result: React.ReactNode[] = []
-  for (const nb of notebooks) {
-    result.push(
-      <button
-        key={nb.id}
-        type="button"
-        onClick={() => onSelect(nb.id, nb.name)}
-        className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-          selectedId === nb.id
-            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-            : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-        }`}
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
-      >
-        {depth > 0 && <span className="text-gray-300 dark:text-gray-600 mr-1">└</span>}
-        {nb.name}
-      </button>
-    )
-    if (nb.children && nb.children.length > 0) {
-      result.push(...renderNotebookTree(nb.children, depth + 1, selectedId, onSelect))
-    }
-  }
-  return result
-}
 
 /**
  * 在后台消费某个话题的聊天 SSE 流，写入全局 store（按 topicId 隔离）。
@@ -167,12 +123,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const streamKnowledgeBase = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedKnowledgeBase : false) ?? false)
   const streamMemory = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedMemory : false) ?? false)
   const streamStartedAt = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.startedAt : 0) ?? 0)
-  const [isOrganizing, setIsOrganizing] = useState(false)
-  const [organizeStyle, setOrganizeStyle] = useState<'summary' | 'detailed' | 'qna'>('summary')
-  const [organizeTargetNotebook, setOrganizeTargetNotebook] = useState('')
-  const [organizeResult, setOrganizeResult] = useState<{ noteId: string; title: string } | null>(null)
-  const [showOrganizeOptions, setShowOrganizeOptions] = useState(false)
-  const [showNotebookPicker, setShowNotebookPicker] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -223,7 +173,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const messages = useMemo(() => messagePage?.items ?? [], [messagePage])
   const totalMessages = messagePage?.totalCount ?? 0
 
-  const notebooks = useNotebooks()
 
   const { data: skills = [] } = useQuery({
     queryKey: ['skills'],
@@ -375,7 +324,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       return
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pendingUserMessage, streamingContent, streamingThinking, isOrganizing, organizeResult, messagesLoading])
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, messagesLoading])
 
   // Auto-scroll thinking block to bottom as thinking content streams in
   useEffect(() => {
@@ -540,17 +489,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       reader.onerror = reject
       reader.readAsDataURL(file)
     })
-
-  // 消费整理话题的 SSE 流，收集预览文本；返回是否未出现错误帧。
-  const readSseStream = async (response: Response, onData: (data: string) => void): Promise<boolean> => {
-    if (!response.body) return false
-    let hasError = false
-    await consumeSseStream(response, ({ data }) => {
-      if (data.startsWith(SSE_ERROR_PREFIX)) hasError = true
-      onData(data)
-    })
-    return !hasError
-  }
 
   const handleSend = async () => {
     // /compress 命令：调用当前模型压缩上下文，不发消息
@@ -835,55 +773,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     }
   }
 
-  const handleOrganize = async () => {
-    if (!topic || isOrganizing || isStreaming) return
-
-    setIsOrganizing(true)
-    setOrganizeResult(null)
-
-    try {
-      const response = await chatTopicService.organize(topic.id, {
-        notebookId: organizeTargetNotebook || undefined,
-        style: organizeStyle,
-      })
-
-      let preview = ''
-      const success = await readSseStream(response, (data) => {
-        if (data.startsWith('[DONE]')) {
-          const noteId = data.slice(6)
-          const title = preview.split('\n')[0]?.replace(/^#+\s*/, '').trim() ?? t('messageArea.organize')
-          setOrganizeResult({ noteId, title })
-          queryClient.invalidateQueries({ queryKey: ['notes'] })
-          queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
-          // 刷新当前话题状态
-          chatTopicService.getById(topic.id).then(onTopicUpdated).catch(() => {})
-        } else if (data.startsWith('[ERROR]')) {
-          // ignore
-        } else {
-          // 尝试解析为 JSON（thinking/content 结构化事件）
-          try {
-            const chunk = JSON.parse(data)
-            if (chunk.type === 'content') {
-              preview += chunk.text
-            }
-            // thinking 类型忽略，不展示
-          } catch {
-            // 非 JSON，作为纯文本追加
-            preview += data
-          }
-        }
-      })
-
-      if (!success) {
-        console.warn('整理失败，请检查模型配置。')
-      }
-    } catch (error) {
-      console.error('Organize error:', error)
-    } finally {
-      setIsOrganizing(false)
-    }
-  }
-
   const railItems = useMemo(
     () => messages.filter((message) => message.role === 'user').map((message) => ({ id: message.id, content: message.content })),
     [messages],
@@ -946,80 +835,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               <GitBranch size={15} />
             </IconButton>
           )}
-          <Button variant="ghost" tone="emerald" size="sm" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:text-emerald-400 dark:hover:bg-emerald-900/20" onClick={() => setShowOrganizeOptions(!showOrganizeOptions)}
-            disabled={isOrganizing || isStreaming || messages.length === 0}>
-            <FileText size={14} />
-            {isOrganizing ? t('messageArea.organizing') : t('messageArea.organize')}
-            <ChevronDown size={12} />
-          </Button>
         </div>
       </div>
-
-      {/* Organize options dropdown */}
-      {/* Organizing status - shown at top */}
-      {isOrganizing && (
-        <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
-          <Loader2 size={14} className="animate-spin text-emerald-600" />
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">{t('messageArea.organizingToNote')}</span>
-        </div>
-      )}
-      {organizeResult && !isOrganizing && (
-        <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/20">
-          <Check size={14} className="text-emerald-600" />
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">{t('messageArea.noteSaved', { title: organizeResult.title })}</span>
-        </div>
-      )}
-
-      {showOrganizeOptions && topic && (
-        <div className="border-b border-gray-200 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-900/50">
-          <div className="flex items-end gap-4">
-            <div>
-              <span className="mb-1 block text-[11px] text-gray-500">{t('messageArea.organizeStyle')}</span>
-              <Select
-                value={organizeStyle}
-                onChange={(value) => setOrganizeStyle(value as typeof organizeStyle)}
-                options={[
-                  { value: 'summary', label: t('messageArea.styleSummary') },
-                  { value: 'detailed', label: t('messageArea.styleDetailed') },
-                  { value: 'qna', label: t('messageArea.styleQna') },
-                ]}
-              />
-            </div>
-            <div className="flex-1 relative">
-              <span className="mb-1 block text-[11px] text-gray-500">{t('messageArea.targetNotebook')}</span>
-              <Button variant="secondary" size="sm" className="w-full rounded-lg border border-gray-200 bg-white glass px-2.5 py-1.5 text-xs text-left flex items-center justify-between dark:border-gray-700 dark:bg-gray-800" type="button"
-                onClick={() => setShowNotebookPicker(!showNotebookPicker)}>
-                <span className="truncate">{organizeTargetNotebook ? findNotebookName(notebooks, organizeTargetNotebook) : t('shared.defaultNotebook')}</span>
-                <ChevronDown size={12} className="text-gray-400 shrink-0" />
-              </Button>
-              {showNotebookPicker && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => { setOrganizeTargetNotebook(''); setShowNotebookPicker(false) }}
-                    className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-                      !organizeTargetNotebook ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {t('shared.defaultNotebook')}
-                  </button>
-                  {renderNotebookTree(notebooks, 0, organizeTargetNotebook, (id) => {
-                    setOrganizeTargetNotebook(id)
-                    setShowNotebookPicker(false)
-                  })}
-                </div>
-              )}
-            </div>
-            <Button variant="primary" tone="emerald" size="sm" className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50" onClick={() => { setShowOrganizeOptions(false); handleOrganize() }}
-              disabled={isOrganizing}>
-              {t('messageArea.startOrganize')}
-            </Button>
-            <Button variant="ghost" tone="gray" size="sm" className="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700" onClick={() => setShowOrganizeOptions(false)}>
-              {t('common:cancel')}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {showSearch && (
         <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">

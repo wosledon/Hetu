@@ -120,7 +120,7 @@ export const workSessionService = {
       promptFile?: string;
       /** /skill 命令选择的技能名称 */
       skillName?: string;
-      /** 输入框 @ 引用的内容（type: note | notebook | tag | knowledge） */
+      /** 输入框 @ 引用的内容（type: note | tag | knowledge） */
       mentions?: { type: string; id: string }[];
       /** 网络搜索 / 知识库 / 记忆 / 深度思考：与对话会话共用同一套开关语义 */
       webSearch?: boolean;

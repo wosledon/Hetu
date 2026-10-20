@@ -6,24 +6,21 @@ using Hetu.Shared.Notes;
 namespace Hetu.Api.Services;
 
 /// <summary>
-/// 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识项）解析：把引用内容拼成一段上下文插到本轮用户消息之前。
+/// 输入框 @ 引用（笔记 / 标签 / 知识项）解析：把引用内容拼成一段上下文插到本轮用户消息之前。
 /// 对话会话与 Code 会话共用同一份规则。
 /// </summary>
 public class MentionContextBuilder
 {
     private readonly INoteService _noteService;
-    private readonly INotebookService _notebookService;
     private readonly ITagService _tagService;
     private readonly IUnitOfWork _unitOfWork;
 
     public MentionContextBuilder(
         INoteService noteService,
-        INotebookService notebookService,
         ITagService tagService,
         IUnitOfWork unitOfWork)
     {
         _noteService = noteService;
-        _notebookService = notebookService;
         _tagService = tagService;
         _unitOfWork = unitOfWork;
     }
@@ -51,23 +48,6 @@ public class MentionContextBuilder
                         sb.AppendLine($"【笔记】{note.Data.Title}");
                         sb.AppendLine(note.Data.Content);
                         resolved++;
-                    }
-                    break;
-                }
-                case "notebook":
-                {
-                    var notebook = await _notebookService.GetByIdAsync(id, ct);
-                    if (notebook is { Success: true, Data: not null })
-                    {
-                        var notes = await _noteService.GetListAsync(new GetNotesRequest { NotebookId = id, Page = 1, PageSize = 20 }, ct);
-                        sb.AppendLine();
-                        sb.AppendLine($"【笔记本】{notebook.Data.Name}");
-                        if (notes is { Success: true, Data: not null })
-                        {
-                            foreach (var n in notes.Data.Items)
-                                sb.AppendLine($"- {n.Title}");
-                            resolved++;
-                        }
                     }
                     break;
                 }

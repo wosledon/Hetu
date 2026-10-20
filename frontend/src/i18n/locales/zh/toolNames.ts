@@ -9,8 +9,6 @@ export default {
   move_note: '移动笔记',
   list_note_versions: '版本历史',
   restore_note_version: '恢复版本',
-  list_notebooks: '笔记本列表',
-  create_notebook: '创建笔记本',
   list_tags: '标签列表',
   set_note_tags: '设置标签',
   list_knowledge_items: '知识库列表',

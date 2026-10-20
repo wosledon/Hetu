@@ -22,7 +22,6 @@ public class SearchService : ISearchService
 
         var notes = await _unitOfWork.Notes.SearchAsync(
             request.Keyword.Trim(),
-            request.NotebookId,
             request.TagId,
             request.IncludeDeleted,
             cancellationToken);

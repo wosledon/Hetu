@@ -1579,7 +1579,7 @@ export default function WorkSessionArea({
                   if (item.key === 'command:compress') { setInput(''); void compactContext(); return }
                   if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
                   else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
-                  else if (/^(note|notebook|tag|knowledge):/.test(item.key)) applyMention(item)
+                  else if (/^(note|tag|knowledge):/.test(item.key)) applyMention(item)
                   else applySlashItem(item)
                 },
                 emptyHint: inputMenu.query.trim() ? t('session.noMatch') : t('session.typeToSearch'),

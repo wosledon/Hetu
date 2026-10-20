@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>笔记 · Hetu</title>
-<meta name="description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、笔记本与标签、历史版本、分享链接、回收站、导出与快捷键。">
+<meta name="description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、嵌套笔记与标签、历史版本、分享链接、回收站、导出与快捷键。">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/guide/notes.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/notes.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="笔记 · Hetu">
-<meta property="og:description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、笔记本与标签、历史版本、分享链接、回收站、导出与快捷键。">
+<meta property="og:description" content="笔记功能详解：所见即所得与源码视图、选区 AI 动作、笔记内动作、嵌套笔记与标签、历史版本、分享链接、回收站、导出与快捷键。">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/guide/notes.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -56,7 +56,7 @@
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
     <div class="docs-body">
       <h1>笔记</h1>
-      <p class="lede">入口是左侧导航「笔记」（路由 <code>/</code>）。三栏结构：笔记本树 / 笔记列表 / 编辑器。</p>
+      <p class="lede">入口是左侧导航「笔记」（路由 <code>/</code>）。三栏结构：嵌套笔记树 / 笔记列表 / 编辑器。</p>
 
       <h2>编辑器</h2>
       <div class="table-wrap"><table>
@@ -77,11 +77,12 @@
         <li><strong>笔记内动作</strong>：编辑器顶部按钮——生成知识库索引、提取知识图谱、生成标签、生成流程图（Mermaid 代码块），都会以后台任务形式执行并在完成后回填。</li>
       </ul>
 
-      <h2>笔记本与标签</h2>
+      <h2>嵌套笔记与标签</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>功能</th><th>操作</th></tr></thead>
         <tbody>
-          <tr><td>笔记本</td><td>无限层级；新建、重命名、删除、右键菜单；未归档笔记落在「未分类」</td></tr>
+          <tr><td>嵌套笔记</td><td>无限层级：任意笔记都可容纳子笔记——行尾加号或右键菜单新建子笔记，双击重命名，右键「移到根级」调回顶层；删除父笔记时整棵子树一起进回收站</td></tr>
+          <tr><td>笔记图标</td><td>所有笔记统一使用笔记图标，点击即可挑选 emoji（支持搜索），也可一键恢复默认图标</td></tr>
           <tr><td>标签</td><td>独立页面 <code>/tags</code> 管理：配色、重命名、合并；笔记页侧栏可按标签筛选</td></tr>
           <tr><td>置顶 / 收藏</td><td>列表置顶优先排序，其次是最近更新时间（排序在数据库完成，分页稳定）</td></tr>
           <tr><td>搜索</td><td>笔记列表顶部搜索框；按标题与内容匹配</td></tr>

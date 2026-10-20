@@ -133,8 +133,6 @@ export default {
     wikiDesc: '生成/续写 Wiki 文档；留空则依次回退「文档 Chunk 模型 → 默认对话模型」',
     graph: '知识图谱模型',
     graphDesc: '从笔记抽取实体与关系；留空则回退「默认对话模型」',
-    organize: '对话整理模型',
-    organizeDesc: '把对话整理成笔记；留空则回退「默认对话模型」',
     noteAi: '笔记 AI 模型',
     noteAiDesc: '笔记内的总结 / 翻译 / 续写等；留空则依次回退「文档 Chunk 模型 → 默认对话模型」',
     embedding: '默认 Embedding 模型',

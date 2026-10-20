@@ -2,7 +2,6 @@
 export default {
   general: '通用',
   notes: '笔记',
-  notebooks: '笔记本',
   tags: '标签',
   knowledge: '知识库',
   graph: '知识图谱',

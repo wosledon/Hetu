@@ -133,8 +133,6 @@ export default {
     wikiDesc: 'Generates and continues Wiki documents; falls back to the document chunk model, then the default chat model',
     graph: 'Knowledge graph model',
     graphDesc: 'Extracts entities and relations from notes; falls back to the default chat model',
-    organize: 'Conversation organize model',
-    organizeDesc: 'Turns a conversation into a note; falls back to the default chat model',
     noteAi: 'Note AI model',
     noteAiDesc: 'Summarize / translate / continue inside a note; falls back to the document chunk model, then the default chat model',
     embedding: 'Default embedding model',

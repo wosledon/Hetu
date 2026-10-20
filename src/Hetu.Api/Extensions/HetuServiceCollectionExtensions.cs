@@ -112,7 +112,6 @@ public static class HetuServiceCollectionExtensions
     /// <summary>注册业务服务：笔记、知识库、对话、工作流、代理、MCP 与工具执行。</summary>
     public static IServiceCollection AddHetuDomainServices(this IServiceCollection services)
     {
-        services.AddScoped<INotebookService, NotebookService>();
         services.AddScoped<INoteService, NoteService>();
         services.AddScoped<ITagService, TagService>();
         services.AddScoped<ISearchService, SearchService>();
@@ -176,7 +175,6 @@ public static class HetuServiceCollectionExtensions
         services.AddHostedService<TrashCleanupService>();
         services.AddHostedService<LanguageWarmupService>();
         services.AddHostedService<DreamMemoryService>();
-        services.AddHostedService<AutoOrganizeService>();
         services.AddHostedService<ScheduledTaskRunner>();
 
         services.AddSingleton<IWorkCodeIndexRefreshQueue, WorkCodeIndexRefreshQueue>();
@@ -197,7 +195,6 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IChatGroupService, ChatGroupService>();
         services.AddScoped<IChatTopicService, ChatTopicService>();
         services.AddScoped<IChatMessageService, ChatMessageService>();
-        services.AddScoped<IChatOrganizeService, ChatOrganizeService>();
         services.AddScoped<UsageService>();
         services.AddScoped<InboxService>();
         services.AddScoped<CompressionPipelineService>();

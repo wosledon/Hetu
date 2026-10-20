@@ -8,7 +8,6 @@ public class UnitOfWork : IUnitOfWork
 {
     private readonly HetuDbContext _context;
 
-    public INotebookRepository Notebooks { get; }
     public INoteRepository Notes { get; }
     public IKnowledgeItemRepository KnowledgeItems { get; }
     public ITagRepository Tags { get; }
@@ -55,7 +54,6 @@ public class UnitOfWork : IUnitOfWork
     public UnitOfWork(HetuDbContext context)
     {
         _context = context;
-        Notebooks = new NotebookRepository(context);
         Notes = new NoteRepository(context);
         KnowledgeItems = new KnowledgeItemRepository(context);
         Tags = new TagRepository(context);

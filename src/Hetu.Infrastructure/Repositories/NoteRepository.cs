@@ -23,11 +23,11 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ThenInclude(nt => nt.Tag)
             .FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Note>> GetListAsync(Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, bool filterNoNotebook = false, CancellationToken cancellationToken = default)
-        => (await GetPagedAsync(notebookId, tagId, includeDeleted, filterNoNotebook, 0, int.MaxValue, cancellationToken)).Items;
+    public async Task<IReadOnlyList<Note>> GetListAsync(Guid? parentId = null, bool filterRoot = false, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default)
+        => (await GetPagedAsync(parentId, filterRoot, tagId, includeDeleted, 0, int.MaxValue, cancellationToken)).Items;
 
     public async Task<(IReadOnlyList<Note> Items, int Total)> GetPagedAsync(
-        Guid? notebookId, Guid? tagId, bool includeDeleted, bool filterNoNotebook,
+        Guid? parentId, bool filterRoot, Guid? tagId, bool includeDeleted,
         int skip, int take, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();
@@ -35,10 +35,10 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
 
         query = query.Where(n => includeDeleted || !n.IsDeleted);
 
-        if (filterNoNotebook)
-            query = query.Where(n => n.NotebookId == null);
-        else if (notebookId.HasValue)
-            query = query.Where(n => n.NotebookId == notebookId.Value);
+        if (filterRoot)
+            query = query.Where(n => n.ParentId == null);
+        else if (parentId.HasValue)
+            query = query.Where(n => n.ParentId == parentId.Value);
 
         if (tagId.HasValue)
             query = query.Where(n => n.NoteTags.Any(nt => nt.TagId == tagId.Value));
@@ -92,14 +92,14 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
     private static List<Note> SortLocally(IEnumerable<Note> notes)
         => notes.OrderByDescending(n => n.IsPinned).ThenByDescending(n => n.UpdatedAt).ToList();
 
-    public async Task<IReadOnlyList<Note>> GetByNotebookAsync(Guid notebookId, bool includeDeleted = false, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Note>> GetChildrenAsync(Guid parentId, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();
         if (includeDeleted) query = query.IgnoreQueryFilters();
         var notes = await query
             .Include(n => n.NoteTags)
             .ThenInclude(nt => nt.Tag)
-            .Where(n => n.NotebookId == notebookId)
+            .Where(n => n.ParentId == parentId)
             .ToListAsync(cancellationToken);
 
         return notes
@@ -108,11 +108,52 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ToList();
     }
 
-    public async Task UnassignNotebookAsync(Guid notebookId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 取某笔记的全部后代：自引用 FK 无法在单条 SQL 里递归（SQLite/PostgreSQL 写法不同），
+    /// 逐层展开；层级很浅（笔记树通常 2-4 层），代价可忽略。
+    /// </summary>
+    public async Task<IReadOnlyList<Note>> GetDescendantsAsync(Guid id, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
-        await DbSet
-            .Where(n => n.NotebookId == notebookId)
-            .ExecuteUpdateAsync(s => s.SetProperty(n => n.NotebookId, (Guid?)null), cancellationToken);
+        var result = new List<Note>();
+        var frontier = new List<Guid> { id };
+        var visited = new HashSet<Guid> { id };
+
+        while (frontier.Count > 0)
+        {
+            var query = DbSet.AsNoTracking();
+            if (includeDeleted) query = query.IgnoreQueryFilters();
+            var level = await query
+                .Where(n => n.ParentId != null && frontier.Contains(n.ParentId.Value))
+                .ToListAsync(cancellationToken);
+            if (level.Count == 0) break;
+
+            var next = new List<Guid>();
+            foreach (var note in level)
+            {
+                if (!visited.Add(note.Id)) continue;
+                result.Add(note);
+                next.Add(note.Id);
+            }
+            frontier = next;
+        }
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<Note>> GetRootNotesAsync(bool includeDeleted = false, CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
+        var notes = await query
+            .Include(n => n.NoteTags)
+            .ThenInclude(nt => nt.Tag)
+            .Where(n => n.ParentId == null)
+            .ToListAsync(cancellationToken);
+
+        return notes
+            .OrderByDescending(n => n.IsPinned)
+            .ThenByDescending(n => n.UpdatedAt)
+            .ToList();
     }
 
     public async Task<IReadOnlyList<Note>> GetByTagAsync(Guid tagId, bool includeDeleted = false, CancellationToken cancellationToken = default)
@@ -131,16 +172,13 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             .ToList();
     }
 
-    public async Task<IReadOnlyList<Note>> SearchAsync(string keyword, Guid? notebookId = null, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Note>> SearchAsync(string keyword, Guid? tagId = null, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         var query = DbSet.AsNoTracking();
         if (includeDeleted) query = query.IgnoreQueryFilters();
 
         var lowerKeyword = keyword.ToLowerInvariant();
         query = query.Where(n => n.Title.ToLower().Contains(lowerKeyword) || n.Content.ToLower().Contains(lowerKeyword));
-
-        if (notebookId.HasValue)
-            query = query.Where(n => n.NotebookId == notebookId.Value);
 
         if (tagId.HasValue)
             query = query.Where(n => n.NoteTags.Any(nt => nt.TagId == tagId.Value));

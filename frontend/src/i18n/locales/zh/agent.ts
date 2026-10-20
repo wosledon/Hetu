@@ -136,7 +136,6 @@ export default {
   mention: {
     untitled: '（无标题）',
     note: '笔记',
-    notebook: '笔记本',
     tag: '标签',
     knowledgeBase: '知识库',
     tagDetail: '标签 · {{n}} 篇笔记',

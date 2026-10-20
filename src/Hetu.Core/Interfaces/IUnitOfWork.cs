@@ -4,7 +4,6 @@ namespace Hetu.Core.Interfaces;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
-    INotebookRepository Notebooks { get; }
     INoteRepository Notes { get; }
     IKnowledgeItemRepository KnowledgeItems { get; }
     ITagRepository Tags { get; }

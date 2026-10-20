@@ -82,7 +82,7 @@ export interface IUsageLog {
   cachedTokens: number | null
   latencyMs: number | null
   contentPreview: string
-  /** chat / work / kanban / workflow / wiki / note-ai / organize / skill / graph / search / scheduled / proxy */
+  /** chat / work / kanban / workflow / wiki / note-ai / skill / graph / search / scheduled / proxy */
   source: string
   sourceName: string
 }

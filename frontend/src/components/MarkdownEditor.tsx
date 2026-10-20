@@ -18,7 +18,7 @@ import {
   X,
   Calendar,
   Clock,
-  Folder,
+  FileText,
   Bot,
   PenLine,
   Send,
@@ -44,13 +44,13 @@ import {
   Workflow,
   Square,
 } from 'lucide-react'
-import { useNotebooks } from '../hooks/useNotebooks'
 import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
 import NoteToc from './NoteToc'
 import { parseNoteHeadings } from '../utils/noteToc'
 import { MilkdownEditor, type MilkdownEditorHandle, type SelectionInfo } from './MilkdownEditor'
+import EmojiPicker from './EmojiPicker'
 import { noteService } from '../services/noteService'
 import { noteVersionService } from '../services/noteVersionService'
 import { noteAiService } from '../services/noteAiService'
@@ -59,7 +59,7 @@ import { knowledgeBaseService } from '../services/knowledgeBaseService'
 import { graphService } from '../services/graphService'
 import { taskService } from '../services/taskService'
 import { aiModelService } from '../services/aiProviderService'
-import type { INote, INoteVersion, IShareLink, INotebook } from '../types'
+import type { INote, INoteVersion, IShareLink } from '../types'
 import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea } from './ui'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
@@ -225,8 +225,19 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
       noteService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['note', note?.id] })
+      queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
       queryClient.invalidateQueries({ queryKey: ['noteVersions', note?.id] })
       setIsDirty(false)
+    },
+  })
+
+  const setNoteIcon = useMutation({
+    mutationFn: ({ id, icon }: { id: string; icon: string }) => noteService.update(id, { icon }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['note', note?.id] })
+      queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
     },
   })
 
@@ -250,8 +261,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     queryFn: () => (note ? noteVersionService.getVersions(note.id) : Promise.resolve([])),
     enabled: !!note && showVersions,
   })
-
-  const notebooks = useNotebooks(!!note)
 
   const { data: shareLinks = [], refetch: refetchShareLinks } = useQuery({
     queryKey: ['shareLinks', note?.id],
@@ -580,21 +589,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
     return () => observer.disconnect()
   }, [noteId])
 
-  const notebookPath = useMemo(() => {
-    if (!note?.notebookId || !notebooks.length) return t('note.uncategorized')
-    const findPath = (items: INotebook[], id: string, path: string[] = []): string | null => {
-      for (const item of items) {
-        if (item.id === id) return [...path, item.name].join(' / ')
-        if (item.children?.length) {
-          const found = findPath(item.children, id, [...path, item.name])
-          if (found) return found
-        }
-      }
-      return null
-    }
-    return findPath(notebooks, note.notebookId) || t('note.uncategorized')
-  }, [note?.notebookId, notebooks, t])
-
   const save = useCallback(() => {
     if (!note || !isDirty) return
     updateNote.mutate({
@@ -760,13 +754,24 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
       {/* 标题与元信息：与正文同一居中限宽，宽屏下不拉成一整行 */}
       <div className="border-b border-gray-100 bg-transparent px-8 pb-3 pt-4 dark:border-gray-800/50">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder={t('editor.titlePlaceholder')}
-          className="mx-auto block w-full max-w-3xl border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
-        />
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
+          {/* 笔记图标：emoji 或默认笔记图标，点击更换 */}
+          <EmojiPicker
+            value={note!.icon}
+            onChange={(icon) => setNoteIcon.mutate({ id: note!.id, icon })}
+          >
+            {note!.icon
+              ? <span className="text-[26px] leading-none">{note!.icon}</span>
+              : <FileText size={24} className="shrink-0 text-gray-300 dark:text-gray-600" />}
+          </EmojiPicker>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            placeholder={t('editor.titlePlaceholder')}
+            className="min-w-0 flex-1 border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
+          />
+        </div>
         <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Calendar size={11} />
@@ -775,10 +780,6 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
             <Clock size={11} />
             {t('note.updated', { time: formatDistanceToNow(new Date(note!.updatedAt), { addSuffix: true, locale: uiLocale() === 'en' ? enUS : zhCN }) })}
-          </span>
-          <span className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-white/[0.04]">
-            <Folder size={11} />
-            {notebookPath}
           </span>
           {isIndexing ? (
             <span className="flex items-center gap-1.5 rounded-md bg-teal-50 px-2 py-1 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">

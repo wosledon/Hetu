@@ -17,8 +17,10 @@ public interface INoteService
 
 public class GetNotesRequest : PagedRequest
 {
-    public Guid? NotebookId { get; set; }
+    /// <summary>父笔记 Id；为空且 FilterRoot 为 false 时返回全部笔记</summary>
+    public Guid? ParentId { get; set; }
+    /// <summary>只返回根级笔记（ParentId 为空）</summary>
+    public bool FilterRoot { get; set; }
     public Guid? TagId { get; set; }
     public bool IncludeDeleted { get; set; }
-    public bool FilterNoNotebook { get; set; }
 }

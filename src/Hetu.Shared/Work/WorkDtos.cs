@@ -228,7 +228,7 @@ public class SendWorkMessageRequest
     public string? PromptFile { get; set; }
     /// <summary>/skill 命令选择的技能名称（项目启用的技能或 .github 技能）</summary>
     public string? SkillName { get; set; }
-    /// <summary>输入框 @ 引用的内容（type: note | notebook | tag | knowledge）</summary>
+    /// <summary>输入框 @ 引用的内容（type: note | tag | knowledge）</summary>
     public List<ChatMentionRef>? Mentions { get; set; }
     /// <summary>会话级上下文上限（token）：按该预算裁剪历史，为空表示用模型支持的上限</summary>
     public int? ContextWindow { get; set; }

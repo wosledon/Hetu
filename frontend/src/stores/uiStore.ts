@@ -28,7 +28,10 @@ interface UIState {
   /** Code 页项目树的排序方式 */
   projectSortBy: ProjectSortBy;
   navStyle: NavStyle;
-  selectedNotebookId?: string;
+  /** 笔记页当前浏览的父级笔记；为空表示根级 */
+  selectedNoteParentId?: string;
+  /** 当前打开的笔记 Id（跨侧栏 / 列表 / 编辑器联动） */
+  selectedNoteId?: string;
   selectedTagId?: string;
   searchQuery: string;
   pinnedNavItems: string[];
@@ -45,7 +48,8 @@ interface UIState {
   setProjectGroupBy: (groupBy: ProjectGroupBy) => void;
   setProjectSortBy: (sortBy: ProjectSortBy) => void;
   setNavStyle: (style: NavStyle) => void;
-  setSelectedNotebookId: (id?: string) => void;
+  setSelectedNoteParentId: (id?: string) => void;
+  setSelectedNoteId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
   setSearchQuery: (query: string) => void;
   setPinnedNavItems: (items: string[]) => void;
@@ -67,7 +71,8 @@ export const useUIStore = create<UIState>()(
       projectGroupBy: 'category',
       projectSortBy: 'manual',
       navStyle: 'top',
-      selectedNotebookId: undefined,
+      selectedNoteParentId: undefined,
+      selectedNoteId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
       pinnedNavItems: [],
@@ -84,8 +89,9 @@ export const useUIStore = create<UIState>()(
       setProjectGroupBy: (groupBy) => set({ projectGroupBy: groupBy }),
       setProjectSortBy: (sortBy) => set({ projectSortBy: sortBy }),
       setNavStyle: (style) => set({ navStyle: style }),
-      setSelectedNotebookId: (id) => set({ selectedNotebookId: id, selectedTagId: undefined }),
-      setSelectedTagId: (id) => set({ selectedTagId: id, selectedNotebookId: undefined }),
+      setSelectedNoteParentId: (id) => set({ selectedNoteParentId: id, selectedTagId: undefined }),
+      setSelectedNoteId: (id) => set({ selectedNoteId: id }),
+      setSelectedTagId: (id) => set({ selectedTagId: id, selectedNoteParentId: undefined }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setPinnedNavItems: (items) => set({ pinnedNavItems: items }),
       setLastMoreItem: (path) => set({ lastMoreItem: path }),

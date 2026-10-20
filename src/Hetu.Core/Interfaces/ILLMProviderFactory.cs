@@ -7,7 +7,7 @@ public interface ILLMProviderFactory
     Task<ILLMProvider?> CreateProviderAsync(Guid modelId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 按场景取默认模型：读应用设置 <c>Default{scenario}ModelId</c>（场景名如 Wiki / Graph / Organize / NoteAi）。
+    /// 按场景取默认模型：读应用设置 <c>Default{scenario}ModelId</c>（场景名如 Wiki / Graph / NoteAi）。
     /// 未配置或模型不可用时返回 null，由调用方按自己的回退链兜底。
     /// </summary>
     Task<ILLMProvider?> CreateScenarioProviderAsync(string scenario, CancellationToken cancellationToken = default);

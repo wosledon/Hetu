@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Infrastructure.Data;
 using Hetu.Shared.Common;
@@ -24,18 +25,18 @@ public class ExportService : IExportService
     public async Task<byte[]> ExportNotesAsZipAsync(CancellationToken cancellationToken = default)
     {
         var notes = await _unitOfWork.Notes.GetAllAsync(cancellationToken);
-        var notebooks = await _unitOfWork.Notebooks.GetAllAsync(cancellationToken);
-        var notebookNames = notebooks.ToDictionary(n => n.Id, n => SafeFileName(n.Name));
+        var noteById = notes.ToDictionary(n => n.Id);
 
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true, Encoding.UTF8))
         {
             foreach (var note in notes.Where(n => !n.IsDeleted))
             {
-                var folder = note.NotebookId.HasValue && notebookNames.TryGetValue(note.NotebookId.Value, out var nbName)
-                    ? nbName
-                    : _localizer.T("export.uncategorized");
-                var fileName = $"{folder}/{SafeFileName(note.Title)}.md";
+                // 嵌套笔记按父链还原目录结构（父 > 子），无父级放在根目录
+                var folder = BuildFolderPath(note, noteById);
+                var fileName = string.IsNullOrEmpty(folder)
+                    ? $"{SafeFileName(note.Title)}.md"
+                    : $"{folder}/{SafeFileName(note.Title)}.md";
 
                 var entry = zip.CreateEntry(fileName, CompressionLevel.Optimal);
                 await using var entryStream = entry.Open();
@@ -45,6 +46,22 @@ public class ExportService : IExportService
         }
 
         return ms.ToArray();
+    }
+
+    /// <summary>沿父笔记链拼出目录路径（父 > 子）；visited 防成环数据死循环，链上缺失的祖先到此为止</summary>
+    private static string BuildFolderPath(Note note, Dictionary<Guid, Note> noteById)
+    {
+        var segments = new List<string>();
+        var cursor = note;
+        var visited = new HashSet<Guid> { note.Id };
+        while (cursor.ParentId.HasValue && visited.Add(cursor.ParentId.Value))
+        {
+            if (!noteById.TryGetValue(cursor.ParentId.Value, out var parent))
+                break;
+            segments.Insert(0, SafeFileName(parent.Title));
+            cursor = parent;
+        }
+        return string.Join("/", segments);
     }
 
     public async Task<byte[]> BackupDatabaseAsync(CancellationToken cancellationToken = default)

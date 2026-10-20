@@ -8,7 +8,7 @@ public static class ToolGroupMap
     /// <summary>分组展示顺序（提示词索引与工具页一致，便于模型按组查找）</summary>
     public static readonly string[] Order =
     [
-        "通用", "笔记", "笔记本", "标签", "知识库", "知识图谱", "记忆", "联网",
+        "通用", "笔记", "标签", "知识库", "知识图谱", "记忆", "联网",
         "项目", "任务看板", "工作流", "智能体", "技能", "定时任务", "收件箱", "用量",
         "Wiki", "工作区与命令", "其他",
     ];
@@ -17,7 +17,6 @@ public static class ToolGroupMap
     public static string Resolve(string name)
     {
         if (name.StartsWith("work_", StringComparison.OrdinalIgnoreCase)) return "工作区与命令";
-        if (name.Contains("notebook", StringComparison.OrdinalIgnoreCase)) return "笔记本";
         if (name.Contains("note", StringComparison.OrdinalIgnoreCase)) return "笔记";
         if (name.Contains("tag", StringComparison.OrdinalIgnoreCase)) return "标签";
         if (name.Contains("memor", StringComparison.OrdinalIgnoreCase)) return "记忆";

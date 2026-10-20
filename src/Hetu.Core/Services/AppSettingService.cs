@@ -38,7 +38,6 @@ public class AppSettingService : IAppSettingService
             DefaultEmbeddingModelId = await GetNullableValueAsync("DefaultEmbeddingModelId", cancellationToken),
             DefaultWikiModelId = await GetNullableValueAsync("DefaultWikiModelId", cancellationToken),
             DefaultGraphModelId = await GetNullableValueAsync("DefaultGraphModelId", cancellationToken),
-            DefaultOrganizeModelId = await GetNullableValueAsync("DefaultOrganizeModelId", cancellationToken),
             DefaultNoteAiModelId = await GetNullableValueAsync("DefaultNoteAiModelId", cancellationToken),
             ContextWindowSize = await GetNullableIntValueAsync("ContextWindowSize", cancellationToken),
             PinnedNavItems = await GetValueAsync("PinnedNavItems", "[]", cancellationToken),

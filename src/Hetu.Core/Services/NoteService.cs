@@ -31,10 +31,10 @@ public class NoteService : INoteService
 
         // 分页下推到数据库（SQL COUNT + OFFSET/FETCH）：数据量大时不再把全部笔记读进内存
         var (notes, total) = await _unitOfWork.Notes.GetPagedAsync(
-            request.NotebookId,
+            request.ParentId,
+            request.FilterRoot,
             request.TagId,
             request.IncludeDeleted,
-            request.FilterNoNotebook,
             skip: (page - 1) * pageSize,
             take: pageSize,
             cancellationToken);
@@ -57,12 +57,16 @@ public class NoteService : INoteService
 
     public async Task<ApiResponse<NoteDto>> CreateAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.ParentId.HasValue && !await ParentExistsAsync(request.ParentId.Value, cancellationToken))
+            return ApiResponse<NoteDto>.Fail(_localizer.T("note.parentNotFound"));
+
         var note = new Note
         {
             Id = Guid.NewGuid(),
             Title = string.IsNullOrWhiteSpace(request.Title) ? _localizer.T("note.untitled") : request.Title.Trim(),
             Content = request.Content ?? string.Empty,
-            NotebookId = request.NotebookId,
+            ParentId = request.ParentId,
+            Icon = NormalizeIcon(request.Icon),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -96,8 +100,14 @@ public class NoteService : INoteService
             note.Title = string.IsNullOrWhiteSpace(request.Title) ? note.Title : request.Title.Trim();
         if (request.Content != null)
             note.Content = request.Content;
-        if (request.NotebookId.HasValue)
-            note.NotebookId = request.NotebookId;
+        if (request.ParentId.HasValue)
+        {
+            var move = await TryMoveAsync(note, request.ParentId, cancellationToken);
+            if (!move.Success) return ApiResponse<NoteDto>.Fail(move.Error!);
+        }
+        // 图标显式传值才改：传空串表示清除图标
+        if (request.Icon != null)
+            note.Icon = NormalizeIcon(request.Icon);
         if (request.IsFavorite.HasValue)
             note.IsFavorite = request.IsFavorite.Value;
         if (request.IsPinned.HasValue)
@@ -148,6 +158,16 @@ public class NoteService : INoteService
         await _unitOfWork.Notes.DeleteEmbeddingAsync(id, cancellationToken);
 
         await _unitOfWork.Notes.SoftDeleteAsync(note, cancellationToken);
+
+        // 级联软删除子树：父笔记删除后子笔记不应留在树里成为孤儿
+        var descendants = await _unitOfWork.Notes.GetDescendantsAsync(id, includeDeleted: true, cancellationToken);
+        foreach (var child in descendants.Where(d => !d.IsDeleted))
+        {
+            await _graphService.CleanUpByNoteIdAsync(child.Id, cancellationToken);
+            await _unitOfWork.Notes.DeleteEmbeddingAsync(child.Id, cancellationToken);
+            await _unitOfWork.Notes.SoftDeleteAsync(child, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
     }
@@ -173,6 +193,14 @@ public class NoteService : INoteService
         }
 
         await _unitOfWork.Notes.RestoreAsync(note, cancellationToken);
+
+        // 级联恢复子树：删除时整棵子树一起进了回收站，恢复也一起回来
+        var descendants = await _unitOfWork.Notes.GetDescendantsAsync(id, includeDeleted: true, cancellationToken);
+        foreach (var child in descendants.Where(d => d.IsDeleted))
+        {
+            await _unitOfWork.Notes.RestoreAsync(child, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 恢复后重建 Embedding
@@ -210,6 +238,19 @@ public class NoteService : INoteService
 
         // NoteEmbedding 由 FK 级联删除，无需手动处理
 
+        // 级联物理删除子树：先删子孙再删自身（FK Restrict，顺序不能反）
+        var descendants = await _unitOfWork.Notes.GetDescendantsAsync(id, includeDeleted: true, cancellationToken);
+        foreach (var child in descendants)
+        {
+            var childKnowledgeItem = await _unitOfWork.KnowledgeItems.GetByNoteIdAsync(child.Id, cancellationToken);
+            if (childKnowledgeItem != null)
+            {
+                await _unitOfWork.KnowledgeItems.DeleteChunksAsync(childKnowledgeItem.Id, cancellationToken);
+                await _unitOfWork.KnowledgeItems.DeleteAsync(childKnowledgeItem, cancellationToken);
+            }
+            await _unitOfWork.Notes.HardDeleteAsync(child, cancellationToken);
+        }
+
         await _unitOfWork.Notes.HardDeleteAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
@@ -220,12 +261,53 @@ public class NoteService : INoteService
         var note = await _unitOfWork.Notes.GetByIdAsync(id, cancellationToken);
         if (note == null) return ApiResponse.Fail(_localizer.T("note.notFound"));
 
-        note.NotebookId = request.NotebookId;
-        note.UpdatedAt = DateTimeOffset.UtcNow;
+        var move = await TryMoveAsync(note, request.ParentId, cancellationToken);
+        if (!move.Success) return ApiResponse.Fail(move.Error!);
 
+        note.UpdatedAt = DateTimeOffset.UtcNow;
         await _unitOfWork.Notes.UpdateAsync(note, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse.Ok();
+    }
+
+    /// <summary>校验并设置父笔记：目标须存在，且不能把笔记移进自己的子树（成环）</summary>
+    private async Task<ApiResponse> TryMoveAsync(Note note, Guid? parentId, CancellationToken cancellationToken)
+    {
+        if (parentId == note.Id) return ApiResponse.Fail(_localizer.T("note.cannotMoveIntoSelf"));
+
+        if (parentId.HasValue)
+        {
+            var parent = await _unitOfWork.Notes.GetByIdAsync(parentId.Value, cancellationToken);
+            if (parent == null || parent.IsDeleted)
+                return ApiResponse.Fail(_localizer.T("note.parentNotFound"));
+
+            // 目标父笔记若在当前子树内则成环：沿父链上溯判断
+            var cursor = parent;
+            while (cursor.ParentId.HasValue)
+            {
+                if (cursor.ParentId.Value == note.Id)
+                    return ApiResponse.Fail(_localizer.T("note.cannotMoveIntoSelf"));
+                cursor = await _unitOfWork.Notes.GetByIdAsync(cursor.ParentId.Value, cancellationToken);
+                if (cursor == null) break;
+            }
+        }
+
+        note.ParentId = parentId;
+        return ApiResponse.Ok();
+    }
+
+    private async Task<bool> ParentExistsAsync(Guid parentId, CancellationToken cancellationToken)
+    {
+        var parent = await _unitOfWork.Notes.GetByIdAsync(parentId, cancellationToken);
+        return parent != null && !parent.IsDeleted;
+    }
+
+    /// <summary>图标只接受短文本（emoji 通常 1-4 个字符），空白视为清除</summary>
+    private static string? NormalizeIcon(string? icon)
+    {
+        if (string.IsNullOrWhiteSpace(icon)) return null;
+        var trimmed = icon.Trim();
+        return trimmed.Length <= 8 ? trimmed : trimmed[..8];
     }
 
     private async Task SaveVersionAsync(Note note, CancellationToken cancellationToken)
@@ -251,9 +333,10 @@ public class NoteService : INoteService
     private static NoteDto Map(Note note) => new()
     {
         Id = note.Id,
-        NotebookId = note.NotebookId,
+        ParentId = note.ParentId,
         Title = note.Title,
         Content = note.Content,
+        Icon = note.Icon,
         IsDeleted = note.IsDeleted,
         IsFavorite = note.IsFavorite,
         IsPinned = note.IsPinned,

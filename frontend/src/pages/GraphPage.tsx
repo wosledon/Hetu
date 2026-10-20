@@ -19,6 +19,7 @@ import {
   Loader2,
   Check,
   FolderOpen,
+  FileText,
   BookText,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
@@ -27,7 +28,6 @@ import AppLayout from '../components/AppLayout'
 const ThemedMarkdown = lazy(() => import('../components/ThemedMarkdown'))
 import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
-import { notebookService } from '../services/notebookService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
 import { Button, Card, IconButton, Modal, PageContainer, SearchInput, TreeRow } from '../components/ui'
@@ -899,7 +899,7 @@ export default function GraphPage() {
   const [showExtractDialog, setShowExtractDialog] = useState(false)
   const [extractSearch, setExtractSearch] = useState('')
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
-  const [expandedNotebooks, setExpandedNotebooks] = useState<Set<string>>(new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [extractResults, setExtractResults] = useState<Map<string, IExtractGraphResult | { error: string }>>(new Map())
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractQueued, setExtractQueued] = useState<string | null>(null)
@@ -966,36 +966,31 @@ export default function GraphPage() {
     enabled: showExtractDialog,
   })
 
-  const { data: notebooks } = useQuery({
-    queryKey: ['graph-extract-notebooks'],
-    queryFn: () => notebookService.getTree(),
-    enabled: showExtractDialog,
-  })
-
   const notes = useMemo(() => notesData?.items ?? [], [notesData])
 
-  const notebookNameMap = useMemo(() => {
+  // 按父级笔记分组：父笔记标题来自笔记列表自身，无需额外查询
+  const noteTitleMap = useMemo(() => {
     const map = new Map<string, string>()
-    const walk = (nbs: typeof notebooks) => { if (!nbs) return; for (const nb of nbs) { map.set(nb.id, nb.name); walk(nb.children) } }
-    walk(notebooks); return map
-  }, [notebooks])
+    for (const n of notes) map.set(n.id, n.title)
+    return map
+  }, [notes])
 
   const groupedNotes = useMemo(() => {
     const kw = extractSearch.trim().toLowerCase()
     const filtered = notes.filter(n => !n.isDeleted && (!kw || n.title.toLowerCase().includes(kw) || n.content.toLowerCase().includes(kw)))
     const groups = new Map<string, INote[]>()
-    for (const note of filtered) { const key = note.notebookId || '__none__'; if (!groups.has(key)) groups.set(key, []); groups.get(key)!.push(note) }
+    for (const note of filtered) { const key = note.parentId || '__none__'; if (!groups.has(key)) groups.set(key, []); groups.get(key)!.push(note) }
     return [...groups.entries()].sort(([a], [b]) => {
       if (a === '__none__') return 1; if (b === '__none__') return -1
-      return (notebookNameMap.get(a) || '').localeCompare(notebookNameMap.get(b) || '')
+      return (noteTitleMap.get(a) || '').localeCompare(noteTitleMap.get(b) || '')
     })
-  }, [notes, extractSearch, notebookNameMap])
+  }, [notes, extractSearch, noteTitleMap])
 
   const toggleNoteSelection = (noteId: string) => {
     setSelectedNoteIds(prev => { const next = new Set(prev); if (next.has(noteId)) next.delete(noteId); else next.add(noteId); return next })
   }
 
-  const toggleNotebookSelection = (noteIds: string[]) => {
+  const toggleGroupSelection = (noteIds: string[]) => {
     setSelectedNoteIds(prev => {
       const next = new Set(prev)
       if (noteIds.every(id => next.has(id))) noteIds.forEach(id => next.delete(id))
@@ -1168,28 +1163,28 @@ export default function GraphPage() {
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {groupedNotes.length === 0 ? (<div className="px-4 py-8 text-center text-sm text-gray-500">{extractSearch ? t('graph.noMatchingNotes') : t('graph.noNotes')}</div>) : (
-                groupedNotes.map(([notebookId, notebookNotes]) => {
-                  const isExpanded = expandedNotebooks.has(notebookId)
-                  const notebookName = notebookId === '__none__' ? t('graph.ungrouped') : (notebookNameMap.get(notebookId) || t('graph.unknownNotebook'))
-                  const allSelected = notebookNotes.every(n => selectedNoteIds.has(n.id))
-                  const someSelected = notebookNotes.some(n => selectedNoteIds.has(n.id))
+                groupedNotes.map(([groupId, groupNotes]) => {
+                  const isExpanded = expandedGroups.has(groupId)
+                  const groupName = groupId === '__none__' ? t('graph.ungrouped') : (noteTitleMap.get(groupId) || t('graph.untitledNote'))
+                  const allSelected = groupNotes.every(n => selectedNoteIds.has(n.id))
+                  const someSelected = groupNotes.some(n => selectedNoteIds.has(n.id))
                   return (
-                    <div key={notebookId} className="mb-1">
+                    <div key={groupId} className="mb-1">
                       <TreeRow
                         expandable
                         expanded={isExpanded}
-                        onToggle={() => { setExpandedNotebooks(prev => { const next = new Set(prev); if (next.has(notebookId)) next.delete(notebookId); else next.add(notebookId); return next }) }}
+                        onToggle={() => { setExpandedGroups(prev => { const next = new Set(prev); if (next.has(groupId)) next.delete(groupId); else next.add(groupId); return next }) }}
                         tone="emerald"
-                        icon={<FolderOpen size={14} className="shrink-0 text-emerald-500" />}
-                        label={notebookName}
+                        icon={<FileText size={14} className="shrink-0 text-emerald-500" />}
+                        label={groupName}
                         labelClassName="text-xs font-medium text-gray-600 dark:text-gray-300"
-                        onClick={() => { setExpandedNotebooks(prev => { const next = new Set(prev); if (next.has(notebookId)) next.delete(notebookId); else next.add(notebookId); return next }) }}
-                        badge={<span className="text-[10px] text-gray-400">{notebookNotes.length}</span>}
+                        onClick={() => { setExpandedGroups(prev => { const next = new Set(prev); if (next.has(groupId)) next.delete(groupId); else next.add(groupId); return next }) }}
+                        badge={<span className="text-[10px] text-gray-400">{groupNotes.length}</span>}
                         actions={(
-                          <div onClick={(e) => { e.stopPropagation(); toggleNotebookSelection(notebookNotes.map(n => n.id)) }} className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${allSelected ? 'border-emerald-500 bg-emerald-500' : someSelected ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/30' : 'border-gray-300 dark:border-gray-600'}`}>{(allSelected || someSelected) && <Check size={10} className="text-white" />}</div>
+                          <div onClick={(e) => { e.stopPropagation(); toggleGroupSelection(groupNotes.map(n => n.id)) }} className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${allSelected ? 'border-emerald-500 bg-emerald-500' : someSelected ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/30' : 'border-gray-300 dark:border-gray-600'}`}>{(allSelected || someSelected) && <Check size={10} className="text-white" />}</div>
                         )}
                       />
-                      {isExpanded && (<div className="ml-5 space-y-0.5">{notebookNotes.map((note) => { const isSelected = selectedNoteIds.has(note.id); const result = extractResults.get(note.id); return (
+                      {isExpanded && (<div className="ml-5 space-y-0.5">{groupNotes.map((note) => { const isSelected = selectedNoteIds.has(note.id); const result = extractResults.get(note.id); return (
                         <div key={note.id} onClick={() => toggleNoteSelection(note.id)} className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>                          <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>{isSelected && <Check size={10} className="text-white" />}</div>
                           <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{note.title || t('graph.untitledNote')}</span>{result && 'newEntities' in result && <span className="flex items-center gap-1 text-[10px] text-emerald-600">{t('graph.resultDelta', { entities: result.newEntities, relations: result.newRelations })}</span>}{result && 'error' in result && <span className="text-[10px] text-red-500">{t('graph.failed')}</span>}</div><p className="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">{note.content?.slice(0, 80) || t('graph.noContent')}</p></div>
                         </div>) })}</div>)}
@@ -1199,7 +1194,7 @@ export default function GraphPage() {
             </div>
             <div className="shrink-0 border-t border-gray-100 px-5 py-4 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <Button variant="link" tone="gray" size="sm" className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleNotebookSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
+                <Button variant="link" tone="gray" size="sm" className="text-xs text-gray-500 transition-colors hover:text-gray-700 dark:hover:text-gray-300" onClick={() => { const allNoteIds = groupedNotes.flatMap(([, ns]) => ns.map(n => n.id)); toggleGroupSelection(allNoteIds) }}>{selectedNoteIds.size > 0 ? t('graph.deselectAll') : t('common:selectAll')}</Button>
                 <Button variant="primary" tone="emerald" className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleBatchExtract} disabled={selectedNoteIds.size === 0 || isExtracting}>
                   {isExtracting ? (<><Loader2 size={14} className="animate-spin" />{t('graph.extracting')}</>) : (<><Sparkles size={14} />{t('graph.extractSelected', { n: selectedNoteIds.size })}</>)}
                 </Button>

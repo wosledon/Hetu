@@ -2,7 +2,6 @@
 export default {
   general: 'General',
   notes: 'Notes',
-  notebooks: 'Notebooks',
   tags: 'Tags',
   knowledge: 'Knowledge base',
   graph: 'Knowledge graph',

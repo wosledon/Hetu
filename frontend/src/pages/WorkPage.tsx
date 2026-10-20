@@ -316,7 +316,6 @@ export default function WorkPage() {
       messageCount: 0,
       isPinned: false,
       noteSyncStatus: 'synced',
-      isAutoOrganizeEnabled: false,
       createdAt: now,
       updatedAt: now,
     } as IChatTopic)

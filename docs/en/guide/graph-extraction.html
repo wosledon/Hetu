@@ -108,7 +108,7 @@
           <tr><td><code>POST /api/graph/extract/batch</code></td><td>Synchronous batch with <code>{ noteIds: [] }</code>; fits small selections</td></tr>
           <tr><td><code>POST /api/graph/extract/batch-queue</code></td><td>Enqueues background jobs, after de-duplicating <code>NoteIds</code>; use this for large batches</td></tr>
           <tr><td>Background task type</td><td><code>GraphExtract</code>, dispatched by the background processor; status and failures appear on the background tasks page</td></tr>
-          <tr><td>Frontend entry</td><td>Knowledge graph page → "Extract from notes", with note search, notebook grouping and select-all</td></tr>
+          <tr><td>Frontend entry</td><td>Knowledge graph page → "Extract from notes", with note search, parent-note grouping and select-all</td></tr>
         </tbody>
       </table></div>
       <div class="note">Enqueue dedupe works on two levels: <code>(Type, EntityId)</code> pairs are deduped inside a batch, and targets that already have a queued or running job are skipped. Clicking extract repeatedly therefore does not pile up duplicate jobs.</div>

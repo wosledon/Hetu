@@ -61,9 +61,6 @@ public class ChatTopicService : IChatTopicService
         topic.CustomSystemPrompt = request.CustomSystemPrompt;
         if (!string.IsNullOrEmpty(request.NoteSyncStatus) && Enum.TryParse<NoteSyncStatus>(request.NoteSyncStatus, true, out var status))
             topic.NoteSyncStatus = status;
-        if (request.IsAutoOrganizeEnabled.HasValue)
-            topic.IsAutoOrganizeEnabled = request.IsAutoOrganizeEnabled.Value;
-        topic.AutoOrganizeNotebookId = request.AutoOrganizeNotebookId;
         topic.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _unitOfWork.ChatTopics.UpdateAsync(topic, cancellationToken);
@@ -120,8 +117,6 @@ public class ChatTopicService : IChatTopicService
         ModelId = topic.ModelId,
         CustomSystemPrompt = topic.CustomSystemPrompt,
         NoteSyncStatus = topic.NoteSyncStatus.ToString().ToLower(),
-        IsAutoOrganizeEnabled = topic.IsAutoOrganizeEnabled,
-        AutoOrganizeNotebookId = topic.AutoOrganizeNotebookId,
         IsMain = topic.IsMain,
         CreatedAt = topic.CreatedAt,
         UpdatedAt = topic.UpdatedAt

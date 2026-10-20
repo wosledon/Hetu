@@ -108,7 +108,7 @@
           <tr><td><code>POST /api/graph/extract/batch</code></td><td>同步批量，请求体 <code>{ noteIds: [] }</code>，适合小批量</td></tr>
           <tr><td><code>POST /api/graph/extract/batch-queue</code></td><td>入后台队列，服务端对 <code>NoteIds</code> 去重后逐个入队；大批量走这条</td></tr>
           <tr><td>后台任务类型</td><td><code>GraphExtract</code>，由后台任务处理器分发到抽取服务，可在「后台任务」页看状态与失败原因</td></tr>
-          <tr><td>前端入口</td><td>知识图谱页「从笔记抽取」，弹窗支持按笔记搜索与按笔记本分组、全选 / 取消全选</td></tr>
+          <tr><td>前端入口</td><td>知识图谱页「从笔记抽取」，弹窗支持按笔记搜索与按父级笔记分组、全选 / 取消全选</td></tr>
         </tbody>
       </table></div>
       <div class="note">入队去重是双重的：同一批次内按 <code>(Type, EntityId)</code> 去重，数据库中已存在「排队中 / 运行中」的同目标任务也会跳过。所以反复点「抽取」不会堆出一队重复任务。</div>

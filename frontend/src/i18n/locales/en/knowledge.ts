@@ -133,7 +133,6 @@ export default {
     noMatchingNotes: 'No matching notes',
     noNotes: 'No notes yet',
     ungrouped: 'Ungrouped',
-    unknownNotebook: 'Unknown notebook',
     untitledNote: 'Untitled note',
     noContent: 'No content',
     resultDelta: '+{{entities}} entities +{{relations}} relations',

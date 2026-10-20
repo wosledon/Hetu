@@ -8,7 +8,6 @@ public class HetuDbContext : DbContext
 {
     public HetuDbContext(DbContextOptions<HetuDbContext> options) : base(options) { }
 
-    public DbSet<Notebook> Notebooks => Set<Notebook>();
     public DbSet<Note> Notes => Set<Note>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<NoteTag> NoteTags => Set<NoteTag>();
@@ -60,27 +59,18 @@ public class HetuDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Notebook>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.HasOne(e => e.Parent)
-                .WithMany(e => e.Children)
-                .HasForeignKey(e => e.ParentId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex(e => e.ParentId);
-        });
-
         modelBuilder.Entity<Note>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Content).HasDefaultValue(string.Empty);
-            entity.HasOne(e => e.Notebook)
-                .WithMany(e => e.Notes)
-                .HasForeignKey(e => e.NotebookId)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity.HasIndex(e => e.NotebookId);
+            entity.Property(e => e.Icon).HasMaxLength(16);
+            // 嵌套笔记：父笔记删除时子笔记一并软删除（业务层级联），FK 用 Restrict 防止误物理删除
+            entity.HasOne(e => e.Parent)
+                .WithMany(e => e.Children)
+                .HasForeignKey(e => e.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.ParentId);
             entity.HasIndex(e => e.IsDeleted);
             entity.HasIndex(e => e.UpdatedAt);
             entity.HasQueryFilter(e => !e.IsDeleted);

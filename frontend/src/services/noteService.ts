@@ -2,30 +2,37 @@ import { get, post, put, del } from './api';
 import type { INote, IPagedResult } from '../types';
 
 export interface CreateNoteRequest {
-  notebookId?: string;
+  /** 父笔记 Id；为空表示根级笔记 */
+  parentId?: string;
   title: string;
   content: string;
+  /** 笔记图标（emoji） */
+  icon?: string;
 }
 
 export interface UpdateNoteRequest {
   title?: string;
   content?: string;
-  notebookId?: string;
+  parentId?: string;
+  icon?: string;
   isFavorite?: boolean;
   isPinned?: boolean;
 }
 
 export interface GetNotesRequest {
-  notebookId?: string;
+  /** 父笔记 Id；为空且 filterRoot 为 false 时返回全部笔记 */
+  parentId?: string;
+  /** 只返回根级笔记 */
+  filterRoot?: boolean;
   tagId?: string;
   includeDeleted?: boolean;
-  filterNoNotebook?: boolean;
   page?: number;
   pageSize?: number;
 }
 
 export interface MoveNoteRequest {
-  notebookId?: string;
+  /** 目标父笔记 Id；为空表示移到根级 */
+  parentId?: string;
 }
 
 export const noteService = {

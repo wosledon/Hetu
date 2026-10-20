@@ -92,7 +92,7 @@ pwsh ./scripts/start.ps1     # Windows
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="笔记页：笔记本树、笔记列表与编辑器" width="420"><br><sub><b>笔记</b> — 笔记本、标签与 AI 动作</sub></td>
+    <td width="33%"><img src="docs/screenshots/01-notes.png" alt="笔记页：嵌套笔记树、笔记列表与编辑器" width="420"><br><sub><b>笔记</b> — 嵌套笔记、标签与 AI 动作</sub></td>
     <td width="33%"><img src="docs/screenshots/04-graph.png" alt="知识图谱：实体与关系" width="420"><br><sub><b>知识图谱</b> — 实体与关系</sub></td>
     <td width="33%"><img src="docs/screenshots/07-wiki.png" alt="按项目生成的 Wiki 套件" width="420"><br><sub><b>Wiki</b> — 生成项目文档</sub></td>
   </tr>

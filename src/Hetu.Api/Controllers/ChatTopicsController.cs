@@ -1,7 +1,4 @@
-using System.Net.Http;
-using System.Text;
 using Hetu.Core.Interfaces;
-using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -13,14 +10,10 @@ namespace Hetu.Api.Controllers;
 public class ChatTopicsController : ControllerBase
 {
     private readonly IChatTopicService _chatTopicService;
-    private readonly IChatOrganizeService _chatOrganizeService;
-    private readonly ILocalizer _localizer;
 
-    public ChatTopicsController(IChatTopicService chatTopicService, IChatOrganizeService chatOrganizeService, ILocalizer localizer)
+    public ChatTopicsController(IChatTopicService chatTopicService)
     {
         _chatTopicService = chatTopicService;
-        _chatOrganizeService = chatOrganizeService;
-        _localizer = localizer;
     }
 
     [HttpGet("group/{groupId:guid}")]
@@ -50,28 +43,4 @@ public class ChatTopicsController : ControllerBase
     [HttpPost("{id:guid}/fork")]
     public Task<ApiResponse<ChatTopicDto>> Fork(Guid id, [FromQuery] Guid? branchMessageId = null, CancellationToken cancellationToken = default)
         => _chatTopicService.ForkAsync(id, branchMessageId, cancellationToken);
-
-    [HttpPost("{id:guid}/organize")]
-    public async Task Organize(Guid id, [FromBody] OrganizeTopicRequest request, CancellationToken cancellationToken)
-    {
-        Response.StartSseStream();
-
-        async Task WriteEventAsync(string data)
-        {
-            await Response.WriteAsync($"data: {data}\n\n", cancellationToken);
-            await Response.Body.FlushAsync(cancellationToken);
-        }
-
-        try
-        {
-            await foreach (var delta in _chatOrganizeService.OrganizeTopicAsync(id, request, cancellationToken))
-            {
-                await WriteEventAsync(delta);
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            await WriteEventAsync($"[ERROR] {_localizer.T("chat.modelCallFailed", ex.Message)}");
-        }
-    }
 }
