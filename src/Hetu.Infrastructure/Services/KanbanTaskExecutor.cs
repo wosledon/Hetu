@@ -24,8 +24,8 @@ public interface IKanbanTaskExecutor
     /// <summary>入队一次执行（触发来源：进入待办 / 用户评论 / 手动重跑）</summary>
     Task<bool> TriggerAsync(Guid taskId, string trigger, CancellationToken cancellationToken = default);
 
-    /// <summary>执行任务（由后台任务处理器调用）</summary>
-    Task<bool> ExecuteAsync(Guid taskId, CancellationToken cancellationToken = default);
+    /// <summary>执行任务（由后台任务处理器调用；trigger 为入队时记录的触发来源：Todo / Comment / Manual）</summary>
+    Task<bool> ExecuteAsync(Guid taskId, string? trigger, CancellationToken cancellationToken = default);
 }
 
 public class KanbanTaskExecutor : IKanbanTaskExecutor
@@ -40,6 +40,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly InboxService _inbox;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly CompressionPipelineService _compression;
     private readonly ILogger<KanbanTaskExecutor> _logger;
     private readonly ILocalizer _localizer;
 
@@ -51,6 +52,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
         ILlmUsageRecorder usageRecorder,
+        CompressionPipelineService compression,
         ILogger<KanbanTaskExecutor> logger,
         ILocalizer localizer)
     {
@@ -61,6 +63,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         _runnerFactory = runnerFactory;
         _inbox = inbox;
         _usageRecorder = usageRecorder;
+        _compression = compression;
         _logger = logger;
         _localizer = localizer;
     }
@@ -82,7 +85,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private static bool HasAutomation(KanbanTask task)
         => task.AgentId != null || task.WorkflowId != null || !string.IsNullOrWhiteSpace(task.AgentPrompt);
 
-    public async Task<bool> ExecuteAsync(Guid taskId, CancellationToken cancellationToken = default)
+    public async Task<bool> ExecuteAsync(Guid taskId, string? trigger, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.KanbanTasks.GetByIdAsync(taskId, cancellationToken);
         if (task == null || task.IsDeleted) return false;
@@ -96,10 +99,12 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             return false;
         }
 
-        // 触发来源需在流转状态前记录：待办触发还是评论触发
-        var trigger = task.Status == KanbanTaskStatuses.Todo ? "Todo" : "Comment";
+        // 触发来源需在流转状态前记录：入队元数据（Todo/Comment/Manual）优先，直接调用时按状态推断
+        var runTrigger = !string.IsNullOrWhiteSpace(trigger)
+            ? trigger
+            : task.Status == KanbanTaskStatuses.Todo ? "Todo" : "Comment";
 
-        // 进入待办 → 先流转到进行中；评论触发时已由调用方置为进行中
+        // 进入待办 → 先流转到进行中并记录系统评论；评论触发时任务已由调用方置回待办，同样走这条抓取路径
         if (task.Status == KanbanTaskStatuses.Todo)
         {
             await MoveStatusAsync(task, KanbanTaskStatuses.InProgress, null, cancellationToken);
@@ -122,7 +127,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
             Id = Guid.NewGuid(),
             TaskId = taskId,
             Kind = kind,
-            Trigger = trigger,
+            Trigger = runTrigger,
             Status = "Running",
             StartedAt = DateTimeOffset.UtcNow,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -134,7 +139,12 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         await _unitOfWork.KanbanTasks.UpdateAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var brief = await BuildBriefAsync(task, agentName, workflowName, projectName, rootPath, runner?.IsRemote == true, cancellationToken);
+        var rawBrief = await BuildBriefAsync(task, agentName, workflowName, projectName, rootPath, runner?.IsRemote == true, cancellationToken);
+        // 看板任务与对话/编码会话收束在同一条压缩管道：简报（任务 + 沟通记录）先过管道再进执行器，
+        // 算法节点对任意长度生效，LLM 摘要按阈值触发；管道关闭时原样返回
+        var brief = await _compression.CompressAsync(rawBrief, cancellationToken);
+        if (brief.Length != rawBrief.Length)
+            _logger.LogInformation("[KanbanTask] 任务简报压缩：{Before} → {After} 字符", rawBrief.Length, brief.Length);
         run.Input = brief;
         await _unitOfWork.KanbanTaskRuns.UpdateAsync(run, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -229,6 +239,10 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                     LlmUsageSources.Kanban,
                     agentResult.Usage.TotalTokens > 0 ? agentResult.Usage : null,
                     refId: taskId,
+                    // 「输入 / 压缩后」与对话页同一口径：压缩管道处理前后的简报规模（字符数折算 token），
+                    // 无压缩时两值相同即压缩率 0%
+                    inputTokens: LlmTokenEstimator.EstimateChars(rawBrief.Length),
+                    compressedTokens: LlmTokenEstimator.EstimateChars(brief.Length),
                     contentPreview: output,
                     ct: cancellationToken);
             }

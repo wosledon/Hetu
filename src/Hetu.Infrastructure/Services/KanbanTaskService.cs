@@ -247,13 +247,14 @@ public class KanbanTaskService : IKanbanTaskService
         }, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 用户在审核中/已阻塞下提交评论：任务回到进行中，由智能体根据评论继续处理
+        // 用户在审核中/已阻塞下提交评论：任务回到待办，由执行器按「进入待办」重新抓取处理
+        // （智能体只从待办列抓取任务；项目 .github 智能体同样配置了自动处理，需一并覆盖）
         var needsRework = request.TriggerAutomation
-            && (task.AgentId != null || task.WorkflowId != null)
+            && (task.AgentId != null || task.WorkflowId != null || !string.IsNullOrWhiteSpace(task.AgentPrompt))
             && task.Status is KanbanTaskStatuses.InReview or KanbanTaskStatuses.Blocked;
         if (needsRework)
         {
-            task.Status = KanbanTaskStatuses.InProgress;
+            task.Status = KanbanTaskStatuses.Todo;
             task.BlockedReason = null;
             task.CompletedAt = null;
             task.UpdatedAt = DateTimeOffset.UtcNow;
