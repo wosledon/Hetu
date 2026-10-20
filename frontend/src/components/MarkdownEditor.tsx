@@ -555,6 +555,8 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   const noteId = note?.id
   const noteTitle = note?.title ?? ''
   const noteContent = note?.content ?? ''
+  // 未命名笔记（后端默认标题）在标题框里显示为占位符：直接输入即命名，无需先清空
+  const isUntitled = title === t('note.untitled')
 
   // Synchronously sync state when note changes (avoids useEffect timing issues)
   const prevNoteIdRef = useRef<string | undefined>(undefined)
@@ -766,9 +768,9 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           </EmojiPicker>
           <input
             type="text"
-            value={title}
+            value={isUntitled ? '' : title}
             onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder={t('editor.titlePlaceholder')}
+            placeholder={t('note.untitled')}
             className="min-w-0 flex-1 border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
           />
         </div>

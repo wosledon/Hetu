@@ -55,8 +55,6 @@ function NoteNode({
   const [expanded, setExpanded] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [draftTitle, setDraftTitle] = useState(note.title)
-  const [isAddingChild, setIsAddingChild] = useState(false)
-  const [childTitle, setChildTitle] = useState('')
 
   const { data: childrenData } = useQuery({
     queryKey: ['notes-tree', note.id],
@@ -95,14 +93,6 @@ function NoteNode({
     if (trimmed && trimmed !== note.title) rename.mutate({ id: note.id, title: trimmed })
     setIsRenaming(false)
     setDraftTitle(note.title)
-  }
-
-  const handleAddChild = () => {
-    const trimmed = childTitle.trim()
-    if (trimmed) createChild.mutate({ title: trimmed, content: '', parentId: note.id })
-    setIsAddingChild(false)
-    setChildTitle('')
-    setExpanded(true)
   }
 
   const active = selectedNoteId === note.id
@@ -156,7 +146,8 @@ function NoteNode({
           <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-500 dark:text-gray-600 dark:hover:bg-gray-700" label={t('tree.newChild')} onClick={(e) => {
               e.stopPropagation()
               setExpanded(true)
-              setIsAddingChild(true)
+              // 直接创建未命名子笔记（后端默认「未命名笔记」），在编辑器里改标题即自动命名
+              createChild.mutate({ title: '', content: '', parentId: note.id })
             }}
             title={t('tree.newChild')}>
             <Plus size={13} />
@@ -164,40 +155,8 @@ function NoteNode({
         }
       />
 
-      {isAddingChild && (
-        <div
-          className="flex items-center gap-1.5 py-1 pr-2"
-          style={{ paddingLeft: `${8 + (depth + 1) * 14 + 14}px` }}
-        >
-          <FileText size={13} className="shrink-0 text-blue-500" />
-          <input
-            autoFocus
-            value={childTitle}
-            onChange={(e) => setChildTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddChild()
-              if (e.key === 'Escape') { setIsAddingChild(false); setChildTitle('') }
-            }}
-            onBlur={handleAddChild}
-            placeholder={t('tree.childTitlePlaceholder')}
-            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[13px] outline-none dark:bg-gray-800"
-          />
-        </div>
-      )}
-
       {expanded && (
         <div>
-          {/* 新建子笔记放在展开内容第一行：与子笔记同级 */}
-          {!isAddingChild && (
-            <TreeRow
-              depth={depth + 1}
-              indentExtra
-              icon={<Plus size={13} className="shrink-0" />}
-              label={t('tree.newChild')}
-              labelClassName="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-300"
-              onClick={() => setIsAddingChild(true)}
-            />
-          )}
           {children.map((child) => (
             <NoteNode
               key={child.id}
@@ -209,7 +168,7 @@ function NoteNode({
               onOpenLeafMenu={onOpenLeafMenu}
             />
           ))}
-          {children.length === 0 && !isAddingChild && (
+          {children.length === 0 && (
             <div
               className="py-1 pr-2 text-[11px] text-gray-300 dark:text-gray-600"
               style={{ paddingLeft: `${8 + (depth + 1) * 14 + 14}px` }}

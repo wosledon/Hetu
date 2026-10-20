@@ -35,7 +35,6 @@ export default {
     searchPlaceholder: '搜索...',
     newNote: '新建笔记',
     newChild: '新建子笔记',
-    childTitlePlaceholder: '子笔记标题',
     noChildren: '暂无子笔记',
     empty: '暂无笔记，点击上方「新建笔记」开始',
     moveToRoot: '移到根级',
@@ -92,7 +91,6 @@ export default {
   },
   editor: {
     placeholder: '开始编写...',
-    titlePlaceholder: '笔记标题',
     toc: '目录',
     emptyHint: '选择或创建一个笔记开始编写',
     emptySubHint: '支持 Markdown 语法 · AI 辅助写作 · 历史版本',

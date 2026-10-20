@@ -35,7 +35,6 @@ export default {
     searchPlaceholder: 'Search...',
     newNote: 'New note',
     newChild: 'New sub-note',
-    childTitlePlaceholder: 'Sub-note title',
     noChildren: 'No child notes',
     empty: 'No notes yet — click "New note" above to start',
     moveToRoot: 'Move to root',
@@ -92,7 +91,6 @@ export default {
   },
   editor: {
     placeholder: 'Start writing...',
-    titlePlaceholder: 'Note title',
     toc: 'Contents',
     emptyHint: 'Select or create a note to start writing',
     emptySubHint: 'Markdown support · AI-assisted writing · Version history',
