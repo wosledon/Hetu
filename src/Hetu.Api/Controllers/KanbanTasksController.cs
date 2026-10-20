@@ -41,7 +41,7 @@ public class KanbanTasksController : ControllerBase
     public Task<ApiResponse<KanbanTaskDetailDto>> GetDetail(Guid id, CancellationToken cancellationToken)
         => _kanbanTaskService.GetDetailAsync(id, cancellationToken);
 
-    /// <summary>提交评论；审核中/已阻塞且配置了智能体/工作流时，任务回到进行中并重新处理</summary>
+    /// <summary>提交评论；审核中/已阻塞且配置了智能体/工作流时，任务回到待办并重新处理</summary>
     [HttpPost("{id:guid}/comments")]
     public Task<ApiResponse<KanbanTaskDetailDto>> AddComment(Guid id, [FromBody] CreateKanbanTaskCommentRequest request, CancellationToken cancellationToken)
         => _kanbanTaskService.AddCommentAsync(id, request, cancellationToken);

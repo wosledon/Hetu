@@ -262,7 +262,7 @@ public class BackgroundTaskProcessor : BackgroundService
 
             case BackgroundTaskType.KanbanTaskExecute:
                 var taskExecutor = sp.GetRequiredService<IKanbanTaskExecutor>();
-                await taskExecutor.ExecuteAsync(item.EntityId, ct);
+                await taskExecutor.ExecuteAsync(item.EntityId, item.Metadata, ct);
                 break;
 
             case BackgroundTaskType.WikiGenerate:
