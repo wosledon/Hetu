@@ -21,9 +21,7 @@ import FolderPickerDialog from '../components/FolderPickerDialog'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
-import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea } from '../components/ui'
-
-type TabKey = 'database' | 'local'
+import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -40,7 +38,6 @@ const defaultConfig = JSON.stringify({ promptTemplate: '请处理以下内容：
 export default function SkillsPage() {
   const { t } = useTranslation('agents')
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -52,11 +49,10 @@ export default function SkillsPage() {
 
   // Database skills
   const { data: dbSkills = [] } = useQuery({ queryKey: ['skills'], queryFn: () => skillService.getAll() })
-  // Local skills
+  // Local skills（与数据库技能合并展示，行内徽标区分来源）
   const { data: localSkills = [], isLoading: localLoading, refetch: refetchLocal } = useQuery({
     queryKey: ['localSkills'],
     queryFn: () => skillService.getLocalSkills(),
-    enabled: tab === 'local',
   })
   // Skill directories
   const { data: directories = [] } = useQuery({
@@ -81,7 +77,12 @@ export default function SkillsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skillDirectories'] }),
   })
 
-  const skills = tab === 'database' ? dbSkills : localSkills
+  // 数据库 + 本地技能合并为一个列表，行内用徽标区分来源
+  const skills = useMemo<(ISkill | ILocalSkill)[]>(
+    () => [...dbSkills, ...localSkills],
+    [dbSkills, localSkills],
+  )
+  const localIdSet = useMemo(() => new Set(localSkills.map(s => s.id)), [localSkills])
   const categories = useMemo(() => {
     const map = new Map<string, number>()
     for (const s of skills) {
@@ -142,7 +143,7 @@ export default function SkillsPage() {
       <Card
         key={s.id}
         padded={false}
-        className={"group flex items-center gap-3 px-3 py-2 transition-colors hover:border-white/40 dark:hover:border-white/10 " + (s.isEnabled ? "" : "opacity-60")}
+        className={"group flex h-11 items-center gap-3 px-3 transition-colors hover:border-white/40 dark:hover:border-white/10 " + (s.isEnabled ? "" : "opacity-60")}
       >
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/20">
           {isLocal ? <Terminal size={14} className="text-amber-500" /> : <Zap size={14} className="text-amber-500" />}
@@ -160,7 +161,9 @@ export default function SkillsPage() {
             <span className="rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('card.builtIn')}</span>
           ) : isLocal ? (
             <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
-          ) : null}
+          ) : (
+            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
+          )}
         </div>
 
         <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400" title={s.description}>{s.description}</p>
@@ -193,8 +196,7 @@ export default function SkillsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <PageContainer variant="fill" className="flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-none px-6 py-5">
+    <PageContainer>
       {/* 页头 */}
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">
@@ -216,17 +218,6 @@ export default function SkillsPage() {
           </span>
         </div>
       </div>
-
-      {/* 选项卡 */}
-      <PillTabs
-        value={tab}
-        onSelect={(key) => { setTab(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
-        className="mb-3"
-        items={[
-          { key: 'database', label: <><Zap size={14} />{t('tabs.database')}</> },
-          { key: 'local', label: <><FolderOpen size={14} />{t('tabs.local')}</> },
-        ]}
-      />
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -257,31 +248,26 @@ export default function SkillsPage() {
             className="w-full"
           />
         </div>
-        {tab === 'local' ? (
-          <>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
-              <Settings size={14} />
-              {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
-            </Button>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
-              title={t('skillsPage.refreshLocalSkills')}>
-              <RefreshCw size={14} />
-              {t('common:refresh')}
-            </Button>
-          </>
-        ) : (
-          <button
-            onClick={openCreateForm}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-          >
-            <Plus size={16} />
-            {t('skillsPage.newSkill')}
-          </button>
-        )}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
+          <Settings size={14} />
+          {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+          title={t('skillsPage.refreshLocalSkills')}>
+          <RefreshCw size={14} />
+          {t('common:refresh')}
+        </Button>
+        <button
+          onClick={openCreateForm}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+        >
+          <Plus size={16} />
+          {t('skillsPage.newSkill')}
+        </button>
       </div>
 
-      {/* 卡片网格 */}
-      {tab === 'local' && localLoading ? (
+      {/* 技能列表 */}
+      {localLoading ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
           <Loader2 size={32} className="mb-3 animate-spin text-amber-400" />
           <p className="text-sm">{t('skillsPage.scanningLocalSkills')}</p>
@@ -291,23 +277,16 @@ export default function SkillsPage() {
           <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
             <Zap size={36} className="opacity-50" />
           </div>
-          <p className="text-sm font-medium">{tab === 'local' ? t('empty.localSkills') : t('empty.skills')}</p>
-          {tab === 'local' ? (
-            <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={() => setShowDirConfig(true)}>
-              {t('empty.configureSkillDirs')}
-            </Button>
-          ) : (
-            <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={openCreateForm}>
-              {t('empty.createFirstSkill')}
-            </Button>
-          )}
+          <p className="text-sm font-medium">{t('empty.skills')}</p>
+          <Button variant="link" tone="amber" size="sm" className="mt-2 text-xs text-amber-500 hover:underline" onClick={openCreateForm}>
+            {t('empty.createFirstSkill')}
+          </Button>
         </div>
       ) : (
         <div className="space-y-1">
-          {filteredSkills.map(s => renderSkillRow(s, tab === 'local'))}
+          {filteredSkills.map(s => renderSkillRow(s, localIdSet.has(s.id)))}
         </div>
       )}
-    </div>
     </PageContainer>
   )
 

@@ -40,6 +40,7 @@ export default {
     general: '通用',
     builtIn: '内置',
     local: '本地',
+    database: '数据库',
     builtInAgent: '内置智能体',
     builtInSkill: '内置技能',
     modelWithEffort: '{{model}} · {{effort}}',

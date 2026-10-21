@@ -48,9 +48,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea } from '../components/ui'
-
-type TabKey = 'database' | 'local'
+import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -192,8 +190,6 @@ const agentFormTriggerCls =
 export default function AgentsPage() {
   const { t } = useTranslation('agents')
   const queryClient = useQueryClient()
-  // 通用智能体的数据来源：本地目录 / 数据库（专业智能体仅数据库）
-  const [generalSource, setGeneralSource] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -221,11 +217,10 @@ export default function AgentsPage() {
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
   })
-  // Local presets（表单内的「从通用智能体创建」也要列本地智能体，故打开表单时一并加载）
+  // Local presets（与数据库智能体合并展示；表单内的「从通用智能体创建」也要列本地智能体）
   const { data: localPresets = [], isLoading: localLoading, refetch: refetchLocal } = useQuery({
     queryKey: ['localPromptPresets'],
     queryFn: () => promptPresetService.getLocal(),
-    enabled: generalSource === 'local' || showForm,
   })
   // Directories
   const { data: directories = [] } = useQuery({
@@ -304,32 +299,40 @@ export default function AgentsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['promptPresetDirectories'] }),
   })
 
-  const presets = generalSource === 'database' ? dbPresets : localPresets
+  // 数据库 + 本地智能体合并为一个列表，行内用徽标区分来源；本地智能体均为通用
+  const allPresets = useMemo<(IPromptPreset | ILocalPromptPreset)[]>(
+    () => [...dbPresets, ...localPresets],
+    [dbPresets, localPresets],
+  )
 
   const categories = useMemo(() => {
     const map = new Map<string, number>()
-    for (const p of presets) map.set(p.category, (map.get(p.category) || 0) + 1)
+    for (const p of allPresets) map.set(p.category, (map.get(p.category) || 0) + 1)
     return [...map.entries()].sort((a, b) => b[1] - a[1])
-  }, [presets])
+  }, [allPresets])
 
   const filteredPresets = useMemo(() => {
     const keyword = search.trim().toLowerCase()
-    return presets.filter(p => {
+    return allPresets.filter(p => {
       if (activeCategory && p.category !== activeCategory) return false
       if (keyword && !p.name.toLowerCase().includes(keyword) && !p.content.toLowerCase().includes(keyword)) return false
       return true
     })
-  }, [presets, search, activeCategory])
+  }, [allPresets, search, activeCategory])
 
-  // 上下分栏：上为通用智能体，下为专业智能体（本地智能体均为通用）
-  const isLocalTab = generalSource === 'local'
-  const generalPresets = useMemo(
-    () => filteredPresets.filter(p => isLocalTab || ((p as IPromptPreset).agentType ?? 'General') === 'General'),
-    [filteredPresets, isLocalTab],
+  // 本地 Id 集合：用于在合并列表里判定每行来源
+  const localIdSet = useMemo(() => new Set(localPresets.map(p => p.id)), [localPresets])
+
+  // 上下分栏：上为通用智能体（数据库通用 + 全部本地），下为专业智能体（仅数据库）
+  const generalItems = useMemo(
+    () => filteredPresets.filter(p =>
+      localIdSet.has(p.id) || ((p as IPromptPreset).agentType ?? 'General') === 'General'),
+    [filteredPresets, localIdSet],
   )
-  const professionalPresets = useMemo(
-    () => isLocalTab ? [] : filteredPresets.filter(p => ((p as IPromptPreset).agentType ?? 'General') === 'Professional'),
-    [filteredPresets, isLocalTab],
+  const professionalItems = useMemo(
+    () => filteredPresets.filter(p =>
+      !localIdSet.has(p.id) && ((p as IPromptPreset).agentType ?? 'General') === 'Professional'),
+    [filteredPresets, localIdSet],
   )
 
   // 可管理的子智能体：仅专业智能体（排除自身，避免自引用）
@@ -524,7 +527,7 @@ export default function AgentsPage() {
       <Card
         key={p.id}
         padded={false}
-        className="group flex items-center gap-3 px-3 py-2 transition-colors hover:border-white/40 dark:hover:border-white/10"
+        className="group flex h-11 items-center gap-3 px-3 transition-colors hover:border-white/40 dark:hover:border-white/10"
       >
         <div className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-lg " + (isProfessionalAgent ? "bg-violet-50 dark:bg-violet-900/20" : "bg-rose-50 dark:bg-rose-900/20")}>
           {isProfessionalAgent ? <Brain size={14} className="text-violet-500" /> : isLocal ? <Terminal size={14} className="text-rose-500" /> : <Bot size={14} className="text-rose-500" />}
@@ -535,22 +538,18 @@ export default function AgentsPage() {
           <span className={"shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium " + getCategoryColor(p.category)}>{p.category}</span>
         </div>
 
-        <div className="flex w-20 shrink-0 items-center gap-1">
+        <div className="flex w-16 shrink-0 items-center gap-1">
           {isLocal ? (
-            <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-900/30">{t('card.local')}</span>
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
           ) : (
-            <span className={"rounded-full px-1.5 py-0.5 text-[10px] font-medium " + (
-              isProfessionalAgent
-                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                : "bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400"
-            )}>{isProfessionalAgent ? t('card.professional') : t('card.general')}</span>
+            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
           )}
         </div>
 
         <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400" title={p.content}>{p.content}</p>
 
-        {isProfessionalAgent && (
-          <div className="flex shrink-0 items-center gap-1">
+        {/* 元信息区常驻占位：有无徽标行高一致 */}
+        <div className="flex shrink-0 items-center gap-1">
             {boundModel && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
                 <Brain size={9} />{effortOption?.value
@@ -574,13 +573,10 @@ export default function AgentsPage() {
               </span>
             )}
           </div>
-        )}
 
-        {toolCount > 0 && (
-          <span className="flex shrink-0 items-center gap-1 text-[10px] text-gray-400">
-            <Zap size={11} />{t('card.toolCount', { n: toolCount })}
-          </span>
-        )}
+        <span className="flex w-16 shrink-0 items-center gap-1 text-[10px] text-gray-400">
+          {toolCount > 0 && <><Zap size={11} />{t('card.toolCount', { n: toolCount })}</>}
+        </span>
 
         <div className="flex w-24 shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {isLocal ? (
@@ -613,8 +609,7 @@ export default function AgentsPage() {
       : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
 
   const mainContent = (
-    <PageContainer variant="fill" className="flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-none px-6 py-5">
+    <PageContainer>
       {/* 页头 */}
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">
@@ -628,7 +623,7 @@ export default function AgentsPage() {
         </div>
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
           <span>
-            <Trans ns="agents" i18nKey="page.agentCount" values={{ n: presets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+            <Trans ns="agents" i18nKey="page.agentCount" values={{ n: allPresets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
           </span>
           <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
           <span>
@@ -645,7 +640,7 @@ export default function AgentsPage() {
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === null)}`}
           >
             {t('common:all')}
-            <span className="text-[11px] opacity-70">{presets.length}</span>
+            <span className="text-[11px] opacity-70">{allPresets.length}</span>
           </button>
           {categories.map(([cat, count]) => (
             <button
@@ -673,43 +668,37 @@ export default function AgentsPage() {
           className="hidden"
           onChange={handleImport}
         />
-        {generalSource === 'local' ? (
-          <>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
-              <Settings size={14} />
-              {t('page.configureDirectories')}
-            </Button>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
-              title={t('page.refreshLocalAgents')}>
-              <RefreshCw size={14} />
-              {t('common:refresh')}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
-              title={t('common:export')}>
-              <Download size={14} />
-              {t('common:export')}
-            </Button>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
-              title={t('common:import')}>
-              <Import size={14} />
-              {t('common:import')}
-            </Button>
-            <button
-              onClick={openCreateForm}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-            >
-              <Plus size={16} />
-              {t('page.newAgent')}
-            </button>
-          </>
-        )}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}
+          title={t('page.configureDirectories')}>
+          <Settings size={14} />
+          {t('page.configureDirectories')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+          title={t('page.refreshLocalAgents')}>
+          <RefreshCw size={14} />
+          {t('common:refresh')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
+          title={t('common:export')}>
+          <Download size={14} />
+          {t('common:export')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
+          title={t('common:import')}>
+          <Import size={14} />
+          {t('common:import')}
+        </Button>
+        <button
+          onClick={openCreateForm}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
+        >
+          <Plus size={16} />
+          {t('page.newAgent')}
+        </button>
       </div>
 
       {/* 智能体分栏：上「通用」（本地/数据库可切换），下「专业」（仅数据库） */}
-      {generalSource === 'local' && localLoading ? (
+      {localLoading ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
           <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
           <p className="text-sm">{t('page.scanningLocalAgents')}</p>
@@ -717,8 +706,8 @@ export default function AgentsPage() {
       ) : (
         <div className="space-y-5">
           {[
-            { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
-            { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
+            { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalItems, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
+            { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalItems, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
           ].map(section => {
             const SectionIcon = section.icon
             const empty = section.items.length === 0
@@ -732,15 +721,9 @@ export default function AgentsPage() {
                   <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                   <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                   {isGeneralSection ? (
-                    <PillTabs
-                      value={generalSource}
-                      onSelect={(key) => { setGeneralSource(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
-                      className="ml-auto gap-0.5 p-0.5"
-                      items={[
-                        { key: 'database', label: <><Bot size={13} />{t('tabs.database')}</> },
-                        { key: 'local', label: <><FolderOpen size={13} />{t('tabs.local')}</> },
-                      ]}
-                    />
+                    <Button variant="primary" tone="rose" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-rose-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-rose-600" onClick={openCreateForm}>
+                      <Plus size={13} />{t('page.newAgent')}
+                    </Button>
                   ) : (
                     <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
                       <Plus size={13} />{t('sections.newProfessional')}
@@ -751,44 +734,33 @@ export default function AgentsPage() {
                 {empty ? (
                   <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
                     {t('sections.empty', { title: t(section.titleKey) })}
-                    {isGeneralSection
-                      ? (isLocalTab ? (
-                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
-                        ) : (
-                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                        ))
-                      : (
-                        <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                      )}
+                    {isGeneralSection ? (
+                      <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                    ) : (
+                      <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {section.items.map(p => renderPresetRow(p, isGeneralSection && generalSource === 'local'))}
+                    {section.items.map(p => renderPresetRow(p, localIdSet.has(p.id)))}
                   </div>
                 )}
               </section>
             )
           })}
-          {generalPresets.length === 0 && professionalPresets.length === 0 && (
+          {generalItems.length === 0 && professionalItems.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-400 dark:border-gray-800 dark:text-gray-600">
               <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
                 <Sparkles size={36} className="opacity-50" />
               </div>
-              <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
-              {isLocalTab ? (
-                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>
-                  {t('empty.configureAgentDirs')}
-                </Button>
-              ) : (
-                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
-                  {t('empty.createFirstAgent')}
-                </Button>
-              )}
+              <p className="text-sm font-medium">{t('empty.agents')}</p>
+              <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
+                {t('empty.createFirstAgent')}
+              </Button>
             </div>
           )}
         </div>
       )}
-    </div>
     </PageContainer>)
 
   return (
