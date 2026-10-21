@@ -1561,7 +1561,12 @@ export default function WorkSessionArea({
 
       {/* 输入区：空会话时整块居中（起步引导作为 aboveInput 一起居中） */}
       <div className={emptyConversation ? 'flex min-h-0 flex-1 flex-col justify-center pb-24' : 'contents'}>
-
+        {/* 空会话：输入框上方放品牌标识，避免整屏只有一个输入框显得空 */}
+        {emptyConversation && (
+          <div className="mb-10 flex justify-center select-none">
+            <img src="/brand.svg" alt="" width={76} height={76} draggable={false} />
+          </div>
+        )}
 
         {/* 输入区：与对话页共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为编码会话独有 */}
         <AgentInputBox
