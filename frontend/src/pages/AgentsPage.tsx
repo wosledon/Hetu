@@ -688,13 +688,6 @@ export default function AgentsPage() {
           <Import size={14} />
           {t('common:import')}
         </Button>
-        <button
-          onClick={openCreateForm}
-          className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-        >
-          <Plus size={16} />
-          {t('page.newAgent')}
-        </button>
       </div>
 
       {/* 智能体分栏：上「通用」（本地/数据库可切换），下「专业」（仅数据库） */}
