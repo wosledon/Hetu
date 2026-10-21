@@ -22,8 +22,43 @@ public class AnthropicProxyController : ControllerBase
         _forwarder = forwarder;
     }
 
+    /// <summary>Anthropic 兼容的模型列表，客户端接入前先拉这个端点挑模型。</summary>
+    [HttpGet("models")]
+    public async Task<IActionResult> Models(CancellationToken ct)
+    {
+        var configs = await _proxyService.GetAllAsync(ct);
+        var data = configs
+            .Where(c => !string.IsNullOrWhiteSpace(c.ModelKey))
+            .Select(c => new
+            {
+                type = "model",
+                id = c.ModelKey,
+                display_name = c.Mode == "route" ? "Hetu Route" : "Hetu Shadow",
+                created_at = "1970-01-01T00:00:00Z",
+            });
+        return Ok(new { data, has_more = false, first_id = (string?)null, last_id = (string?)null });
+    }
+
     [HttpPost("messages")]
     public async Task Messages(CancellationToken ct)
+    {
+        try
+        {
+            await MessagesCoreAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // 客户端主动断开，无需再写错误响应
+        }
+        catch (Exception ex)
+        {
+            // 上游不可达 / 解析失败统一转成 Anthropic 错误结构，不向客户端泄漏堆栈
+            if (!Response.HasStarted)
+                await WriteError($"proxy forward failed: {ex.Message}", 502);
+        }
+    }
+
+    private async Task MessagesCoreAsync(CancellationToken ct)
     {
         using var doc = await JsonDocument.ParseAsync(Request.Body, cancellationToken: ct);
         var root = doc.RootElement;
@@ -52,11 +87,12 @@ public class AnthropicProxyController : ControllerBase
         }
 
         var payload = RewriteModel(root, target.ModelId);
+        var streaming = root.TryGetProperty("stream", out var s) && s.ValueKind == JsonValueKind.True;
         using var upstream = await _forwarder.ForwardStreamAsync(target, "/messages", payload, ct);
-        await CopyUpstreamAsync(upstream, Response, ct);
+        await CopyUpstreamAsync(upstream, Response, streaming, ct);
     }
 
-    private static async Task CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, CancellationToken ct)
+    private static async Task CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, bool streaming, CancellationToken ct)
     {
         if (!upstream.IsSuccessStatusCode)
         {
@@ -68,14 +104,23 @@ public class AnthropicProxyController : ControllerBase
         }
 
         output.StatusCode = 200;
-        output.StartSseStream();
+        if (streaming)
+        {
+            output.StartSseStream();
+        }
+        else
+        {
+            // 非流式请求原样透传上游 Content-Type，否则客户端按 SSE 解析 JSON 响应体会失败
+            output.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+        }
+
         await using var stream = await upstream.Content.ReadAsStreamAsync(ct);
         await stream.CopyToAsync(output.Body, ct);
     }
 
-    private async Task WriteError(string message)
+    private async Task WriteError(string message, int statusCode = 400)
     {
-        Response.StatusCode = 400;
+        Response.StatusCode = statusCode;
         Response.ContentType = "application/json";
         await Response.WriteAsync(JsonSerializer.Serialize(new { type = "error", error = new { type = "proxy_error", message } }));
     }
@@ -113,7 +158,7 @@ public class AnthropicProxyController : ControllerBase
     {
         var dict = new Dictionary<string, JsonElement>();
         foreach (var p in root.EnumerateObject()) dict[p.Name] = p.Value.Clone();
-        dict["model"] = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(modelId)).RootElement;
+        dict["model"] = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(modelId)).RootElement.Clone();
         return JsonSerializer.Serialize(dict);
     }
 }

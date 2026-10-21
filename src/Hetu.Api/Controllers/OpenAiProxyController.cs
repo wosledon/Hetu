@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Utilities;
@@ -14,21 +15,62 @@ namespace Hetu.Api.Controllers;
 [Route("v1")]
 public class OpenAiProxyController : ControllerBase
 {
+    /// <summary>超过该长度的消息内容才走压缩</summary>
+    private const int CompressionThreshold = 100;
+
     private readonly ProxyService _proxyService;
     private readonly ProxyForwarder _forwarder;
     private readonly CompressionPipelineService _compression;
-    private readonly IChatMessageService _chatMsgService;
+    private readonly ILlmUsageRecorder _usage;
 
-    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression, IChatMessageService chatMsgService)
+    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression, ILlmUsageRecorder usage)
     {
         _proxyService = proxyService;
         _forwarder = forwarder;
         _compression = compression;
-        _chatMsgService = chatMsgService;
+        _usage = usage;
+    }
+
+    /// <summary>
+    /// OpenAI 兼容的模型列表。客户端接入前先拉这个端点挑模型，
+    /// 这里只暴露代理的虚拟模型键（hetu-route / hetu-shadow）。
+    /// </summary>
+    [HttpGet("models")]
+    public async Task<IActionResult> Models(CancellationToken ct)
+    {
+        var configs = await _proxyService.GetAllAsync(ct);
+        var data = configs
+            .Where(c => !string.IsNullOrWhiteSpace(c.ModelKey))
+            .Select(c => new
+            {
+                id = c.ModelKey,
+                @object = "model",
+                created = 0L,
+                owned_by = "hetu",
+            });
+        return Ok(new { @object = "list", data });
     }
 
     [HttpPost("chat/completions")]
     public async Task ChatCompletions(CancellationToken ct)
+    {
+        try
+        {
+            await ChatCompletionsCoreAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // 客户端主动断开，无需再写错误响应
+        }
+        catch (Exception ex)
+        {
+            // 上游不可达 / 解析失败统一转成 OpenAI 错误结构，不向客户端泄漏堆栈
+            if (!Response.HasStarted)
+                await WriteError($"proxy forward failed: {ex.Message}", 502);
+        }
+    }
+
+    private async Task ChatCompletionsCoreAsync(CancellationToken ct)
     {
         using var doc = await JsonDocument.ParseAsync(Request.Body, cancellationToken: ct);
         var root = doc.RootElement;
@@ -58,25 +100,28 @@ public class OpenAiProxyController : ControllerBase
 
         // 重写 model 为真实模型，压缩消息后转发
         var payloadJson = RewriteModel(root, target.ModelId);
-        payloadJson = await CompressMessagesInPayload(payloadJson, ct);
-
-        // 记录用量到 ChatMessages（与对话共用统计）
         var inputLen = ExtractMessagesLength(root);
+        payloadJson = await CompressMessagesInPayload(payloadJson, ct);
         var compressedLen = ExtractMessagesLength(payloadJson);
-        await _chatMsgService.SaveAssistantMessageAsync(
-            Guid.Empty, // proxy 无 Topic，用 Guid.Empty 标记
-            $"[proxy:{modelKey}]",
-            null, null, null, null, null,
+
+        // 走统一用量记录器：早期实现写 ChatMessages 且 topicId 用 Guid.Empty，
+        // 话题不存在时 SaveAssistantMessageAsync 直接返回 null，用量统计页一条都看不到
+        await _usage.RecordAsync(
+            source: LlmUsageSources.Proxy,
+            usage: null,
+            refId: null,
+            modelId: null,
             inputTokens: inputLen > 0 ? (int)Math.Ceiling(inputLen / 3.0) : null,
             compressedTokens: compressedLen > 0 ? (int)Math.Ceiling(compressedLen / 3.0) : null,
-            outputTokens: null,
-            cancellationToken: ct);
+            contentPreview: $"[proxy:{modelKey}]",
+            ct: ct);
 
+        var streaming = root.TryGetProperty("stream", out var s) && s.ValueKind == JsonValueKind.True;
         using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payloadJson, ct);
-        await CopyUpstreamAsync(upstream, Response, ct);
+        await CopyUpstreamAsync(upstream, Response, streaming, ct);
     }
 
-    private static async Task CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, CancellationToken ct)
+    private static async Task CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, bool streaming, CancellationToken ct)
     {
         if (!upstream.IsSuccessStatusCode)
         {
@@ -88,14 +133,24 @@ public class OpenAiProxyController : ControllerBase
         }
 
         output.StatusCode = 200;
-        output.StartSseStream();
+        if (streaming)
+        {
+            output.StartSseStream();
+        }
+        else
+        {
+            // 非流式请求原样透传上游 Content-Type：一律标成 text/event-stream 时，
+            // 客户端会按 SSE 解析 JSON 响应体而失败
+            output.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+        }
+
         await using var stream = await upstream.Content.ReadAsStreamAsync(ct);
         await stream.CopyToAsync(output.Body, ct);
     }
 
-    private async Task WriteError(string message)
+    private async Task WriteError(string message, int statusCode = 400)
     {
-        Response.StatusCode = 400;
+        Response.StatusCode = statusCode;
         Response.ContentType = "application/json";
         await Response.WriteAsync(JsonSerializer.Serialize(new { error = new { message, type = "proxy_error" } }));
     }
@@ -131,45 +186,34 @@ public class OpenAiProxyController : ControllerBase
         return JsonSerializer.Serialize(dict);
     }
 
+    /// <summary>
+    /// 压缩 messages 里的长文本内容。只替换字符串型 content，其余值（数组 / 对象 / 数字 / 布尔）原样保留。
+    /// 早期实现把所有值降级成字符串，多模态 content、tools、tool_calls 会被破坏成 JSON 字符串，上游直接 400。
+    /// 用算法压缩而非 CompressAsync：转发是透传语义，不该为每条消息再打一次 LLM。
+    /// </summary>
     private async Task<string> CompressMessagesInPayload(string json, CancellationToken ct)
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("messages", out var msgsEl) || msgsEl.ValueKind != JsonValueKind.Array)
+        if (JsonNode.Parse(json) is not JsonObject root || root["messages"] is not JsonArray messages)
             return json;
 
-        var messages = new List<Dictionary<string, object>>();
-        foreach (var m in msgsEl.EnumerateArray())
+        foreach (var message in messages)
         {
-            var msg = new Dictionary<string, object>();
-            foreach (var p in m.EnumerateObject())
-                msg[p.Name] = p.Value.ValueKind switch
-                {
-                    JsonValueKind.String => p.Value.GetString() ?? "",
-                    JsonValueKind.Number => p.Value.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    _ => p.Value.ToString()
-                };
+            if (message is not JsonObject obj) continue;
+            // 数组 / 对象型 content（多模态、content blocks）不动
+            if (obj["content"] is not JsonValue content) continue;
+            if (!content.TryGetValue<string>(out var text) || text.Length <= CompressionThreshold) continue;
 
-            if (msg.TryGetValue("content", out var c) && c is string s && s.Length > 100)
-                msg["content"] = await _compression.CompressAsync(s, ct);
-
-            messages.Add(msg);
+            try
+            {
+                obj["content"] = await _compression.CompressAlgorithmicAsync(text, ct);
+            }
+            catch
+            {
+                // 压缩失败不能阻断转发，保留原文
+            }
         }
 
-        var payload = new Dictionary<string, object>();
-        foreach (var p in root.EnumerateObject())
-            payload[p.Name] = p.Name == "messages" ? messages : p.Value.ValueKind switch
-            {
-                JsonValueKind.String => p.Value.GetString() ?? "",
-                JsonValueKind.Number => p.Value.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                _ => p.Value.ToString()
-            };
-
-        return JsonSerializer.Serialize(payload);
+        return root.ToJsonString();
     }
 
     private static int ExtractMessagesLength(string json)

@@ -31,6 +31,14 @@ public class ProxyService
         return null;
     }
 
+    /// <summary>列出两个代理配置（route / shadow），OpenAI 兼容 /models 用它暴露虚拟模型键。</summary>
+    public async Task<List<ProxyConfigDto>> GetAllAsync(CancellationToken ct)
+    {
+        var route = await _config.GetAsync("route", ct);
+        var shadow = await _config.GetAsync("shadow", ct);
+        return new List<ProxyConfigDto> { route, shadow };
+    }
+
     /// <summary>按模式解析本次请求的目标模型复合键。</summary>
     public async Task<string?> ResolveTargetModelKeyAsync(ProxyConfigDto config, string userText, CancellationToken ct)
     {

@@ -35,7 +35,10 @@ public class ProxyForwarder
         var baseUrl = string.IsNullOrWhiteSpace(provider.BaseUrl)
             ? GetDefaultBaseUrl(protocol)
             : provider.BaseUrl.TrimEnd('/');
-        var apiKey = _protector.Unprotect(provider.EncryptedApiKey);
+        // 本地供应商（Ollama / vLLM 等）没有 API Key，Unprotect(null) 会抛 ArgumentNullException
+        var apiKey = string.IsNullOrWhiteSpace(provider.EncryptedApiKey)
+            ? string.Empty
+            : _protector.Unprotect(provider.EncryptedApiKey);
         return new ProxyTarget(baseUrl, apiKey, model.ModelId, protocol);
     }
 

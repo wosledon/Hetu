@@ -28,7 +28,9 @@ public class ModelKeyResolver
         var modelId = modelKey[(idx + 1)..];
         if (string.IsNullOrWhiteSpace(modelId)) return null;
 
-        var provider = await _unitOfWork.AiProviders.GetByIdAsync(providerId, ct);
+        // 必须走 WithModels：GetByIdAsync 不 Include 导航集合，且未开懒加载，
+        // 直接用会让 provider.Models 恒为空，解析永远失败
+        var provider = await _unitOfWork.AiProviders.GetByIdWithModelsAsync(providerId, ct);
         if (provider == null || !provider.IsEnabled) return null;
         var model = provider.Models.FirstOrDefault(m => m.ModelId == modelId);
         if (model == null) return null;
