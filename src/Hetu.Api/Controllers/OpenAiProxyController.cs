@@ -22,13 +22,15 @@ public class OpenAiProxyController : ControllerBase
     private readonly ProxyForwarder _forwarder;
     private readonly CompressionPipelineService _compression;
     private readonly ILlmUsageRecorder _usage;
+    private readonly ILogger<OpenAiProxyController> _logger;
 
-    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression, ILlmUsageRecorder usage)
+    public OpenAiProxyController(ProxyService proxyService, ProxyForwarder forwarder, CompressionPipelineService compression, ILlmUsageRecorder usage, ILogger<OpenAiProxyController> logger)
     {
         _proxyService = proxyService;
         _forwarder = forwarder;
         _compression = compression;
         _usage = usage;
+        _logger = logger;
     }
 
     /// <summary>
@@ -98,54 +100,68 @@ public class OpenAiProxyController : ControllerBase
             return;
         }
 
-        // 重写 model 为真实模型，压缩消息后转发
+        // 重写 model 为真实模型，压缩输入提示词后转发
         var payloadJson = RewriteModel(root, target.ModelId);
         var inputLen = ExtractMessagesLength(root);
         payloadJson = await CompressMessagesInPayload(payloadJson, ct);
         var compressedLen = ExtractMessagesLength(payloadJson);
+        var streaming = root.TryGetProperty("stream", out var s) && s.ValueKind == JsonValueKind.True;
 
-        // 走统一用量记录器：早期实现写 ChatMessages 且 topicId 用 Guid.Empty，
-        // 话题不存在时 SaveAssistantMessageAsync 直接返回 null，用量统计页一条都看不到
+        using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payloadJson, ct);
+        var usage = await CopyUpstreamAsync(upstream, Response, streaming, ct);
+
+        // 上游用量只能在响应体里拿到，所以拷贝时顺带解析；拿不到再回落到字符数估算
+        await RecordUsageAsync(modelKey, target, inputLen, compressedLen, usage, ct);
+    }
+
+    private async Task RecordUsageAsync(string modelKey, ProxyTarget target, int inputLen, int compressedLen, LlmUsage? usage, CancellationToken ct)
+    {
+        // 上游没上报 prompt_tokens 时才回落到字符数估算（约 3 字符 1 token）
+        var estimated = inputLen > 0 ? (int)Math.Ceiling(inputLen / 3.0) : (int?)null;
         await _usage.RecordAsync(
             source: LlmUsageSources.Proxy,
-            usage: null,
+            usage: usage,
             refId: null,
-            modelId: null,
-            inputTokens: inputLen > 0 ? (int)Math.Ceiling(inputLen / 3.0) : null,
+            modelId: target.ModelEntityId,
+            inputTokens: usage is { PromptTokens: > 0 } ? null : estimated,
             compressedTokens: compressedLen > 0 ? (int)Math.Ceiling(compressedLen / 3.0) : null,
             contentPreview: $"[proxy:{modelKey}]",
             ct: ct);
-
-        var streaming = root.TryGetProperty("stream", out var s) && s.ValueKind == JsonValueKind.True;
-        using var upstream = await _forwarder.ForwardStreamAsync(target, "/chat/completions", payloadJson, ct);
-        await CopyUpstreamAsync(upstream, Response, streaming, ct);
     }
 
-    private static async Task CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, bool streaming, CancellationToken ct)
+    /// <summary>透传上游响应，返回解析出的用量（上游未上报时为 null）。</summary>
+    private async Task<LlmUsage?> CopyUpstreamAsync(HttpResponseMessage upstream, HttpResponse output, bool streaming, CancellationToken ct)
     {
         if (!upstream.IsSuccessStatusCode)
         {
             output.StatusCode = (int)upstream.StatusCode;
             output.ContentType = "application/json";
             var err = await upstream.Content.ReadAsStringAsync(ct);
+            // 上游拒绝时必须把原因写进日志：代理是透传，客户端只看到状态码，
+            // 不记日志就没法判断是参数不支持、鉴权失败还是模型名不对
+            _logger.LogWarning("[Proxy] 上游返回 {Status}: {Body}", (int)upstream.StatusCode, err);
             await output.WriteAsync(err, ct);
-            return;
+            return null;
         }
 
         output.StatusCode = 200;
         if (streaming)
         {
             output.StartSseStream();
-        }
-        else
-        {
-            // 非流式请求原样透传上游 Content-Type：一律标成 text/event-stream 时，
-            // 客户端会按 SSE 解析 JSON 响应体而失败
-            output.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+            LlmUsage? usage = null;
+            await ProxyUsageExtractor.CopyWithSseScanAsync(
+                await upstream.Content.ReadAsStreamAsync(ct), output.Body,
+                data => usage ??= ProxyUsageExtractor.FromOpenAi(data), ct);
+            return usage;
         }
 
-        await using var stream = await upstream.Content.ReadAsStreamAsync(ct);
-        await stream.CopyToAsync(output.Body, ct);
+        // 非流式原样透传上游 Content-Type：一律标成 text/event-stream 时，
+        // 客户端会按 SSE 解析 JSON 响应体而失败
+        output.ContentType = upstream.Content.Headers.ContentType?.ToString() ?? "application/json";
+        // 整体读出来才能拿到 usage 对象；chat completion 非流式响应本就一次成型，缓冲无副作用
+        var body = await upstream.Content.ReadAsStringAsync(ct);
+        await output.WriteAsync(body, ct);
+        return ProxyUsageExtractor.FromOpenAi(body);
     }
 
     private async Task WriteError(string message, int statusCode = 400)
@@ -187,7 +203,7 @@ public class OpenAiProxyController : ControllerBase
     }
 
     /// <summary>
-    /// 压缩 messages 里的长文本内容。只替换字符串型 content，其余值（数组 / 对象 / 数字 / 布尔）原样保留。
+    /// 压缩 messages 里的长文本提示词。只替换字符串型 content，其余值（数组 / 对象 / 数字 / 布尔）原样保留。
     /// 早期实现把所有值降级成字符串，多模态 content、tools、tool_calls 会被破坏成 JSON 字符串，上游直接 400。
     /// 用算法压缩而非 CompressAsync：转发是透传语义，不该为每条消息再打一次 LLM。
     /// </summary>

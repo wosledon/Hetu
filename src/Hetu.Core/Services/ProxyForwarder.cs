@@ -39,7 +39,8 @@ public class ProxyForwarder
         var apiKey = string.IsNullOrWhiteSpace(provider.EncryptedApiKey)
             ? string.Empty
             : _protector.Unprotect(provider.EncryptedApiKey);
-        return new ProxyTarget(baseUrl, apiKey, model.ModelId, protocol);
+        // 带上模型实体 Id：用量统计按模型维度聚合，缺失会归到「默认模型」
+        return new ProxyTarget(baseUrl, apiKey, model.ModelId, protocol, model.Id);
     }
 
     /// <summary>转发请求并返回上游响应（调用方负责流式拷贝与释放）。</summary>
@@ -75,4 +76,4 @@ public class ProxyForwarder
     };
 }
 
-public record ProxyTarget(string BaseUrl, string ApiKey, string ModelId, string Protocol);
+public record ProxyTarget(string BaseUrl, string ApiKey, string ModelId, string Protocol, Guid ModelEntityId);
