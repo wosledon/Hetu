@@ -40,6 +40,7 @@ export default {
     general: 'General',
     builtIn: 'Built-in',
     local: 'Local',
+    database: 'Database',
     builtInAgent: 'Built-in agent',
     builtInSkill: 'Built-in skill',
     modelWithEffort: '{{model}} · {{effort}}',

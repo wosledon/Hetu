@@ -23,7 +23,6 @@ import {
   List,
   ListChecks,
   Loader2,
-  Lock,
   Network,
   PenLine,
   Plus,
@@ -49,9 +48,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea } from '../components/ui'
-
-type TabKey = 'database' | 'local'
+import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -193,8 +190,6 @@ const agentFormTriggerCls =
 export default function AgentsPage() {
   const { t } = useTranslation('agents')
   const queryClient = useQueryClient()
-  // 通用智能体的数据来源：本地目录 / 数据库（专业智能体仅数据库）
-  const [generalSource, setGeneralSource] = useState<TabKey>('database')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -222,11 +217,10 @@ export default function AgentsPage() {
     queryKey: ['promptPresets'],
     queryFn: () => promptPresetService.getAll(),
   })
-  // Local presets（表单内的「从通用智能体创建」也要列本地智能体，故打开表单时一并加载）
+  // Local presets（与数据库智能体合并展示；表单内的「从通用智能体创建」也要列本地智能体）
   const { data: localPresets = [], isLoading: localLoading, refetch: refetchLocal } = useQuery({
     queryKey: ['localPromptPresets'],
     queryFn: () => promptPresetService.getLocal(),
-    enabled: generalSource === 'local' || showForm,
   })
   // Directories
   const { data: directories = [] } = useQuery({
@@ -305,32 +299,40 @@ export default function AgentsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['promptPresetDirectories'] }),
   })
 
-  const presets = generalSource === 'database' ? dbPresets : localPresets
+  // 数据库 + 本地智能体合并为一个列表，行内用徽标区分来源；本地智能体均为通用
+  const allPresets = useMemo<(IPromptPreset | ILocalPromptPreset)[]>(
+    () => [...dbPresets, ...localPresets],
+    [dbPresets, localPresets],
+  )
 
   const categories = useMemo(() => {
     const map = new Map<string, number>()
-    for (const p of presets) map.set(p.category, (map.get(p.category) || 0) + 1)
+    for (const p of allPresets) map.set(p.category, (map.get(p.category) || 0) + 1)
     return [...map.entries()].sort((a, b) => b[1] - a[1])
-  }, [presets])
+  }, [allPresets])
 
   const filteredPresets = useMemo(() => {
     const keyword = search.trim().toLowerCase()
-    return presets.filter(p => {
+    return allPresets.filter(p => {
       if (activeCategory && p.category !== activeCategory) return false
       if (keyword && !p.name.toLowerCase().includes(keyword) && !p.content.toLowerCase().includes(keyword)) return false
       return true
     })
-  }, [presets, search, activeCategory])
+  }, [allPresets, search, activeCategory])
 
-  // 上下分栏：上为通用智能体，下为专业智能体（本地智能体均为通用）
-  const isLocalTab = generalSource === 'local'
-  const generalPresets = useMemo(
-    () => filteredPresets.filter(p => isLocalTab || ((p as IPromptPreset).agentType ?? 'General') === 'General'),
-    [filteredPresets, isLocalTab],
+  // 本地 Id 集合：用于在合并列表里判定每行来源
+  const localIdSet = useMemo(() => new Set(localPresets.map(p => p.id)), [localPresets])
+
+  // 上下分栏：上为通用智能体（数据库通用 + 全部本地），下为专业智能体（仅数据库）
+  const generalItems = useMemo(
+    () => filteredPresets.filter(p =>
+      localIdSet.has(p.id) || ((p as IPromptPreset).agentType ?? 'General') === 'General'),
+    [filteredPresets, localIdSet],
   )
-  const professionalPresets = useMemo(
-    () => isLocalTab ? [] : filteredPresets.filter(p => ((p as IPromptPreset).agentType ?? 'General') === 'Professional'),
-    [filteredPresets, isLocalTab],
+  const professionalItems = useMemo(
+    () => filteredPresets.filter(p =>
+      !localIdSet.has(p.id) && ((p as IPromptPreset).agentType ?? 'General') === 'Professional'),
+    [filteredPresets, localIdSet],
   )
 
   // 可管理的子智能体：仅专业智能体（排除自身，避免自引用）
@@ -513,116 +515,90 @@ export default function AgentsPage() {
     }
   }
 
-  const renderPresetCard = (preset: IPromptPreset | ILocalPromptPreset, isLocal: boolean) => {
-    const p = preset
-    const toolCount = getToolCount(p.toolsConfig)
-    const agentType = isLocal ? 'General' : ((p as IPromptPreset).agentType ?? 'General')
-    const isProfessionalAgent = agentType === 'Professional'
+  const renderPresetRow = (p: IPromptPreset | ILocalPromptPreset, isLocal: boolean) => {
+    const isProfessionalAgent = (p as IPromptPreset).agentType === 'Professional'
     const subAgentIds = isProfessionalAgent ? parseIdList((p as IPromptPreset).subAgentIds) : []
     const skillIds = isProfessionalAgent ? parseIdList((p as IPromptPreset).skillIds) : []
     const dbPreset = p as IPromptPreset
     const boundModel = isProfessionalAgent && dbPreset.modelId ? models.find(m => m.id === dbPreset.modelId) : undefined
     const effortOption = REASONING_EFFORT_OPTIONS.find(o => o.value === dbPreset.reasoningEffort)
+    const toolCount = getToolCount(dbPreset.toolsConfig)
     return (
       <Card
         key={p.id}
-        className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
+        padded={false}
+        className="group flex h-11 items-center gap-3 px-3 transition-colors hover:border-white/40 dark:hover:border-white/10"
       >
-        <div className="mb-2 flex items-start justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isProfessionalAgent ? 'bg-violet-50 dark:bg-violet-900/20' : 'bg-rose-50 dark:bg-rose-900/20'}`}>
-              {isProfessionalAgent ? <Brain size={16} className="text-violet-500" /> : isLocal ? <Terminal size={16} className="text-rose-500" /> : <Bot size={16} className="text-rose-500" />}
-            </div>
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{p.name}</h3>
-              <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryColor(p.category)}`}>{p.category}</span>
-                {!isLocal && (
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    isProfessionalAgent
-                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                      : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
-                  }`}>{isProfessionalAgent ? t('card.professional') : t('card.general')}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          {!isLocal && dbPreset.isBuiltIn && (
-            <span className="shrink-0 rounded-full bg-gray-100 glass px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('card.builtIn')}</span>
-          )}
-          {isLocal && (
-            <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-900/30">{t('card.local')}</span>
+        <div className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-lg " + (isProfessionalAgent ? "bg-violet-50 dark:bg-violet-900/20" : "bg-rose-50 dark:bg-rose-900/20")}>
+          {isProfessionalAgent ? <Brain size={14} className="text-violet-500" /> : isLocal ? <Terminal size={14} className="text-rose-500" /> : <Bot size={14} className="text-rose-500" />}
+        </div>
+
+        <div className="flex min-w-0 items-center gap-1.5" style={{ width: '15rem' }}>
+          <h3 className="truncate text-[13px] font-semibold text-gray-800 dark:text-gray-100">{p.name}</h3>
+          <span className={"shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium " + getCategoryColor(p.category)}>{p.category}</span>
+        </div>
+
+        <div className="flex w-16 shrink-0 items-center gap-1">
+          {isLocal ? (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
+          ) : (
+            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
           )}
         </div>
 
-        <p className="mb-3 line-clamp-3 flex-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{p.content}</p>
+        <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400" title={p.content}>{p.content}</p>
 
-        {isProfessionalAgent && (
-          <div className="mb-2 flex flex-wrap gap-1">
+        {/* 元信息区常驻占位：有无徽标行高一致 */}
+        <div className="flex shrink-0 items-center gap-1">
             {boundModel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
                 <Brain size={9} />{effortOption?.value
                   ? t('card.modelWithEffort', { model: boundModel.displayName, effort: t(effortOption.labelKey) })
                   : boundModel.displayName}
               </span>
             )}
             {!boundModel && effortOption?.value && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
                 <Brain size={9} />{t('card.reasoning', { label: t(effortOption.labelKey) })}
               </span>
             )}
             {subAgentIds.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-300">
                 <Network size={9} />{t('card.subAgentCount', { n: subAgentIds.length })}
               </span>
             )}
             {skillIds.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
                 <Sparkles size={9} />{t('card.skillCount', { n: skillIds.length })}
               </span>
             )}
           </div>
-        )}
 
-        {toolCount > 0 && (
-          <div className="mb-1 flex items-center gap-1 text-[10px] text-gray-400">
-            <Zap size={11} />
-            <span>{t('card.toolCount', { n: toolCount })}</span>
-          </div>
-        )}
+        <span className="flex w-16 shrink-0 items-center gap-1 text-[10px] text-gray-400">
+          {toolCount > 0 && <><Zap size={11} />{t('card.toolCount', { n: toolCount })}</>}
+        </span>
 
-        {!isLocal && !dbPreset.isBuiltIn && (
-          <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)}><Edit2 size={11} /> {t('common:edit')}</Button>
-            {!isProfessionalAgent && (
-              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
-                disabled={createProfessionalMutation.isPending}
-                title={t('card.fromGeneralTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
-            )}
-            <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"><Trash2 size={11} /> {t('common:delete')}</button>
-          </div>
-        )}
-        {!isLocal && dbPreset.isBuiltIn && (
-          <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+        <div className="flex w-24 shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {isLocal ? (
+            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
+              disabled={createProfessionalFromLocalMutation.isPending}
+              title={t('card.fromLocalTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
+          ) : dbPreset.isBuiltIn ? (
+            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
               disabled={createProfessionalMutation.isPending}
               title={t('card.fromBuiltInTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
-            <Lock size={11} className="text-gray-300 dark:text-gray-600" />
-            <span className="text-[10px] text-gray-300 dark:text-gray-600">{t('card.builtInAgent')}</span>
-          </div>
-        )}
-        {isLocal && (
-          <div className="border-t border-gray-100 pt-2.5 dark:border-gray-800">
-            <div className="mb-1.5 flex items-center gap-1">
-              <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
-                disabled={createProfessionalFromLocalMutation.isPending}
-                title={t('card.fromLocalTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
-            </div>
-            <span className="block truncate text-[10px] text-gray-300 dark:text-gray-600" title={(p as ILocalPromptPreset).filePath}>
-              {(p as ILocalPromptPreset).filePath}
-            </span>
-          </div>
-        )}
+          ) : (
+            <>
+              <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)}><Edit2 size={11} /> {t('common:edit')}</Button>
+              {!isProfessionalAgent && (
+                <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+                  disabled={createProfessionalMutation.isPending}
+                  title={t('card.fromGeneralTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
+              )}
+              <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"><Trash2 size={11} /> {t('common:delete')}</button>
+            </>
+          )}
+        </div>
       </Card>
     )
   }
@@ -635,19 +611,19 @@ export default function AgentsPage() {
   const mainContent = (
     <PageContainer>
       {/* 页头 */}
-      <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
             <Bot size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
           <span>
-            <Trans ns="agents" i18nKey="page.agentCount" values={{ n: presets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
+            <Trans ns="agents" i18nKey="page.agentCount" values={{ n: allPresets.length }} components={{ b: <b className="text-sm font-semibold text-gray-700 dark:text-gray-200" /> }} />
           </span>
           <span className="h-3.5 w-px bg-gray-200 dark:bg-gray-700" />
           <span>
@@ -657,20 +633,20 @@ export default function AgentsPage() {
       </div>
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             onClick={() => setActiveCategory(null)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === null)}`}
           >
             {t('common:all')}
-            <span className="text-[11px] opacity-70">{presets.length}</span>
+            <span className="text-[11px] opacity-70">{allPresets.length}</span>
           </button>
           {categories.map(([cat, count]) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
             >
               {cat}
               <span className="text-[11px] opacity-70">{count}</span>
@@ -692,74 +668,55 @@ export default function AgentsPage() {
           className="hidden"
           onChange={handleImport}
         />
-        {generalSource === 'local' ? (
-          <>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
-              <Settings size={14} />
-              {t('page.configureDirectories')}
-            </Button>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
-              title={t('page.refreshLocalAgents')}>
-              <RefreshCw size={14} />
-              {t('common:refresh')}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
-              title={t('common:export')}>
-              <Download size={14} />
-              {t('common:export')}
-            </Button>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
-              title={t('common:import')}>
-              <Import size={14} />
-              {t('common:import')}
-            </Button>
-            <button
-              onClick={openCreateForm}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-rose-500/20 transition-all hover:shadow-md active:scale-[0.97]"
-            >
-              <Plus size={16} />
-              {t('page.newAgent')}
-            </button>
-          </>
-        )}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}
+          title={t('page.configureDirectories')}>
+          <Settings size={14} />
+          {t('page.configureDirectories')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+          title={t('page.refreshLocalAgents')}>
+          <RefreshCw size={14} />
+          {t('common:refresh')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
+          title={t('common:export')}>
+          <Download size={14} />
+          {t('common:export')}
+        </Button>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
+          title={t('common:import')}>
+          <Import size={14} />
+          {t('common:import')}
+        </Button>
       </div>
 
       {/* 智能体分栏：上「通用」（本地/数据库可切换），下「专业」（仅数据库） */}
-      {generalSource === 'local' && localLoading ? (
+      {localLoading ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800">
           <Loader2 size={32} className="mb-3 animate-spin text-rose-400" />
           <p className="text-sm">{t('page.scanningLocalAgents')}</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-5">
           {[
-            { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalPresets, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
-            { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalPresets, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
+            { key: 'general', titleKey: 'sections.generalTitle', descKey: 'sections.generalDesc', items: generalItems, icon: Bot, accent: 'text-rose-500', bar: 'bg-rose-500' },
+            { key: 'professional', titleKey: 'sections.professionalTitle', descKey: 'sections.professionalDesc', items: professionalItems, icon: Brain, accent: 'text-violet-500', bar: 'bg-violet-500' },
           ].map(section => {
             const SectionIcon = section.icon
             const empty = section.items.length === 0
             const isGeneralSection = section.key === 'general'
             return (
               <section key={section.key}>
-                <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${section.accent}`}>
                     <SectionIcon size={15} />{t(section.titleKey)}
                   </span>
                   <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                   <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                   {isGeneralSection ? (
-                    <PillTabs
-                      value={generalSource}
-                      onSelect={(key) => { setGeneralSource(key as TabKey); setActiveCategory(null); if (key === 'local') refetchLocal() }}
-                      className="ml-auto gap-0.5 p-0.5"
-                      items={[
-                        { key: 'database', label: <><Bot size={13} />{t('tabs.database')}</> },
-                        { key: 'local', label: <><FolderOpen size={13} />{t('tabs.local')}</> },
-                      ]}
-                    />
+                    <Button variant="primary" tone="rose" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-rose-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-rose-600" onClick={openCreateForm}>
+                      <Plus size={13} />{t('page.newAgent')}
+                    </Button>
                   ) : (
                     <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
                       <Plus size={13} />{t('sections.newProfessional')}
@@ -770,45 +727,34 @@ export default function AgentsPage() {
                 {empty ? (
                   <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 py-10 text-[13px] text-gray-400 dark:border-gray-800 dark:text-gray-600">
                     {t('sections.empty', { title: t(section.titleKey) })}
-                    {isGeneralSection
-                      ? (isLocalTab ? (
-                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>{t('sections.configureLocalDirs')}</Button>
-                        ) : (
-                          <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                        ))
-                      : (
-                        <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
-                      )}
+                    {isGeneralSection ? (
+                      <Button variant="link" tone="rose" className="text-rose-500 hover:underline" onClick={openCreateForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                    ) : (
+                      <Button variant="link" tone="violet" className="text-violet-500 hover:underline" onClick={openCreateProfessionalForm}>{t('sections.create', { title: t(section.titleKey) })}</Button>
+                    )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {section.items.map(p => renderPresetCard(p, isGeneralSection && generalSource === 'local'))}
+                  <div className="space-y-1">
+                    {section.items.map(p => renderPresetRow(p, localIdSet.has(p.id)))}
                   </div>
                 )}
               </section>
             )
           })}
-          {generalPresets.length === 0 && professionalPresets.length === 0 && (
+          {generalItems.length === 0 && professionalItems.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-400 dark:border-gray-800 dark:text-gray-600">
               <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
                 <Sparkles size={36} className="opacity-50" />
               </div>
-              <p className="text-sm font-medium">{isLocalTab ? t('empty.localAgents') : t('empty.agents')}</p>
-              {isLocalTab ? (
-                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={() => setShowDirConfig(true)}>
-                  {t('empty.configureAgentDirs')}
-                </Button>
-              ) : (
-                <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
-                  {t('empty.createFirstAgent')}
-                </Button>
-              )}
+              <p className="text-sm font-medium">{t('empty.agents')}</p>
+              <Button variant="link" tone="rose" size="sm" className="mt-2 text-xs text-rose-500 hover:underline" onClick={openCreateForm}>
+                {t('empty.createFirstAgent')}
+              </Button>
             </div>
           )}
         </div>
       )}
-    </PageContainer>
-  )
+    </PageContainer>)
 
   return (
     <AppLayout showSidebar={false} mainContent={mainContent}>
