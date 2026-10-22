@@ -51,6 +51,19 @@ internal static class ToolArgs
         return null;
     }
 
+    public static double? ReadDouble(string argumentsJson, string property)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
+            if (doc.RootElement.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.Number
+                && v.TryGetDouble(out var d))
+                return d;
+        }
+        catch (JsonException) { /* 非法 JSON 交给必填参数校验 */ }
+        return null;
+    }
+
     /// <summary>
     /// 读 GUID 参数：容忍模型多带引号、花括号或把名称写在后面（"id (名称)" / "{id}"），
     /// 无法解析时返回 null，由调用方给出「id 必须是有效 GUID」提示。

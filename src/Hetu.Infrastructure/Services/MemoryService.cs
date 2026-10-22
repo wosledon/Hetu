@@ -135,6 +135,17 @@ public class MemoryService : IMemoryService
         return ApiResponse<MemoryDto>.Ok(dto);
     }
 
+    public async Task<ApiResponse<MemoryDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var memory = await _unitOfWork.Memories.GetByIdAsync(id, cancellationToken);
+        if (memory == null || memory.IsDeleted)
+            return ApiResponse<MemoryDto>.Fail(_localizer.T("memory.notFound"));
+
+        var dto = MapToDto(memory);
+        await EnrichProjectNameAsync(dto, cancellationToken);
+        return ApiResponse<MemoryDto>.Ok(dto);
+    }
+
     public async Task<ApiResponse<MemoryDto>> UpdateAsync(Guid id, UpdateMemoryRequest request, CancellationToken cancellationToken = default)
     {
         var memory = await _unitOfWork.Memories.GetByIdAsync(id, cancellationToken);

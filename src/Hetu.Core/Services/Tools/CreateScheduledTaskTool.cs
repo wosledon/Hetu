@@ -98,7 +98,7 @@ public class CreateScheduledTaskTool : IToolExecutor
             // 解析 targetName（如果是技能）
             if (taskKind == ScheduledTaskKinds.Skill && !string.IsNullOrEmpty(request.TargetId))
             {
-                request.TargetName = await ResolveSkillNameAsync(request.TargetId, cancellationToken);
+                request.TargetName = await ScheduledTaskSkillNames.ResolveAsync(_localSkillService, request.TargetId, cancellationToken);
             }
 
             var result = await _scheduledTaskService.CreateAsync(request, cancellationToken);
@@ -143,15 +143,20 @@ public class CreateScheduledTaskTool : IToolExecutor
 
         return null;
     }
+}
 
-    private async Task<string?> ResolveSkillNameAsync(string targetId, CancellationToken cancellationToken)
+/// <summary>定时任务技能目标名解析：本地技能可直接取名；数据库技能的名称留空由展示层补。</summary>
+internal static class ScheduledTaskSkillNames
+{
+    public static async Task<string?> ResolveAsync(ILocalSkillService localSkillService, string? targetId, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(targetId)) return null;
         // 本地技能
         if (targetId.StartsWith("local:", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
-                var localResp = await _localSkillService.ScanAllAsync(cancellationToken);
+                var localResp = await localSkillService.ScanAllAsync(cancellationToken);
                 var skill = (localResp.Data ?? new List<LocalSkillDto>())
                     .FirstOrDefault(s => string.Equals(s.Id, targetId, StringComparison.OrdinalIgnoreCase));
                 return skill?.Name;
