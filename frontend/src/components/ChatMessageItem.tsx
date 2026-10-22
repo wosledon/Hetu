@@ -104,6 +104,12 @@ export default memo(function ChatMessageItem({
   const isUser = message.role === 'user'
   // 有序片段里已包含正文文本；旧格式的纯工具列表则回到“工具组 + 正文”布局
   const interleaved = segments.some((s) => s.kind === 'text')
+  // 时间线文本是正文的前缀（历史消息最后一轮纯文本没收进时间线）：把没被覆盖的
+  // 尾部补渲染，否则落库展示比流式预览少一截收尾（正文始终以 message.content 为准）
+  const timelineText = segments.filter((s) => s.kind === 'text').map((s) => s.text ?? '').join('')
+  const tailText = interleaved && message.content.startsWith(timelineText)
+    ? message.content.slice(timelineText.length)
+    : ''
   const isLegacy = segments.length > 0 && !interleaved
   // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
   const foldedSegments = foldConsecutiveToolCalls(
@@ -208,8 +214,14 @@ export default memo(function ChatMessageItem({
                       </div>
                     )
                   })}
-                </div>
-              )}
+                    {/* 时间线未覆盖的正文尾部（见上方 tailText 注释） */}
+                    {tailText.trim().length > 0 && (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ThemedMarkdown source={tailText} />
+                      </div>
+                    )}
+                  </div>
+                )}
               {/* 旧格式：工具组集中展示，正文在后 */}
               {!isUser && isLegacy && (
                 <div className="mb-3 space-y-1">
