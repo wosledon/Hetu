@@ -80,7 +80,7 @@ public class WorkProjectService : IWorkProjectService
             ConnectionType = isRemote ? "Ssh" : "Local",
             SshHost = isRemote ? request.SshHost!.Trim() : null,
             SshPort = isRemote ? (request.SshPort <= 0 ? 22 : request.SshPort) : 22,
-            SshUser = isRemote ? request.SshUser?.Trim() : null,
+            SshUser = isRemote ? ResolveSshUser(request.SshUser, request.SshHost) : null,
             SshAuthType = isRemote ? request.SshAuthType : "Key",
             SshKeyPath = isRemote ? request.SshKeyPath?.Trim() : null,
             Description = request.Description,
@@ -101,6 +101,12 @@ public class WorkProjectService : IWorkProjectService
         var (managedById, groupNames) = await LoadManagedAsync(cancellationToken);
         return ApiResponse<WorkProjectDto>.Ok(Map(project, 0, null, managedById.GetValueOrDefault(managed.Id), groupNames));
     }
+
+    /// <summary>SSH 登录用户：显式填写优先；为空时按 ~/.ssh/config 里 HostName 匹配的主机块补全（不匹配则留空走 ssh 默认）</summary>
+    private static string? ResolveSshUser(string? user, string? host)
+        => string.IsNullOrWhiteSpace(user)
+            ? Hetu.Core.Services.Work.SshConfigFile.ResolveUser(host)
+            : user.Trim();
 
     public async Task<ApiResponse<WorkProjectDto>> UpdateAsync(Guid id, UpdateWorkProjectRequest request, CancellationToken cancellationToken = default)
     {
@@ -136,7 +142,10 @@ public class WorkProjectService : IWorkProjectService
         {
             if (!string.IsNullOrWhiteSpace(request.SshHost)) project.SshHost = request.SshHost.Trim();
             if (request.SshPort is > 0) project.SshPort = request.SshPort.Value;
-            if (request.SshUser != null) project.SshUser = request.SshUser.Trim();
+            // 登录用户：显式填写优先；为空（含本次清空 / 历史遗留空值）时按 ~/.ssh/config 里
+            // HostName 匹配的主机块补全，避免落到本机用户名
+            if (request.SshUser != null || string.IsNullOrWhiteSpace(project.SshUser))
+                project.SshUser = ResolveSshUser(request.SshUser, project.SshHost);
             if (!string.IsNullOrWhiteSpace(request.SshAuthType)) project.SshAuthType = request.SshAuthType;
             if (request.SshKeyPath != null) project.SshKeyPath = request.SshKeyPath.Trim();
             if (request.SshPassword != null)
