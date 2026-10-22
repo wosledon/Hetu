@@ -13,7 +13,6 @@ import UserMessageContent from './UserMessageContent'
 import ChatMessageItem from './ChatMessageItem'
 import ConversationRail from './ConversationRail'
 
-import AgentApprovalCard from './agent/AgentApprovalCard'
 import AgentUsageBadge from './agent/AgentUsageBadge'
 import AgentTimeline from './agent/AgentTimeline'
 import AgentInputBox from './agent/AgentInputBox'
@@ -110,7 +109,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     streamingKnowledgeResults,
     streamingMemoryResults,
     streamingToolResults,
-    approvalRequests,
     usage,
     streamError, setStreamError,
     startStreaming, stopStreaming,
@@ -1084,16 +1082,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             />
           </div>
         )}
-        {/* 工具审批卡片：与编码会话共用同一组件 */}
-        {approvalRequests.map((req) => (
-          <div key={req.id} className="mb-2">
-            <AgentApprovalCard
-              request={req}
-              onApprove={() => handleApprove(req.id, true)}
-              onDeny={() => handleApprove(req.id, false)}
-            />
-          </div>
-        ))}
 
         {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
         {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
