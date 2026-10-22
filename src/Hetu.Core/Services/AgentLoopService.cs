@@ -378,7 +378,7 @@ public class AgentLoopService
                     _logger.LogInformation("[Compression] 本轮未启用历史压缩（CompressHistory=false）");
                 }
 
-                var (content, thinking, pendingToolCalls, usage) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+                var (content, thinking, pendingToolCalls, usage, streamCancelled) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
 
                 _logger.LogInformation("[AgentLoop] iter={Iter} contentLen={ContentLen} thinkingLen={ThinkingLen} toolCalls={ToolCallCount}",
                     iter, content.Length, thinking?.Length ?? 0, pendingToolCalls?.Count ?? 0);
@@ -391,17 +391,21 @@ public class AgentLoopService
 
                 result.Content += iterContent;
                 if (iterThinking.Length > 0) result.Thinking += iterThinking;
+                // 流被用户中断：本轮已产出的部分已并入 Content，标记取消让调用方补「已停止生成」
+                if (streamCancelled) result.Cancelled = true;
 
                 await (hooks?.OnIterationAsync(iter, iterContent, iterThinking, usage) ?? Task.CompletedTask);
 
-                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools || allToolNames.Count == 0)
-                    break;
-
-                // 有序流水：本轮按 思考 → 文本 的发生顺序记录，前端才能穿插还原
+                // 有序流水：本轮按 思考 → 文本 的发生顺序记录，前端才能穿插还原。
+                // 必须在下面「无工具调用即收尾」的 break 之前记录：最后一轮往往是纯正文，
+                // 漏记会让落库渲染（只渲染时间线）比流式预览少整整一段收尾
                 if (iterThinking.Length > 0)
                     result.Timeline.Add(new AgentTimelineSegment { Kind = "thought", Content = iterThinking });
                 if (iterContent.Length > 0)
                     result.Timeline.Add(new AgentTimelineSegment { Kind = "text", Content = iterContent });
+
+                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools || allToolNames.Count == 0)
+                    break;
 
                 chatMessages.Add(new LlmChatMessage
                 {
@@ -506,7 +510,7 @@ public class AgentLoopService
     }
 
     /// <summary>消费 LLM 流，累积 content/thinking/toolcalls/usage，转发到 sink。</summary>
-    private async Task<(StringBuilder content, StringBuilder? thinking, List<LlmToolCall>? toolCalls, LlmUsage? usage)> ProcessStreamAsync(
+    private async Task<(StringBuilder content, StringBuilder? thinking, List<LlmToolCall>? toolCalls, LlmUsage? usage, bool cancelled)> ProcessStreamAsync(
         ILLMProvider provider,
         List<LlmChatMessage> chatMessages,
         ChatOptions options,
@@ -517,45 +521,57 @@ public class AgentLoopService
         var thinkingSb = new StringBuilder();
         List<LlmToolCall>? pendingToolCalls = null;
         LlmUsage? usage = null;
+        var cancelled = false;
 
         var parser = new LlmStreamParser();
 
-        await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, ct))
+        try
         {
-            foreach (var chunk in parser.Parse(delta))
+            await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, ct))
             {
-                switch (chunk.Type)
+                foreach (var chunk in parser.Parse(delta))
                 {
-                    case LlmStreamEventType.Content:
-                        contentSb.Append(chunk.Text);
-                        await sink.OnContentAsync(chunk.Text);
-                        break;
-                    case LlmStreamEventType.Thinking:
-                        thinkingSb.Append(chunk.Text);
-                        await sink.OnThinkingAsync(chunk.Text);
-                        break;
-                    case LlmStreamEventType.ToolCalls:
-                        pendingToolCalls = chunk.ToolCalls;
-                        break;
-                    case LlmStreamEventType.Usage:
-                        usage = chunk.Usage;
-                        break;
+                    switch (chunk.Type)
+                    {
+                        case LlmStreamEventType.Content:
+                            contentSb.Append(chunk.Text);
+                            await sink.OnContentAsync(chunk.Text);
+                            break;
+                        case LlmStreamEventType.Thinking:
+                            thinkingSb.Append(chunk.Text);
+                            await sink.OnThinkingAsync(chunk.Text);
+                            break;
+                        case LlmStreamEventType.ToolCalls:
+                            pendingToolCalls = chunk.ToolCalls;
+                            break;
+                        case LlmStreamEventType.Usage:
+                            usage = chunk.Usage;
+                            break;
+                    }
+                }
+            }
+
+            foreach (var chunk in parser.Flush())
+            {
+                if (chunk.Type == LlmStreamEventType.Thinking)
+                {
+                    thinkingSb.Append(chunk.Text);
+                    await sink.OnThinkingAsync(chunk.Text);
+                }
+                else
+                {
+                    contentSb.Append(chunk.Text);
+                    await sink.OnContentAsync(chunk.Text);
                 }
             }
         }
-
-        foreach (var chunk in parser.Flush())
+        catch (OperationCanceledException)
         {
-            if (chunk.Type == LlmStreamEventType.Thinking)
-            {
-                thinkingSb.Append(chunk.Text);
-                await sink.OnThinkingAsync(chunk.Text);
-            }
-            else
-            {
-                contentSb.Append(chunk.Text);
-                await sink.OnContentAsync(chunk.Text);
-            }
+            // 用户中断：已流式产出的部分照常返回给调用方落库——否则停止的那一轮
+            // 连同已经生成的正文一起被丢掉，历史里用户消息孤零零没有回复
+            cancelled = true;
+            _logger.LogInformation("[AgentLoop] 流式中断，保留已生成部分 contentLen={ContentLen} thinkingLen={ThinkingLen}",
+                contentSb.Length, thinkingSb.Length);
         }
 
         if (pendingToolCalls is { Count: > 0 })
@@ -564,7 +580,7 @@ public class AgentLoopService
                 pendingToolCalls.Count, string.Join(",", pendingToolCalls.Select(t => t.Name)));
         }
 
-        return (contentSb, thinkingSb, pendingToolCalls, usage);
+        return (contentSb, thinkingSb, pendingToolCalls, usage, cancelled);
     }
 
     /// <summary>

@@ -500,7 +500,12 @@ public class WorkStreamController : ControllerBase
         if (loopResult.Usage.TotalTokens > 0) usageTotal.LatencyMs = hooks.LastIterationMs;
 
         var loopError = loopResult.Error;
-        var finalContent = loopResult.Content.Trim();        if (loopError != null && string.IsNullOrEmpty(finalContent))
+        var finalContent = loopResult.Content.Trim();
+        // 中断的一轮也要留痕：有部分正文就存部分 + 标记，什么都没有也存一条「已停止生成」，
+        // 否则历史里用户消息孤零零没有回复（与对话会话同一处理）
+        if (loopResult.Cancelled)
+            finalContent += _localizer.T("chat.stoppedGenerating");
+        else if (loopError != null && string.IsNullOrEmpty(finalContent))
             finalContent = _localizer.T("chat.requestFailed", loopError);
         // 模型只发起工具调用而没有正文时也要落库，否则下一轮会丢失这轮上下文
         if (string.IsNullOrEmpty(finalContent) && executedToolNames.Count > 0)
