@@ -76,7 +76,8 @@ public class KnowledgeBaseController : ControllerBase
     /// 获取知识项的 Embedding 状态列表（支持按类型筛选）
     /// </summary>
     [HttpGet("embeddings")]
-    [ResponseCache(Duration = 5)]
+    // 列表按 type 查询串过滤，缓存必须按 type 区分，否则切换分类会命中其它类型的缓存响应
+    [ResponseCache(Duration = 5, VaryByQueryKeys = new[] { "type" })]
     public async Task<ApiResponse<List<KnowledgeItemEmbeddingStatusDto>>> GetEmbeddingStatuses(
         [FromQuery] string? type,
         CancellationToken cancellationToken)

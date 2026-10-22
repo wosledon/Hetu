@@ -48,7 +48,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -578,24 +578,24 @@ export default function AgentsPage() {
           {toolCount > 0 && <><Zap size={11} />{t('card.toolCount', { n: toolCount })}</>}
         </span>
 
-        <div className="flex w-24 shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex w-20 shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {isLocal ? (
-            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
+            <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
               disabled={createProfessionalFromLocalMutation.isPending}
-              title={t('card.fromLocalTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
+              title={t('card.fromLocalTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
           ) : dbPreset.isBuiltIn ? (
-            <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+            <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
               disabled={createProfessionalMutation.isPending}
-              title={t('card.fromBuiltInTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
+              title={t('card.fromBuiltInTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
           ) : (
             <>
-              <Button variant="ghost" tone="gray" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)}><Edit2 size={11} /> {t('common:edit')}</Button>
+              <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)} title={t('common:edit')} label={t('common:edit')}><Edit2 size={14} /></IconButton>
               {!isProfessionalAgent && (
-                <Button variant="ghost" tone="violet" pill className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+                <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
                   disabled={createProfessionalMutation.isPending}
-                  title={t('card.fromGeneralTitle')}><Brain size={11} /> {t('card.createProfessional')}</Button>
+                  title={t('card.fromGeneralTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
               )}
-              <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"><Trash2 size={11} /> {t('common:delete')}</button>
+              <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-400 hover:bg-red-50 hover:text-red-500 dark:text-gray-500 dark:hover:bg-red-900/20 dark:hover:text-red-400" onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} title={t('common:delete')} label={t('common:delete')}><Trash2 size={14} /></IconButton>
             </>
           )}
         </div>
