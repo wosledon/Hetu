@@ -135,8 +135,7 @@ function useForceLayout(
     const cy = height / 2
     // 新增节点（非整图重排）的落点半径：沿用旧环形参数即可，力上限已兜底
     const radius = Math.min(width, height) * 0.3
-    // 单对排斥力与单步位移的上限：见下方 force / 位置积分处的注释
-    const maxRepulsion = 60
+    // 单步位移上限：见下方位置积分处的注释
     const maxStep = 30
 
     let nodes: NodePosition[]
@@ -203,6 +202,12 @@ function useForceLayout(
     // 硬上限兜底：正常由 alpha<0.015 退出，异常情况不至于无限跑
     const maxIterations = targetIterations * 3
     const velocityDecay = 0.6
+    // 布局密度：排斥力按节点规模给足（400+ 节点时默认值会把图挤成毛球），
+    // 链接吸引与向心拉扯相应减弱，让聚簇之间留出空隙；收敛后由适配视图整体缩放
+    const repulsion = 12600
+    const maxRepulsion = 180
+    const attraction = 0.01
+    const centerPull = 0.012
 
     const simulate = () => {
       // 每帧时间预算内多跑几步迭代，但限制步数：步数太多一帧就收敛完，
@@ -217,10 +222,6 @@ function useForceLayout(
         onSettleRef.current?.(nodes)
         return
       }
-
-      const repulsion = 4200
-      const attraction = 0.02
-      const centerPull = 0.02
 
       // Pre-build node map for O(1) lookups during relation processing
       const nodeMap = new Map<string, NodePosition>()
@@ -257,8 +258,8 @@ function useForceLayout(
               const ddx = node.x - other.x
               const ddy = node.y - other.y
               const dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1
-              // 单对排斥力封顶：距离过近时 4200/d² 会爆掉（重叠节点每步被推几百像素），
-              // 封顶后最紧邻也就 60，配合下面的单步位移上限保证布局是平滑展开而非掀翻
+              // 单对排斥力封顶：距离过近时 repulsion/d² 会爆掉（重叠节点每步被推几百像素），
+              // 封顶后最紧邻也就 maxRepulsion，配合单步位移上限保证布局是平滑展开而非掀翻
               const force = Math.min(repulsion / (dist * dist), maxRepulsion)
               fx += (ddx / dist) * force
               fy += (ddy / dist) * force
@@ -305,8 +306,11 @@ function useForceLayout(
         }
         node.x += node.vx
         node.y += node.vy
-        node.x = Math.max(40, Math.min(width - 40, node.x))
-        node.y = Math.max(40, Math.min(height - 40, node.y))
+        // 边界放宽到画布的 2 倍：布局按自身密度自然展开（400+ 节点时需要比视口
+        // 更大的面积才不挤成毛球），收敛后由适配视图整体缩放回画面；2 倍上限只兜
+        // 病态漂移，正常聚簇（展开半径 ~1.5 倍画布）不会被钳回
+        node.x = Math.max(cx - width, Math.min(cx + width, node.x))
+        node.y = Math.max(cy - height, Math.min(cy + height, node.y))
       }
 
       // 收敛早退：每节点位移已不可见且持续若干迭代 → 直接定稿进入适配视图，
