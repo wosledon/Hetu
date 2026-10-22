@@ -339,6 +339,12 @@ function useForceLayout(
 
       if (iteration < maxIterations && alpha >= 0.015) {
         frameRef.current = requestAnimationFrame(simulate)
+      } else {
+        // 循环条件耗尽（冷却到底 / 迭代上限）但从底部退出：顶部的终止检查还没轮到，
+        // 必须在这里补一次终态发布——否则模拟静默冻结，settle 回调（适配视图）永不触发，
+        // 画面停在密集的半路状态（强排斥下图节点持续微抖，不走静止早退，必踩此路径）
+        setPositions([...nodes])
+        onSettleRef.current?.(nodes)
       }
     }
 
@@ -492,9 +498,13 @@ function useCanvasRenderer(
     // 位置指纹：节点坐标每帧被物理模拟/拖拽直接改写（共享同一批对象），
     // 指纹变化即内容在动，需要重绘。
     let lastSig = Number.NaN
+    // 重绘节流：大图（400+ 节点 / 600+ 边 + 标签）一帧全量绘制要几毫秒，
+    // 高刷屏上 144fps 逐帧重绘会把帧预算吃光——物理模拟每帧只跑 1 步，
+    // 500 迭代要爬 30 秒。节流到约 60fps：动画依旧顺滑，模拟拿回帧预算。
+    let lastDrawAt = 0
     const textWidthCache = new Map<string, number>()
 
-    const draw = () => {
+    const draw = (now = 0) => {
       // 补间收尾交接：撤掉变换并强制定格重绘
       let force = false
       if (pendingFinalDrawRef.current) {
@@ -530,10 +540,16 @@ function useCanvasRenderer(
         Math.abs(dispPanRef.current.y - panRef.current.y) > 0.5
       const need = dirty || moved || animating || force
       dirty = false
+      // 节流：距上次重绘不足 16ms 就跳过本次绘制（心跳判定继续跑，不打断帧链）
+      if (need && !tweenActiveRef.current && now - lastDrawAt < 16) {
+        animationRef.current = requestAnimationFrame(draw)
+        return
+      }
       if (!need || tweenActiveRef.current) {
         animationRef.current = requestAnimationFrame(draw)
         return
       }
+      lastDrawAt = now
       const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
       // Always keep canvas buffer in sync with CSS layout
