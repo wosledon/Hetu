@@ -226,6 +226,8 @@ export interface IWorkBranchList {
   remoteBranches?: string[];
   /** 非空表示该项目不支持工作树（remote = SSH 项目，project-unavailable = 项目不可用） */
   worktreeUnsupportedReason?: string;
+  /** 分支读取失败的真实原因（SSH 连接失败 / 不是 git 仓库 / git 不可用） */
+  error?: string;
 }
 
 export interface IWorkCodeSearchHit {

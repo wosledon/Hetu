@@ -57,6 +57,10 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
       : reason === 'not-repo'
         ? t('workspace.notRepo')
         : t('workspace.projectUnavailable')
+  // 分支读取失败（SSH 连接失败 / git 不可用）时把真实原因透到浮层提示里
+  const branchError = branchInfo?.error ?? null
+  // 只有「非 git 仓库 / 项目不可用」才打不开分支下拉；SSH 项目只是没有工作树，分支列表照常可读
+  const branchListBlocked = reason === 'not-repo' || reason === 'project-unavailable'
 
   const created = !!session.worktreePath
   const useWorktree = created || !!session.useWorktree
@@ -141,13 +145,15 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
         <div className="relative">
           <button
             onClick={() => setMenu(menu === 'branch' ? null : 'branch')}
-            disabled={busy || created || !!unsupportedHint || ((branchInfo?.branches.length ?? 0) === 0 && (branchInfo?.remoteBranches?.length ?? 0) === 0)}
+            disabled={busy || created || branchListBlocked || ((branchInfo?.branches.length ?? 0) === 0 && (branchInfo?.remoteBranches?.length ?? 0) === 0)}
             title={
               created
                 ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' })
-                : useWorktree
-                  ? t('workspace.baseBranchTitle')
-                  : t('workspace.branchCheckoutTitle')
+                : branchError
+                  ? branchError
+                  : useWorktree
+                    ? t('workspace.baseBranchTitle')
+                    : t('workspace.branchCheckoutTitle')
             }
             className={triggerClass(false)}
           >

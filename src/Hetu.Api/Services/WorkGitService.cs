@@ -84,13 +84,19 @@ public class WorkGitService
         if (runner == null)
         {
             dto.WorktreeUnsupportedReason = "project-unavailable";
+            dto.Error = _localizer.T("work.projectNotFound");
             return dto;
         }
         if (runner.IsRemote)
             dto.WorktreeUnsupportedReason = "remote";
 
         var (code, current) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
-        if (code != 0) return dto; // 非 git 仓库 / git 不可用
+        if (code != 0)
+        {
+            // SSH 认证失败 / 不是 git 仓库 / git 不可用：把真实原因带回前端，别让界面只说「不是 git 仓库」
+            dto.Error = FirstMeaningfulLine(current) ?? _localizer.T("work.branchReadFailed");
+            return dto;
+        }
 
         dto.IsRepo = true;
         dto.Current = current.Trim();
@@ -117,6 +123,13 @@ public class WorkGitService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(line => line, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    /// <summary>取命令输出里第一行有内容的信息（SSH / git 的报错首行）</summary>
+    private static string? FirstMeaningfulLine(string output)
+        => output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .FirstOrDefault(line => line.Length > 0);
 
     /// <summary>
     /// 在项目里挂一个独立工作树（仅本地项目）。分支已存在于本地时直接检出该分支，

@@ -75,12 +75,13 @@ public class WorkSessionServiceTests
         var repository = Substitute.For<IRepository<WorkMessage>>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
         unitOfWork.WorkMessages.Returns(repository);
-        // 分页读取不触碰工作树 / 命名器 / 模型工厂
+        // 分页读取不触碰工作树 / 命名器 / 模型工厂 / 执行器工厂
         return (new WorkSessionService(
             unitOfWork,
             Substitute.For<ILocalizer>(),
             null!,
             null!,
-            null!), repository);
+            null!,
+            Substitute.For<IWorkCommandRunnerFactory>()), repository);
     }
 }

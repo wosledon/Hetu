@@ -317,19 +317,22 @@ public class WorkSessionService : IWorkSessionService
     private readonly WorkWorktreeService _worktrees;
     private readonly WorktreeNameSuggester _namer;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly IWorkCommandRunnerFactory _runnerFactory;
 
     public WorkSessionService(
         IUnitOfWork unitOfWork,
         ILocalizer localizer,
         WorkWorktreeService worktrees,
         WorktreeNameSuggester namer,
-        ILLMProviderFactory llmProviderFactory)
+        ILLMProviderFactory llmProviderFactory,
+        IWorkCommandRunnerFactory runnerFactory)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
         _worktrees = worktrees;
         _namer = namer;
         _llmProviderFactory = llmProviderFactory;
+        _runnerFactory = runnerFactory;
     }
 
     public async Task<ApiResponse<List<WorkSessionDto>>> GetByProjectAsync(Guid projectId, string? query = null, CancellationToken cancellationToken = default)
@@ -490,9 +493,10 @@ public class WorkSessionService : IWorkSessionService
         // 主工作区模式：显式选分支就是检出分支（“当前分支”即所选分支）；工作树模式下它只是新分支的起点
         if (request.BaseBranch != null && !session.UseWorktree && !string.IsNullOrWhiteSpace(session.BaseBranch))
         {
-            if (project.ConnectionType == "Ssh")
-                return ApiResponse<WorkSessionDto>.Fail(_localizer.T("workSession.checkoutRemoteUnsupported"));
-            var checkoutError = await _worktrees.CheckoutAsync(project.RootPath, session.BaseBranch, cancellationToken);
+            // SSH 项目走远端执行器检出（工作树才只支持本地）
+            var checkoutError = project.ConnectionType == "Ssh"
+                ? await CheckoutRemoteAsync(project, session.BaseBranch, cancellationToken)
+                : await _worktrees.CheckoutAsync(project.RootPath, session.BaseBranch, cancellationToken);
             if (checkoutError != null) return ApiResponse<WorkSessionDto>.Fail(checkoutError);
         }
 
@@ -502,6 +506,14 @@ public class WorkSessionService : IWorkSessionService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         var count = (await _unitOfWork.WorkMessages.FindAsync(m => m.SessionId == id, cancellationToken)).Count;
         return ApiResponse<WorkSessionDto>.Ok(Map(session, count));
+    }
+
+    /// <summary>SSH 项目：在远端仓库执行检出，失败原因（连接失败 / 分支不存在等）原样返回给前端</summary>
+    private async Task<string?> CheckoutRemoteAsync(WorkProject project, string branch, CancellationToken cancellationToken)
+    {
+        var runner = await _runnerFactory.GetRunnerAsync(project.Id, cancellationToken);
+        if (runner == null) return _localizer.T("project.notFound");
+        return await _worktrees.CheckoutViaRunnerAsync(runner, branch, cancellationToken);
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
