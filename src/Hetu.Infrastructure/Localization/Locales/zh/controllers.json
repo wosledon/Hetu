@@ -46,6 +46,7 @@
 
   "work.projectNotFound": "项目不存在",
   "work.dirNotFound": "目录不存在",
+  "work.branchReadFailed": "读取分支失败",
   "work.readLocalDirFailed": "读取目录失败：{0}",
   "work.readSshConfigFailed": "读取 SSH 配置失败：{0}",
   "work.hostRequired": "请先填写主机地址",

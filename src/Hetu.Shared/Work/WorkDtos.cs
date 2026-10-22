@@ -191,6 +191,8 @@ public class WorkBranchListDto
     public List<string> RemoteBranches { get; set; } = [];
     /// <summary>不支持工作树的原因（SSH 项目 / 非 git 仓库等），为 null 表示可用</summary>
     public string? WorktreeUnsupportedReason { get; set; }
+    /// <summary>分支读取失败的真实原因（SSH 连接失败 / 不是 git 仓库 / git 不可用），成功时为 null</summary>
+    public string? Error { get; set; }
 }
 
 public class WorkMessageDto

@@ -46,6 +46,7 @@
 
   "work.projectNotFound": "Project not found",
   "work.dirNotFound": "Directory not found",
+  "work.branchReadFailed": "Failed to read branches",
   "work.readLocalDirFailed": "Failed to read directory: {0}",
   "work.readSshConfigFailed": "Failed to read SSH config: {0}",
   "work.hostRequired": "Please enter the host address first",

@@ -75,9 +75,15 @@ public class WorkWorktreeService
     private static async Task<(int ExitCode, string Output)> RunGitAsync(string directory, string arguments, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(directory)) return (1, "directory-missing");
+        return await RunGitAsync(new LocalCommandRunner(directory), arguments, cancellationToken);
+    }
+
+    /// <summary>通过执行器（本地 / SSH）执行 git；网络较慢时 60s 上限</summary>
+    private static async Task<(int ExitCode, string Output)> RunGitAsync(IWorkCommandRunner runner, string arguments, CancellationToken cancellationToken)
+    {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(60));
-        var result = await new LocalCommandRunner(directory).RunAsync($"git {arguments}", null, cts.Token);
+        var result = await runner.RunAsync($"git {arguments}", null, cts.Token);
         return (result.ExitCode, result.Combined);
     }
 
@@ -153,23 +159,55 @@ public class WorkWorktreeService
     /// 把工作目录检出到指定分支；已经是该分支时什么都不做。返回 null 表示成功。
     /// <paramref name="branch"/> 可以是远程引用（origin/feature-x）：本地没有同名分支时按远程建跟踪分支。
     /// </summary>
-    public async Task<string?> CheckoutAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
+    public Task<string?> CheckoutAsync(string projectRoot, string branch, CancellationToken cancellationToken = default)
+        => CheckoutViaRunnerAsync(new LocalCommandRunner(projectRoot), branch, cancellationToken);
+
+    /// <summary>
+    /// 通过执行器把仓库检出到指定分支（SSH 项目同样支持）；已经是该分支时什么都不做。返回 null 表示成功。
+    /// <paramref name="branch"/> 可以是远程引用（origin/feature-x）：本地没有同名分支时按远程建跟踪分支。
+    /// </summary>
+    public async Task<string?> CheckoutViaRunnerAsync(IWorkCommandRunner runner, string branch, CancellationToken cancellationToken = default)
     {
-        if (await IsRemoteRefAsync(projectRoot, branch, cancellationToken))
+        if (await IsRemoteRefViaRunnerAsync(runner, branch, cancellationToken))
         {
             var local = LocalNameOf(branch);
-            if (!await BranchExistsAsync(projectRoot, local, cancellationToken))
+            if (!await BranchExistsViaRunnerAsync(runner, local, cancellationToken))
             {
-                var (createCode, createOut) = await RunGitAsync(projectRoot, $"checkout -b {local} {branch}", cancellationToken);
+                var (createCode, createOut) = await RunGitAsync(runner, $"checkout -b {local} {branch}", cancellationToken);
                 return createCode == 0 ? null : FirstLine(createOut);
             }
             branch = local;
         }
 
-        var current = await GetCurrentBranchAsync(projectRoot, cancellationToken);
+        var current = await CurrentBranchViaRunnerAsync(runner, cancellationToken);
         if (string.Equals(current, branch, StringComparison.OrdinalIgnoreCase)) return null;
-        var (code, output) = await RunGitAsync(projectRoot, $"checkout {branch}", cancellationToken);
+        var (code, output) = await RunGitAsync(runner, $"checkout {branch}", cancellationToken);
         return code == 0 ? null : FirstLine(output);
+    }
+
+    private static async Task<string?> CurrentBranchViaRunnerAsync(IWorkCommandRunner runner, CancellationToken cancellationToken)
+    {
+        var (code, output) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken);
+        return code == 0 ? output.Trim() : null;
+    }
+
+    private static async Task<bool> BranchExistsViaRunnerAsync(IWorkCommandRunner runner, string branch, CancellationToken cancellationToken)
+    {
+        var (code, _) = await RunGitAsync(runner, $"rev-parse --verify --quiet refs/heads/{branch}", cancellationToken);
+        return code == 0;
+    }
+
+    /// <summary>是否形如 <c>&lt;remote&gt;/&lt;branch&gt;</c> 的远程引用（<c>&lt;remote&gt;</c> 必须是仓库里的真实远程名）</summary>
+    private static async Task<bool> IsRemoteRefViaRunnerAsync(IWorkCommandRunner runner, string branch, CancellationToken cancellationToken)
+    {
+        var slash = branch.IndexOf('/');
+        if (slash <= 0) return false;
+        var (code, remotes) = await RunGitAsync(runner, "remote", cancellationToken);
+        if (code != 0) return false;
+        return remotes
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(r => r.Trim())
+            .Any(r => string.Equals(r, branch[..slash], StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>是否形如 <c>&lt;remote&gt;/&lt;branch&gt;</c> 的远程引用（<c>&lt;remote&gt;</c> 必须是真实远程名）</summary>

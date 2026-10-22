@@ -85,14 +85,17 @@ public class WorkBrowseController : ControllerBase
     {
         try
         {
-            var configPath = GetDefaultSshConfigPath();
-            if (configPath == null || !System.IO.File.Exists(configPath))
-                return ApiResponse<List<SshConfigHostDto>>.Ok(new List<SshConfigHostDto>());
-
-            var hosts = new List<SshConfigHostDto>();
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            ParseSshConfig(configPath, hosts, visited, depth: 0);
-            return ApiResponse<List<SshConfigHostDto>>.Ok(hosts);
+            var hosts = Hetu.Core.Services.Work.SshConfigFile.Load();
+            return ApiResponse<List<SshConfigHostDto>>.Ok(hosts
+                .Select(h => new SshConfigHostDto
+                {
+                    Alias = h.Alias,
+                    HostName = h.HostName,
+                    User = h.User,
+                    Port = h.Port,
+                    IdentityFile = h.IdentityFile,
+                })
+                .ToList());
         }
         catch (Exception ex)
         {
@@ -177,104 +180,6 @@ public class WorkBrowseController : ControllerBase
         => Convert.ToBase64String(_dataProtection.CreateProtector("Hetu.Ssh").Protect(System.Text.Encoding.UTF8.GetBytes(password)));
 
     private static string? FirstLine(string text) => text.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
-
-    private static string? GetDefaultSshConfigPath()
-    {
-        var home = Environment.GetEnvironmentVariable("HOME")
-            ?? Environment.GetEnvironmentVariable("USERPROFILE");
-        if (string.IsNullOrWhiteSpace(home)) return null;
-        return Path.Combine(home, ".ssh", "config");
-    }
-
-    /// <summary>解析 ssh_config：Host 块（忽略通配符）+ Include 展开，~ 前缀展开为主机路径</summary>
-    private void ParseSshConfig(string configPath, List<SshConfigHostDto> hosts, HashSet<string> visited, int depth)
-    {
-        if (depth > 4 || !visited.Add(configPath)) return;
-
-        string[] lines;
-        try { lines = System.IO.File.ReadAllLines(configPath); }
-        catch (Exception ex)
-        {
-            _logger.LogDebug("[WorkBrowse] 跳过无法读取的 SSH 配置 {Path}: {Message}", configPath, ex.Message);
-            return;
-        }
-
-        var baseDir = Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".";
-        var home = Environment.GetEnvironmentVariable("HOME") ?? Environment.GetEnvironmentVariable("USERPROFILE");
-
-        SshConfigHostDto? current = null;
-        foreach (var raw in lines)
-        {
-            var line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith('#')) continue;
-
-            var sep = line.IndexOfAny(new[] { ' ', '=', '\t' });
-            if (sep <= 0) continue;
-            var key = line[..sep].Trim();
-            var value = line[(sep + 1)..].Trim().Trim('"');
-
-            if (key.Equals("Host", StringComparison.OrdinalIgnoreCase))
-            {
-                current = null;
-                var aliases = value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var alias in aliases)
-                {
-                    if (alias.Contains('*') || alias.Contains('?') || alias.Contains('!')) continue;
-                    if (hosts.Any(h => h.Alias.Equals(alias, StringComparison.OrdinalIgnoreCase))) continue;
-                    current = new SshConfigHostDto { Alias = alias };
-                    hosts.Add(current);
-                }
-                continue;
-            }
-
-            if (key.Equals("Include", StringComparison.OrdinalIgnoreCase) && value.Length > 0)
-            {
-                var pattern = value.Replace("~", home ?? string.Empty);
-                if (!Path.IsPathRooted(pattern)) pattern = Path.Combine(baseDir, pattern);
-                foreach (var included in GlobFiles(pattern))
-                    ParseSshConfig(included, hosts, visited, depth + 1);
-                continue;
-            }
-
-            if (current == null) continue;
-
-            if (key.Equals("HostName", StringComparison.OrdinalIgnoreCase)) current.HostName = value;
-            else if (key.Equals("User", StringComparison.OrdinalIgnoreCase)) current.User = value;
-            else if (key.Equals("Port", StringComparison.OrdinalIgnoreCase) && int.TryParse(value, out var p)) current.Port = p;
-            else if (key.Equals("IdentityFile", StringComparison.OrdinalIgnoreCase)) current.IdentityFile = ExpandHome(value);
-        }
-    }
-
-    private static string ExpandHome(string value)
-    {
-        var home = Environment.GetEnvironmentVariable("HOME") ?? Environment.GetEnvironmentVariable("USERPROFILE");
-        if (!string.IsNullOrEmpty(home) && value.StartsWith("~/"))
-            return Path.Combine(home, value[2..]);
-        if (!string.IsNullOrEmpty(home) && value == "~")
-            return home;
-        return value;
-    }
-
-    /// <summary>简易 glob：展开包含 * / ? 的 Include 路径</summary>
-    private static IEnumerable<string> GlobFiles(string pattern)
-    {
-        try
-        {
-            var full = Path.GetFullPath(pattern);
-            var dir = Path.GetDirectoryName(full) ?? ".";
-            var name = Path.GetFileName(full);
-            if (name.IndexOfAny(new[] { '*', '?' }) < 0)
-            {
-                return System.IO.File.Exists(full) ? new[] { full } : Array.Empty<string>();
-            }
-            if (!Directory.Exists(dir)) return Array.Empty<string>();
-            return Directory.GetFiles(dir, name);
-        }
-        catch
-        {
-            return Array.Empty<string>();
-        }
-    }
 }
 
 public class WorkSshBrowseRequest

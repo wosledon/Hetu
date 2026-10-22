@@ -218,7 +218,10 @@ public class ManagedProjectService : IManagedProjectService
         }
         project.SshHost = host?.Trim();
         project.SshPort = port is <= 0 or > 65535 ? 22 : port;
-        project.SshUser = string.IsNullOrWhiteSpace(user) ? null : user.Trim();
+        // 登录用户：显式填写优先；为空时按 ~/.ssh/config 里 HostName 匹配的主机块补全，避免落到本机用户名
+        project.SshUser = string.IsNullOrWhiteSpace(user)
+            ? Hetu.Core.Services.Work.SshConfigFile.ResolveUser(project.SshHost)
+            : user.Trim();
         project.SshAuthType = authType;
         project.SshKeyPath = authType == "Key" ? (string.IsNullOrWhiteSpace(keyPath) ? null : keyPath.Trim()) : null;
         if (password != null)
