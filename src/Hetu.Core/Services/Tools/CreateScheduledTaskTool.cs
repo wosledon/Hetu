@@ -67,29 +67,29 @@ public class CreateScheduledTaskTool : IToolExecutor
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
 
-            var name = root.GetProperty("name").GetString() ?? "";
+            var name = ToolArgs.ReadString(root, "name") ?? "";
             if (string.IsNullOrWhiteSpace(name))
                 return ToolExecutionResult.Error("任务名称不能为空");
 
-            var taskKind = root.GetProperty("taskKind").GetString() ?? "AiTask";
-            var scheduleType = root.GetProperty("scheduleType").GetString() ?? "Interval";
+            var taskKind = ToolArgs.ReadString(root, "taskKind") ?? "AiTask";
+            var scheduleType = ToolArgs.ReadString(root, "scheduleType") ?? "Interval";
 
             var request = new CreateScheduledTaskRequest
             {
                 Name = name,
-                Description = root.TryGetProperty("description", out var d) ? d.GetString() : null,
+                Description = ToolArgs.ReadString(root, "description"),
                 TaskKind = taskKind,
-                TargetId = root.TryGetProperty("targetId", out var t) ? t.GetString() : null,
-                Parameters = root.TryGetProperty("parameters", out var p) ? p.GetString() : null,
+                TargetId = ToolArgs.ReadString(root, "targetId"),
+                Parameters = ToolArgs.ReadString(root, "parameters"),
                 ScheduleType = scheduleType,
-                IntervalMinutes = root.TryGetProperty("intervalMinutes", out var im) ? im.GetInt32() : 60,
-                CronExpression = root.TryGetProperty("cronExpression", out var c) ? c.GetString() : null,
+                IntervalMinutes = ToolArgs.ReadInt(root, "intervalMinutes") ?? 60,
+                CronExpression = ToolArgs.ReadString(root, "cronExpression"),
                 IsEnabled = true,
-                MaxRetries = root.TryGetProperty("maxRetries", out var mr) ? mr.GetInt32() : 0,
+                MaxRetries = ToolArgs.ReadInt(root, "maxRetries") ?? 0,
             };
 
             // 绑定到当前会话
-            var bindToConversation = !root.TryGetProperty("bindToConversation", out var bc) || bc.GetBoolean();
+            var bindToConversation = ToolArgs.ReadBool(root, "bindToConversation") ?? true;
             if (bindToConversation)
             {
                 request.TopicId = TryGetCurrentTopicId();

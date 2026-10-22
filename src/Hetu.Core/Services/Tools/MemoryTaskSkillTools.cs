@@ -40,7 +40,7 @@ public class ListMemoriesTool : IToolExecutor
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
 
-            var limit = root.TryGetProperty("limit", out var l) ? Math.Clamp(l.GetInt32(), 1, 50) : 20;
+            var limit = Math.Clamp(ToolArgs.ReadInt(root, "limit") ?? 20, 1, 50);
             var category = root.TryGetProperty("category", out var c) ? c.GetString() : null;
             var scope = root.TryGetProperty("scope", out var s) ? s.GetString() : null;
             var projectId = root.TryGetProperty("projectId", out var p) && Guid.TryParse(p.GetString(), out var pid) ? pid : (Guid?)null;
@@ -154,7 +154,7 @@ public class ListScheduledTasksTool : IToolExecutor
         {
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
-            var enabledOnly = root.TryGetProperty("enabledOnly", out var e) && e.GetBoolean();
+            var enabledOnly = ToolArgs.ReadBool(root, "enabledOnly") ?? false;
 
             var result = await _scheduledTaskService.GetAllAsync(cancellationToken);
             if (!result.Success || result.Data == null)

@@ -544,9 +544,8 @@ public class WorkSemanticSearchTool : IToolExecutor
         try
         {
             var args = JsonSerializer.Deserialize<JsonElement>(argumentsJson);
-            query = args.TryGetProperty("query", out var q) ? q.GetString() ?? "" : "";
-            if (args.TryGetProperty("limit", out var l) && l.ValueKind == JsonValueKind.Number)
-                limit = l.GetInt32();
+            query = ToolArgs.ReadString(args, "query") ?? "";
+            limit = ToolArgs.ReadInt(args, "limit") ?? limit;
         }
         catch (JsonException ex)
         {

@@ -35,7 +35,7 @@ public class ListKnowledgeItemsTool : IToolExecutor
             using var doc = JsonDocument.Parse(argumentsJson);
             var root = doc.RootElement;
 
-            var limit = root.TryGetProperty("limit", out var l) ? Math.Clamp(l.GetInt32(), 1, 50) : 20;
+            var limit = Math.Clamp(ToolArgs.ReadInt(root, "limit") ?? 20, 1, 50);
             var typeFilter = root.TryGetProperty("type", out var t) ? t.GetString() : null;
 
             var items = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);

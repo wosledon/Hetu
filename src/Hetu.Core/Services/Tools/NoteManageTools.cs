@@ -41,13 +41,13 @@ public class ListNotesTool : IToolExecutor
             var request = new GetNotesRequest
             {
                 Page = 1,
-                PageSize = root.TryGetProperty("limit", out var l) ? Math.Clamp(l.GetInt32(), 1, 50) : 20
+                PageSize = Math.Clamp(ToolArgs.ReadInt(root, "limit") ?? 20, 1, 50)
             };
             if (root.TryGetProperty("parentId", out var parent) && Guid.TryParse(parent.GetString(), out var parentId))
                 request.ParentId = parentId;
             if (root.TryGetProperty("tagId", out var tg) && Guid.TryParse(tg.GetString(), out var tagId))
                 request.TagId = tagId;
-            var favoritesOnly = root.TryGetProperty("favoritesOnly", out var f) && f.GetBoolean();
+            var favoritesOnly = ToolArgs.ReadBool(root, "favoritesOnly") ?? false;
 
             var result = await _noteService.GetListAsync(request, cancellationToken);
             if (!result.Success || result.Data == null)
