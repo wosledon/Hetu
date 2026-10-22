@@ -15,6 +15,9 @@ public interface IMemoryService
     /// <summary>创建手动记忆</summary>
     Task<ApiResponse<MemoryDto>> CreateAsync(CreateMemoryRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>按 ID 读取单条记忆（更新前先取现值，未传字段沿用）</summary>
+    Task<ApiResponse<MemoryDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>更新记忆</summary>
     Task<ApiResponse<MemoryDto>> UpdateAsync(Guid id, UpdateMemoryRequest request, CancellationToken cancellationToken = default);
 

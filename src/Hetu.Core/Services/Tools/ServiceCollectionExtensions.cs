@@ -22,6 +22,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, SearchWebTool>();
         services.AddScoped<IToolExecutor, SearchMemoryTool>();
         services.AddScoped<IToolExecutor, CreateMemoryTool>();
+        services.AddScoped<IToolExecutor, UpdateMemoryTool>();
+        services.AddScoped<IToolExecutor, DreamMemoryTool>();
         services.AddScoped<IToolExecutor, ListMemoriesTool>();
         services.AddScoped<IToolExecutor, DeleteMemoryTool>();
         services.AddScoped<IToolExecutor, SearchGraphTool>();
@@ -33,6 +35,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, RunCommandTool>();
         services.AddScoped<IToolExecutor, CreateScheduledTaskTool>();
         services.AddScoped<IToolExecutor, ListScheduledTasksTool>();
+        services.AddScoped<IToolExecutor, UpdateScheduledTaskTool>();
+        services.AddScoped<IToolExecutor, ToggleScheduledTaskTool>();
+        services.AddScoped<IToolExecutor, RunScheduledTaskTool>();
         services.AddScoped<IToolExecutor, DeleteScheduledTaskTool>();
         services.AddScoped<IToolExecutor, ListSkillsTool>();
         // 项目 / 任务看板 / Wiki / 工作流 / 智能体 / 标签 / 知识库条目 / 收件箱 / 用量统计
@@ -40,6 +45,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IToolExecutor, CreateProjectTool>();
         services.AddScoped<IToolExecutor, UpdateProjectTool>();
         services.AddScoped<IToolExecutor, DeleteProjectTool>();
+        services.AddScoped<IToolExecutor, ListProjectGroupsTool>();
+        services.AddScoped<IToolExecutor, CreateProjectGroupTool>();
+        services.AddScoped<IToolExecutor, UpdateProjectGroupTool>();
+        services.AddScoped<IToolExecutor, DeleteProjectGroupTool>();
         services.AddScoped<IToolExecutor, ListWorkProjectsTool>();
         services.AddScoped<IToolExecutor, ListKanbanTasksTool>();
         services.AddScoped<IToolExecutor, CreateKanbanTaskTool>();
