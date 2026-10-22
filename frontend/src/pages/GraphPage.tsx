@@ -97,7 +97,7 @@ const hexToRgb = (hex: string) => {
   return { r: v(hex.slice(1, 3)), g: v(hex.slice(3, 5)), b: v(hex.slice(5, 7)) }
 }
 
-// --- Force-directed layout hook (unchanged physics, same throttling) ---
+// --- Force-directed layout hook ---
 function useForceLayout(
   entities: IGraphEntity[],
   relations: IGraphRelation[],
@@ -133,16 +133,27 @@ function useForceLayout(
 
     const cx = width / 2
     const cy = height / 2
+    // 新增节点（非整图重排）的落点半径：沿用旧环形参数即可，力上限已兜底
     const radius = Math.min(width, height) * 0.3
+    // 单对排斥力与单步位移的上限：见下方 force / 位置积分处的注释
+    const maxRepulsion = 60
+    const maxStep = 30
 
     let nodes: NodePosition[]
     if (!initializedRef.current) {
+      // 初始布局用黄金角螺旋均匀铺开，不用固定半径圆环：圆环的间距随节点数反比
+      // 收缩（400+ 节点时间距只有几像素），排斥力（4200/d²）会把整图在一两帧内
+      // 掀到画布边界并钳死——加载动画不可见，终局也是糊在边缘的乱环。
+      // 螺旋按 sqrt(i/n) 分布半径，间距与节点数无关，布局从内向外平滑展开。
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+      const initRadius = Math.min(width, height) * 0.35
       nodes = entities.map((e, i) => {
-        const angle = (2 * Math.PI * i) / entities.length
+        const r = initRadius * Math.sqrt((i + 0.5) / entities.length)
+        const a = i * goldenAngle
         return {
           id: e.id,
-          x: cx + radius * Math.cos(angle),
-          y: cy + radius * Math.sin(angle),
+          x: cx + r * Math.cos(a),
+          y: cy + r * Math.sin(a),
           vx: 0,
           vy: 0,
         }
@@ -183,9 +194,14 @@ function useForceLayout(
     let stillCount = 0
     // 根据节点数量动态调整迭代次数
     const nodeCount = nodes.length
-    const maxIterations = Math.max(200, nodeCount > 100 ? 260 : 320)
+    // 动画时长由冷却 schedule 决定：alpha 从 1 衰减到 0.015 需要 targetIterations 次
+    // 迭代，3 步/帧下大图（n>100）约 500 次 ≈ 3 秒，小图约 360 次 ≈ 2 秒——
+    // 展开、聚簇、微调全程可见；再靠下方连续静止早退及时收尾，不会空转。
+    const targetIterations = Math.max(200, nodeCount > 100 ? 500 : 360)
     // d3-force 式冷却：力随 alpha 衰减，布局平滑收敛而非生硬停摆
-    const alphaDecay = 1 - Math.pow(0.001, 1 / maxIterations)
+    const alphaDecay = 1 - Math.pow(0.015, 1 / targetIterations)
+    // 硬上限兜底：正常由 alpha<0.015 退出，异常情况不至于无限跑
+    const maxIterations = targetIterations * 3
     const velocityDecay = 0.6
 
     const simulate = () => {
@@ -241,7 +257,9 @@ function useForceLayout(
               const ddx = node.x - other.x
               const ddy = node.y - other.y
               const dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1
-              const force = repulsion / (dist * dist)
+              // 单对排斥力封顶：距离过近时 4200/d² 会爆掉（重叠节点每步被推几百像素），
+              // 封顶后最紧邻也就 60，配合下面的单步位移上限保证布局是平滑展开而非掀翻
+              const force = Math.min(repulsion / (dist * dist), maxRepulsion)
               fx += (ddx / dist) * force
               fy += (ddy / dist) * force
             }
@@ -279,6 +297,12 @@ function useForceLayout(
           node.vx = 0; node.vy = 0
           continue
         }
+        // 单步位移上限：速度再大也不瞬移（否则大图一帧就掀到边界，动画全程不可见）
+        const speed = Math.hypot(node.vx, node.vy)
+        if (speed > maxStep) {
+          node.vx = node.vx / speed * maxStep
+          node.vy = node.vy / speed * maxStep
+        }
         node.x += node.vx
         node.y += node.vy
         node.x = Math.max(40, Math.min(width - 40, node.x))
@@ -286,7 +310,7 @@ function useForceLayout(
       }
 
       // 收敛早退：每节点位移已不可见且持续若干迭代 → 直接定稿进入适配视图，
-      // 否则平衡布局（如初始环形）会空转满 200+ 迭代，首屏几秒静止像卡死
+      // 否则已平衡的布局（小图 / 单簇图）会空转满 200+ 迭代，首屏几秒静止像卡死
       let maxDisp = 0
       for (const node of nodes) {
         const d = Math.abs(node.vx) + Math.abs(node.vy)
