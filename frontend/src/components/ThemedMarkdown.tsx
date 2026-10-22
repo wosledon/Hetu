@@ -314,7 +314,11 @@ export default memo(function ThemedMarkdown({ source, className, onCodeAction }:
   )
 
   return (
-    <div ref={containerRef} className={`wmde-markdown ${isDark ? 'dark' : ''} ${className ?? ''}`}>
+    // 根节点内置 prose 排版类：typography 插件的列表符号/标题层级只在 .prose 下生效，
+    // 而 Tailwind preflight 会清掉列表符号——早期只有部分调用点自己包了 prose 外层，
+    // Wiki / Code 会话 / 看板等渲染处因此丢序号。内置后所有使用点一致；
+    // 已包 prose 外层的调用点形成嵌套，规则取值相同（幂等），无视觉变化。
+    <div ref={containerRef} className={`wmde-markdown prose prose-sm max-w-none dark:prose-invert ${isDark ? 'dark' : ''} ${className ?? ''}`}>
       <MarkdownErrorBoundary>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
