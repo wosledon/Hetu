@@ -227,8 +227,7 @@ public class GetUsageStatsTool : IToolExecutor
             try
             {
                 using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
-                if (doc.RootElement.TryGetProperty("days", out var d) && d.ValueKind == JsonValueKind.Number)
-                    days = Math.Clamp(d.GetInt32(), 1, 30);
+                days = Math.Clamp(ToolArgs.ReadInt(doc.RootElement, "days") ?? days, 1, 30);
             }
             catch (JsonException)
             {
@@ -305,11 +304,8 @@ public class ListInboxItemsTool : IToolExecutor
             try
             {
                 using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
-                if (doc.RootElement.TryGetProperty("archived", out var a)
-                    && (a.ValueKind == JsonValueKind.True || a.ValueKind == JsonValueKind.False))
-                    archived = a.GetBoolean();
-                if (doc.RootElement.TryGetProperty("limit", out var l) && l.ValueKind == JsonValueKind.Number)
-                    limit = Math.Clamp(l.GetInt32(), 1, 100);
+                archived = ToolArgs.ReadBool(doc.RootElement, "archived") ?? archived;
+                limit = Math.Clamp(ToolArgs.ReadInt(doc.RootElement, "limit") ?? limit, 1, 100);
             }
             catch (JsonException)
             {

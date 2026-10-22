@@ -40,7 +40,7 @@ public class SearchWebTool : IToolExecutor
             var root = doc.RootElement;
 
             var query = root.GetProperty("query").GetString() ?? "";
-            var maxResults = root.TryGetProperty("maxResults", out var mrProp) ? mrProp.GetInt32() : 5;
+            var maxResults = ToolArgs.ReadInt(root, "maxResults") ?? 5;
 
             if (string.IsNullOrWhiteSpace(query))
                 return ToolExecutionResult.Error("query 参数不能为空");

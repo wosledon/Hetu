@@ -40,7 +40,7 @@ public class SearchMemoryTool : IToolExecutor
             var root = doc.RootElement;
 
             var query = root.GetProperty("query").GetString() ?? "";
-            var topK = root.TryGetProperty("topK", out var topKProp) ? topKProp.GetInt32() : 5;
+            var topK = ToolArgs.ReadInt(root, "topK") ?? 5;
 
             if (string.IsNullOrWhiteSpace(query))
                 return ToolExecutionResult.Error("query 参数不能为空");

@@ -65,6 +65,43 @@ internal static class ToolArgs
     }
 
     /// <summary>
+    /// 读整数参数（JsonElement 版）：容忍模型把数字写成字符串（"60"）——各家模型
+    /// tool-call 常见的类型错传，严格 GetInt32 会直接抛 InvalidOperationException。
+    /// 无法解析时返回 null，由调用方用默认值或给出明确提示。
+    /// </summary>
+    public static int? ReadInt(JsonElement root, string property)
+    {
+        if (!root.TryGetProperty(property, out var v)) return null;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var s)) return s;
+        return null;
+    }
+
+    /// <summary>读布尔参数（JsonElement 版）：容忍 "true"/"false" 字符串形式。</summary>
+    public static bool? ReadBool(JsonElement root, string property)
+    {
+        if (!root.TryGetProperty(property, out var v)) return null;
+        if (v.ValueKind is JsonValueKind.True or JsonValueKind.False) return v.GetBoolean();
+        if (v.ValueKind == JsonValueKind.String && bool.TryParse(v.GetString(), out var b)) return b;
+        return null;
+    }
+
+    /// <summary>
+    /// 读字符串参数（JsonElement 版）：容忍模型把对象/数组/数字传进字符串参数——
+    /// 统一序列化为 JSON 文本（parameters 这类「JSON 字符串」字段正好需要原样文本）。
+    /// </summary>
+    public static string? ReadString(JsonElement root, string property)
+    {
+        if (!root.TryGetProperty(property, out var v)) return null;
+        return v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => v.ToString(),
+        };
+    }
+
+    /// <summary>
     /// 读 GUID 参数：容忍模型多带引号、花括号或把名称写在后面（"id (名称)" / "{id}"），
     /// 无法解析时返回 null，由调用方给出「id 必须是有效 GUID」提示。
     /// </summary>
