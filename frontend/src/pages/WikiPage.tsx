@@ -9,6 +9,7 @@ import {
 import AppLayout from '../components/AppLayout'
 import ThemedMarkdown from '../components/ThemedMarkdown'
 import { projectService } from '../services/projectService'
+import Select from '../components/Select'
 import { wikiService } from '../services/wikiService'
 import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
@@ -404,6 +405,20 @@ export default function WikiPage() {
               </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end md:w-auto md:flex-nowrap">
+              {/* 窄屏替代左侧项目列（该列 md:flex，<768px 整体隐藏）：项目过滤下拉，保证可达 */}
+              <div className="w-full md:hidden">
+                <Select
+                  value={projectParam ?? ''}
+                  onChange={(value) => selectProject(value ? orderedProjects.find((p) => p.id === value) ?? null : null)}
+                  options={[
+                    { value: '', label: t('wiki.allDocs') },
+                    ...orderedProjects.map((p) => ({ value: p.id, label: p.name })),
+                  ]}
+                  placeholder={t('wiki.projects')}
+                  searchable
+                  triggerClassName="rounded-full py-1.5 text-[13px]"
+                />
+              </div>
               {selectedSet && (
                 <IconButton variant="secondary" size="md" className="rounded-full" label={t('wiki.syncTitle')} onClick={() => syncMutation.mutate(selectedSet.setId)}
                   disabled={syncMutation.isPending}>
