@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../stores/uiStore';
-import { applyAccent, applyBackground } from './appearance';
+import { applyAccent, applyBackground, applyFontFamily, applyFontSize, applyUiZoom } from './appearance';
 import { isTauri, tauriInvoke } from './tauri';
 
 export function useTheme() {
@@ -8,6 +8,16 @@ export function useTheme() {
   const accent = useUIStore((state) => state.accent);
   const background = useUIStore((state) => state.background);
   const glass = useUIStore((state) => state.glass);
+  const fontFamily = useUIStore((state) => state.fontFamily);
+  const fontSize = useUIStore((state) => state.fontSize);
+  const uiZoom = useUIStore((state) => state.uiZoom);
+
+  // 字体、字号与界面缩放与明暗主题无关，单独落地
+  useEffect(() => {
+    applyFontFamily(fontFamily);
+    applyFontSize(fontSize);
+    applyUiZoom(uiZoom);
+  }, [fontFamily, fontSize, uiZoom]);
 
   useEffect(() => {
     const root = document.documentElement;
