@@ -56,9 +56,12 @@ export default function WikiPage() {
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const autoGenerateHandled = useRef(false)
 
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading, isError: projectsError, refetch: refetchProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getAll,
+    // 首次进入（后端刚启动）可能撞上瞬时失败：多重试一次，别把「加载失败」显示成「没有项目」
+    retry: 2,
+    retryDelay: 800,
   })
 
   const { data: sets = [], isLoading: setsLoading } = useQuery({
@@ -512,6 +515,16 @@ export default function WikiPage() {
             <div className="mt-1 space-y-0.5">
               {projectsLoading ? (
                 <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+              ) : projectsError ? (
+                <div className="px-2.5 py-1">
+                  <p className="text-[11px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.projectsLoadFailed')}</p>
+                  <button
+                    onClick={() => { void refetchProjects() }}
+                    className="mt-1 text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    {t('common:retry')}
+                  </button>
+                </div>
               ) : orderedProjects.length === 0 ? (
                 <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('wiki.noProjects')}</p>
               ) : (

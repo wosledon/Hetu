@@ -24,7 +24,7 @@ export default function Sidebar() {
     <aside className="flex w-64 shrink-0 flex-col border-r border-transparent bg-white/80 dark:bg-gray-900/50 glass glass-soft">
       <div className="flex min-h-0 flex-1 flex-col">
         <NotesTree
-          className="w-full border-r-0 bg-transparent dark:bg-transparent"
+          embedded
           onSelectNote={(note) => setSelectedNoteId(note.id)}
         />
       </div>
