@@ -9,6 +9,7 @@ export default {
     projects: 'Projects',
     noProjects: 'No projects yet — add one on the Projects page first',
     projectsLoadFailed: 'Failed to load projects — please retry',
+    setsLoadFailed: 'Failed to load Wiki sets — please retry',
     sets: 'Wiki sets',
     setsHint: 'Each “Generate Wiki” run produces one set; expand it to see its chapters and pages',
     emptyForProject: 'No Wiki for this project yet',

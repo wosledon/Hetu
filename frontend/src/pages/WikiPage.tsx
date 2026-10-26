@@ -56,7 +56,14 @@ export default function WikiPage() {
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const autoGenerateHandled = useRef(false)
 
-  const { data: projects = [], isLoading: projectsLoading, isError: projectsError, refetch: refetchProjects } = useQuery({
+  // isPending 而不是 isLoading：离线时 React Query 会暂停查询（isFetching=false 但还没数据），
+  // 用 isLoading 会把「还没开始加载」渲染成「还没有项目」
+  const {
+    data: projects = [],
+    isPending: projectsPending,
+    isError: projectsError,
+    refetch: refetchProjects,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getAll,
     // 首次进入（后端刚启动）可能撞上瞬时失败：多重试一次，别把「加载失败」显示成「没有项目」
@@ -64,9 +71,11 @@ export default function WikiPage() {
     retryDelay: 800,
   })
 
-  const { data: sets = [], isLoading: setsLoading } = useQuery({
+  const { data: sets = [], isPending: setsPending, isError: setsError, refetch: refetchSets } = useQuery({
     queryKey: ['wiki', 'sets'],
     queryFn: () => wikiService.getSets(),
+    retry: 2,
+    retryDelay: 800,
   })
 
   const { data: allDocs = [] } = useQuery({
@@ -513,9 +522,7 @@ export default function WikiPage() {
               <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('wiki.projects')}</span>
             </div>
             <div className="mt-1 space-y-0.5">
-              {projectsLoading ? (
-                <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
-              ) : projectsError ? (
+              {projectsError ? (
                 <div className="px-2.5 py-1">
                   <p className="text-[11px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.projectsLoadFailed')}</p>
                   <button
@@ -525,6 +532,8 @@ export default function WikiPage() {
                     {t('common:retry')}
                   </button>
                 </div>
+              ) : projectsPending ? (
+                <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
               ) : orderedProjects.length === 0 ? (
                 <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('wiki.noProjects')}</p>
               ) : (
@@ -561,7 +570,17 @@ export default function WikiPage() {
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto py-3">
-            {setsLoading ? (
+            {setsError ? (
+              <div className="px-4 py-8 text-center">
+                <p className="text-[12px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.setsLoadFailed')}</p>
+                <button
+                  onClick={() => { void refetchSets() }}
+                  className="mt-2 text-[12px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  {t('common:retry')}
+                </button>
+              </div>
+            ) : setsPending ? (
               <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
             ) : visibleSets.length === 0 ? (
               <div className="px-4 py-8 text-center">
