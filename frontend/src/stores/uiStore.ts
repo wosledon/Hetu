@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AccentKey, BackgroundKey } from '../utils/appearance';
+import type { AccentKey, BackgroundKey, FontFamilyKey } from '../utils/appearance';
 
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
@@ -21,6 +21,12 @@ interface UIState {
   background: BackgroundKey;
   /** 毛玻璃（亚克力）材质开关 */
   glass: boolean;
+  /** 界面字体 */
+  fontFamily: FontFamilyKey;
+  /** 正文字号（px，作用于 html） */
+  fontSize: number;
+  /** 界面缩放（百分比，100 = 原始大小） */
+  uiZoom: number;
   sidebarCollapsed: boolean;
   secondaryMenuStyle: SecondaryMenuStyle;
   /** Code 页项目树的分组方式 */
@@ -43,6 +49,9 @@ interface UIState {
   setAccent: (accent: AccentKey) => void;
   setBackground: (background: BackgroundKey) => void;
   setGlass: (glass: boolean) => void;
+  setFontFamily: (fontFamily: FontFamilyKey) => void;
+  setFontSize: (fontSize: number) => void;
+  setUiZoom: (uiZoom: number) => void;
   toggleSidebar: () => void;
   setSecondaryMenuStyle: (style: SecondaryMenuStyle) => void;
   setProjectGroupBy: (groupBy: ProjectGroupBy) => void;
@@ -66,6 +75,9 @@ export const useUIStore = create<UIState>()(
       accent: 'blue',
       background: 'solid',
       glass: true,
+      fontFamily: 'system',
+      fontSize: 16,
+      uiZoom: 100,
       sidebarCollapsed: false,
       secondaryMenuStyle: 'flat',
       projectGroupBy: 'category',
@@ -84,6 +96,9 @@ export const useUIStore = create<UIState>()(
       setAccent: (accent) => set({ accent }),
       setBackground: (background) => set({ background }),
       setGlass: (glass) => set({ glass }),
+      setFontFamily: (fontFamily) => set({ fontFamily }),
+      setFontSize: (fontSize) => set({ fontSize }),
+      setUiZoom: (uiZoom) => set({ uiZoom }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSecondaryMenuStyle: (style) => set({ secondaryMenuStyle: style }),
       setProjectGroupBy: (groupBy) => set({ projectGroupBy: groupBy }),
@@ -98,7 +113,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 6,
+      version: 7,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -115,6 +130,7 @@ export const useUIStore = create<UIState>()(
           }
         }
         // v6：新增项目树分组/排序偏好，旧状态缺字段，走默认值
+        // v7：新增字体/字号/界面缩放偏好，旧状态缺字段，走默认值
         return state as Partial<UIState>
       },
       partialize: (state) => ({
@@ -130,6 +146,9 @@ export const useUIStore = create<UIState>()(
         navStyle: state.navStyle,
         pinnedNavItems: state.pinnedNavItems,
         glass: state.glass,
+        fontFamily: state.fontFamily,
+        fontSize: state.fontSize,
+        uiZoom: state.uiZoom,
       }),
     }
   )

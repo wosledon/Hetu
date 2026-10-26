@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
-import { ACCENT_PRESETS, BACKGROUND_PRESETS, backgroundPreviewStyle, type AccentKey, type BackgroundKey } from '../utils/appearance'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS, FONT_SIZE_PRESETS, UI_ZOOM_PRESETS, backgroundPreviewStyle, type AccentKey, type BackgroundKey, type FontFamilyKey } from '../utils/appearance'
 import { useIsDark } from '../hooks/useIsDark'
 import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
@@ -60,6 +60,9 @@ const navStyleOptions = [
   { key: 'vertical' as NavStyle, labelKey: 'navigation.navStyleVertical', descKey: 'navigation.navStyleVerticalDesc', icon: GalleryVerticalEnd },
 ]
 
+/** 正文字号预设 → 文案 key（避免用数字做 i18n key） */
+const fontSizeLabels: Record<number, string> = { 14: 'small', 16: 'standard', 18: 'large', 20: 'xlarge' }
+
 /** 语言选项：名称用各自语言书写（中/English），与主题卡片同一套视觉 */
 const languageOptions = [
   { key: 'zh' as const, labelKey: 'common:languageZh', descKey: 'language.zhDesc', badge: '中' },
@@ -98,6 +101,12 @@ export default function SettingsPage() {
   const setAccent = useUIStore((state) => state.setAccent)
   const setBackground = useUIStore((state) => state.setBackground)
   const setGlass = useUIStore((state) => state.setGlass)
+  const fontFamily = useUIStore((state) => state.fontFamily)
+  const fontSize = useUIStore((state) => state.fontSize)
+  const uiZoom = useUIStore((state) => state.uiZoom)
+  const setFontFamily = useUIStore((state) => state.setFontFamily)
+  const setFontSize = useUIStore((state) => state.setFontSize)
+  const setUiZoom = useUIStore((state) => state.setUiZoom)
   const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
   const setNavStyle = useUIStore((state) => state.setNavStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
@@ -135,6 +144,12 @@ export default function SettingsPage() {
     const background = snapshot.background
     if (background && BACKGROUND_PRESETS.some((p) => p.key === background)) setBackground(background as BackgroundKey)
     setGlass(snapshot.glassEffect !== 'false')
+    const font = FONT_FAMILY_PRESETS.find((p) => p.key === snapshot.fontFamily)
+    if (font) setFontFamily(font.key)
+    const size = Number.parseInt(snapshot.fontSize ?? '', 10)
+    if (Number.isFinite(size)) setFontSize(size)
+    const zoom = Number.parseInt(snapshot.uiZoom ?? '', 10)
+    if (Number.isFinite(zoom)) setUiZoom(zoom)
     if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
       setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
     if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical')
@@ -143,7 +158,7 @@ export default function SettingsPage() {
       const items = JSON.parse(snapshot.pinnedNavItems)
       if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
     } catch { /* keep current value if parse fails */ }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setFontFamily, setFontSize, setUiZoom, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -190,6 +205,24 @@ export default function SettingsPage() {
   const handleGlassChange = (value: boolean) => {
     setGlass(value)
     setSetting.mutate({ key: 'GlassEffect', value: value ? 'true' : 'false' })
+  }
+
+  // 界面字体：立即切换，同时落库
+  const handleFontFamilyChange = (value: FontFamilyKey) => {
+    setFontFamily(value)
+    setSetting.mutate({ key: 'FontFamily', value })
+  }
+
+  // 正文字号：立即生效，同时落库
+  const handleFontSizeChange = (value: number) => {
+    setFontSize(value)
+    setSetting.mutate({ key: 'FontSize', value: String(value) })
+  }
+
+  // 界面缩放：立即生效，同时落库
+  const handleUiZoomChange = (value: number) => {
+    setUiZoom(value)
+    setSetting.mutate({ key: 'UiZoom', value: String(value) })
   }
 
   // 语言：界面立即切换，同时落库（前端请求头 Accept-Language 与后台任务都读它）
@@ -300,10 +333,16 @@ export default function SettingsPage() {
                 {activeSection === 'appearance' && <AppearanceSettingsSection
                   theme={theme}
                   snapshot={snapshot}
+                  fontFamily={fontFamily}
+                  fontSize={fontSize}
+                  uiZoom={uiZoom}
                   onThemeChange={handleThemeChange}
                   onAccentChange={handleAccentChange}
                   onBackgroundChange={handleBackgroundChange}
                   onGlassChange={handleGlassChange}
+                  onFontFamilyChange={handleFontFamilyChange}
+                  onFontSizeChange={handleFontSizeChange}
+                  onUiZoomChange={handleUiZoomChange}
                 />}
 
                 {activeSection === 'navigation' && <NavigationSettingsSection
@@ -534,17 +573,29 @@ function AppSettingsSection({
 function AppearanceSettingsSection({
   theme,
   snapshot,
+  fontFamily,
+  fontSize,
+  uiZoom,
   onThemeChange,
   onAccentChange,
   onBackgroundChange,
   onGlassChange,
+  onFontFamilyChange,
+  onFontSizeChange,
+  onUiZoomChange,
 }: {
   theme: Theme
   snapshot: IAppSettingsSnapshot | undefined
+  fontFamily: FontFamilyKey
+  fontSize: number
+  uiZoom: number
   onThemeChange: (v: Theme) => void
   onAccentChange: (v: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose') => void
   onBackgroundChange: (v: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora') => void
   onGlassChange: (v: boolean) => void
+  onFontFamilyChange: (v: FontFamilyKey) => void
+  onFontSizeChange: (v: number) => void
+  onUiZoomChange: (v: number) => void
 }) {
   const { t } = useTranslation('settings')
   const isDark = useIsDark()
@@ -688,6 +739,106 @@ function AppearanceSettingsSection({
             }`} style={{ marginTop: '2px' }} />
           </button>
         </div>
+      </div>
+
+      {/* 界面字体 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.fontTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.fontSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {FONT_FAMILY_PRESETS.map((preset) => {
+            const isActive = fontFamily === preset.key
+            return (
+              <button
+                key={preset.key}
+                onClick={() => onFontFamilyChange(preset.key)}
+                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
+                }`}
+              >
+                <span
+                  className="text-2xl leading-none text-gray-800 dark:text-gray-100"
+                  style={{ fontFamily: preset.stack }}
+                >
+                  {t('appearance.fontPreview')}
+                </span>
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(`appearance.fontFamily.${preset.key}`)}
+                </span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">{t(`appearance.fontFamilyDesc.${preset.key}`)}</span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.fontHint')}</p>
+      </div>
+
+      {/* 正文字号 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.fontSizeTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.fontSizeSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {FONT_SIZE_PRESETS.map((size) => {
+            const isActive = fontSize === size
+            return (
+              <button
+                key={size}
+                onClick={() => onFontSizeChange(size)}
+                className={`group flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
+                }`}
+              >
+                <span className="leading-none text-gray-800 dark:text-gray-100" style={{ fontSize: `${size}px` }}>
+                  {t('appearance.fontSizePreview')}
+                </span>
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(`appearance.fontSize.${fontSizeLabels[size]}`)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.fontSizeHint')}</p>
+      </div>
+
+      {/* 界面缩放 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.zoomTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.zoomSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-5 gap-3">
+          {UI_ZOOM_PRESETS.map((zoom) => {
+            const isActive = uiZoom === zoom
+            return (
+              <button
+                key={zoom}
+                onClick={() => onUiZoomChange(zoom)}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
+                }`}
+              >
+                <span className={`text-lg font-semibold leading-none ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                  {zoom}%
+                </span>
+                {zoom === 100 && (
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.zoomDefault')}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.zoomHint')}</p>
       </div>
 
       {/* 圆角与密度等外观能力预留位 */}

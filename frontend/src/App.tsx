@@ -8,7 +8,7 @@ import { useUIStore } from './stores/uiStore'
 import { useUpdateStore } from './stores/updateStore'
 import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
-import { ACCENT_PRESETS, BACKGROUND_PRESETS } from './utils/appearance'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils/appearance'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const MainChatPage = lazy(() => import('./pages/MainChatPage'))
@@ -127,6 +127,13 @@ function App() {
         const background = BACKGROUND_PRESETS.find((p) => p.key === snapshot.background)
         if (background) store.setBackground(background.key)
         store.setGlass(snapshot.glassEffect !== 'false')
+        // 字体 / 字号 / 界面缩放同样预热：否则刷新后回到默认，要看一眼设置页才生效
+        const font = FONT_FAMILY_PRESETS.find((p) => p.key === snapshot.fontFamily)
+        if (font) store.setFontFamily(font.key)
+        const fontSize = Number.parseInt(snapshot.fontSize ?? '', 10)
+        if (Number.isFinite(fontSize)) store.setFontSize(fontSize)
+        const uiZoom = Number.parseInt(snapshot.uiZoom ?? '', 10)
+        if (Number.isFinite(uiZoom)) store.setUiZoom(uiZoom)
         if (snapshot.language === 'zh' || snapshot.language === 'en') void applyLanguage(snapshot.language)
         try {
           const items = JSON.parse(snapshot.pinnedNavItems)

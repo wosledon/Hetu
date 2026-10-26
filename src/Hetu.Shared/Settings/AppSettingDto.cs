@@ -26,6 +26,12 @@ public class AppSettingsSnapshotDto
     public string Background { get; set; } = "solid";
     /// <summary>毛玻璃（亚克力）材质开关：true 开启、false 关闭</summary>
     public string GlassEffect { get; set; } = "true";
+    /// <summary>界面字体：system（默认）/ sans（黑体）/ serif（衬线）</summary>
+    public string FontFamily { get; set; } = "system";
+    /// <summary>正文字号（px，作用于 html，rem 体系整体缩放）</summary>
+    public string FontSize { get; set; } = "16";
+    /// <summary>界面缩放（百分比，100 = 原始大小）</summary>
+    public string UiZoom { get; set; } = "100";
     /// <summary>界面语言：zh 或 en</summary>
     public string Language { get; set; } = "zh";
     public string GraphAutoExtract { get; set; } = "false";

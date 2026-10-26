@@ -14,6 +14,7 @@ import { search, searchKeymap } from '@codemirror/search'
 import { workFileService, workSessionService, workCheckpointService, workProjectService, workGitService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import { useUIStore } from '../../stores/uiStore'
+import { editorFontSize } from '../../utils/appearance'
 import type { IWorkFileEntry, IWorkFileContent, IWorkFileChange, IWorkCheckpoint, IWorkCheckpointDiff, IWorkCodeSearchHit } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
@@ -544,12 +545,17 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
   }
 
   const themeMode = useUIStore((s) => s.theme)
+  const appFontSize = useUIStore((s) => s.fontSize)
   const isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-  const editorBaseTheme = EditorView.theme({
-    '&': { height: '100%', fontSize: '12px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
-    '&.cm-focused': { outline: 'none' },
-  })
+  // 字号跟随「设置 → 正文字号」：theme 内容变化时 CM6 会重新测量字符尺寸
+  const editorBaseTheme = useMemo(
+    () => EditorView.theme({
+      '&': { height: '100%', fontSize: `${editorFontSize(appFontSize)}px`, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+      '&.cm-focused': { outline: 'none' },
+    }),
+    [appFontSize]
+  )
 
   const NAV_ITEMS: { key: FeatureKind; label: string; desc: string; Icon: React.ComponentType<{ size?: number }> }[] = [
     { key: 'files', label: t('explorer.tabs.files'), desc: t('explorer.nav.filesDesc'), Icon: Folder },

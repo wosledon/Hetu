@@ -180,3 +180,62 @@ export function backgroundPreviewStyle(key: string, isDark: boolean): CSSPropert
   const preset = BACKGROUND_PRESETS.find((p) => p.key === key) ?? BACKGROUND_PRESETS[0]
   return preset.style(isDark)
 }
+
+/* ─── 字体与缩放 ─── */
+
+export type FontFamilyKey = 'system' | 'sans' | 'serif'
+
+export const FONT_FAMILY_PRESETS: { key: FontFamilyKey; stack: string }[] = [
+  // 与 index.css 的 :root 默认字体保持一致，切回「系统默认」即恢复原视觉
+  {
+    key: 'system',
+    stack: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+  {
+    key: 'sans',
+    stack: "-apple-system, 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
+  },
+  {
+    key: 'serif',
+    stack: "Georgia, 'Times New Roman', 'Songti SC', 'SimSun', 'Noto Serif SC', serif",
+  },
+]
+
+/** 正文字号预设（px）：作用于 html，Tailwind 的 rem 体系整体缩放 */
+export const FONT_SIZE_PRESETS = [14, 16, 18, 20]
+
+/** 界面缩放预设（百分比，100 = 原始大小） */
+export const UI_ZOOM_PRESETS = [80, 90, 100, 110, 125]
+
+/** 编辑器（终端 / 代码编辑器）字号占正文的比例：正文 16px → 编辑器 12px */
+export const EDITOR_FONT_RATIO = 0.75
+
+/** 编辑器字号：跟随正文字号等比缩放 */
+export function editorFontSize(fontSize: number): number {
+  return Math.round(clamp(fontSize, 12, 24, 16) * EDITOR_FONT_RATIO)
+}
+
+const clamp = (value: number, min: number, max: number, fallback: number) =>
+  Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+
+/** 把界面字体写到 :root（内联优先级高于 index.css，未显式设 font-family 的子元素全部继承） */
+export function applyFontFamily(key: string): void {
+  const root = document.documentElement
+  const preset = FONT_FAMILY_PRESETS.find((p) => p.key === key) ?? FONT_FAMILY_PRESETS[0]
+  // font-sans 工具类引用 Tailwind 主题变量，一并覆盖保持一致
+  root.style.setProperty('--font-sans', preset.stack)
+  root.style.fontFamily = preset.stack
+}
+
+/** 正文字号：改 html 的 font-size，rem 单位的文字与间距整体等比缩放 */
+export function applyFontSize(px: number): void {
+  document.documentElement.style.fontSize = `${clamp(px, 12, 24, 16)}px`
+}
+
+/** 界面缩放：html 上设 zoom，整个界面（含 fixed 定位元素）一起缩放 */
+export function applyUiZoom(percent: number): void {
+  const root = document.documentElement
+  const safe = clamp(percent, 50, 200, 100)
+  if (safe === 100) root.style.removeProperty('zoom')
+  else root.style.zoom = String(safe / 100)
+}

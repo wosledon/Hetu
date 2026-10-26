@@ -59,6 +59,9 @@ export interface IAppSettingsSnapshot {
   themeAccent?: string;
   background?: string;
   glassEffect?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  uiZoom?: string;
   graphAutoExtract: string;
   autoEmbedding: string;
   defaultChatModelId?: string;
