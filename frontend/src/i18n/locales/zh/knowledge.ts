@@ -8,6 +8,8 @@ export default {
     allDocs: '全部文档',
     projects: '项目',
     noProjects: '还没有项目，请先到「项目」页添加',
+    projectsLoadFailed: '项目列表加载失败，请重试',
+    setsLoadFailed: 'Wiki 套件加载失败，请重试',
     sets: 'Wiki 套件',
     setsHint: '每次「生成 Wiki」产生一套，下面展开是其章节与页面',
     emptyForProject: '该项目还没有 Wiki',

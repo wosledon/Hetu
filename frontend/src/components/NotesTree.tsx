@@ -14,6 +14,8 @@ interface NotesTreeProps {
   onSelectNote: (note: INote) => void
   /** 合并到外层 Card 的样式（侧栏内嵌时去掉重复边框） */
   className?: string
+  /** 侧栏内嵌：外层已是亚克力面板，内部只做布局并撑满高度，不再叠一层材质 */
+  embedded?: boolean
 }
 
 interface LeafMenuState {
@@ -175,7 +177,7 @@ function NoteNode({
 }
 
 /** 折叠模式：嵌套笔记树（根级笔记 → 子笔记 → …） */
-export default function NotesTree({ selectedNoteId, onSelectNote, className }: NotesTreeProps) {
+export default function NotesTree({ selectedNoteId, onSelectNote, className, embedded = false }: NotesTreeProps) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('notes')
   const [searchTerm, setSearchTerm] = useState('')
@@ -230,7 +232,15 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className }: N
   }
 
   return (
-    <Card padded={false} className={`flex w-64 shrink-0 flex-col border-r bg-white/80 dark:bg-gray-900/50 ${className ?? ''}`}>
+    <Card
+      padded={false}
+      plain={embedded}
+      className={`flex flex-col ${
+        embedded
+          ? 'min-h-0 w-full flex-1'
+          : 'w-64 shrink-0 border-r bg-white/80 dark:bg-gray-900/50'
+      } ${className ?? ''}`}
+    >
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('tree.label')}</h2>
