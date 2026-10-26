@@ -207,6 +207,14 @@ export const FONT_SIZE_PRESETS = [14, 16, 18, 20]
 /** 界面缩放预设（百分比，100 = 原始大小） */
 export const UI_ZOOM_PRESETS = [80, 90, 100, 110, 125]
 
+/** 编辑器（终端 / 代码编辑器）字号占正文的比例：正文 16px → 编辑器 12px */
+export const EDITOR_FONT_RATIO = 0.75
+
+/** 编辑器字号：跟随正文字号等比缩放 */
+export function editorFontSize(fontSize: number): number {
+  return Math.round(clamp(fontSize, 12, 24, 16) * EDITOR_FONT_RATIO)
+}
+
 const clamp = (value: number, min: number, max: number, fallback: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
 

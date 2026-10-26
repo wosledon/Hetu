@@ -106,7 +106,7 @@ export default {
     fontSizeTitle: 'Text size',
     fontSizeSubtitle: 'Scale all text globally; spacing scales with it',
     fontSizePreview: 'Aa',
-    fontSizeHint: 'Code blocks, the terminal and the editor keep their fixed font size',
+    fontSizeHint: 'The terminal and code editor scale with it, and note code blocks scale relatively; canvas-based charts keep their fixed size',
     fontSize: {
       small: 'Small',
       standard: 'Standard',

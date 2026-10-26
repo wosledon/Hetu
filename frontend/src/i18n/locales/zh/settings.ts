@@ -106,7 +106,7 @@ export default {
     fontSizeTitle: '正文字号',
     fontSizeSubtitle: '调整全局文字大小，间距会随之等比缩放',
     fontSizePreview: 'Aa',
-    fontSizeHint: '代码块、终端与编辑器使用固定的字号，不受此设置影响',
+    fontSizeHint: '终端与代码编辑器会按比例跟随，笔记代码块按相对单位缩放；图表等固定 px 内容不变',
     fontSize: {
       small: '小',
       standard: '标准',

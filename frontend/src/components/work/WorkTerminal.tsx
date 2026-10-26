@@ -5,6 +5,8 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { workTerminalService, workTerminalUrl } from '../../services/workService'
+import { editorFontSize } from '../../utils/appearance'
+import { useUIStore } from '../../stores/uiStore'
 import { useIsDark } from '../../hooks/useIsDark'
 import { IconButton } from '../ui'
 
@@ -22,6 +24,7 @@ interface WorkTerminalProps {
 export default function WorkTerminal({ projectId, sessionId, commandRequest }: WorkTerminalProps) {
   const { t } = useTranslation('work')
   const isDark = useIsDark()
+  const appFontSize = useUIStore((state) => state.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -67,7 +70,8 @@ export default function WorkTerminal({ projectId, sessionId, commandRequest }: W
     if (!containerRef.current) return
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 12,
+      // 初始化取当前值：之后由下面的 effect 跟随设置变化，不重建终端
+      fontSize: editorFontSize(useUIStore.getState().fontSize),
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
       convertEol: false,
       scrollback: 5000,
@@ -102,6 +106,18 @@ export default function WorkTerminal({ projectId, sessionId, commandRequest }: W
       fitRef.current = null
     }
   }, [isDark, sendResize, safeFit])
+
+  // 正文字号变化：options.fontSize 是 xterm 官方支持的运行时修改，内部会重新测量字符尺寸。
+  // 挂载时初始化已用当前值，相同值不再赋值——xterm 对等值选项变更也会排一次重渲染，
+  // 卸载时恰好撞上渲染队列会抛 dimensions 错误
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    const next = editorFontSize(appFontSize)
+    if (term.options.fontSize === next) return
+    term.options.fontSize = next
+    safeFit()
+  }, [appFontSize, safeFit])
 
   // 项目切换重连
   useEffect(() => {
