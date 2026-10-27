@@ -80,6 +80,12 @@ export const workSessionService = {
   getRunStatus: (id: string) =>
     get<{ active: boolean; bufferedEvents: number }>(`/work-sessions/${id}/run-status`),
   /**
+   * 在跑的会话 id 列表：会话侧栏批量标记「进行中」用（一次请求，不逐会话轮询）。
+   * 在别的会话里工作时，靠它就能看到哪些会话还在跑。
+   */
+  getRunningSessions: () =>
+    get<{ sessionIds: string[] }>('/work-sessions/running'),
+  /**
    * 停止正在运行的会话。刷新 / 重连后发起流的那一方已不在这个页面里，
    * 前端的 AbortController 只能断开自己的挂载，取消循环本身得走服务端。
    */

@@ -146,6 +146,19 @@ public class WorkStreamController : ControllerBase
     }
 
     /// <summary>
+    /// 在跑的会话 id 列表：供会话侧栏一次性标记「进行中」，不逐会话查状态。
+    /// 在别的会话里工作时，靠轮询它就能看到哪些会话还在跑。
+    /// </summary>
+    [HttpGet("running")]
+    public ApiResponse<WorkRunningSessionsDto> RunningSessions()
+    {
+        return ApiResponse<WorkRunningSessionsDto>.Ok(new WorkRunningSessionsDto
+        {
+            SessionIds = _runs.ActiveSessionIds.ToList(),
+        });
+    }
+
+    /// <summary>
     /// 停止正在运行的会话。刷新 / 重连后发起流的那一方已经不在这个页面里了，
     /// 前端的 AbortController 只能断开自己的挂载——必须有个服务端入口取消循环本身。
     /// </summary>
@@ -1126,4 +1139,10 @@ public class WorkRunStatusDto
     public bool Active { get; set; }
     /// <summary>已缓冲的事件条数：用于判断重连能补回多少过程</summary>
     public int BufferedEvents { get; set; }
+}
+
+public class WorkRunningSessionsDto
+{
+    /// <summary>还有一轮在跑的会话 id</summary>
+    public List<Guid> SessionIds { get; set; } = new();
 }

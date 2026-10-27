@@ -92,6 +92,7 @@ export default {
     remoteDirRequired: 'Enter the remote project directory (absolute path)',
     sessions: 'Sessions',
     newSession: 'New session',
+    sessionRunning: 'Running',
     renameSession: 'Rename session',
     deleteSession: 'Delete session',
     deleteSessionConfirm: 'Delete session "{{title}}"? Its messages will be removed too.',
