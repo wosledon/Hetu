@@ -13,6 +13,8 @@ export interface ModelPickerModel {
   reasoningMode?: string | null
   reasoningEffort?: string | null
   reasoningEfforts?: string | null
+  /** 该用途的默认模型：未显式选择时展示它，而不是列表第一个 */
+  isDefault?: boolean
 }
 
 export interface ModelPickerProvider {
@@ -86,7 +88,7 @@ export default function AgentModelPicker({
     setMenu(kind)
   }
 
-  const current = models.find((m) => m.id === modelId) ?? models.find((m) => m.providerId) ?? models[0]
+  const current = models.find((m) => m.id === modelId) ?? models.find((m) => m.isDefault) ?? models.find((m) => m.providerId) ?? models[0]
   // 未显式选择模型时，回退展示的模型同样视作选中
   const effectiveModelId = modelId || current?.id || ''
   const currentEffort = (effort || current?.reasoningEffort || '').trim().toLowerCase()
