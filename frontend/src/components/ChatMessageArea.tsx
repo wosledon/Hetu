@@ -1280,6 +1280,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   reasoningMode: m.reasoningMode,
                   reasoningEffort: m.reasoningEffort,
                   reasoningEfforts: m.reasoningEfforts,
+                  isDefault: m.isDefault,
                 }))}
                 providers={providers.map((p) => ({ id: p.id, name: p.name }))}
                 modelId={activeModelId}

@@ -1748,6 +1748,7 @@ export default function WorkSessionArea({
                     reasoningMode: m.reasoningMode,
                     reasoningEffort: m.reasoningEffort,
                     reasoningEfforts: m.reasoningEfforts,
+                    isDefault: m.isDefault,
                   }))}
                 providers={providers.map((p) => ({ id: p.id, name: p.name }))}
                 modelId={selectedModelId}
