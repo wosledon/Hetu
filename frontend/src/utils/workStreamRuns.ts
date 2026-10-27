@@ -14,15 +14,37 @@ interface RunEntry {
 }
 
 const runs = new Map<string, RunEntry>()
+const listeners = new Set<() => void>()
+/** getSnapshot 的缓存值：引用不变，useSyncExternalStore 才不会陷入重渲染循环 */
+let cachedIds: string[] = []
+
+const notify = () => {
+  cachedIds = Array.from(runs.keys())
+  listeners.forEach((listener) => listener())
+}
 
 export const workStreamRuns = {
-  register: (sessionId: string, controller: AbortController, onDone?: () => void) =>
-    runs.set(sessionId, { controller, onDone }),
+  register: (sessionId: string, controller: AbortController, onDone?: () => void) => {
+    runs.set(sessionId, { controller, onDone })
+    notify()
+  },
 
-  unregister: (sessionId: string) => runs.delete(sessionId),
+  unregister: (sessionId: string) => {
+    runs.delete(sessionId)
+    notify()
+  },
 
   /** 该会话是否还有在跑的流（含切走页面期间与刷新前） */
   isRunning: (sessionId: string) => runs.has(sessionId),
+
+  /** 订阅在跑会话集合变化（供侧栏即时标记「进行中」，不用等下一轮轮询） */
+  subscribe: (listener: () => void) => {
+    listeners.add(listener)
+    return () => { listeners.delete(listener) }
+  },
+
+  /** 在跑的会话 id 快照（引用稳定，配合 useSyncExternalStore 使用） */
+  snapshot: () => cachedIds,
 
   /**
    * 挂载到后端在跑的运行上（GET /stream，不发新一轮）。
@@ -33,8 +55,10 @@ export const workStreamRuns = {
   attach: (sessionId: string, onDone: () => void): (() => void) => {
     const controller = new AbortController()
     runs.set(sessionId, { controller, onDone })
+    notify()
     const finish = () => {
       if (runs.get(sessionId)?.controller === controller) runs.delete(sessionId)
+      notify()
       onDone()
     }
     void (async () => {
@@ -58,12 +82,14 @@ export const workStreamRuns = {
       if (runs.get(sessionId)?.controller !== controller) return
       controller.abort()
       runs.delete(sessionId)
+      notify()
     }
   },
 
   cancel: (sessionId: string) => {
     runs.get(sessionId)?.controller.abort()
     runs.delete(sessionId)
+    notify()
   },
 }
 

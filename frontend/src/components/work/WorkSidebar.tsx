@@ -1,4 +1,4 @@
-import { useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useCallback, useSyncExternalStore, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
@@ -7,6 +7,7 @@ import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
 import { Button, Card, ContextMenu, IconButton, Input, Modal, PillTabs, TreeRow } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
+import { workStreamRuns } from '../../utils/workStreamRuns'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
@@ -441,6 +442,16 @@ function SessionList({
     queryFn: () => workProjectService.getSessions(project.id, sessionQuery || undefined),
   })
 
+  // 进行中的会话：后端批量运行态（轮询，覆盖所有标签页/刷新前起的运行）
+  // ∪ 本标签页起的流（登记即时生效）——在别的会话里工作时也能一眼看出哪些还在跑
+  const { data: runningSessions } = useQuery({
+    queryKey: ['workRunningSessions'],
+    queryFn: workSessionService.getRunningSessions,
+    refetchInterval: 3000,
+  })
+  const localRunningIds = useSyncExternalStore(workStreamRuns.subscribe, workStreamRuns.snapshot)
+  const runningIds = new Set([...localRunningIds, ...(runningSessions?.sessionIds ?? [])])
+
   const createSession = useMutation({
     mutationFn: workSessionService.create,
     onSuccess: (newSession) => {
@@ -516,6 +527,11 @@ function SessionList({
               />
             ) : (session.title || t('sidebar.newSession'))}
             labelClassName="text-gray-600 dark:text-gray-300"
+            badge={runningIds.has(session.id) ? (
+              <span className="shrink-0" title={t('sidebar.sessionRunning')}>
+                <Loader2 size={12} className="animate-spin text-emerald-500" />
+              </span>
+            ) : undefined}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()

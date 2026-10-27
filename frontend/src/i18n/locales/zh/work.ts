@@ -92,6 +92,7 @@ export default {
     remoteDirRequired: '请输入远程项目目录（绝对路径）',
     sessions: '会话',
     newSession: '新会话',
+    sessionRunning: '进行中',
     renameSession: '重命名会话',
     deleteSession: '删除会话',
     deleteSessionConfirm: '确定删除会话「{{title}}」吗？会话消息将一并删除。',
