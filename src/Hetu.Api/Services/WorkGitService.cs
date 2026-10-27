@@ -11,6 +11,15 @@ namespace Hetu.Api.Services;
 /// </summary>
 public class WorkGitService
 {
+    /// <summary>分段标记：一次连接里用 echo 分隔多条 git 只读查询的输出（分支名不含空格，不会误判）</summary>
+    private const string BranchSectionMarker = "-- hetu section --";
+
+    /// <summary>
+    /// 只读 git 查询的等待上限。这类命令（rev-parse / status）正常 1s 内返回，30s 的预算只会把
+    /// 链路卡死放大成界面假死 30 秒；ssh 自带 keepalive 也会在约 15s 判掉半死连接，取 15s 对齐。
+    /// </summary>
+    private const int GitReadTimeoutSeconds = 15;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<Hetu.Core.Entities.WorkProject, IWorkCommandRunner> _runnerFactory;
     private readonly ILocalizer _localizer;
@@ -68,6 +77,39 @@ public class WorkGitService
         }
     }
 
+    /// <summary>
+    /// 只读 git 查询：SSH 链路抖动（连接卡死 / ssh 退出码 255）时重连一次。
+    /// 与 <see cref="Hetu.Core.Services.Tools.WorkRemoteFs.RunReadOnlyAsync"/> 同一策略——半死连接重连后通常立刻成功，
+    /// 而一次失败就报错会让分支下拉长时间停在「读不出来」。写操作（commit/pull/push）不走这里。
+    /// </summary>
+    private static async Task<WorkCommandResult> RunGitReadAsync(
+        IWorkCommandRunner runner, string command, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(GitReadTimeoutSeconds));
+            try
+            {
+                var result = await runner.RunAsync(command, null, cts.Token);
+                // 255 = ssh 传输层自身失败（连不上 / 已断），不是 git 的业务退出码；本地项目不重试
+                if (attempt > 0 || !runner.IsRemote || result.ExitCode != 255) return result;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // 我们的读取超时：链路卡住，重连一次
+                if (attempt > 0 || !runner.IsRemote)
+                    return new WorkCommandResult(-1, string.Empty, "命令超时（网络较慢时请在终端里手动执行）");
+            }
+            catch (TimeoutException)
+            {
+                // ssh 自身超时（链路半死）：同上
+                if (attempt > 0 || !runner.IsRemote)
+                    return new WorkCommandResult(-1, string.Empty, "ssh 命令无响应（连接可能已断开），请检查网络后重试");
+            }
+        }
+    }
+
     private static string NormalizeRelativePath(string root, string path)
     {
         var full = Path.GetFullPath(Path.Combine(root, path));
@@ -90,27 +132,36 @@ public class WorkGitService
         if (runner.IsRemote)
             dto.WorktreeUnsupportedReason = "remote";
 
-        var (code, current) = await RunGitAsync(runner, "rev-parse --abbrev-ref HEAD", cancellationToken: cancellationToken);
-        if (code != 0)
+        // 一次连接拿当前分支 + 本地分支 + 远程分支：SSH 每开一条连接就是一次完整握手，
+        // 拆成三条串行发既慢又把链路抖动的暴露面放大三倍（分支下拉假死多半发生在中招的那条上）。
+        // rev-parse 而非 for-each-ref --format=%(...)：本地命令经 PowerShell 执行，%() 会被解析
+        var script = string.Join("; ", new[]
+        {
+            "git rev-parse --abbrev-ref HEAD",
+            $"echo {BranchSectionMarker}",
+            "git rev-parse --symbolic --branches",
+            $"echo {BranchSectionMarker}",
+            "git rev-parse --symbolic --remotes",
+        });
+        var result = await RunGitReadAsync(runner, script, cancellationToken);
+        var sections = result.StdOut.Split(BranchSectionMarker);
+        var current = sections.Length > 0 ? sections[0].Trim() : string.Empty;
+        if (current.Length == 0)
         {
             // SSH 认证失败 / 不是 git 仓库 / git 不可用：把真实原因带回前端，别让界面只说「不是 git 仓库」
-            dto.Error = FirstMeaningfulLine(current) ?? _localizer.T("work.branchReadFailed");
+            dto.Error = FirstMeaningfulLine(result.StdErr)
+                ?? FirstMeaningfulLine(result.StdOut)
+                ?? _localizer.T("work.branchReadFailed");
             return dto;
         }
 
         dto.IsRepo = true;
-        dto.Current = current.Trim();
-        // rev-parse 而非 for-each-ref --format=%(...)：本地命令经 PowerShell / bash 执行，%() 会被 PowerShell 解析
-        var (_, refs) = await RunGitAsync(runner, "rev-parse --symbolic --branches", cancellationToken: cancellationToken);
-        dto.Branches = SplitRefs(refs);
+        dto.Current = current;
+        dto.Branches = SplitRefs(sections.Length > 1 ? sections[1] : string.Empty);
         // 远程分支（origin/main 等）：选它时按同名建本地跟踪分支；symbolic refs（origin/HEAD）不算
-        var (remoteCode, remoteRefs) = await RunGitAsync(runner, "rev-parse --symbolic --remotes", cancellationToken: cancellationToken);
-        if (remoteCode == 0)
-        {
-            dto.RemoteBranches = SplitRefs(remoteRefs)
-                .Where(name => !name.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
+        dto.RemoteBranches = SplitRefs(sections.Length > 2 ? sections[2] : string.Empty)
+            .Where(name => !name.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         return dto;
     }
 
@@ -143,11 +194,11 @@ public class WorkGitService
         if (runner == null) return status;
 
         // 一次 git status 同时拿到分支/上游/领先落后与文件变更：大仓库上省掉两次全量扫描
-        var (code, output) = await RunGitAsync(runner, "status --porcelain --branch", cancellationToken: cancellationToken);
-        if (code != 0) return status; // 非 git 仓库或 git 不可用
+        var result = await RunGitReadAsync(runner, "git status --porcelain --branch", cancellationToken);
+        if (result.ExitCode != 0) return status; // 非 git 仓库或 git 不可用
         status.IsRepo = true;
 
-        foreach (var raw in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var raw in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var line = raw.TrimEnd('\r');
             if (line.StartsWith("## ", StringComparison.Ordinal))

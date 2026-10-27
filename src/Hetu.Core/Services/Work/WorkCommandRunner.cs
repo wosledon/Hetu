@@ -83,7 +83,10 @@ public class LocalCommandRunner : IWorkCommandRunner
     }
 }
 
-/// <summary>SSH 执行器：调用系统 ssh 客户端，非交互式执行远端命令</summary>
+/// <summary>
+/// SSH 执行器：默认走持久会话（一条 ssh 连接反复复用，见 <see cref="SshSession"/>），
+/// 长命令 / 会话不适用时回退为逐条连接。
+/// </summary>
 public class SshCommandRunner : IWorkCommandRunner
 {
     private readonly WorkProject _project;
@@ -102,22 +105,7 @@ public class SshCommandRunner : IWorkCommandRunner
     private const int SshCommandTimeoutSeconds = 60;
 
     /// <summary>拼接 ssh 基础参数（不含远端命令）</summary>
-    public string BuildSshArgs()
-    {
-        var args = new StringBuilder();
-        args.Append("-p ").Append(_project.SshPort <= 0 ? 22 : _project.SshPort).Append(' ');
-        args.Append("-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ");
-        // keepalive：链路半死（VPN 抖动 / NAT 超时）时 ssh 会一直挂着不说话，
-        // 5s × 3 次探测，约 15s 内判定连接已断并自行退出（否则只能等我们自己的 60s 超时）
-        args.Append("-o ServerAliveInterval=5 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes ");
-        if (_project.SshAuthType == "Key" && !string.IsNullOrWhiteSpace(_project.SshKeyPath))
-            args.Append("-i \"").Append(_project.SshKeyPath).Append("\" ");
-        var target = string.IsNullOrWhiteSpace(_project.SshUser)
-            ? _project.SshHost
-            : $"{_project.SshUser}@{_project.SshHost}";
-        args.Append(target);
-        return args.ToString();
-    }
+    public string BuildSshArgs() => SshProtocol.BuildSshArgs(_project);
 
     /// <summary>远端命令：cd 到项目根目录后执行</summary>
     public string BuildRemoteCommand(string command)
@@ -150,6 +138,35 @@ public class SshCommandRunner : IWorkCommandRunner
     public Task<WorkCommandResult> RunAsync(string command, CancellationToken ct = default) => RunAsync(command, null, ct);
 
     public async Task<WorkCommandResult> RunAsync(string command, string? stdin, CancellationToken ct = default, TimeSpan? timeout = null)
+    {
+        var effective = timeout ?? TimeSpan.FromSeconds(SshCommandTimeoutSeconds);
+
+        // 持久会话：同一条连接反复复用，省掉每次命令的完整握手。三种情况不走会话——
+        // 1) 长命令（pull/push）：一条管道同时只能跑一条命令，几分钟的操作会堵住后续命令；
+        // 2) 命令里带换行：会破坏单行下发的框架；
+        // 3) 带 stdin 而远端没有 base64（协议靠它透传负载）。
+        var multiline = command.Contains('\n') || command.Contains('\r');
+        if (!multiline && effective <= TimeSpan.FromSeconds(SshSession.MaxCommandTimeoutSeconds))
+        {
+            var session = await SshSessionManager.GetOrCreateAsync(_project, _decryptPassword, ct).ConfigureAwait(false);
+            if (session != null)
+            {
+                if (!session.IsAlive)
+                {
+                    // 连接没建起来（网络/认证）：会话已经拿到 ssh 的真实报错，直接透出，
+                    // 不再逐条重试——同样的网络再连一次只是多等一个 ConnectTimeout
+                    return new WorkCommandResult(255, string.Empty, session.LastConnectError ?? "SSH 连接不可用");
+                }
+                if (stdin == null || session.SupportsBase64)
+                    return await session.ExecuteAsync(BuildRemoteCommand(command), stdin, ct, effective).ConfigureAwait(false);
+            }
+        }
+
+        return await RunOneShotAsync(command, stdin, ct, effective).ConfigureAwait(false);
+    }
+
+    /// <summary>逐条连接执行（会话不适用 / 长命令时的回退路径）</summary>
+    private async Task<WorkCommandResult> RunOneShotAsync(string command, string? stdin, CancellationToken ct, TimeSpan timeout)
     {
         var remote = BuildRemoteCommand(command);
         var psi = new ProcessStartInfo
@@ -189,7 +206,7 @@ public class SshCommandRunner : IWorkCommandRunner
             return new WorkCommandResult(-1, string.Empty, "无法启动 ssh");
         }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(SshCommandTimeoutSeconds));
+        cts.CancelAfter(timeout);
         try
         {
             if (stdin != null)
@@ -206,10 +223,10 @@ public class SshCommandRunner : IWorkCommandRunner
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            // 我们的 60s 超时（不是调用方取消）：SSH 链路卡住时给个能看懂的原因，
+            // 我们的超时（不是调用方取消）：SSH 链路卡住时给个能看懂的原因，
             // 原来的 "The operation was canceled." 只会让人以为是用户点了停止
             try { process.Kill(entireProcessTree: true); } catch { }
-            throw new TimeoutException($"ssh 命令超过 {SshCommandTimeoutSeconds} 秒无响应（连接可能已断开），请检查网络后重试");
+            throw new TimeoutException($"ssh 命令超过 {timeout.TotalSeconds:0} 秒无响应（连接可能已断开），请检查网络后重试");
         }
         catch (OperationCanceledException)
         {

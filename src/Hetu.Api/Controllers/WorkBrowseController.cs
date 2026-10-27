@@ -125,6 +125,8 @@ public class WorkBrowseController : ControllerBase
             SshKeyPath = request.KeyPath,
             SshPasswordProtected = string.IsNullOrEmpty(request.Password) ? null : Protect(request.Password),
         };
+        // 临时对象：Id 按连接派生，让同一连接的重复浏览复用同一条会话
+        project.Id = SshProtocol.EphemeralProjectId(project);
 
         string? Decrypt(string v) =>
             string.IsNullOrEmpty(v) ? null : System.Text.Encoding.UTF8.GetString(_dataProtection.CreateProtector("Hetu.Ssh").Unprotect(Convert.FromBase64String(v)));
