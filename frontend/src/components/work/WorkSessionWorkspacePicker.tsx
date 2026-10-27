@@ -18,7 +18,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
   const [menu, setMenu] = useState<'mode' | 'branch' | null>(null)
   const isDraft = !session.id
 
-  const { data: branchInfo } = useQuery({
+  const { data: branchInfo, isFetching: branchesFetching } = useQuery({
     queryKey: ['work-branches', session.projectId],
     queryFn: () => workGitService.branches(session.projectId),
     staleTime: 60_000,
@@ -157,7 +157,9 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
             }
             className={triggerClass(false)}
           >
-            <GitBranch size={11} className="shrink-0 opacity-80" />
+            {branchesFetching && !branchInfo
+              ? <Loader2 size={11} className="shrink-0 animate-spin" />
+              : <GitBranch size={11} className="shrink-0 opacity-80" />}
             <span className="truncate">{created ? session.branch : useWorktree ? baseBranch ?? '—' : currentBranch ?? '—'}</span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
           </button>
