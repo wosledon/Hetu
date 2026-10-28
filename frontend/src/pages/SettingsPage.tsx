@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Bot, Database, Settings, Trash2, Monitor, Sun, Moon, ChevronRight, Tag, Zap, Network, ListTodo, Atom, Cpu, Menu, CalendarClock, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, Info, GitBranch, Brain, FolderGit2, Palette } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +20,7 @@ import { useUIStore } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
+import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS, reorderNavPaths, resolveNavItems, sanitizeNavPaths, type NavItem } from '../utils/navItems'
 import type { IAppSettingsSnapshot } from '../types'
 import { Button, Card, Input, PageContainer, Textarea } from '../components/ui'
 
@@ -68,20 +69,6 @@ const languageOptions = [
   { key: 'zh' as const, labelKey: 'common:languageZh', descKey: 'language.zhDesc', badge: '中' },
   { key: 'en' as const, labelKey: 'common:languageEn', descKey: 'language.enDesc', badge: 'EN' },
 ]
-
-const configurableNavItems = [
-  { path: '/tags', labelKey: 'navigation.items.tags', icon: Tag },
-  { path: '/agents', labelKey: 'navigation.items.agents', icon: Bot },
-  { path: '/skills', labelKey: 'navigation.items.skills', icon: Zap },
-  { path: '/knowledge-base', labelKey: 'navigation.items.knowledgeBase', icon: Database },
-  { path: '/graph', labelKey: 'navigation.items.graph', icon: Network },
-  { path: '/tasks/background', labelKey: 'navigation.items.backgroundTasks', icon: ListTodo },
-  { path: '/tasks/scheduled', labelKey: 'navigation.items.scheduledTasks', icon: CalendarClock },
-  { path: '/memories', labelKey: 'navigation.items.memories', icon: Atom },
-  { path: '/models', labelKey: 'navigation.items.models', icon: Cpu },
-  { path: '/workflows', labelKey: 'navigation.items.workflows', icon: GitBranch },
-]
-
 export default function SettingsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -94,6 +81,8 @@ export default function SettingsPage() {
   const secondaryMenuStyle = useUIStore((state) => state.secondaryMenuStyle)
   const navStyle = useUIStore((state) => state.navStyle)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
+  const fixedNavItems = useUIStore((state) => state.fixedNavItems)
+  const dynamicNavItems = useUIStore((state) => state.dynamicNavItems)
   const setAppName = useUIStore((state) => state.setAppName)
   const setAssistantName = useUIStore((state) => state.setAssistantName)
   const setAssistantPersona = useUIStore((state) => state.setAssistantPersona)
@@ -110,6 +99,8 @@ export default function SettingsPage() {
   const setSecondaryMenuStyle = useUIStore((state) => state.setSecondaryMenuStyle)
   const setNavStyle = useUIStore((state) => state.setNavStyle)
   const setPinnedNavItems = useUIStore((state) => state.setPinnedNavItems)
+  const setFixedNavItems = useUIStore((state) => state.setFixedNavItems)
+  const setDynamicNavItems = useUIStore((state) => state.setDynamicNavItems)
 
   const { data: snapshot } = useQuery({
     queryKey: ['settings'],
@@ -156,9 +147,21 @@ export default function SettingsPage() {
       setNavStyle(snapshot.navStyle)
     try {
       const items = JSON.parse(snapshot.pinnedNavItems)
-      if (Array.isArray(items) && items.length > 0) setPinnedNavItems(items)
+      if (Array.isArray(items) && items.length > 0) setPinnedNavItems(sanitizeNavPaths(items))
     } catch { /* keep current value if parse fails */ }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setFontFamily, setFontSize, setUiZoom, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems])
+    // 固定区/动态区：键不存在（旧后端）时保留 store 默认值，空数组是用户的合法选择
+    const zones: [string | undefined, (items: string[]) => void][] = [
+      [snapshot.fixedNavItems, setFixedNavItems],
+      [snapshot.dynamicNavItems, setDynamicNavItems],
+    ]
+    for (const [raw, apply] of zones) {
+      if (!raw) continue
+      try {
+        const items = JSON.parse(raw)
+        if (Array.isArray(items)) apply(sanitizeNavPaths(items))
+      } catch { /* keep current value if parse fails */ }
+    }
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setFontFamily, setFontSize, setUiZoom, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems, setFixedNavItems, setDynamicNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -244,6 +247,23 @@ export default function SettingsPage() {
   const handlePinnedNavItemsChange = (items: string[]) => {
     setPinnedNavItems(items)
     setSetting.mutate({ key: 'PinnedNavItems', value: JSON.stringify(items) })
+  }
+
+  const handleFixedNavItemsChange = (items: string[]) => {
+    setFixedNavItems(items)
+    setSetting.mutate({ key: 'FixedNavItems', value: JSON.stringify(items) })
+  }
+
+  const handleDynamicNavItemsChange = (items: string[]) => {
+    setDynamicNavItems(items)
+    setSetting.mutate({ key: 'DynamicNavItems', value: JSON.stringify(items) })
+  }
+
+  /** 恢复默认分区：固定区回到内置 6 项，动态区拿回其余全部入口并全部关闭 */
+  const handleResetNavZones = () => {
+    handleFixedNavItemsChange(DEFAULT_FIXED_NAV_ITEMS)
+    handleDynamicNavItemsChange(DEFAULT_DYNAMIC_NAV_ITEMS)
+    handlePinnedNavItemsChange([])
   }
 
   return (
@@ -346,13 +366,17 @@ export default function SettingsPage() {
                 />}
 
                 {activeSection === 'navigation' && <NavigationSettingsSection
+                  fixedNavItems={fixedNavItems}
+                  dynamicNavItems={dynamicNavItems}
                   pinnedNavItems={pinnedNavItems}
+                  setFixedNavItems={handleFixedNavItemsChange}
+                  setDynamicNavItems={handleDynamicNavItemsChange}
                   setPinnedNavItems={handlePinnedNavItemsChange}
                   navStyle={navStyle}
                   secondaryMenuStyle={secondaryMenuStyle}
                   onNavStyleChange={handleNavStyleChange}
                   onMenuStyleChange={handleMenuStyleChange}
-                  onNavigate={navigate}
+                  onResetNav={handleResetNavZones}
                 />}
 
                 {activeSection === 'models' && <DefaultModelsSection
@@ -854,23 +878,94 @@ function AppearanceSettingsSection({
 /* ─── Navigation Settings Section ─── */
 
 function NavigationSettingsSection({
+  fixedNavItems,
+  dynamicNavItems,
   pinnedNavItems,
+  setFixedNavItems,
+  setDynamicNavItems,
   setPinnedNavItems,
   navStyle,
   secondaryMenuStyle,
   onNavStyleChange,
   onMenuStyleChange,
-  onNavigate,
+  onResetNav,
 }: {
+  fixedNavItems: string[]
+  dynamicNavItems: string[]
   pinnedNavItems: string[]
+  setFixedNavItems: (items: string[]) => void
+  setDynamicNavItems: (items: string[]) => void
   setPinnedNavItems: (items: string[]) => void
   navStyle: NavStyle
   secondaryMenuStyle: SecondaryMenuStyle
   onNavStyleChange: (v: NavStyle) => void
   onMenuStyleChange: (v: SecondaryMenuStyle) => void
-  onNavigate: (path: string) => void
+  onResetNav: () => void
 }) {
   const { t } = useTranslation('settings')
+  const [dragging, setDragging] = useState<NavDragState | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ zone: NavZone; index: number } | null>(null)
+
+  const fixedItems = useMemo(() => resolveNavItems(fixedNavItems), [fixedNavItems])
+  const dynamicItems = useMemo(() => resolveNavItems(dynamicNavItems), [dynamicNavItems])
+  const pinnedSet = useMemo(() => new Set(pinnedNavItems), [pinnedNavItems])
+
+  const handleDragStart = (path: string, from: NavZone) => setDragging({ path, from })
+
+  const handleDragEnd = () => {
+    setDragging(null)
+    setDropTarget(null)
+  }
+
+  const handleDragOverItem = (zone: NavZone, index: number) => setDropTarget({ zone, index })
+
+  /** 松手：同区重排，跨区则移动归属（拖进固定区即脱离开关控制） */
+  const handleDrop = (zone: NavZone, index: number) => {
+    const current = dragging
+    setDragging(null)
+    setDropTarget(null)
+    if (!current) return
+    const { path, from } = current
+    if (from === zone) {
+      const next = reorderNavPaths(from === 'fixed' ? fixedNavItems : dynamicNavItems, path, index)
+      if (from === 'fixed') setFixedNavItems(next)
+      else setDynamicNavItems(next)
+      return
+    }
+    const nextFrom = (from === 'fixed' ? fixedNavItems : dynamicNavItems).filter((p) => p !== path)
+    const target = zone === 'fixed' ? fixedNavItems : dynamicNavItems
+    const at = Math.max(0, Math.min(index, target.length))
+    const nextTo = [...target.slice(0, at), path, ...target.slice(at)]
+    if (zone === 'fixed') {
+      setFixedNavItems(nextTo)
+      setDynamicNavItems(nextFrom)
+      // 固定区不受开关控制：从动态区的开启集合里摘掉
+      if (pinnedSet.has(path)) setPinnedNavItems(pinnedNavItems.filter((p) => p !== path))
+    } else {
+      setDynamicNavItems(nextTo)
+      setFixedNavItems(nextFrom)
+    }
+  }
+
+  /** 点击箭头：整条搬到另一个区（拖拽的替代路径） */
+  const handleMove = (path: string, from: NavZone) => {
+    const zone: NavZone = from === 'fixed' ? 'dynamic' : 'fixed'
+    const nextFrom = (from === 'fixed' ? fixedNavItems : dynamicNavItems).filter((p) => p !== path)
+    const nextTo = [...(zone === 'fixed' ? fixedNavItems : dynamicNavItems), path]
+    if (zone === 'fixed') {
+      setFixedNavItems(nextTo)
+      setDynamicNavItems(nextFrom)
+      if (pinnedSet.has(path)) setPinnedNavItems(pinnedNavItems.filter((p) => p !== path))
+    } else {
+      setDynamicNavItems(nextTo)
+      setFixedNavItems(nextFrom)
+    }
+  }
+
+  const handleTogglePinned = (path: string) => {
+    setPinnedNavItems(pinnedSet.has(path) ? pinnedNavItems.filter((p) => p !== path) : [...pinnedNavItems, path])
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -964,57 +1059,184 @@ function NavigationSettingsSection({
         <p className="text-xs text-gray-400 dark:text-gray-500">{t('navigation.menuStyleHint')}</p>
       </div>
 
-      {/* Quick Jump */}
-      <div className="grid grid-cols-4 gap-2">
-        {configurableNavItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <Button variant="soft" tone="gray" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 dark:hover:text-blue-300" key={item.path}
-              onClick={() => onNavigate(item.path)}>
-              <Icon size={14} />
-              {t(item.labelKey)}
-            </Button>
-          )
-        })}
-      </div>
+      {/* 固定区 / 动态区：拖动条目调整顺序或跨区移动 */}
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500">{t('navigation.zoneDragHint')}</p>
+          <Button variant="soft" tone="gray" className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-1.5 text-xs text-gray-600 transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400" onClick={onResetNav}>
+            <RotateCcw size={13} />
+            {t('navigation.zoneReset')}
+          </Button>
+        </div>
 
-      {/* Pin Toggles */}
-      <div className="space-y-2">
-        {configurableNavItems.map((item) => {
-          const Icon = item.icon
-          const isPinned = pinnedNavItems.includes(item.path)
-          return (
-            <div
-              key={item.path}
-              className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]"
-            >
-              <div className="flex items-center gap-2">
-                <Icon size={14} className="text-gray-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{t(item.labelKey)}</span>
-              </div>
-              <button
-                onClick={() => {
-                  setPinnedNavItems(
-                    isPinned
-                      ? pinnedNavItems.filter((p) => p !== item.path)
-                      : [...pinnedNavItems, item.path]
-                  )
-                }}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-                  isPinned ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-                    isPinned ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                  style={{ marginTop: '2px' }}
-                />
-              </button>
-            </div>
-          )
-        })}
+        {/* 固定区 */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.fixedZone')}</label>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('navigation.fixedZoneHint')}</span>
+          </div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ zone: 'fixed', index: fixedItems.length }) }}
+            onDrop={(e) => { e.preventDefault(); handleDrop('fixed', fixedItems.length) }}
+            className={`space-y-1.5 rounded-xl border border-dashed p-2 transition-colors ${
+              dropTarget?.zone === 'fixed' && !dragging
+                ? 'border-blue-300 bg-blue-50/40 dark:border-blue-500/40 dark:bg-blue-950/20'
+                : 'border-gray-200 dark:border-white/[0.08]'
+            }`}
+          >
+            {fixedItems.map((item, index) => (
+              <NavZoneRow
+                key={item.path}
+                item={item}
+                zone="fixed"
+                index={index}
+                isPinned={false}
+                isDragging={dragging?.path === item.path}
+                isDropTarget={dropTarget?.zone === 'fixed' && dropTarget?.index === index}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOverItem={handleDragOverItem}
+                onDropItem={handleDrop}
+                onMove={handleMove}
+              />
+            ))}
+            {fixedItems.length === 0 && (
+              <p className="px-3 py-5 text-center text-xs text-gray-400 dark:text-gray-500">{t('navigation.zoneEmpty')}</p>
+            )}
+          </div>
+        </div>
+
+        {/* 动态区 */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.dynamicZone')}</label>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('navigation.dynamicZoneHint')}</span>
+          </div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget({ zone: 'dynamic', index: dynamicItems.length }) }}
+            onDrop={(e) => { e.preventDefault(); handleDrop('dynamic', dynamicItems.length) }}
+            className={`space-y-1.5 rounded-xl border border-dashed p-2 transition-colors ${
+              dropTarget?.zone === 'dynamic' && !dragging
+                ? 'border-blue-300 bg-blue-50/40 dark:border-blue-500/40 dark:bg-blue-950/20'
+                : 'border-gray-200 dark:border-white/[0.08]'
+            }`}
+          >
+            {dynamicItems.map((item, index) => (
+              <NavZoneRow
+                key={item.path}
+                item={item}
+                zone="dynamic"
+                index={index}
+                isPinned={pinnedSet.has(item.path)}
+                isDragging={dragging?.path === item.path}
+                isDropTarget={dropTarget?.zone === 'dynamic' && dropTarget?.index === index}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOverItem={handleDragOverItem}
+                onDropItem={handleDrop}
+                onToggle={handleTogglePinned}
+                onMove={handleMove}
+              />
+            ))}
+            {dynamicItems.length === 0 && (
+              <p className="px-3 py-5 text-center text-xs text-gray-400 dark:text-gray-500">{t('navigation.zoneEmpty')}</p>
+            )}
+          </div>
+        </div>
       </div>
+    </div>
+  )
+}
+
+/* ─── 导航分区编辑：一行条目（固定区不可开关，动态区带开关） ─── */
+
+type NavZone = 'fixed' | 'dynamic'
+
+interface NavDragState {
+  path: string
+  from: NavZone
+}
+
+function NavZoneRow({
+  item,
+  zone,
+  index,
+  isPinned,
+  isDragging,
+  isDropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOverItem,
+  onDropItem,
+  onToggle,
+  onMove,
+}: {
+  item: NavItem
+  zone: NavZone
+  index: number
+  isPinned: boolean
+  isDragging: boolean
+  isDropTarget: boolean
+  onDragStart: (path: string, from: NavZone) => void
+  onDragEnd: () => void
+  onDragOverItem: (zone: NavZone, index: number) => void
+  onDropItem: (zone: NavZone, index: number) => void
+  onToggle?: (path: string) => void
+  onMove: (path: string, from: NavZone) => void
+}) {
+  const { t } = useTranslation('settings')
+  const Icon = item.icon
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.path)
+        onDragStart(item.path, zone)
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault()
+        // 必须阻止冒泡：否则外层的「追加到末尾」会覆盖行内算出的插入位置
+        e.stopPropagation()
+        e.dataTransfer.dropEffect = 'move'
+        // 指针在条目下半部分时插到它后面，向上拖和向下拖都符合直觉
+        const rect = e.currentTarget.getBoundingClientRect()
+        onDragOverItem(zone, e.clientY > rect.top + rect.height / 2 ? index + 1 : index)
+      }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDropItem(zone, index) }}
+      className={`flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2 transition-colors dark:bg-gray-900 ${
+        isDragging ? 'border-blue-300 opacity-40 dark:border-blue-500/50' : 'border-gray-100 dark:border-white/[0.06]'
+      } ${isDropTarget ? 'border-t-2 border-t-blue-500' : ''}`}
+    >
+      <GripVertical size={14} className="shrink-0 cursor-grab text-gray-300 dark:text-gray-600" />
+      <Icon size={14} className="shrink-0 text-gray-400" />
+      <span className="min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300">{t(item.labelKey)}</span>
+
+      {/* 跨区移动的键盘/点击替代：不依赖拖拽也能调整归属 */}
+      <button
+        onClick={() => onMove(item.path, zone)}
+        title={t(zone === 'fixed' ? 'navigation.moveToDynamic' : 'navigation.moveToFixed')}
+        className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-white/[0.06] dark:hover:text-blue-400"
+      >
+        {zone === 'fixed' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+      </button>
+
+      {zone === 'dynamic' && onToggle && (
+        <button
+          onClick={() => onToggle(item.path)}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+            isPinned ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
+              isPinned ? 'translate-x-5' : 'translate-x-0.5'
+            }`}
+            style={{ marginTop: '2px' }}
+          />
+        </button>
+      )}
     </div>
   )
 }

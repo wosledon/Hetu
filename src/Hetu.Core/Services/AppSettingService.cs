@@ -44,6 +44,8 @@ public class AppSettingService : IAppSettingService
             DefaultNoteAiModelId = await GetNullableValueAsync("DefaultNoteAiModelId", cancellationToken),
             ContextWindowSize = await GetNullableIntValueAsync("ContextWindowSize", cancellationToken),
             PinnedNavItems = await GetValueAsync("PinnedNavItems", "[]", cancellationToken),
+            FixedNavItems = await GetNullableValueAsync("FixedNavItems", cancellationToken),
+            DynamicNavItems = await GetNullableValueAsync("DynamicNavItems", cancellationToken),
             SecondaryMenuStyle = await GetValueAsync("SecondaryMenuStyle", "flat", cancellationToken),
             NavStyle = await GetValueAsync("NavStyle", "top", cancellationToken),
             CloseToTray = await GetValueAsync("CloseToTray", "true", cancellationToken),

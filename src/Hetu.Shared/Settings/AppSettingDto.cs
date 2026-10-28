@@ -54,6 +54,10 @@ public class AppSettingsSnapshotDto
     public int? ContextWindowSize { get; set; }
     /// <summary>导航菜单项（JSON 数组字符串，如 '["/tags","/graph"]'）</summary>
     public string PinnedNavItems { get; set; } = "[]";
+    /// <summary>固定区导航菜单项（JSON 数组字符串，有序）：始终显示在导航中，不受开关控制；null 表示未配置，用内置默认</summary>
+    public string? FixedNavItems { get; set; }
+    /// <summary>动态区导航菜单项（JSON 数组字符串，有序）：是否显示由 PinnedNavItems 决定；null 表示未配置，用内置默认</summary>
+    public string? DynamicNavItems { get; set; }
     /// <summary>二级菜单样式：flat 或 collapsed</summary>
     public string SecondaryMenuStyle { get; set; } = "flat";
     /// <summary>主导航菜单样式：top（顶部横栏）或 vertical（左侧垂直胶囊）</summary>
