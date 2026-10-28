@@ -120,6 +120,55 @@ body {
   animation: pulseSoft 2.5s ease-in-out infinite;
 }
 
+/* ===== Agent 对话进行中：会话末尾声波动画 + 输入框流光边框 ===== */
+@keyframes agentWave {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* 三条声波柱：缩放呼吸形成波浪，告诉用户「还在跑」（与输入框边框动画同源同色）。
+   这里用 longhand 而不是 animation 简写：简写会把 animation-delay 重置为 0，
+   盖掉组件里 Tailwind 的 [animation-delay:...] 错峰（无分层样式优先于 utilities 层）。 */
+.agent-wave-bar {
+  transform-origin: center;
+  animation-name: agentWave;
+  animation-duration: 1s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes agentRingSpin {
+  to { transform: rotate(1turn); }
+}
+
+/* 输入框流式进行中的边框动画：外层用 mask 抠出 1.5px 边带（不碰输入框自身背景
+   与 .glass 材质——它画在 ::before 上），内层圆锥渐变旋转形成绕行的光弧。
+   只遮罩、不吃事件，输入与点击完全不受影响。 */
+.agent-input-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  padding: 1.5px;
+  pointer-events: none;
+  background-color: rgba(99, 102, 241, 0.1);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.dark .agent-input-ring {
+  background-color: rgba(129, 140, 248, 0.16);
+}
+
+.agent-input-ring::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(from 0deg, rgba(59, 130, 246, 0) 0%, #3b82f6 10%, #8b5cf6 20%, rgba(139, 92, 246, 0) 32%, rgba(139, 92, 246, 0) 100%);
+  animation: agentRingSpin 2.4s linear infinite;
+}
+
 /* ===== 记忆星空：入场 / 微光 / Dream 夜波 ===== */
 @keyframes starIn {
   from { opacity: 0; transform: scale(0.3); }

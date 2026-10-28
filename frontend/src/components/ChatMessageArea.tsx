@@ -15,6 +15,7 @@ import ConversationRail from './ConversationRail'
 
 import AgentUsageBadge from './agent/AgentUsageBadge'
 import AgentTimeline from './agent/AgentTimeline'
+import AgentWorkingIndicator from './agent/AgentWorkingIndicator'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
 import AgentContextUsage from './agent/AgentContextUsage'
@@ -1023,16 +1024,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     </div>
                   </Card>
                 )}
-                {/* Loading dots - show only when streaming and nothing rendered yet */}
-                {timeline.length === 0 && !streamingContent && !streamingThinking && isStreaming && (
-                  <div className="flex items-center gap-1.5 py-1">
-                    <Loader2 size={12} className="animate-spin text-gray-400" />
-                    <span className="text-[11px] text-gray-400">{t('messageArea.thinkingNow')}</span>
-                  </div>
-                )}
               </div>
           </div>
         )}
+
+        {/* 对话进行中：挂在会话末尾的声波动画——本轮还没有任何输出时也能看到「还在跑」 */}
+        {isStreaming && <AgentWorkingIndicator />}
         </div>
 
         {streamError && (
