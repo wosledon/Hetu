@@ -270,17 +270,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   // ── 知识库索引状态 ──
 
-  const { data: embeddingStatuses = [] } = useQuery({
-    queryKey: ['embeddingStatuses'],
-    queryFn: () => knowledgeBaseService.getEmbeddingStatuses('note'),
+  const { data: embeddingPage } = useQuery({
+    queryKey: ['embeddingStatuses', note?.id],
+    queryFn: () => knowledgeBaseService.getEmbeddingStatuses({ noteId: note?.id }),
     enabled: !!note,
     refetchInterval: (query) =>
-      query.state.data?.some((s) => s.hasRunningTask) ? 3000 : false,
+      query.state.data?.items.some((s) => s.hasRunningTask) ? 3000 : false,
   })
 
   const currentEmbedding = useMemo(
-    () => embeddingStatuses.find((s) => s.noteId === note?.id),
-    [embeddingStatuses, note?.id]
+    () => embeddingPage?.items.find((s) => s.noteId === note?.id),
+    [embeddingPage, note?.id]
   )
 
   // 索引与图谱提取都是「入队即返回」，按钮 loading 只能轮询任务表得到。

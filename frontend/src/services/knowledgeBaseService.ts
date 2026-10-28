@@ -13,10 +13,35 @@ export interface IKnowledgeBaseStatus {
   urlCount: number;
   /** 项目 Wiki 页面（自动同步）数量 */
   wikiCount: number;
+  noteIndexedCount: number;
+  fileIndexedCount: number;
+  urlIndexedCount: number;
+  wikiIndexedCount: number;
+  /** 分块总量（不含已删除知识项的分块） */
+  totalChunks: number;
+  /** 已建立向量的分块数 */
+  indexedChunks: number;
   hasEmbeddingProvider: boolean;
   dimensions: number;
   /** 正在运行的后台任务数（Queued + Running） */
   runningTaskCount: number;
+  /** 已失败的索引任务数 */
+  failedTaskCount: number;
+  /** 最近一次建立向量的时间 */
+  lastIndexedAt: string | null;
+  /** 最近一次使用的 Embedding 模型 */
+  embeddingModel: string | null;
+  /** 最近建立索引的知识项（按向量更新时间倒序） */
+  recentIndexed: IRecentIndexedItem[];
+}
+
+/** 概览「最近索引」列表的一行 */
+export interface IRecentIndexedItem {
+  id: string;
+  type: 'note' | 'file' | 'url' | 'wiki';
+  title: string;
+  chunkCount: number;
+  updatedAt: string;
 }
 
 // ── 知识项 Embedding 状态 ──
@@ -88,8 +113,8 @@ export const knowledgeBaseService = {
   getStatus: () =>
     get<IKnowledgeBaseStatus>('/knowledge-base/status'),
 
-  getEmbeddingStatuses: (type?: string) =>
-    get<IKnowledgeItemEmbeddingStatus[]>(`/knowledge-base/embeddings${type ? `?type=${type}` : ''}`),
+  getEmbeddingStatuses: (params: { type?: string; noteId?: string; page?: number; pageSize?: number }) =>
+    get<IPagedResult<IKnowledgeItemEmbeddingStatus>>('/knowledge-base/embeddings', params),
 
   generateEmbedding: (id: string) =>
     post<void>(`/knowledge-base/embeddings/${id}`),

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Common;
@@ -10,6 +11,11 @@ namespace Hetu.Api.Controllers;
 [Route("api/knowledge-base")]
 public class KnowledgeBaseController : ControllerBase
 {
+    /// <summary>索引管理列表每页条数</summary>
+    private const int DefaultPageSize = 20;
+    /// <summary>概览「最近索引」展示的条数</summary>
+    private const int RecentIndexedCount = 6;
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISemanticSearchService _semanticSearchService;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
@@ -36,6 +42,12 @@ public class KnowledgeBaseController : ControllerBase
             ? (BackgroundTaskType.GenerateEmbedding, noteId.Value)
             : (BackgroundTaskType.GenerateKnowledgeItemEmbedding, id);
 
+    /// <summary>Embedding 索引任务（按笔记 / 按知识项两种）且处于指定状态；状态见 TaskItem：0=Queued 1=Running 2=Completed 3=Failed</summary>
+    private static Expression<Func<TaskItem, bool>> EmbeddingTaskWithStatus(params int[] statuses)
+        => t => statuses.Contains(t.Status) &&
+                (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
+                 t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding));
+
     /// <summary>
     /// 获取知识库状态概览
     /// </summary>
@@ -49,11 +61,9 @@ public class KnowledgeBaseController : ControllerBase
         var indexedCount = await _unitOfWork.KnowledgeItems.CountIndexedItemsAsync(cancellationToken);
         var provider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
 
-        // 正在运行/排队的 Embedding 任务（SQL COUNT）
-        var runningTaskCount = await _unitOfWork.TaskItems.CountAsync(t =>
-            (t.Status == 0 || t.Status == 1) &&
-            (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
-             t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)), cancellationToken);
+        // 正在运行/排队与失败的 Embedding 任务（SQL COUNT）
+        var runningTaskCount = await _unitOfWork.TaskItems.CountAsync(EmbeddingTaskWithStatus(0, 1), cancellationToken);
+        var failedTaskCount = await _unitOfWork.TaskItems.CountAsync(EmbeddingTaskWithStatus(3), cancellationToken);
 
         var status = new KnowledgeBaseStatusDto
         {
@@ -67,38 +77,91 @@ public class KnowledgeBaseController : ControllerBase
             HasEmbeddingProvider = provider != null,
             Dimensions = provider?.Dimensions ?? 0,
             RunningTaskCount = runningTaskCount,
+            FailedTaskCount = failedTaskCount,
         };
+
+        // 分块级覆盖：向量是按块建的，只看知识项条数会高估实际覆盖
+        var (totalChunks, indexedChunks) = await _unitOfWork.KnowledgeItems.CountChunksAsync(cancellationToken);
+        status.TotalChunks = totalChunks;
+        status.IndexedChunks = indexedChunks;
+
+        // 按类型的已索引数量：概览的类型明细表用（同 CountIndexedItemsAsync 口径）
+        var indexedByType = await _unitOfWork.KnowledgeItems.CountIndexedByTypeAsync(cancellationToken);
+        status.NoteIndexedCount = indexedByType.GetValueOrDefault(KnowledgeItemType.Note);
+        status.FileIndexedCount = indexedByType.GetValueOrDefault(KnowledgeItemType.File);
+        status.UrlIndexedCount = indexedByType.GetValueOrDefault(KnowledgeItemType.Url);
+        status.WikiIndexedCount = indexedByType.GetValueOrDefault(KnowledgeItemType.Wiki);
+
+        // 最近索引：让概览有「还在动」的真实反馈（含最近一次使用的模型）
+        var recent = await _unitOfWork.KnowledgeItems.GetRecentIndexedAsync(RecentIndexedCount, cancellationToken);
+        status.RecentIndexed = recent.Select(r => new RecentIndexedItemDto
+        {
+            Id = r.Id,
+            Type = r.Type.ToString().ToLower(),
+            Title = r.Title,
+            ChunkCount = r.ChunkCount,
+            UpdatedAt = r.UpdatedAt,
+        }).ToList();
+        status.LastIndexedAt = recent.Count > 0 ? recent[0].UpdatedAt : null;
+        status.EmbeddingModel = recent.Count > 0 ? recent[0].Model : null;
 
         return ApiResponse<KnowledgeBaseStatusDto>.Ok(status);
     }
 
     /// <summary>
-    /// 获取知识项的 Embedding 状态列表（支持按类型筛选）
+    /// 获取知识项的 Embedding 状态列表（支持按类型筛选，分页）
     /// </summary>
     [HttpGet("embeddings")]
-    // 列表按 type 查询串过滤，缓存必须按 type 区分，否则切换分类会命中其它类型的缓存响应
-    [ResponseCache(Duration = 5, VaryByQueryKeys = new[] { "type" })]
-    public async Task<ApiResponse<List<KnowledgeItemEmbeddingStatusDto>>> GetEmbeddingStatuses(
+    // 列表按 type / noteId / page / pageSize 查询串过滤，缓存必须按这些键区分，
+    // 否则翻页、切分类或换笔记时会命中其它请求的缓存响应
+    [ResponseCache(Duration = 5, VaryByQueryKeys = new[] { "type", "noteId", "page", "pageSize" })]
+    public async Task<ApiResponse<PagedResult<KnowledgeItemEmbeddingStatusDto>>> GetEmbeddingStatuses(
         [FromQuery] string? type,
-        CancellationToken cancellationToken)
+        [FromQuery] Guid? noteId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = DefaultPageSize,
+        CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<KnowledgeItem> items;
+        KnowledgeItemType? typeFilter = null;
         if (!string.IsNullOrEmpty(type) && Enum.TryParse<KnowledgeItemType>(type, true, out var itemType))
+            typeFilter = itemType;
+
+        // 过滤条件在 Lambda 外定死（捕获局部变量），不把 nullable.Value 塞进表达式树
+        Expression<Func<KnowledgeItem, bool>>? predicate = null;
+        if (typeFilter.HasValue && noteId.HasValue)
         {
-            items = await _unitOfWork.KnowledgeItems.GetByTypeAsync(itemType, cancellationToken);
+            var typeValue = typeFilter.Value;
+            var noteValue = noteId.Value;
+            predicate = k => k.Type == typeValue && k.NoteId == noteValue;
         }
-        else
+        else if (typeFilter.HasValue)
         {
-            items = await _unitOfWork.KnowledgeItems.GetAllAsync(cancellationToken);
+            var typeValue = typeFilter.Value;
+            predicate = k => k.Type == typeValue;
+        }
+        else if (noteId.HasValue)
+        {
+            var noteValue = noteId.Value;
+            predicate = k => k.NoteId == noteValue;
         }
 
-        // 分块向量按知识项聚合（每个知识项一行），不再加载全部分块明细
-        var summaries = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingSummariesAsync(cancellationToken);
+        // 分页与排序在数据库完成（GetPagedByDateAsync 内部处理 SQLite 的 DateTimeOffset 限制）
+        var items = await _unitOfWork.KnowledgeItems.GetPagedByDateAsync(
+            predicate, k => k.UpdatedAt, descending: true,
+            skip: (Math.Max(page, 1) - 1) * pageSize, take: pageSize, cancellationToken);
+        var total = await _unitOfWork.KnowledgeItems.CountAsync(predicate, cancellationToken);
+
+        // 分块向量与运行中任务都只查当前页的知识项，不再全表聚合
+        var itemIds = items.Select(k => k.Id).ToList();
+        var summaries = await _unitOfWork.KnowledgeItems.GetChunkEmbeddingSummariesAsync(itemIds, cancellationToken);
         var chunkMap = summaries.ToDictionary(s => s.KnowledgeItemId);
 
-        // 查询所有正在运行/排队的任务的实体 ID（只取 EntityId 一列）
+        var entityIds = items
+            .Select(k => k.Type == KnowledgeItemType.Note && k.NoteId.HasValue ? k.NoteId.Value : k.Id)
+            .ToList();
         var runningEntityIds = (await _unitOfWork.TaskItems.SelectAsync(
-            t => (t.Status == 0 || t.Status == 1) &&
+            t => entityIds.Contains(t.EntityId) &&
+                 (t.Status == 0 || t.Status == 1) &&
                  (t.TaskType == nameof(BackgroundTaskType.GenerateEmbedding) ||
                   t.TaskType == nameof(BackgroundTaskType.GenerateKnowledgeItemEmbedding)),
             t => t.EntityId,
@@ -128,7 +191,13 @@ public class KnowledgeBaseController : ControllerBase
             };
         }).ToList();
 
-        return ApiResponse<List<KnowledgeItemEmbeddingStatusDto>>.Ok(result);
+        return ApiResponse<PagedResult<KnowledgeItemEmbeddingStatusDto>>.Ok(new PagedResult<KnowledgeItemEmbeddingStatusDto>
+        {
+            Items = result,
+            TotalCount = total,
+            Page = Math.Max(page, 1),
+            PageSize = pageSize,
+        });
     }
 
     /// <summary>
@@ -241,10 +310,36 @@ public class KnowledgeBaseStatusDto
     public int UrlCount { get; set; }
     /// <summary>项目 Wiki 页面（自动同步）数量</summary>
     public int WikiCount { get; set; }
+    public int NoteIndexedCount { get; set; }
+    public int FileIndexedCount { get; set; }
+    public int UrlIndexedCount { get; set; }
+    public int WikiIndexedCount { get; set; }
+    /// <summary>分块总量（不含已删除知识项的分块）</summary>
+    public int TotalChunks { get; set; }
+    /// <summary>已建立向量的分块数：向量按块建，这一对才能反映真实覆盖</summary>
+    public int IndexedChunks { get; set; }
     public bool HasEmbeddingProvider { get; set; }
     public int Dimensions { get; set; }
     /// <summary>正在运行的后台任务数（Queued + Running）</summary>
     public int RunningTaskCount { get; set; }
+    /// <summary>已失败的索引任务数（需要人工重试）</summary>
+    public int FailedTaskCount { get; set; }
+    /// <summary>最近一次建立向量的时间</summary>
+    public DateTimeOffset? LastIndexedAt { get; set; }
+    /// <summary>最近一次使用的 Embedding 模型</summary>
+    public string? EmbeddingModel { get; set; }
+    /// <summary>最近建立索引的知识项（按向量更新时间倒序）</summary>
+    public List<RecentIndexedItemDto> RecentIndexed { get; set; } = [];
+}
+
+/// <summary>概览「最近索引」列表的一行</summary>
+public class RecentIndexedItemDto
+{
+    public Guid Id { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public int ChunkCount { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public class KnowledgeItemEmbeddingStatusDto
