@@ -1,4 +1,4 @@
-import { useState, useCallback, useSyncExternalStore, forwardRef, useImperativeHandle } from 'react'
+import { useState, useCallback, useMemo, useSyncExternalStore, forwardRef, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, ChevronRight, Settings, Server, HardDrive, Loader2, Wifi, CornerLeftUp } from 'lucide-react'
@@ -8,6 +8,7 @@ import Select from '../Select'
 import { Button, Card, ContextMenu, IconButton, Input, Modal, PillTabs, TreeRow } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
 import { workStreamRuns } from '../../utils/workStreamRuns'
+import RunningIndicator from './RunningIndicator'
 import type { IDirListing } from '../../services/workService'
 import type { IWorkProject, IWorkSession } from '../../types/work'
 import WorkProjectSettings from './WorkProjectSettings'
@@ -412,6 +413,7 @@ function SessionList({
   sessionQuery,
   indent,
   selectedSessionId,
+  runningSessionIds,
   onSelectProject,
   onSelectSession,
   onStartDraftSession,
@@ -421,6 +423,8 @@ function SessionList({
   sessionQuery: string
   indent: boolean
   selectedSessionId?: string
+  /** 在跑的会话 id（由侧栏统一拉取，项目行也要用） */
+  runningSessionIds: Set<string>
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
   /** 新建会话：只放草稿占位（第一条消息才落库） */
@@ -441,16 +445,6 @@ function SessionList({
     queryKey: ['workSessions', project.id, sessionQuery],
     queryFn: () => workProjectService.getSessions(project.id, sessionQuery || undefined),
   })
-
-  // 进行中的会话：后端批量运行态（轮询，覆盖所有标签页/刷新前起的运行）
-  // ∪ 本标签页起的流（登记即时生效）——在别的会话里工作时也能一眼看出哪些还在跑
-  const { data: runningSessions } = useQuery({
-    queryKey: ['workRunningSessions'],
-    queryFn: workSessionService.getRunningSessions,
-    refetchInterval: 3000,
-  })
-  const localRunningIds = useSyncExternalStore(workStreamRuns.subscribe, workStreamRuns.snapshot)
-  const runningIds = new Set([...localRunningIds, ...(runningSessions?.sessionIds ?? [])])
 
   const createSession = useMutation({
     mutationFn: workSessionService.create,
@@ -512,7 +506,12 @@ function SessionList({
             depth={indent ? 1 : 0}
             selected={active}
             onClick={() => { onSelectProject(project); onSelectSession(session) }}
-            icon={(activeIcon) => <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />}
+            icon={(activeIcon) => (
+              /* 进行中：行首图标直接换成旋转标识（比在图标旁加点明显） */
+              runningSessionIds.has(session.id)
+                ? <RunningIndicator />
+                : <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />
+            )}
             label={renamingSessionId === session.id ? (
               <Input
                 autoFocus
@@ -527,11 +526,6 @@ function SessionList({
               />
             ) : (session.title || t('sidebar.newSession'))}
             labelClassName="text-gray-600 dark:text-gray-300"
-            badge={runningIds.has(session.id) ? (
-              <span className="shrink-0" title={t('sidebar.sessionRunning')}>
-                <Loader2 size={12} className="animate-spin text-emerald-500" />
-              </span>
-            ) : undefined}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -596,6 +590,8 @@ function ProjectNode({
   flat,
   selectedProjectId,
   selectedSessionId,
+  runningSessionIds,
+  runningProjectIds,
   onToggle,
   onSelectProject,
   onSelectSession,
@@ -610,6 +606,8 @@ function ProjectNode({
   flat?: boolean
   selectedProjectId?: string
   selectedSessionId?: string
+  runningSessionIds: Set<string>
+  runningProjectIds: Set<string>
   onToggle: () => void
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
@@ -638,7 +636,10 @@ function ProjectNode({
         selected={projectSelected}
         icon={(
           <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
-            {expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
+            {/* 项目下有会话在跑：彩色方块里的文件夹换成旋转标识（保留项目配色） */}
+            {runningProjectIds.has(project.id)
+              ? <RunningIndicator size={11} className="text-white" />
+              : expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
           </div>
         )}
         label={project.name}
@@ -712,6 +713,7 @@ function ProjectNode({
           sessionQuery={sessionQuery}
           indent
           selectedSessionId={selectedSessionId}
+          runningSessionIds={runningSessionIds}
           onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
           onStartDraftSession={onStartDraftSession}
@@ -749,6 +751,23 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
     queryKey: ['workProjects'],
     queryFn: workProjectService.getAll,
   })
+
+  // 进行中的会话 / 项目：后端批量运行态（3s 轮询，覆盖所有标签页与刷新前起的运行）
+  // ∪ 本标签页起的流（登记即时生效）。项目行与会话行共用，故在这里统一拉一次。
+  const { data: runningSessions } = useQuery({
+    queryKey: ['workRunningSessions'],
+    queryFn: workSessionService.getRunningSessions,
+    refetchInterval: 3000,
+  })
+  const localRunningIds = useSyncExternalStore(workStreamRuns.subscribe, workStreamRuns.snapshot)
+  const runningSessionIds = useMemo(
+    () => new Set([...localRunningIds, ...(runningSessions?.sessionIds ?? [])]),
+    [localRunningIds, runningSessions],
+  )
+  const runningProjectIds = useMemo(
+    () => new Set(runningSessions?.projectIds ?? []),
+    [runningSessions],
+  )
 
   const keyword = search.trim().toLowerCase()
   const filtered = projects.filter((p) => !keyword || p.name.toLowerCase().includes(keyword))
@@ -864,6 +883,8 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
               sessionQuery={search}
               selectedProjectId={selectedProjectId}
               selectedSessionId={selectedSessionId}
+              runningSessionIds={runningSessionIds}
+              runningProjectIds={runningProjectIds}
               onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
               onSelectProject={onSelectProject}
               onSelectSession={onSelectSession}
@@ -916,6 +937,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
                 sessionQuery={search}
                 indent={false}
                 selectedSessionId={selectedSessionId}
+                runningSessionIds={runningSessionIds}
                 onSelectProject={onSelectProject}
                 onSelectSession={onSelectSession}
                 onStartDraftSession={onStartDraftSession}

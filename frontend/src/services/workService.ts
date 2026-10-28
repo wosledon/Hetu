@@ -84,7 +84,7 @@ export const workSessionService = {
    * 在别的会话里工作时，靠它就能看到哪些会话还在跑。
    */
   getRunningSessions: () =>
-    get<{ sessionIds: string[] }>('/work-sessions/running'),
+    get<{ sessionIds: string[]; projectIds: string[] }>('/work-sessions/running'),
   /**
    * 停止正在运行的会话。刷新 / 重连后发起流的那一方已不在这个页面里，
    * 前端的 AbortController 只能断开自己的挂载，取消循环本身得走服务端。
