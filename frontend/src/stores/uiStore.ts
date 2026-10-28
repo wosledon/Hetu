@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AccentKey, BackgroundKey, FontFamilyKey } from '../utils/appearance';
+import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS } from '../utils/navItems';
 
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
@@ -40,6 +41,11 @@ interface UIState {
   selectedNoteId?: string;
   selectedTagId?: string;
   searchQuery: string;
+  /** 固定区导航项（有序）：始终显示在导航中，不受开关控制 */
+  fixedNavItems: string[];
+  /** 动态区导航项（有序）：是否显示由 pinnedNavItems 决定 */
+  dynamicNavItems: string[];
+  /** 动态区中「已开启」的项（有序）：显示在导航里，未开启的收在「更多」 */
   pinnedNavItems: string[];
   lastMoreItem: string | null;
   setAppName: (name: string) => void;
@@ -61,6 +67,8 @@ interface UIState {
   setSelectedNoteId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
   setSearchQuery: (query: string) => void;
+  setFixedNavItems: (items: string[]) => void;
+  setDynamicNavItems: (items: string[]) => void;
   setPinnedNavItems: (items: string[]) => void;
   setLastMoreItem: (path: string | null) => void;
 }
@@ -87,6 +95,8 @@ export const useUIStore = create<UIState>()(
       selectedNoteId: undefined,
       selectedTagId: undefined,
       searchQuery: '',
+      fixedNavItems: DEFAULT_FIXED_NAV_ITEMS,
+      dynamicNavItems: DEFAULT_DYNAMIC_NAV_ITEMS,
       pinnedNavItems: [],
       lastMoreItem: null,
       setAppName: (name) => set({ appName: name }),
@@ -108,6 +118,8 @@ export const useUIStore = create<UIState>()(
       setSelectedNoteId: (id) => set({ selectedNoteId: id }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNoteParentId: undefined }),
       setSearchQuery: (query) => set({ searchQuery: query }),
+      setFixedNavItems: (items) => set({ fixedNavItems: items }),
+      setDynamicNavItems: (items) => set({ dynamicNavItems: items }),
       setPinnedNavItems: (items) => set({ pinnedNavItems: items }),
       setLastMoreItem: (path) => set({ lastMoreItem: path }),
     }),
@@ -144,6 +156,8 @@ export const useUIStore = create<UIState>()(
         projectGroupBy: state.projectGroupBy,
         projectSortBy: state.projectSortBy,
         navStyle: state.navStyle,
+        fixedNavItems: state.fixedNavItems,
+        dynamicNavItems: state.dynamicNavItems,
         pinnedNavItems: state.pinnedNavItems,
         glass: state.glass,
         fontFamily: state.fontFamily,

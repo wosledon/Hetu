@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Bot, BookOpen, BookText, Code, Database, Network, Settings, Tag, Zap, ListTodo, Atom, Cpu, GitBranch, ChevronDown, CalendarClock, Waypoints, Gauge, FolderInput, SquareKanban, Inbox, Wrench, MessageSquare } from 'lucide-react'
+import { ChevronDown, Settings, Waypoints, Gauge, Inbox } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
@@ -12,6 +12,7 @@ import UpdatePanel from './UpdatePanel'
 import SlidingPill from './SlidingPill'
 import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
+import { getNavItem, resolveNavItems } from '../utils/navItems'
 import { inboxService } from '../services/inboxService'
 import { Card, IconButton, PillTabs } from './ui'
 
@@ -20,29 +21,6 @@ interface AppLayoutProps {
   mainContent: ReactNode
   showSidebar?: boolean
 }
-
-const fixedNavItems = [
-  { path: '/', labelKey: 'nav:mainChat', icon: MessageSquare },
-  { path: '/notes', labelKey: 'nav:notes', icon: BookOpen },
-  { path: '/code', labelKey: 'nav:code', icon: Code },
-  { path: '/projects', labelKey: 'nav:projects', icon: FolderInput },
-  { path: '/kanban', labelKey: 'nav:kanban', icon: SquareKanban },
-  { path: '/wiki', labelKey: 'nav:wiki', icon: BookText },
-] as const
-
-const allConfigurableItems = [
-  { path: '/tags', labelKey: 'nav:tags', icon: Tag },
-  { path: '/agents', labelKey: 'nav:agents', icon: Bot },
-  { path: '/skills', labelKey: 'nav:skills', icon: Zap },
-  { path: '/tools', labelKey: 'nav:tools', icon: Wrench },
-  { path: '/knowledge-base', labelKey: 'nav:knowledgeBase', icon: Database },
-  { path: '/graph', labelKey: 'nav:graph', icon: Network },
-  { path: '/tasks/background', labelKey: 'nav:tasksBackground', icon: ListTodo },
-  { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
-  { path: '/memories', labelKey: 'nav:memories', icon: Atom },
-  { path: '/models', labelKey: 'nav:models', icon: Cpu },
-  { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
-] as const
 
 // 右侧独立分组：代理与用量
 const secondaryNavItems = [
@@ -90,6 +68,8 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const location = useLocation()
   const appName = useUIStore((state) => state.appName)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
+  const fixedNavPaths = useUIStore((state) => state.fixedNavItems)
+  const dynamicNavPaths = useUIStore((state) => state.dynamicNavItems)
   const lastMoreItem = useUIStore((state) => state.lastMoreItem)
   const setLastMoreItem = useUIStore((state) => state.setLastMoreItem)
   const navStyle = useUIStore((state) => state.navStyle)
@@ -100,23 +80,25 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const railRef = useRef<HTMLDivElement>(null)
   const [railCompact, setRailCompact] = useState(lastRailCompact)
 
+  // 固定区 / 动态区都由设置里的拖动结果决定：固定区恒显示，动态区按开关分流到导航或「更多」
+  const pinnedSet = useMemo(() => new Set(pinnedNavItems), [pinnedNavItems])
+  const fixedItems = useMemo(() => resolveNavItems(fixedNavPaths), [fixedNavPaths])
+  const pinnedItems = useMemo(
+    () => resolveNavItems(dynamicNavPaths).filter((item) => pinnedSet.has(item.path)),
+    [dynamicNavPaths, pinnedSet],
+  )
+  const unpinnedItems = useMemo(
+    () => resolveNavItems(dynamicNavPaths).filter((item) => !pinnedSet.has(item.path)),
+    [dynamicNavPaths, pinnedSet],
+  )
+
   const isVertical = navStyle === 'vertical'
   // 非垂直导航固定平铺：用派生值代替「在 effect 里同步 setState 复位」
   const railCompactActive = isVertical && railCompact
 
-  const pinnedItems = useMemo(
-    () => allConfigurableItems.filter((item) => pinnedNavItems.includes(item.path)),
-    [pinnedNavItems],
-  )
-  const unpinnedItems = useMemo(
-    () => allConfigurableItems.filter((item) => !pinnedNavItems.includes(item.path)),
-    [pinnedNavItems],
-  )
   const lastMoreItemData = useMemo(
-    () => (lastMoreItem && !pinnedNavItems.includes(lastMoreItem)
-      ? allConfigurableItems.find((i) => i.path === lastMoreItem)
-      : null),
-    [lastMoreItem, pinnedNavItems],
+    () => (lastMoreItem && !pinnedSet.has(lastMoreItem) ? getNavItem(lastMoreItem) ?? null : null),
+    [lastMoreItem, pinnedSet],
   )
 
   // 垂直胶囊：高度足够时全部平铺，高度不足时才把可配置项收进"更多"。
@@ -149,14 +131,15 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       const itemWithGap = (itemEl?.offsetHeight ?? 52) + 2
       const lm = lastMoreItemData ? 1 : 0
       const more = unpinnedItems.length > 0 ? 1 : 0
-      const delta = (allConfigurableItems.length - pinnedItems.length - lm - more) * itemWithGap
+      // 展开态要把「动态区全部入口」都平铺出来：用动态区总数估算增量
+      const delta = (dynamicNavPaths.length - pinnedItems.length - lm - more) * itemWithGap
       if (el.clientHeight - content >= delta - 1) apply(false)
     }
     check()
     const observer = new ResizeObserver(check)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isVertical, pinnedItems, unpinnedItems, lastMoreItemData])
+  }, [isVertical, dynamicNavPaths.length, pinnedItems.length, unpinnedItems.length, lastMoreItemData])
 
   const renderNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
     const Icon = item.icon
@@ -277,15 +260,15 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <BrandMark size={34} />
       </IconButton>
       <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-main" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-        {fixedNavItems.map(renderVerticalNavButton)}
+        {fixedItems.map(renderVerticalNavButton)}
 
-        {/* 与水平导航一致：固定项与可配置项合轨，中间一条分隔线 */}
+        {/* 与水平导航一致：固定项与动态项合轨，中间一条分隔线 */}
         {(railExpanded || pinnedItems.length > 0 || lastMoreItemData || unpinnedItems.length > 0) && (
           <div className="my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10" />
         )}
 
         {railExpanded
-          ? allConfigurableItems.map(renderVerticalNavButton)
+          ? resolveNavItems(dynamicNavPaths).map(renderVerticalNavButton)
           : pinnedItems.map(renderVerticalNavButton)}
 
         {!railExpanded && lastMoreItemData && renderVerticalNavButton(lastMoreItemData)}
@@ -344,7 +327,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         </div>
         <div className="flex items-center justify-center gap-3">
           <SlidingPill value={location.pathname} trackId="top-main" className="justify-center gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-          {fixedNavItems.map(renderNavButton)}
+          {fixedItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
             <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-white/10" />

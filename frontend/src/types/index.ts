@@ -73,6 +73,10 @@ export interface IAppSettingsSnapshot {
   defaultNoteAiModelId?: string;
   contextWindowSize?: number;
   pinnedNavItems: string;
+  /** 固定区导航项（JSON 数组，有序）；undefined 表示未配置，用前端内置默认 */
+  fixedNavItems?: string;
+  /** 动态区导航项（JSON 数组，有序）；undefined 表示未配置，用前端内置默认 */
+  dynamicNavItems?: string;
   secondaryMenuStyle: string;
   navStyle: string;
   closeToTray: string;

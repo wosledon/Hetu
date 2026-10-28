@@ -9,6 +9,7 @@ import { useUpdateStore } from './stores/updateStore'
 import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
 import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils/appearance'
+import { sanitizeNavPaths } from './utils/navItems'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const MainChatPage = lazy(() => import('./pages/MainChatPage'))
@@ -137,8 +138,20 @@ function App() {
         if (snapshot.language === 'zh' || snapshot.language === 'en') void applyLanguage(snapshot.language)
         try {
           const items = JSON.parse(snapshot.pinnedNavItems)
-          if (Array.isArray(items) && items.length > 0) store.setPinnedNavItems(items)
+          if (Array.isArray(items) && items.length > 0) store.setPinnedNavItems(sanitizeNavPaths(items))
         } catch { /* 解析失败时保留当前值 */ }
+        // 固定区/动态区：键不存在（旧后端）时保留 store 默认值；空数组是用户的合法选择
+        const zones: [string | undefined, (items: string[]) => void][] = [
+          [snapshot.fixedNavItems, store.setFixedNavItems],
+          [snapshot.dynamicNavItems, store.setDynamicNavItems],
+        ]
+        for (const [raw, apply] of zones) {
+          if (!raw) continue
+          try {
+            const items = JSON.parse(raw)
+            if (Array.isArray(items)) apply(sanitizeNavPaths(items))
+          } catch { /* 解析失败时保留当前值 */ }
+        }
       })
       .catch(() => { /* 后端未就绪时保留本地默认值 */ })
     return () => { alive = false }
