@@ -401,24 +401,33 @@ export default function KnowledgeBasePage() {
                 )}
               </Card>
 
-              {/* 覆盖明细：分块级覆盖 / 最近索引 / 索引模型 / 失败任务 */}
+              {/* 覆盖明细：分块级覆盖 / 最近索引 / 索引模型 / 失败任务。
+                  每张指标卡自带 Card 面板（与下面两块面板一致），不再套一层大框 */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <MetricPill icon={<Layers size={13} />} color="blue" label={t('kb.metricChunkCoverage')}
-                  value={status ? `${chunkPercent}%` : '-'}
-                  hint={status ? t('kb.metricChunksCount', { indexed: status.indexedChunks, total: status.totalChunks }) : undefined}
-                  loading={statusLoading} />
-                <MetricPill icon={<Clock size={13} />} color="indigo" label={t('kb.metricLastIndexed')}
-                  value={status?.lastIndexedAt ? safeFormatDate(status.lastIndexedAt) : '-'}
-                  hint={status ? t('kb.metricRecentCount', { n: recentIndexed.length }) : undefined}
-                  loading={statusLoading} />
-                <MetricPill icon={<Brain size={13} />} color="purple" label={t('kb.metricModel')}
-                  value={status?.embeddingModel ?? '-'}
-                  hint={status?.hasEmbeddingProvider ? t('kb.metricDimensions', { n: status.dimensions }) : t('kb.embeddingMissing')}
-                  loading={statusLoading} />
-                <MetricPill icon={<AlertTriangle size={13} />} color="amber" label={t('kb.metricFailedTasks')}
-                  value={status?.failedTaskCount ?? '-'}
-                  hint={status && status.failedTaskCount > 0 ? t('kb.metricFailedHint') : t('kb.metricNoFailed')}
-                  loading={statusLoading} />
+                <Card padded={false}>
+                  <MetricPill plain icon={<Layers size={13} />} color="blue" label={t('kb.metricChunkCoverage')}
+                    value={status ? `${chunkPercent}%` : '-'}
+                    hint={status ? t('kb.metricChunksCount', { indexed: status.indexedChunks, total: status.totalChunks }) : undefined}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<Clock size={13} />} color="indigo" label={t('kb.metricLastIndexed')}
+                    value={status?.lastIndexedAt ? safeFormatDate(status.lastIndexedAt) : '-'}
+                    hint={status ? t('kb.metricRecentCount', { n: recentIndexed.length }) : undefined}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<Brain size={13} />} color="purple" label={t('kb.metricModel')}
+                    value={status?.embeddingModel ?? '-'}
+                    hint={status?.hasEmbeddingProvider ? t('kb.metricDimensions', { n: status.dimensions }) : t('kb.embeddingMissing')}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<AlertTriangle size={13} />} color="amber" label={t('kb.metricFailedTasks')}
+                    value={status?.failedTaskCount ?? '-'}
+                    hint={status && status.failedTaskCount > 0 ? t('kb.metricFailedHint') : t('kb.metricNoFailed')}
+                    loading={statusLoading} />
+                </Card>
               </div>
 
               {/* 类型索引明细：每类的已索引/总数与覆盖率，点一行跳到索引管理并带上筛选 */}
@@ -945,6 +954,7 @@ function MetricPill({
   color,
   loading,
   hint,
+  plain = false,
 }: {
   icon: React.ReactNode
   label: string
@@ -953,6 +963,8 @@ function MetricPill({
   loading: boolean
   /** 数值下方的补充说明（如绝对数量、维度）；为空则不占位 */
   hint?: string
+  /** 自有面板（外包了 Card）时不再画内部底色，避免一块套一块 */
+  plain?: boolean
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -963,7 +975,7 @@ function MetricPill({
   }
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3.5 py-3 dark:bg-white/[0.03]">
+    <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 ${plain ? '' : 'bg-gray-50/80 dark:bg-white/[0.03]'}`}>
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${colorMap[color]}`}>
         {icon}
       </span>
