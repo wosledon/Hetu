@@ -148,13 +148,20 @@ public class WorkStreamController : ControllerBase
     /// <summary>
     /// 在跑的会话 id 列表：供会话侧栏一次性标记「进行中」，不逐会话查状态。
     /// 在别的会话里工作时，靠轮询它就能看到哪些会话还在跑。
+    /// 同时给出所属项目 id：项目行也要能标记「有会话在跑」（项目折叠时同样可见）。
     /// </summary>
     [HttpGet("running")]
-    public ApiResponse<WorkRunningSessionsDto> RunningSessions()
+    public async Task<ApiResponse<WorkRunningSessionsDto>> RunningSessions(CancellationToken ct = default)
     {
+        var sessionIds = _runs.ActiveSessionIds.ToList();
+        // 一次投影取出这些会话的项目（在跑的会话通常个位数，仍走单条 SQL，不逐条查）
+        var projectIds = sessionIds.Count == 0
+            ? new List<Guid>()
+            : await _unitOfWork.WorkSessions.SelectAsync(s => sessionIds.Contains(s.Id), s => s.ProjectId, ct);
         return ApiResponse<WorkRunningSessionsDto>.Ok(new WorkRunningSessionsDto
         {
-            SessionIds = _runs.ActiveSessionIds.ToList(),
+            SessionIds = sessionIds,
+            ProjectIds = projectIds.Distinct().ToList(),
         });
     }
 
@@ -1145,4 +1152,9 @@ public class WorkRunningSessionsDto
 {
     /// <summary>还有一轮在跑的会话 id</summary>
     public List<Guid> SessionIds { get; set; } = new();
+    /// <summary>
+    /// 这些会话所属的项目 id（去重）：供侧栏项目行标记「有会话在跑」。
+    /// 项目折叠着也要能看到，所以由后端一次性给出，不依赖前端展开过该项目。
+    /// </summary>
+    public List<Guid> ProjectIds { get; set; } = new();
 }

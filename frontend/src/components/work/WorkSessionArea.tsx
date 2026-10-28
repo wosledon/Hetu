@@ -28,6 +28,7 @@ import ConversationRail from '../ConversationRail'
 import AgentUsageBadge from '../agent/AgentUsageBadge'
 import AgentTimeline from '../agent/AgentTimeline'
 import AgentWorkingIndicator from '../agent/AgentWorkingIndicator'
+import RunningIndicator from './RunningIndicator'
 import AgentThoughtBlock from '../agent/AgentThoughtBlock'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
@@ -1349,10 +1350,8 @@ export default function WorkSessionArea({
     <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
       {/* 头部：标题与统计在左，打开方式与用量在右 */}
       <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-          title={isStreaming ? t('common:running') : t('session.idle')}
-        />
+        {/* 进行中：行首带 ping 光环的标识（比静态小圆点更容易注意到） */}
+        {isStreaming && <RunningIndicator withLabel />}
         <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || t('sidebar.newSession')}</h2>
         {/* 会话开始后工作区/分支已固定：只在标题旁展示，输入框里不再放切换按钮 */}
         {sessionStarted && <WorkSessionWorkspaceBadge session={session} className="hidden md:inline-flex" />}
