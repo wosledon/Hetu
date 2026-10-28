@@ -51,6 +51,12 @@ public interface IMemoryService
     /// <summary>保存 Dream 配置</summary>
     Task SaveDreamConfigAsync(DreamConfigDto config, CancellationToken cancellationToken = default);
 
+    /// <summary>读取记忆使用范围（主对话 / 对话 / Code 会话是否启用记忆）</summary>
+    Task<MemoryUsageConfigDto> GetMemoryUsageConfigAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>保存记忆使用范围</summary>
+    Task SaveMemoryUsageConfigAsync(MemoryUsageConfigDto config, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 手动执行一次 Dream 记忆巩固：合并相似记忆 → 衰减久未想起的 → 遗忘极弱的。
     /// 自动模式由后台服务按配置周期调用同一方法。

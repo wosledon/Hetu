@@ -263,6 +263,17 @@ export default {
     running: 'Consolidating…',
     runOnce: 'Run Dream',
   },
+  memoryUsage: {
+    title: 'Memory usage',
+    hint: 'Each conversation surface decides on its own whether memory is enabled (recall + consolidation); the in-session switches have moved here',
+    mainChat: 'Main chat',
+    mainChatDesc: 'The single global main chat',
+    chat: 'Chats',
+    chatDesc: 'Regular topic conversations',
+    codeSession: 'Code sessions',
+    codeSessionDesc: 'Coding sessions inside a project',
+    offHint: 'When all are off, memory is never retrieved and nothing new is consolidated from conversations',
+  },
   mermaid: {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',

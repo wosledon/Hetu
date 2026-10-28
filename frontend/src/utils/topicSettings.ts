@@ -6,7 +6,6 @@ export interface TopicSettings {
   reasoningEffort?: string
   webSearch?: boolean
   knowledgeBase?: boolean
-  memory?: boolean
   toolCalling?: boolean
   /** 权限模式五档：plan / readonly / ask / auto / bypass（与编码会话共用） */
   permissionMode?: string

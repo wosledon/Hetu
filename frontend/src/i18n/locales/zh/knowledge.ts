@@ -263,6 +263,17 @@ export default {
     running: '巩固中…',
     runOnce: 'Dream 一次',
   },
+  memoryUsage: {
+    title: '记忆使用范围',
+    hint: '三个对话面独立决定是否启用记忆（召回相关记忆 + 沉淀新记忆）；开关已从会话内移到此处',
+    mainChat: '主对话',
+    mainChatDesc: '全局唯一的主对话',
+    chat: '对话',
+    chatDesc: '普通话题会话',
+    codeSession: 'Code 对话',
+    codeSessionDesc: '项目内的编码会话',
+    offHint: '全部关闭时不会调用记忆检索，也不会从对话中沉淀新记忆',
+  },
   mermaid: {
     zoomIn: '放大',
     zoomOut: '缩小',

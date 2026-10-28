@@ -164,6 +164,18 @@ public class SettingsController : ControllerBase
         return ApiResponse.Ok();
     }
 
+    /// <summary>记忆使用范围：主对话 / 对话 / Code 会话是否启用记忆（会话内不再有开关）</summary>
+    [HttpGet("memory-usage")]
+    public async Task<ApiResponse<MemoryUsageConfigDto>> GetMemoryUsageConfig(CancellationToken ct)
+        => ApiResponse<MemoryUsageConfigDto>.Ok(await _memoryService.GetMemoryUsageConfigAsync(ct));
+
+    [HttpPut("memory-usage")]
+    public async Task<ApiResponse> SetMemoryUsageConfig([FromBody] MemoryUsageConfigDto config, CancellationToken ct)
+    {
+        await _memoryService.SaveMemoryUsageConfigAsync(config ?? new MemoryUsageConfigDto(), ct);
+        return ApiResponse.Ok();
+    }
+
     [HttpPut("compression")]
     public async Task<ApiResponse> SetCompressionConfig([FromBody] CompressionPipelineDto config, CancellationToken ct)
     {

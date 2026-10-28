@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Bot, FileText, Search, GitBranch, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
+import { settingService } from '../services/settingService'
 import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
@@ -137,7 +138,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
   const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? true)
   const [permissionMode, setPermissionMode] = useState<string>(() => cachedSettings.permissionMode ?? 'ask')
-  const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
+  // 记忆开关已从会话内移到「设置 - 记忆」：主对话与普通话题各自配置，这里只读
+  const { data: memoryUsage } = useQuery({
+    queryKey: ['memoryUsageConfig'],
+    queryFn: () => settingService.getMemoryUsageConfig(),
+  })
+  const memory = topic?.isMain ? (memoryUsage?.mainChat ?? false) : (memoryUsage?.chat ?? false)
   // 工作流运行（节点状态 / Human 审批 / Agent 工具交互）：与 Code 会话共用同一套逻辑
   const workflowRun = useWorkflowRun(setStreamingContent)
   const { workflow: runningWorkflow, nodes: workflowNodes, pendingApproval, toolCall: workflowToolCall, error: workflowError, workflows: availableWorkflows } = workflowRun
@@ -411,12 +417,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       reasoningEffort,
       webSearch,
       knowledgeBase,
-      memory,
       toolCalling,
       permissionMode,
       contextWindow,
     })
-  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, memory, toolCalling, permissionMode, contextWindow])
+  }, [topicId, activeModelId, deepThinking, reasoningEffort, webSearch, knowledgeBase, toolCalling, permissionMode, contextWindow])
 
   // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
   const messageCount = messages.length
@@ -1353,20 +1358,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               >
                 <Database size={14} />
                 {t('messageArea.knowledgeBase')}
-              </button>
-
-              {/* Memory toggle */}
-              <button
-                onClick={() => setMemory(!memory)}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                  memory
-                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.memory')}
-              >
-                <Atom size={14} />
-                {t('messageArea.memory')}
               </button>
             </>
           }
