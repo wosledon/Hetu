@@ -40,7 +40,18 @@ public interface IKnowledgeItemRepository : IRepository<KnowledgeItem>
     Task<int> CountIndexedItemsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>分块向量按知识项聚合（数据库 GROUP BY，只回传每个知识项一行摘要）</summary>
-    Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(
+        IReadOnlyCollection<Guid>? knowledgeItemIds = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>分块总量与已建立向量的分块数（数据库 COUNT，已删除知识项不计入）</summary>
+    Task<(int TotalChunks, int IndexedChunks)> CountChunksAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>按类型统计已建立分块向量的知识项数量（数据库 DISTINCT + 内存分组）</summary>
+    Task<Dictionary<KnowledgeItemType, int>> CountIndexedByTypeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>最近建立向量的知识项（按向量更新时间倒序取前 count 条）</summary>
+    Task<IReadOnlyList<RecentIndexedKnowledgeItem>> GetRecentIndexedAsync(int count, CancellationToken cancellationToken = default);
 
     /// <summary>查询尚未建立分块向量的知识项（只取入队所需字段，可按类型筛选）</summary>
     Task<IReadOnlyList<UnindexedKnowledgeItem>> GetUnindexedAsync(KnowledgeItemType? type = null, CancellationToken cancellationToken = default);

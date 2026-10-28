@@ -2,7 +2,7 @@ import { confirm } from '../components/confirm'
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   Database,
   FileText,
@@ -25,6 +25,7 @@ import {
   Plus,
   Trash2,
   BookText,
+  AlertTriangle,
 } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
@@ -45,9 +46,10 @@ import {
   knowledgeItemService,
 } from '../services/knowledgeBaseService'
 import type {
+  IKnowledgeBaseStatus,
   INoteChunk,
 } from '../services/knowledgeBaseService'
-import { Button, Card, Input, Modal, PageContainer, PillTabs, SearchInput } from '../components/ui'
+import { Button, Card, Input, Modal, PageContainer, Pagination, PillTabs, SearchInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url' | 'wiki'
@@ -66,12 +68,30 @@ const typeFilters: { key: ManageFilter; label: string; icon: typeof FileText }[]
   { key: 'wiki', label: 'kb.typeWiki', icon: BookText },
 ]
 
+/** 索引管理每页条数 */
+const MANAGE_PAGE_SIZE = 20
+
+/** 概览的类型明细行：顺序固定，点击跳到索引管理并带上该类型筛选 */
+const TYPE_ROWS: {
+  key: Exclude<ManageFilter, 'all'>
+  label: string
+  icon: typeof FileText
+  bar: string
+  counts: (s: IKnowledgeBaseStatus) => { total: number; indexed: number }
+}[] = [
+  { key: 'note', label: 'kb.typeNote', icon: FileText, bar: 'bg-blue-500', counts: (s) => ({ total: s.noteCount, indexed: s.noteIndexedCount }) },
+  { key: 'file', label: 'kb.typeFile', icon: Upload, bar: 'bg-emerald-500', counts: (s) => ({ total: s.fileCount, indexed: s.fileIndexedCount }) },
+  { key: 'url', label: 'kb.typeUrl', icon: Globe, bar: 'bg-purple-500', counts: (s) => ({ total: s.urlCount, indexed: s.urlIndexedCount }) },
+  { key: 'wiki', label: 'kb.typeWiki', icon: BookText, bar: 'bg-teal-500', counts: (s) => ({ total: s.wikiCount, indexed: s.wikiIndexedCount }) },
+]
+
 export default function KnowledgeBasePage() {
   const { t } = useTranslation('knowledge')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [manageFilter, setManageFilter] = useState<ManageFilter>('all')
+  const [managePage, setManagePage] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchTopK, setSearchTopK] = useState(10)
   const [searchResults, setSearchResults] = useState<{ id: string; title: string; contentSnippet?: string; updatedAt: string }[] | null>(null)
@@ -96,12 +116,19 @@ export default function KnowledgeBasePage() {
   })
 
   // Embedding statuses with filter - 有未索引项或运行中任务时自动轮询
-  const { data: embeddingStatuses = [], isLoading: embeddingsLoading } = useQuery({
-    queryKey: ['knowledgeBaseEmbeddings', manageFilter],
-    queryFn: () => knowledgeBaseService.getEmbeddingStatuses(manageFilter === 'all' ? undefined : manageFilter),
+  const { data: embeddingPage, isLoading: embeddingsLoading, isPlaceholderData: embeddingsPlaceholder } = useQuery({
+    queryKey: ['knowledgeBaseEmbeddings', manageFilter, managePage],
+    queryFn: () => knowledgeBaseService.getEmbeddingStatuses({
+      type: manageFilter === 'all' ? undefined : manageFilter,
+      page: managePage,
+      pageSize: MANAGE_PAGE_SIZE,
+    }),
     enabled: activeTab === 'manage',
+    // 翻页时保留上一页数据，避免列表短暂清空、滚动位置丢失
+    placeholderData: keepPreviousData,
     refetchInterval: activeTab === 'manage' && status && (status.unindexedItems > 0 || status.runningTaskCount > 0) ? 3000 : false,
   })
+  const embeddingStatuses = embeddingPage?.items ?? []
 
   // Knowledge items for manage tab
   useQuery({
@@ -198,6 +225,13 @@ export default function KnowledgeBasePage() {
       ? Math.min(100, Math.max(0, Math.round((status.indexedItems / status.totalItems) * 100)))
       : 0
     : 0
+
+  // 分块级覆盖率：向量是按块建的，这一档才能反映真实覆盖
+  const chunkPercent = status && status.totalChunks > 0
+    ? Math.min(100, Math.max(0, Math.round((status.indexedChunks / status.totalChunks) * 100)))
+    : 0
+
+  const recentIndexed = status?.recentIndexed ?? []
 
   const openChunkDetail = (id: string, title: string) => {
     setChunkDetailId(id)
@@ -366,6 +400,101 @@ export default function KnowledgeBasePage() {
                   </p>
                 )}
               </Card>
+
+              {/* 覆盖明细：分块级覆盖 / 最近索引 / 索引模型 / 失败任务。
+                  每张指标卡自带 Card 面板（与下面两块面板一致），不再套一层大框 */}
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Card padded={false}>
+                  <MetricPill plain icon={<Layers size={13} />} color="blue" label={t('kb.metricChunkCoverage')}
+                    value={status ? `${chunkPercent}%` : '-'}
+                    hint={status ? t('kb.metricChunksCount', { indexed: status.indexedChunks, total: status.totalChunks }) : undefined}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<Clock size={13} />} color="indigo" label={t('kb.metricLastIndexed')}
+                    value={status?.lastIndexedAt ? safeFormatDate(status.lastIndexedAt) : '-'}
+                    hint={status ? t('kb.metricRecentCount', { n: recentIndexed.length }) : undefined}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<Brain size={13} />} color="purple" label={t('kb.metricModel')}
+                    value={status?.embeddingModel ?? '-'}
+                    hint={status?.hasEmbeddingProvider ? t('kb.metricDimensions', { n: status.dimensions }) : t('kb.embeddingMissing')}
+                    loading={statusLoading} />
+                </Card>
+                <Card padded={false}>
+                  <MetricPill plain icon={<AlertTriangle size={13} />} color="amber" label={t('kb.metricFailedTasks')}
+                    value={status?.failedTaskCount ?? '-'}
+                    hint={status && status.failedTaskCount > 0 ? t('kb.metricFailedHint') : t('kb.metricNoFailed')}
+                    loading={statusLoading} />
+                </Card>
+              </div>
+
+              {/* 类型索引明细：每类的已索引/总数与覆盖率，点一行跳到索引管理并带上筛选 */}
+              <Card padded="lg">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.typeBreakdown')}</h3>
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('kb.typeBreakdownHint')}</span>
+                </div>
+                <div className="space-y-1">
+                  {TYPE_ROWS.map((row) => {
+                    const Icon = row.icon
+                    const counts = status ? row.counts(status) : { total: 0, indexed: 0 }
+                    const percent = counts.total > 0 ? Math.min(100, Math.round((counts.indexed / counts.total) * 100)) : 0
+                    return (
+                      <button
+                        key={row.key}
+                        onClick={() => { setActiveTab('manage'); setManageFilter(row.key); setManagePage(1) }}
+                        className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                          <Icon size={13} />
+                        </span>
+                        <span className="w-12 shrink-0 text-[13px] font-medium text-gray-700 dark:text-gray-200">{t(row.label)}</span>
+                        <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/70">
+                          <span className={`block h-full rounded-full transition-all duration-500 ${row.bar}`} style={{ width: `${percent}%` }} />
+                        </span>
+                        <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+                          {counts.indexed} / {counts.total}
+                        </span>
+                        <span className="w-9 shrink-0 text-right text-[11px] font-semibold tabular-nums text-gray-700 dark:text-gray-200">{percent}%</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </Card>
+
+              {/* 最近索引：按向量更新时间倒序的最近几条 */}
+              <Card padded="lg">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('kb.recentIndexed')}</h3>
+                  {status?.lastIndexedAt && (
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {t('kb.recentIndexedAt', { time: safeFormatDate(status.lastIndexedAt) })}
+                    </span>
+                  )}
+                </div>
+                {recentIndexed.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-gray-400 dark:text-gray-500">{t('kb.recentIndexedEmpty')}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {recentIndexed.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 rounded-xl px-2 py-2">
+                        {getTypeBadge(item.type)}
+                        <p className="min-w-0 flex-1 truncate text-[13px] text-gray-700 dark:text-gray-200">
+                          {item.title || t('kb.untitled')}
+                        </p>
+                        <span className="shrink-0 text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+                          {t('kb.chunkCount', { n: item.chunkCount })}
+                        </span>
+                        <span className="w-16 shrink-0 text-right text-[11px] text-gray-400 dark:text-gray-500">
+                          {safeFormatDate(item.updatedAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
             </div>
           )}
           {/* Manage Tab */}
@@ -375,7 +504,7 @@ export default function KnowledgeBasePage() {
               <div className="flex flex-wrap items-center gap-3">
                 <PillTabs
                   value={manageFilter}
-                  onSelect={(key) => setManageFilter(key as typeof manageFilter)}
+                  onSelect={(key) => { setManageFilter(key as typeof manageFilter); setManagePage(1) }}
                   items={typeFilters.map((f) => {
                     const Icon = f.icon
                     return { key: f.key, label: <><Icon size={13} />{t(f.label)}</> }
@@ -555,6 +684,16 @@ export default function KnowledgeBasePage() {
                   ))}
                 </div>
               )}
+
+              {/* 分页：总数不超过一页时组件自身隐藏 */}
+              <Pagination
+                className="mt-4"
+                page={managePage}
+                totalCount={embeddingPage?.totalCount ?? 0}
+                totalPages={embeddingPage?.totalPages ?? 1}
+                onPageChange={setManagePage}
+                isPlaceholderData={embeddingsPlaceholder}
+              />
             </div>
           )}
 
@@ -814,12 +953,18 @@ function MetricPill({
   value,
   color,
   loading,
+  hint,
+  plain = false,
 }: {
   icon: React.ReactNode
   label: string
   value: number | string
   color: 'blue' | 'green' | 'amber' | 'purple' | 'indigo'
   loading: boolean
+  /** 数值下方的补充说明（如绝对数量、维度）；为空则不占位 */
+  hint?: string
+  /** 自有面板（外包了 Card）时不再画内部底色，避免一块套一块 */
+  plain?: boolean
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -830,7 +975,7 @@ function MetricPill({
   }
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3.5 py-3 dark:bg-white/[0.03]">
+    <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 ${plain ? '' : 'bg-gray-50/80 dark:bg-white/[0.03]'}`}>
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${colorMap[color]}`}>
         {icon}
       </span>
@@ -839,7 +984,10 @@ function MetricPill({
         {loading ? (
           <div className="mt-0.5 h-5 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         ) : (
-          <p className="text-lg font-bold leading-tight text-gray-800 dark:text-gray-100">{value}</p>
+          <>
+            <p className="truncate text-lg font-bold leading-tight text-gray-800 dark:text-gray-100" title={typeof value === 'string' ? value : undefined}>{value}</p>
+            {hint && <p className="mt-0.5 truncate text-[11px] text-gray-400 dark:text-gray-500">{hint}</p>}
+          </>
         )}
       </div>
     </div>

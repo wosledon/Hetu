@@ -67,3 +67,16 @@ public class UnindexedKnowledgeItem
     public Guid? NoteId { get; set; }
     public string Title { get; set; } = string.Empty;
 }
+
+/// <summary>最近建立向量的知识项（概览「最近索引」用：一条一行，不加载向量字节）</summary>
+public class RecentIndexedKnowledgeItem
+{
+    public Guid Id { get; set; }
+    public KnowledgeItemType Type { get; set; }
+    public string Title { get; set; } = string.Empty;
+    /// <summary>已建立向量的分块数</summary>
+    public int ChunkCount { get; set; }
+    /// <summary>该知识项最近一次使用的 Embedding 模型</summary>
+    public string? Model { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}

@@ -134,12 +134,25 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
             .Distinct()
             .CountAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChunkEmbeddingSummary>> GetChunkEmbeddingSummariesAsync(
+        IReadOnlyCollection<Guid>? knowledgeItemIds = null,
+        CancellationToken cancellationToken = default)
     {
         var source = Context.NoteChunkEmbeddings
             .AsNoTracking()
             // 只统计「仍然存在且未删除」的知识项，与 CountIndexedItemsAsync 口径一致
             .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted);
+
+        // 分页列表只聚合当前页的知识项：不传则聚合全部
+        if (knowledgeItemIds is { Count: > 0 })
+        {
+            var ids = knowledgeItemIds.ToList();
+            source = source.Where(e => ids.Contains(e.Chunk.KnowledgeItemId));
+        }
+        else if (knowledgeItemIds is { Count: 0 })
+        {
+            return [];
+        }
 
         if (!Context.Database.IsSqlite())
         {
@@ -186,6 +199,116 @@ public class KnowledgeItemRepository : EfRepository<KnowledgeItem>, IKnowledgeIt
                 Model = a.Model,
                 Dimensions = a.Dimensions,
                 UpdatedAt = latestByItem.GetValueOrDefault(a.KnowledgeItemId),
+            })
+            .ToList();
+    }
+
+    public async Task<(int TotalChunks, int IndexedChunks)> CountChunksAsync(CancellationToken cancellationToken = default)
+    {
+        // 与 CountIndexedItemsAsync 口径一致：已删除知识项的分块/向量都不计入，覆盖率才是同一把尺子
+        var total = await Context.NoteChunks
+            .AsNoTracking()
+            .Where(c => c.KnowledgeItem != null && !c.KnowledgeItem.IsDeleted)
+            .CountAsync(cancellationToken);
+        var indexed = await Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted)
+            .CountAsync(cancellationToken);
+        return (total, indexed);
+    }
+
+    public async Task<Dictionary<KnowledgeItemType, int>> CountIndexedByTypeAsync(CancellationToken cancellationToken = default)
+    {
+        // DISTINCT 在数据库完成（同一知识项多个分块只算一次），分组只是按固定的 4 种类型计数
+        var pairs = await Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted)
+            .Select(e => new { e.Chunk.KnowledgeItemId, e.Chunk.KnowledgeItem!.Type })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        return pairs
+            .GroupBy(p => p.Type)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    public async Task<IReadOnlyList<RecentIndexedKnowledgeItem>> GetRecentIndexedAsync(int count, CancellationToken cancellationToken = default)
+    {
+        if (count <= 0) return [];
+
+        var source = Context.NoteChunkEmbeddings
+            .AsNoTracking()
+            // 只统计「仍然存在且未删除」的知识项，与 CountIndexedItemsAsync 口径一致
+            .Where(e => e.Chunk.KnowledgeItem != null && !e.Chunk.KnowledgeItem.IsDeleted);
+
+        // 每个知识项一行：分块数 / 模型 / 最近向量更新时间
+        var latest = new List<(Guid Id, int ChunkCount, string? Model, DateTimeOffset UpdatedAt)>();
+        if (Context.Database.IsSqlite())
+        {
+            // SQLite 的 EF provider 不能在 SQL 里聚合 DateTimeOffset：
+            // 计数/模型仍在 SQL 聚合，时间戳只投影两列后在内存取最大值，再按时间倒序取前 count 个
+            var aggregates = await source
+                .GroupBy(e => e.Chunk.KnowledgeItemId)
+                .Select(g => new
+                {
+                    KnowledgeItemId = g.Key,
+                    ChunkCount = g.Count(),
+                    Model = g.Max(e => e.Model),
+                })
+                .ToListAsync(cancellationToken);
+
+            var timestamps = await source
+                .Select(e => new { e.Chunk.KnowledgeItemId, e.UpdatedAt })
+                .ToListAsync(cancellationToken);
+
+            var latestByItem = timestamps
+                .GroupBy(t => t.KnowledgeItemId)
+                .ToDictionary(g => g.Key, g => g.Max(t => t.UpdatedAt));
+
+            latest = aggregates
+                .Select(a => (a.KnowledgeItemId, a.ChunkCount, a.Model, latestByItem.GetValueOrDefault(a.KnowledgeItemId)))
+                .OrderByDescending(x => x.Item4)
+                .Take(count)
+                .ToList();
+        }
+        else
+        {
+            var rows = await source
+                .GroupBy(e => e.Chunk.KnowledgeItemId)
+                .Select(g => new
+                {
+                    KnowledgeItemId = g.Key,
+                    ChunkCount = g.Count(),
+                    Model = g.Max(e => e.Model),
+                    UpdatedAt = g.Max(e => e.UpdatedAt),
+                })
+                .OrderByDescending(x => x.UpdatedAt)
+                .Take(count)
+                .ToListAsync(cancellationToken);
+
+            latest = rows.Select(r => (r.KnowledgeItemId, r.ChunkCount, r.Model, r.UpdatedAt)).ToList();
+        }
+
+        var ids = latest.Select(x => x.Id).ToList();
+        if (ids.Count == 0) return [];
+
+        // 标题/类型按主键回表（一次 IN 查询），顺序仍按上面的倒序结果
+        var items = await Context.KnowledgeItems
+            .AsNoTracking()
+            .Where(k => ids.Contains(k.Id))
+            .Select(k => new { k.Id, k.Type, k.Title })
+            .ToListAsync(cancellationToken);
+        var byId = items.ToDictionary(k => k.Id);
+
+        return latest
+            .Where(x => byId.ContainsKey(x.Id))
+            .Select(x => new RecentIndexedKnowledgeItem
+            {
+                Id = x.Id,
+                Type = byId[x.Id].Type,
+                Title = byId[x.Id].Title,
+                ChunkCount = x.ChunkCount,
+                Model = x.Model,
+                UpdatedAt = x.UpdatedAt,
             })
             .ToList();
     }
