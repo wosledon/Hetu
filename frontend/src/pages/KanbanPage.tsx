@@ -704,6 +704,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
   const { t } = useTranslation('projects')
   const [dropAbove, setDropAbove] = useState(false)
   const targets = TRANSITIONS[task.status]
+  const running = task.lastRunStatus === 'Running'
 
   return (
     <Card
@@ -723,9 +724,11 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
         isDragging ? 'opacity-40' : ''
       } ${dropAbove ? 'border-indigo-400' : 'hover:border-white/40 dark:hover:border-white/10'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >
+      {/* 任务执行中：卡片外沿绕行的流光，与「处理中」徽标一起给出正反馈 */}
+      {running && <span className="running-ring" aria-hidden />}
       <div className="flex items-start gap-2">
         <span className="text-sm font-medium leading-snug text-gray-800 dark:text-gray-100">{task.title}</span>
-        {task.lastRunStatus === 'Running' && (
+        {running && (
           <span className="flex shrink-0 items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
             <Loader2 size={10} className="animate-spin" />{t('board.processing')}
           </span>
