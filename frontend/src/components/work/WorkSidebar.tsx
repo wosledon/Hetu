@@ -507,11 +507,10 @@ function SessionList({
             selected={active}
             onClick={() => { onSelectProject(project); onSelectSession(session) }}
             icon={(activeIcon) => (
-              <span className="flex shrink-0 items-center gap-1.5">
-                <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />
-                {/* 进行中标记前置：行首比行尾更容易看到（不再放 badge） */}
-                {runningSessionIds.has(session.id) && <RunningIndicator />}
-              </span>
+              /* 进行中：行首图标直接换成旋转标识（比在图标旁加点明显） */
+              runningSessionIds.has(session.id)
+                ? <RunningIndicator />
+                : <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />
             )}
             label={renamingSessionId === session.id ? (
               <Input
@@ -636,13 +635,12 @@ function ProjectNode({
         onToggle={onToggle}
         selected={projectSelected}
         icon={(
-          <span className="flex shrink-0 items-center gap-1.5">
-            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
-              {expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
-            </div>
-            {/* 项目下有会话在跑：行首标记，折叠状态下同样可见 */}
-            {runningProjectIds.has(project.id) && <RunningIndicator />}
-          </span>
+          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
+            {/* 项目下有会话在跑：彩色方块里的文件夹换成旋转标识（保留项目配色） */}
+            {runningProjectIds.has(project.id)
+              ? <RunningIndicator size={11} className="text-white" />
+              : expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
+          </div>
         )}
         label={project.name}
         subtitle={project.description?.trim() || undefined}
