@@ -19,6 +19,7 @@ import ThemedMarkdown from '../ThemedMarkdown'
 import UserMessageContent from '../UserMessageContent'
 import { wrapLongTextBlock } from '../../utils/longText'
 import { uiLocale } from '../../utils/locale'
+import { scrollToBottom } from '../../utils/scrollToBottom'
 import ToolCallGroup from '../ToolCallGroup'
 import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
@@ -252,7 +253,6 @@ export default function WorkSessionArea({
   const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
   const [compacting, setCompacting] = useState(false)
   const [contextNotice, setContextNotice] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -706,7 +706,9 @@ export default function WorkSessionArea({
       loadingOlderRef.current = null
       return
     }
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // 直接写容器 scrollTop：scrollIntoView 会连带滚所有可滚动祖先（页面根节点
+    // overflow:hidden，有溢出时会被一起滚走），流式期间每个分片都会把整页顶跳
+    scrollToBottom(container)
   }, [messages, streamItems])
 
   // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
@@ -1554,7 +1556,6 @@ export default function WorkSessionArea({
 
           {/* 对话进行中：挂在会话末尾的声波动画——本轮还没有任何输出时也能看到「还在跑」 */}
           {isStreaming && <AgentWorkingIndicator />}
-          <div ref={messagesEndRef} />
         </div>
         </div>
         <ConversationRail items={railItems} scrollRef={scrollRef} />

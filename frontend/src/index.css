@@ -137,12 +137,22 @@ body {
   animation-iteration-count: infinite;
 }
 
-@keyframes agentRingSpin {
-  to { transform: rotate(1turn); }
+/* 角度必须注册成 @property 才能被动画插值：渐变直接画在环自身上，
+   不再用 inset:-100% 的 ::before——那个 3 倍大的伪元素会溢出宿主，把上层
+   overflow:hidden 的页面根节点撑出可滚动区，对话流式期间每次自动滚底
+   （scrollIntoView 会连带滚所有可滚动祖先）都会把整页一起滚走，页面上下跳。 */
+@property --ring-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
 }
 
-/* 进行中的流光边框：外层用 mask 抠出 1.5px 边带（不碰宿主自身背景与 .glass 材质
-   ——它画在 ::before 上），内层圆锥渐变旋转形成绕行的光弧；只遮罩、不吃事件。
+@keyframes agentRingSpin {
+  to { --ring-angle: 360deg; }
+}
+
+/* 进行中的流光边框：外层用 mask 抠出 1.5px 边带（不碰宿主自身背景与 .glass 材质），
+   圆锥渐变旋转形成绕行的光弧；只遮罩、不吃事件。
    圆角用 inherit：宿主的 rounded-xl / rounded-2xl 直接继承，环与宿主外沿严格同心。
    两处使用：Agent 输入框（流式中）与任务看板卡片（任务执行中）。 */
 .running-ring {
@@ -152,6 +162,8 @@ body {
   padding: 1.5px;
   pointer-events: none;
   background-color: rgba(99, 102, 241, 0.1);
+  background-image: conic-gradient(from var(--ring-angle), rgba(59, 130, 246, 0) 0%, #3b82f6 10%, #8b5cf6 20%, rgba(139, 92, 246, 0) 32%, rgba(139, 92, 246, 0) 100%);
+  animation: agentRingSpin 2.4s linear infinite;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -160,14 +172,6 @@ body {
 
 .dark .running-ring {
   background-color: rgba(129, 140, 248, 0.16);
-}
-
-.running-ring::before {
-  content: '';
-  position: absolute;
-  inset: -100%;
-  background: conic-gradient(from 0deg, rgba(59, 130, 246, 0) 0%, #3b82f6 10%, #8b5cf6 20%, rgba(139, 92, 246, 0) 32%, rgba(139, 92, 246, 0) 100%);
-  animation: agentRingSpin 2.4s linear infinite;
 }
 
 /* ===== 记忆星空：入场 / 微光 / Dream 夜波 ===== */
