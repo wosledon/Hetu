@@ -38,6 +38,7 @@ import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
+import { scrollToBottom } from '../utils/scrollToBottom'
 import { consumeSseStream } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, IChatGroup, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
@@ -154,8 +155,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
   const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const thinkingEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
   const reasoningPickerRef = useRef<HTMLDivElement>(null)
@@ -304,7 +303,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && messages.length > 0) {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+          scrollToBottom(scrollRef.current)
         }
       }
     }, { threshold: 0.1 })
@@ -312,7 +311,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     return () => observer.disconnect()
   }, [messages.length])
 
-  // 首次加载消息后直接滚到底部（无动画），后续新消息平滑滚动
+  // 首次加载消息后直接滚到底部，后续新消息/流式分片持续跟随
   useEffect(() => {
     if (messagesLoading) return
     // 加载更早消息时保持视口位置：新内容追加在顶部，按高度差补偿 scrollTop
@@ -324,19 +323,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       return
     }
     if (isInitialLoadRef.current && messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+      scrollToBottom(container)
       isInitialLoadRef.current = false
       return
     }
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    scrollToBottom(container)
   }, [messages, pendingUserMessage, streamingContent, streamingThinking, messagesLoading])
-
-  // Auto-scroll thinking block to bottom as thinking content streams in
-  useEffect(() => {
-    if (streamingThinking && showThinking) {
-      thinkingEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [streamingThinking, showThinking])
 
   // Clear streaming display when messages are refreshed (after query invalidation).
   // The persisted message from the backend is the canonical response — once it arrives,
@@ -935,7 +927,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   streaming={isStreaming}
                   onApprove={handleApprove}
                 />
-                {timeline.length > 0 && <div ref={thinkingEndRef} />}
                 {/* 时间线为空但仍有思考内容的降级渲染 */}
                 {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
@@ -947,7 +938,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     {showThinking && (
                       <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-transparent px-2.5 py-2 dark:border-gray-800 dark:bg-transparent">
                         <ThemedMarkdown source={streamingThinking} />
-                        <div ref={thinkingEndRef} />
                       </div>
                     )}
                   </div>
@@ -1054,7 +1044,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           </div>
         )}
 
-        <div ref={messagesEndRef} />
         </div>
         <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>

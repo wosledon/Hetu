@@ -217,7 +217,13 @@ export default function AgentInputBox({
     <div className="bg-transparent p-3 dark:bg-transparent">
       <div className="relative mx-auto max-w-3xl">
         {aboveInput}
-        <div className={`relative rounded-xl border bg-white glass shadow-sm transition-colors focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:bg-gray-800 ${streaming ? 'border-transparent dark:border-transparent' : 'border-gray-200 dark:border-gray-700'}`}>
+        {/* 流式中：焦点态那套淡蓝描边 + 光晕会和绕行的流光互相打架（边框还被它染成蓝），
+            流光本身就足以表明"正在生成"，此时不再叠加焦点样式 */}
+        <div className={`relative rounded-xl border bg-white glass shadow-sm transition-colors dark:bg-gray-800 ${
+          streaming
+            ? 'border-transparent dark:border-transparent'
+            : 'border-gray-200 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700'
+        }`}>
           {/* 流式中：边框上绕行的流光（.running-ring），表示正在生成 */}
           {streaming && <span className="running-ring" aria-hidden />}
           {showMenu && menu && (
