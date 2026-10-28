@@ -1,5 +1,7 @@
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
+using Hetu.Shared.Notifications;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,12 +14,14 @@ namespace Hetu.Infrastructure.Background;
 public class ScheduledTaskRunner : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILocalizer _localizer;
     private readonly ILogger<ScheduledTaskRunner> _logger;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
 
-    public ScheduledTaskRunner(IServiceScopeFactory scopeFactory, ILogger<ScheduledTaskRunner> logger)
+    public ScheduledTaskRunner(IServiceScopeFactory scopeFactory, ILocalizer localizer, ILogger<ScheduledTaskRunner> logger)
     {
         _scopeFactory = scopeFactory;
+        _localizer = localizer;
         _logger = logger;
     }
 
@@ -59,7 +63,7 @@ public class ScheduledTaskRunner : BackgroundService
         var scheduledTaskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var chatMessageService = scope.ServiceProvider.GetRequiredService<IChatMessageService>();
-        var chatGroupService = scope.ServiceProvider.GetRequiredService<IChatGroupService>();
+        var inboxService = scope.ServiceProvider.GetRequiredService<InboxService>();
         var executors = scope.ServiceProvider.GetRequiredService<IEnumerable<IScheduledTaskExecutor>>()
             .ToDictionary(e => e.Kind);
 
@@ -71,7 +75,7 @@ public class ScheduledTaskRunner : BackgroundService
         foreach (var task in dueTasks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, chatMessageService, chatGroupService, cancellationToken);
+            await ExecuteTaskAsync(task, executors, unitOfWork, scheduledTaskService, chatMessageService, inboxService, cancellationToken);
         }
     }
 
@@ -81,7 +85,7 @@ public class ScheduledTaskRunner : BackgroundService
         IUnitOfWork unitOfWork,
         IScheduledTaskService scheduledTaskService,
         IChatMessageService chatMessageService,
-        IChatGroupService chatGroupService,
+        InboxService inboxService,
         CancellationToken cancellationToken)
     {
         // 标记为执行中，避免重复拾取
@@ -170,18 +174,49 @@ public class ScheduledTaskRunner : BackgroundService
         await unitOfWork.ScheduledTasks.UpdateAsync(task, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 绑定了会话的任务：把执行结果作为 assistant 消息追加到对应 Topic；
-        // 未绑定时写入主对话，用于展示 AI 主动完成的任务
-        var targetTopicId = task.TopicId;
-        if (!targetTopicId.HasValue)
+        // 绑定了会话的任务：结果作为 assistant 消息追加到该会话（用户显式选择的目标）；
+        // 未绑定时写入收件箱（同一任务合并到一条 + 未读角标提醒），不再往主对话里塞结果
+        if (task.TopicId.HasValue)
         {
-            var mainChat = await chatGroupService.GetMainAsync(cancellationToken);
-            targetTopicId = mainChat.Success ? mainChat.Data?.Topic.Id : null;
+            await AppendResultToTopicAsync(chatMessageService, task, task.TopicId.Value, succeeded, resultSummary, errorMessage, cancellationToken);
         }
-
-        if (targetTopicId.HasValue)
+        else
         {
-            await AppendResultToTopicAsync(chatMessageService, task, targetTopicId.Value, succeeded, resultSummary, errorMessage, cancellationToken);
+            await AppendResultToInboxAsync(inboxService, task, succeeded, resultSummary, errorMessage, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// 执行结果写入收件箱（未绑定会话时）。同一任务按合并键聚合到一条：
+    /// 反复执行只刷新内容并置为未读，不在收件箱里堆出一片。
+    /// </summary>
+    private async Task AppendResultToInboxAsync(
+        InboxService inboxService,
+        ScheduledTask task,
+        bool succeeded,
+        string? resultSummary,
+        string? errorMessage,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = succeeded
+                ? (string.IsNullOrWhiteSpace(resultSummary) ? _localizer.T("scheduledTask.noOutput") : resultSummary)
+                : (errorMessage ?? _localizer.T("scheduledTask.unknownError"));
+
+            await inboxService.CreateAsync(new CreateInboxNotificationRequest
+            {
+                Category = InboxCategories.ScheduledTask,
+                CategoryKey = $"scheduled-task:{task.Id}",
+                Level = succeeded ? InboxLevels.Success : InboxLevels.Error,
+                Title = _localizer.T(succeeded ? "scheduledTask.completed" : "scheduledTask.failed", task.Name),
+                Content = body.Length > 500 ? body[..500] : body,
+                Link = "/tasks/scheduled",
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "定时任务 {TaskId} 结果写入收件箱失败", task.Id);
         }
     }
 
