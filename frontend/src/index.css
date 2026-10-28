@@ -141,13 +141,14 @@ body {
   to { transform: rotate(1turn); }
 }
 
-/* 输入框流式进行中的边框动画：外层用 mask 抠出 1.5px 边带（不碰输入框自身背景
-   与 .glass 材质——它画在 ::before 上），内层圆锥渐变旋转形成绕行的光弧。
-   只遮罩、不吃事件，输入与点击完全不受影响。 */
-.agent-input-ring {
+/* 进行中的流光边框：外层用 mask 抠出 1.5px 边带（不碰宿主自身背景与 .glass 材质
+   ——它画在 ::before 上），内层圆锥渐变旋转形成绕行的光弧；只遮罩、不吃事件。
+   圆角用 inherit：宿主的 rounded-xl / rounded-2xl 直接继承，环与宿主外沿严格同心。
+   两处使用：Agent 输入框（流式中）与任务看板卡片（任务执行中）。 */
+.running-ring {
   position: absolute;
   inset: -1px;
-  border-radius: 13px;
+  border-radius: inherit;
   padding: 1.5px;
   pointer-events: none;
   background-color: rgba(99, 102, 241, 0.1);
@@ -157,11 +158,11 @@ body {
   mask-composite: exclude;
 }
 
-.dark .agent-input-ring {
+.dark .running-ring {
   background-color: rgba(129, 140, 248, 0.16);
 }
 
-.agent-input-ring::before {
+.running-ring::before {
   content: '';
   position: absolute;
   inset: -100%;
