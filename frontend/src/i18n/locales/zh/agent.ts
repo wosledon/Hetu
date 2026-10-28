@@ -143,4 +143,7 @@ export default {
   interaction: {
     defaultHeader: '请回答',
   },
+  working: {
+    label: '正在回复...',
+  },
 }

@@ -143,4 +143,7 @@ export default {
   interaction: {
     defaultHeader: 'Please answer',
   },
+  working: {
+    label: 'Replying...',
+  },
 }

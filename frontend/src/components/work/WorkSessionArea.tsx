@@ -27,6 +27,7 @@ import ConversationRail from '../ConversationRail'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
 import AgentTimeline from '../agent/AgentTimeline'
+import AgentWorkingIndicator from '../agent/AgentWorkingIndicator'
 import AgentThoughtBlock from '../agent/AgentThoughtBlock'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
@@ -1488,12 +1489,6 @@ export default function WorkSessionArea({
                   onInsertCode={(code) => onInsertCode?.(code)}
                   onApprove={(id, approved) => submitApproval(id, approved)}
                   onRestoreCheckpoint={(id) => restoreCheckpoint(id)}
-                  emptyHint={isStreaming ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <Loader2 size={14} className="animate-spin" />
-                      {t('session.thinking')}
-                    </div>
-                  ) : null}
                 />
               </div>
             )}
@@ -1552,6 +1547,8 @@ export default function WorkSessionArea({
             </div>
           )}
 
+          {/* 对话进行中：挂在会话末尾的声波动画——本轮还没有任何输出时也能看到「还在跑」 */}
+          {isStreaming && <AgentWorkingIndicator />}
           <div ref={messagesEndRef} />
         </div>
         </div>
