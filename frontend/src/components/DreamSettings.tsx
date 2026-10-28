@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Moon, Sparkles } from 'lucide-react'
-import { settingService, type DreamConfig } from '../services/settingService'
+import { Brain, Loader2, Moon, Sparkles } from 'lucide-react'
+import { settingService, type DreamConfig, type MemoryUsageConfig } from '../services/settingService'
 import { memoryService } from '../services/memoryService'
 import i18n from '../i18n'
 import { formatDateTime } from '../utils/locale'
@@ -37,6 +37,7 @@ export default function DreamSettings() {
   const { t } = useTranslation('knowledge')
   const queryClient = useQueryClient()
   const [draftOverride, setDraftOverride] = useState<DreamConfig | null>(null)
+  const [memoryUsageOverride, setMemoryUsageOverride] = useState<MemoryUsageConfig | null>(null)
   const [dreamResult, setDreamResult] = useState<string | null>(null)
 
   const intervalOptions = [
@@ -56,6 +57,16 @@ export default function DreamSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dreamConfig'] }),
   })
 
+  // 记忆使用范围：三个对话面独立开关（会话内的开关已移除，统一在这里配）
+  const { data: memoryUsage } = useQuery({
+    queryKey: ['memoryUsageConfig'],
+    queryFn: () => settingService.getMemoryUsageConfig(),
+  })
+  const saveMemoryUsageMutation = useMutation({
+    mutationFn: (data: MemoryUsageConfig) => settingService.setMemoryUsageConfig(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['memoryUsageConfig'] }),
+  })
+
   const dreamMutation = useMutation({
     mutationFn: () => memoryService.dream(),
     onSuccess: (r) => {
@@ -67,6 +78,7 @@ export default function DreamSettings() {
   })
 
   const draft = draftOverride ?? config ?? null
+  const memoryDraft = memoryUsageOverride ?? memoryUsage ?? { mainChat: false, chat: false, codeSession: false }
 
   if (isLoading || !draft) {
     return <div className="flex items-center gap-2 p-6"><Loader2 size={16} className="animate-spin text-gray-400" /><span className="text-sm text-gray-500">{t('common:loading')}</span></div>
@@ -75,6 +87,11 @@ export default function DreamSettings() {
   const saveNow = (next: DreamConfig) => {
     setDraftOverride(next)
     saveMutation.mutate(next)
+  }
+
+  const saveMemoryUsageNow = (next: MemoryUsageConfig) => {
+    setMemoryUsageOverride(next)
+    saveMemoryUsageMutation.mutate(next)
   }
 
   const numberField = (value: number, min: number, max: number, onChange: (v: number) => void) => (
@@ -93,6 +110,32 @@ export default function DreamSettings() {
 
   return (
     <div className="space-y-6">
+      <Card className="p-4 dark:bg-gray-800">
+        <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <Brain size={15} className="text-teal-500" />
+          {t('memoryUsage.title')}
+        </div>
+        <p className="mt-0.5 text-xs text-gray-500">{t('memoryUsage.hint')}</p>
+        <div className="mt-3 space-y-2">
+          {([
+            { key: 'mainChat' as const, label: t('memoryUsage.mainChat'), desc: t('memoryUsage.mainChatDesc') },
+            { key: 'chat' as const, label: t('memoryUsage.chat'), desc: t('memoryUsage.chatDesc') },
+            { key: 'codeSession' as const, label: t('memoryUsage.codeSession'), desc: t('memoryUsage.codeSessionDesc') },
+          ]).map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-4 rounded-lg border border-gray-100 px-3 py-2 dark:border-gray-700/60">
+              <div className="min-w-0">
+                <div className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{row.label}</div>
+                <div className="text-[11px] text-gray-400">{row.desc}</div>
+              </div>
+              <Toggle checked={memoryDraft[row.key]} onChange={() => saveMemoryUsageNow({ ...memoryDraft, [row.key]: !memoryDraft[row.key] })} />
+            </div>
+          ))}
+        </div>
+        {!memoryDraft.mainChat && !memoryDraft.chat && !memoryDraft.codeSession && (
+          <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">{t('memoryUsage.offHint')}</p>
+        )}
+      </Card>
+
       <Card className="flex items-start justify-between gap-4 p-4 dark:bg-gray-800">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">

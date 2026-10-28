@@ -26,6 +26,8 @@ export const settingService = {
 
   getDreamConfig: () => get<DreamConfig>('/settings/dream'),
   setDreamConfig: (data: DreamConfig) => put<void>('/settings/dream', data),
+  getMemoryUsageConfig: () => get<MemoryUsageConfig>('/settings/memory-usage'),
+  setMemoryUsageConfig: (data: MemoryUsageConfig) => put<void>('/settings/memory-usage', data),
   getWorktreeCleanupConfig: () => get<WorktreeCleanupConfig>('/settings/worktree-cleanup'),
   setWorktreeCleanupConfig: (data: WorktreeCleanupConfig) => put<void>('/settings/worktree-cleanup', data),
   runWorktreeCleanup: () => post<WorktreeCleanupResult>('/settings/worktree-cleanup/run'),
@@ -48,6 +50,16 @@ export interface DreamConfig {
   forgetBelowImportance: number;
   /** 最近一次执行时间（只读） */
   lastRunAt?: string;
+}
+
+/** 记忆使用范围：三个对话面各自决定是否启用记忆（与后端 MemoryUsageConfigDto 对应） */
+export interface MemoryUsageConfig {
+  /** 主对话 */
+  mainChat: boolean;
+  /** 普通对话（话题） */
+  chat: boolean;
+  /** Code 会话 */
+  codeSession: boolean;
 }
 
 /** Code 工作树位置配置：与后端 WorktreeConfigDto 对应 */

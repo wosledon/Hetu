@@ -6,12 +6,13 @@ import {
 
   ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Atom, Pencil, Trash2, Gauge,
+  Globe, Database, Pencil, Trash2, Gauge,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService, aiProviderService } from '../../services/aiProviderService'
 import { promptPresetService } from '../../services/promptPresetService'
 import { skillService } from '../../services/skillService'
+import { settingService } from '../../services/settingService'
 import { type InputCommandItem } from '../InputCommandMenu'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
@@ -235,13 +236,18 @@ export default function WorkSessionArea({
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
   const [openFeedback, setOpenFeedback] = useState('')
-  // 会话级开关（与对话页共用同一套语义）：网络搜索 / 知识库 / 记忆 / 深度思考 + 图片附件
+  // 会话级开关（与对话页共用同一套语义）：网络搜索 / 知识库 / 深度思考 + 图片附件
   const cachedSettings = useMemo(() => loadTopicSettings(session?.id), [session?.id])
   const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
   const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
-  const [memory, setMemory] = useState(() => cachedSettings.memory ?? false)
   const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  // 记忆开关已从会话内移到「设置 - 记忆」：Code 会话统一配置，这里只读
+  const { data: memoryUsage } = useQuery({
+    queryKey: ['memoryUsageConfig'],
+    queryFn: () => settingService.getMemoryUsageConfig(),
+  })
+  const memory = memoryUsage?.codeSession ?? false
   // 会话信息：上下文占用 + 压缩提示（右下角环形进度 / 输入框上方提示条）
   const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
   const [compacting, setCompacting] = useState(false)
@@ -324,8 +330,8 @@ export default function WorkSessionArea({
   // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
   useEffect(() => {
     if (!session) return
-    saveTopicSettings(session.id, { webSearch, knowledgeBase, memory, deepThinking })
-  }, [session, webSearch, knowledgeBase, memory, deepThinking])
+    saveTopicSettings(session.id, { webSearch, knowledgeBase, deepThinking })
+  }, [session, webSearch, knowledgeBase, deepThinking])
 
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
@@ -1789,18 +1795,6 @@ export default function WorkSessionArea({
                 }`}
               >
                 <Database size={13} />{t('session.knowledgeBase')}
-              </button>
-              <button
-                onClick={() => setMemory(!memory)}
-                title={t('session.memory')}
-                aria-label={t('session.memory')}
-                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
-                  memory
-                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
-                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <Atom size={13} />{t('session.memory')}
               </button>
 
               {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}

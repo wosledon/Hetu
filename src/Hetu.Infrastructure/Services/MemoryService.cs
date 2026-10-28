@@ -793,6 +793,7 @@ public class MemoryService : IMemoryService
     // ── Dream 记忆巩固 ────────────────────────────────
 
     private const string DreamConfigKey = "DreamConfig";
+    private const string MemoryUsageConfigKey = "MemoryUsageConfig";
 
     public async Task<DreamConfigDto> GetDreamConfigAsync(CancellationToken cancellationToken = default)
     {
@@ -825,6 +826,31 @@ public class MemoryService : IMemoryService
         {
             Key = DreamConfigKey,
             Value = System.Text.Json.JsonSerializer.Serialize(config)
+        }, cancellationToken);
+    }
+
+    /// <summary>读取记忆使用范围：三个对话面独立开关；未配置过时默认全部关闭（与原先会话内开关的默认一致）</summary>
+    public async Task<MemoryUsageConfigDto> GetMemoryUsageConfigAsync(CancellationToken cancellationToken = default)
+    {
+        var setting = await _appSettingService.GetAsync(MemoryUsageConfigKey, cancellationToken);
+        if (setting?.Data == null || string.IsNullOrWhiteSpace(setting.Data.Value))
+            return new MemoryUsageConfigDto();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<MemoryUsageConfigDto>(setting.Data.Value) ?? new MemoryUsageConfigDto();
+        }
+        catch
+        {
+            return new MemoryUsageConfigDto();
+        }
+    }
+
+    public async Task SaveMemoryUsageConfigAsync(MemoryUsageConfigDto config, CancellationToken cancellationToken = default)
+    {
+        await _appSettingService.SetAsync(new UpdateAppSettingRequest
+        {
+            Key = MemoryUsageConfigKey,
+            Value = System.Text.Json.JsonSerializer.Serialize(config ?? new MemoryUsageConfigDto())
         }, cancellationToken);
     }
 
