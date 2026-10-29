@@ -85,6 +85,7 @@ pwsh ./scripts/start.ps1     # Windows
 | **知识** | 笔记/文件/网址的分块与向量化、索引覆盖率、语义搜索实验台、知识图谱、按项目生成 Wiki；Wiki 页面会自动进入知识库与图谱 | [知识库](docs/guide/knowledge.html) · [图谱与 Wiki](docs/guide/graph-wiki.html) |
 | **记忆** | 全局/会话/项目作用域、召回打分、记忆图、Dream 巩固（合并、衰减、遗忘） | [记忆与 Dream](docs/guide/memories.html) |
 | **自动化** | 由 Agent 执行的任务看板、可视化工作流、后台与 Cron 定时任务、收件箱通知 | [看板与自动化](docs/guide/organize.html) |
+| **画板** | 多张画板、形状/画笔/连接线/文本绘图、网格吸附、撤销重做、导出 PNG/SVG、全屏演示 | [画板](docs/guide/whiteboard.html) |
 | **扩展** | 带工具白名单的智能体预设、技能（`/技能名`）、内置工具开关、MCP 服务器 | [扩展与集成](docs/guide/extensions.html) |
 | **模型与成本** | 多供应商、按场景默认模型、OpenAI/Anthropic 兼容代理、Token 与成本统计、压缩管道 | [模型与用量](docs/guide/models.html) |
 

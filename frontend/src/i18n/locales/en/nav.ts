@@ -11,6 +11,7 @@ export default {
   tools: 'Tools',
   knowledgeBase: 'Knowledge Base',
   graph: 'Knowledge Graph',
+  whiteboard: 'Whiteboard',
   tasksBackground: 'Background Tasks',
   tasksScheduled: 'Scheduled Tasks',
   memories: 'Memories',
