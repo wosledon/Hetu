@@ -53,6 +53,9 @@ export interface IWhiteboardConnector extends IWhiteboardBounds {
   toId: string | null
   from: { x: number; y: number }
   to: { x: number; y: number }
+  /** 端点到被吸附元素中心的相对偏移：决定端点落在边框哪个方向，元素移动时跟随；缺省时朝另一端 */
+  fromOffset?: { dx: number; dy: number }
+  toOffset?: { dx: number; dy: number }
   label: string
   fontSize: number
   stroke: string

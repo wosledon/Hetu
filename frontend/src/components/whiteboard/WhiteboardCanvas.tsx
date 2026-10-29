@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type {
-  IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardScene,
+  IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen, IWhiteboardScene,
   IWhiteboardShape, IWhiteboardStyle, IWhiteboardText, IWhiteboardViewport, WhiteboardCanvasHandle, WhiteboardTool,
 } from '../../types/whiteboard'
 import {
-  GRID_SIZE, MIN_SIZE, createConnector, createPen, createShape, createText,
+  GRID_SIZE, MIN_SIZE, connectorOffset, createConnector, createPen, createShape, createText,
   elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, rectFromPoints, refreshConnectors,
   resolveConnectorEnds, snapValue, translateElement, wrapText,
 } from '../../utils/whiteboard'
@@ -144,6 +144,20 @@ function intersects(element: IWhiteboardElement, bounds: IWhiteboardBounds): boo
     && element.x + element.width > bounds.x
     && element.y < bounds.y + bounds.height
     && element.y + element.height > bounds.y
+}
+
+/** 0.1 精度归整：手绘坐标用，压缩场景体积又不影响跟手度 */
+function round(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
+/** 手绘路径总长度：用来识别「只点了一下」的空笔迹 */
+function penPathLength(pen: IWhiteboardPen): number {
+  let length = 0
+  for (let i = 0; i + 3 < pen.points.length; i += 2) {
+    length += Math.hypot(pen.points[i + 2] - pen.points[i], pen.points[i + 3] - pen.points[i + 1])
+  }
+  return length
 }
 
 /** 元素上的说明文字：自动换行 + 居中（文本元素不换行，由外框表达宽度） */
@@ -386,18 +400,18 @@ export default function WhiteboardCanvas({
         startClientX: event.clientX, startClientY: event.clientY,
         startWorldX: world.x, startWorldY: world.y, snapshot,
       }
-      setDraft(createPen([snapValue(world.x, snap), snapValue(world.y, snap)], style))
+      // 画笔不走网格吸附：手绘就该跟手，只做 0.1 精度归整
+      setDraft(createPen([round(world.x), round(world.y)], style))
       return
     }
 
     if (tool === 'connector') {
-      const press = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
       sessionRef.current = {
         pointerId: event.pointerId, kind: 'connector',
         startClientX: event.clientX, startClientY: event.clientY,
-        startWorldX: press.x, startWorldY: press.y, snapshot,
+        startWorldX: world.x, startWorldY: world.y, snapshot,
       }
-      setDraft(createConnector(press, press, style))
+      setDraft(createConnector({ x: world.x, y: world.y }, { x: world.x, y: world.y }, style))
       setAttachHighlightIds([])
       return
     }
@@ -515,7 +529,7 @@ export default function WhiteboardCanvas({
           if (Math.hypot(world.x - lastX, world.y - lastY) < 2 / viewport.zoom) return
           setDraft({
             ...current,
-            points: [...current.points, snapValue(world.x, snap), snapValue(world.y, snap)],
+            points: [...current.points, round(world.x), round(world.y)],
           })
         } else if (current) {
           setDraft({ ...current, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) })
@@ -525,28 +539,44 @@ export default function WhiteboardCanvas({
       case 'connector': {
         const start = draftRef.current
         if (!start || start.type !== 'connector') break
+        // 两端各自找吸附目标（朝对方方向放宽容差），命中即高亮预告；
+        // 偏移按未吸附的原始落点算，保证端点就停在用户松手的那一侧
         const rawFrom = { x: session.startWorldX, y: session.startWorldY }
-        const rawTo = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
-        // 两端各自找吸附目标（朝对方方向放宽容差），命中即高亮预告
+        const rawTo = { x: world.x, y: world.y }
         const fromTarget = findAttachTarget(session.snapshot.elements, rawFrom.x, rawFrom.y, rawTo)
         const toTarget = findAttachTarget(session.snapshot.elements, rawTo.x, rawTo.y, rawFrom)
-        setDraft(resolveConnectorEnds(
-          { ...start, fromId: fromTarget?.id ?? null, toId: toTarget?.id ?? null, from: rawFrom, to: rawTo },
-          session.snapshot.elements,
-        ))
+        setDraft(resolveConnectorEnds({
+          ...start,
+          fromId: fromTarget?.id ?? null,
+          toId: toTarget?.id ?? null,
+          fromOffset: fromTarget ? connectorOffset(fromTarget, rawFrom) : undefined,
+          toOffset: toTarget ? connectorOffset(toTarget, rawTo) : undefined,
+          from: { x: snapValue(rawFrom.x, snap), y: snapValue(rawFrom.y, snap) },
+          to: { x: snapValue(rawTo.x, snap), y: snapValue(rawTo.y, snap) },
+        }, session.snapshot.elements))
         setAttachHighlightIds([fromTarget?.id, toTarget?.id].filter((id): id is string => id !== undefined))
         break
       }
       case 'endpoint': {
-        // 拖连接线端点：靠近方块就吸上，否则变成自由端点
+        // 拖连接线端点：靠近方块就吸上（记住相对偏移），否则变成自由端点
         const origin = [...(session.origins ?? new Map<string, IWhiteboardElement>()).values()][0]
         if (!origin || origin.type !== 'connector') break
-        const point = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
+        const point = { x: world.x, y: world.y }
         const other = session.endpoint === 'from' ? origin.to : origin.from
         const target = findAttachTarget(session.snapshot.elements, point.x, point.y, other)
         const dragged: IWhiteboardConnector = session.endpoint === 'from'
-          ? { ...origin, fromId: target?.id ?? null, from: point }
-          : { ...origin, toId: target?.id ?? null, to: point }
+          ? {
+            ...origin,
+            fromId: target?.id ?? null,
+            fromOffset: target ? connectorOffset(target, point) : undefined,
+            from: { x: snapValue(point.x, snap), y: snapValue(point.y, snap) },
+          }
+          : {
+            ...origin,
+            toId: target?.id ?? null,
+            toOffset: target ? connectorOffset(target, point) : undefined,
+            to: { x: snapValue(point.x, snap), y: snapValue(point.y, snap) },
+          }
         applyElements(
           session.snapshot.elements.map((element) => (
             element.id === origin.id ? resolveConnectorEnds(dragged, session.snapshot.elements) : element
@@ -581,6 +611,8 @@ export default function WhiteboardCanvas({
         break
       case 'create': {
         if (!currentDraft) break
+        // 手绘只点一下 / 几乎没移动：不留下看不见的点元素
+        if (currentDraft.type === 'pen' && penPathLength(currentDraft) < 4) break
         const created = currentDraft.type === 'pen'
           ? currentDraft
           : { ...currentDraft, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) }
@@ -593,13 +625,18 @@ export default function WhiteboardCanvas({
         if (!start || start.type !== 'connector') break
         // 抬起时按最终位置再判定一次吸附，原地点击（没拖出线）不创建元素
         const rawFrom = { x: session.startWorldX, y: session.startWorldY }
-        const rawTo = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
+        const rawTo = { x: world.x, y: world.y }
         const fromTarget = findAttachTarget(session.snapshot.elements, rawFrom.x, rawFrom.y, rawTo)
         const toTarget = findAttachTarget(session.snapshot.elements, rawTo.x, rawTo.y, rawFrom)
-        const resolved = resolveConnectorEnds(
-          { ...start, fromId: fromTarget?.id ?? null, toId: toTarget?.id ?? null, from: rawFrom, to: rawTo },
-          session.snapshot.elements,
-        )
+        const resolved = resolveConnectorEnds({
+          ...start,
+          fromId: fromTarget?.id ?? null,
+          toId: toTarget?.id ?? null,
+          fromOffset: fromTarget ? connectorOffset(fromTarget, rawFrom) : undefined,
+          toOffset: toTarget ? connectorOffset(toTarget, rawTo) : undefined,
+          from: { x: snapValue(rawFrom.x, snap), y: snapValue(rawFrom.y, snap) },
+          to: { x: snapValue(rawTo.x, snap), y: snapValue(rawTo.y, snap) },
+        }, session.snapshot.elements)
         if (Math.hypot(resolved.to.x - resolved.from.x, resolved.to.y - resolved.from.y) < 4) break
         applyElements([...session.snapshot.elements, resolved], session.snapshot)
         setSelectedIds([resolved.id])

@@ -339,13 +339,32 @@ export function resolveConnectorEnds(
   const byId = new Map(elements.map((element) => [element.id, element]))
   const from = connector.fromId ? byId.get(connector.fromId) ?? null : null
   const to = connector.toId ? byId.get(connector.toId) ?? null : null
-  if (from && to) {
-    const anchors = connectorAnchors(from, to)
-    return withConnectorBounds({ ...connector, from: anchors.from, to: anchors.to })
-  }
-  if (from) return withConnectorBounds({ ...connector, from: borderPointToward(from, connector.to) })
-  if (to) return withConnectorBounds({ ...connector, to: borderPointToward(to, connector.from) })
-  return withConnectorBounds(connector)
+  const next = { ...connector }
+  // 方向点（松手位置 / 另一端）确定落在边框哪一侧，再投影到边框上
+  if (from) next.from = borderPointToward(from, endpointAnchor(from, connector.fromOffset, connector.to))
+  if (to) next.to = borderPointToward(to, endpointAnchor(to, connector.toOffset, next.from))
+  return withConnectorBounds(next)
+}
+
+/** 吸附端落点：用保存的相对偏移（用户松手的位置），没有就朝另一端方向 */
+function endpointAnchor(
+  element: IWhiteboardElement,
+  offset: { dx: number; dy: number } | undefined,
+  other: { x: number; y: number },
+): { x: number; y: number } {
+  const center = centerOf(element)
+  if (offset && (Math.abs(offset.dx) > 0.5 || Math.abs(offset.dy) > 0.5))
+    return { x: center.x + offset.dx, y: center.y + offset.dy }
+  return other
+}
+
+/** 记录端点相对元素中心的偏移：之后元素移动 / 缩放都按这个相对位置跟随 */
+export function connectorOffset(
+  element: IWhiteboardElement,
+  point: { x: number; y: number },
+): { dx: number; dy: number } {
+  const center = centerOf(element)
+  return { dx: point.x - center.x, dy: point.y - center.y }
 }
 
 /** 元素移动后刷新所有吸附到它的连接线端点 */
