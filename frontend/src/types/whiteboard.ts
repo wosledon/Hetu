@@ -104,6 +104,8 @@ export interface IWhiteboard {
 export interface IWhiteboardListItem {
   id: string
   name: string
+  /** 列表卡片缩略图（SVG 字符串，可空） */
+  thumbnail?: string | null
   createdAt: string
   updatedAt: string
 }

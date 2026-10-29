@@ -19,6 +19,8 @@ public class WhiteboardListItemDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    /// <summary>列表卡片缩略图（SVG 字符串，可空）</summary>
+    public string? Thumbnail { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -27,6 +29,7 @@ public class CreateWhiteboardRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Scene { get; set; } = "{}";
+    public string? Thumbnail { get; set; }
 }
 
 public class UpdateWhiteboardRequest
@@ -36,4 +39,7 @@ public class UpdateWhiteboardRequest
 
     /// <summary>画板场景 JSON；为空表示保持不变</summary>
     public string? Scene { get; set; }
+
+    /// <summary>缩略图 SVG；为空表示保持不变</summary>
+    public string? Thumbnail { get; set; }
 }

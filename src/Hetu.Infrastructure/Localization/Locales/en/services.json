@@ -281,5 +281,6 @@
   "whiteboard.nameRequired": "Whiteboard name is required",
   "whiteboard.nameTooLong": "Whiteboard name cannot exceed {0} characters",
   "whiteboard.sceneInvalid": "Invalid whiteboard scene data",
-  "whiteboard.sceneTooLarge": "Whiteboard scene data is too large"
+  "whiteboard.sceneTooLarge": "Whiteboard scene data is too large",
+  "whiteboard.thumbnailTooLarge": "Whiteboard thumbnail is too large"
 }

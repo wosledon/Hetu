@@ -640,6 +640,87 @@ function distanceToSegment(
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
 }
 
+/* ── 列表缩略图：把场景渲染成一张独立的矢量小图 ── */
+
+/** 缩略图画布尺寸（宽高比 3:2，适合卡片） */
+const THUMB_WIDTH = 300
+const THUMB_HEIGHT = 200
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * 生成画板缩略图 SVG 字符串：按内容边界适配进 300x200，供列表卡片 <img> 使用。
+ * 空画板返回 null（卡片显示占位图标）。
+ */
+export function renderThumbnailSvg(elements: IWhiteboardElement[]): string | null {
+  const bounds = unionBounds(elements)
+  if (!bounds || (bounds.width < 1 && bounds.height < 1)) return null
+
+  const padding = 12
+  const zoom = Math.min(
+    (THUMB_WIDTH - padding * 2) / Math.max(bounds.width, 1),
+    (THUMB_HEIGHT - padding * 2) / Math.max(bounds.height, 1),
+  )
+  const offsetX = (THUMB_WIDTH - bounds.width * zoom) / 2 - bounds.x * zoom
+  const offsetY = (THUMB_HEIGHT - bounds.height * zoom) / 2 - bounds.y * zoom
+  const transform = `translate(${offsetX.toFixed(2)},${offsetY.toFixed(2)}) scale(${zoom.toFixed(4)})`
+
+  const parts: string[] = []
+  for (const element of elements) {
+    const stroke = escapeXml(element.stroke)
+    const strokeWidth = Math.max(0.5, element.strokeWidth / zoom).toFixed(2)
+    if (element.type === 'rect') {
+      parts.push(`<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" rx="6" fill="${escapeXml(element.fill)}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`)
+      if (element.text) parts.push(textSvg(element, zoom, escapeXml))
+    } else if (element.type === 'ellipse') {
+      parts.push(`<ellipse cx="${element.x + element.width / 2}" cy="${element.y + element.height / 2}" rx="${element.width / 2}" ry="${element.height / 2}" fill="${escapeXml(element.fill)}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`)
+      if (element.text) parts.push(textSvg(element, zoom, escapeXml))
+    } else if (element.type === 'diamond') {
+      const cx = element.x + element.width / 2
+      const cy = element.y + element.height / 2
+      const points = `${element.x},${cy} ${cx},${element.y} ${element.x + element.width},${cy} ${cx},${element.y + element.height}`
+      parts.push(`<polygon points="${points}" fill="${escapeXml(element.fill)}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`)
+      if (element.text) parts.push(textSvg(element, zoom, escapeXml))
+    } else if (element.type === 'text') {
+      if (element.text) parts.push(textSvg(element, zoom, escapeXml))
+    } else if (element.type === 'pen') {
+      parts.push(`<polyline points="${element.points.join(' ')}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" stroke-linecap="round"/>`)
+    } else if (element.type === 'connector') {
+      const points = element.route && element.route.length >= 4 ? element.route : [element.from.x, element.from.y, element.to.x, element.to.y]
+      parts.push(`<polyline points="${points.join(' ')}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" stroke-linecap="round"/>`)
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${THUMB_WIDTH}" height="${THUMB_HEIGHT}" viewBox="0 0 ${THUMB_WIDTH} ${THUMB_HEIGHT}"><rect width="${THUMB_WIDTH}" height="${THUMB_HEIGHT}" fill="#f8fafc"/><g transform="${transform}">${parts.join('')}</g></svg>`
+}
+
+/** 元素内文字：居中排布，字号按缩略图缩放归算保持可读 */
+function textSvg(element: IWhiteboardShape | IWhiteboardText, zoom: number, escape: (value: string) => string): string {
+  const fontSize = element.fontSize
+  const lines = wrapText(element.text, fontSize, element.type === 'text' ? Number.POSITIVE_INFINITY : Math.max(10, element.width - 16))
+  const lineHeight = fontSize * 1.4
+  const startY = element.y + element.height / 2 - (lineHeight * lines.length) / 2 + fontSize * 0.85
+  const anchor = element.type === 'text' ? 'start' : 'middle'
+  const x = element.type === 'text' ? element.x : element.x + element.width / 2
+  const fill = element.type === 'text' ? element.fill : element.stroke
+  const tspans = lines
+    .map((line, index) => `<tspan x="${x}" y="${startY + lineHeight * index}">${escape(line)}</tspan>`)
+    .join('')
+  void zoom
+  return `<text font-family="system-ui, sans-serif" font-size="${fontSize}" fill="${escape(fill)}" text-anchor="${anchor}">${tspans}</text>`
+}
+
+/** 把 SVG 字符串转成 <img> 可用的 data URL */
+export function thumbnailDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 /* ── 导出：SVG 序列化 → SVG 文件 / PNG 位图 ── */
 
 /** 序列化画布 SVG：补上 xmlns 与显式尺寸，保证独立打开/转码时可用 */

@@ -257,7 +257,7 @@ function ElementView({ element, zoom }: { element: IWhiteboardElement; zoom: num
   }
 }
 
-/** 白板画布：SVG 引擎，承载全部绘制 / 选择 / 变换交互 */
+/** 画板画布：SVG 引擎，承载全部绘制 / 选择 / 变换交互 */
 export default function WhiteboardCanvas({
   scene, tool, style, snap, onSceneChange, onSelectionChange, svgRef, handleRef, readOnly = false, routeMode = 'orthogonal',
 }: WhiteboardCanvasProps) {

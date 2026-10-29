@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutGrid, Pencil, PenTool, Plus, Trash2 } from 'lucide-react'
+import { PenTool, Pencil, Plus, Trash2 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { confirm } from '../components/confirm'
 import { whiteboardService } from '../services/whiteboardService'
 import { formatDateTime } from '../utils/locale'
+import { thumbnailDataUrl } from '../utils/whiteboard'
 import type { IWhiteboardListItem } from '../types/whiteboard'
 import { Button, Card, IconButton, Input, Modal, PageContainer } from '../components/ui'
 
-/** 白板画板列表：新建 / 重命名 / 删除 / 进入编辑 */
+/** 画板列表：新建 / 重命名 / 删除 / 进入编辑 */
 export default function WhiteboardPage() {
   const { t } = useTranslation('whiteboard')
   const navigate = useNavigate()
@@ -59,7 +60,7 @@ export default function WhiteboardPage() {
         <PageContainer variant="fill" className="flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
             <div className="flex items-center gap-2">
-              <LayoutGrid size={20} className="text-blue-500" />
+              <PenTool size={20} className="text-blue-500" />
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
               <span className="text-xs text-gray-400">{t('page.subtitle')}</span>
             </div>
@@ -97,16 +98,22 @@ export default function WhiteboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {boards.map((board) => (
                   <Card
                     key={board.id}
-                    padded="sm"
+                    padded={false}
                     interactive
-                    className="group cursor-pointer"
+                    className="group cursor-pointer overflow-hidden"
                     onClick={() => navigate(`/whiteboard/${board.id}`)}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    {/* 缩略图：有内容显示矢量小图，空画板显示占位 */}
+                    <div className="flex h-36 items-center justify-center border-b border-gray-100 bg-gray-50 dark:border-white/[0.06] dark:bg-white/[0.03]">
+                      {board.thumbnail
+                        ? <img src={thumbnailDataUrl(board.thumbnail)} alt="" className="h-full w-full object-contain" />
+                        : <PenTool size={28} className="text-gray-300 dark:text-gray-600" />}
+                    </div>
+                    <div className="flex items-start justify-between gap-2 p-3">
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{board.name}</h3>
                         <p className="mt-1 text-xs text-gray-400">{formatDateTime(board.updatedAt)}</p>

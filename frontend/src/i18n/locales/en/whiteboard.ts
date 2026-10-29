@@ -34,6 +34,8 @@ export default {
   zoomReset: 'Reset view',
   zoomFit: 'Fit view',
   snap: 'Snap to grid',
+  style: 'Style',
+  layout: 'Layout',
   styleTitle: 'Style (new elements and selection)',
   strokeColor: 'Stroke color',
   fillColor: 'Fill color',

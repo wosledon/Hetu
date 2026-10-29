@@ -1,6 +1,6 @@
 import {
   Atom, BookOpen, BookText, Bot, CalendarClock, Code, Cpu, Database, FolderInput,
-  GitBranch, ListTodo, MessageSquare, Network, SquareKanban, Tag, Wrench, Zap, LayoutGrid,
+  GitBranch, ListTodo, MessageSquare, Network, PenTool, SquareKanban, Tag, Wrench, Zap,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -28,7 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/tools', labelKey: 'nav:tools', icon: Wrench },
   { path: '/knowledge-base', labelKey: 'nav:knowledgeBase', icon: Database },
   { path: '/graph', labelKey: 'nav:graph', icon: Network },
-  { path: '/whiteboard', labelKey: 'nav:whiteboard', icon: LayoutGrid },
+  { path: '/whiteboard', labelKey: 'nav:whiteboard', icon: PenTool },
   { path: '/tasks/background', labelKey: 'nav:tasksBackground', icon: ListTodo },
   { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
   { path: '/memories', labelKey: 'nav:memories', icon: Atom },

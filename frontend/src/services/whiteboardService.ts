@@ -12,7 +12,7 @@ export const whiteboardService = {
   create: (data: IWhiteboardSubmit) =>
     post<IWhiteboard>('/whiteboards', data),
 
-  update: (id: string, data: { name?: string; scene?: string }) =>
+  update: (id: string, data: { name?: string; scene?: string; thumbnail?: string }) =>
     put<IWhiteboard>(`/whiteboards/${id}`, data),
 
   remove: (id: string) =>

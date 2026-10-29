@@ -14,6 +14,9 @@ public class WhiteboardService : IWhiteboardService
     /// <summary>场景 JSON 上限（约 4 MB，SQLite / Postgres 文本列均可容纳）</summary>
     private const int MaxSceneLength = 4 * 1024 * 1024;
 
+    /// <summary>缩略图 SVG 上限（约 32 KB，足够一张矢量小图）</summary>
+    private const int MaxThumbnailLength = 32 * 1024;
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalizer _localizer;
 
@@ -41,6 +44,7 @@ public class WhiteboardService : IWhiteboardService
         {
             Id = w.Id,
             Name = w.Name,
+            Thumbnail = w.Thumbnail,
             CreatedAt = w.CreatedAt,
             UpdatedAt = w.UpdatedAt
         }).ToList();
@@ -77,6 +81,7 @@ public class WhiteboardService : IWhiteboardService
             Id = Guid.NewGuid(),
             Name = name,
             Scene = scene,
+            Thumbnail = NormalizeThumbnail(request.Thumbnail),
             IsDeleted = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -104,6 +109,13 @@ public class WhiteboardService : IWhiteboardService
             var sceneError = ValidateScene(request.Scene);
             if (sceneError != null) return ApiResponse<WhiteboardDto>.Fail(sceneError);
             board.Scene = request.Scene;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Thumbnail))
+        {
+            if (request.Thumbnail.Length > MaxThumbnailLength)
+                return ApiResponse<WhiteboardDto>.Fail(_localizer.T("whiteboard.thumbnailTooLarge"));
+            board.Thumbnail = request.Thumbnail;
         }
 
         board.UpdatedAt = DateTimeOffset.UtcNow;
@@ -139,6 +151,13 @@ public class WhiteboardService : IWhiteboardService
         {
             return _localizer.T("whiteboard.sceneInvalid");
         }
+    }
+
+    /// <summary>缩略图归一化：空白视为清空，超长截断</summary>
+    private static string? NormalizeThumbnail(string? thumbnail)
+    {
+        if (string.IsNullOrWhiteSpace(thumbnail)) return null;
+        return thumbnail.Length > MaxThumbnailLength ? thumbnail[..MaxThumbnailLength] : thumbnail;
     }
 
     private static WhiteboardDto Map(Whiteboard board) => new()

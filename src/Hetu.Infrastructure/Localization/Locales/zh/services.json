@@ -281,5 +281,6 @@
   "whiteboard.nameRequired": "白板名称不能为空",
   "whiteboard.nameTooLong": "白板名称不能超过 {0} 个字符",
   "whiteboard.sceneInvalid": "白板场景数据非法",
-  "whiteboard.sceneTooLarge": "白板场景数据过大"
+  "whiteboard.sceneTooLarge": "白板场景数据过大",
+  "whiteboard.thumbnailTooLarge": "白板缩略图过大"
 }

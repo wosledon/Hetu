@@ -13,11 +13,11 @@ import type {
 } from '../types/whiteboard'
 import {
   DEFAULT_STYLE, EMPTY_SCENE, applyStyleToElement, exportPng, exportSvg, fitViewport, layoutElements,
-  parseScene, refreshConnectors, serializeScene, type AutoLayoutDirection,
+  parseScene, refreshConnectors, renderThumbnailSvg, serializeScene, type AutoLayoutDirection,
 } from '../utils/whiteboard'
 import { Button, PageContainer } from '../components/ui'
 
-/** 白板编辑器：工具栏 + 画布 + 自动保存 + 演示 */
+/** 画板编辑器：工具栏 + 画布 + 自动保存 + 演示 */
 export default function WhiteboardEditorPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation('whiteboard')
@@ -119,7 +119,7 @@ export default function WhiteboardEditorPage() {
     setSaveState('dirty')
     const timer = window.setTimeout(() => {
       setSaveState('saving')
-      whiteboardService.update(id, { scene: serialized })
+      whiteboardService.update(id, { scene: serialized, thumbnail: renderThumbnailSvg(scene.elements) ?? undefined })
         .then(() => {
           savedSceneRef.current = serialized
           setSaveState('saved')

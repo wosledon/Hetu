@@ -11,6 +11,9 @@ public class Whiteboard : BaseEntity
     /// <summary>JSON: 画板场景（elements 元素数组 + viewport 视口）</summary>
     public string Scene { get; set; } = "{}";
 
+    /// <summary>列表页缩略图（前端生成的 SVG 字符串，可空）</summary>
+    public string? Thumbnail { get; set; }
+
     /// <summary>是否软删除</summary>
     public bool IsDeleted { get; set; }
 }
