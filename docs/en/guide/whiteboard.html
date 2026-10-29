@@ -80,7 +80,7 @@
           <tr><td>Diamond</td><td><code>D</code></td><td>Drag out a diamond (decision / branch)</td></tr>
           <tr><td>Text</td><td><code>T</code></td><td>Click to place text and type immediately; double-click any element to edit its label</td></tr>
           <tr><td>Pen</td><td><code>P</code></td><td>Freehand polyline for annotations and sketches</td></tr>
-          <tr><td>Connector</td><td><code>L</code></td><td>Drag from one element to another: endpoints snap even when you miss the shape (about 28px of tolerance towards the other end), land on the border on the side where you let go, and the target shape highlights while you drag; double-click to add a label</td></tr>
+          <tr><td>Connector</td><td><code>L</code></td><td>Drag from one element to another: endpoints snap even when you miss the shape (about 28px of tolerance towards the other end), land on the border on the side where you let go, and the target shape highlights while you drag. Elbow routing is on by default (outgoing stub → turn → incoming stub); switch to straight lines in the toolbar. Double-click to add a label</td></tr>
           <tr><td>Eraser</td><td><code>E</code></td><td>Click an element to remove it</td></tr>
         </tbody>
       </table></div>
@@ -100,6 +100,9 @@
         </tbody>
       </table></div>
       <p>Text inside shapes wraps and centres automatically, and connectors follow their endpoints when you move the shapes — no need to redraw the arrows. Select a connector to get a round handle on each end: drag a handle onto a shape to re-attach it, or into empty space to make that end free again.</p>
+
+      <h3>Elbow routing</h3>
+      <p>In elbow mode a connector leaves its border perpendicular, turns, and enters the other border perpendicular, so it never cuts diagonally across shapes. Several connectors in the same direction fan out along the midline instead of stacking on top of each other. Switch to “Straight” for direct lines. The endpoint position comes from where you let go, and it stays on that side of the border while the shapes move.</p>
 
       <h2>View and export</h2>
       <div class="table-wrap"><table>

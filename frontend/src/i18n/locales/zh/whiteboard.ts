@@ -55,4 +55,7 @@ export default {
   layoutDirection: '布局方向',
   layoutLR: '横向',
   layoutTB: '纵向',
+  routeStyle: '连线样式',
+  routeOrthogonal: '折线',
+  routeStraight: '直线',
 }

@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import {
   Circle, Copy, Diamond, Download, Eraser, Focus, Grid3x3, Hand, Image, LayoutGrid, Maximize,
-  MousePointer2, MoveUpRight, PenLine, Redo2, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut,
+  MousePointer2, PenLine, Redo2, Route as RouteIcon, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut,
 } from 'lucide-react'
-import type { IWhiteboardStyle, WhiteboardTool } from '../../types/whiteboard'
+import type { ConnectorRouteMode, IWhiteboardStyle, WhiteboardTool } from '../../types/whiteboard'
 import { FILL_COLORS, STROKE_COLORS, type AutoLayoutDirection } from '../../utils/whiteboard'
 import { Button, IconButton } from '../ui'
 
@@ -18,7 +18,7 @@ const TOOLS: { tool: WhiteboardTool; labelKey: string; icon: typeof Square }[] =
   { tool: 'diamond', labelKey: 'toolDiamond', icon: Diamond },
   { tool: 'text', labelKey: 'toolText', icon: Type },
   { tool: 'pen', labelKey: 'toolPen', icon: PenLine },
-  { tool: 'connector', labelKey: 'toolConnector', icon: MoveUpRight },
+  { tool: 'connector', labelKey: 'toolConnector', icon: RouteIcon },
   { tool: 'eraser', labelKey: 'toolEraser', icon: Eraser },
 ]
 
@@ -51,6 +51,8 @@ interface WhiteboardToolbarProps {
   onLayoutDirectionChange: (direction: AutoLayoutDirection) => void
   onAutoLayout: () => void
   canAutoLayout: boolean
+  routeMode: ConnectorRouteMode
+  onRouteModeChange: (mode: ConnectorRouteMode) => void
 }
 
 /** 白板工具栏：工具 / 样式 / 视图 / 历史 / 导出 / 演示 */
@@ -60,6 +62,7 @@ export default function WhiteboardToolbar({
   canUndo, canRedo, onUndo, onRedo, onDelete, onDuplicate,
   onExportPng, onExportSvg, onPresent, saveState, hasSelection,
   layoutDirection, onLayoutDirectionChange, onAutoLayout, canAutoLayout,
+  routeMode, onRouteModeChange,
 }: WhiteboardToolbarProps) {
   const { t } = useTranslation('whiteboard')
 
@@ -184,6 +187,16 @@ export default function WhiteboardToolbar({
       <span className="mx-1 h-5 w-px bg-gray-200 dark:bg-white/10" />
 
       <div className="flex items-center gap-1" title={t('autoLayoutTitle')}>
+        <select
+          aria-label={t('routeStyle')}
+          title={t('routeStyle')}
+          value={routeMode}
+          onChange={(event) => onRouteModeChange(event.target.value as ConnectorRouteMode)}
+          className="rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5 text-xs text-gray-600 outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+        >
+          <option value="orthogonal">{t('routeOrthogonal')}</option>
+          <option value="straight">{t('routeStraight')}</option>
+        </select>
         <select
           aria-label={t('layoutDirection')}
           title={t('layoutDirection')}

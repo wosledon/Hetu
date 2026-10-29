@@ -55,4 +55,7 @@ export default {
   layoutDirection: 'Layout direction',
   layoutLR: 'Horizontal',
   layoutTB: 'Vertical',
+  routeStyle: 'Connector style',
+  routeOrthogonal: 'Elbow',
+  routeStraight: 'Straight',
 }

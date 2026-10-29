@@ -9,7 +9,7 @@ import WhiteboardPresentation from '../components/whiteboard/WhiteboardPresentat
 import WhiteboardToolbar, { type WhiteboardSaveState } from '../components/whiteboard/WhiteboardToolbar'
 import { whiteboardService } from '../services/whiteboardService'
 import type {
-  IWhiteboardElement, IWhiteboardScene, IWhiteboardStyle, WhiteboardCanvasHandle, WhiteboardTool,
+  ConnectorRouteMode, IWhiteboardElement, IWhiteboardScene, IWhiteboardStyle, WhiteboardCanvasHandle, WhiteboardTool,
 } from '../types/whiteboard'
 import {
   DEFAULT_STYLE, EMPTY_SCENE, applyStyleToElement, exportPng, exportSvg, fitViewport, layoutElements,
@@ -56,19 +56,24 @@ export default function WhiteboardEditorPage() {
   const board = boardQuery.data ?? null
   const boardName = board?.name ?? ''
 
+  const [layoutDirection, setLayoutDirection] = useState<AutoLayoutDirection>('LR')
+  const [routeMode, setRouteMode] = useState<ConnectorRouteMode>('orthogonal')
+
   /* ── 加载：按画板 id 去重，切换画板（演示翻页）时重新装载 ── */
 
   useEffect(() => {
     if (!boardQuery.data || loadedIdRef.current === boardQuery.data.id) return
     loadedIdRef.current = boardQuery.data.id
     savedSceneRef.current = boardQuery.data.scene
-    setScene(parseScene(boardQuery.data.scene))
+    const parsed = parseScene(boardQuery.data.scene)
+    // 路由是派生数据：加载时按当前布线方式重算，旧数据/旧算法不会留下过期折线
+    setScene({ elements: refreshConnectors(parsed.elements, routeMode), viewport: parsed.viewport })
     pastRef.current = []
     futureRef.current = []
     setHistorySizes({ past: 0, future: 0 })
     setSaveState('saved')
     setSceneReady(true)
-  }, [boardQuery.data])
+  }, [boardQuery.data, routeMode])
 
   /* ── 场景变更与历史栈 ── */
 
@@ -194,7 +199,10 @@ export default function WhiteboardEditorPage() {
 
   /* ── 自动布局：按连接关系重排图形，再适应视图 ── */
 
-  const [layoutDirection, setLayoutDirection] = useState<AutoLayoutDirection>('LR')
+  const handleRouteModeChange = (mode: ConnectorRouteMode) => {
+    setRouteMode(mode)
+    canvasHandle.current?.reroute(mode)
+  }
 
   const handleAutoLayout = useCallback(() => {
     const { width, height } = stageSize()
@@ -353,6 +361,8 @@ export default function WhiteboardEditorPage() {
             onLayoutDirectionChange={setLayoutDirection}
             onAutoLayout={handleAutoLayout}
             canAutoLayout={canAutoLayout}
+            routeMode={routeMode}
+            onRouteModeChange={handleRouteModeChange}
           />
 
           <div ref={stageRef} className="min-h-0 min-w-0 flex-1">
@@ -365,6 +375,7 @@ export default function WhiteboardEditorPage() {
               onSelectionChange={setSelection}
               svgRef={svgRef}
               handleRef={canvasHandle}
+              routeMode={routeMode}
             />
           </div>
         </PageContainer>

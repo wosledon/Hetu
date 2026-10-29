@@ -4,6 +4,7 @@ import type {
   IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen, IWhiteboardScene,
   IWhiteboardShape, IWhiteboardStyle, IWhiteboardText, IWhiteboardViewport, WhiteboardCanvasHandle, WhiteboardTool,
 } from '../../types/whiteboard'
+import type { ConnectorRouteMode } from '../../types/whiteboard'
 import {
   GRID_SIZE, MIN_SIZE, connectorOffset, createConnector, createPen, createShape, createText,
   elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, rectFromPoints, refreshConnectors,
@@ -34,6 +35,8 @@ interface WhiteboardCanvasProps {
   handleRef?: Ref<WhiteboardCanvasHandle>
   /** 只读模式（演示）：不响应绘制 / 选择，仅保留滚轮缩放与平移 */
   readOnly?: boolean
+  /** 连接线布线方式：正交折线 / 直线 */
+  routeMode?: ConnectorRouteMode
 }
 
 interface DragSession {
@@ -183,10 +186,11 @@ function ElementLabel({ element, text }: { element: IWhiteboardShape | IWhiteboa
   )
 }
 
-function ElementView({ element }: { element: IWhiteboardElement }) {
+function ElementView({ element, zoom }: { element: IWhiteboardElement; zoom: number }) {
+  // 线宽按缩放补偿：缩放视图时线不会忽粗忽细（自动布局后适应视图尤其明显）
   const common = {
     stroke: element.stroke,
-    strokeWidth: element.strokeWidth,
+    strokeWidth: Math.max(0.4, element.strokeWidth / zoom),
     fill: element.fill,
     strokeLinejoin: 'round' as const,
     strokeLinecap: 'round' as const,
@@ -224,16 +228,21 @@ function ElementView({ element }: { element: IWhiteboardElement }) {
     case 'pen':
       return <polyline points={element.points.join(' ')} {...common} fill="none" />
     case 'connector': {
+      const points = element.route && element.route.length >= 4
+        ? element.route
+        : [element.from.x, element.from.y, element.to.x, element.to.y]
+      const tailFrom = { x: points[points.length - 4], y: points[points.length - 3] }
+      const tailTo = { x: points[points.length - 2], y: points[points.length - 1] }
       const midX = (element.from.x + element.to.x) / 2
       const midY = (element.from.y + element.to.y) / 2
       return (
         <g>
-          <line x1={element.from.x} y1={element.from.y} x2={element.to.x} y2={element.to.y} {...common} />
-          <polygon points={arrowPoints(element.from, element.to)} fill={element.stroke} stroke="none" />
+          <polyline points={points.join(' ')} {...common} fill="none" />
+          <polygon points={arrowPoints(tailFrom, tailTo, 10 / zoom)} fill={element.stroke} stroke="none" />
           {element.label && (
             <text
               x={midX}
-              y={midY - 6}
+              y={midY - 6 / zoom}
               fontSize={element.fontSize}
               fill={element.fill}
               textAnchor="middle"
@@ -250,7 +259,7 @@ function ElementView({ element }: { element: IWhiteboardElement }) {
 
 /** 白板画布：SVG 引擎，承载全部绘制 / 选择 / 变换交互 */
 export default function WhiteboardCanvas({
-  scene, tool, style, snap, onSceneChange, onSelectionChange, svgRef, handleRef, readOnly = false,
+  scene, tool, style, snap, onSceneChange, onSelectionChange, svgRef, handleRef, readOnly = false, routeMode = 'orthogonal',
 }: WhiteboardCanvasProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [draft, setDraftState] = useState<IWhiteboardElement | null>(null)
@@ -268,6 +277,12 @@ export default function WhiteboardCanvas({
   const appliedRef = useRef<IWhiteboardScene>(scene)
   // 草稿同理放一份到 ref：读 state 闭包会拿到旧值，导致丢点或提交旧元素
   const draftRef = useRef<IWhiteboardElement | null>(null)
+  // 当前布线方式：切换折线/直线时按它重算所有连接线路由
+  const routeModeRef = useRef<ConnectorRouteMode>(routeMode)
+
+  useEffect(() => {
+    routeModeRef.current = routeMode
+  }, [routeMode])
 
   const setDraft = (element: IWhiteboardElement | null) => {
     draftRef.current = element
@@ -308,7 +323,7 @@ export default function WhiteboardCanvas({
   }, [])
 
   const applyElements = useCallback((elements: IWhiteboardElement[], historySnapshot?: IWhiteboardScene) => {
-    const next = refreshConnectors(elements)
+    const next = refreshConnectors(elements, routeModeRef.current)
     appliedRef.current = { ...appliedRef.current, elements: next }
     onSceneChange(appliedRef.current, historySnapshot)
   }, [onSceneChange])
@@ -757,6 +772,10 @@ export default function WhiteboardCanvas({
       selectAll() {
         setSelectedIds(appliedRef.current.elements.map((element) => element.id))
       },
+      reroute(mode: ConnectorRouteMode) {
+        routeModeRef.current = mode
+        applyElements(appliedRef.current.elements, appliedRef.current)
+      },
     }
   }, [applyElements, selectedIds])
 
@@ -933,9 +952,9 @@ export default function WhiteboardCanvas({
         <rect x={-100000} y={-100000} width={200000} height={200000} fill="url(#wb-grid)" />
         <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
           {scene.elements.map((element) => (
-            <ElementView key={element.id} element={element} />
+            <ElementView key={element.id} element={element} zoom={viewport.zoom} />
           ))}
-          {draft && <ElementView element={draft} />}
+          {draft && <ElementView element={draft} zoom={viewport.zoom} />}
           {marquee && (
             <rect
               x={marquee.x}

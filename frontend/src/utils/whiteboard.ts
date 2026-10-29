@@ -1,6 +1,6 @@
 import dagre from 'dagre'
 import type {
-  IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen,
+  ConnectorRouteMode, IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen,
   IWhiteboardScene, IWhiteboardShape, IWhiteboardStyle, IWhiteboardText, IWhiteboardViewport,
   WhiteboardShapeType, WhiteboardTool,
 } from '../types/whiteboard'
@@ -284,9 +284,16 @@ export function hitTest(element: IWhiteboardElement, x: number, y: number): bool
       && distanceToSegment(x, y, element.points[0], element.points[1], element.points[0], element.points[1]) <= threshold
   }
   if (element.type === 'connector') {
-    // 连接线按线段就近判定：斜线的外接矩形很大，按矩形会把整块区域都算成线
+    // 连接线按折线路由就近判定：斜线的外接矩形很大，按矩形会把整块区域都算成线
     const threshold = Math.max(8, element.strokeWidth * 2)
-    return distanceToSegment(x, y, element.from.x, element.from.y, element.to.x, element.to.y) <= threshold
+    const points = element.route && element.route.length >= 4
+      ? element.route
+      : [element.from.x, element.from.y, element.to.x, element.to.y]
+    for (let i = 0; i + 3 < points.length; i += 2) {
+      if (distanceToSegment(x, y, points[i], points[i + 1], points[i + 2], points[i + 3]) <= threshold)
+        return true
+    }
+    return false
   }
   return x >= element.x && x <= element.x + element.width
     && y >= element.y && y <= element.y + element.height
@@ -404,22 +411,30 @@ export function resolveConnectorEnds(
   const from = connector.fromId ? byId.get(connector.fromId) ?? null : null
   const to = connector.toId ? byId.get(connector.toId) ?? null : null
   const next = { ...connector }
-  // 方向点（松手位置 / 另一端）确定落在边框哪一侧，再投影到边框上
-  if (from) next.from = borderPointToward(from, endpointAnchor(from, connector.fromOffset, connector.to))
-  if (to) next.to = borderPointToward(to, endpointAnchor(to, connector.toOffset, next.from))
+  // 方向点（松手位置 / 对方中心）确定落在边框哪一侧，再投影到边框上
+  if (from && to) {
+    next.from = borderPointToward(from, anchorTarget(from, connector.fromOffset, to))
+    next.to = borderPointToward(to, anchorTarget(to, connector.toOffset, from))
+  } else if (from) {
+    next.from = borderPointToward(from, anchorTarget(from, connector.fromOffset, null, connector.to))
+  } else if (to) {
+    next.to = borderPointToward(to, anchorTarget(to, connector.toOffset, null, connector.from))
+  }
   return withConnectorBounds(next)
 }
 
-/** 吸附端落点：用保存的相对偏移（用户松手的位置），没有就朝另一端方向 */
-function endpointAnchor(
+/** 端点方向点：有偏移用松手时的相对位置，否则朝另一个被吸附元素的中心（稳定，不随操作顺序漂移） */
+function anchorTarget(
   element: IWhiteboardElement,
   offset: { dx: number; dy: number } | undefined,
-  other: { x: number; y: number },
+  otherElement: IWhiteboardElement | null,
+  otherPoint?: { x: number; y: number },
 ): { x: number; y: number } {
   const center = centerOf(element)
   if (offset && (Math.abs(offset.dx) > 0.5 || Math.abs(offset.dy) > 0.5))
     return { x: center.x + offset.dx, y: center.y + offset.dy }
-  return other
+  if (otherElement) return centerOf(otherElement)
+  return otherPoint ?? center
 }
 
 /** 记录端点相对元素中心的偏移：之后元素移动 / 缩放都按这个相对位置跟随 */
@@ -431,9 +446,104 @@ export function connectorOffset(
   return { dx: point.x - center.x, dy: point.y - center.y }
 }
 
-/** 元素移动后刷新所有吸附到它的连接线端点 */
-export function refreshConnectors(elements: IWhiteboardElement[]): IWhiteboardElement[] {
-  return elements.map((element) => (element.type === 'connector' ? resolveConnectorEnds(element, elements) : element))
+/** 元素移动后刷新所有吸附到它的连接线端点，并重算折线路由 */
+export function refreshConnectors(
+  elements: IWhiteboardElement[],
+  routeMode: ConnectorRouteMode = 'orthogonal',
+): IWhiteboardElement[] {
+  const resolved = elements.map((element) => (
+    element.type === 'connector' ? resolveConnectorEnds(element, elements) : element
+  ))
+  // 同两端元素的多条连接线分组错开布线，避免完全重叠看不清
+  const groupSizes = new Map<string, number>()
+  for (const element of resolved) {
+    if (element.type !== 'connector' || !element.fromId || !element.toId) continue
+    const key = [element.fromId, element.toId].sort().join('|')
+    groupSizes.set(key, (groupSizes.get(key) ?? 0) + 1)
+  }
+  const seen = new Map<string, number>()
+  return resolved.map((element) => {
+    if (element.type !== 'connector') return element
+    const key = element.fromId && element.toId
+      ? [element.fromId, element.toId].sort().join('|')
+      : element.id
+    const index = seen.get(key) ?? 0
+    seen.set(key, index + 1)
+    return { ...element, route: connectorRoute(element, resolved, routeMode, index, groupSizes.get(key) ?? 1) }
+  })
+}
+
+/** 端点出线方向：看端点贴在哪条边框上——左右边框水平出线，上下边框垂直出线 */
+function exitDirection(element: IWhiteboardElement | null, point: { x: number; y: number }): 'h' | 'v' {
+  if (!element) return 'h'
+  const horizontal = Math.min(Math.abs(point.x - element.x), Math.abs(point.x - (element.x + element.width)))
+  const vertical = Math.min(Math.abs(point.y - element.y), Math.abs(point.y - (element.y + element.height)))
+  return vertical < horizontal ? 'v' : 'h'
+}
+
+/** 出线方向的单位向量（由端点相对元素中心的位置决定，保证朝外） */
+function exitSign(element: IWhiteboardElement | null, point: { x: number; y: number }, axis: 'x' | 'y'): number {
+  if (!element) return 1
+  const center = centerOf(element)
+  const delta = axis === 'x' ? point.x - center.x : point.y - center.y
+  return delta === 0 ? 1 : Math.sign(delta)
+}
+
+/**
+ * 连接线路由：正交折线（出线段 → 转向 → 入线段）或直线。
+ * 同组多条线按 index 把中线错开，减少重叠；距离很近时直接走直线。
+ */
+export function connectorRoute(
+  connector: IWhiteboardConnector,
+  elements: IWhiteboardElement[],
+  routeMode: ConnectorRouteMode = 'orthogonal',
+  siblingIndex = 0,
+  siblingCount = 1,
+): number[] {
+  const { from, to } = connector
+  const straight = [from.x, from.y, to.x, to.y]
+  if (routeMode === 'straight') return straight
+  if (Math.hypot(to.x - from.x, to.y - from.y) < 48) return straight
+
+  const byId = new Map(elements.map((element) => [element.id, element]))
+  const fromElement = connector.fromId ? byId.get(connector.fromId) ?? null : null
+  const toElement = connector.toId ? byId.get(connector.toId) ?? null : null
+  const fromDir = exitDirection(fromElement, from)
+  const toDir = exitDirection(toElement, to)
+  const stub = Math.max(16, Math.min(40, Math.hypot(to.x - from.x, to.y - from.y) / 5))
+
+  const p1 = fromDir === 'h'
+    ? { x: from.x + exitSign(fromElement, from, 'x') * stub, y: from.y }
+    : { x: from.x, y: from.y + exitSign(fromElement, from, 'y') * stub }
+  // 终点侧的出线段同样朝外（远离被吸附元素），否则会插进方块里再折回
+  const p3 = toDir === 'h'
+    ? { x: to.x + exitSign(toElement, to, 'x') * stub, y: to.y }
+    : { x: to.x, y: to.y + exitSign(toElement, to, 'y') * stub }
+
+  // 同组连线把中线扇开，避免多条线糊成一条
+  const fan = (siblingIndex - (siblingCount - 1) / 2) * 20
+
+  let points: { x: number; y: number }[]
+  if (fromDir === 'h' && toDir === 'h') {
+    const midX = (p1.x + p3.x) / 2 + fan
+    points = [from, p1, { x: midX, y: p1.y }, { x: midX, y: p3.y }, p3, to]
+  } else if (fromDir === 'v' && toDir === 'v') {
+    const midY = (p1.y + p3.y) / 2 + fan
+    points = [from, p1, { x: p1.x, y: midY }, { x: p3.x, y: midY }, p3, to]
+  } else if (fromDir === 'h') {
+    points = [from, p1, { x: p1.x, y: p3.y }, p3, to]
+  } else {
+    points = [from, p1, { x: p3.x, y: p1.y }, p3, to]
+  }
+
+  const flattened: number[] = []
+  for (const point of points) {
+    const lastX = flattened[flattened.length - 2]
+    const lastY = flattened[flattened.length - 1]
+    if (flattened.length >= 2 && Math.hypot(point.x - lastX, point.y - lastY) < 1) continue
+    flattened.push(point.x, point.y)
+  }
+  return flattened
 }
 
 export function unionBounds(elements: IWhiteboardElement[]): IWhiteboardBounds | null {

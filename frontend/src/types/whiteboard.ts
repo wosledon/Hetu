@@ -56,12 +56,17 @@ export interface IWhiteboardConnector extends IWhiteboardBounds {
   /** 端点到被吸附元素中心的相对偏移：决定端点落在边框哪个方向，元素移动时跟随；缺省时朝另一端 */
   fromOffset?: { dx: number; dy: number }
   toOffset?: { dx: number; dy: number }
+  /** 折线路由点列（世界坐标，[x0,y0,x1,y1,…]），直线模式为起止两点 */
+  route?: number[]
   label: string
   fontSize: number
   stroke: string
   fill: string
   strokeWidth: number
 }
+
+/** 连接线布线方式：正交折线（自动折弯）或直线 */
+export type ConnectorRouteMode = 'orthogonal' | 'straight'
 
 export type IWhiteboardElement =
   | IWhiteboardShape | IWhiteboardText | IWhiteboardPen | IWhiteboardConnector
@@ -116,4 +121,6 @@ export interface WhiteboardCanvasHandle {
   /** 层级调整：toFront=true 置顶，false 置底 */
   reorderSelection(toFront: boolean): void
   selectAll(): void
+  /** 切换连接线布线方式并重算路由 */
+  reroute(mode: ConnectorRouteMode): void
 }
