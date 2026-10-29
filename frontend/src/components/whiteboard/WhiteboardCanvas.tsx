@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type {
-  IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen, IWhiteboardScene,
+  IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardScene,
   IWhiteboardShape, IWhiteboardStyle, IWhiteboardText, IWhiteboardViewport, WhiteboardCanvasHandle, WhiteboardTool,
 } from '../../types/whiteboard'
 import {
-  GRID_SIZE, MIN_SIZE, centerOf, connectorAnchors, createConnector, createPen, createShape, createText,
-  elementText, fitTextElement, hitTest, isShapeElement, rectFromPoints, refreshConnectors, snapValue,
-  translateElement, withConnectorBounds, wrapText,
+  GRID_SIZE, MIN_SIZE, createConnector, createPen, createShape, createText,
+  elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, rectFromPoints, refreshConnectors,
+  resolveConnectorEnds, snapValue, translateElement, wrapText,
 } from '../../utils/whiteboard'
 
 type HandleId = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
@@ -38,7 +38,7 @@ interface WhiteboardCanvasProps {
 
 interface DragSession {
   pointerId: number
-  kind: 'pan' | 'move' | 'resize' | 'create' | 'marquee' | 'connector'
+  kind: 'pan' | 'move' | 'resize' | 'create' | 'marquee' | 'connector' | 'endpoint'
   startClientX: number
   startClientY: number
   startWorldX: number
@@ -46,7 +46,8 @@ interface DragSession {
   snapshot: IWhiteboardScene
   origins?: Map<string, IWhiteboardElement>
   handle?: HandleId
-  connectorFromId?: string | null
+  /** 连接线端点拖拽：正在拖哪一端 */
+  endpoint?: 'from' | 'to'
   startViewport?: IWhiteboardViewport
 }
 
@@ -113,6 +114,21 @@ function handleAt(element: IWhiteboardElement, x: number, y: number, zoom: numbe
     const point = handlePoint(element, handle)
     if (Math.abs(x - point.x) <= threshold && Math.abs(y - point.y) <= threshold) return handle
   }
+  return null
+}
+
+/** 连接线端点手柄命中：返回被命中的一端 */
+function connectorHandleAt(
+  connector: IWhiteboardConnector,
+  x: number,
+  y: number,
+  zoom: number,
+): 'from' | 'to' | null {
+  const threshold = HANDLE_SIZE / zoom
+  const fromDistance = Math.hypot(x - connector.from.x, y - connector.from.y)
+  const toDistance = Math.hypot(x - connector.to.x, y - connector.to.y)
+  if (fromDistance <= threshold && fromDistance <= toDistance) return 'from'
+  if (toDistance <= threshold) return 'to'
   return null
 }
 
@@ -223,17 +239,27 @@ export default function WhiteboardCanvas({
   scene, tool, style, snap, onSceneChange, onSelectionChange, svgRef, handleRef, readOnly = false,
 }: WhiteboardCanvasProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [draft, setDraft] = useState<IWhiteboardElement | null>(null)
+  const [draft, setDraftState] = useState<IWhiteboardElement | null>(null)
   const [marquee, setMarquee] = useState<IWhiteboardBounds | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [spaceDown, setSpaceDown] = useState(false)
+  const [attachHighlightIds, setAttachHighlightIds] = useState<string[]>([])
 
   const sessionRef = useRef<DragSession | null>(null)
-  const sceneRef = useRef(scene)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // 最近一次提交给父级的场景：连续指针事件可能在同一帧里到来，
+  // props 要等 effect 才更新，交互中一律读这份，避免拖动被回退
+  const appliedRef = useRef<IWhiteboardScene>(scene)
+  // 草稿同理放一份到 ref：读 state 闭包会拿到旧值，导致丢点或提交旧元素
+  const draftRef = useRef<IWhiteboardElement | null>(null)
+
+  const setDraft = (element: IWhiteboardElement | null) => {
+    draftRef.current = element
+    setDraftState(element)
+  }
 
   useEffect(() => {
-    sceneRef.current = scene
+    appliedRef.current = scene
   }, [scene])
 
   const viewport = scene.viewport
@@ -257,8 +283,8 @@ export default function WhiteboardCanvas({
 
   /** 顶层命中元素（后画的优先） */
   const topmostAt = useCallback((x: number, y: number, excludeId?: string) => {
-    for (let i = sceneRef.current.elements.length - 1; i >= 0; i -= 1) {
-      const element = sceneRef.current.elements[i]
+    for (let i = appliedRef.current.elements.length - 1; i >= 0; i -= 1) {
+      const element = appliedRef.current.elements[i]
       if (element.id === excludeId) continue
       if (hitTest(element, x, y)) return element
     }
@@ -266,11 +292,14 @@ export default function WhiteboardCanvas({
   }, [])
 
   const applyElements = useCallback((elements: IWhiteboardElement[], historySnapshot?: IWhiteboardScene) => {
-    onSceneChange({ ...sceneRef.current, elements: refreshConnectors(elements) }, historySnapshot)
+    const next = refreshConnectors(elements)
+    appliedRef.current = { ...appliedRef.current, elements: next }
+    onSceneChange(appliedRef.current, historySnapshot)
   }, [onSceneChange])
 
   const applyViewport = useCallback((next: IWhiteboardViewport, historySnapshot?: IWhiteboardScene) => {
-    onSceneChange({ ...sceneRef.current, viewport: next }, historySnapshot)
+    appliedRef.current = { ...appliedRef.current, viewport: next }
+    onSceneChange(appliedRef.current, historySnapshot)
   }, [onSceneChange])
 
   /* ── 文本 / 连接线标签编辑浮层 ── */
@@ -285,16 +314,16 @@ export default function WhiteboardCanvas({
     if (!element) return
     // 空文本：文本元素直接删除（含刚建好就收起的情况），形状元素还原为无文字
     if (element.type === 'text' && !text.trim()) {
-      applyElements(sceneRef.current.elements.filter((item) => item.id !== element.id), sceneRef.current)
+      applyElements(appliedRef.current.elements.filter((item) => item.id !== element.id), appliedRef.current)
       return
     }
     if (elementText(element) === text) return
     if (element.type === 'connector') {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)), sceneRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)), appliedRef.current)
     } else if (element.type === 'text') {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)), sceneRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)), appliedRef.current)
     } else if (isShapeElement(element)) {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)), sceneRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)), appliedRef.current)
     }
   }, [applyElements, editingElement])
 
@@ -302,11 +331,11 @@ export default function WhiteboardCanvas({
     const element = editingElement
     if (!element) return
     if (element.type === 'connector') {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)))
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)))
     } else if (element.type === 'text') {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)))
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)))
     } else if (isShapeElement(element)) {
-      applyElements(sceneRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)))
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)))
     }
   }
 
@@ -322,7 +351,7 @@ export default function WhiteboardCanvas({
       // 合成事件或异常环境下指针捕获可能失败：不影响交互本身
     }
     const world = toWorld(event.clientX, event.clientY)
-    const snapshot = sceneRef.current
+    const snapshot = appliedRef.current
     const panning = tool === 'pan' || spaceDown || event.button === 1
 
     if (panning) {
@@ -362,15 +391,14 @@ export default function WhiteboardCanvas({
     }
 
     if (tool === 'connector') {
-      const hit = topmostAt(world.x, world.y)
-      const from = hit ? centerOf(hit) : { x: world.x, y: world.y }
+      const press = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
       sessionRef.current = {
         pointerId: event.pointerId, kind: 'connector',
         startClientX: event.clientX, startClientY: event.clientY,
-        startWorldX: world.x, startWorldY: world.y, snapshot,
-        connectorFromId: hit?.id ?? null,
+        startWorldX: press.x, startWorldY: press.y, snapshot,
       }
-      setDraft(createConnector(from, from, style))
+      setDraft(createConnector(press, press, style))
+      setAttachHighlightIds([])
       return
     }
 
@@ -384,8 +412,21 @@ export default function WhiteboardCanvas({
       return
     }
 
-    // 选择工具：优先命中手柄，其次元素，最后空白区域（框选）
+    // 选择工具：优先命中连接线端点手柄，其次元素手柄，最后空白区域（框选）
     const single = selectedElements.length === 1 ? selectedElements[0] : null
+    if (single?.type === 'connector') {
+      const endpoint = connectorHandleAt(single, world.x, world.y, viewport.zoom)
+      if (endpoint) {
+        sessionRef.current = {
+          pointerId: event.pointerId, kind: 'endpoint', endpoint,
+          startClientX: event.clientX, startClientY: event.clientY,
+          startWorldX: world.x, startWorldY: world.y, snapshot,
+          origins: new Map([[single.id, single]]),
+        }
+        return
+      }
+    }
+
     if (single && single.type !== 'pen' && single.type !== 'connector') {
       const handle = handleAt(single, world.x, world.y, viewport.zoom)
       if (handle) {
@@ -467,43 +508,51 @@ export default function WhiteboardCanvas({
         break
       }
       case 'create': {
-        if (draft?.type === 'pen') {
-          const lastX = draft.points[draft.points.length - 2]
-          const lastY = draft.points[draft.points.length - 1]
+        const current = draftRef.current
+        if (current?.type === 'pen') {
+          const lastX = current.points[current.points.length - 2]
+          const lastY = current.points[current.points.length - 1]
           if (Math.hypot(world.x - lastX, world.y - lastY) < 2 / viewport.zoom) return
-          const next: IWhiteboardPen = {
-            ...draft,
-            points: [...draft.points, snapValue(world.x, snap), snapValue(world.y, snap)],
-          }
-          setDraft(next)
-        } else if (draft) {
-          setDraft({ ...draft, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) })
+          setDraft({
+            ...current,
+            points: [...current.points, snapValue(world.x, snap), snapValue(world.y, snap)],
+          })
+        } else if (current) {
+          setDraft({ ...current, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) })
         }
         break
       }
       case 'connector': {
-        const start = draft
+        const start = draftRef.current
         if (!start || start.type !== 'connector') break
-        const target = topmostAt(world.x, world.y, start.id)
-        const fromElement = session.connectorFromId
-          ? session.snapshot.elements.find((element) => element.id === session.connectorFromId) ?? null
-          : null
-        const anchorFrom = fromElement ? centerOf(fromElement) : start.from
-        const next: IWhiteboardConnector = target
-          ? withConnectorBounds({
-            ...start,
-            fromId: session.connectorFromId ?? null,
-            toId: target.id,
-            from: fromElement ? connectorAnchors(fromElement, target).from : anchorFrom,
-            to: fromElement ? connectorAnchors(fromElement, target).to : centerOf(target),
-          })
-          : withConnectorBounds({
-            ...start,
-            toId: null,
-            from: anchorFrom,
-            to: { x: snapValue(world.x, snap), y: snapValue(world.y, snap) },
-          })
-        setDraft(next)
+        const rawFrom = { x: session.startWorldX, y: session.startWorldY }
+        const rawTo = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
+        // 两端各自找吸附目标（朝对方方向放宽容差），命中即高亮预告
+        const fromTarget = findAttachTarget(session.snapshot.elements, rawFrom.x, rawFrom.y, rawTo)
+        const toTarget = findAttachTarget(session.snapshot.elements, rawTo.x, rawTo.y, rawFrom)
+        setDraft(resolveConnectorEnds(
+          { ...start, fromId: fromTarget?.id ?? null, toId: toTarget?.id ?? null, from: rawFrom, to: rawTo },
+          session.snapshot.elements,
+        ))
+        setAttachHighlightIds([fromTarget?.id, toTarget?.id].filter((id): id is string => id !== undefined))
+        break
+      }
+      case 'endpoint': {
+        // 拖连接线端点：靠近方块就吸上，否则变成自由端点
+        const origin = [...(session.origins ?? new Map<string, IWhiteboardElement>()).values()][0]
+        if (!origin || origin.type !== 'connector') break
+        const point = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
+        const other = session.endpoint === 'from' ? origin.to : origin.from
+        const target = findAttachTarget(session.snapshot.elements, point.x, point.y, other)
+        const dragged: IWhiteboardConnector = session.endpoint === 'from'
+          ? { ...origin, fromId: target?.id ?? null, from: point }
+          : { ...origin, toId: target?.id ?? null, to: point }
+        applyElements(
+          session.snapshot.elements.map((element) => (
+            element.id === origin.id ? resolveConnectorEnds(dragged, session.snapshot.elements) : element
+          )),
+        )
+        setAttachHighlightIds(target ? [target.id] : [])
         break
       }
       case 'marquee': {
@@ -519,30 +568,41 @@ export default function WhiteboardCanvas({
     if (!session || session.pointerId !== event.pointerId) return
     sessionRef.current = null
     const world = toWorld(event.clientX, event.clientY)
+    const currentDraft = draftRef.current
 
     switch (session.kind) {
       case 'pan':
-        applyViewport(viewport, session.snapshot)
+        applyViewport(appliedRef.current.viewport, session.snapshot)
         break
       case 'move':
       case 'resize':
-        applyElements(sceneRef.current.elements, session.snapshot)
+      case 'endpoint':
+        applyElements(appliedRef.current.elements, session.snapshot)
         break
       case 'create': {
-        if (!draft) break
-        const created = draft.type === 'pen'
-          ? draft
-          : { ...draft, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) }
+        if (!currentDraft) break
+        const created = currentDraft.type === 'pen'
+          ? currentDraft
+          : { ...currentDraft, ...rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap) }
         applyElements([...session.snapshot.elements, created], session.snapshot)
         setSelectedIds([created.id])
-        setDraft(null)
         break
       }
       case 'connector': {
-        if (!draft) break
-        applyElements([...session.snapshot.elements, draft], session.snapshot)
-        setSelectedIds([draft.id])
-        setDraft(null)
+        const start = draftRef.current
+        if (!start || start.type !== 'connector') break
+        // 抬起时按最终位置再判定一次吸附，原地点击（没拖出线）不创建元素
+        const rawFrom = { x: session.startWorldX, y: session.startWorldY }
+        const rawTo = { x: snapValue(world.x, snap), y: snapValue(world.y, snap) }
+        const fromTarget = findAttachTarget(session.snapshot.elements, rawFrom.x, rawFrom.y, rawTo)
+        const toTarget = findAttachTarget(session.snapshot.elements, rawTo.x, rawTo.y, rawFrom)
+        const resolved = resolveConnectorEnds(
+          { ...start, fromId: fromTarget?.id ?? null, toId: toTarget?.id ?? null, from: rawFrom, to: rawTo },
+          session.snapshot.elements,
+        )
+        if (Math.hypot(resolved.to.x - resolved.from.x, resolved.to.y - resolved.from.y) < 4) break
+        applyElements([...session.snapshot.elements, resolved], session.snapshot)
+        setSelectedIds([resolved.id])
         break
       }
       case 'marquee': {
@@ -553,6 +613,9 @@ export default function WhiteboardCanvas({
         break
       }
     }
+    // 无论哪种交互，抬起指针都清掉草稿与吸附高亮
+    setDraft(null)
+    setAttachHighlightIds([])
   }
 
   const handleDoubleClick = (event: ReactMouseEvent<SVGSVGElement>) => {
@@ -565,7 +628,7 @@ export default function WhiteboardCanvas({
       return
     }
     const created = fitTextElement(createText(snapValue(world.x, snap), snapValue(world.y, snap), style))
-    applyElements([...sceneRef.current.elements, created], sceneRef.current)
+    applyElements([...appliedRef.current.elements, created], appliedRef.current)
     setSelectedIds([created.id])
     setEditingId(created.id)
   }
@@ -579,7 +642,7 @@ export default function WhiteboardCanvas({
       const rect = container.getBoundingClientRect()
       const pointerX = event.clientX - rect.left
       const pointerY = event.clientY - rect.top
-      const current = sceneRef.current.viewport
+      const current = appliedRef.current.viewport
       if (event.shiftKey) {
         applyViewport({ ...current, x: current.x - event.deltaY })
         return
@@ -626,32 +689,32 @@ export default function WhiteboardCanvas({
     return {
       deleteSelection() {
         if (ids.size === 0) return
-        applyElements(sceneRef.current.elements.filter((element) => !ids.has(element.id)), sceneRef.current)
+        applyElements(appliedRef.current.elements.filter((element) => !ids.has(element.id)), appliedRef.current)
         setSelectedIds([])
       },
       duplicateSelection() {
-        const clones = sceneRef.current.elements
+        const clones = appliedRef.current.elements
           .filter((element) => ids.has(element.id))
           .map((element) => ({ ...element, id: `${element.id}-copy-${Date.now().toString(36)}` }))
         if (clones.length === 0) return
-        applyElements([...sceneRef.current.elements, ...clones], sceneRef.current)
+        applyElements([...appliedRef.current.elements, ...clones], appliedRef.current)
         setSelectedIds(clones.map((element) => element.id))
       },
       nudgeSelection(dx: number, dy: number) {
         if (ids.size === 0) return
         applyElements(
-          sceneRef.current.elements.map((element) => (ids.has(element.id) ? translateElement(element, dx, dy) : element)),
-          sceneRef.current,
+          appliedRef.current.elements.map((element) => (ids.has(element.id) ? translateElement(element, dx, dy) : element)),
+          appliedRef.current,
         )
       },
       reorderSelection(toFront: boolean) {
         if (ids.size === 0) return
-        const selected = sceneRef.current.elements.filter((element) => ids.has(element.id))
-        const rest = sceneRef.current.elements.filter((element) => !ids.has(element.id))
-        applyElements(toFront ? [...rest, ...selected] : [...selected, ...rest], sceneRef.current)
+        const selected = appliedRef.current.elements.filter((element) => ids.has(element.id))
+        const rest = appliedRef.current.elements.filter((element) => !ids.has(element.id))
+        applyElements(toFront ? [...rest, ...selected] : [...selected, ...rest], appliedRef.current)
       },
       selectAll() {
-        setSelectedIds(sceneRef.current.elements.map((element) => element.id))
+        setSelectedIds(appliedRef.current.elements.map((element) => element.id))
       },
     }
   }, [applyElements, selectedIds])
@@ -692,6 +755,45 @@ export default function WhiteboardCanvas({
       )
     })
     : null
+
+  // 连接线端点手柄：拖动即可重新吸附到方块（或拖开变成自由端点）
+  const endpointOverlay = single?.type === 'connector'
+    ? (['from', 'to'] as const).map((end) => {
+      const point = end === 'from' ? single.from : single.to
+      return (
+        <circle
+          key={end}
+          cx={point.x * viewport.zoom + viewport.x}
+          cy={point.y * viewport.zoom + viewport.y}
+          r={HANDLE_SIZE / 2}
+          fill="#ffffff"
+          stroke="#3b82f6"
+          strokeWidth={1.5}
+          style={{ cursor: 'move' }}
+        />
+      )
+    })
+    : null
+
+  // 吸附预告：正在连接 / 拖端点时，把目标方块高亮出来
+  const attachOverlay = attachHighlightIds
+    .map((id) => scene.elements.find((element) => element.id === id))
+    .filter((element): element is IWhiteboardElement => element !== undefined)
+    .map((element) => (
+      <rect
+        key={element.id}
+        x={element.x * viewport.zoom + viewport.x - 3}
+        y={element.y * viewport.zoom + viewport.y - 3}
+        width={element.width * viewport.zoom + 6}
+        height={element.height * viewport.zoom + 6}
+        rx={8}
+        fill="rgba(59,130,246,0.10)"
+        stroke="#3b82f6"
+        strokeWidth={1.5}
+        strokeDasharray="5 3"
+        style={{ pointerEvents: 'none' }}
+      />
+    ))
 
   const cursorClass = readOnly
     ? 'cursor-default text-white/[0.06]'
@@ -793,8 +895,10 @@ export default function WhiteboardCanvas({
             />
           )}
         </g>
+        {attachOverlay}
         {selectionOverlay}
         {handleOverlay}
+        {endpointOverlay}
       </svg>
       {editingOverlay}
       {labelOverlay}

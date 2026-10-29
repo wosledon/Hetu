@@ -219,9 +219,13 @@ export function hitTest(element: IWhiteboardElement, x: number, y: number): bool
     return element.points.length === 2
       && distanceToSegment(x, y, element.points[0], element.points[1], element.points[0], element.points[1]) <= threshold
   }
-  const pad = element.type === 'connector' ? Math.max(6, element.strokeWidth * 2) : 0
-  return x >= element.x - pad && x <= element.x + element.width + pad
-    && y >= element.y - pad && y <= element.y + element.height + pad
+  if (element.type === 'connector') {
+    // 连接线按线段就近判定：斜线的外接矩形很大，按矩形会把整块区域都算成线
+    const threshold = Math.max(8, element.strokeWidth * 2)
+    return distanceToSegment(x, y, element.from.x, element.from.y, element.to.x, element.to.y) <= threshold
+  }
+  return x >= element.x && x <= element.x + element.width
+    && y >= element.y && y <= element.y + element.height
 }
 
 /** 平移元素：画笔平移点序列，连接线平移两端，其余平移外接矩形 */
@@ -249,19 +253,72 @@ export function connectorAnchors(
 ): { from: { x: number; y: number }; to: { x: number; y: number } } {
   const fc = centerOf(from)
   const tc = centerOf(to)
-  return { from: rectEdgePoint(fc, tc, from), to: rectEdgePoint(tc, fc, to) }
+  return { from: borderPointToward(from, tc), to: borderPointToward(to, fc) }
 }
 
 export function centerOf(element: IWhiteboardElement): { x: number; y: number } {
   return { x: element.x + element.width / 2, y: element.y + element.height / 2 }
 }
 
-/** 中心朝 target 方向与矩形边界的交点 */
-function rectEdgePoint(
-  center: { x: number; y: number },
-  target: { x: number; y: number },
+/** 连接线端点吸附半径（世界坐标）：落在方块附近即视为连接，容忍手抖 */
+export const CONNECTOR_SNAP_RADIUS = 28
+
+/** 点到矩形的最短距离（内部为 0） */
+export function distanceToRect(element: IWhiteboardElement, x: number, y: number): number {
+  const dx = Math.max(element.x - x, 0, x - (element.x + element.width))
+  const dy = Math.max(element.y - y, 0, y - (element.y + element.height))
+  return Math.hypot(dx, dy)
+}
+
+/**
+ * 查找可吸附的目标元素：先精确命中，否则取「连接吸附距离」内的最近一个。
+ * 距离只朝 toward 方向放宽（正在连的另一端），避免误吸到旁边无关的元素。
+ */
+export function findAttachTarget(
+  elements: IWhiteboardElement[],
+  x: number,
+  y: number,
+  toward?: { x: number; y: number },
+): IWhiteboardElement | null {
+  for (let i = elements.length - 1; i >= 0; i -= 1) {
+    const element = elements[i]
+    if (element.type !== 'connector' && hitTest(element, x, y)) return element
+  }
+  let best: IWhiteboardElement | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (let i = elements.length - 1; i >= 0; i -= 1) {
+    const element = elements[i]
+    if (element.type === 'connector') continue
+    const distance = attachDistance(element, x, y, toward)
+    if (distance <= CONNECTOR_SNAP_RADIUS && distance < bestDistance) {
+      best = element
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
+/** 连接吸附距离：朝 toward 一侧放宽半径，其余方向仍按矩形距离 */
+function attachDistance(
   element: IWhiteboardElement,
-): { x: number; y: number } {
+  x: number,
+  y: number,
+  toward?: { x: number; y: number },
+): number {
+  if (!toward) return distanceToRect(element, x, y)
+  const center = centerOf(element)
+  const left = element.x - (toward.x < center.x ? CONNECTOR_SNAP_RADIUS : 0)
+  const right = element.x + element.width + (toward.x > center.x ? CONNECTOR_SNAP_RADIUS : 0)
+  const top = element.y - (toward.y < center.y ? CONNECTOR_SNAP_RADIUS : 0)
+  const bottom = element.y + element.height + (toward.y > center.y ? CONNECTOR_SNAP_RADIUS : 0)
+  const dx = Math.max(left - x, 0, x - right)
+  const dy = Math.max(top - y, 0, y - bottom)
+  return Math.hypot(dx, dy)
+}
+
+/** 元素边界上朝目标点一侧的交点（连接线端点吸附用） */
+export function borderPointToward(element: IWhiteboardElement, target: { x: number; y: number }): { x: number; y: number } {
+  const center = centerOf(element)
   const dx = target.x - center.x
   const dy = target.y - center.y
   if (dx === 0 && dy === 0) return center
@@ -271,17 +328,29 @@ function rectEdgePoint(
   return { x: center.x + dx * scale, y: center.y + dy * scale }
 }
 
+/**
+ * 重算连接线两端：两端都吸到元素时取边界交点，只吸一端时该端朝另一端收，
+ * 都没吸时保持自由端点。元素移动、端点拖拽后都走这里。
+ */
+export function resolveConnectorEnds(
+  connector: IWhiteboardConnector,
+  elements: IWhiteboardElement[],
+): IWhiteboardConnector {
+  const byId = new Map(elements.map((element) => [element.id, element]))
+  const from = connector.fromId ? byId.get(connector.fromId) ?? null : null
+  const to = connector.toId ? byId.get(connector.toId) ?? null : null
+  if (from && to) {
+    const anchors = connectorAnchors(from, to)
+    return withConnectorBounds({ ...connector, from: anchors.from, to: anchors.to })
+  }
+  if (from) return withConnectorBounds({ ...connector, from: borderPointToward(from, connector.to) })
+  if (to) return withConnectorBounds({ ...connector, to: borderPointToward(to, connector.from) })
+  return withConnectorBounds(connector)
+}
+
 /** 元素移动后刷新所有吸附到它的连接线端点 */
 export function refreshConnectors(elements: IWhiteboardElement[]): IWhiteboardElement[] {
-  const byId = new Map(elements.map((el) => [el.id, el]))
-  return elements.map((element) => {
-    if (element.type !== 'connector') return element
-    const from = element.fromId ? byId.get(element.fromId) : null
-    const to = element.toId ? byId.get(element.toId) : null
-    if (!from || !to) return element
-    const anchors = connectorAnchors(from, to)
-    return withConnectorBounds({ ...element, from: anchors.from, to: anchors.to })
-  })
+  return elements.map((element) => (element.type === 'connector' ? resolveConnectorEnds(element, elements) : element))
 }
 
 export function unionBounds(elements: IWhiteboardElement[]): IWhiteboardBounds | null {
@@ -339,8 +408,7 @@ export function fitTextElement(element: IWhiteboardText): IWhiteboardText {
   return { ...element, width, height: Math.round(element.fontSize * 1.5 * lines.length) }
 }
 
-/** 按可用宽度逐字换行（中英文混排均可），空行保留 */
-export function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
+/** 按可用宽度逐字换行（中英文混排均可），空行保留 */export function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
   const lines: string[] = []
   for (const paragraph of text.split('\n')) {
     if (paragraph.length === 0) {

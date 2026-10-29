@@ -80,7 +80,7 @@
           <tr><td>菱形</td><td><code>D</code></td><td>拖拽画出菱形（判断 / 分支）</td></tr>
           <tr><td>文本</td><td><code>T</code></td><td>点击放置文本，立即进入编辑；双击已有元素也可编辑文字</td></tr>
           <tr><td>画笔</td><td><code>P</code></td><td>自由手绘折线，适合批注与草图</td></tr>
-          <tr><td>连接线</td><td><code>L</code></td><td>从一个元素拖到另一个元素，端点自动吸附到边界并带箭头；双击可加标签</td></tr>
+          <tr><td>连接线</td><td><code>L</code></td><td>从一个元素拖到另一个元素：端点没对准也会自动吸附（朝另一端方向约 28px 容差），拖动时目标方块会高亮预告；双击可加标签</td></tr>
           <tr><td>橡皮</td><td><code>E</code></td><td>点击元素即删除</td></tr>
         </tbody>
       </table></div>
@@ -99,7 +99,7 @@
           <tr><td>全选</td><td><code>Ctrl</code> + <code>A</code></td></tr>
         </tbody>
       </table></div>
-      <p>形状里的文字会自动换行并居中；连接线会跟着两端元素移动，不需要手工重新拉线。</p>
+      <p>形状里的文字会自动换行并居中；连接线会跟着两端元素移动，不需要手工重新拉线。选中连接线后两端各有一个圆点手柄，拖圆点可以重新吸附到方块，拖到空白处则变回自由端点。</p>
 
       <h2>视图与导出</h2>
       <div class="table-wrap"><table>
