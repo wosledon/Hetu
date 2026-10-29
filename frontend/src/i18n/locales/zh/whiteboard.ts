@@ -50,4 +50,9 @@ export default {
   switchBoard: '切换画板',
   prevBoard: '上一张',
   nextBoard: '下一张',
+  autoLayout: '自动布局',
+  autoLayoutTitle: '按连接关系重排图形（手绘批注保持原位）',
+  layoutDirection: '布局方向',
+  layoutLR: '横向',
+  layoutTB: '纵向',
 }

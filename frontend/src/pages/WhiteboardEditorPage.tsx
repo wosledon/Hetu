@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,7 +12,8 @@ import type {
   IWhiteboardElement, IWhiteboardScene, IWhiteboardStyle, WhiteboardCanvasHandle, WhiteboardTool,
 } from '../types/whiteboard'
 import {
-  DEFAULT_STYLE, EMPTY_SCENE, applyStyleToElement, exportPng, exportSvg, fitViewport, parseScene, serializeScene,
+  DEFAULT_STYLE, EMPTY_SCENE, applyStyleToElement, exportPng, exportSvg, fitViewport, layoutElements,
+  parseScene, refreshConnectors, serializeScene, type AutoLayoutDirection,
 } from '../utils/whiteboard'
 import { Button, PageContainer } from '../components/ui'
 
@@ -191,6 +192,21 @@ export default function WhiteboardEditorPage() {
     }
   }
 
+  /* ── 自动布局：按连接关系重排图形，再适应视图 ── */
+
+  const [layoutDirection, setLayoutDirection] = useState<AutoLayoutDirection>('LR')
+
+  const handleAutoLayout = useCallback(() => {
+    const { width, height } = stageSize()
+    const elements = refreshConnectors(layoutElements(scene.elements, { direction: layoutDirection }))
+    applyScene({ elements, viewport: fitViewport(elements, width, height) }, scene)
+  }, [applyScene, scene, layoutDirection])
+
+  const canAutoLayout = useMemo(
+    () => scene.elements.some((element) => element.type === 'connector' && element.fromId && element.toId),
+    [scene.elements],
+  )
+
   /* ── 快捷键 ── */
 
   useEffect(() => {
@@ -333,6 +349,10 @@ export default function WhiteboardEditorPage() {
             onPresent={() => setPresenting(true)}
             saveState={saveState}
             hasSelection={selection.length > 0}
+            layoutDirection={layoutDirection}
+            onLayoutDirectionChange={setLayoutDirection}
+            onAutoLayout={handleAutoLayout}
+            canAutoLayout={canAutoLayout}
           />
 
           <div ref={stageRef} className="min-h-0 min-w-0 flex-1">

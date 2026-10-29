@@ -1,3 +1,4 @@
+import dagre from 'dagre'
 import type {
   IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen,
   IWhiteboardScene, IWhiteboardShape, IWhiteboardStyle, IWhiteboardText, IWhiteboardViewport,
@@ -204,8 +205,71 @@ export function applyStyleToElement(element: IWhiteboardElement, style: IWhitebo
   if (element.type === 'connector')
     return { ...element, stroke: style.stroke, fill: style.stroke, strokeWidth: style.strokeWidth, fontSize: style.fontSize }
   if (element.type === 'text')
-    return { ...element, stroke: style.stroke, fill: style.stroke, strokeWidth: style.strokeWidth, fontSize: style.fontSize }
+    return fitTextElement({ ...element, stroke: style.stroke, fill: style.stroke, strokeWidth: style.strokeWidth, fontSize: style.fontSize })
   return { ...element, stroke: style.stroke, fill: style.fill, strokeWidth: style.strokeWidth, fontSize: style.fontSize }
+}
+
+/* ── 自动布局：按连接关系排布图形节点（dagre） ── */
+
+export type AutoLayoutDirection = 'LR' | 'TB'
+
+export interface AutoLayoutOptions {
+  direction: AutoLayoutDirection
+  /** 同层节点间距 */
+  nodeSep?: number
+  /** 层间距 */
+  rankSep?: number
+}
+
+/**
+ * 自动布局：形状 / 文本按连接线关系重新排布，连接线端点自动跟随。
+ * 画笔（手绘批注）保持原位，避免布局把涂鸦也搬走。
+ */
+export function layoutElements(
+  elements: IWhiteboardElement[],
+  options: AutoLayoutOptions,
+): IWhiteboardElement[] {
+  const nodes = elements.filter((element) => element.type !== 'connector' && element.type !== 'pen')
+  if (nodes.length < 2) return elements
+
+  const graph = new dagre.graphlib.Graph()
+  graph.setGraph({
+    rankdir: options.direction,
+    nodesep: options.nodeSep ?? 48,
+    ranksep: options.rankSep ?? 80,
+    marginx: 0,
+    marginy: 0,
+  })
+  graph.setDefaultEdgeLabel(() => ({}))
+
+  const nodeIds = new Set(nodes.map((element) => element.id))
+  for (const node of nodes) {
+    graph.setNode(node.id, { width: Math.max(node.width, 1), height: Math.max(node.height, 1) })
+  }
+  let edgeCount = 0
+  for (const element of elements) {
+    if (element.type !== 'connector') continue
+    if (element.fromId && element.toId && nodeIds.has(element.fromId) && nodeIds.has(element.toId)) {
+      graph.setEdge(element.fromId, element.toId)
+      edgeCount += 1
+    }
+  }
+  // 没有任何连接关系时不布局：避免把用户摆好的散图打乱
+  if (edgeCount === 0) return elements
+
+  dagre.layout(graph)
+
+  const moved = new Map<string, { x: number; y: number }>()
+  for (const node of nodes) {
+    const position = graph.node(node.id)
+    if (!position) continue
+    moved.set(node.id, { x: position.x - node.width / 2, y: position.y - node.height / 2 })
+  }
+
+  return elements.map((element) => {
+    const position = moved.get(element.id)
+    return position ? { ...element, ...position } : element
+  })
 }
 
 /** 命中测试：所有元素都按外接矩形判定（画笔同样适用） */

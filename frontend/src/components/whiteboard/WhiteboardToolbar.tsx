@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowUpRight, Circle, Copy, Diamond, Download, Eraser, Focus, Grid3x3, Hand, Image, Maximize,
-  MousePointer2, PenLine, Redo2, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut,
+  Circle, Copy, Diamond, Download, Eraser, Focus, Grid3x3, Hand, Image, LayoutGrid, Maximize,
+  MousePointer2, MoveUpRight, PenLine, Redo2, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import type { IWhiteboardStyle, WhiteboardTool } from '../../types/whiteboard'
-import { FILL_COLORS, STROKE_COLORS } from '../../utils/whiteboard'
+import { FILL_COLORS, STROKE_COLORS, type AutoLayoutDirection } from '../../utils/whiteboard'
 import { Button, IconButton } from '../ui'
 
 const STROKE_WIDTHS = [1, 2, 4, 6]
@@ -18,7 +18,7 @@ const TOOLS: { tool: WhiteboardTool; labelKey: string; icon: typeof Square }[] =
   { tool: 'diamond', labelKey: 'toolDiamond', icon: Diamond },
   { tool: 'text', labelKey: 'toolText', icon: Type },
   { tool: 'pen', labelKey: 'toolPen', icon: PenLine },
-  { tool: 'connector', labelKey: 'toolConnector', icon: ArrowUpRight },
+  { tool: 'connector', labelKey: 'toolConnector', icon: MoveUpRight },
   { tool: 'eraser', labelKey: 'toolEraser', icon: Eraser },
 ]
 
@@ -47,6 +47,10 @@ interface WhiteboardToolbarProps {
   onPresent: () => void
   saveState: WhiteboardSaveState
   hasSelection: boolean
+  layoutDirection: AutoLayoutDirection
+  onLayoutDirectionChange: (direction: AutoLayoutDirection) => void
+  onAutoLayout: () => void
+  canAutoLayout: boolean
 }
 
 /** 白板工具栏：工具 / 样式 / 视图 / 历史 / 导出 / 演示 */
@@ -55,6 +59,7 @@ export default function WhiteboardToolbar({
   zoom, onZoomIn, onZoomOut, onZoomReset, onZoomFit,
   canUndo, canRedo, onUndo, onRedo, onDelete, onDuplicate,
   onExportPng, onExportSvg, onPresent, saveState, hasSelection,
+  layoutDirection, onLayoutDirectionChange, onAutoLayout, canAutoLayout,
 }: WhiteboardToolbarProps) {
   const { t } = useTranslation('whiteboard')
 
@@ -174,6 +179,24 @@ export default function WhiteboardToolbar({
             <option key={size} value={size}>{size}px</option>
           ))}
         </select>
+      </div>
+
+      <span className="mx-1 h-5 w-px bg-gray-200 dark:bg-white/10" />
+
+      <div className="flex items-center gap-1" title={t('autoLayoutTitle')}>
+        <select
+          aria-label={t('layoutDirection')}
+          title={t('layoutDirection')}
+          value={layoutDirection}
+          onChange={(event) => onLayoutDirectionChange(event.target.value as AutoLayoutDirection)}
+          className="rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5 text-xs text-gray-600 outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+        >
+          <option value="LR">{t('layoutLR')}</option>
+          <option value="TB">{t('layoutTB')}</option>
+        </select>
+        <Button variant="secondary" size="sm" className="gap-1.5" disabled={!canAutoLayout} onClick={onAutoLayout}>
+          <LayoutGrid size={14} /> {t('autoLayout')}
+        </Button>
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">

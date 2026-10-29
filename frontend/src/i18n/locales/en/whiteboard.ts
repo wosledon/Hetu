@@ -50,4 +50,9 @@ export default {
   switchBoard: 'Switch board',
   prevBoard: 'Previous',
   nextBoard: 'Next',
+  autoLayout: 'Auto layout',
+  autoLayoutTitle: 'Rearrange shapes by their connections (freehand stays put)',
+  layoutDirection: 'Layout direction',
+  layoutLR: 'Horizontal',
+  layoutTB: 'Vertical',
 }

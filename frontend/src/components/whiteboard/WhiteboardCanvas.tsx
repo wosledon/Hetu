@@ -261,6 +261,8 @@ export default function WhiteboardCanvas({
 
   const sessionRef = useRef<DragSession | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const labelInputRef = useRef<HTMLInputElement | null>(null)
   // 最近一次提交给父级的场景：连续指针事件可能在同一帧里到来，
   // props 要等 effect 才更新，交互中一律读这份，避免拖动被回退
   const appliedRef = useRef<IWhiteboardScene>(scene)
@@ -387,6 +389,8 @@ export default function WhiteboardCanvas({
     }
 
     if (tool === 'text') {
+      // 阻止指针按下的默认行为：否则浏览器会把焦点挪回 body，autoFocus 被覆盖后打字不进文本域
+      event.preventDefault()
       const created = fitTextElement(createText(snapValue(world.x, snap), snapValue(world.y, snap), style))
       applyElements([...snapshot.elements, created], snapshot)
       setSelectedIds([created.id])
@@ -774,7 +778,8 @@ export default function WhiteboardCanvas({
   ))
 
   const single = selectedElements.length === 1 ? selectedElements[0] : null
-  const handleOverlay = single && single.type !== 'pen' && single.type !== 'connector'
+  // 文本元素按内容自动定尺，没有可拖的缩放手柄（避免拖了又弹回）
+  const handleOverlay = single && single.type !== 'pen' && single.type !== 'connector' && single.type !== 'text'
     ? HANDLES.map((handle) => {
       const point = handlePoint(single, handle)
       return (
@@ -844,10 +849,21 @@ export default function WhiteboardCanvas({
     ? editingElement
     : null
 
+  // 编辑浮层聚焦放在 effect 里：指针按下时浏览器会把焦点抢回 body，
+  // 挂在元素上的 autoFocus 会被覆盖，表现为「文本框出来了但打字没反应」
+  useEffect(() => {
+    if (!editingId) return
+    const node = editingElement?.type === 'connector' ? labelInputRef.current : textareaRef.current
+    if (!node) return
+    node.focus()
+    const length = node.value.length
+    node.setSelectionRange(length, length)
+  }, [editingId, editingElement?.type])
+
   const editingOverlay = editingField
     ? (
       <textarea
-        autoFocus
+        ref={textareaRef}
         value={editingText}
         onChange={(event) => updateEditingText(event.target.value)}
         onBlur={() => closeEditing(editingText)}
@@ -876,7 +892,7 @@ export default function WhiteboardCanvas({
       const midY = (editingElement.from.y + editingElement.to.y) / 2
       return (
         <input
-          autoFocus
+          ref={labelInputRef}
           defaultValue={editingElement.label}
           onBlur={(event) => closeEditing(event.target.value)}
           onKeyDown={(event) => {
