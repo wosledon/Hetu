@@ -276,5 +276,10 @@
   "workSession.worktreeNotRepo": "This project is not a git repository, so a worktree cannot be created.",
   "workSession.worktreeCreateFailed": "Failed to create the worktree.",
   "workSession.worktreeProjectMissing": "The project directory does not exist, so a worktree cannot be created.",
-  "workSession.worktreeLocalOnly": "Isolated worktrees are supported for local projects only; work directly in the project directory for SSH projects."
+  "workSession.worktreeLocalOnly": "Isolated worktrees are supported for local projects only; work directly in the project directory for SSH projects.",
+  "whiteboard.notFound": "Whiteboard not found",
+  "whiteboard.nameRequired": "Whiteboard name is required",
+  "whiteboard.nameTooLong": "Whiteboard name cannot exceed {0} characters",
+  "whiteboard.sceneInvalid": "Invalid whiteboard scene data",
+  "whiteboard.sceneTooLarge": "Whiteboard scene data is too large"
 }

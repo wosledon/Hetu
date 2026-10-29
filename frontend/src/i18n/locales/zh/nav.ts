@@ -11,6 +11,7 @@ export default {
   tools: '工具',
   knowledgeBase: '知识库',
   graph: '知识图谱',
+  whiteboard: '白板',
   tasksBackground: '后台任务',
   tasksScheduled: '定时任务',
   memories: '记忆',

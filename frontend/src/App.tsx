@@ -17,6 +17,8 @@ const TagsPage = lazy(() => import('./pages/TagsPage'))
 const TrashPage = lazy(() => import('./pages/TrashPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphPage = lazy(() => import('./pages/GraphPage'))
+const WhiteboardPage = lazy(() => import('./pages/WhiteboardPage'))
+const WhiteboardEditorPage = lazy(() => import('./pages/WhiteboardEditorPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const SkillsPage = lazy(() => import('./pages/SkillsPage'))
 const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage'))
@@ -188,6 +190,8 @@ function App() {
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         <Route path="/graph" element={<GraphPage />} />
+        <Route path="/whiteboard" element={<WhiteboardPage />} />
+        <Route path="/whiteboard/:id" element={<WhiteboardEditorPage />} />
         <Route path="/tasks" element={<Navigate to="/tasks/background" replace />} />
         <Route path="/tasks/background" element={<TasksPage mode="background" />} />
         <Route path="/tasks/scheduled" element={<TasksPage mode="scheduled" />} />

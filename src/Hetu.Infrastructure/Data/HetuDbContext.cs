@@ -54,6 +54,7 @@ public class HetuDbContext : DbContext
     public DbSet<WikiDocument> WikiDocuments => Set<WikiDocument>();
     public DbSet<WikiGenerationJob> WikiGenerationJobs => Set<WikiGenerationJob>();
     public DbSet<LlmUsageLog> LlmUsageLogs => Set<LlmUsageLog>();
+    public DbSet<Whiteboard> Whiteboards => Set<Whiteboard>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

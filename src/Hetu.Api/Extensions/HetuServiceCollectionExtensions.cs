@@ -141,6 +141,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IPromptPresetService, PromptPresetService>();
         services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();
         services.AddScoped<IMcpService, McpService>();
+        services.AddScoped<IWhiteboardService, WhiteboardService>();
 
         AddChatServices(services);
         AddProxyServices(services);
