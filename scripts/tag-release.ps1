@@ -7,6 +7,13 @@
   读取 shell/hetu-desktop/src-tauri/tauri.conf.json 的 version，
   自动创建带 v 前缀的 tag 并 push 到 origin。
 
+  注意：官网文档（docs/**/*.html）里 `data-latest-version` 的静态兜底文案
+  不会自动跟着版本走，发新版时要一起改，否则 GitHub API 取不到（限流 /
+  离线 / 广告插件）时会显示旧版本号：
+    (Get-ChildItem docs -Recurse -Filter *.html) | ForEach-Object {
+      (Get-Content $_ -Raw) -replace 'v\d+\.\d+\.\d+', "v$target" | Set-Content -NoNewline -Encoding utf8 $_
+    }
+
 .EXAMPLE
   ./scripts/tag-release.ps1                # 用 tauri.conf.json 里的版本
   ./scripts/tag-release.ps1 -Version 0.2.0 # 指定版本
