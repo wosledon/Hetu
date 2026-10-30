@@ -42,6 +42,15 @@ const verticalNavItemClass = (isActive: boolean) =>
 const railTrackClass =
   'w-14 shrink-0 flex-col gap-0.5 rounded-xl'
 
+/**
+ * 垂直列表（非胶囊）导航项样式：图标与标题一行左对齐，选中态为浅色底块。
+ * 不用 SlidingPill，滑块那一套只服务胶囊排布。
+ */
+const verticalListItemClass = (isActive: boolean) =>
+  isActive
+    ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
+    : 'text-gray-500 hover:bg-gray-100/80 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200'
+
 /** 导轨紧凑态上次判定（模块级，跨路由重挂载存活）：首帧即用对的样子，避免展开→收起闪烁 */
 let lastRailCompact = false
 
@@ -73,6 +82,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const lastMoreItem = useUIStore((state) => state.lastMoreItem)
   const setLastMoreItem = useUIStore((state) => state.setLastMoreItem)
   const navStyle = useUIStore((state) => state.navStyle)
+  const isVerticalList = navStyle === 'verticalList'
   const [moreOpen, setMoreOpen] = useState(false)
   const [moreMenuPos, setMoreMenuPos] = useState<{ top: number; left: number } | null>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
@@ -92,7 +102,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     [dynamicNavPaths, pinnedSet],
   )
 
-  const isVertical = navStyle === 'vertical'
+  const isVertical = navStyle === 'vertical' || isVerticalList
   // 非垂直导航固定平铺：用派生值代替「在 effect 里同步 setState 复位」
   const railCompactActive = isVertical && railCompact
 
@@ -160,6 +170,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   }
 
   // 垂直胶囊：图标 + 小字标签，纵向堆叠于最左侧
+  // 垂直列表：图标 + 标题同一行，左对齐铺满导轨
   const renderVerticalNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
     const Icon = item.icon
     const label = t(item.labelKey)
@@ -171,9 +182,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         title={label}
         data-rail-item=""
         data-pill-key={item.path}
-        className={`relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`}
+        className={
+          isVerticalList
+            ? `relative flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(isActive)}`
+            : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`
+        }
       >
-        <Icon size={18} />
+        <Icon size={isVerticalList ? 16 : 18} />
         <span className="max-w-full truncate">{label}</span>
         {item.path === '/inbox' && <NavUnreadBadge />}
       </button>
@@ -246,69 +261,110 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const railExpanded = !railCompactActive
 
+  /** 垂直导航分组容器：胶囊态套 SlidingPill 滑块，列表态就是普通纵向排列 */
+  const railTrack = (trackId: string, children: ReactNode) =>
+    isVerticalList ? (
+      <div className="flex w-full shrink-0 flex-col gap-0.5">{children}</div>
+    ) : (
+      <SlidingPill
+        value={location.pathname}
+        orientation="vertical"
+        trackId={trackId}
+        className={railTrackClass}
+        pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10"
+      >
+        {children}
+      </SlidingPill>
+    )
+
+  const railDividerClass = isVerticalList
+    ? 'my-1.5 h-px w-full bg-gray-200 dark:bg-white/10'
+    : 'my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10'
+
   const verticalRail = (
-    <nav className="flex w-16 shrink-0 flex-col">
+    <nav className={`flex shrink-0 flex-col ${isVerticalList ? 'w-52' : 'w-16'}`}>
       {/* 导轨滚动条必须隐藏：占位会吃掉 64px 内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），
           且内容跨过溢出阈值时滚动条出现/消失会让整条轨道左右跳。滚轮滚动仍可用。
           材质沿用 --glass-nav-bg（Card 默认 glass-soft 太透，浅色画布上整条导轨会看不见）。 */}
       <Card
         ref={railRef}
         padded={false}
-        className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [border-right-color:rgba(0,0,0,0.05)] dark:[border-right-color:rgba(255,255,255,0.05)] [--glass-bg:var(--glass-nav-bg)]"
+        className={`flex min-h-0 w-full flex-1 flex-col gap-1.5 overflow-y-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [border-right-color:rgba(0,0,0,0.05)] dark:[border-right-color:rgba(255,255,255,0.05)] [--glass-bg:var(--glass-nav-bg)] ${isVerticalList ? 'items-stretch px-2' : 'items-center'}`}
       >
-      <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
-        <BrandMark size={34} />
-      </IconButton>
-      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-main" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-        {fixedItems.map(renderVerticalNavButton)}
+      {isVerticalList ? (
+        <button
+          onClick={() => navigate('/')}
+          title={appName}
+          className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
+        >
+          <BrandMark size={30} />
+          <span className="truncate text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
+        </button>
+      ) : (
+        <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
+          <BrandMark size={34} />
+        </IconButton>
+      )}
+      {railTrack('rail-main', (
+        <>
+          {fixedItems.map(renderVerticalNavButton)}
 
-        {/* 与水平导航一致：固定项与动态项合轨，中间一条分隔线 */}
-        {(railExpanded || pinnedItems.length > 0 || lastMoreItemData || unpinnedItems.length > 0) && (
-          <div className="my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10" />
-        )}
+          {/* 与水平导航一致：固定项与动态项合轨，中间一条分隔线 */}
+          {(railExpanded || pinnedItems.length > 0 || lastMoreItemData || unpinnedItems.length > 0) && (
+            <div className={railDividerClass} />
+          )}
 
-        {railExpanded
-          ? resolveNavItems(dynamicNavPaths).map(renderVerticalNavButton)
-          : pinnedItems.map(renderVerticalNavButton)}
+          {railExpanded
+            ? resolveNavItems(dynamicNavPaths).map(renderVerticalNavButton)
+            : pinnedItems.map(renderVerticalNavButton)}
 
-        {!railExpanded && lastMoreItemData && renderVerticalNavButton(lastMoreItemData)}
+          {!railExpanded && lastMoreItemData && renderVerticalNavButton(lastMoreItemData)}
 
-        {!railExpanded && unpinnedItems.length > 0 && (
-          <button
-            ref={moreBtnRef}
-            onClick={openMoreMenu}
-            title={t('nav:more')}
-            data-rail-item=""
-            className={`flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(moreOpen)}`}
-          >
-            <ChevronDown size={18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-            {t('nav:more')}
-          </button>
-        )}
-      </SlidingPill>
+          {!railExpanded && unpinnedItems.length > 0 && (
+            <button
+              ref={moreBtnRef}
+              onClick={openMoreMenu}
+              title={t('nav:more')}
+              data-rail-item=""
+              className={
+                isVerticalList
+                  ? `flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(moreOpen)}`
+                  : `flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(moreOpen)}`
+              }
+            >
+              <ChevronDown size={isVerticalList ? 16 : 18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
+              <span className="max-w-full truncate">{t('nav:more')}</span>
+            </button>
+          )}
+        </>
+      ))}
 
-      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-secondary" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-        {secondaryNavItems.map(renderVerticalNavButton)}
-      </SlidingPill>
+      {railTrack('rail-secondary', secondaryNavItems.map(renderVerticalNavButton))}
 
       <div className="flex-1" data-rail-spacer="" />
 
-      <SlidingPill value={location.pathname} orientation="vertical" trackId="rail-bottom" className={railTrackClass} pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
-        <GithubEntry variant="rail" />
+      {railTrack('rail-bottom', (
+        <>
+          <GithubEntry variant={isVerticalList ? 'railList' : 'rail'} />
 
-        <button
-          onClick={() => navigate('/settings')}
-          title={t('nav:settings')}
-          data-rail-item=""
-          data-pill-key="/settings"
-          className={`relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`}
-        >
-          <Settings size={18} />
-          {t('nav:settings')}
-        </button>
+          <button
+            onClick={() => navigate('/settings')}
+            title={t('nav:settings')}
+            data-rail-item=""
+            data-pill-key="/settings"
+            className={
+              isVerticalList
+                ? `relative flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(location.pathname === '/settings')}`
+                : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`
+            }
+          >
+            <Settings size={isVerticalList ? 16 : 18} />
+            <span className="max-w-full truncate">{t('nav:settings')}</span>
+          </button>
 
-        <VersionEntry variant="rail" />
-      </SlidingPill>
+          <VersionEntry variant={isVerticalList ? 'railList' : 'rail'} />
+        </>
+      ))}
       </Card>
     </nav>
   )
