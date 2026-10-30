@@ -707,7 +707,7 @@ export default function WikiPage() {
 
           {/* 内容区：有选中文档就渲染，与是否按项目过滤无关 */}
           {selectedDoc ? (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white glass dark:bg-gray-900">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <article className="mx-auto max-w-4xl px-8 py-6">
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">

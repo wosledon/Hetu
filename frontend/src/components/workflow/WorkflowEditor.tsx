@@ -166,7 +166,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
   return (
     <div className="flex h-full flex-1 flex-col">
       {/* 工具栏 */}
-      <div className="flex items-center gap-2 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+      <div className="flex items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-white/[0.08]">
         <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={onBack}>
           <ChevronLeft size={16} /> {t('common:back')}
         </Button>
