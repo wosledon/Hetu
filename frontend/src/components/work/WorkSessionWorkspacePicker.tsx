@@ -66,6 +66,8 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
   const useWorktree = created || !!session.useWorktree
   const currentBranch = branchInfo?.current
   const baseBranch = session.baseBranch ?? currentBranch
+  // 当前分支模式下显示的分支：草稿会话还没检出，显示待选分支；已落库会话选完即检出，以仓库实际分支为准
+  const currentModeBranch = isDraft ? baseBranch : currentBranch
   const busy = apply.isPending
 
   const triggerClass = (active: boolean, worktree = false) =>
@@ -97,7 +99,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' })
                 : useWorktree
                   ? unsupportedHint ?? t('workspace.newWorktreeTitle')
-                  : t('workspace.currentBranchTitle', { branch: currentBranch ?? '…' })
+                  : t('workspace.currentBranchTitle', { branch: currentModeBranch ?? '…' })
             }
             className={triggerClass(useWorktree, useWorktree)}
           >
@@ -111,7 +113,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           {menu === 'mode' && (
             <div className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
               <button
-                onClick={() => apply.mutate({ useWorktree: false })}
+                onClick={() => apply.mutate({ useWorktree: false, baseBranch: currentBranch })}
                 disabled={busy || !useWorktree}
                 className={itemClass(!useWorktree)}
               >
@@ -160,7 +162,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
             {branchesFetching && !branchInfo
               ? <Loader2 size={11} className="shrink-0 animate-spin" />
               : <GitBranch size={11} className="shrink-0 opacity-80" />}
-            <span className="truncate">{created ? session.branch : useWorktree ? baseBranch ?? '—' : currentBranch ?? '—'}</span>
+            <span className="truncate">{created ? session.branch : useWorktree ? baseBranch ?? '—' : currentModeBranch ?? '—'}</span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
           </button>
 
@@ -171,7 +173,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
               </p>
               <div className="max-h-56 overflow-auto">
                 {(branchInfo?.branches ?? []).map((branch) => {
-                  const active = useWorktree ? session.baseBranch === branch : branch === currentBranch
+                  const active = useWorktree ? session.baseBranch === branch : branch === currentModeBranch
                   return (
                     <button
                       key={branch}
@@ -196,7 +198,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                   </p>
                 )}
                 {(branchInfo?.remoteBranches ?? []).map((branch) => {
-                  const active = useWorktree && session.baseBranch === branch
+                  const active = branch === (useWorktree ? session.baseBranch : currentModeBranch)
                   return (
                     <button
                       key={branch}

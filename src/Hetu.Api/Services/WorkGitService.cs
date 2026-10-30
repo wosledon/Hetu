@@ -135,17 +135,25 @@ public class WorkGitService
         // 一次连接拿当前分支 + 本地分支 + 远程分支：SSH 每开一条连接就是一次完整握手，
         // 拆成三条串行发既慢又把链路抖动的暴露面放大三倍（分支下拉假死多半发生在中招的那条上）。
         // rev-parse 而非 for-each-ref --format=%(...)：本地命令经 PowerShell 执行，%() 会被解析
+        // echo 的标记必须加引号：PowerShell 把裸的 "--" 当作「参数结束」，echo -- hetu section -- 会被拆成
+        // 三行输出，标记再也匹配不上——分支列表全空、当前分支变成把整套分支名吞进去的一坨
         var script = string.Join("; ", new[]
         {
             "git rev-parse --abbrev-ref HEAD",
-            $"echo {BranchSectionMarker}",
+            $"echo \"{BranchSectionMarker}\"",
             "git rev-parse --symbolic --branches",
-            $"echo {BranchSectionMarker}",
+            $"echo \"{BranchSectionMarker}\"",
             "git rev-parse --symbolic --remotes",
         });
         var result = await RunGitReadAsync(runner, script, cancellationToken);
         var sections = result.StdOut.Split(BranchSectionMarker);
-        var current = sections.Length > 0 ? sections[0].Trim() : string.Empty;
+        if (sections.Length < 3)
+        {
+            // 标记没对上（输出被 shell 改写 / 截断）：按读取失败处理，别让 sections[0] 吞掉所有分支名
+            dto.Error = FirstMeaningfulLine(result.StdErr) ?? _localizer.T("work.branchReadFailed");
+            return dto;
+        }
+        var current = sections[0].Trim();
         if (current.Length == 0)
         {
             // SSH 认证失败 / 不是 git 仓库 / git 不可用：把真实原因带回前端，别让界面只说「不是 git 仓库」
