@@ -121,7 +121,8 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
         type: 'heatmap',
         data: seriesData,
         label: { show: false },
-        itemStyle: { borderColor: isDark ? '#0c0f1a' : '#fff', borderWidth: 2, borderRadius: 3 },
+        // 格子间隙用透明边：透出底层亚克力，边线颜色随 surface 自动一致（写死白/深色会和半透明卡片打架）
+        itemStyle: { borderColor: 'transparent', borderWidth: 2, borderRadius: 3 },
       },
     ],
   }
@@ -190,7 +191,7 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
       range: [toIso(start), toIso(today)],
       cellSize: cell,
       splitLine: { show: false },
-      itemStyle: { color: 'transparent', borderWidth: 2, borderColor: isDark ? '#0c0f1a' : '#fff' },
+      itemStyle: { color: 'transparent', borderWidth: 2, borderColor: 'transparent' },
       dayLabel: { color: textColor, fontSize: 10, nameMap: weekdays },
       monthLabel: { color: textColor, fontSize: 10, nameMap: months },
       yearLabel: { show: false },
