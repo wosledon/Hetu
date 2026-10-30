@@ -26,9 +26,10 @@ function last7Days(): string[] {
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}`)
 
 function heatColors(isDark: boolean): string[] {
+  // 最低档（无数据）用明确的淡蓝而不是接近底色的灰：格子一眼可辨，不会和卡片糊成一整块
   return isDark
-    ? ['#1e293b', '#1e3a5f', '#1d4ed8', '#3b82f6', '#60a5fa']
-    : ['#f1f5f9', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8']
+    ? ['rgba(96,165,250,0.22)', '#1e3a5f', '#2563eb', '#3b82f6', '#60a5fa']
+    : ['rgba(59,130,246,0.22)', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8']
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
