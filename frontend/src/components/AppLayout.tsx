@@ -371,8 +371,10 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   return (
     /* 整软件是一块亚克力面：材质挂在根上，内部各面板透明、仅用 1px 分隔线拼接，
-       圆角只留外框四个角（根的 rounded-2xl + overflow-hidden 裁切）。 */
-    <div className={`flex h-screen w-full overflow-hidden rounded-2xl glass text-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
+       圆角只留外框四个角（根的 rounded-2xl + overflow-hidden 裁切）。
+       材质用默认卡片的 soft 档（32% 白）才有透出画布的亚克力质感；关掉毛玻璃时
+       伪材质消失，靠根自身的 bg-white 退回纯白面板（与 Card 的降级行为一致）。 */
+    <div className={`flex h-screen w-full overflow-hidden rounded-2xl bg-white glass glass-soft text-gray-900 dark:bg-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
       {isVertical ? verticalRail : (
       <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 px-6 dark:border-white/[0.06]">
         <div className="flex items-center justify-start">
