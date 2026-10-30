@@ -1278,7 +1278,7 @@ export default function GraphPage() {
   )
 
   const rightPanel = selectedEntityId && entityDetail ? (
-    <Card padded={false} className="flex w-80 shrink-0 flex-col border-l">
+    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200/80 dark:border-white/[0.06]">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
@@ -1343,7 +1343,7 @@ export default function GraphPage() {
           </div>
         )}
       </div>
-    </Card>
+    </div>
   ) : null
 
   return (
