@@ -110,7 +110,7 @@ export default function WhiteboardPage() {
                     {/* 缩略图：有内容显示矢量小图，空画板显示占位 */}
                     <div className="flex h-36 items-center justify-center border-b border-gray-100 bg-gray-50 dark:border-white/[0.06] dark:bg-white/[0.03]">
                       {board.thumbnail
-                        ? <img src={thumbnailDataUrl(board.thumbnail)} alt="" className="h-full w-full object-contain" />
+                        ? <img src={thumbnailDataUrl(board.thumbnail)} alt="" className="h-full w-full object-cover" />
                         : <PenTool size={28} className="text-gray-300 dark:text-gray-600" />}
                     </div>
                     <div className="flex items-start justify-between gap-2 p-3">
