@@ -23,7 +23,7 @@ export default function VersionEntry({ variant }: { variant: 'top' | 'rail' | 'r
         data-rail-item=""
         className={
           list
-            ? 'flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-medium tabular-nums text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
+            ? 'flex w-full shrink-0 items-center justify-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-medium tabular-nums text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
             : 'flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
         }
       >
