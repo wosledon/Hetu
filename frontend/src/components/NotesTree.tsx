@@ -238,7 +238,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
       className={`flex flex-col ${
         embedded
           ? 'min-h-0 w-full flex-1'
-          : 'w-64 shrink-0 border-r bg-white/80 dark:bg-gray-900/50'
+          : 'w-64 shrink-0'
       } ${className ?? ''}`}
     >
       <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">

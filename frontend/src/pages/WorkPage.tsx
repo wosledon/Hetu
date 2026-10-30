@@ -15,7 +15,7 @@ import { workProjectService, workSessionService } from '../services/workService'
 import { onUiAction } from '../services/signalrService'
 import type { IChatGroup, IChatTopic } from '../types'
 import type { IWorkProject, IWorkSession } from '../types/work'
-import { Card, ContextMenu, PageContainer, SearchInput } from '../components/ui'
+import { ContextMenu, PageContainer, SearchInput } from '../components/ui'
 import { useUIStore } from '../stores/uiStore'
 import type { ProjectGroupBy, ProjectSortBy } from '../stores/uiStore'
 
@@ -508,7 +508,7 @@ export default function WorkPage() {
       mainContent={
         <PageContainer variant="fill">
           {/* 左栏一级菜单：会话（会话组） / 项目（项目与会话）；主对话已提到左侧固定菜单 */}
-          <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
+          <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
             {/* 一级：会话（展开为会话组树） */}
             <SectionHeader
               icon={MessageSquare}
@@ -586,7 +586,7 @@ export default function WorkPage() {
                 />
               </div>
             )}
-          </Card>
+          </div>
 
           {view === 'chat' ? (
             activeTopic ? (

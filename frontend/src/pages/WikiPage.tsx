@@ -399,7 +399,7 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <PageContainer variant="fill" className="flex-col">
         {/* 页头 */}
-        <div className="shrink-0 border-b border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        <div className="shrink-0 border-b border-gray-200 dark:border-gray-800">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">

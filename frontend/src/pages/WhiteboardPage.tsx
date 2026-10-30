@@ -58,7 +58,7 @@ export default function WhiteboardPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-white/[0.08]">
             <div className="flex items-center gap-2">
               <PenTool size={20} className="text-blue-500" />
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>

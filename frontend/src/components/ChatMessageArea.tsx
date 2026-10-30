@@ -797,7 +797,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const emptyChat = !messagesLoading && messages.length === 0 && !isStreaming
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col bg-white dark:bg-gray-900 glass min-w-0">
+    <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-2 truncate text-sm font-semibold text-gray-800 dark:text-gray-100">

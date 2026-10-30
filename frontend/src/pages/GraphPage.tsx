@@ -1353,7 +1353,7 @@ export default function GraphPage() {
         {rightPanel}
       </PageContainer>
     }>
-      <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
+      <Card padded={false} plain className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>

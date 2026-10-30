@@ -454,13 +454,23 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         {moreMenu}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <UpdatePanel />
-          <div className="flex min-h-0 min-w-0 flex-1">
-          {showSidebar && <Sidebar />}
-          <div className="flex min-w-0 flex-1">
-            {children}
+          <div className="flex min-h-0 min-w-0 flex-1 gap-2">
+          {showSidebar && (
+            <Card padded={false} className="flex min-h-0 w-64 shrink-0 overflow-hidden">
+              <Sidebar />
+            </Card>
+          )}
+          <div className="flex min-w-0 flex-1 gap-2">
+          {children ? (
+            <Card padded={false} className="flex min-h-0 shrink-0 overflow-hidden">
+              {children}
+            </Card>
+          ) : null}
+          <Card padded={false} className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
             {mainContent}
+          </Card>
           </div>
-        </div>
+          </div>
         </div>
     </div>
   )
