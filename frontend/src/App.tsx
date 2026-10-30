@@ -118,7 +118,7 @@ function App() {
       .then((snapshot) => {
         if (!alive || !snapshot) return
         const store = useUIStore.getState()
-        if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical') store.setNavStyle(snapshot.navStyle)
+        if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical' || snapshot.navStyle === 'verticalList') store.setNavStyle(snapshot.navStyle)
         if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
           store.setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
         if (snapshot.theme === 'light' || snapshot.theme === 'dark' || snapshot.theme === 'system')

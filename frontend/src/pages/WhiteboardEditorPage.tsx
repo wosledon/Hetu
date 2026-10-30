@@ -323,7 +323,7 @@ export default function WhiteboardEditorPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+          <div className="flex items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-white/[0.08]">
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/whiteboard')}>
               <ArrowLeft size={15} /> {t('page.backToList')}
             </Button>

@@ -1355,7 +1355,7 @@ export default function WorkSessionArea({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-white dark:bg-gray-900 glass">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 头部：标题与统计在左，打开方式与用量在右 */}
       <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
         {/* 进行中：行首带 ping 光环的标识（比静态小圆点更容易注意到） */}

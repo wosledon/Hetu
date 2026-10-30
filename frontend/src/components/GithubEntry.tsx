@@ -14,7 +14,7 @@ export function GithubMark({ size = 15 }: { size?: number }) {
 /** GitHub 仓库入口：垂直胶囊排在「设置」上方，顶部横栏排在「设置」左侧。
  *  用真实链接（`<a target="_blank">`）而不是 window.open：内嵌浏览器/扩展常拦脚本弹窗，
  *  锚点最稳；桌面壳的 webview 会拦掉新窗口，所以壳内拦截点击交给系统 opener。 */
-export default function GithubEntry({ variant }: { variant: 'top' | 'rail' }) {
+export default function GithubEntry({ variant }: { variant: 'top' | 'rail' | 'railList' }) {
   const { t } = useTranslation()
   const title = t('nav:github')
 
@@ -24,7 +24,8 @@ export default function GithubEntry({ variant }: { variant: 'top' | 'rail' }) {
     openRepo()
   }
 
-  if (variant === 'rail') {
+  if (variant !== 'top') {
+    const list = variant === 'railList'
     return (
       <a
         href={REPO_URL}
@@ -33,9 +34,13 @@ export default function GithubEntry({ variant }: { variant: 'top' | 'rail' }) {
         onClick={handleClick}
         title={title}
         data-rail-item=""
-        className="flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+        className={
+          list
+            ? 'flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
+            : 'flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium text-gray-400 transition-all hover:bg-gray-100/80 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
+        }
       >
-        <GithubMark size={18} />
+        <GithubMark size={list ? 16 : 18} />
         <span className="max-w-full truncate">{t('nav:githubShort')}</span>
       </a>
     )

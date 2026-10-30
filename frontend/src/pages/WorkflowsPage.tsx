@@ -165,7 +165,7 @@ export default function WorkflowsPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-white/[0.08]">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
@@ -189,7 +189,7 @@ export default function WorkflowsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,18rem)] gap-3">
                 {workflows.map((wf) => (
                   <Card
                     key={wf.id}

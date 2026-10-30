@@ -764,7 +764,9 @@ export default function AgentsPage() {
     </PageContainer>)
 
   return (
-    <AppLayout showSidebar={false} mainContent={mainContent}>
+    <>
+      <AppLayout showSidebar={false} mainContent={mainContent} />
+
       {/* Create/Edit modal */}
       {showForm && (
         <Modal open onClose={closeForm} dismissible={false} size="xl" scroll className="max-h-[90vh]">
@@ -1079,7 +1081,6 @@ export default function AgentsPage() {
           onPick={handleFolderPicked}
         />
       )}
-
-    </AppLayout>
+    </>
   )
 }

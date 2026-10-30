@@ -18,7 +18,7 @@ import { formatDate } from '../utils/locale'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
-import { Button, Card, IconButton, PageContainer, TreeRow } from '../components/ui'
+import { Button, IconButton, PageContainer, TreeRow } from '../components/ui'
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -399,7 +399,7 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <PageContainer variant="fill" className="flex-col">
         {/* 页头 */}
-        <div className="shrink-0 border-b border-gray-200 bg-white glass dark:border-gray-800 dark:bg-gray-900">
+        <div className="shrink-0 border-b border-gray-200 dark:border-gray-800">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
@@ -503,7 +503,7 @@ export default function WikiPage() {
         </div>
         <div className="flex min-h-0 min-w-0 flex-1">
         {/* 项目列表 */}
-        <Card padded={false} className="hidden h-full w-44 shrink-0 flex-col border-r border-transparent md:flex xl:w-52">
+        <div className="hidden h-full w-44 shrink-0 flex-col border-r border-gray-200/80 md:flex dark:border-white/[0.06] xl:w-52">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
@@ -561,10 +561,10 @@ export default function WikiPage() {
               )}
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Wiki 套件与页面 */}
-        <Card padded={false} className="flex h-full w-48 shrink-0 flex-col border-r border-transparent xl:w-56">
+        <div className="flex h-full w-48 shrink-0 flex-col border-r border-gray-200/80 dark:border-white/[0.06] xl:w-56">
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
@@ -639,7 +639,7 @@ export default function WikiPage() {
               })
             )}
           </div>
-        </Card>
+        </div>
         <div className="flex min-w-0 flex-1 flex-col">
 
           {/* 提示条 */}
@@ -707,7 +707,7 @@ export default function WikiPage() {
 
           {/* 内容区：有选中文档就渲染，与是否按项目过滤无关 */}
           {selectedDoc ? (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white glass dark:bg-gray-900">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <article className="mx-auto max-w-4xl px-8 py-6">
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">

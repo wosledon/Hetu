@@ -135,8 +135,6 @@ interface SkyPalette {
   trail: number
   halo: number
   bg: string
-  border: string
-  panel: string
   quiet: string
   label: string
   chipOn: string
@@ -158,8 +156,6 @@ const NEON: { dark: SkyPalette; light: SkyPalette } = {
     trail: 0.5,
     halo: 0.3,
     bg: '#070a14',
-    border: 'border-white/10',
-    panel: 'bg-[#0c1122]/95',
     quiet: 'text-slate-500',
     label: 'text-slate-300',
     chipOn: 'text-slate-100',
@@ -179,8 +175,6 @@ const NEON: { dark: SkyPalette; light: SkyPalette } = {
     trail: 0.32,
     halo: 0.16,
     bg: '#eef2ff',
-    border: 'border-slate-200',
-    panel: 'bg-white/95',
     quiet: 'text-slate-500',
     label: 'text-slate-700',
     chipOn: 'text-slate-800',
@@ -313,9 +307,7 @@ const MemorySky = forwardRef<MemorySkyHandle, {
   animate: boolean
   /** 霓虹配色（随明暗主题切换） */
   pal: SkyPalette
-  /** 是否暗色主题（悬浮信息框的底色/描边用） */
-  isDark: boolean
-}>(function MemorySky({ memories, decayDays, forgetDays, dreaming, animate, pal, isDark }, ref) {
+}>(function MemorySky({ memories, decayDays, forgetDays, dreaming, animate, pal }, ref) {
   const { t } = useTranslation('knowledge')
   const { ref: boxRef, size, measured } = useElementSize<HTMLDivElement>()
   const stars = useMemo(() => buildSkyStars(memories, decayDays, forgetDays, pal), [memories, decayDays, forgetDays, pal])
@@ -640,13 +632,8 @@ const MemorySky = forwardRef<MemorySkyHandle, {
         const top = Math.max(12, Math.min(hover.y - 12, size.h - 184))
         return (
           <div
-            className="pointer-events-none absolute z-10 w-[17rem] rounded-xl border p-3 shadow-2xl"
-            style={{
-              left,
-              top,
-              backgroundColor: isDark ? 'rgba(12,17,34,0.96)' : 'rgba(255,255,255,0.97)',
-              borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
-            }}
+            className="pointer-events-none absolute z-10 w-[17rem] rounded-xl border border-gray-200/80 p-3 glass dark:border-white/[0.08]"
+            style={{ left, top }}
           >
             <div className="mb-1.5 flex items-center gap-2">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: s.fill }} />
@@ -877,7 +864,7 @@ export default function MemoriesPage() {
       mainContent={
         view === 'sky' ? (
           /* 星空模式：整页即星图，控件浮在场景里；配色随明暗主题切换 */
-          <PageContainer variant="fill" className="relative h-full flex-col overflow-hidden" style={{ backgroundColor: pal.bg }}>
+          <PageContainer variant="fill" className="relative h-full flex-col overflow-hidden">
             {/* 场景光晕：以星团为中心的一团柔光（不再在角落堆几块渐变） */}
             <div
               className="pointer-events-none absolute inset-0"
@@ -895,7 +882,6 @@ export default function MemoriesPage() {
               dreaming={dreamMutation.isPending}
               animate={animate}
               pal={pal}
-              isDark={isDark}
             />
 
             {/* 左上：页面身份与环境说明 */}
@@ -969,8 +955,9 @@ export default function MemoriesPage() {
               {dreamMsg && <p className="animate-fade-in text-[11px] text-indigo-500 dark:text-indigo-300">{dreamMsg}</p>}
             </div>
 
-            {/* 底部浮动：作用域筛选 + 语义搜索 */}
-            <div className={`absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-2xl border px-3 py-2 shadow-2xl ${pal.border} ${pal.panel}`}>
+            {/* 底部浮动：作用域筛选 + 语义搜索。控件各自带亚克力材质（胶囊轨道 + 玻璃输入框），
+                不再外面套一层卡片——星空上多一个描边方块很违和 */}
+            <div className="absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5">
               <SlidingPill value={scopeFilter} className="gap-1.5" pillClassName="rounded-lg bg-teal-500/90">
                 {([
                   { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
@@ -993,7 +980,7 @@ export default function MemoriesPage() {
                 ))}
               </SlidingPill>
               <div className="relative mx-1 w-56">
-                <SearchInput tone="teal" size="sm"
+                <SearchInput tone="teal"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

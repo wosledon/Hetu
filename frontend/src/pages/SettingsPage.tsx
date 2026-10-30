@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database } from 'lucide-react'
+import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AlignLeft, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -54,11 +54,12 @@ const menuStyleOptions = [
   { key: 'collapsed' as SecondaryMenuStyle, labelKey: 'navigation.menuStyleTree', descKey: 'navigation.menuStyleTreeDesc', icon: PanelLeft },
 ]
 
-type NavStyle = 'top' | 'vertical'
+type NavStyle = 'top' | 'vertical' | 'verticalList'
 
 const navStyleOptions = [
   { key: 'top' as NavStyle, labelKey: 'navigation.navStyleTop', descKey: 'navigation.navStyleTopDesc', icon: PanelTop },
   { key: 'vertical' as NavStyle, labelKey: 'navigation.navStyleVertical', descKey: 'navigation.navStyleVerticalDesc', icon: GalleryVerticalEnd },
+  { key: 'verticalList' as NavStyle, labelKey: 'navigation.navStyleVerticalList', descKey: 'navigation.navStyleVerticalListDesc', icon: AlignLeft },
 ]
 
 /** 正文字号预设 → 文案 key（避免用数字做 i18n key） */
@@ -143,7 +144,7 @@ export default function SettingsPage() {
     if (Number.isFinite(zoom)) setUiZoom(zoom)
     if (snapshot.secondaryMenuStyle === 'flat' || snapshot.secondaryMenuStyle === 'collapsed')
       setSecondaryMenuStyle(snapshot.secondaryMenuStyle)
-    if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical')
+    if (snapshot.navStyle === 'top' || snapshot.navStyle === 'vertical' || snapshot.navStyle === 'verticalList')
       setNavStyle(snapshot.navStyle)
     try {
       const items = JSON.parse(snapshot.pinnedNavItems)
@@ -978,7 +979,7 @@ function NavigationSettingsSection({
       {/* Nav Style Selector */}
       <div className="space-y-3">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.navStyle')}</label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {navStyleOptions.map((opt) => {
             const Icon = opt.icon
             const isActive = navStyle === opt.key

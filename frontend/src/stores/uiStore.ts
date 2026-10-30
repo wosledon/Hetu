@@ -5,7 +5,7 @@ import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS } from '../utils/nav
 
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
-type NavStyle = 'top' | 'vertical';
+type NavStyle = 'top' | 'vertical' | 'verticalList';
 /** 项目树分组依据：分类 / 项目分组 / 连接方式 / 不分组 */
 export type ProjectGroupBy = 'category' | 'group' | 'connection' | 'none';
 /** 项目树排序依据：手动排序 / 名称 / 更新时间 / 会话数 */

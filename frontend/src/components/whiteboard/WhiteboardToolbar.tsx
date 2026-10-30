@@ -97,7 +97,7 @@ export default function WhiteboardToolbar({
   ]
 
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 border-b border-gray-200 bg-white glass px-3 py-2 dark:border-white/[0.08] dark:bg-gray-900/50">
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 border-b border-gray-200 px-3 py-2 dark:border-white/[0.08]">
       <div className="flex items-center gap-0.5">
         {TOOLS.map(({ tool: value, labelKey, icon: Icon }) => (
           <IconButton

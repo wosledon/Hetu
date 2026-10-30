@@ -26,9 +26,10 @@ function last7Days(): string[] {
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}`)
 
 function heatColors(isDark: boolean): string[] {
+  // 最低档（无数据）用明确的淡蓝而不是接近底色的灰：格子一眼可辨，不会和卡片糊成一整块
   return isDark
-    ? ['#1e293b', '#1e3a5f', '#1d4ed8', '#3b82f6', '#60a5fa']
-    : ['#f1f5f9', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8']
+    ? ['rgba(96,165,250,0.22)', '#1e3a5f', '#2563eb', '#3b82f6', '#60a5fa']
+    : ['rgba(59,130,246,0.22)', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8']
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
@@ -121,7 +122,8 @@ export function WeekHourHeatmap({ data, metric }: { data: IUsageHourStat[]; metr
         type: 'heatmap',
         data: seriesData,
         label: { show: false },
-        itemStyle: { borderColor: isDark ? '#0c0f1a' : '#fff', borderWidth: 2, borderRadius: 3 },
+        // 格子间隙用透明边：透出底层亚克力，边线颜色随 surface 自动一致（写死白/深色会和半透明卡片打架）
+        itemStyle: { borderColor: 'transparent', borderWidth: 2, borderRadius: 3 },
       },
     ],
   }
@@ -190,7 +192,7 @@ export function YearHeatmap({ data, metric }: { data: IUsageDayStat[]; metric: M
       range: [toIso(start), toIso(today)],
       cellSize: cell,
       splitLine: { show: false },
-      itemStyle: { color: 'transparent', borderWidth: 2, borderColor: isDark ? '#0c0f1a' : '#fff' },
+      itemStyle: { color: 'transparent', borderWidth: 2, borderColor: 'transparent' },
       dayLabel: { color: textColor, fontSize: 10, nameMap: weekdays },
       monthLabel: { color: textColor, fontSize: 10, nameMap: months },
       yearLabel: { show: false },

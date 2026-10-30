@@ -58,7 +58,7 @@ export default function WhiteboardPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white glass px-6 py-3 dark:border-white/[0.08] dark:bg-gray-900/50">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-white/[0.08]">
             <div className="flex items-center gap-2">
               <PenTool size={20} className="text-blue-500" />
               <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
@@ -98,7 +98,7 @@ export default function WhiteboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,18rem)] gap-4">
                 {boards.map((board) => (
                   <Card
                     key={board.id}
@@ -110,7 +110,7 @@ export default function WhiteboardPage() {
                     {/* 缩略图：有内容显示矢量小图，空画板显示占位 */}
                     <div className="flex h-36 items-center justify-center border-b border-gray-100 bg-gray-50 dark:border-white/[0.06] dark:bg-white/[0.03]">
                       {board.thumbnail
-                        ? <img src={thumbnailDataUrl(board.thumbnail)} alt="" className="h-full w-full object-contain" />
+                        ? <img src={thumbnailDataUrl(board.thumbnail)} alt="" className="h-full w-full object-cover" />
                         : <PenTool size={28} className="text-gray-300 dark:text-gray-600" />}
                     </div>
                     <div className="flex items-start justify-between gap-2 p-3">

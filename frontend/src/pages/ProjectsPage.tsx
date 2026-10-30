@@ -225,7 +225,7 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white glass px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-800">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>

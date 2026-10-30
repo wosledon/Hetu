@@ -291,7 +291,9 @@ export default function SkillsPage() {
   )
 
   return (
-    <AppLayout showSidebar={false} mainContent={mainContent}>
+    <>
+      <AppLayout showSidebar={false} mainContent={mainContent} />
+
       {/* Create/Edit modal */}
       {showForm && (
         <Modal open onClose={closeForm} dismissible={false} size="lg" className="overflow-hidden">
@@ -415,7 +417,6 @@ export default function SkillsPage() {
           onPick={handleFolderPicked}
         />
       )}
-
-    </AppLayout>
+    </>
   )
 }

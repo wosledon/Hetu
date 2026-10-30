@@ -30,7 +30,7 @@ import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, Card, IconButton, Modal, PageContainer, SearchInput, TreeRow } from '../components/ui'
+import { Button, IconButton, Modal, PageContainer, SearchInput, TreeRow } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1135,7 +1135,8 @@ export default function GraphPage() {
 
   const mainContent = (
     <div className="flex flex-1 flex-col bg-transparent">
-      <Card padded={false} className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-800">
+      {/* 工具条与画布同处一块面，只留底部分隔线；外框四角由根的圆角裁切，这里不再自成卡片 */}
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-800">
         <div className="flex items-center gap-1.5">
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
@@ -1149,7 +1150,7 @@ export default function GraphPage() {
             <Sparkles size={13} />{t('graph.extractFromNotes')}
           </Button>
         </div>
-      </Card>
+      </div>
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
           <canvas ref={canvasRef} className="block h-full w-full" style={{ cursor: 'grab', width: '100%', height: '100%' }} />
 
@@ -1278,7 +1279,7 @@ export default function GraphPage() {
   )
 
   const rightPanel = selectedEntityId && entityDetail ? (
-    <Card padded={false} className="flex w-80 shrink-0 flex-col border-l">
+    <div className="flex w-80 shrink-0 flex-col border-l border-gray-200/80 dark:border-white/[0.06]">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.entityDetails')}</h2>
         <div className="flex items-center gap-1">
@@ -1343,7 +1344,7 @@ export default function GraphPage() {
           </div>
         )}
       </div>
-    </Card>
+    </div>
   ) : null
 
   return (
@@ -1353,7 +1354,7 @@ export default function GraphPage() {
         {rightPanel}
       </PageContainer>
     }>
-      <Card padded={false} className="flex w-64 shrink-0 flex-col border-r">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
@@ -1402,7 +1403,7 @@ export default function GraphPage() {
             )
           })}
         </div>
-      </Card>
+      </div>
     </AppLayout>
   )
 }

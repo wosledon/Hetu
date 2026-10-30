@@ -692,7 +692,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
   )
 
   return (
-    <PageContainer variant="fill" className="flex-col bg-white pt-2 dark:bg-gray-900 glass">
+    <PageContainer variant="fill" className="flex-col pt-2">
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-100 bg-transparent px-4 dark:border-gray-800/50">
         <PillTabs
           value={viewMode}
