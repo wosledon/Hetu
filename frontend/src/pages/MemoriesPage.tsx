@@ -877,7 +877,7 @@ export default function MemoriesPage() {
       mainContent={
         view === 'sky' ? (
           /* 星空模式：整页即星图，控件浮在场景里；配色随明暗主题切换 */
-          <PageContainer variant="fill" className="relative h-full flex-col overflow-hidden" style={{ backgroundColor: pal.bg }}>
+          <PageContainer variant="fill" className="relative h-full flex-col overflow-hidden">
             {/* 场景光晕：以星团为中心的一团柔光（不再在角落堆几块渐变） */}
             <div
               className="pointer-events-none absolute inset-0"

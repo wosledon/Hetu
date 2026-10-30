@@ -234,8 +234,8 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
   return (
     <Card
       padded={false}
-      plain={embedded}
-      className={`flex flex-col ${
+      plain
+      className={`flex flex-col rounded-none ${
         embedded
           ? 'min-h-0 w-full flex-1'
           : 'w-64 shrink-0'

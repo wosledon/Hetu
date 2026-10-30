@@ -14,7 +14,7 @@ import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { getNavItem, resolveNavItems } from '../utils/navItems'
 import { inboxService } from '../services/inboxService'
-import { Card, IconButton, PillTabs } from './ui'
+import { IconButton, PillTabs } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -283,13 +283,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const verticalRail = (
     <nav className={`flex shrink-0 flex-col ${isVerticalList ? 'w-52' : 'w-16'}`}>
-      {/* 导轨滚动条必须隐藏：占位会吃掉 64px 内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），
-          且内容跨过溢出阈值时滚动条出现/消失会让整条轨道左右跳。滚轮滚动仍可用。
-          材质沿用 --glass-nav-bg（Card 默认 glass-soft 太透，浅色画布上整条导轨会看不见）。 */}
-      <Card
+      {/* 导轨与内容区同处一块亚克力面（材质挂在 AppLayout 根上），中间只留一条分隔线，
+          拼接处不圆角，整软件只有外框四个角是圆的。滚动条必须隐藏：占位会吃掉 64px
+          内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），且内容跨过溢出阈值时滚动条
+          出现/消失会让整条轨道左右跳。滚轮滚动仍可用。 */}
+      <div
         ref={railRef}
-        padded={false}
-        className={`flex min-h-0 w-full flex-1 flex-col gap-1.5 overflow-y-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [border-right-color:rgba(0,0,0,0.05)] dark:[border-right-color:rgba(255,255,255,0.05)] [--glass-bg:var(--glass-nav-bg)] ${isVerticalList ? 'items-stretch px-2' : 'items-center'}`}
+        className={`flex min-h-0 w-full flex-1 flex-col gap-1.5 overflow-y-auto border-r border-gray-200/80 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-white/[0.06] ${isVerticalList ? 'items-stretch px-2' : 'items-center'}`}
       >
       {isVerticalList ? (
         <button
@@ -365,14 +365,16 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           <VersionEntry variant={isVerticalList ? 'railList' : 'rail'} />
         </>
       ))}
-      </Card>
+      </div>
     </nav>
   )
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden text-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
+    /* 整软件是一块亚克力面：材质挂在根上，内部各面板透明、仅用 1px 分隔线拼接，
+       圆角只留外框四个角（根的 rounded-2xl + overflow-hidden 裁切）。 */
+    <div className={`flex h-screen w-full overflow-hidden rounded-2xl glass text-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
       {isVertical ? verticalRail : (
-      <nav className="glass-nav grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-6">
+      <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 px-6 dark:border-white/[0.06]">
         <div className="flex items-center justify-start">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <span className="flex h-9 w-9 items-center justify-center rounded-full">
@@ -454,21 +456,17 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         {moreMenu}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <UpdatePanel />
-          <div className="flex min-h-0 min-w-0 flex-1 gap-2">
+          <div className="flex min-h-0 min-w-0 flex-1">
           {showSidebar && (
-            <Card padded={false} className="flex min-h-0 w-64 shrink-0 overflow-hidden">
+            <>
               <Sidebar />
-            </Card>
+              <div className="w-px shrink-0 bg-gray-200/80 dark:bg-white/[0.06]" />
+            </>
           )}
-          <div className="flex min-w-0 flex-1 gap-2">
-          {children ? (
-            <Card padded={false} className="flex min-h-0 shrink-0 overflow-hidden">
-              {children}
-            </Card>
-          ) : null}
-          <Card padded={false} className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-0 flex-1">
+            {children}
+            {children && <div className="w-px shrink-0 bg-gray-200/80 dark:bg-white/[0.06]" />}
             {mainContent}
-          </Card>
           </div>
           </div>
         </div>

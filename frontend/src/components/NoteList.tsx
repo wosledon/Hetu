@@ -192,7 +192,7 @@ export default function NoteList({
   const offsetY = startIndex * ITEM_HEIGHT
 
   return (
-    <Card padded={false} plain className="flex h-full w-full flex-col">
+    <Card padded={false} plain className="flex h-full w-full flex-col rounded-none">
       <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
