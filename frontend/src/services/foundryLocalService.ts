@@ -17,10 +17,10 @@ export interface FoundryLocalStatus {
   endpoint?: string;
   /** 模型缓存目录 */
   cacheDir?: string;
-  /** 本机 GPU 摘要 */
-  gpus: string[];
+  /** 本机 GPU 摘要（按名称去重，附带显存） */
+  gpus: FoundryLocalDevice[];
   /** 本机 NPU 摘要 */
-  npus: string[];
+  npus: FoundryLocalDevice[];
   cpu?: string;
   availableMemoryBytes?: number;
   diskFreeBytes?: number;
@@ -29,6 +29,14 @@ export interface FoundryLocalStatus {
   cachedCount: number;
   /** CLI 自己给出的警告（如某个 EP 注册失败） */
   warnings: string[];
+}
+
+/** 本机运算设备（GPU / NPU）。CLI 会按适配器重复上报同一张卡，后端已按名称去重 */
+export interface FoundryLocalDevice {
+  name: string;
+  vendor?: string;
+  /** 专用显存 / 内存（字节）；集显报告的是共享内存，数值偏小 */
+  videoMemoryBytes?: number;
 }
 
 /** Foundry Local 目录中的一个模型变体（同一模型按设备分多个变体） */
@@ -112,9 +120,6 @@ export const foundryLocalService = {
     post<void>(`/foundry-local/models/${encodeURIComponent(variantId)}/unload`),
   remove: (variantId: string) =>
     del<void>(`/foundry-local/models/${encodeURIComponent(variantId)}`),
-  /** 把本地 ONNX Runtime GenAI 模型目录注册进 CLI */
-  registerLocalModel: (path: string, modelId: string, task: string) =>
-    post<void>('/foundry-local/models/local', { path, modelId, task }),
   startService: () => post<void>('/foundry-local/service/start'),
   stopService: () => post<void>('/foundry-local/service/stop'),
   restartService: () => post<void>('/foundry-local/service/restart'),

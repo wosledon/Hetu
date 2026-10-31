@@ -109,10 +109,7 @@
       <h3>When loading fails</h3>
       <p>The most common cause is that <strong>the variant needs an execution provider this machine lacks</strong>. For example, AMD GPU machines have no CUDA, so a CUDA variant will always fail to load. The CLI's raw error is passed through — switch to another device variant of the same model (usually CPU or WebGPU) and it will work. Separately, a few catalog entries have metadata that disagrees with the actual binary (a model labelled CPU that is really a CUDA model); that is an upstream catalog issue and Hetu cannot correct it for you.</p>
 
-      <h3>Registering a local model directory</h3>
-      <p>If you already have an ONNX Runtime GenAI model directory (containing <code>genai_config.json</code> and its assets), register it at the bottom of the page. No files are copied.</p>
-
-      <h2>Wiring into Hetu models</h2>
+            <h2>Wiring into Hetu models</h2>
       <ul>
         <li>Click "Wire into Hetu" on a catalog row to register that variant as a chat model under the <code>Foundry Local</code> provider.</li>
         <li>Then set it as the default under Settings → Models; chat, knowledge-base indexing and Wiki generation can all use it.</li>

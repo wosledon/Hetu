@@ -20,10 +20,10 @@ public class FoundryLocalStatusDto
     public string? Endpoint { get; set; }
     /// <summary>模型缓存目录</summary>
     public string? CacheDir { get; set; }
-    /// <summary>本机 GPU 摘要（用于状态卡展示，如 "AMD Radeon RX 9070 XT"）</summary>
-    public List<string> Gpus { get; set; } = [];
+    /// <summary>本机 GPU 摘要（按名称去重，附带显存）</summary>
+    public List<FoundryLocalDeviceDto> Gpus { get; set; } = [];
     /// <summary>本机 NPU 摘要</summary>
-    public List<string> Npus { get; set; } = [];
+    public List<FoundryLocalDeviceDto> Npus { get; set; } = [];
     /// <summary>CPU 型号</summary>
     public string? Cpu { get; set; }
     /// <summary>可用内存（字节）</summary>
@@ -68,6 +68,15 @@ public class FoundryLocalModelDto
     public List<string> DeviceVariants { get; set; } = [];
     /// <summary>该模型在 Hetu 里是否已注册为 Provider 模型（供 UI 显示「已加入」）</summary>
     public bool IsRegistered { get; set; }
+}
+
+/// <summary>本机运算设备（GPU / NPU）。CLI 会按适配器重复上报同一张卡，所以按名称去重</summary>
+public class FoundryLocalDeviceDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Vendor { get; set; }
+    /// <summary>专用显存 / 内存（字节）；集显报告的是共享内存，数值偏小</summary>
+    public long? VideoMemoryBytes { get; set; }
 }
 
 /// <summary>下载进度（SSE 推送）</summary>

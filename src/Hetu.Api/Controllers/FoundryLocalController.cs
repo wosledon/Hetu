@@ -137,26 +137,6 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
-    /// <summary>把本地 ONNX Runtime GenAI 模型目录注册进 CLI</summary>
-    [HttpPost("models/local")]
-    public async Task<ActionResult<ApiResponse>> RegisterLocalModel(
-        [FromBody] RegisterLocalFoundryModelRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(request?.Path) || string.IsNullOrWhiteSpace(request.ModelId))
-            return BadRequest(ApiResponse.Fail(_localizer.T("foundry.localModelRequired")));
-
-        try
-        {
-            await _service.RegisterLocalModelAsync(request.Path, request.ModelId, request.Task ?? "chat-completion", cancellationToken);
-            return Ok(ApiResponse.Ok());
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse.Fail(ex.Message.Split('\n')[0]));
-        }
-    }
-
     /// <summary>启动本地服务</summary>
     [HttpPost("service/start")]
     public async Task<ActionResult<ApiResponse>> StartService(CancellationToken cancellationToken)
@@ -226,15 +206,4 @@ public class FoundryLocalController : ControllerBase
         var applied = await _service.SetCacheDirAsync(string.IsNullOrWhiteSpace(path) ? null : path, cancellationToken);
         return Ok(ApiResponse<string>.Ok(applied));
     }
-}
-
-/// <summary>注册本地 ONNX Runtime GenAI 模型目录</summary>
-public class RegisterLocalFoundryModelRequest
-{
-    /// <summary>包含 genai_config.json 与模型资产的目录</summary>
-    public string? Path { get; set; }
-    /// <summary>规范模型 Id，形如 &lt;name&gt;:&lt;version&gt;</summary>
-    public string? ModelId { get; set; }
-    /// <summary>chat-completion / vision-language-chat / embeddings / automatic-speech-recognition</summary>
-    public string? Task { get; set; }
 }

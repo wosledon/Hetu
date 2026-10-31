@@ -110,8 +110,9 @@ public class FoundryLocalCliService : IFoundryLocalService
             dto.Cpu = GetString(system, "cpu");
             dto.AvailableMemoryBytes = GetLong(system, "availableMemoryBytes");
             dto.DiskFreeBytes = GetLong(system, "diskFreeBytes");
-            dto.Gpus = ReadStrings(system, "gpus", "name");
-            dto.Npus = ReadStrings(system, "npus", "name");
+            // CLI 按适配器枚举，同一张独显会重复出现三次；按名称去重，保留首条（带显存那条）
+            dto.Gpus = ReadDevices(system, "gpus");
+            dto.Npus = ReadDevices(system, "npus");
         }
 
         if (status.TryGetProperty("service", out var service))
@@ -421,27 +422,6 @@ public class FoundryLocalCliService : IFoundryLocalService
         }
     }
 
-    public async Task RegisterLocalModelAsync(
-        string path,
-        string modelId,
-        string task,
-        CancellationToken cancellationToken = default)
-    {
-        if (!IsSupported()) throw new InvalidOperationException(GetUnsupportedReason());
-
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await FoundryLocalCli.RunJsonAsync(
-                $"model register {Quote(path)} {Quote(modelId)} --task {Quote(task)}",
-                cancellationToken);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
     public async Task<Guid> RegisterAsProviderModelAsync(string variantId, string purpose, CancellationToken cancellationToken = default)
     {
         if (!IsSupported()) throw new InvalidOperationException(GetUnsupportedReason());
@@ -566,6 +546,33 @@ public class FoundryLocalCliService : IFoundryLocalService
                 var inner = GetString(item, nested);
                 if (!string.IsNullOrWhiteSpace(inner)) result.Add(inner);
             }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 读 GPU / NPU 列表并按名称去重。CLI 按适配器枚举，一张独显会被报成多条
+    /// （本机 9070 XT 出现三次），不去重用户会以为装了三张卡。保留首条，
+    /// 因为重复项的显存字段是一样的。
+    /// </summary>
+    private static List<FoundryLocalDeviceDto> ReadDevices(JsonElement element, string property)
+    {
+        var result = new List<FoundryLocalDeviceDto>();
+        if (!element.TryGetProperty(property, out var value) || value.ValueKind != JsonValueKind.Array) return result;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) continue;
+            var name = GetString(item, "name");
+            if (string.IsNullOrWhiteSpace(name) || !seen.Add(name)) continue;
+
+            result.Add(new FoundryLocalDeviceDto
+            {
+                Name = name,
+                Vendor = GetString(item, "vendor"),
+                VideoMemoryBytes = GetLong(item, "videoMemoryBytes"),
+            });
         }
         return result;
     }

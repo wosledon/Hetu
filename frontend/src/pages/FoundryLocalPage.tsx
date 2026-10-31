@@ -59,9 +59,6 @@ export default function FoundryLocalPage() {
   const [dirDraft, setDirDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [localPath, setLocalPath] = useState('')
-  const [localModelId, setLocalModelId] = useState('')
-  const [localTask, setLocalTask] = useState('chat-completion')
 
   const statusQuery = useQuery({
     queryKey: ['foundryLocal', 'status'],
@@ -133,17 +130,6 @@ export default function FoundryLocalPage() {
     onSuccess: (applied) => {
       setDirDraft(null)
       setMessage(t('cacheDirSaved', { path: applied }))
-      invalidate()
-    },
-    onError: (error: Error) => setMessage(error.message),
-  })
-
-  const localModelMutation = useMutation({
-    mutationFn: () => foundryLocalService.registerLocalModel(localPath, localModelId, localTask),
-    onSuccess: () => {
-      setMessage(t('localRegistered'))
-      setLocalPath('')
-      setLocalModelId('')
       invalidate()
     },
     onError: (error: Error) => setMessage(error.message),
@@ -323,13 +309,17 @@ export default function FoundryLocalPage() {
                     <div className="flex gap-2">
                       <dt className="shrink-0 text-gray-400">GPU</dt>
                       <dd className="min-w-0 break-words text-gray-700 dark:text-gray-200">
-                        {status && status.gpus.length > 0 ? status.gpus.join(' · ') : t('status.noGpu')}
+                        {status && status.gpus.length > 0
+                          ? status.gpus.map((g) => g.videoMemoryBytes ? `${g.name} · ${formatBytes(g.videoMemoryBytes)}` : g.name).join(' · ')
+                          : t('status.noGpu')}
                       </dd>
                     </div>
                     <div className="flex gap-2">
                       <dt className="shrink-0 text-gray-400">NPU</dt>
                       <dd className="min-w-0 break-words text-gray-700 dark:text-gray-200">
-                        {status && status.npus.length > 0 ? status.npus.join(' · ') : '—'}
+                        {status && status.npus.length > 0
+                          ? status.npus.map((n) => n.name).join(' · ')
+                          : '—'}
                       </dd>
                     </div>
                     <div className="flex gap-2">
@@ -580,63 +570,6 @@ export default function FoundryLocalPage() {
                     })}
                   </div>
                 )}
-              </Card>
-
-              {/* 注册本地 ONNX 模型目录 */}
-              <Card padded={false} className="px-5 py-4">
-                <h3 className="mb-1 text-[13px] font-medium text-gray-700 dark:text-gray-200">
-                  {t('catalog.registerLocal')}
-                </h3>
-                <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">{t('catalog.registerLocalHint')}</p>
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="min-w-[200px] flex-1">
-                    <span className="mb-1 block text-[11px] text-gray-400">{t('catalog.path')}</span>
-                    <Input
-                      tone="cyan"
-                      size="sm"
-                      glass
-                      value={localPath}
-                      onChange={(e) => setLocalPath(e.target.value)}
-                      spellCheck={false}
-                      className="h-8"
-                    />
-                  </label>
-                  <label className="w-56">
-                    <span className="mb-1 block text-[11px] text-gray-400">{t('catalog.modelId')}</span>
-                    <Input
-                      tone="cyan"
-                      size="sm"
-                      glass
-                      value={localModelId}
-                      onChange={(e) => setLocalModelId(e.target.value)}
-                      placeholder="my-model:1"
-                      spellCheck={false}
-                      className="h-8"
-                    />
-                  </label>
-                  <Select
-                    className="w-36"
-                    triggerClassName="h-8"
-                    value={localTask}
-                    onChange={setLocalTask}
-                    options={[
-                      { value: 'chat-completion', label: t('catalog.taskChat') },
-                      { value: 'vision-language-chat', label: t('catalog.taskVision') },
-                      { value: 'embeddings', label: t('catalog.taskEmbedding') },
-                      { value: 'automatic-speech-recognition', label: t('catalog.taskAsr') },
-                    ]}
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 shrink-0 gap-1.5"
-                    disabled={localModelMutation.isPending || !localPath.trim() || !localModelId.trim()}
-                    onClick={() => localModelMutation.mutate()}
-                  >
-                    {localModelMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                    {t('catalog.submit')}
-                  </Button>
-                </div>
               </Card>
 
               <p className="flex items-center gap-1.5 text-[11px] text-gray-400">

@@ -290,7 +290,6 @@
   "foundry.registerFailed": "注册模型失败：{0}",
   "foundry.serviceStartFailed": "启动本地服务失败：{0}",
   "foundry.downloadFailed": "下载失败（退出码 {1}）：{0}",
-  "foundry.localModelRequired": "模型目录和模型 Id 都不能为空",
   "whiteboard.sceneInvalid": "白板场景数据非法",
   "whiteboard.sceneTooLarge": "白板场景数据过大",
   "whiteboard.thumbnailTooLarge": "白板缩略图过大"

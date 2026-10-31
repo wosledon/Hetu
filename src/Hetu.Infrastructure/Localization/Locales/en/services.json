@@ -290,7 +290,6 @@
   "foundry.registerFailed": "Failed to register the model: {0}",
   "foundry.serviceStartFailed": "Failed to start the local service: {0}",
   "foundry.downloadFailed": "Download failed (exit code {1}): {0}",
-  "foundry.localModelRequired": "Both the model directory and the model ID are required",
   "whiteboard.sceneInvalid": "Invalid whiteboard scene data",
   "whiteboard.sceneTooLarge": "Whiteboard scene data is too large",
   "whiteboard.thumbnailTooLarge": "Whiteboard thumbnail is too large"

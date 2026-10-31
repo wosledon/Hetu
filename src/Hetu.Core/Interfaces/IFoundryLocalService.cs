@@ -59,9 +59,6 @@ public interface IFoundryLocalService
     /// </summary>
     Task<string> SetCacheDirAsync(string? path, CancellationToken cancellationToken = default);
 
-    /// <summary>把本地 ONNX Runtime GenAI 模型目录注册进 CLI（等价 <c>foundry model register</c>）</summary>
-    Task RegisterLocalModelAsync(string path, string modelId, string task, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// 把 Foundry Local 模型注册成 Hetu 的 Provider 模型，返回 AiModel Id。
     /// variantId 是变体 Id（如 Phi-4-mini-instruct-generic-gpu:5），本地端点按它寻址。
